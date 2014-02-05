@@ -13,6 +13,7 @@ import logging
 import os
 import pipes
 import random
+import re
 import socket
 import struct
 import subprocess
@@ -112,7 +113,7 @@ def dsh(command, group, exports=None):
     group_file = os.path.join('/etc/dsh/group', group)
     return subprocess.call(['/usr/bin/dsh', '-F40', '-cM', '-f',
                             group_file, '-o', '-oSetupTimeout=10', '--',
-                            command.strip()])
+                            command.strip()], env=os.environ)
 
 
 def check_syntax(*paths):
@@ -169,15 +170,17 @@ def scap():
 
         with open('/etc/dsh/group/scap-proxies') as f:
             rsync_servers = ' '.join(
-                ln.strip() for ln in f if not ln.startswith('#'))
+                re.findall(r'^\w+', f.read(), re.MULTILINE))
 
         with open('/etc/dsh/group/mediawiki-installation', 'rt') as f:
             # Randomize the order of target machines
-            hosts = [ln for ln in f if not ln.startswith('#')]
+            hosts = re.findall(r'^\w+', f.read(), re.MULTILINE)
             random.shuffle(hosts)
             with tempfile.NamedTemporaryFile(delete=False) as tmp:
                 try:
-                    tmp.write(''.join(hosts))
+                    tmp.write('\n'.join(hosts))
+                    tmp.flush()
+                    tmp.close()
                     log.debug('copying code to apaches')
                     dsh('/usr/local/bin/scap-1 "%s"' % rsync_servers,
                         tmp.name, env)
