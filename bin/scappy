@@ -21,6 +21,24 @@ import time
 
 
 
+class Stats:
+    """A simple StatsD metric client."""
+
+    def __init__(self, host, port):
+        self.socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        self.address = (host, port)
+
+    def timing(self, name, milliseconds):
+        """Report a timing measurement in milliseconds."""
+        metric = '%s:%s|ms' % (name, int(round(milliseconds)))
+        self.socket.sendto(metric.encode('utf-8'), self.address)
+
+    def increment(self, name, value=1):
+        """Increment a measurement."""
+        metric = '%s:%s|c' % (name, value)
+        self.socket.sendto(metric.encode('utf-8'), self.address)
+
+
 class IRCSocketHandler(logging.Handler):
     """Log handler for logmsgbot on #wikimedia-operation."""
 
@@ -121,6 +139,7 @@ def scap():
 
     start = time.time()
     config = get_config()
+    stats = Stats(config['MW_STATSD_HOST'], config['MW_STATSD_PORT'])
     env = {}
     args = parse_args()
     message = ' '.join(args.message) or '(no message)'
@@ -174,9 +193,11 @@ def scap():
         subprocess.check_call('sync-wikiversions')
 
     stop = time.time()
-    duration = '%02dm %02ds' % divmod(stop - start, 60)
-    log.info('finished scap: %s (duration: %s)', message, duration)
-    # TODO: record scap in graphite
+    duration = stop - start
+    human_duration = '%02dm %02ds' % divmod(duration, 60)
+    log.info('finished scap: %s (duration: %s)', message, human_duration)
+    stats.increment('scap.scap')
+    stats.timing('scap.scap', duration * 1000)
 
 
 if __name__ == '__main__':
