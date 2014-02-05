@@ -71,6 +71,13 @@ def shell_map(mapping):
     return ' '.join('%s=%s' % (k, pipes.quote(v)) for k, v in mapping.items())
 
 
+def read_hosts(path):
+    """Reads hosts from a file into a list. Blank lines and comments
+    are ignored."""
+    with open(os.path.join('/etc/dsh/group', path)) as hosts_file:
+        return re.findall(r'^\w+', hosts_file.read(), re.MULTILINE)
+
+
 def get_config():
     """Load environment variables from mw-deployment-vars.sh."""
     dep_env = imp.load_source('__env', '/usr/local/lib/mw-deployment-vars.sh')
@@ -113,94 +120,87 @@ def dsh(command, group, exports=None):
     group_file = os.path.join('/etc/dsh/group', group)
     return subprocess.call(['/usr/bin/dsh', '-F40', '-cM', '-f',
                             group_file, '-o', '-oSetupTimeout=10', '--',
-                            command.strip()], env=os.environ)
+                            command.strip()])
 
 
 def check_syntax(*paths):
     """Run lint.php on `paths`; raise CalledProcessError if nonzero exit."""
-    command = ['/usr/bin/php', '-n', '-dextension=parsekit.so',
-               '/usr/local/bin/lint.php'] + list(paths)
-    return subprocess.check_call(command)
+    cmd = '/usr/bin/php -n -dextension=parsekit.so /usr/local/bin/lint.php'
+    return subprocess.check_call(cmd.split() + list(paths))
 
 
 def parse_args():
     """Parse command-line arguments."""
     parser = argparse.ArgumentParser(description='Deploy MediaWiki')
-    parser.add_argument('--active', action='store_true', default=False,
-                        help='only sync active branches')
+    parser.add_argument('--only-active', action='store_true', default=False)
     parser.add_argument('message', nargs=argparse.REMAINDER)
     return parser.parse_args()
 
 
 def scap():
     """Deploy MediaWiki code and configuration."""
-    if 'SSH_AUTH_SOCK' not in os.environ:
-        raise RuntimeError('SSH_AUTH_SOCK is unset. Is your agent running?')
-
     start = time.time()
+
     config = get_config()
     stats = Stats(config['MW_STATSD_HOST'], config['MW_STATSD_PORT'])
-    env = {}
+
     args = parse_args()
     message = ' '.join(args.message) or '(no message)'
+    env = {}
     if args.active:
         branches = get_branches('%(MW_COMMON)s/wikiversions.cdb' % config)
         env['MW_VERSIONS_SYNC'] = ' '.join(branches)
 
     with lock('/var/lock/scap'):
-        # Perform syntax check
-        log.debug('Checking syntax of wmf-config and multiversion')
+        log.info('started scap: %s', message)
+
+        log.debug('Checking syntax')
         check_syntax('%(MW_COMMON_SOURCE)s/wmf-config' % config)
         check_syntax('%(MW_COMMON_SOURCE)s/multiversion' % config)
 
-        # Update the current machine so that serialization works.
-        # Push wikiversions.dat changes so mwversionsinuse, set-group-write,
+        # Update the current machine so that serialization works. Push
+        # wikiversions.dat changes so mwversionsinuse, set-group-write,
         # and mwscript work with the right version of the files.
         subprocess.check_call('/usr/local/bin/sync-common')
 
-        # Update list of extension message files and regenerate
-        # the localisation cache
+        # Update list of extension message files and regenerate the
+        # localisation cache.
         subprocess.check_call('/usr/local/bin/mw-update-l10n')
-
-        # Notify
-        log.info('started scap: %s', message)
 
         log.debug('updating rsync proxies')
         dsh('/usr/local/bin/scap-1', 'scap-proxies', env)
 
-        with open('/etc/dsh/group/scap-proxies') as f:
-            rsync_servers = ' '.join(
-                re.findall(r'^\w+', f.read(), re.MULTILINE))
+        scap_proxies = read_hosts('scap-proxies')
 
-        with open('/etc/dsh/group/mediawiki-installation', 'rt') as f:
-            # Randomize the order of target machines
-            hosts = re.findall(r'^\w+', f.read(), re.MULTILINE)
-            random.shuffle(hosts)
-            with tempfile.NamedTemporaryFile(delete=False) as tmp:
-                try:
-                    tmp.write('\n'.join(hosts))
-                    tmp.flush()
-                    tmp.close()
-                    log.debug('copying code to apaches')
-                    dsh('/usr/local/bin/scap-1 "%s"' % rsync_servers,
-                        tmp.name, env)
-                    log.debug('rebuilding CDB files from /upstream')
-                    dsh('/usr/local/bin/scap-rebuild-cdbs', tmp.name, env)
-                finally:
-                    os.remove(tmp.name)
+        # Randomize the order of target machines.
+        mediawiki_installation_hosts = read_hosts('mediawiki-installation')
+        random.shuffle(mediawiki_installation_hosts)
+        with tempfile.NamedTemporaryFile(delete=False, prefix='scap') as tmp:
+            try:
+                tmp.write('\n'.join(mediawiki_installation_hosts))
+                tmp.flush()
 
-        # Builds wikiversions.cdb and syncs it to the apaches with the dat
-        # file. This is done after all else so that deploying new MW versions
-        # is easier.
+                log.debug('copying code to Apaches')
+                dsh('/usr/local/bin/scap-1 %s' % ' '.join(scap_proxies),
+                    tmp.name, env)
+
+                log.debug('rebuilding CDB files')
+                dsh('/usr/local/bin/scap-rebuild-cdbs', tmp.name, env)
+            finally:
+                os.remove(tmp.name)
+
+        log.debug('building wikiversions.cdb')
         subprocess.check_call('sync-wikiversions')
 
-    stop = time.time()
-    duration = stop - start
+    duration = time.time() - start
+
     human_duration = '%02dm %02ds' % divmod(duration, 60)
     log.info('finished scap: %s (duration: %s)', message, human_duration)
+
     stats.increment('scap.scap')
     stats.timing('scap.scap', duration * 1000)
 
 
 if __name__ == '__main__':
+    assert 'SSH_AUTH_SOCK' in os.environ, 'scap requires SSH agent forwarding'
     scap()
