@@ -1,0 +1,55 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "6ef7ef47_38ad3d2f",
+        "filename": "scap/log.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 58,
+      "author": {
+        "id": 1001
+      },
+      "writtenOn": "2014-02-06T03:49:18Z",
+      "side": 1,
+      "message": "I\u0027d like to eventually add another handler that writes to logstash. That would be easier/nicer if we pulled in the python-logstash package but it\u0027s not too much code to roll ourselves either.",
+      "revId": "cef6b411ac0217a1179ad17450e75eccab7759a8",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "6ef7ef47_58b6c986",
+        "filename": "scap/log.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 61,
+      "author": {
+        "id": 1001
+      },
+      "writtenOn": "2014-02-06T03:49:18Z",
+      "side": 1,
+      "message": "This call could be moved to __init__ which might be a better place for it.",
+      "revId": "cef6b411ac0217a1179ad17450e75eccab7759a8",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "6ef7ef47_18a8411c",
+        "filename": "scap/utils.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 5,
+      "author": {
+        "id": 1001
+      },
+      "writtenOn": "2014-02-06T03:49:18Z",
+      "side": 1,
+      "message": "I got lazy with classifying stuff. This should be seen as a first step not a final product.",
+      "revId": "cef6b411ac0217a1179ad17450e75eccab7759a8",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
+    }
+  ]
+}
