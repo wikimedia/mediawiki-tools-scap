@@ -21,6 +21,10 @@ import tempfile
 import time
 
 
+LOG_FORMAT = '[%(asctime)s] \033[93m%(message)s\033[0m'
+IRC_LOG_ENDPOINT = ('neon.wikimedia.org', 9200)
+
+
 class Stats:
     """A simple StatsD metric client."""
 
@@ -62,8 +66,10 @@ class IRCSocketHandler(logging.Handler):
 
 log = logging.getLogger('scap')
 log.setLevel(logging.DEBUG)
-log.addHandler(IRCSocketHandler('neon.wikimedia.org', 9200))
-log.addHandler(logging.StreamHandler())
+stdout_handler = logging.StreamHandler()
+stdout_handler.formatter = logging.Formatter(LOG_FORMAT)
+log.addHandler(stdout_handler)
+log.addHandler(IRCSocketHandler(IRC_LOG_ENDPOINT))
 
 
 def shell_map(mapping):
@@ -75,7 +81,7 @@ def read_hosts(path):
     """Reads hosts from a file into a list. Blank lines and comments
     are ignored."""
     with open(os.path.join('/etc/dsh/group', path)) as hosts_file:
-        return re.findall(r'^\w+', hosts_file.read(), re.MULTILINE)
+        return re.findall(r'^[\w\.]+', hosts_file.read(), re.MULTILINE)
 
 
 def get_config():
