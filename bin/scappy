@@ -110,7 +110,8 @@ def get_branches(wikiversions_cdb_path):
     """Get the set of active branches from a wikiversions.cdb file."""
     with open(wikiversions_cdb_path, 'rb') as cdb_file:
         cdb = cdb_file.read()
-        return {v for k, v in cdb_items(cdb) if k.startswith('ver:')}
+        return {v.replace('php-', '') for k, v in cdb_items(cdb)
+                if k.startswith('ver:')}
 
 
 def dsh(command, group, exports=None):
@@ -132,9 +133,15 @@ def check_syntax(*paths):
 def parse_args():
     """Parse command-line arguments."""
     parser = argparse.ArgumentParser(description='Deploy MediaWiki')
-    parser.add_argument('--only-active', action='store_true', default=False)
-    parser.add_argument('message', nargs=argparse.REMAINDER)
-    return parser.parse_args()
+    parser.add_argument('--versions', type=lambda v: set(v.split()))
+    parser.add_argument('message', nargs='*', default=('(no message)',))
+    args = parser.parse_args()
+    args.message = ' '.join(args.message)
+    if 'active' in args.versions:
+        args.versions.remove('active')
+        args.versions.update(get_branches(
+            '%(MW_COMMON)s/wikiversions.cdb' % config)
+    return args
 
 
 def scap():
@@ -142,17 +149,13 @@ def scap():
     start = time.time()
 
     config = get_config()
-    stats = Stats(config['MW_STATSD_HOST'], config['MW_STATSD_PORT'])
-
     args = parse_args()
-    message = ' '.join(args.message) or '(no message)'
     env = {}
-    if args.active:
-        branches = get_branches('%(MW_COMMON)s/wikiversions.cdb' % config)
-        env['MW_VERSIONS_SYNC'] = ' '.join(branches)
+    if args.version:
+        env['MW_VERSIONS_SYNC'] = ' '.join(args.versions)
 
     with lock('/var/lock/scap'):
-        log.info('started scap: %s', message)
+        log.info('started scap: %s', args.message)
 
         log.debug('Checking syntax')
         check_syntax('%(MW_COMMON_SOURCE)s/wmf-config' % config)
@@ -195,8 +198,9 @@ def scap():
     duration = time.time() - start
 
     human_duration = '%02dm %02ds' % divmod(duration, 60)
-    log.info('finished scap: %s (duration: %s)', message, human_duration)
+    log.info('finished scap: %s (duration: %s)', args.message, human_duration)
 
+    stats = Stats(config['MW_STATSD_HOST'], config['MW_STATSD_PORT'])
     stats.increment('scap.scap')
     stats.timing('scap.scap', duration * 1000)
 
