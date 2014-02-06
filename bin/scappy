@@ -137,7 +137,7 @@ def parse_args(config):
     parser.add_argument('message', nargs=argparse.REMAINDER)
     args = parser.parse_args()
     args.message = ' '.join(args.message) or '(no message)'
-    if 'active' in args.versions:
+    if args.versions and 'active' in args.versions:
         args.versions.remove('active')
         args.versions.update(get_branches(
             '%(MW_COMMON)s/wikiversions.cdb' % config))
