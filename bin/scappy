@@ -130,7 +130,7 @@ def check_syntax(*paths):
     return subprocess.check_call(cmd.split() + list(paths))
 
 
-def parse_args():
+def parse_args(config):
     """Parse command-line arguments."""
     parser = argparse.ArgumentParser(description='Deploy MediaWiki')
     parser.add_argument('--versions', type=lambda v: set(v.split()))
@@ -140,7 +140,7 @@ def parse_args():
     if 'active' in args.versions:
         args.versions.remove('active')
         args.versions.update(get_branches(
-            '%(MW_COMMON)s/wikiversions.cdb' % config)
+            '%(MW_COMMON)s/wikiversions.cdb' % config))
     return args
 
 
@@ -149,7 +149,7 @@ def scap():
     start = time.time()
 
     config = get_config()
-    args = parse_args()
+    args = parse_args(config)
     env = {}
     if args.version:
         env['MW_VERSIONS_SYNC'] = ' '.join(args.versions)
@@ -193,7 +193,11 @@ def scap():
                 os.remove(tmp.name)
 
         log.debug('building wikiversions.cdb')
-        subprocess.check_call('sync-wikiversions')
+        subprocess.check_call('%(MW_COMMON_SOURCE)s/multiversion/'
+                              'refreshWikiversionsCDB' % config)
+        dsh('sudo -u mwdeploy rsync -l %(MW_RSYNC_HOST)s::common/'
+            'wikiversions.{dat,cdb} %(MW_COMMON)s' % config,
+            'mediawiki-installation')
 
     duration = time.time() - start
 
