@@ -134,9 +134,9 @@ def parse_args(config):
     """Parse command-line arguments."""
     parser = argparse.ArgumentParser(description='Deploy MediaWiki')
     parser.add_argument('--versions', type=lambda v: set(v.split()))
-    parser.add_argument('message', nargs='*', default=('(no message)',))
+    parser.add_argument('message', nargs=argparse.REMAINDER)
     args = parser.parse_args()
-    args.message = ' '.join(args.message)
+    args.message = ' '.join(args.message) or '(no message)'
     if 'active' in args.versions:
         args.versions.remove('active')
         args.versions.update(get_branches(
@@ -151,7 +151,7 @@ def scap():
     config = get_config()
     args = parse_args(config)
     env = {}
-    if args.version:
+    if args.versions:
         env['MW_VERSIONS_SYNC'] = ' '.join(args.versions)
 
     with lock('/var/lock/scap'):
