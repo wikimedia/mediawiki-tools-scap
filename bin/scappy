@@ -69,7 +69,7 @@ log.setLevel(logging.DEBUG)
 stdout_handler = logging.StreamHandler()
 stdout_handler.formatter = logging.Formatter(LOG_FORMAT)
 log.addHandler(stdout_handler)
-log.addHandler(IRCSocketHandler(IRC_LOG_ENDPOINT))
+log.addHandler(IRCSocketHandler(*IRC_LOG_ENDPOINT))
 
 
 def shell_map(mapping):
