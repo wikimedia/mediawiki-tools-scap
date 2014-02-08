@@ -1,31 +1,17 @@
-#!/bin/bash
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+#
+# Sync MW_COMMON
+#
+# Copyright © 2014 Wikimedia Foundation and contributors
 
-. /usr/local/lib/mw-deployment-vars.sh
+import os
+import sys
 
-if [ ! -d "${MW_COMMON}" ];then
-	if ! install -d -o mwdeploy -g mwdeploy "${MW_COMMON}"; then
-		echo "Unable to create ${MW_COMMON}, please re-run this script as root."
-		exit 1
-	fi
-fi
+# Add scap package to search path
+script = os.path.realpath(sys.argv[0])
+scap_src = os.path.dirname(os.path.dirname(script))
+sys.path.append(scap_src)
 
-if [ ! -d /usr/local/apache/uncommon ];then
-	if ! install -d -o mwdeploy -g mwdeploy /usr/local/apache/uncommon; then
-		echo "Unable to create /usr/local/apache/uncommon, please re-run this script as root."
-		exit 1
-	fi
-fi
-
-RSYNC_SERVERS="$1"
-SERVER=
-if [ -n "$RSYNC_SERVERS" ]; then
-	SERVER=$(sudo /usr/local/bin/find-nearest-rsync $RSYNC_SERVERS)
-fi
-if [ -z "$SERVER" ]; then
-	SERVER="${MW_RSYNC_HOST}"
-fi
-
-sudo -u mwdeploy MW_VERSIONS_SYNC="$MW_VERSIONS_SYNC" MW_SCAP_BETA="$MW_SCAP_BETA" /usr/local/bin/scap-2 "$SERVER"
-
-echo Done
-exit 0
+import scap
+sys.exit(scap.sync_common())
