@@ -1,10 +1,10 @@
 # -*- coding: utf-8 -*-
-#
-# Copyright (c) 2014 Wikimedia Foundation and contributors
 """
-Catchall muodule for internal functions.
-"""
+    scap.utils
+    ~~~~~~~~~~
+    Contains misc utility functions.
 
+"""
 import contextlib
 import fcntl
 import imp
@@ -20,7 +20,7 @@ def shell_map(mapping):
     return ' '.join('%s=%s' % (k, pipes.quote(v)) for k, v in mapping.items())
 
 
-def read_hosts(path):
+def read_dsh_hosts_file(path):
     """Reads hosts from a file into a list. Blank lines and comments
     are ignored."""
     with open(os.path.join('/etc/dsh/group', path)) as hosts_file:

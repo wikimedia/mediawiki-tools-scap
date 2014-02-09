@@ -1,11 +1,9 @@
 # -*- coding: utf-8 -*-
-#
-# Copyright (c) 2014 Wikimedia Foundation and contributors
 """
-Implementation of the scap (sync-common-all-php) process.
+    scap.scap
+    ~~~~~~~~~
+    This module contains the actual procedure for deploying MediaWiki.
 
-Yo dawg, I see you like scap so I put a scap module containing a scap function
-in the scap package. It's scap all the way down.
 """
 import argparse
 import logging
@@ -70,10 +68,10 @@ def main(args):
         logger.debug('updating rsync proxies')
         utils.dsh('/usr/local/bin/scap-1', 'scap-proxies', env)
 
-        scap_proxies = utils.read_hosts('scap-proxies')
+        scap_proxies = utils.read_dsh_hosts_file('scap-proxies')
 
         # Randomize the order of target machines.
-        mw_install_hosts = utils.read_hosts('mediawiki-installation')
+        mw_install_hosts = utils.read_dsh_hosts_file('mediawiki-installation')
         random.shuffle(mw_install_hosts)
         with tempfile.NamedTemporaryFile(delete=False, prefix='scap') as tmp:
             try:
