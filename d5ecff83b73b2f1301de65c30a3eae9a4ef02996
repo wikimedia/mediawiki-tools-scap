@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "6ef7ef47_2f595a90",
+        "filename": "scap/__init__.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 13,
+      "author": {
+        "id": 1001
+      },
+      "writtenOn": "2014-02-10T18:10:37Z",
+      "side": 1,
+      "message": "Pyflakes complains about imported but unused symbols when __all__ is a tuple instead of an array. Seems like a bug in pyflakes, but this is an easy and relatively harmless workaround.",
+      "revId": "d5ecff83b73b2f1301de65c30a3eae9a4ef02996",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
+    }
+  ]
+}
