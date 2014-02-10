@@ -16,6 +16,23 @@
       "revId": "d5ecff83b73b2f1301de65c30a3eae9a4ef02996",
       "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
       "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "6ef7ef47_62065922",
+        "filename": "scap/support.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 31,
+      "author": {
+        "id": 1001
+      },
+      "writtenOn": "2014-02-10T19:12:14Z",
+      "side": 1,
+      "message": "This seems to be a leftover from texvc being managed/compiled on a per deploy basis. It may be safe to kill now.",
+      "revId": "d5ecff83b73b2f1301de65c30a3eae9a4ef02996",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
     }
   ]
 }
