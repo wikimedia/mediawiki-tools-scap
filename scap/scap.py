@@ -79,7 +79,7 @@ def main(args):
                 tmp.flush()
 
                 logger.debug('copying code to Apaches')
-                utils.dsh('/usr/local/bin/scap-1 %s' % ' '.join(scap_proxies),
+                utils.dsh('/usr/local/bin/scap-1 "%s"' % ' '.join(scap_proxies),
                     tmp.name, env)
 
                 logger.debug('rebuilding CDB files')
