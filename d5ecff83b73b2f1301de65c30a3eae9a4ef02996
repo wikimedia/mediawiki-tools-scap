@@ -19,6 +19,41 @@
     },
     {
       "key": {
+        "uuid": "6ef7ef47_229a9175",
+        "filename": "scap/__init__.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 13,
+      "author": {
+        "id": 255
+      },
+      "writtenOn": "2014-02-11T01:04:36Z",
+      "side": 1,
+      "message": "That is a bug in pyflakes, and it shouldn\u0027t determine how we write our code. See \u003chttp://docs.pylint.org/intro.html#what-pylint-is-not\u003e. (The link points to the documentation for pylint, a similar tool to pyflakes, but the points apply just the same).",
+      "parentUuid": "6ef7ef47_2f595a90",
+      "revId": "d5ecff83b73b2f1301de65c30a3eae9a4ef02996",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "6ef7ef47_8290454f",
+        "filename": "scap/support.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 27,
+      "author": {
+        "id": 255
+      },
+      "writtenOn": "2014-02-11T01:04:36Z",
+      "side": 1,
+      "message": "We should standardize on doing string interpolation via % or format rather than have a mix of both throughout our code. Guido prefers .format and in the optimistic early days of Python 3 he inserted some FUD into the Python manual about how % may go away some day. It isn\u0027t going anywhere -- most programmers",
+      "revId": "d5ecff83b73b2f1301de65c30a3eae9a4ef02996",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "6ef7ef47_62065922",
         "filename": "scap/support.py",
         "patchSetId": 1
