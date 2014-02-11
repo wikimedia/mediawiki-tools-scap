@@ -53,6 +53,24 @@
     },
     {
       "key": {
+        "uuid": "4e04eb01_b6fbd8b9",
+        "filename": "scap/tasks.py",
+        "patchSetId": 3
+      },
+      "lineNbr": 20,
+      "author": {
+        "id": 1001
+      },
+      "writtenOn": "2014-02-11T21:54:49Z",
+      "side": 1,
+      "message": "find-nearest-rsync actually isn\u0027t a fallback, it\u0027s a heap sort of the sync_from list based on the round trip ping time. When this is run on tin inside scap it has no rsync server list and falls back to MW_RSYNC_HOST. When run on the cluster hosts via dsh we pass a list and the \"fastest\" server is selected.",
+      "parentUuid": "4e04eb01_36d34863",
+      "revId": "fa548a5e9d850a674efdd154baca121f39929d03",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "4e04eb01_b664f8af",
         "filename": "scap/tasks.py",
         "patchSetId": 3
@@ -64,6 +82,24 @@
       "writtenOn": "2014-02-11T21:41:44Z",
       "side": 1,
       "message": "Would you mind logging an debug line showing the server selected?  Might help when running sync on a single host.  Though that might be overkill.",
+      "revId": "fa548a5e9d850a674efdd154baca121f39929d03",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "4e04eb01_9628dc33",
+        "filename": "scap/tasks.py",
+        "patchSetId": 3
+      },
+      "lineNbr": 39,
+      "author": {
+        "id": 1001
+      },
+      "writtenOn": "2014-02-11T21:54:49Z",
+      "side": 1,
+      "message": "That seems like a good debug log message to add.",
+      "parentUuid": "4e04eb01_b664f8af",
       "revId": "fa548a5e9d850a674efdd154baca121f39929d03",
       "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
       "unresolved": false
@@ -98,6 +134,24 @@
       "writtenOn": "2014-02-11T21:41:44Z",
       "side": 1,
       "message": "Should we log.debug the whole command being executed?",
+      "revId": "fa548a5e9d850a674efdd154baca121f39929d03",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "4e04eb01_762d5041",
+        "filename": "scap/tasks.py",
+        "patchSetId": 3
+      },
+      "lineNbr": 46,
+      "author": {
+        "id": 1001
+      },
+      "writtenOn": "2014-02-11T21:54:49Z",
+      "side": 1,
+      "message": "That might be useful too.",
+      "parentUuid": "4e04eb01_9601fcbb",
       "revId": "fa548a5e9d850a674efdd154baca121f39929d03",
       "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
       "unresolved": false
