@@ -1,0 +1,123 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "4e04eb01_d6eae404",
+        "filename": "scap/main.py",
+        "patchSetId": 3
+      },
+      "lineNbr": 21,
+      "author": {
+        "id": 24
+      },
+      "writtenOn": "2014-02-11T21:41:44Z",
+      "side": 1,
+      "message": "I would name it just like the method (sync_common). The scap scap-1 scap-2 stuff has always confused me.",
+      "revId": "fa548a5e9d850a674efdd154baca121f39929d03",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "4e04eb01_96d45c4d",
+        "filename": "scap/main.py",
+        "patchSetId": 3
+      },
+      "lineNbr": 49,
+      "author": {
+        "id": 24
+      },
+      "writtenOn": "2014-02-11T21:41:44Z",
+      "side": 1,
+      "message": "That whole try/except/except is a copy paste from scap.py.  Would we be able to have some kind of wrappers when invoking the methods?\n\nI mean in bin/scap-1 bin/scap have something like:\n\n  error_handler(\u0027scap.sync_common\u0027)\n\nThen error_handler would invoke the method name passed as a parameter and contain the try except except block.  Or is that over engineering?",
+      "revId": "fa548a5e9d850a674efdd154baca121f39929d03",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "4e04eb01_36d34863",
+        "filename": "scap/tasks.py",
+        "patchSetId": 3
+      },
+      "lineNbr": 20,
+      "author": {
+        "id": 24
+      },
+      "writtenOn": "2014-02-11T21:41:44Z",
+      "side": 1,
+      "message": "sync_from -\u003e rsync_server ?\n\nMight want to document that it falls back on find-nearest-rsync shell script.",
+      "revId": "fa548a5e9d850a674efdd154baca121f39929d03",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "4e04eb01_b664f8af",
+        "filename": "scap/tasks.py",
+        "patchSetId": 3
+      },
+      "lineNbr": 39,
+      "author": {
+        "id": 24
+      },
+      "writtenOn": "2014-02-11T21:41:44Z",
+      "side": 1,
+      "message": "Would you mind logging an debug line showing the server selected?  Might help when running sync on a single host.  Though that might be overkill.",
+      "revId": "fa548a5e9d850a674efdd154baca121f39929d03",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "4e04eb01_7638b09b",
+        "filename": "scap/tasks.py",
+        "patchSetId": 3
+      },
+      "lineNbr": 44,
+      "author": {
+        "id": 24
+      },
+      "writtenOn": "2014-02-11T21:41:44Z",
+      "side": 1,
+      "message": "Evil env :-]  Good you spotted that MW_VERSIONS_SYNC variable.  I guess later on we can pass it as an argument to scap-2 when it is rewritten.",
+      "revId": "fa548a5e9d850a674efdd154baca121f39929d03",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "4e04eb01_9601fcbb",
+        "filename": "scap/tasks.py",
+        "patchSetId": 3
+      },
+      "lineNbr": 46,
+      "author": {
+        "id": 24
+      },
+      "writtenOn": "2014-02-11T21:41:44Z",
+      "side": 1,
+      "message": "Should we log.debug the whole command being executed?",
+      "revId": "fa548a5e9d850a674efdd154baca121f39929d03",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "4e04eb01_36422814",
+        "filename": "scap/utils.py",
+        "patchSetId": 3
+      },
+      "lineNbr": 24,
+      "author": {
+        "id": 24
+      },
+      "writtenOn": "2014-02-11T21:41:44Z",
+      "side": 1,
+      "message": "Thanks for the example!\n\nIdeally should be in a different change. But I am being too strict :D",
+      "revId": "fa548a5e9d850a674efdd154baca121f39929d03",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
+    }
+  ]
+}
