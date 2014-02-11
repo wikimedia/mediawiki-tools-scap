@@ -16,6 +16,24 @@
       "revId": "b617c0196aac37952b6279e29806a4fea01d032f",
       "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
       "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "4e04eb01_8b3559f6",
+        "filename": "setup.cfg",
+        "patchSetId": 3
+      },
+      "lineNbr": 3,
+      "author": {
+        "id": 24
+      },
+      "writtenOn": "2014-02-11T21:11:21Z",
+      "side": 1,
+      "message": "Yeah I removed it, was referring to scap being used from ~2003 to 2014 :-D",
+      "parentUuid": "4e04eb01_abddb5e3",
+      "revId": "b617c0196aac37952b6279e29806a4fea01d032f",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
     }
   ]
 }
