@@ -19,6 +19,24 @@
     },
     {
       "key": {
+        "uuid": "4e04eb01_b19f6262",
+        "filename": "scap/main.py",
+        "patchSetId": 3
+      },
+      "lineNbr": 21,
+      "author": {
+        "id": 1001
+      },
+      "writtenOn": "2014-02-12T01:26:43Z",
+      "side": 1,
+      "message": "That seems reasonable. scap-1 smells like \"I don\u0027t know what to name this bit\". scap-2 smells even worse.",
+      "parentUuid": "4e04eb01_d6eae404",
+      "revId": "fa548a5e9d850a674efdd154baca121f39929d03",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "4e04eb01_96d45c4d",
         "filename": "scap/main.py",
         "patchSetId": 3
@@ -30,6 +48,24 @@
       "writtenOn": "2014-02-11T21:41:44Z",
       "side": 1,
       "message": "That whole try/except/except is a copy paste from scap.py.  Would we be able to have some kind of wrappers when invoking the methods?\n\nI mean in bin/scap-1 bin/scap have something like:\n\n  error_handler(\u0027scap.sync_common\u0027)\n\nThen error_handler would invoke the method name passed as a parameter and contain the try except except block.  Or is that over engineering?",
+      "revId": "fa548a5e9d850a674efdd154baca121f39929d03",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "4e04eb01_d1a2eea3",
+        "filename": "scap/main.py",
+        "patchSetId": 3
+      },
+      "lineNbr": 49,
+      "author": {
+        "id": 1001
+      },
+      "writtenOn": "2014-02-12T01:26:43Z",
+      "side": 1,
+      "message": "The structure of the try/except is the same fundamentally, but each function has different error handling behavior. A common wrapper would have to have handling hooks for each. We could move to a \u0027command\u0027 class or something that provides the boilerplate but at this point I\u0027d rather just KISS and ignore DRY for this bit of logic.",
+      "parentUuid": "4e04eb01_96d45c4d",
       "revId": "fa548a5e9d850a674efdd154baca121f39929d03",
       "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
       "unresolved": false
