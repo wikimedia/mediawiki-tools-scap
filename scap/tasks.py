@@ -7,10 +7,18 @@
 """
 import logging
 import os
+import random
 import socket
 import subprocess
+import tempfile
 
 from . import utils
+
+
+def check_php_syntax(*paths):
+    """Run lint.php on `paths`; raise CalledProcessError if nonzero exit."""
+    cmd = '/usr/bin/php -n -dextension=parsekit.so /usr/local/bin/lint.php'
+    return subprocess.check_call(cmd.split() + list(paths))
 
 
 def sync_common(cfg, sync_from=None):
@@ -54,3 +62,57 @@ def sync_common(cfg, sync_from=None):
             'MW_VERSIONS_SYNC': cfg.get('MW_VERSIONS_SYNC', ''),
             'MW_SCAP_BETA': cfg.get('MW_SCAP_BETA', ''),
         }))
+
+
+def scap(args):
+    """Core business logic of scap process."""
+    logger = logging.getLogger('scap')
+    env = {}
+    if args.versions:
+        env['MW_VERSIONS_SYNC'] = ' '.join(args.versions)
+
+    with utils.lock('/var/lock/scap'):
+        logger.info('started scap: %s', args.message)
+
+        logger.debug('Checking syntax')
+        check_php_syntax('%(MW_COMMON_SOURCE)s/wmf-config' % args.cfg)
+        check_php_syntax('%(MW_COMMON_SOURCE)s/multiversion' % args.cfg)
+
+        # Update the current machine so that serialization works. Push
+        # wikiversions.dat changes so mwversionsinuse, set-group-write,
+        # and mwscript work with the right version of the files.
+        sync_common(dict(args.cfg.items() + env.items()))
+
+        # Update list of extension message files and regenerate the
+        # localisation cache.
+        subprocess.check_call('/usr/local/bin/mw-update-l10n')
+
+        logger.debug('updating rsync proxies')
+        utils.dsh('/usr/local/bin/scap-1', 'scap-proxies', env)
+
+        scap_proxies = utils.read_dsh_hosts_file('scap-proxies')
+
+        # Randomize the order of target machines.
+        mw_install_hosts = utils.read_dsh_hosts_file('mediawiki-installation')
+        random.shuffle(mw_install_hosts)
+        with tempfile.NamedTemporaryFile(delete=False, prefix='scap') as tmp:
+            try:
+                tmp.write('\n'.join(mw_install_hosts))
+                tmp.flush()
+
+                logger.debug('copying code to Apaches')
+                utils.dsh(
+                    '/usr/local/bin/scap-1 "%s"' % ' '.join(scap_proxies),
+                    tmp.name, env)
+
+                logger.debug('rebuilding CDB files')
+                utils.dsh('/usr/local/bin/scap-rebuild-cdbs', tmp.name, env)
+            finally:
+                os.remove(tmp.name)
+
+        logger.debug('building wikiversions.cdb')
+        subprocess.check_call('%(MW_COMMON_SOURCE)s/multiversion/'
+                              'refreshWikiversionsCDB' % args.cfg)
+        utils.dsh('sudo -u mwdeploy rsync -l %(MW_RSYNC_HOST)s::common/'
+            'wikiversions.{dat,cdb} %(MW_COMMON)s' % args.cfg,
+            'mediawiki-installation')

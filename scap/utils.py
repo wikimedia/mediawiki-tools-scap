@@ -118,12 +118,6 @@ def sudo_args(command, user=None, exports=None):
     return args
 
 
-def check_syntax(*paths):
-    """Run lint.php on `paths`; raise CalledProcessError if nonzero exit."""
-    cmd = '/usr/bin/php -n -dextension=parsekit.so /usr/local/bin/lint.php'
-    return subprocess.check_call(cmd.split() + list(paths))
-
-
 def human_duration(elapsed):
     """Format an elapsed seconds count as human readable duration.
 

@@ -6,8 +6,8 @@
     configuration to a group of servers via SSH and rsync.
 
 """
-from .scap import scap
-from .main import sync_common
+from .main import scap          # NOQA  -- ignore unused import warning
+from .main import sync_common   # NOQA  -- ignore unused import warning
 from . import log
 
 __all__ = (
