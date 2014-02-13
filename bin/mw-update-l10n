@@ -66,13 +66,31 @@ for i in ${mwExtVerDbSets[@]}; do
 		fi
 	fi
 
+	mwExtensionMessages="$MW_COMMON_SOURCE/wmf-config/ExtensionMessages-${mwVerNum}.php"
+	if [[ ! -e $mwExtensionMessages ]]; then
+		# Touch mwExtensionMessages so that the require in CommonSettings
+		# doesn't explode while we are generating it for the first time on
+		# a new release branch.
+		echo "Creating empty $mwExtensionMessages ..."
+		touch "$mwExtensionMessages" || die
+	fi
+
+	mwL10nCacheDir="$MW_COMMON_SOURCE/php-$mwVerNum/cache/l10n"
+	if [[ ! -e $mwL10nCacheDir/l10n_cache-en.cdb ]]; then
+		# Another potential bootstrapping problem, mergeMessageFileList.php
+		# will fail if there is no en l10n data.
+		echo "Bootstrapping en LocalisationCache for $mwVerNum... "
+		sudo -u l10nupdate $BINDIR/mwscript rebuildLocalisationCache.php \
+			--wiki="$mwDbName" --lang=en --outdir="$mwL10nCacheDir" --quiet ||
+			die
+	fi
 	echo -n "Updating ExtensionMessages-$mwVerNum.php..."
 	mwTempDest=$(sudo -u apache mktemp) || die
 	sudo -u apache $BINDIR/mwscript mergeMessageFileList.php --wiki="$mwDbName" \
 		--list-file=$MW_COMMON_SOURCE/wmf-config/extension-list $QUIET --output="$mwTempDest" \
 		|| die
 	sudo -u apache chmod 664 "$mwTempDest"  || die
-	cp "$mwTempDest" $MW_COMMON_SOURCE/wmf-config/ExtensionMessages-"$mwVerNum".php || die
+	cp "$mwTempDest" "$mwExtensionMessages" || die
 	sudo -u apache rm "$mwTempDest" || die
 	echo "done"
 
@@ -82,17 +100,16 @@ for i in ${mwExtVerDbSets[@]}; do
 	if [ `readlink -f $MW_COMMON_SOURCE` != `readlink -f $MW_COMMON` ]; then
 		echo "Copying to local copy..."
 		sudo -u mwdeploy \
-			cp $MW_COMMON_SOURCE/wmf-config/ExtensionMessages-"$mwVerNum".php $MW_COMMON/wmf-config/ \
-			|| die
+			cp "$mwExtensionMessages" $MW_COMMON/wmf-config/ || die
 		echo "done"
 	fi
 
 	# Rebuild all the CDB files for each language
 	echo -n "Updating LocalisationCache for $mwVerNum... "
-	sudo -u l10nupdate $BINDIR/mwscript rebuildLocalisationCache.php --wiki="$mwDbName" \
-		--outdir=$MW_COMMON_SOURCE/php-$mwVerNum/cache/l10n $QUIET \
-		--threads=$THREADS \
-		|| die
+	sudo -u l10nupdate $BINDIR/mwscript rebuildLocalisationCache.php \
+		--wiki="$mwDbName" --outdir="$mwL10nCacheDir" $QUIET \
+		--threads=$THREADS ||
+		die
 
 	# Include JSON versions of the CDB files and add MD5 files
 	sudo -u l10nupdate $BINDIR/refreshCdbJsonFiles --directory="$MW_COMMON_SOURCE/php-$mwVerNum/cache/l10n" \
@@ -101,4 +118,3 @@ for i in ${mwExtVerDbSets[@]}; do
 
 	echo "done"
 done
-
