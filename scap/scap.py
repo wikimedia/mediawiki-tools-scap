@@ -15,6 +15,7 @@ import tempfile
 import time
 
 from . import log
+from . import tasks
 from . import utils
 
 
@@ -59,7 +60,7 @@ def main(args):
         # Update the current machine so that serialization works. Push
         # wikiversions.dat changes so mwversionsinuse, set-group-write,
         # and mwscript work with the right version of the files.
-        subprocess.check_call('/usr/local/bin/sync-common')
+        tasks.sync_common(dict(args.cfg.items() + env.items()))
 
         # Update list of extension message files and regenerate the
         # localisation cache.

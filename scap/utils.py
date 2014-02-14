@@ -16,7 +16,13 @@ import subprocess
 
 
 def shell_map(mapping):
-    """Convert a map to a string of space-separated KEY=VALUE pairs."""
+    """Convert a map to a string of space-separated KEY=VALUE pairs.
+
+    >>> shell_map({'a':'b'})
+    'a=b'
+    >>> shell_map({'a':'1', 'b':'2 or 3'})
+    "a=1 b='2 or 3'"
+    """
     return ' '.join('%s=%s' % (k, pipes.quote(v)) for k, v in mapping.items())
 
 
@@ -78,6 +84,40 @@ def dsh(command, group, exports=None):
                             command.strip()])
 
 
+def sudo_args(command, user=None, exports=None):
+    """Build an argument list for running a command under sudo
+
+    >>> sudo_args('hello')
+    ['sudo', 'hello']
+    >>> sudo_args(['hello'])
+    ['sudo', 'hello']
+    >>> sudo_args(['hello'] + 'foo bar baz'.split())
+    ['sudo', 'hello', 'foo', 'bar', 'baz']
+    >>> sudo_args(['scap-2', 'tin'], 'wmdeploy', {'FOO':'bar baz'})
+    ['sudo', '-u', 'wmdeploy', "FOO='bar baz'", 'scap-2', 'tin']
+
+    :param command: Command to execute
+    :type command: str or list
+    :param user: User to execute as
+    :type user: str
+    :param exports: Environment variables to export to the command
+    :type exports: dict
+    :returns: List of arguments suitable for use with subprocess methods
+    """
+    args = ['sudo']
+    if user is not None:
+        args.extend(['-u', user])
+    if exports is not None:
+        args.extend('%s=%s' % (k, pipes.quote(v)) for k, v in exports.items())
+    if isinstance(command, basestring):
+        func = args.append
+        command = command.strip()
+    else:
+        func = args.extend
+    func(command)
+    return args
+
+
 def check_syntax(*paths):
     """Run lint.php on `paths`; raise CalledProcessError if nonzero exit."""
     cmd = '/usr/bin/php -n -dextension=parsekit.so /usr/local/bin/lint.php'
@@ -85,5 +125,13 @@ def check_syntax(*paths):
 
 
 def human_duration(elapsed):
-    """Format an elapsed seconds count as human readable duration."""
+    """Format an elapsed seconds count as human readable duration.
+
+    >>> human_duration(1)
+    '00m 01s'
+    >>> human_duration(65)
+    '01m 05s'
+    >>> human_duration(60*30+11)
+    '30m 11s'
+    """
     return '%02dm %02ds' % divmod(elapsed, 60)

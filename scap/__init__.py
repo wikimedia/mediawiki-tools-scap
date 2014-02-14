@@ -7,8 +7,12 @@
 
 """
 from .scap import scap
+from .main import sync_common
 from . import log
 
-__all__ = ('scap',)
+__all__ = (
+    'scap',
+    'sync_common',
+)
 
 log.setup_loggers()
