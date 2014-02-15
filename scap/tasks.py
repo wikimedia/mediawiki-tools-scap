@@ -72,7 +72,7 @@ def scap(args):
         env['MW_VERSIONS_SYNC'] = ' '.join(args.versions)
 
     with utils.lock('/var/lock/scap'):
-        logger.info('started scap: %s', args.message)
+        logger.info('Started scap: %s', args.message)
 
         logger.debug('Checking syntax')
         check_php_syntax('%(MW_COMMON_SOURCE)s/wmf-config' % args.cfg)
@@ -87,7 +87,7 @@ def scap(args):
         # localisation cache.
         subprocess.check_call('/usr/local/bin/mw-update-l10n')
 
-        logger.debug('updating rsync proxies')
+        logger.debug('Updating rsync proxies')
         utils.dsh('/usr/local/bin/scap-1', 'scap-proxies', env)
 
         scap_proxies = utils.read_dsh_hosts_file('scap-proxies')
@@ -100,19 +100,20 @@ def scap(args):
                 tmp.write('\n'.join(mw_install_hosts))
                 tmp.flush()
 
-                logger.debug('copying code to Apaches')
+                logger.debug('Copying code to Apaches')
                 utils.dsh(
                     '/usr/local/bin/scap-1 "%s"' % ' '.join(scap_proxies),
                     tmp.name, env)
 
-                logger.debug('rebuilding CDB files')
+                logger.debug('Rebuilding CDB files')
                 utils.dsh('/usr/local/bin/scap-rebuild-cdbs', tmp.name, env)
             finally:
                 os.remove(tmp.name)
 
-        logger.debug('building wikiversions.cdb')
+        logger.debug('Building wikiversions.cdb')
         subprocess.check_call('%(MW_COMMON_SOURCE)s/multiversion/'
                               'refreshWikiversionsCDB' % args.cfg)
+        logger.debug('Syncing wikiversions.cdb')
         utils.dsh('sudo -u mwdeploy rsync -l %(MW_RSYNC_HOST)s::common/'
             'wikiversions.{dat,cdb} %(MW_COMMON)s' % args.cfg,
             'mediawiki-installation')

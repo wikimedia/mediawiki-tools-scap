@@ -8,7 +8,6 @@
 import argparse
 import logging
 import os
-import sys
 import time
 
 from . import log
@@ -47,20 +46,21 @@ def sync_common():
         logger.warning('sync_common aborted')
         return 1
 
-    except:
+    except Exception as ex:
         # Handle all unhandled exceptions and errors
-        exctype, value = sys.exc_info()[:2]
-        logger.error('sync_common failed: <%s> %s', exctype.__name__, value)
+        logger.debug('Unhandled error:', exc_info=True)
+        logger.error('sync_common failed: <%s> %s', type(ex).__name__, ex)
         return 1
 
 
 def scap():
     """Deploy MediaWiki code and configuration."""
-    assert 'SSH_AUTH_SOCK' in os.environ, 'scap requires SSH agent forwarding'
     start = time.time()
     logger = logging.getLogger('scap')
     args = None
     try:
+        assert 'SSH_AUTH_SOCK' in os.environ, \
+            'scap requires SSH agent forwarding'
         parser = argparse.ArgumentParser(description='Deploy MediaWiki')
         parser.add_argument('--versions',
             type=lambda v: set(v.split()),
@@ -83,7 +83,7 @@ def scap():
         tasks.scap(args)
         duration = time.time() - start
 
-        logger.info('finished scap: %s (duration: %s)',
+        logger.info('Finished scap: %s (duration: %s)',
             args.message, utils.human_duration(duration))
         return 0
 
@@ -99,16 +99,16 @@ def scap():
             msg, utils.human_duration(duration))
         return 1
 
-    except:
+    except Exception as ex:
         # Handle all unhandled exceptions and errors
         duration = time.time() - start
-        exctype, value = sys.exc_info()[:2]
+        logger.debug('Unhandled error:', exc_info=True)
         logger.error('scap failed: %s %s (duration: %s)',
-            exctype.__name__, value, utils.human_duration(duration))
+            type(ex).__name__, ex, utils.human_duration(duration))
         return 1
 
     finally:
-        if args.cfg:
+        if args and args.cfg:
             stats = log.Stats(
                 args.cfg['MW_STATSD_HOST'], args.cfg['MW_STATSD_PORT'])
             stats.increment('scap.scap')

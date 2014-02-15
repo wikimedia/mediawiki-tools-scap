@@ -27,10 +27,15 @@ def shell_map(mapping):
 
 
 def read_dsh_hosts_file(path):
-    """Reads hosts from a file into a list. Blank lines and comments
-    are ignored."""
-    with open(os.path.join('/etc/dsh/group', path)) as hosts_file:
-        return re.findall(r'^[\w\.]+', hosts_file.read(), re.MULTILINE)
+    """Reads hosts from a file into a list.
+
+    Blank lines and comments are ignored.
+    """
+    try:
+        with open(os.path.join('/etc/dsh/group', path)) as hosts_file:
+            return re.findall(r'^[\w\.]+', hosts_file.read(), re.MULTILINE)
+    except IOError, e:
+        raise IOError(e.errno, e.strerror, path)
 
 
 def get_config(cfg_file='/usr/local/lib/mw-deployment-vars.sh'):

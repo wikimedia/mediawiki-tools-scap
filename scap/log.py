@@ -49,18 +49,25 @@ class Stats(object):
     details."""
 
     def __init__(self, host, port):
+        self.logger = logging.getLogger('stats')
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.address = (host, port)
 
     def timing(self, name, milliseconds):
         """Report a timing measurement in milliseconds."""
         metric = '%s:%s|ms' % (name, int(round(milliseconds)))
-        self.socket.sendto(metric.encode('utf-8'), self.address)
+        self._send_metric(metric)
 
     def increment(self, name, value=1):
         """Increment a measurement."""
         metric = '%s:%s|c' % (name, value)
-        self.socket.sendto(metric.encode('utf-8'), self.address)
+        self._send_metric(metric)
+
+    def _send_metric(self, metric):
+        try:
+            self.socket.sendto(metric.encode('utf-8'), self.address)
+        except Exception:
+            self.logger.exception('Failed to send metric "%s"', metric)
 
 
 def setup_loggers():
