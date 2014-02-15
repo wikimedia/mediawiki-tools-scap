@@ -90,7 +90,7 @@ def dsh(command, group, exports=None):
 
 
 def sudo_args(command, user=None, exports=None):
-    """Build an argument list for running a command under sudo
+    """Build an argument list for running a command under sudo.
 
     >>> sudo_args('hello')
     ['sudo', 'hello']

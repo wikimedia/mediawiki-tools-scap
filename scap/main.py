@@ -54,7 +54,10 @@ def sync_common():
 
 
 def scap():
-    """Deploy MediaWiki code and configuration."""
+    """Command wrapper for :func:`tasks.scap`
+
+    :returns: Integer exit status suitable for use with ``sys.exit``
+    """
     start = time.time()
     logger = logging.getLogger('scap')
     args = None

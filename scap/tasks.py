@@ -65,7 +65,20 @@ def sync_common(cfg, sync_from=None):
 
 
 def scap(args):
-    """Core business logic of scap process."""
+    """Core business logic of scap process.
+
+    1. Validate php syntax of wmf-config and multiversion
+    2. Sync MW_COMMON on localhost with staging area
+    3. Update l10n files in staging area
+    4. Dsh to scap proxies and sync with localhost
+    5. Dsh to apaches and sync with fastest rsync server
+    6. Dsh to apaches and rebuild l10n CDB files
+    7. Update wikiversions.cdb on localhost
+    8. Dsh to apaches and rsync wikiversions.cdb
+
+    :param args: Command line arguments and configuration
+    :type args: argparse.Namespace
+    """
     logger = logging.getLogger('scap')
     env = {}
     if args.versions:

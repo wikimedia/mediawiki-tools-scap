@@ -23,9 +23,20 @@ IRC_LOG_ENDPOINT = ('neon.wikimedia.org', 9200)
 
 
 class IRCSocketHandler(logging.Handler):
-    """Log handler for logmsgbot on #wikimedia-operation."""
+    """Log handler for logmsgbot on #wikimedia-operation.
+
+    Sends log events to a tcpircbot server for relay to an IRC channel.
+    """
 
     def __init__(self, host, port, timeout=1.0):
+        """
+        :param host: tcpircbot host
+        :type host: str
+        :param port: tcpircbot listening port
+        :type port: int
+        :param timeout: timeout for sending message
+        :type timeout: float
+        """
         super(IRCSocketHandler, self).__init__()
         self.addr = (host, port)
         self.level = logging.INFO
@@ -44,9 +55,11 @@ class IRCSocketHandler(logging.Handler):
 
 
 class Stats(object):
-    """A simple StatsD metric client that can log measurements and counts to a
-    remote StatsD host. See <https://github.com/etsy/statsd/wiki/Protocol> for
-    details."""
+    """A simple StatsD metric client that can log measurements and counts to
+    a remote StatsD host.
+
+    See <https://github.com/etsy/statsd/wiki/Protocol> for details.
+    """
 
     def __init__(self, host, port):
         self.logger = logging.getLogger('stats')
@@ -71,7 +84,11 @@ class Stats(object):
 
 
 def setup_loggers():
-    """Setup the root logger and a special scap logger"""
+    """Setup the root logger and a special scap logger.
+
+    The 'scap' logger uses :class:`IRCSocketHandler` to send log messages of
+    level info or higher to logmsgbot.
+    """
     logging.basicConfig(
         level=logging.DEBUG,
         format=LOG_FORMAT,
