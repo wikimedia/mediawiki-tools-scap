@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "4e04eb01_068362d2",
+        "filename": "scap/ssh.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 28,
+      "author": {
+        "id": 1001
+      },
+      "writtenOn": "2014-02-16T16:59:06Z",
+      "side": 1,
+      "message": "I think there is a potential for deadlock in this model if the command produces \"enough\" output to stdout. The use of subprocess.PIPE without a select() or poll() loop to drain the pipe could result in the child process blocking on stdout if the pipe is full. In python 2.7.3 the default for Popen\u0027s bufsize parameter is 0 (unbuffered) so a pipe could block after as little as 512 bytes of output.",
+      "revId": "7c14a61bfe11f64a62a5824ffe7fd21036598f4a",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
+    }
+  ]
+}
