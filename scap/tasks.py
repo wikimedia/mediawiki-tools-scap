@@ -13,6 +13,7 @@ import subprocess
 import tempfile
 
 from . import utils
+from . import log
 
 
 def check_php_syntax(*paths):
@@ -54,14 +55,17 @@ def sync_common(cfg, sync_from=None):
             ['/usr/local/bin/find-nearest-rsync'] + sync_from))
     if server is None:
         server = cfg['MW_RSYNC_HOST']
-    logger.debug('Rsyncing from %s to %s', server, socket.getfqdn())
+    server = server.strip()
+    logger.debug('Rsyncing to %s from %s', socket.getfqdn(), server)
 
-    subprocess.check_call(utils.sudo_args(
-        ['/usr/local/bin/scap-2', server], user='mwdeploy',
-        exports={
-            'MW_VERSIONS_SYNC': cfg.get('MW_VERSIONS_SYNC', ''),
-            'MW_SCAP_BETA': cfg.get('MW_SCAP_BETA', ''),
-        }))
+    stats = log.Stats(cfg['MW_STATSD_HOST'], cfg['MW_STATSD_PORT'])
+    with log.Timer('scap-2', stats):
+        subprocess.check_call(utils.sudo_args(
+            ['/usr/local/bin/scap-2', server], user='mwdeploy',
+            exports={
+                'MW_VERSIONS_SYNC': cfg.get('MW_VERSIONS_SYNC', ''),
+                'MW_SCAP_BETA': cfg.get('MW_SCAP_BETA', ''),
+            }))
 
 
 def scap(args):
@@ -80,6 +84,7 @@ def scap(args):
     :type args: argparse.Namespace
     """
     logger = logging.getLogger('scap')
+    stats = log.Stats(args.cfg['MW_STATSD_HOST'], args.cfg['MW_STATSD_PORT'])
     env = {}
     if args.versions:
         env['MW_VERSIONS_SYNC'] = ' '.join(args.versions)
@@ -87,9 +92,9 @@ def scap(args):
     with utils.lock('/var/lock/scap'):
         logger.info('Started scap: %s', args.message)
 
-        logger.debug('Checking syntax')
-        check_php_syntax('%(MW_COMMON_SOURCE)s/wmf-config' % args.cfg)
-        check_php_syntax('%(MW_COMMON_SOURCE)s/multiversion' % args.cfg)
+        with log.Timer('php syntax check'):
+            check_php_syntax('%(MW_COMMON_SOURCE)s/wmf-config' % args.cfg)
+            check_php_syntax('%(MW_COMMON_SOURCE)s/multiversion' % args.cfg)
 
         # Update the current machine so that serialization works. Push
         # wikiversions.dat changes so mwversionsinuse, set-group-write,
@@ -98,10 +103,11 @@ def scap(args):
 
         # Update list of extension message files and regenerate the
         # localisation cache.
-        subprocess.check_call('/usr/local/bin/mw-update-l10n')
+        with log.Timer('mw-update-l10n', stats):
+            subprocess.check_call('/usr/local/bin/mw-update-l10n')
 
-        logger.debug('Updating rsync proxies')
-        utils.dsh('/usr/local/bin/scap-1', 'scap-proxies', env)
+        with log.Timer('scap-1 to proxies', stats):
+            utils.dsh('/usr/local/bin/scap-1', 'scap-proxies', env)
 
         scap_proxies = utils.read_dsh_hosts_file('scap-proxies')
 
@@ -113,20 +119,24 @@ def scap(args):
                 tmp.write('\n'.join(mw_install_hosts))
                 tmp.flush()
 
-                logger.debug('Copying code to Apaches')
-                utils.dsh(
-                    '/usr/local/bin/scap-1 "%s"' % ' '.join(scap_proxies),
-                    tmp.name, env)
+                with log.Timer('update apaches', stats) as t:
+                    utils.dsh(
+                        '/usr/local/bin/scap-1 "%s"' % ' '.join(scap_proxies),
+                        tmp.name, env)
+                    t.mark('scap-1 to apaches')
 
-                logger.debug('Rebuilding CDB files')
-                utils.dsh('/usr/local/bin/scap-rebuild-cdbs', tmp.name, env)
+                    utils.dsh('/usr/local/bin/scap-rebuild-cdbs',
+                        tmp.name, env)
+                    t.mark('scap-rebuild-cdbs')
             finally:
                 os.remove(tmp.name)
 
-        logger.debug('Building wikiversions.cdb')
-        subprocess.check_call('%(MW_COMMON_SOURCE)s/multiversion/'
-                              'refreshWikiversionsCDB' % args.cfg)
-        logger.debug('Syncing wikiversions.cdb')
-        utils.dsh('sudo -u mwdeploy rsync -l %(MW_RSYNC_HOST)s::common/'
-            'wikiversions.{dat,cdb} %(MW_COMMON)s' % args.cfg,
-            'mediawiki-installation')
+        with log.Timer('syncing wikiversions.cdb', stats) as t:
+            subprocess.check_call('%(MW_COMMON_SOURCE)s/multiversion/'
+                'refreshWikiversionsCDB' % args.cfg)
+            t.mark('refreshWikiversionsCDB')
+
+            utils.dsh('sudo -u mwdeploy rsync -l %(MW_RSYNC_HOST)s::common/'
+                'wikiversions.{dat,cdb} %(MW_COMMON)s' % args.cfg,
+                'mediawiki-installation')
+            t.mark('rsync wikiversions')

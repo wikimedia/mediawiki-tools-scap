@@ -7,8 +7,11 @@
 """
 import logging
 import os
+import re
 import socket
+import time
 
+from . import utils
 
 # Format string for log messages. Interpolates LogRecord attributes.
 # See <http://docs.python.org/2/library/logging.html#logrecord-attributes>
@@ -96,3 +99,75 @@ def setup_loggers():
 
     logger = logging.getLogger('scap')
     logger.addHandler(IRCSocketHandler(*IRC_LOG_ENDPOINT))
+
+
+class Timer(object):
+    """Context manager to track and record the time taken to execute a block.
+
+    Elapsed time will be recorded to a logger and optionally a StatsD server.
+
+    >>> with Timer('example'):
+    ...     time.sleep(0.1)
+
+    >>> s = Stats('127.0.0.1', 2003)
+    >>> with Timer('example', s):
+    ...     time.sleep(0.1)
+
+    Sub-interval times can also be recorded using the :meth:`mark` method.
+
+    >>> with Timer('file copy') as t:
+    ...     time.sleep(0.1)
+    ...     t.mark('copy phase 1')
+    ...     time.sleep(0.1)
+    ...     t.mark('copy phase 2')
+    """
+
+    def __init__(self, label, stats=None):
+        """
+        :param label: Label for block (e.g. 'scap' or 'rsync')
+        :type label: str
+        :param stats: StatsD client to record block invocation and duration
+        :type stats: scap.log.Stats
+        """
+        self.label = label
+        self.stats = stats
+        self.logger = logging.getLogger('timer')
+
+    def mark(self, label):
+        """
+        Log the interval elapsed since the last mark call.
+
+        :param label: Label for block (e.g. 'scap' or 'rsync')
+        :type label: str
+        """
+        now = time.time()
+        self._record_elapsed(label, now - self.mark_start)
+        self.mark_start = now
+
+    def __enter__(self):
+        """Enter the runtime context.
+        :returns: self
+        """
+        self.start = time.time()
+        self.mark_start = self.start
+        self.logger.debug('Started %s' % self.label)
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        """Exit the runtime context."""
+        self._record_elapsed(self.label, time.time() - self.start)
+
+    def _record_elapsed(self, label, elapsed):
+        """Log the elapsed duration.
+
+        :param label: Label for elapsed time
+        :type label: str
+        :param elapsed: Elapsed duration
+        :type elapsed: float
+        """
+        self.logger.info('Finished %s (duration: %s)',
+            label, utils.human_duration(elapsed))
+        if self.stats:
+            label = re.sub(r'\W', '_', label.lower())
+            self.stats.increment('scap.%s' % label)
+            self.stats.timing('scap.%s' % label, elapsed * 1000)
