@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "4e04eb01_4fa3bd3f",
+        "filename": "scap/ssh.py",
+        "patchSetId": 5
+      },
+      "lineNbr": 14,
+      "author": {
+        "id": 1001
+      },
+      "writtenOn": "2014-02-17T20:27:23Z",
+      "side": 1,
+      "message": "I can\u0027t find SetupTimeout in the ssh_config man page. Did you mean ConnectTimeout?",
+      "revId": "a760c511fc562f8db08f8be5d5ef6e27d26fcb07",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
+    }
+  ]
+}
