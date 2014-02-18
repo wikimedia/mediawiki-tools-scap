@@ -16,6 +16,20 @@ from . import utils
 from . import log
 
 
+DEFAULT_RSYNC_ARGS = (
+    '/usr/bin/rsync',
+    '-a',
+    '--delete-delay',
+    '--delay-updates',
+    '--compress',
+    '--delete',
+    '--exclude=**/.svn/lock',
+    '--exclude=**/.git/objects',
+    '--exclude=**/.git/**/objects',
+    '--exclude=**/cache/l10n/*.cdb',
+    '--no-perms')
+
+
 def check_php_syntax(*paths):
     """Run lint.php on `paths`; raise CalledProcessError if nonzero exit."""
     cmd = '/usr/bin/php -n -dextension=parsekit.so /usr/local/bin/lint.php'
@@ -25,11 +39,11 @@ def check_php_syntax(*paths):
 def sync_common(cfg, sync_from=None):
     """Sync MW_COMMON
 
-    Rsync the from ``server::common/`` to the local ``MW_COMMON`` directory.
-    If a space separated list of servers is given in ``sync_from`` we will
-    attempt to select the "best" one to sync from. If no servers are given or
-    all servers given have issues we will fall back to using the server named
-    by ``MW_RSYNC_HOST`` in the configuration data.
+    Rsync from ``server::common/`` to the local ``MW_COMMON`` directory.
+    If a list of servers is given in ``sync_from`` we will attempt to select
+    the "best" one to sync from. If no servers are given or all servers given
+    have issues we will fall back to using the server named by
+    ``MW_RSYNC_HOST`` in the configuration data.
 
     :param cfg: Global configuration
     :type cfg: dict
@@ -51,21 +65,24 @@ def sync_common(cfg, sync_from=None):
 
     server = None
     if sync_from:
-        server = subprocess.check_output(utils.sudo_args(
-            ['/usr/local/bin/find-nearest-rsync'] + sync_from))
+        server = utils.find_nearest_host(sync_from)
     if server is None:
         server = cfg['MW_RSYNC_HOST']
     server = server.strip()
-    logger.debug('Rsyncing to %s from %s', socket.getfqdn(), server)
+    versions = cfg.get('MW_VERSIONS_SYNC', '').split()
 
+    # Execute rsync fetch locally via sudo
+    rsync = DEFAULT_RSYNC_ARGS
+    if versions:
+        # Only sync provided versions
+        rsync += tuple("--include='php-%s'" % v for v in versions)
+        rsync += ("--exclude='php-*/'",)
+    rsync += ('%s::common' % server, cfg['MW_COMMON'])
+
+    logger.debug('Copying to %s from %s', socket.getfqdn(), server)
     stats = log.Stats(cfg['MW_STATSD_HOST'], cfg['MW_STATSD_PORT'])
-    with log.Timer('scap-2', stats):
-        subprocess.check_call(utils.sudo_args(
-            ['/usr/local/bin/scap-2', server], user='mwdeploy',
-            exports={
-                'MW_VERSIONS_SYNC': cfg.get('MW_VERSIONS_SYNC', ''),
-                'MW_SCAP_BETA': cfg.get('MW_SCAP_BETA', ''),
-            }))
+    with log.Timer('rsync common', stats):
+        subprocess.check_call(utils.sudo_args(rsync, user='mwdeploy'))
 
 
 def scap(args):

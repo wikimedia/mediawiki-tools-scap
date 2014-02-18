@@ -6,11 +6,14 @@
 
 """
 import contextlib
+import errno
 import fcntl
 import imp
 import os
 import pipes
+import random
 import re
+import socket
 import struct
 import subprocess
 
@@ -134,3 +137,44 @@ def human_duration(elapsed):
     '30m 11s'
     """
     return '%02dm %02ds' % divmod(elapsed, 60)
+
+
+def find_nearest_host(hosts, port=22, timeout=1):
+    """Given a collection of hosts, find the one that is the fewest
+    number of hops away.
+
+    >>> find_nearest_host(['localhost'])
+    'localhost'
+
+    :param hosts: Hosts to check
+    :param port: Port to try to connect on (default: 22)
+    :param timeout: Timeout in seconds (default: 1)
+    """
+    host_map = {}
+    for host in hosts:
+        try:
+            host_map[host] = socket.getaddrinfo(host, port)[0]
+        except socket.gaierror:
+            continue
+
+    for ttl in range(1, 30):
+        if not host_map:
+            break
+        for host, info in random.sample(host_map.items(), len(host_map)):
+            family, type, proto, _, addr = info
+            s = socket.socket(family, type, proto)
+            s.setsockopt(socket.IPPROTO_IP, socket.IP_TTL,
+                         struct.pack('I', ttl))
+            s.settimeout(timeout)
+            try:
+                s.connect(addr)
+            except socket.error as e:
+                if e.errno != errno.EHOSTUNREACH:
+                    del host_map[host]
+                continue
+            except socket.timeout:
+                continue
+            else:
+                return host
+            finally:
+                s.close()

@@ -22,7 +22,6 @@ def sync_common():
     """
     logger = logging.getLogger('sync_common')
     try:
-
         parser = argparse.ArgumentParser(description='Sync MW_COMMON')
         parser.add_argument('-c', '--conf',
             dest='conf_file', default='/usr/local/lib/mw-deployment-vars.sh',
@@ -33,6 +32,7 @@ def sync_common():
         args.cfg = None
 
         args.cfg = utils.get_config(args.conf_file)
+        args.cfg['MW_VERSIONS_SYNC'] = os.environ.get('MW_VERSIONS_SYNC', '')
 
         tasks.sync_common(args.cfg, args.servers)
         return 0
