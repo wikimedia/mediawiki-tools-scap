@@ -20,25 +20,29 @@ def cluster_ssh(hosts, command, limit=80):
     procs = {}
     fds = {}
     poll = select.epoll()
-    while hosts or procs:
-        if hosts and len(procs) < limit:
-            host = hosts.pop()
-            ssh_command = SSH + (host, command)
-            proc = subprocess.Popen(ssh_command, stdout=subprocess.PIPE,
-                    stderr=subprocess.STDOUT, preexec_fn=os.setsid)
-            procs[proc.pid] = (proc, host)
-            poll.register(proc.stdout, select.EPOLLIN)
-        else:
-            pid, status = os.waitpid(-1, os.WNOHANG)
-            for fd, event in poll.poll(0.01):
-                fds[fd] = fds.get(fd, '') + os.read(fd, 1048576)
-            if pid:
-                status = -(status & 255) or (status >> 8)
-                proc, host = procs.pop(pid)
-                poll.unregister(proc.stdout)
-                output = fds.pop(proc.stdout.fileno(), '')
-                yield host, status, output
-    poll.close()
+    try:
+        while hosts or procs:
+            if hosts and len(procs) < limit:
+                host = hosts.pop()
+                ssh_command = SSH + (host, command)
+                proc = subprocess.Popen(ssh_command, stdout=subprocess.PIPE,
+                        stderr=subprocess.STDOUT, preexec_fn=os.setsid)
+                procs[proc.pid] = (proc, host)
+                poll.register(proc.stdout, select.EPOLLIN)
+            else:
+                pid, status = os.waitpid(-1, os.WNOHANG)
+                for fd, event in poll.poll(0.01):
+                    fds[fd] = fds.get(fd, '') + os.read(fd, 1048576)
+                if pid:
+                    status = -(status & 255) or (status >> 8)
+                    proc, host = procs.pop(pid)
+                    poll.unregister(proc.stdout)
+                    output = fds.pop(proc.stdout.fileno(), '')
+                    yield host, status, output
+    finally:
+        poll.close()
+        for pid, (proc, host) in procs.items():
+            proc.kill()
 
 
 def cluster_run(hosts, command, max_fails=0):
