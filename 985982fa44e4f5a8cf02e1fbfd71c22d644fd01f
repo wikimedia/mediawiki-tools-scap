@@ -1,0 +1,38 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "4e04eb01_cc1c706d",
+        "filename": "scap/utils.py",
+        "patchSetId": 9
+      },
+      "lineNbr": 155,
+      "author": {
+        "id": 1001
+      },
+      "writtenOn": "2014-02-19T03:32:15Z",
+      "side": 1,
+      "message": "AF_INET6 doesn\u0027t work for me when trying to check the scap-proxies list from tin. I get a \u0027Name or service not known\u0027 error for all hosts in the list. When I switch to AF_INET hostnames resolve as expected. I think that in python if you want to use dual stack resolution you have to use socket.create_connection() instead of socket.socket() to create the socket.",
+      "revId": "985982fa44e4f5a8cf02e1fbfd71c22d644fd01f",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "4e04eb01_ec272cb0",
+        "filename": "scap/utils.py",
+        "patchSetId": 9
+      },
+      "lineNbr": 161,
+      "author": {
+        "id": 1001
+      },
+      "writtenOn": "2014-02-19T03:32:15Z",
+      "side": 1,
+      "message": "This will fire with errno\u003d\u003d113 when the hop count is exceeded. As written this will always return None if there are no 1 hop hosts in the list.",
+      "revId": "985982fa44e4f5a8cf02e1fbfd71c22d644fd01f",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
+    }
+  ]
+}
