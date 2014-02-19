@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "4e04eb01_f8cda363",
+        "filename": "scap/ssh.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 44,
+      "author": {
+        "id": 255
+      },
+      "writtenOn": "2014-02-19T20:16:22Z",
+      "side": 1,
+      "message": "The size of the procs dict is bound by the \u0027limit\u0027 parameter, so the performance benefit of \u0027iteritems\u0027 vs \u0027items\u0027 is microscopic, but the cost is not: it costs you Py3k compatibility, which you otherwise (mostly) have. So I\u0027d prefer \"items\".",
+      "revId": "369d5197b4397440b25772c5bbde945ccd2128ac",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
+    }
+  ]
+}
