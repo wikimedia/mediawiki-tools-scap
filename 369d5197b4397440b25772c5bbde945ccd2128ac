@@ -16,6 +16,24 @@
       "revId": "369d5197b4397440b25772c5bbde945ccd2128ac",
       "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
       "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "4e04eb01_b824bb08",
+        "filename": "scap/ssh.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 44,
+      "author": {
+        "id": 1001
+      },
+      "writtenOn": "2014-02-19T20:21:36Z",
+      "side": 1,
+      "message": "Done",
+      "parentUuid": "4e04eb01_f8cda363",
+      "revId": "369d5197b4397440b25772c5bbde945ccd2128ac",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
     }
   ]
 }
