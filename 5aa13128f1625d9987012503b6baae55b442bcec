@@ -1,0 +1,55 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "4e04eb01_91fe7f34",
+        "filename": "/COMMIT_MSG",
+        "patchSetId": 5
+      },
+      "lineNbr": 13,
+      "author": {
+        "id": 1001
+      },
+      "writtenOn": "2014-02-19T01:51:04Z",
+      "side": 1,
+      "message": "No longer true.",
+      "revId": "5aa13128f1625d9987012503b6baae55b442bcec",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "4e04eb01_71fbf344",
+        "filename": "/COMMIT_MSG",
+        "patchSetId": 5
+      },
+      "lineNbr": 16,
+      "author": {
+        "id": 1001
+      },
+      "writtenOn": "2014-02-19T01:51:04Z",
+      "side": 1,
+      "message": "No longer quite right.",
+      "revId": "5aa13128f1625d9987012503b6baae55b442bcec",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "4e04eb01_51f8f745",
+        "filename": "scap/utils.py",
+        "patchSetId": 5
+      },
+      "lineNbr": 141,
+      "author": {
+        "id": 1001
+      },
+      "writtenOn": "2014-02-19T01:51:04Z",
+      "side": 1,
+      "message": "\"Find the first host with smallest hop count\"? Or something like that.",
+      "revId": "5aa13128f1625d9987012503b6baae55b442bcec",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
+    }
+  ]
+}
