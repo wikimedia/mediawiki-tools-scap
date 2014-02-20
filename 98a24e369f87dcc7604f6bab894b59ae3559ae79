@@ -1,0 +1,123 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "4e04eb01_f9592202",
+        "filename": "scap/ssh.py",
+        "patchSetId": 2
+      },
+      "lineNbr": 77,
+      "author": {
+        "id": 255
+      },
+      "writtenOn": "2014-02-20T09:18:47Z",
+      "side": 1,
+      "message": "hosts. also, any iterable, not just lists.",
+      "revId": "98a24e369f87dcc7604f6bab894b59ae3559ae79",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "4e04eb01_794e323e",
+        "filename": "scap/ssh.py",
+        "patchSetId": 2
+      },
+      "lineNbr": 88,
+      "author": {
+        "id": 255
+      },
+      "writtenOn": "2014-02-20T09:18:47Z",
+      "side": 1,
+      "message": "instead:\n\n    console \u003d os.fdopen(sys.stdout.fileno(), \u0027w\u0027, 0)\n    then console.write(\u0027....\u0027)",
+      "revId": "98a24e369f87dcc7604f6bab894b59ae3559ae79",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "4e04eb01_595b76fd",
+        "filename": "scap/ssh.py",
+        "patchSetId": 2
+      },
+      "lineNbr": 94,
+      "author": {
+        "id": 255
+      },
+      "writtenOn": "2014-02-20T09:18:47Z",
+      "side": 1,
+      "message": "for done, (host, status, output) in enumerate(cluster_ssh(hosts, command)):",
+      "revId": "98a24e369f87dcc7604f6bab894b59ae3559ae79",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "4e04eb01_1955eec5",
+        "filename": "scap/ssh.py",
+        "patchSetId": 2
+      },
+      "lineNbr": 107,
+      "author": {
+        "id": 255
+      },
+      "writtenOn": "2014-02-20T09:18:47Z",
+      "side": 1,
+      "message": "dnt strt usng c-like var nms. btr: \"percent\", \"message\"",
+      "revId": "98a24e369f87dcc7604f6bab894b59ae3559ae79",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "4e04eb01_3960aa9f",
+        "filename": "scap/ssh.py",
+        "patchSetId": 2
+      },
+      "lineNbr": 111,
+      "author": {
+        "id": 255
+      },
+      "writtenOn": "2014-02-20T09:18:47Z",
+      "side": 1,
+      "message": "Why do you need to write the spaces? Does the bar show regressions?",
+      "revId": "98a24e369f87dcc7604f6bab894b59ae3559ae79",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "4e04eb01_d96e6693",
+        "filename": "scap/tasks.py",
+        "patchSetId": 2
+      },
+      "lineNbr": 111,
+      "author": {
+        "id": 255
+      },
+      "writtenOn": "2014-02-20T09:18:47Z",
+      "side": 1,
+      "message": "This isn\u0027t C! Don\u0027t use the return value to signal errors. Have it return a tuple of (succeeded, failed) or something.",
+      "revId": "98a24e369f87dcc7604f6bab894b59ae3559ae79",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "4e04eb01_796512aa",
+        "filename": "scap/tasks.py",
+        "patchSetId": 2
+      },
+      "lineNbr": 135,
+      "author": {
+        "id": 255
+      },
+      "writtenOn": "2014-02-20T09:18:47Z",
+      "side": 1,
+      "message": "I think the utils.cmd_args should move to run() rather than be repeated in each invocation",
+      "revId": "98a24e369f87dcc7604f6bab894b59ae3559ae79",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
+    }
+  ]
+}
