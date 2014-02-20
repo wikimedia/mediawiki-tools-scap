@@ -3,10 +3,10 @@
 PATH=/bin:/usr/bin:/sbin:/usr/sbin:
 TERM=dumb
 
-# wikiversions.dat just synced above
+# wikiversions.json just synced above
 mwVersionNums=$(mwversionsinuse)
 if [ -z "$mwVersionNums" ]; then
-	echo "Unable to read wikiversions.dat or it is empty"
+	echo "Unable to read wikiversions.json or it is empty"
 	exit 1
 fi
 

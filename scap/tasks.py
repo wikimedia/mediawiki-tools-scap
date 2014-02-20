@@ -114,7 +114,7 @@ def scap(args):
             check_php_syntax('%(MW_COMMON_SOURCE)s/multiversion' % args.cfg)
 
         # Update the current machine so that serialization works. Push
-        # wikiversions.dat changes so mwversionsinuse, set-group-write,
+        # wikiversions.json changes so mwversionsinuse, set-group-write,
         # and mwscript work with the right version of the files.
         sync_common(dict(args.cfg.items() + env.items()))
 
@@ -154,6 +154,6 @@ def scap(args):
             t.mark('refreshWikiversionsCDB')
 
             utils.dsh('sudo -u mwdeploy rsync -l %(MW_RSYNC_HOST)s::common/'
-                'wikiversions.{dat,cdb} %(MW_COMMON)s' % args.cfg,
+                'wikiversions.{json,cdb} %(MW_COMMON)s' % args.cfg,
                 'mediawiki-installation')
             t.mark('rsync wikiversions')
