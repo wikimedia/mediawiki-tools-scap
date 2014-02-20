@@ -138,7 +138,7 @@ def scap(args):
 
                 with log.Timer('update apaches', stats) as t:
                     utils.dsh(
-                        '/usr/local/bin/scap-1 "%s"' % ' '.join(scap_proxies),
+                        '/usr/local/bin/scap-1 %s' % ' '.join(scap_proxies),
                         tmp.name, env)
                     t.mark('scap-1 to apaches')
 
