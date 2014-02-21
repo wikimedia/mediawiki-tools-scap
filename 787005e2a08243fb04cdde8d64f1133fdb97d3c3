@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "4e04eb01_9dff9ffc",
+        "filename": "scap/utils.py",
+        "patchSetId": 2
+      },
+      "lineNbr": 192,
+      "author": {
+        "id": 24
+      },
+      "writtenOn": "2014-02-21T20:58:48Z",
+      "side": 1,
+      "message": "that is clearer using fixture. Thank you :-]",
+      "revId": "787005e2a08243fb04cdde8d64f1133fdb97d3c3",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
+    }
+  ]
+}
