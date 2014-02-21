@@ -10,10 +10,10 @@ import os
 import random
 import socket
 import subprocess
-import tempfile
 
 from . import utils
 from . import log
+from . import ssh
 
 
 DEFAULT_RSYNC_ARGS = (
@@ -91,11 +91,11 @@ def scap(args):
     1. Validate php syntax of wmf-config and multiversion
     2. Sync MW_COMMON on localhost with staging area
     3. Update l10n files in staging area
-    4. Dsh to scap proxies and sync with localhost
-    5. Dsh to apaches and sync with fastest rsync server
-    6. Dsh to apaches and rebuild l10n CDB files
+    4. Ask scap proxies to sync with master server
+    5. Ask apaches to sync with fastest rsync server
+    6. Ask apaches to rebuild l10n CDB files
     7. Update wikiversions.cdb on localhost
-    8. Dsh to apaches and rsync wikiversions.cdb
+    8. Ask apaches to sync wikiversions.cdb
 
     :param args: Command line arguments and configuration
     :type args: argparse.Namespace
@@ -105,6 +105,18 @@ def scap(args):
     env = {}
     if args.versions:
         env['MW_VERSIONS_SYNC'] = ' '.join(args.versions)
+
+    def run_on_cluster(description, hosts, command, env=None, user=None):
+        """Run a command on the cluster via ssh."""
+        if user is not None:
+            command = utils.sudo_args(command, user, env)
+        else:
+            command = utils.build_command(command, env)
+
+        (good, bad) = ssh.cluster_monitor(description, hosts, command)
+
+        if bad:
+            logger.error('%s failed on %d hosts', description, len(bad))
 
     with utils.lock('/var/lock/scap'):
         logger.info('Started scap: %s', args.message)
@@ -123,37 +135,33 @@ def scap(args):
         with log.Timer('mw-update-l10n', stats):
             subprocess.check_call('/usr/local/bin/mw-update-l10n')
 
-        with log.Timer('scap-1 to proxies', stats):
-            utils.dsh('/usr/local/bin/scap-1', 'scap-proxies', env)
-
+        # Update rsync proxies
         scap_proxies = utils.read_dsh_hosts_file('scap-proxies')
+        with log.Timer('scap-1 to proxies', stats):
+            run_on_cluster('scap-1', scap_proxies,
+                '/usr/local/bin/scap-1', env)
 
         # Randomize the order of target machines.
         mw_install_hosts = utils.read_dsh_hosts_file('mediawiki-installation')
         random.shuffle(mw_install_hosts)
-        with tempfile.NamedTemporaryFile(delete=False, prefix='scap') as tmp:
-            try:
-                tmp.write('\n'.join(mw_install_hosts))
-                tmp.flush()
 
-                with log.Timer('update apaches', stats) as t:
-                    utils.dsh(
-                        '/usr/local/bin/scap-1 %s' % ' '.join(scap_proxies),
-                        tmp.name, env)
-                    t.mark('scap-1 to apaches')
+        with log.Timer('update apaches', stats) as t:
+            run_on_cluster('scap-1', mw_install_hosts,
+                    ['/usr/local/bin/scap-1'] + scap_proxies, env)
+            t.mark('scap-1 to apaches')
 
-                    utils.dsh('/usr/local/bin/scap-rebuild-cdbs',
-                        tmp.name, env)
-                    t.mark('scap-rebuild-cdbs')
-            finally:
-                os.remove(tmp.name)
+            run_on_cluster('scap-rebuild-cdbs', mw_install_hosts,
+                '/usr/local/bin/scap-rebuild-cdbs', env)
+            t.mark('scap-rebuild-cdbs')
 
         with log.Timer('syncing wikiversions.cdb', stats) as t:
             subprocess.check_call('%(MW_COMMON_SOURCE)s/multiversion/'
                 'refreshWikiversionsCDB' % args.cfg)
             t.mark('refreshWikiversionsCDB')
 
-            utils.dsh('sudo -u mwdeploy rsync -l %(MW_RSYNC_HOST)s::common/'
-                'wikiversions.{json,cdb} %(MW_COMMON)s' % args.cfg,
-                'mediawiki-installation')
+            run_on_cluster('rsync wikiversions', mw_install_hosts,
+                ['rsync', '-l', '%(MW_RSYNC_HOST)s::common/'
+                'wikiversions.{json,cdb}' % args.cfg,
+                '%(MW_COMMON)s' % args.cfg],
+                user='mwdeploy')
             t.mark('rsync wikiversions')
