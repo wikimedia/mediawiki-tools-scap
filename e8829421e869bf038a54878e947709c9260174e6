@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "4e04eb01_540fb4e4",
+        "filename": "scap/tasks.py",
+        "patchSetId": 4
+      },
+      "lineNbr": 162,
+      "author": {
+        "id": 255
+      },
+      "writtenOn": "2014-02-21T05:34:14Z",
+      "side": 1,
+      "message": "this is pretty horrendous",
+      "revId": "e8829421e869bf038a54878e947709c9260174e6",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
+    }
+  ]
+}
