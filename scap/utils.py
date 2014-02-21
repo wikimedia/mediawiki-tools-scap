@@ -13,20 +13,21 @@ import os
 import pipes
 import random
 import re
+import shlex
 import socket
 import struct
 import subprocess
 
 
 def shell_map(mapping):
-    """Convert a map to a string of space-separated KEY=VALUE pairs.
+    """Convert a dict to a list of KEY=VALUE pairs.
 
     >>> shell_map({'a':'b'})
-    'a=b'
+    ['a=b']
     >>> shell_map({'a':'1', 'b':'2 or 3'})
-    "a=1 b='2 or 3'"
+    ['a=1', "b='2 or 3'"]
     """
-    return ' '.join('%s=%s' % (k, pipes.quote(v)) for k, v in mapping.items())
+    return ['%s=%s' % (k, pipes.quote(v)) for k, v in mapping.items()]
 
 
 def read_dsh_hosts_file(path):
@@ -85,15 +86,58 @@ def get_branches(wikiversions_cdb_path):
 def dsh(command, group, exports=None):
     """Run a command on multiple hosts via DSH."""
     if exports:
-        command = '%s %s' % (shell_map(exports), command)
+        command = '%s %s' % (' '.join(shell_map(exports)), command)
     group_file = os.path.join('/etc/dsh/group', group)
     return subprocess.call(['/usr/bin/dsh', '-F40', '-cM', '-f',
                             group_file, '-o', '-oSetupTimeout=10', '--',
                             command.strip()])
 
 
+def build_command(command, exports=None):
+    """Build an argument list for running a command.
+
+    If the command is a string rather than a sequence it will be split using
+    ``shlex.split`` as recommended by the ``subprocess`` documentation. If
+    a dict of environment exports is provided it will be converted into
+    VAR=VALUE statements and prepended to the command.
+
+    >>> build_command('hello')
+    ['hello']
+    >>> build_command(['hello'])
+    ['hello']
+    >>> build_command(['hello'] + 'foo bar baz'.split())
+    ['hello', 'foo', 'bar', 'baz']
+    >>> build_command('hello --who world')
+    ['hello', '--who', 'world']
+    >>> build_command('echo "hello world"')
+    ['echo', 'hello world']
+    >>> build_command(['scap-2', 'tin'], {'FOO':'bar baz'})
+    ["FOO='bar baz'", 'scap-2', 'tin']
+
+    :param command: Command to execute
+    :type command: str or sequence
+    :param exports: Environment variables to export to the command
+    :type exports: dict
+    :returns: List of arguments suitable for use with subprocess methods
+    """
+    args = []
+    if exports:
+        args.extend(shell_map(exports))
+    try:
+        command = shlex.split(command)
+    except AttributeError:
+        # Command is already a sequence
+        pass
+    args.extend(command)
+    return args
+
+
 def sudo_args(command, user=None, exports=None):
     """Build an argument list for running a command under sudo.
+
+    The command and optional exports will be processed by
+    :func:`build_command` and then used as the object of a ``sudo``
+    invocation.
 
     >>> sudo_args('hello')
     ['sudo', 'hello']
@@ -105,24 +149,19 @@ def sudo_args(command, user=None, exports=None):
     ['sudo', '-u', 'wmdeploy', "FOO='bar baz'", 'scap-2', 'tin']
 
     :param command: Command to execute
-    :type command: str or list
+    :type command: str or sequence
     :param user: User to execute as
     :type user: str
     :param exports: Environment variables to export to the command
     :type exports: dict
     :returns: List of arguments suitable for use with subprocess methods
+
+    .. seealso:: :func:`build_command`
     """
     args = ['sudo']
     if user is not None:
         args.extend(['-u', user])
-    if exports is not None:
-        args.extend('%s=%s' % (k, pipes.quote(v)) for k, v in exports.items())
-    if isinstance(command, basestring):
-        func = args.append
-        command = command.strip()
-    else:
-        func = args.extend
-    func(command)
+    args.extend(build_command(command, exports))
     return args
 
 
