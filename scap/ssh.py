@@ -88,14 +88,15 @@ def cluster_monitor(description, hosts, command):
 
     try:
         for done, (host, status, output) in \
-                enumerate(cluster_ssh(hosts, command)):
+                enumerate(cluster_ssh(hosts, command), start=1):
             if status == 0:
                 ok += 1
             else:
                 failed += 1
-                # Start a new console line on the assumption that logger will
-                # be appending to console as well.
-                sys.stderr.write('\n')
+                if done > 1:
+                    # Start a new console line on the assumption that logger
+                    # will be appending to console as well.
+                    sys.stderr.write('\n')
                 logger.warning('%s on %s returned [%d]: %s',
                     description, host, status, output)
 

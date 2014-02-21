@@ -160,8 +160,7 @@ def scap(args):
             t.mark('refreshWikiversionsCDB')
 
             run_on_cluster('rsync wikiversions', mw_install_hosts,
-                ['rsync', '-l', '%(MW_RSYNC_HOST)s::common/'
-                'wikiversions.{json,cdb}' % args.cfg,
-                '%(MW_COMMON)s' % args.cfg],
+                '/usr/bin/rsync -l %(MW_RSYNC_HOST)s::common/'
+                'wikiversions.{json,cdb} %(MW_COMMON)s' % args.cfg,
                 user='mwdeploy')
             t.mark('rsync wikiversions')
