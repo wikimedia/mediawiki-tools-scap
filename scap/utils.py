@@ -182,8 +182,15 @@ def find_nearest_host(hosts, port=22, timeout=1):
     """Given a collection of hosts, find the one that is the fewest
     number of hops away.
 
-    >>> find_nearest_host(['localhost'])
-    'localhost'
+    >>> # Begin test fixture
+    >>> import socket
+    >>> fixture_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    >>> fixture_socket.bind(('127.0.0.1', 0))
+    >>> fixture_socket.listen(1)
+    >>> fixture_port = fixture_socket.getsockname()[1]
+    >>> # End test fixture
+    >>> find_nearest_host(['127.0.0.1'], port=fixture_port)
+    '127.0.0.1'
 
     :param hosts: Hosts to check
     :param port: Port to try to connect on (default: 22)
