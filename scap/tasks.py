@@ -116,7 +116,7 @@ def scap(args):
         (good, bad) = ssh.cluster_monitor(description, hosts, command)
 
         if bad:
-            logger.error('%s failed on %d hosts', description, len(bad))
+            logger.error('%s failed on %d hosts', description, bad)
 
     with utils.lock('/var/lock/scap'):
         logger.info('Started scap: %s', args.message)
