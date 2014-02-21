@@ -1,0 +1,38 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "4e04eb01_dee884b1",
+        "filename": "scap/utils.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 96,
+      "author": {
+        "id": 255
+      },
+      "writtenOn": "2014-02-21T01:25:47Z",
+      "side": 1,
+      "message": "name should start with a verb (I didn\u0027t raise this before, but somehow it jumps out at me now) and should use the full form (\u0027command\u0027), since that\u0027s consistent with usage elsewhere in the file",
+      "revId": "4b400acac45af8e78da8523eae6e89e4f7597025",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "4e04eb01_7ed730f3",
+        "filename": "scap/utils.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 126,
+      "author": {
+        "id": 255
+      },
+      "writtenOn": "2014-02-21T01:25:47Z",
+      "side": 1,
+      "message": "basestring is a python2ism. better to ask for forgiveness than for permission.\n\n    try:\n        # Convert a string to a list.\n        command \u003d shlex.split(command)\n    except AttributeError:\n        # It\u0027s already a list.\n        pass",
+      "revId": "4b400acac45af8e78da8523eae6e89e4f7597025",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
+    }
+  ]
+}
