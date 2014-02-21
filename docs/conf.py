@@ -21,7 +21,7 @@ exclude_patterns = ['_build']
 pygments_style = 'sphinx'
 
 html_theme = 'nature'
-html_static_path = ['_static']
+#html_static_path = ['_static']
 htmlhelp_basename = 'scapdoc'
 
 autodoc_memeber_order = 'groupwise'

@@ -24,7 +24,7 @@ def shell_map(mapping):
 
     >>> shell_map({'a':'b'})
     ['a=b']
-    >>> shell_map({'a':'1', 'b':'2 or 3'})
+    >>> sorted(shell_map({'a':'1', 'b':'2 or 3'}))
     ['a=1', "b='2 or 3'"]
     """
     return ['%s=%s' % (k, pipes.quote(v)) for k, v in mapping.items()]
