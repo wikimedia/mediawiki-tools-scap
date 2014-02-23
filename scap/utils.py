@@ -18,6 +18,8 @@ import socket
 import struct
 import subprocess
 
+from . import ansi
+
 
 class LockFailedError(Exception):
     """Signal that a locking attempt failed."""
@@ -341,3 +343,68 @@ def check_php_opening_tag(path):
             '%s has content before opening <?php tag'
             % path
         )
+
+
+def logo(color=True, **colors):
+    """Get the scap logo::
+
+                 ___ ____
+               ⎛   ⎛ ,----
+                \  //==--',
+           _//|,.·//==--'     ___________________________
+          _OO≣=-⎫ ︶ ᴹw ⎞_§  ______  ___⎞ ___⎞,/__ ⎞/ __ ⎞
+         (∞)_, ⎠ ⎛      ⎟  ______(__  ⎞/ /__ / /_/ / /_/ /
+           ¨--¨|| |-⎝   / ______⎝____/ \___/ \__^_/  .__/
+               ««_/  «_/ jgs/bd808                /_/'''
+
+    Ascii art derived from original work by Joan Stark [#]_ and the `speed`
+    figlet font [#]_.
+
+    :param color: Color logo using ANSI escapes
+    :param colors: Alternate colors
+    :returns: str
+
+    .. [#] http://www.oocities.org/spunk1111/farm.htm#pig
+    .. [#] http://www.jave.de/figlet/fonts/details/speed.html
+    """
+    pallet = {
+        'pig': ansi.reset() + ansi.esc(ansi.FG_MAGENTA, ansi.BRIGHT),
+        'nose': ansi.reset() + ansi.esc(ansi.FG_MAGENTA, ansi.BRIGHT),
+        'mouth': ansi.reset() + ansi.esc(ansi.FG_MAGENTA, ansi.BRIGHT),
+        'goggles': ansi.reset() + ansi.esc(ansi.FG_YELLOW),
+        'brand': ansi.reset(),
+        'hoof': ansi.reset() + ansi.esc(ansi.FG_BLUE),
+        'wing': ansi.reset() + ansi.esc(ansi.FG_CYAN),
+        'speed': ansi.reset() + ansi.esc(ansi.FG_WHITE),
+        'text': ansi.reset() + ansi.esc(ansi.FG_GREEN),
+        'signature': ansi.reset() + ansi.esc(ansi.FG_BLUE),
+        'reset': ansi.reset(),
+    }
+    pallet.update(colors)
+
+    if not color:
+        for key in pallet.keys():
+            pallet[key] = ''
+
+    return ''.join(line % pallet for line in [
+        '''           %(wing)s___%(reset)s %(wing)s____%(reset)s\n''',
+        '''         %(wing)s⎛   ⎛ ,----%(reset)s\n''',
+        '''          %(wing)s\  //==--'%(reset)s\n''',
+        '''     %(pig)s_//|,.·%(wing)s//==--'%(reset)s     ''',
+        '''%(speed)s______%(text)s____''',
+        '''%(speed)s__%(text)s___''',
+        '''%(speed)s___%(text)s___''',
+        '''%(speed)s__%(text)s____%(reset)s\n''',
+        '''    %(pig)s_%(goggles)sOO≣=-%(pig)s⎫''',
+        ''' %(wing)s︶%(pig)s %(brand)sᴹw%(pig)s ⎞_§%(reset)s  ''',
+        '''%(speed)s_____%(text)s_  ___⎞ ___⎞,/__ ⎞/ __ ⎞%(reset)s\n''',
+        '''   %(pig)s(%(nose)s∞%(pig)s)%(mouth)s_,''',
+        '''%(pig)s ⎠ ⎛      ⎟%(reset)s''',
+        '''  %(speed)s______%(text)s(__  ⎞/ /__ / /_/ / /_/ /%(reset)s\n''',
+        '''     %(pig)s¨--¨|| |-⎝   /%(reset)s''',
+        ''' %(speed)s______%(text)s⎝____/ \___/ \__^_/  .__/%(reset)s\n''',
+        '''         %(hoof)s««%(pig)s_/%(reset)s''',
+        '''  %(hoof)s«%(pig)s_/%(reset)s''',
+        ''' %(signature)sjgs/bd808%(reset)s''',
+        '''                %(text)s/_/%(reset)s\n''',
+    ])

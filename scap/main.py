@@ -32,6 +32,7 @@ class AbstractSync(cli.Application):
     @cli.argument('message', nargs='*', help='Log message for SAL')
     def main(self, *extra_args):
         """Perform a sync operation to the cluster."""
+        print utils.logo()
         self._assert_auth_sock()
 
         with utils.lock(self.config['lock_file']):
