@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "4e04eb01_3c999471",
+        "filename": "scap/log.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 36,
+      "author": {
+        "id": 1001
+      },
+      "writtenOn": "2014-02-26T21:42:18Z",
+      "side": 1,
+      "message": "This hardcoded reference to fluorine isn\u0027t optimal but I\u0027m still working on ideas for a better configuration system. I think I\u0027ve got a reasonable idea but I haven\u0027t had time to implement and test it yet.",
+      "revId": "fdcea9a48c64a2958647a6a1f947b90ba1dd78c3",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
+    }
+  ]
+}
