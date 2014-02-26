@@ -101,6 +101,35 @@ class Udp2LogHandler(logging.handlers.DatagramHandler):
         return text
 
 
+class AnsiColorFormatter(logging.Formatter):
+    """Colorize output according to logging level."""
+
+    colors = {
+        'CRITICAL': '41;37',  # white on red
+        'ERROR': '31',        # red
+        'WARNING': '33',      # yellow
+        'INFO': '32',         # green
+        'DEBUG': '36',        # cyan
+    }
+
+    def __init__(self, fmt=None, datefmt=None, colors=None):
+        """
+        :param fmt: Message format string
+        :param datefmt: Time format string
+        :param colors: Dict of {'levelname': ANSI SGR parameters}
+
+        .. seealso:: https://en.wikipedia.org/wiki/ANSI_escape_code
+        """
+        super(self.__class__, self).__init__(fmt, datefmt)
+        if colors:
+            self.colors.extend(colors)
+
+    def format(self, record):
+        msg = super(self.__class__, self).format(record)
+        color = self.colors.get(record.levelname, '0')
+        return '\x1b[%sm%s\x1b[0m' % (color, msg)
+
+
 class Stats(object):
     """A simple StatsD metric client that can log measurements and counts to
     a remote StatsD host.
@@ -141,6 +170,10 @@ def setup_loggers():
         format=CONSOLE_LOG_FORMAT,
         datefmt='%H:%M:%S',
         stream=sys.stdout)
+
+    # Colorize log messages to stdout
+    logging.root.handlers[0].setFormatter(AnsiColorFormatter(
+        CONSOLE_LOG_FORMAT, '%H:%M:%S'))
 
     # Send a copy of all logs to the udp2log relay
     udp_handler = Udp2LogHandler(*UDP2LOG_LOG_ENDPOINT)
