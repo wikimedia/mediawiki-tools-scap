@@ -36,15 +36,27 @@ API
 
 .. automodule:: scap
    :members:
-
-.. automodule:: scap.tasks
-   :members:
+   :special-members:
 
 .. automodule:: scap.log
    :members:
+   :special-members:
+
+.. automodule:: scap.main
+   :members:
+   :special-members:
+
+.. automodule:: scap.ssh
+   :members:
+   :special-members:
+
+.. automodule:: scap.tasks
+   :members:
+   :special-members:
 
 .. automodule:: scap.utils
    :members:
+   :special-members:
 
 
 ******************
