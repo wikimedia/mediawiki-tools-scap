@@ -6,6 +6,7 @@
 
 """
 import logging
+import logging.handlers
 import os
 import re
 import socket
@@ -19,11 +20,20 @@ from . import utils
 # for attribute names you can include here.
 CONSOLE_LOG_FORMAT = '%(asctime)s %(levelname)-8s - %(message)s'
 
+FILE_LOG_FORMAT = '%(asctime)s %(levelname)s %(name)s - %(message)s'
+
 # A tuple of (host, port) representing the address of a tcpircbot instance to
 # use for logging messages. tcpircbot is a simple script that listens for
 # line-oriented data on a TCP socket and outputs it to IRC.
 # See <https://doc.wikimedia.org/puppet/classes/tcpircbot.html>.
 IRC_LOG_ENDPOINT = ('neon.wikimedia.org', 9200)
+
+# A tuple of (host, port) representing the address of a udp2log instance to
+# use for logging messages. udp2log is a log aggregation service that listens
+# for UDP datagrams and writes their contents to files and/or relays the
+# messages to other services.
+# See <https://wikitech.wikimedia.org/wiki/Udp2log>
+UDP2LOG_LOG_ENDPOINT = ('10.64.0.21', 8420)
 
 
 class IRCSocketHandler(logging.Handler):
@@ -56,6 +66,39 @@ class IRCSocketHandler(logging.Handler):
             sock.close()
         except (socket.timeout, socket.error, socket.gaierror):
             self.handleError(record)
+
+
+class Udp2LogHandler(logging.handlers.DatagramHandler):
+    """Log handler for udp2log."""
+
+    def __init__(self, host, port, prefix='scap'):
+        """
+        :param host: Hostname or ip address
+        :param port: Port
+        :param prefix: Line prefix (udp2log destination)
+        """
+        super(self.__class__, self).__init__(host, port)
+        self.prefix = prefix
+
+    def makePickle(self, record):
+        """Format record as a udp2log packet.
+
+        >>> Udp2LogHandler('127.0.0.1', 12345).makePickle(
+        ...     logging.makeLogRecord({'msg':'line1\\nline2'}))
+        'scap line1\\nscap line2\\n'
+        >>> Udp2LogHandler('127.0.0.1', 12345).makePickle(
+        ...     logging.makeLogRecord({'msg':'%s12'% ('0'*65500)}))
+        ...     # doctest: +ELLIPSIS
+        'scap 00000...00001\\n'
+        """
+        text = self.format(record)
+        if self.prefix:
+            text = re.sub(r'^', self.prefix + ' ', text, flags=re.MULTILINE)
+        if len(text) > 65506:
+            text = text[:65506]
+        if text[-1] != '\n':
+            text = text + '\n'
+        return text
 
 
 class Stats(object):
@@ -98,6 +141,13 @@ def setup_loggers():
         format=CONSOLE_LOG_FORMAT,
         datefmt='%H:%M:%S',
         stream=sys.stdout)
+
+    # Send a copy of all logs to the udp2log relay
+    udp_handler = Udp2LogHandler(*UDP2LOG_LOG_ENDPOINT)
+    udp_handler.setLevel(logging.DEBUG)
+    udp_handler.setFormatter(logging.Formatter(
+        FILE_LOG_FORMAT, '%Y-%m-%dT%H:%M:%S.000-%Z'))
+    logging.root.addHandler(udp_handler)
 
     # Send 'scap' messages to irc relay
     irc_logger = logging.getLogger('scap')
