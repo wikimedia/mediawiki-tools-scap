@@ -9,6 +9,7 @@ import logging
 import os
 import re
 import socket
+import sys
 import time
 
 from . import utils
@@ -16,7 +17,7 @@ from . import utils
 # Format string for log messages. Interpolates LogRecord attributes.
 # See <http://docs.python.org/2/library/logging.html#logrecord-attributes>
 # for attribute names you can include here.
-LOG_FORMAT = '%(asctime)s %(levelname)s - %(message)s'
+CONSOLE_LOG_FORMAT = '%(asctime)s %(levelname)-8s - %(message)s'
 
 # A tuple of (host, port) representing the address of a tcpircbot instance to
 # use for logging messages. tcpircbot is a simple script that listens for
@@ -94,11 +95,13 @@ def setup_loggers():
     """
     logging.basicConfig(
         level=logging.DEBUG,
-        format=LOG_FORMAT,
-        datefmt='%H:%M:%S')
+        format=CONSOLE_LOG_FORMAT,
+        datefmt='%H:%M:%S',
+        stream=sys.stdout)
 
-    logger = logging.getLogger('scap')
-    logger.addHandler(IRCSocketHandler(*IRC_LOG_ENDPOINT))
+    # Send 'scap' messages to irc relay
+    irc_logger = logging.getLogger('scap')
+    irc_logger.addHandler(IRCSocketHandler(*IRC_LOG_ENDPOINT))
 
 
 class Timer(object):
