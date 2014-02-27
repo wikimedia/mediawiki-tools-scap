@@ -5,6 +5,7 @@
     Helpers for routing and formatting log data.
 
 """
+import json
 import logging
 import logging.handlers
 import os
@@ -12,6 +13,7 @@ import re
 import socket
 import sys
 import time
+import traceback
 
 from . import utils
 
@@ -19,8 +21,6 @@ from . import utils
 # See <http://docs.python.org/2/library/logging.html#logrecord-attributes>
 # for attribute names you can include here.
 CONSOLE_LOG_FORMAT = '%(asctime)s %(levelname)-8s - %(message)s'
-
-FILE_LOG_FORMAT = '%(asctime)s %(levelname)s %(name)s - %(message)s'
 
 # A tuple of (host, port) representing the address of a tcpircbot instance to
 # use for logging messages. tcpircbot is a simple script that listens for
@@ -130,6 +130,82 @@ class AnsiColorFormatter(logging.Formatter):
         return '\x1b[%sm%s\x1b[0m' % (color, msg)
 
 
+class LogstashFormatter(logging.Formatter):
+    """Format log messages for logstash."""
+
+    converter = time.gmtime
+
+    def __init__(self, fmt=None, datefmt='%Y-%m-%dT%H:%M:%SZ', type='scap'):
+        """
+        :param fmt: Message format string (not used)
+        :param datefmt: Time format string
+        :param type: Logstash event type
+        """
+        super(self.__class__, self).__init__(fmt, datefmt)
+        self.type = type
+        self.host = socket.gethostname()
+        self.script = sys.argv[0]
+        try:
+            self.user = os.getlogin()
+        except OSError:
+            self.user = None
+
+    def format(self, record):
+        """Format a record as a logstash v1 JSON string."""
+        fields = record.__dict__.copy()
+
+        # Rename fields
+        fields['channel'] = fields.pop('name', 'unnamed')
+        fields['@timestamp'] = self.formatTime(record, self.datefmt)
+
+        # Format exception
+        if 'exc_info' in fields and fields['exc_info']:
+            fields['exception'] = self.formatException(fields['exc_info'])
+
+        # Remove fields
+        for field in (
+            'args',
+            'asctime',
+            'created',
+            'exc_info',
+            'exc_text',
+            'levelno',
+            'msecs',
+            'msg',
+            'processName',
+            'relativeCreated',
+            'thread',
+            'threadName',
+        ):
+            fields.pop(field, None)
+
+        logstash_record = {
+            '@version': 1,
+            'type': self.type,
+            'host': self.host,
+            'script': self.script,
+            'user': self.user,
+        }
+        logstash_record.update(fields)
+
+        return json.dumps(logstash_record, default=str)
+
+    def formatException(self, exc_info):
+        """Formats the given exception as a dict."""
+        ex_type, ex_value, ex_traceback = exc_info
+        return {
+            'class': ex_type.__name__,
+            'message': '%s' % ex_value,
+            'stacktrace': [{
+                'file': fname,
+                'line': line,
+                'function': func,
+                'text': text,
+            } for fname, line, func, text in
+                traceback.extract_tb(ex_traceback)]
+        }
+
+
 class Stats(object):
     """A simple StatsD metric client that can log measurements and counts to
     a remote StatsD host.
@@ -178,8 +254,7 @@ def setup_loggers():
     # Send a copy of all logs to the udp2log relay
     udp_handler = Udp2LogHandler(*UDP2LOG_LOG_ENDPOINT)
     udp_handler.setLevel(logging.DEBUG)
-    udp_handler.setFormatter(logging.Formatter(
-        FILE_LOG_FORMAT, '%Y-%m-%dT%H:%M:%S.000-%Z'))
+    udp_handler.setFormatter(LogstashFormatter())
     logging.root.addHandler(udp_handler)
 
     # Send 'scap' messages to irc relay
