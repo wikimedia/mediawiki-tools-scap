@@ -62,9 +62,8 @@ def scap():
     logger = logging.getLogger('scap')
     args = None
     try:
-        assert 'SSH_AUTH_SOCK' in os.environ, \
-            'scap requires SSH agent forwarding'
-        parser = argparse.ArgumentParser(description='Deploy MediaWiki')
+        parser = argparse.ArgumentParser(description='Deploy MediaWiki',
+                epilog="Note: a ssh-agent is required to run this script.")
         parser.add_argument('--versions',
             type=lambda v: set(v.split()),
             help='Sync only specifed versions')
@@ -74,6 +73,10 @@ def scap():
         parser.add_argument('message', nargs=argparse.REMAINDER,
             help='Log message for SAL')
         args = parser.parse_args()
+
+        assert 'SSH_AUTH_SOCK' in os.environ, \
+            'scap requires SSH agent forwarding'
+
         args.message = ' '.join(args.message) or '(no message)'
         args.cfg = None
 
