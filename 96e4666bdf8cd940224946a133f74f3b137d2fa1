@@ -19,6 +19,24 @@
     },
     {
       "key": {
+        "uuid": "4e04eb01_f3fb4bdc",
+        "filename": "scap/main.py",
+        "patchSetId": 2
+      },
+      "lineNbr": 30,
+      "author": {
+        "id": 1001
+      },
+      "writtenOn": "2014-02-28T17:27:40Z",
+      "side": 1,
+      "message": "In the current layout on tin, MW_COMMON_SOURCE represents what will be delivered to the cluster in the current/next sync and MW_COMMON represents what is already on the cluster. On any host other than tin, MW_COMMON_SOURCE is likely to be an empty directory (there\u0027s a bug about that somewhere but I can\u0027t find it at the moment).\n\nSo, `--home` could be more semantically named `--prep` or `--next`. My intent with scap changes thus far however has been interface parity with the existing scripts rather than cleaning up confusing or questionable past naming or functionality decisions. I can\u0027t find anywhere that this flag is used other than in scap to determine the active versions.",
+      "parentUuid": "4e04eb01_226cc304",
+      "revId": "96e4666bdf8cd940224946a133f74f3b137d2fa1",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "4e04eb01_42690ff5",
         "filename": "scap/main.py",
         "patchSetId": 2
@@ -30,6 +48,24 @@
       "writtenOn": "2014-02-28T07:19:14Z",
       "side": 1,
       "message": "I don\u0027t get what this does",
+      "revId": "96e4666bdf8cd940224946a133f74f3b137d2fa1",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "4e04eb01_33d9b383",
+        "filename": "scap/main.py",
+        "patchSetId": 2
+      },
+      "lineNbr": 32,
+      "author": {
+        "id": 1001
+      },
+      "writtenOn": "2014-02-28T17:27:40Z",
+      "side": 1,
+      "message": "mwversionsinuse is called with this flag by the git-deploy/dependencies/l10nupdate-quick and l10nupdate/l10nupdate-1 scripts in operations/puppet.git. In both cases the output is needed to make an mwscript call.",
+      "parentUuid": "4e04eb01_42690ff5",
       "revId": "96e4666bdf8cd940224946a133f74f3b137d2fa1",
       "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
       "unresolved": false
@@ -53,6 +89,24 @@
     },
     {
       "key": {
+        "uuid": "4e04eb01_3338939a",
+        "filename": "scap/main.py",
+        "patchSetId": 2
+      },
+      "lineNbr": 34,
+      "author": {
+        "id": 1001
+      },
+      "writtenOn": "2014-02-28T17:27:40Z",
+      "side": 1,
+      "message": "I can\u0027t find any calls to mwversionsinuse that use this, so we probably can safely drop this argument as soon as the console logger is switched back to emitting on stderr rather than stdout.",
+      "parentUuid": "4e04eb01_82a7174c",
+      "revId": "96e4666bdf8cd940224946a133f74f3b137d2fa1",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "4e04eb01_c27cffb6",
         "filename": "scap/tasks.py",
         "patchSetId": 2
@@ -64,6 +118,24 @@
       "writtenOn": "2014-02-28T07:19:14Z",
       "side": 1,
       "message": "Why would you take a data structure that already is a lookup table and mangle it into something that separates entries partly by data structure, partly by string convention?",
+      "revId": "96e4666bdf8cd940224946a133f74f3b137d2fa1",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "4e04eb01_53355fa2",
+        "filename": "scap/tasks.py",
+        "patchSetId": 2
+      },
+      "lineNbr": 58,
+      "author": {
+        "id": 1001
+      },
+      "writtenOn": "2014-02-28T17:27:40Z",
+      "side": 1,
+      "message": "To match the legacy behavior of /usr/local/bin/mwversionsinuse.",
+      "parentUuid": "4e04eb01_c27cffb6",
       "revId": "96e4666bdf8cd940224946a133f74f3b137d2fa1",
       "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
       "unresolved": false
