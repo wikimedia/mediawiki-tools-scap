@@ -56,33 +56,21 @@ def sync_common(cfg, sync_from=None):
         raise Exception(('rsync target directory %s not found. '
             'Ask root to create it.') % target)
 
-    # FIXME: Why is this hardcoded?
-    # FIXME: Why is this even here? uncommon isn't touched
-    uncommon = '/usr/local/apache/uncommon'
-    if not os.path.isdir(uncommon):
-        raise Exception(('directory %s not found. '
-            'Ask root to create it.') % uncommon)
-
     server = None
     if sync_from:
         server = utils.find_nearest_host(sync_from)
     if server is None:
         server = cfg['MW_RSYNC_HOST']
     server = server.strip()
-    versions = cfg.get('MW_VERSIONS_SYNC', '').split()
 
     # Execute rsync fetch locally via sudo
-    rsync = DEFAULT_RSYNC_ARGS
-    if versions:
-        # Only sync provided versions
-        rsync += tuple("--include='php-%s'" % v for v in versions)
-        rsync += ("--exclude='php-*/'",)
+    rsync = ('sudo', '-u', 'mwdeploy') + DEFAULT_RSYNC_ARGS
     rsync += ('%s::common' % server, cfg['MW_COMMON'])
 
     logger.debug('Copying to %s from %s', socket.getfqdn(), server)
     stats = log.Stats(cfg['MW_STATSD_HOST'], cfg['MW_STATSD_PORT'])
     with log.Timer('rsync common', stats):
-        subprocess.check_call(utils.sudo_args(rsync, user='mwdeploy'))
+        subprocess.check_call(rsync)
 
 
 def scap(args):
@@ -102,33 +90,17 @@ def scap(args):
     """
     logger = logging.getLogger('scap')
     stats = log.Stats(args.cfg['MW_STATSD_HOST'], args.cfg['MW_STATSD_PORT'])
-    env = {}
-    if args.versions:
-        env['MW_VERSIONS_SYNC'] = ' '.join(args.versions)
-
-    def run_on_cluster(description, hosts, command, env=None, user=None):
-        """Run a command on the cluster via ssh."""
-        if user is not None:
-            command = utils.sudo_args(command, user, env)
-        else:
-            command = utils.build_command(command, env)
-
-        (good, bad) = ssh.cluster_monitor(description, hosts, command)
-
-        if bad:
-            logger.error('%s failed on %d hosts', description, bad)
 
     with utils.lock('/var/lock/scap'):
         logger.info('Started scap: %s', args.message)
 
-        with log.Timer('php syntax check'):
-            check_php_syntax('%(MW_COMMON_SOURCE)s/wmf-config' % args.cfg)
-            check_php_syntax('%(MW_COMMON_SOURCE)s/multiversion' % args.cfg)
+        check_php_syntax('%(MW_COMMON_SOURCE)s/wmf-config' % args.cfg,
+                         '%(MW_COMMON_SOURCE)s/multiversion' % args.cfg)
 
         # Update the current machine so that serialization works. Push
         # wikiversions.json changes so mwversionsinuse, set-group-write,
         # and mwscript work with the right version of the files.
-        sync_common(dict(args.cfg.items() + env.items()))
+        sync_common(args.cfg)
 
         # Update list of extension message files and regenerate the
         # localisation cache.
@@ -138,29 +110,25 @@ def scap(args):
         # Update rsync proxies
         scap_proxies = utils.read_dsh_hosts_file('scap-proxies')
         with log.Timer('sync-common to proxies', stats):
-            run_on_cluster('sync-common', scap_proxies,
-                '/usr/local/bin/sync-common', env)
+            ssh.cluster_monitor(scap_proxies, '/usr/local/bin/sync-common')
 
         # Randomize the order of target machines.
         mw_install_hosts = utils.read_dsh_hosts_file('mediawiki-installation')
         random.shuffle(mw_install_hosts)
 
         with log.Timer('update apaches', stats) as t:
-            run_on_cluster('sync-common', mw_install_hosts,
-                    ['/usr/local/bin/sync-common'] + scap_proxies, env)
+            ssh.cluster_monitor(mw_install_hosts,
+                    ['/usr/local/bin/sync-common'] + scap_proxies)
             t.mark('sync-common to apaches')
 
-            run_on_cluster('scap-rebuild-cdbs', mw_install_hosts,
-                '/usr/local/bin/scap-rebuild-cdbs', env)
+            ssh.cluster_monitor(mw_install_hosts,
+                '/usr/local/bin/scap-rebuild-cdbs')
             t.mark('scap-rebuild-cdbs')
 
         with log.Timer('syncing wikiversions.cdb', stats) as t:
             subprocess.check_call('%(MW_COMMON_SOURCE)s/multiversion/'
                 'refreshWikiversionsCDB' % args.cfg)
-            t.mark('refreshWikiversionsCDB')
-
-            run_on_cluster('rsync wikiversions', mw_install_hosts,
-                '/usr/bin/rsync -l %(MW_RSYNC_HOST)s::common/'
-                'wikiversions.{json,cdb} %(MW_COMMON)s' % args.cfg,
-                user='mwdeploy')
-            t.mark('rsync wikiversions')
+            ssh.cluster_monitor(mw_install_hosts,
+                'sudo -u mwdeploy /usr/bin/rsync -l '
+                '%(MW_RSYNC_HOST)s::common/wikiversions.{json,cdb} '
+                '%(MW_COMMON)s' % args.cfg)

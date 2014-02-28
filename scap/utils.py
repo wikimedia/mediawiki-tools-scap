@@ -10,24 +10,10 @@ import errno
 import fcntl
 import imp
 import os
-import pipes
 import random
 import re
-import shlex
 import socket
 import struct
-import subprocess
-
-
-def shell_map(mapping):
-    """Convert a dict to a list of KEY=VALUE pairs.
-
-    >>> shell_map({'a':'b'})
-    ['a=b']
-    >>> sorted(shell_map({'a':'1', 'b':'2 or 3'}))
-    ['a=1', "b='2 or 3'"]
-    """
-    return ['%s=%s' % (k, pipes.quote(v)) for k, v in mapping.items()]
 
 
 def read_dsh_hosts_file(path):
@@ -73,96 +59,6 @@ def cdb_items(buf):
         offset += 8
         yield struct.unpack_from('%ds %ds' % lengths, buf, offset)
         offset += sum(lengths)
-
-
-def get_branches(wikiversions_cdb_path):
-    """Get the set of active branches from a wikiversions.cdb file."""
-    with open(wikiversions_cdb_path, 'rb') as cdb_file:
-        cdb = cdb_file.read()
-        return {v.replace('php-', '') for k, v in cdb_items(cdb)
-                if k.startswith('ver:')}
-
-
-def dsh(command, group, exports=None):
-    """Run a command on multiple hosts via DSH."""
-    if exports:
-        command = '%s %s' % (' '.join(shell_map(exports)), command)
-    group_file = os.path.join('/etc/dsh/group', group)
-    return subprocess.call(['/usr/bin/dsh', '-F40', '-cM', '-f',
-                            group_file, '-o', '-oSetupTimeout=10', '--',
-                            command.strip()])
-
-
-def build_command(command, exports=None):
-    """Build an argument list for running a command.
-
-    If the command is a string rather than a sequence it will be split using
-    ``shlex.split`` as recommended by the ``subprocess`` documentation. If
-    a dict of environment exports is provided it will be converted into
-    VAR=VALUE statements and prepended to the command.
-
-    >>> build_command('hello')
-    ['hello']
-    >>> build_command(['hello'])
-    ['hello']
-    >>> build_command(['hello'] + 'foo bar baz'.split())
-    ['hello', 'foo', 'bar', 'baz']
-    >>> build_command('hello --who world')
-    ['hello', '--who', 'world']
-    >>> build_command('echo "hello world"')
-    ['echo', 'hello world']
-    >>> build_command(['scap-2', 'tin'], {'FOO':'bar baz'})
-    ["FOO='bar baz'", 'scap-2', 'tin']
-
-    :param command: Command to execute
-    :type command: str or sequence
-    :param exports: Environment variables to export to the command
-    :type exports: dict
-    :returns: List of arguments suitable for use with subprocess methods
-    """
-    args = []
-    if exports:
-        args.extend(shell_map(exports))
-    try:
-        command = shlex.split(command)
-    except AttributeError:
-        # Command is already a sequence
-        pass
-    args.extend(command)
-    return args
-
-
-def sudo_args(command, user=None, exports=None):
-    """Build an argument list for running a command under sudo.
-
-    The command and optional exports will be processed by
-    :func:`build_command` and then used as the object of a ``sudo``
-    invocation.
-
-    >>> sudo_args('hello')
-    ['sudo', 'hello']
-    >>> sudo_args(['hello'])
-    ['sudo', 'hello']
-    >>> sudo_args(['hello'] + 'foo bar baz'.split())
-    ['sudo', 'hello', 'foo', 'bar', 'baz']
-    >>> sudo_args(['scap-2', 'tin'], 'wmdeploy', {'FOO':'bar baz'})
-    ['sudo', '-u', 'wmdeploy', "FOO='bar baz'", 'scap-2', 'tin']
-
-    :param command: Command to execute
-    :type command: str or sequence
-    :param user: User to execute as
-    :type user: str
-    :param exports: Environment variables to export to the command
-    :type exports: dict
-    :returns: List of arguments suitable for use with subprocess methods
-
-    .. seealso:: :func:`build_command`
-    """
-    args = ['sudo']
-    if user is not None:
-        args.extend(['-u', user])
-    args.extend(build_command(command, exports))
-    return args
 
 
 def human_duration(elapsed):

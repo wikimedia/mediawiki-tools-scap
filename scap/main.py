@@ -32,7 +32,6 @@ def sync_common():
         args.cfg = None
 
         args.cfg = utils.get_config(args.conf_file)
-        args.cfg['MW_VERSIONS_SYNC'] = os.environ.get('MW_VERSIONS_SYNC', '')
 
         tasks.sync_common(args.cfg, args.servers)
         return 0
@@ -64,9 +63,6 @@ def scap():
     try:
         parser = argparse.ArgumentParser(description='Deploy MediaWiki',
                 epilog="Note: a ssh-agent is required to run this script.")
-        parser.add_argument('--versions',
-            type=lambda v: set(v.split()),
-            help='Sync only specifed versions')
         parser.add_argument('-c', '--conf',
             dest='conf_file', default='/usr/local/lib/mw-deployment-vars.sh',
             help='Path to configuration file')
@@ -81,10 +77,6 @@ def scap():
         args.cfg = None
 
         args.cfg = utils.get_config(args.conf_file)
-        if args.versions and 'active' in args.versions:
-            args.versions.remove('active')
-            args.versions.update(utils.get_branches(
-                '%(MW_COMMON)s/wikiversions.cdb' % args.cfg))
 
         tasks.scap(args)
         duration = time.time() - start

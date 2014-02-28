@@ -9,6 +9,7 @@
 import logging
 import os
 import select
+import shlex
 import subprocess
 import sys
 
@@ -47,24 +48,7 @@ def cluster_ssh(hosts, command, limit=80):
             proc.kill()
 
 
-def cluster_run(hosts, command, max_fails=0):
-    """Run a command via SSH on multiple hosts concurrently. Wait until
-    all spawned processes complete, then return a tuple of (ok, failed)
-    mappings."""
-    max_fails = round(max_fails)
-    failed = {}
-    ok = {}
-    for host, status, output in cluster_ssh(hosts, command):
-        if status == 0:
-            ok[host] = status, output
-        else:
-            failed[host] = status, output
-            if len(failed) > max_fails:
-                raise RuntimeError(command, failed)
-    return ok, failed
-
-
-def cluster_monitor(description, hosts, command):
+def cluster_monitor(hosts, command):
     """Monitor execution of a command on the cluster.
 
     Run a command on the cluster via ssh and monitor progress with a live
@@ -72,8 +56,6 @@ def cluster_monitor(description, hosts, command):
     are sent to stderr. Failed commands will be logged as warnings as they
     occur. Returns the count of successful and failed commands.
 
-    :param description: Short description of the command being run
-    :type description: str
     :param hosts: Hosts to execute command on
     :type host: sequence
     :param command: Command to execute
@@ -87,6 +69,11 @@ def cluster_monitor(description, hosts, command):
     done = 0
 
     try:
+        command = shlex.split(command)
+    except AttributeError:
+        pass
+
+    try:
         for done, (host, status, output) in \
                 enumerate(cluster_ssh(hosts, command), start=1):
             if status == 0:
@@ -98,11 +85,11 @@ def cluster_monitor(description, hosts, command):
                     # will be appending to console as well.
                     sys.stderr.write('\n')
                 logger.warning('%s on %s returned [%d]: %s',
-                    description, host, status, output)
+                    command, host, status, output)
 
             # Jump cursor back to position 0 and write status message.
             sys.stderr.write('\r%s: %.0f%% (ok: %d; fail: %d; left: %d)' % (
-                description, 100.0 * (float(done) / expect), ok, failed,
+                command, 100.0 * (float(done) / expect), ok, failed,
                 expect - done))
 
     finally:
