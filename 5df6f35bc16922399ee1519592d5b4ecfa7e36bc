@@ -1,0 +1,38 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "4e04eb01_f817aa54",
+        "filename": "scap/main.py",
+        "patchSetId": 5
+      },
+      "lineNbr": 81,
+      "author": {
+        "id": 1001
+      },
+      "writtenOn": "2014-02-28T16:31:47Z",
+      "side": 0,
+      "message": "I was actually going to go the other way with this and make \u0027active\u0027 the default behavior and require an `--all` flag to rsync everything. On tin there are currently 12 /a/common/php-* directories and the chance that a deployer wants to send more than 3 of them to the apaches is pretty low. \n\nLimiting to php-* versions listed in wikiversions.json by default would save a whole lot of stat calls on both the rsync clients and servers when you look at it as 9 wm-core checkouts with extensions times ~400 mediawiki-installation hosts that are updated unnecessarily via rsync.",
+      "revId": "5df6f35bc16922399ee1519592d5b4ecfa7e36bc",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "4e04eb01_d843ce65",
+        "filename": "scap/tasks.py",
+        "patchSetId": 5
+      },
+      "lineNbr": 119,
+      "author": {
+        "id": 1001
+      },
+      "writtenOn": "2014-02-28T16:31:47Z",
+      "side": 0,
+      "message": "This logger writes to irc and thus the SAL. I think we need to rethink that whole mechanism though so it\u0027s probably ok to lose it for now.",
+      "revId": "5df6f35bc16922399ee1519592d5b4ecfa7e36bc",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
+    }
+  ]
+}

@@ -1,0 +1,38 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "4e04eb01_f840ca5c",
+        "filename": "scap/tasks.py",
+        "patchSetId": 5
+      },
+      "lineNbr": 67,
+      "author": {
+        "id": 1001
+      },
+      "writtenOn": "2014-02-28T16:31:47Z",
+      "side": 1,
+      "message": "Can\u0027t concat a list and a tuple.",
+      "revId": "559abab1f303fae17b9f3063d2bd995bebe6e090",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "4e04eb01_7834baf1",
+        "filename": "scap/tasks.py",
+        "patchSetId": 5
+      },
+      "lineNbr": 132,
+      "author": {
+        "id": 1001
+      },
+      "writtenOn": "2014-02-28T16:31:47Z",
+      "side": 1,
+      "message": "\u0027sudo -u mwdeploy\u0027 to be consistent with other invocations.",
+      "revId": "559abab1f303fae17b9f3063d2bd995bebe6e090",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
+    }
+  ]
+}
