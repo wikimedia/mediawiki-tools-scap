@@ -1,7 +1,17 @@
-#!/bin/bash
-# Shell wrapper for the local version of multiversion/activeMWVersions.
-# This script belongs in /usr/bin/ and should be in PATH.
-. /usr/local/lib/mw-deployment-vars.sh
-if ! "${MW_COMMON}/multiversion/activeMWVersions" "$@"; then
-	exit 1
-fi
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+#
+# Get a list of active MediaWiki versions.
+#
+# Copyright © 2014 Wikimedia Foundation and contributors
+
+import os
+import sys
+
+# Add scap package to search path
+script = os.path.realpath(sys.argv[0])
+scap_src = os.path.dirname(os.path.dirname(script))
+sys.path.append(scap_src)
+
+import scap
+sys.exit(scap.mwversionsinuse())

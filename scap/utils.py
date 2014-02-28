@@ -9,6 +9,7 @@ import contextlib
 import errno
 import fcntl
 import imp
+import json
 import os
 import random
 import re
@@ -39,6 +40,24 @@ def get_config(cfg_file='/usr/local/lib/mw-deployment-vars.sh'):
                 if k.startswith('MW_')}
 
 
+def wikiversions(location):
+    """Get a collection of active MediaWiki versions.
+
+    :param location: Directory to read wikiversions.json from
+    :returns: dict of {version:wikidb} values
+    """
+    with open(os.path.join(location, 'wikiversions.json')) as f:
+        wikiversions = json.load(f)
+
+    versions = {}
+    for wikidb, version in wikiversions.items():
+        version = version[4:]
+        if version not in versions:
+            versions[version] = wikidb
+
+    return versions
+
+
 @contextlib.contextmanager
 def lock(filename):
     """Context manager. Acquires a file lock on entry, releases on exit."""
@@ -48,17 +67,6 @@ def lock(filename):
             yield
         finally:
             fcntl.lockf(lock_fd, fcntl.LOCK_UN)
-
-
-def cdb_items(buf):
-    """Iterates over CDB key/value pairs."""
-    table_start, = struct.unpack_from('<L', buf)
-    offset = 2048
-    while offset < table_start:
-        lengths = struct.unpack_from('<LL', buf, offset)
-        offset += 8
-        yield struct.unpack_from('%ds %ds' % lengths, buf, offset)
-        offset += sum(lengths)
 
 
 def human_duration(elapsed):

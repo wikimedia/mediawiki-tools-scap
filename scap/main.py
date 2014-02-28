@@ -15,6 +15,57 @@ from . import tasks
 from . import utils
 
 
+def mwversionsinuse():
+    """Get a list of the active MediaWiki versions.
+
+    :returns: Integer exit status suitable for use with ``sys.exit``
+    """
+    logger = logging.getLogger('wikiversions')
+    try:
+        parser = argparse.ArgumentParser(
+            description='Get a list of the active MW versions')
+        parser.add_argument('-c', '--conf',
+            dest='conf_file', default='/usr/local/lib/mw-deployment-vars.sh',
+            help='Path to configuration file')
+        parser.add_argument('--withdb', action='store_true',
+            help='Add `=wikidb` with some wiki using the version.')
+        args, unexpected = parser.parse_known_args()
+
+        args.cfg = None
+        args.cfg = utils.get_config(args.conf_file)
+
+        if unexpected:
+            logger.warning('Unexpected argument(s) ignored: %s', unexpected)
+
+        versions = utils.wikiversions(args.cfg['MW_COMMON'])
+
+        if args.withdb:
+            output = ['%s=%s' % (version, wikidb)
+                    for version, wikidb in versions.items()]
+        else:
+            output = [str(version) for version in versions.keys()]
+
+        print ' '.join(output)
+        return 0
+
+    except SystemExit:
+        # Triggered by sys.exit() calls
+        raise
+
+    except KeyboardInterrupt:
+        # Handle ctrl-c from interactive user
+        if logger:
+            logger.warning('wikiversions aborted')
+        return 1
+
+    except Exception as ex:
+        # Handle all unhandled exceptions and errors
+        if logger:
+            logger.debug('Unhandled error:', exc_info=True)
+            logger.error('wikiversions failed: <%s> %s', type(ex).__name__, ex)
+        return 1
+
+
 def sync_common():
     """Command wrapper for :func:`tasks.sync_common`
 

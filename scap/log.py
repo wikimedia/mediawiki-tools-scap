@@ -244,10 +244,9 @@ def setup_loggers():
     logging.basicConfig(
         level=logging.DEBUG,
         format=CONSOLE_LOG_FORMAT,
-        datefmt='%H:%M:%S',
-        stream=sys.stdout)
+        datefmt='%H:%M:%S')
 
-    # Colorize log messages to stdout
+    # Colorize log messages sent to stderr
     logging.root.handlers[0].setFormatter(AnsiColorFormatter(
         CONSOLE_LOG_FORMAT, '%H:%M:%S'))
 
