@@ -1,0 +1,72 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "4e04eb01_226cc304",
+        "filename": "scap/main.py",
+        "patchSetId": 2
+      },
+      "lineNbr": 30,
+      "author": {
+        "id": 255
+      },
+      "writtenOn": "2014-02-28T07:19:14Z",
+      "side": 1,
+      "message": "How should I know which one I want? What do MW_COMMON_SOURCE and MW_COMMON represent, conceptually?",
+      "revId": "96e4666bdf8cd940224946a133f74f3b137d2fa1",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "4e04eb01_42690ff5",
+        "filename": "scap/main.py",
+        "patchSetId": 2
+      },
+      "lineNbr": 32,
+      "author": {
+        "id": 255
+      },
+      "writtenOn": "2014-02-28T07:19:14Z",
+      "side": 1,
+      "message": "I don\u0027t get what this does",
+      "revId": "96e4666bdf8cd940224946a133f74f3b137d2fa1",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "4e04eb01_82a7174c",
+        "filename": "scap/main.py",
+        "patchSetId": 2
+      },
+      "lineNbr": 34,
+      "author": {
+        "id": 255
+      },
+      "writtenOn": "2014-02-28T07:19:14Z",
+      "side": 1,
+      "message": "That\u0027s the \"2\u003e/dev/null\" command-line argument, which the shell gives you for free. This doesn\u0027t need to be an option.",
+      "revId": "96e4666bdf8cd940224946a133f74f3b137d2fa1",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "4e04eb01_c27cffb6",
+        "filename": "scap/tasks.py",
+        "patchSetId": 2
+      },
+      "lineNbr": 58,
+      "author": {
+        "id": 255
+      },
+      "writtenOn": "2014-02-28T07:19:14Z",
+      "side": 1,
+      "message": "Why would you take a data structure that already is a lookup table and mangle it into something that separates entries partly by data structure, partly by string convention?",
+      "revId": "96e4666bdf8cd940224946a133f74f3b137d2fa1",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
+    }
+  ]
+}
