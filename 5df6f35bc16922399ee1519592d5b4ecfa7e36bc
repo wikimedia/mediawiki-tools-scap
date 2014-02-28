@@ -37,6 +37,24 @@
     },
     {
       "key": {
+        "uuid": "4e04eb01_73a29b3c",
+        "filename": "scap/main.py",
+        "patchSetId": 5
+      },
+      "lineNbr": 81,
+      "author": {
+        "id": 1001
+      },
+      "writtenOn": "2014-02-28T18:44:48Z",
+      "side": 0,
+      "message": "My understanding is that bits needs at least 30 days of prior versions due to caching. We could be better about cleaning up which would get us down to 7 versions on any given Thursday if my math is right.\n\nThat\u0027s much better than 12 (11 really and one experiment that may be in the wrong place), but still more than 2 or 3. Moving away from rsync to git could make this a moot point, but that\u0027s a leap that I don\u0027t think we\u0027re quite ready to take yet.",
+      "parentUuid": "4e04eb01_13e6b7ac",
+      "revId": "5df6f35bc16922399ee1519592d5b4ecfa7e36bc",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "4e04eb01_d843ce65",
         "filename": "scap/tasks.py",
         "patchSetId": 5
