@@ -33,6 +33,24 @@
       "revId": "0fc0e3ded0a1376d1eca0cd67977f525d66b0c01",
       "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
       "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "4e04eb01_1307d71d",
+        "filename": "scap/main.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 92,
+      "author": {
+        "id": 1001
+      },
+      "writtenOn": "2014-02-28T16:36:47Z",
+      "side": 1,
+      "message": "It certainly would be except in the case that --conf is given and WM_COMMON_SOURCE is something other than /a/common. Maybe --conf should die but that\u0027s another question.",
+      "parentUuid": "4e04eb01_223a83e4",
+      "revId": "0fc0e3ded0a1376d1eca0cd67977f525d66b0c01",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
     }
   ]
 }
