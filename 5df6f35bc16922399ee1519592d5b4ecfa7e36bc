@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "4e04eb01_0eae907d",
+        "filename": "scap/log.py",
+        "patchSetId": 3
+      },
+      "lineNbr": 248,
+      "author": {
+        "id": 1001
+      },
+      "writtenOn": "2014-02-28T19:43:51Z",
+      "side": 0,
+      "message": "Putting console logging back on stderr (default stream) so that `2\u003e/dev/null` message squelching works for commands executed from the shell. Also not nearly as important now that we have logs streamed to fluorine and I\u0027m not recording sessions using `tee`.",
+      "revId": "5df6f35bc16922399ee1519592d5b4ecfa7e36bc",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
+    }
+  ]
+}

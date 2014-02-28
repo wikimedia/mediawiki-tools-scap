@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "4e04eb01_8ed86023",
+        "filename": "scap/main.py",
+        "patchSetId": 3
+      },
+      "lineNbr": 32,
+      "author": {
+        "id": 1001
+      },
+      "writtenOn": "2014-02-28T19:43:51Z",
+      "side": 1,
+      "message": "Allow extra command line arguments and log a warning so we don\u0027t break other random scripts that are still using flags that we have removed.",
+      "revId": "100cf10f1fa13f9400c9000fefea8660dac94c9c",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
+    }
+  ]
+}
