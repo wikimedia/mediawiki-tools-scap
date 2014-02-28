@@ -19,6 +19,24 @@
     },
     {
       "key": {
+        "uuid": "4e04eb01_13e6b7ac",
+        "filename": "scap/main.py",
+        "patchSetId": 5
+      },
+      "lineNbr": 81,
+      "author": {
+        "id": 255
+      },
+      "writtenOn": "2014-02-28T18:07:59Z",
+      "side": 0,
+      "message": "Then just delete the older dirs. If they are not getting scapped, they are not trivial to roll back to, and we never do anyway.",
+      "parentUuid": "4e04eb01_f817aa54",
+      "revId": "5df6f35bc16922399ee1519592d5b4ecfa7e36bc",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "4e04eb01_d843ce65",
         "filename": "scap/tasks.py",
         "patchSetId": 5
