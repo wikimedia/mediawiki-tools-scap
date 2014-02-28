@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "4e04eb01_1f06c0d1",
+        "filename": "bin/sync-dblist",
+        "patchSetId": 1
+      },
+      "lineNbr": 6,
+      "author": {
+        "id": 1001
+      },
+      "writtenOn": "2014-02-28T00:58:24Z",
+      "side": 0,
+      "message": "don\u0027t echo mediawiki-installation?",
+      "revId": "51ea36d54ab57483fa99c869a9d380f8d7b5a4c6",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
+    }
+  ]
+}
