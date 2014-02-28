@@ -1,0 +1,38 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "4e04eb01_a25e9346",
+        "filename": "scap/main.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 73,
+      "author": {
+        "id": 255
+      },
+      "writtenOn": "2014-02-28T07:29:11Z",
+      "side": 1,
+      "message": "specified",
+      "revId": "0fc0e3ded0a1376d1eca0cd67977f525d66b0c01",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "4e04eb01_223a83e4",
+        "filename": "scap/main.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 92,
+      "author": {
+        "id": 255
+      },
+      "writtenOn": "2014-02-28T07:29:11Z",
+      "side": 1,
+      "message": "This is better handled using the \u0027choices\u0027 arg for add_argument",
+      "revId": "0fc0e3ded0a1376d1eca0cd67977f525d66b0c01",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
+    }
+  ]
+}
