@@ -137,18 +137,18 @@ def scap(args):
 
         # Update rsync proxies
         scap_proxies = utils.read_dsh_hosts_file('scap-proxies')
-        with log.Timer('scap-1 to proxies', stats):
-            run_on_cluster('scap-1', scap_proxies,
-                '/usr/local/bin/scap-1', env)
+        with log.Timer('sync-common to proxies', stats):
+            run_on_cluster('sync-common', scap_proxies,
+                '/usr/local/bin/sync-common', env)
 
         # Randomize the order of target machines.
         mw_install_hosts = utils.read_dsh_hosts_file('mediawiki-installation')
         random.shuffle(mw_install_hosts)
 
         with log.Timer('update apaches', stats) as t:
-            run_on_cluster('scap-1', mw_install_hosts,
-                    ['/usr/local/bin/scap-1'] + scap_proxies, env)
-            t.mark('scap-1 to apaches')
+            run_on_cluster('sync-common', mw_install_hosts,
+                    ['/usr/local/bin/sync-common'] + scap_proxies, env)
+            t.mark('sync-common to apaches')
 
             run_on_cluster('scap-rebuild-cdbs', mw_install_hosts,
                 '/usr/local/bin/scap-rebuild-cdbs', env)

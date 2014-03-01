@@ -19,12 +19,12 @@ production cluster.
    * :func:`scap.tasks.scap`
 
 
-scap-1
-======
-``scap-1`` (also known as ``sync-common``) uses rsync to fetch MediaWiki code
-and configuration to the local host.
+sync-common
+===========
+``sync-common`` uses rsync to fetch MediaWiki code and configuration to the
+local host.
 
-.. program-output:: ../bin/scap-1 --help
+.. program-output:: ../bin/sync-common --help
 .. seealso::
    * :func:`scap.sync_common`
    * :func:`scap.tasks.sync_common`
