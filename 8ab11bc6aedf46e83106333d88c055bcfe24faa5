@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "4e04eb01_041e6f63",
+        "filename": "scap/ssh.py",
+        "patchSetId": 7
+      },
+      "lineNbr": 92,
+      "author": {
+        "id": 1001
+      },
+      "writtenOn": "2014-03-01T00:21:44Z",
+      "side": 1,
+      "message": "This looks really ugly in practice:\n\n    [\u0027sudo\u0027, \u0027-umwdeploy\u0027, \u0027/usr/bin/rsync\u0027, \u0027-l\u0027, \u0027localhost::common/wikiversions.{\njson,cdb}\u0027, \u0027/usr/local/apache/common-local\u0027]: 100% (ok: 1; fail: 0; left: 0)",
+      "revId": "8ab11bc6aedf46e83106333d88c055bcfe24faa5",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
+    }
+  ]
+}
