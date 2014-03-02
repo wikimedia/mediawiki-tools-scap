@@ -11,9 +11,9 @@ import random
 import socket
 import subprocess
 
-from . import utils
 from . import log
 from . import ssh
+from . import utils
 
 
 DEFAULT_RSYNC_ARGS = (
@@ -37,47 +37,45 @@ def check_php_syntax(*paths):
 
 
 def sync_common(cfg, sync_from=None):
-    """Sync MW_COMMON
+    """Sync local deploy dir with upstream rsync server's copy
 
-    Rsync from ``server::common/`` to the local ``MW_COMMON`` directory.
+    Rsync from ``server::common/`` to the local deploy directory.
     If a list of servers is given in ``sync_from`` we will attempt to select
     the "best" one to sync from. If no servers are given or all servers given
     have issues we will fall back to using the server named by
-    ``MW_RSYNC_HOST`` in the configuration data.
+    ``master_rsync`` in the configuration data.
 
     :param cfg: Global configuration
-    :type cfg: dict
-    :param sync_from: Rsync servers to fetch from.
-    :type sync_from: list
+    :param sync_from: List of rsync servers to fetch from.
     """
     logger = logging.getLogger('sync_common')
-    target = cfg['MW_COMMON']
-    if not os.path.isdir(target):
+
+    if not os.path.isdir(cfg['deploy_dir']):
         raise Exception(('rsync target directory %s not found. '
-            'Ask root to create it.') % target)
+            'Ask root to create it.') % cfg['deploy_dir'])
 
     server = None
     if sync_from:
         server = utils.find_nearest_host(sync_from)
     if server is None:
-        server = cfg['MW_RSYNC_HOST']
+        server = cfg['master_rsync']
     server = server.strip()
 
     # Execute rsync fetch locally via sudo
     rsync = ('sudo', '-u', 'mwdeploy') + DEFAULT_RSYNC_ARGS
-    rsync += ('%s::common' % server, cfg['MW_COMMON'])
+    rsync += ('%s::common' % server, cfg['deploy_dir'])
 
     logger.debug('Copying to %s from %s', socket.getfqdn(), server)
-    stats = log.Stats(cfg['MW_STATSD_HOST'], cfg['MW_STATSD_PORT'])
+    stats = log.Stats(cfg['statsd_host'], int(cfg['statsd_port']))
     with log.Timer('rsync common', stats):
         subprocess.check_call(rsync)
 
 
-def scap(args):
+def scap(message, cfg):
     """Core business logic of scap process.
 
     1. Validate php syntax of wmf-config and multiversion
-    2. Sync MW_COMMON on localhost with staging area
+    2. Sync deploy directory on localhost with staging area
     3. Update l10n files in staging area
     4. Ask scap proxies to sync with master server
     5. Ask apaches to sync with fastest rsync server
@@ -85,22 +83,22 @@ def scap(args):
     7. Update wikiversions.cdb on localhost
     8. Ask apaches to sync wikiversions.cdb
 
-    :param args: Command line arguments and configuration
-    :type args: argparse.Namespace
+    :param message: Reason for running scap
+    :param cfg: Configuration settings
     """
     logger = logging.getLogger('scap')
-    stats = log.Stats(args.cfg['MW_STATSD_HOST'], args.cfg['MW_STATSD_PORT'])
+    stats = log.Stats(cfg['statsd_host'], int(cfg['statsd_port']))
 
     with utils.lock('/var/lock/scap'):
-        logger.info('Started scap: %s', args.message)
+        logger.info('Started scap: %s', message)
 
-        check_php_syntax('%(MW_COMMON_SOURCE)s/wmf-config' % args.cfg,
-                         '%(MW_COMMON_SOURCE)s/multiversion' % args.cfg)
+        check_php_syntax('%(stage_dir)s/wmf-config' % cfg,
+                         '%(stage_dir)s/multiversion' % cfg)
 
         # Update the current machine so that serialization works. Push
         # wikiversions.json changes so mwversionsinuse, set-group-write,
         # and mwscript work with the right version of the files.
-        sync_common(args.cfg)
+        sync_common(cfg)
 
         # Update list of extension message files and regenerate the
         # localisation cache.
@@ -126,9 +124,9 @@ def scap(args):
             t.mark('scap-rebuild-cdbs')
 
         with log.Timer('syncing wikiversions.cdb', stats) as t:
-            subprocess.check_call('%(MW_COMMON_SOURCE)s/multiversion/'
-                'refreshWikiversionsCDB' % args.cfg)
+            subprocess.check_call('%(stage_dir)s/multiversion/'
+                'refreshWikiversionsCDB' % cfg)
             ssh.cluster_monitor(mw_install_hosts,
                 'sudo -u mwdeploy /usr/bin/rsync -l '
-                '%(MW_RSYNC_HOST)s::common/wikiversions.{json,cdb} '
-                '%(MW_COMMON)s' % args.cfg)
+                '%(master_rsync)s::common/wikiversions.{json,cdb} '
+                '%(deploy_dir)s' % cfg)

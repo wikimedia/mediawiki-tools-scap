@@ -8,7 +8,6 @@
 import contextlib
 import errno
 import fcntl
-import imp
 import json
 import os
 import random
@@ -27,17 +26,6 @@ def read_dsh_hosts_file(path):
             return re.findall(r'^[\w\.]+', hosts_file.read(), re.MULTILINE)
     except IOError, e:
         raise IOError(e.errno, e.strerror, path)
-
-
-def get_config(cfg_file='/usr/local/lib/mw-deployment-vars.sh'):
-    """Load environment variables from mw-deployment-vars.sh."""
-    try:
-        dep_env = imp.load_source('__env', cfg_file)
-    except IOError, e:
-        raise IOError(e.errno, e.strerror, cfg_file)
-    else:
-        return {k: v for k, v in dep_env.__dict__.items()
-                if k.startswith('MW_')}
 
 
 def wikiversions(location):

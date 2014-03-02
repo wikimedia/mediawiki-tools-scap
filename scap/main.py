@@ -10,9 +10,31 @@ import logging
 import os
 import time
 
+from . import config
 from . import log
 from . import tasks
 from . import utils
+
+
+def get_argparser(*args, **kwargs):
+    """Get an argparse.ArgumentParser instance with common default arguments
+    added."""
+    parser = argparse.ArgumentParser(*args, **kwargs)
+    parser.add_argument('-c', '--conf', dest='conf_file',
+        type=argparse.FileType('r'),
+        help='Path to configuration file')
+    parser.add_argument('-D', '--define', dest='defines', action='append',
+            type=lambda v: tuple(v.split(':')),
+        help='Set a configuration value', metavar='<name>:<value>')
+    return parser
+
+
+def load_config(args):
+    defines = None
+    if args.defines:
+        defines = dict(args.defines)
+    cfg = config.load(args.conf_file, defines)
+    return cfg
 
 
 def mwversionsinuse():
@@ -22,22 +44,18 @@ def mwversionsinuse():
     """
     logger = logging.getLogger('wikiversions')
     try:
-        parser = argparse.ArgumentParser(
+        parser = get_argparser(
             description='Get a list of the active MW versions')
-        parser.add_argument('-c', '--conf',
-            dest='conf_file', default='/usr/local/lib/mw-deployment-vars.sh',
-            help='Path to configuration file')
         parser.add_argument('--withdb', action='store_true',
             help='Add `=wikidb` with some wiki using the version.')
         args, unexpected = parser.parse_known_args()
 
-        args.cfg = None
-        args.cfg = utils.get_config(args.conf_file)
+        cfg = load_config(args)
 
         if unexpected:
             logger.warning('Unexpected argument(s) ignored: %s', unexpected)
 
-        versions = utils.wikiversions(args.cfg['MW_COMMON'])
+        versions = utils.wikiversions(cfg['deploy_dir'])
 
         if args.withdb:
             output = ['%s=%s' % (version, wikidb)
@@ -73,18 +91,14 @@ def sync_common():
     """
     logger = logging.getLogger('sync_common')
     try:
-        parser = argparse.ArgumentParser(description='Sync MW_COMMON')
-        parser.add_argument('-c', '--conf',
-            dest='conf_file', default='/usr/local/lib/mw-deployment-vars.sh',
-            help='Path to configuration file')
+        parser = get_argparser(description='Sync deploy_dir')
         parser.add_argument('servers', nargs=argparse.REMAINDER,
             help='Rsync server(s) to copy from')
         args = parser.parse_args()
-        args.cfg = None
 
-        args.cfg = utils.get_config(args.conf_file)
+        cfg = load_config(args)
 
-        tasks.sync_common(args.cfg, args.servers)
+        tasks.sync_common(cfg, args.servers)
         return 0
 
     except SystemExit:
@@ -110,13 +124,11 @@ def scap():
     """
     start = time.time()
     logger = logging.getLogger('scap')
-    args = None
+    message = '(no message)'
+    cfg = None
     try:
-        parser = argparse.ArgumentParser(description='Deploy MediaWiki',
+        parser = get_argparser(description='Deploy MediaWiki',
                 epilog="Note: a ssh-agent is required to run this script.")
-        parser.add_argument('-c', '--conf',
-            dest='conf_file', default='/usr/local/lib/mw-deployment-vars.sh',
-            help='Path to configuration file')
         parser.add_argument('message', nargs=argparse.REMAINDER,
             help='Log message for SAL')
         args = parser.parse_args()
@@ -124,16 +136,16 @@ def scap():
         assert 'SSH_AUTH_SOCK' in os.environ, \
             'scap requires SSH agent forwarding'
 
-        args.message = ' '.join(args.message) or '(no message)'
-        args.cfg = None
+        if args.message:
+            message = ' '.join(args.message)
 
-        args.cfg = utils.get_config(args.conf_file)
+        cfg = load_config(args)
 
-        tasks.scap(args)
+        tasks.scap(message, cfg)
         duration = time.time() - start
 
         logger.info('Finished scap: %s (duration: %s)',
-            args.message, utils.human_duration(duration))
+            message, utils.human_duration(duration))
         return 0
 
     except SystemExit:
@@ -143,9 +155,8 @@ def scap():
     except KeyboardInterrupt:
         # Handle ctrl-c from interactive user
         duration = time.time() - start
-        msg = args.message if args else ''
         logger.warning('scap aborted: %s (duration: %s)',
-            msg, utils.human_duration(duration))
+            message, utils.human_duration(duration))
         return 1
 
     except Exception as ex:
@@ -157,8 +168,7 @@ def scap():
         return 1
 
     finally:
-        if args and args.cfg:
-            stats = log.Stats(
-                args.cfg['MW_STATSD_HOST'], args.cfg['MW_STATSD_PORT'])
+        if cfg:
+            stats = log.Stats(cfg['statsd_host'], int(cfg['statsd_port']))
             stats.increment('scap.scap')
             stats.timing('scap.scap', duration * 1000)
