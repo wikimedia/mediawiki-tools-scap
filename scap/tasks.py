@@ -9,7 +9,6 @@ import errno
 import json
 import logging
 import os
-import random
 import socket
 import subprocess
 
@@ -144,10 +143,12 @@ def sync_wikiversions(hosts, cfg):
     stats = log.Stats(cfg['statsd_host'], int(cfg['statsd_port']))
     with log.Timer('sync_wikiversions', stats):
         compile_wikiversions_cdb(cfg)
-        ssh.cluster_monitor(hosts,
-            'sudo -u mwdeploy /usr/bin/rsync -l '
+
+        rsync = ssh.Job(hosts).shuffle()
+        rsync.command('sudo -u mwdeploy /usr/bin/rsync -l '
             '%(master_rsync)s::common/wikiversions*.{json,cdb} '
             '%(deploy_dir)s' % cfg)
+        rsync.progress('sync_wikiversions').run()
 
 
 def scap(cfg):
@@ -183,19 +184,23 @@ def scap(cfg):
         # Update rsync proxies
         scap_proxies = utils.read_dsh_hosts_file('scap-proxies')
         with log.Timer('sync-common to proxies', stats):
-            ssh.cluster_monitor(scap_proxies, '/usr/local/bin/sync-common')
+            update_proxies = ssh.Job(scap_proxies)
+            update_proxies.command('/usr/local/bin/sync-common')
+            update_proxies.progress('sync-common').run()
 
-        # Randomize the order of target machines.
         mw_install_hosts = utils.read_dsh_hosts_file('mediawiki-installation')
-        random.shuffle(mw_install_hosts)
-
         with log.Timer('update apaches', stats) as t:
-            ssh.cluster_monitor(mw_install_hosts,
-                    ['/usr/local/bin/sync-common'] + scap_proxies)
+            update_apaches = ssh.Job(mw_install_hosts)
+            update_apaches.exclude_hosts(scap_proxies)
+            update_apaches.shuffle()
+            update_apaches.command(
+                ['/usr/local/bin/sync-common'] + scap_proxies)
+            update_apaches.progress('sync-common').run()
             t.mark('sync-common to apaches')
 
-            ssh.cluster_monitor(mw_install_hosts,
-                '/usr/local/bin/scap-rebuild-cdbs')
+            rebuild_cdbs = ssh.Job(mw_install_hosts)
+            rebuild_cdbs.command('/usr/local/bin/scap-rebuild-cdbs')
+            rebuild_cdbs.progress('scap-rebuild-cdbs').run()
             t.mark('scap-rebuild-cdbs')
 
         # Update and sync wikiversions.cdb

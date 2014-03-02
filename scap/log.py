@@ -331,3 +331,74 @@ class Timer(object):
             label = re.sub(r'\W', '_', label.lower())
             self.stats.increment('scap.%s' % label)
             self.stats.timing('scap.%s' % label, elapsed * 1000)
+
+
+class ProgressReporter(object):
+    """Track and display progress of a process.
+
+    Report on the status of a multi-step process by displaying the completion
+    percentage and succes, failure and remaining task counts on a single
+    output line.
+    """
+
+    def __init__(self, name, expect=0, fd=sys.stderr):
+        """
+        :param name: Name of command being monitored
+        :param expect: Number of results to expect
+        :param fd: File handle to write status messages to
+        """
+        self._name = name
+        self._expect = expect
+        self._done = 0
+        self._ok = 0
+        self._failed = 0
+        self._fd = fd
+
+    @property
+    def ok(self):
+        return self._ok
+
+    @property
+    def failed(self):
+        return self._failed
+
+    @property
+    def remaining(self):
+        return self._expect - self._done
+
+    @property
+    def percent_complete(self):
+        return 100.0 * (float(self._done) / max(self._expect, 1))
+
+    def expect(self, count):
+        """Set expected result count."""
+        self._expect = count
+
+    def start(self):
+        """Start tracking progress."""
+        self._progress()
+
+    def finish(self):
+        """Finish tracking progress."""
+        self._progress()
+        self._fd.write('\n')
+
+    def add_success(self):
+        """Record a sucessful task completion."""
+        self._done += 1
+        self._ok += 1
+        self._progress()
+
+    def add_failure(self):
+        """Record a failed task completion."""
+        self._done += 1
+        self._failed += 1
+        self._progress()
+
+    def _progress(self):
+        self._fd.write('%-80s\r' % self._output())
+
+    def _output(self):
+        return '%s: %3.0f%% (ok: %d; fail: %d; left: %d)' % (
+            self._name, self.percent_complete,
+            self.ok, self.failed, self.remaining)

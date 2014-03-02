@@ -8,10 +8,12 @@
 """
 import logging
 import os
+import random
 import select
 import shlex
 import subprocess
-import sys
+
+from . import log
 
 
 SSH = ('/usr/bin/ssh', '-oBatchMode=yes', '-oSetupTimeout=10')
@@ -20,6 +22,12 @@ SSH = ('/usr/bin/ssh', '-oBatchMode=yes', '-oSetupTimeout=10')
 def cluster_ssh(hosts, command, limit=80):
     """Run a command via SSH on multiple hosts concurrently."""
     hosts = set(hosts)
+
+    try:
+        command = shlex.split(command)
+    except AttributeError:
+        pass
+
     procs = {}
     fds = {}
     poll = select.epoll()
@@ -48,51 +56,79 @@ def cluster_ssh(hosts, command, limit=80):
             proc.kill()
 
 
-def cluster_monitor(hosts, command):
-    """Monitor execution of a command on the cluster.
+class Job(object):
+    """Execute a job on a group of remote hosts via ssh."""
+    _logger = None
 
-    Run a command on the cluster via ssh and monitor progress with a live
-    updating progress message and real-time error logging. Progress messages
-    are sent to stderr. Failed commands will be logged as warnings as they
-    occur. Returns the count of successful and failed commands.
+    def __init__(self, hosts=None, command=None):
+        self.hosts(hosts or [])
+        self._command = command
 
-    :param hosts: Hosts to execute command on
-    :type host: sequence
-    :param command: Command to execute
-    :type command: str or sequence
-    :returns: tuple (count of successful responses, count of failed responses)
-    """
-    logger = logging.getLogger('ssh')
-    expect = len(hosts)
-    ok = 0
-    failed = 0
-    done = 0
+    @property
+    def logger(self):
+        """Lazy getter for a logger instance."""
+        if self._logger is None:
+            self._logger = logging.getLogger('scap.ssh.job')
+        return self._logger
 
-    try:
-        command = shlex.split(command)
-    except AttributeError:
-        pass
+    def hosts(self, hosts):
+        """Set hosts to run command on."""
+        self._hosts = list(hosts)
+        return self
 
-    try:
-        for done, (host, status, output) in \
-                enumerate(cluster_ssh(hosts, command), start=1):
+    def shuffle(self):
+        """Randomize order of target hosts."""
+        random.shuffle(self._hosts)
+        return self
+
+    def exclude_hosts(self, exclude):
+        exclude = list(exclude)
+        self.hosts([host for host in self._hosts if host not in exclude])
+
+    def command(self, command):
+        """Set command to run."""
+        self._command = command
+        return self
+
+    def progress(self, label):
+        """Monitor job progress with a :class:`log.ProgressReporter`.
+
+        Use of this method changes the runtime behavior of :meth:`run` to
+        return counts of successes and failures instead of a list of results.
+        """
+        self._reporter = log.ProgressReporter(label)
+        return self
+
+    def run(self, batch_size=80):
+        """Run the job.
+
+        :returns: List of (host, status, output) tuples or
+                  tuple of (success, fail) counts
+        """
+        assert self._command, 'Command must be provided'
+        if not self._hosts:
+            self.logger.warning('Job %s called with an empty host list.',
+                self._command)
+            return None
+
+        if self._reporter:
+            return self._run_with_reporter(batch_size)
+        else:
+            return list(cluster_ssh(self._hosts, self._command, batch_size))
+
+    def _run_with_reporter(self, batch_size):
+        """Run job and feed results to a :class:`log.ProgressReporter` as they
+        come in."""
+        self._reporter.expect(len(self._hosts))
+        self._reporter.start()
+
+        for host, status, output in cluster_ssh(
+                self._hosts, self._command, batch_size):
             if status == 0:
-                ok += 1
+                self._reporter.add_success()
             else:
-                failed += 1
-                if done > 1:
-                    # Start a new console line on the assumption that logger
-                    # will be appending to console as well.
-                    sys.stderr.write('\n')
-                logger.warning('%s on %s returned [%d]: %s',
-                    command, host, status, output)
-
-            # Jump cursor back to position 0 and write status message.
-            sys.stderr.write('\r%s: %.0f%% (ok: %d; fail: %d; left: %d)' % (
-                command, 100.0 * (float(done) / expect), ok, failed,
-                expect - done))
-
-    finally:
-        sys.stderr.write('\n')
-
-    return (ok, failed)
+                self.logger.warning('%s on %s returned [%d]: %s',
+                    self._command, host, status, output)
+                self._reporter.add_failure()
+        self._reporter.finish()
+        return self._reporter.ok, self._reporter.failed
