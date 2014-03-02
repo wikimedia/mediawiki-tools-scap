@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "4e04eb01_73485460",
+        "filename": "scap/ssh.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 103,
+      "author": {
+        "id": 1001
+      },
+      "writtenOn": "2014-03-02T20:45:24Z",
+      "side": 1,
+      "message": "Log something like:\n\n    rsync: 100% (ok: 1; fail: 0; left: 0)\n\nrather than:\n\n    [\u0027sudo\u0027, \u0027-u\u0027, \u0027mwdeploy\u0027, \u0027/usr/bin/rsync\u0027, \u0027-l\u0027, \u0027localhost::common/wikiversions.{json,cdb}\u0027, \u0027/usr/local/apache/common-local\u0027]: 100% (ok: 1; fail: 0; left: 0)",
+      "revId": "e693f444e0bdc625200592a78946e1b63d133816",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
+    }
+  ]
+}
