@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "4e04eb01_feee6b85",
+        "filename": "scap/main.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 19,
+      "author": {
+        "id": 1001
+      },
+      "writtenOn": "2014-03-03T04:58:35Z",
+      "side": 1,
+      "message": "These abstractions are done better in the follow on changes in I1ccf437.",
+      "revId": "cbea42eeebe92e889179c78542c75511de693c85",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
+    }
+  ]
+}
