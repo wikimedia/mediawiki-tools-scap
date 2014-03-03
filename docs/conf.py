@@ -24,4 +24,5 @@ html_theme = 'nature'
 #html_static_path = ['_static']
 htmlhelp_basename = 'scapdoc'
 
+autodoc_default_flags = ['members', 'private-members', 'special-members']
 autodoc_memeber_order = 'groupwise'
