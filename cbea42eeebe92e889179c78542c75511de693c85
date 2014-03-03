@@ -2,6 +2,74 @@
   "comments": [
     {
       "key": {
+        "uuid": "4e04eb01_39f18dc8",
+        "filename": "scap.cfg",
+        "patchSetId": 1
+      },
+      "lineNbr": 5,
+      "author": {
+        "id": 24
+      },
+      "writtenOn": "2014-03-03T11:31:08Z",
+      "side": 1,
+      "message": "Insert a new line above the example, easier to the eyes.",
+      "revId": "cbea42eeebe92e889179c78542c75511de693c85",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "4e04eb01_99d30130",
+        "filename": "scap.cfg",
+        "patchSetId": 1
+      },
+      "lineNbr": 6,
+      "author": {
+        "id": 24
+      },
+      "writtenOn": "2014-03-03T11:31:08Z",
+      "side": 1,
+      "message": "According to the code, [defaults] should be [global] there",
+      "revId": "cbea42eeebe92e889179c78542c75511de693c85",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "4e04eb01_59cd7987",
+        "filename": "scap.cfg",
+        "patchSetId": 1
+      },
+      "lineNbr": 21,
+      "author": {
+        "id": 24
+      },
+      "writtenOn": "2014-03-03T11:31:08Z",
+      "side": 1,
+      "message": "Thanks for the renaming the MW_ env variable have always confused me.",
+      "revId": "cbea42eeebe92e889179c78542c75511de693c85",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "4e04eb01_198ed133",
+        "filename": "scap/config.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 78,
+      "author": {
+        "id": 24
+      },
+      "writtenOn": "2014-03-03T11:31:08Z",
+      "side": 1,
+      "message": "ConfigParser already has option keys normalized to lower key. The case insensitiveness seems to be needed for the config sections. I would much rather:\n- read the conf and normalize all section entries to lower case when loading the .cfg file.\n- access the dict keys with cfg[\u0027deploy_dir\u0027] instead of member\n\nAnd then drop ConfigDict entirely.",
+      "revId": "cbea42eeebe92e889179c78542c75511de693c85",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "4e04eb01_feee6b85",
         "filename": "scap/main.py",
         "patchSetId": 1
