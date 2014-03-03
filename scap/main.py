@@ -10,6 +10,7 @@ import logging
 import os
 import time
 
+from . import cli
 from . import config
 from . import log
 from . import tasks
@@ -37,27 +38,15 @@ def load_config(args):
     return cfg
 
 
-def mwversionsinuse():
-    """Get a list of the active MediaWiki versions.
+class MWVersionsInUse(cli.Application):
+    """Get a list of the active MediaWiki versions."""
 
-    :returns: Integer exit status suitable for use with ``sys.exit``
-    """
-    logger = logging.getLogger('wikiversions')
-    try:
-        parser = get_argparser(
-            description='Get a list of the active MW versions')
-        parser.add_argument('--withdb', action='store_true',
-            help='Add `=wikidb` with some wiki using the version.')
-        args, unexpected = parser.parse_known_args()
+    @cli.argument('--withdb', action='store_true',
+        help='Add `=wikidb` with some wiki using the version.')
+    def main(self, *extra_args):
+        versions = utils.wikiversions(self.config['deploy_dir'])
 
-        cfg = load_config(args)
-
-        if unexpected:
-            logger.warning('Unexpected argument(s) ignored: %s', unexpected)
-
-        versions = utils.wikiversions(cfg['deploy_dir'])
-
-        if args.withdb:
+        if self.arguments.withdb:
             output = ['%s=%s' % (version, wikidb)
                     for version, wikidb in versions.items()]
         else:
@@ -66,22 +55,13 @@ def mwversionsinuse():
         print ' '.join(output)
         return 0
 
-    except SystemExit:
-        # Triggered by sys.exit() calls
-        raise
+    def _process_arguments(self, args, extra_args):
+        """Log warnings about unexpected arguments but don't exit."""
+        if extra_args:
+            self.logger.warning(
+                'Unexpected argument(s) ignored: %s', extra_args)
 
-    except KeyboardInterrupt:
-        # Handle ctrl-c from interactive user
-        if logger:
-            logger.warning('wikiversions aborted')
-        return 1
-
-    except Exception as ex:
-        # Handle all unhandled exceptions and errors
-        if logger:
-            logger.debug('Unhandled error:', exc_info=True)
-            logger.error('wikiversions failed: <%s> %s', type(ex).__name__, ex)
-        return 1
+        return args, extra_args
 
 
 def sync_common():
