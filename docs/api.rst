@@ -15,3 +15,10 @@ API
 .. automodule:: scap.tasks
 
 .. automodule:: scap.utils
+
+Third party
+===========
+
+cdblib
+------
+.. automodule:: scap.cdblib

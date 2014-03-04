@@ -116,3 +116,38 @@ def find_nearest_host(hosts, port=22, timeout=1):
                 return host
             finally:
                 s.close()
+
+
+def get_realm_specific_filename(filename, realm, datacenter):
+    """Find the most specific file for the given realm and datacenter.
+
+    The extension is separated from the filename and then recombined with the
+    realm and datacenter:
+    - base-realm-datacenter.ext
+    - base-realm.ext
+    - base-datacenter.ext
+    """
+    base, ext = os.path.splitext(filename)
+
+    if ext == '':
+        return filename
+
+    parts = {
+        'base': base,
+        'realm': realm,
+        'datacenter': datacenter,
+        'ext': ext,
+    }
+
+    possible = (
+        '%(base)s-%(realm)s-%(datacenter)%(ext)s',
+        '%(base)s-%(realm)s%(ext)s',
+        '%(base)s-%(datacenter)%(ext)s',
+    )
+
+    for new_filename in (p % parts for p in possible):
+        if os.path.isfile(new_filename):
+            return new_filename
+
+    # If all else fails, return the original filename
+    return filename

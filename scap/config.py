@@ -16,6 +16,8 @@ DEFAULT_CONFIG = {
     'master_rsync': 'localhost',
     'statsd_host': '127.0.0.1',
     'statsd_port': 2003,
+    'wmf_realm': 'production',
+    'datacenter': 'pmtpa',
 }
 
 
