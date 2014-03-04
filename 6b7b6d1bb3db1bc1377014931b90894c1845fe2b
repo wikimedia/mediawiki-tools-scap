@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "4e04eb01_bb5fca76",
+        "filename": "docs/api.rst",
+        "patchSetId": 2
+      },
+      "lineNbr": 16,
+      "author": {
+        "id": 24
+      },
+      "writtenOn": "2014-03-04T17:53:01Z",
+      "side": 1,
+      "message": "I wanted to use http://sphinx-doc.org/man/sphinx-apidoc.html before running sphinx build. It is supposed to generate that file for you automatically.\n\nI eventually gave up, since there is only a few modules maintaining the list manually is not going to be too much of an hassle.",
+      "revId": "6b7b6d1bb3db1bc1377014931b90894c1845fe2b",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
+    }
+  ]
+}
