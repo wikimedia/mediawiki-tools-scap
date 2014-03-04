@@ -7,17 +7,17 @@
 
 """
 from .main import MWVersionsInUse
-from .main import scap
+from .main import Scap
 from .main import SyncCommon
 
 from . import log
 
 __all__ = (
     'MWVersionsInUse',
-    'scap',
+    'Scap',
     'SyncCommon',
 )
 
-any((MWVersionsInUse, scap, SyncCommon))  # Ignore unused import warning
+any((MWVersionsInUse, Scap, SyncCommon))  # Ignore unused import warning
 
 log.setup_loggers()

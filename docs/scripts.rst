@@ -12,7 +12,7 @@ production cluster.
 
 .. program-output:: ../bin/scap --help
 .. seealso::
-   * :func:`scap.scap`
+   * :func:`scap.Scap`
    * :func:`scap.tasks.scap`
 
 

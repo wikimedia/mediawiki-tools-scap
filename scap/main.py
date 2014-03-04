@@ -6,36 +6,13 @@
 
 """
 import argparse
-import logging
 import os
 import time
 
 from . import cli
-from . import config
 from . import log
 from . import tasks
 from . import utils
-
-
-def get_argparser(*args, **kwargs):
-    """Get an argparse.ArgumentParser instance with common default arguments
-    added."""
-    parser = argparse.ArgumentParser(*args, **kwargs)
-    parser.add_argument('-c', '--conf', dest='conf_file',
-        type=argparse.FileType('r'),
-        help='Path to configuration file')
-    parser.add_argument('-D', '--define', dest='defines', action='append',
-            type=lambda v: tuple(v.split(':')),
-        help='Set a configuration value', metavar='<name>:<value>')
-    return parser
-
-
-def load_config(args):
-    defines = None
-    if args.defines:
-        defines = dict(args.defines)
-    cfg = config.load(args.conf_file, defines)
-    return cfg
 
 
 class MWVersionsInUse(cli.Application):
@@ -74,58 +51,53 @@ class SyncCommon(cli.Application):
         return 0
 
 
-def scap():
-    """Command wrapper for :func:`tasks.scap`
+class Scap(cli.Application):
+    """Deploy MediaWiki to the cluster."""
 
-    :returns: Integer exit status suitable for use with ``sys.exit``
-    """
-    start = time.time()
-    logger = logging.getLogger('scap')
-    message = '(no message)'
-    cfg = None
-    try:
-        parser = get_argparser(description='Deploy MediaWiki',
-                epilog="Note: a ssh-agent is required to run this script.")
-        parser.add_argument('message', nargs=argparse.REMAINDER,
-            help='Log message for SAL')
-        args = parser.parse_args()
+    def __init__(self, exe_name):
+        super(self.__class__, self).__init__(exe_name)
+        self.start = time.time()
 
+    def _process_arguments(self, args, extra_args):
+        args.message = ' '.join(args.message) or '(no message)'
+        return args, extra_args
+
+    @cli.argument('message', nargs=argparse.REMAINDER,
+        help='Log message for SAL')
+    def main(self, *extra_args):
         assert 'SSH_AUTH_SOCK' in os.environ, \
             'scap requires SSH agent forwarding'
 
-        if args.message:
-            message = ' '.join(args.message)
+        tasks.scap(self.arguments.message, self.config)
 
-        cfg = load_config(args)
-
-        tasks.scap(message, cfg)
-        duration = time.time() - start
-
-        logger.info('Finished scap: %s (duration: %s)',
-            message, utils.human_duration(duration))
+        self.logger.info('Finished scap: %s (duration: %s)',
+            self.arguments.message, self.human_duration)
         return 0
 
-    except SystemExit:
-        # Triggered by sys.exit() calls
-        raise
+    @property
+    def duration(self):
+        """Get the elapsed duration in seconds."""
+        return time.time() - self.start
 
-    except KeyboardInterrupt:
-        # Handle ctrl-c from interactive user
-        duration = time.time() - start
-        logger.warning('scap aborted: %s (duration: %s)',
-            message, utils.human_duration(duration))
+    @property
+    def human_duration(self):
+        """Get the elapsed duration in human readable form."""
+        return utils.human_duration(self.duration)
+
+    def _handle_keyboard_interrupt(self, ex):
+        self.logger.warning('scap aborted: %s (duration: %s)',
+            self.arguments.message, self.human_duration)
         return 1
 
-    except Exception as ex:
-        # Handle all unhandled exceptions and errors
-        duration = time.time() - start
-        logger.debug('Unhandled error:', exc_info=True)
-        logger.error('scap failed: %s %s (duration: %s)',
-            type(ex).__name__, ex, utils.human_duration(duration))
+    def _handle_exception(self, ex):
+        self.logger.debug('Unhandled error:', exc_info=True)
+        self.logger.error('scap failed: %s %s (duration: %s)',
+            type(ex).__name__, ex, self.human_duration)
         return 1
 
-    finally:
-        if cfg:
-            stats = log.Stats(cfg['statsd_host'], int(cfg['statsd_port']))
+    def _before_exit(self, exit_status):
+        if self.config:
+            stats = log.Stats(
+                self.config['statsd_host'], int(self.config['statsd_port']))
             stats.increment('scap.scap')
-            stats.timing('scap.scap', duration * 1000)
+            stats.timing('scap.scap', self.duration * 1000)
