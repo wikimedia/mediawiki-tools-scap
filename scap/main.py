@@ -64,37 +64,14 @@ class MWVersionsInUse(cli.Application):
         return args, extra_args
 
 
-def sync_common():
-    """Command wrapper for :func:`tasks.sync_common`
+class SyncCommon(cli.Application):
+    """Sync local MediaWiki deployment directory with deploy server state."""
 
-    :returns: Integer exit status suitable for use with ``sys.exit``
-    """
-    logger = logging.getLogger('sync_common')
-    try:
-        parser = get_argparser(description='Sync deploy_dir')
-        parser.add_argument('servers', nargs=argparse.REMAINDER,
-            help='Rsync server(s) to copy from')
-        args = parser.parse_args()
-
-        cfg = load_config(args)
-
-        tasks.sync_common(cfg, args.servers)
+    @cli.argument('servers', nargs=argparse.REMAINDER,
+        help='Rsync server(s) to copy from')
+    def main(self, *extra_args):
+        tasks.sync_common(self.config, self.arguments.servers)
         return 0
-
-    except SystemExit:
-        # Triggered by sys.exit() calls
-        raise
-
-    except KeyboardInterrupt:
-        # Handle ctrl-c from interactive user
-        logger.warning('sync_common aborted')
-        return 1
-
-    except Exception as ex:
-        # Handle all unhandled exceptions and errors
-        logger.debug('Unhandled error:', exc_info=True)
-        logger.error('sync_common failed: <%s> %s', type(ex).__name__, ex)
-        return 1
 
 
 def scap():

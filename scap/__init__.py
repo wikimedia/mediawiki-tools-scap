@@ -8,16 +8,16 @@
 """
 from .main import MWVersionsInUse
 from .main import scap
-from .main import sync_common
+from .main import SyncCommon
 
 from . import log
 
 __all__ = (
     'MWVersionsInUse',
     'scap',
-    'sync_common',
+    'SyncCommon',
 )
 
-any((MWVersionsInUse, scap, sync_common))  # Ignore unused import warning
+any((MWVersionsInUse, scap, SyncCommon))  # Ignore unused import warning
 
 log.setup_loggers()

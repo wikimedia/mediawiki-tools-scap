@@ -23,7 +23,7 @@ local host. It is typically called automatically on hosts during the execution o
 
 .. program-output:: ../bin/sync-common --help
 .. seealso::
-   * :func:`scap.sync_common`
+   * :func:`scap.SyncCommon`
    * :func:`scap.tasks.sync_common`
 
 
