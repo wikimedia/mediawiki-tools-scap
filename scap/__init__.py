@@ -9,6 +9,7 @@
 from .main import MWVersionsInUse
 from .main import Scap
 from .main import SyncCommon
+from .main import SyncWikiversions
 
 from . import log
 
@@ -16,8 +17,13 @@ __all__ = (
     'MWVersionsInUse',
     'Scap',
     'SyncCommon',
+    'SyncWikiversions',
 )
 
-any((MWVersionsInUse, Scap, SyncCommon))  # Ignore unused import warning
+any((
+    MWVersionsInUse,
+    Scap,
+    SyncCommon,
+    SyncWikiversions))  # Ignore unused import warning
 
 log.setup_loggers()

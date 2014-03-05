@@ -135,7 +135,22 @@ def sync_common(cfg, sync_from=None):
         subprocess.check_call(rsync)
 
 
-def scap(message, cfg):
+def sync_wikiversions(hosts, cfg):
+    """Rebuild and sync wikiversions.cdb to the cluster.
+
+    :param hosts: List of hosts to sync to
+    :param cfg: Global configuration
+    """
+    stats = log.Stats(cfg['statsd_host'], int(cfg['statsd_port']))
+    with log.Timer('sync_wikiversions', stats):
+        compile_wikiversions_cdb(cfg)
+        ssh.cluster_monitor(hosts,
+            'sudo -u mwdeploy /usr/bin/rsync -l '
+            '%(master_rsync)s::common/wikiversions*.{json,cdb} '
+            '%(deploy_dir)s' % cfg)
+
+
+def scap(cfg):
     """Core business logic of scap process.
 
     1. Validate php syntax of wmf-config and multiversion
@@ -147,15 +162,11 @@ def scap(message, cfg):
     7. Update wikiversions.cdb on localhost
     8. Ask apaches to sync wikiversions.cdb
 
-    :param message: Reason for running scap
     :param cfg: Configuration settings
     """
-    logger = logging.getLogger('scap')
     stats = log.Stats(cfg['statsd_host'], int(cfg['statsd_port']))
 
     with utils.lock('/var/lock/scap'):
-        logger.info('Started scap: %s', message)
-
         check_php_syntax('%(stage_dir)s/wmf-config' % cfg,
                          '%(stage_dir)s/multiversion' % cfg)
 
@@ -187,9 +198,5 @@ def scap(message, cfg):
                 '/usr/local/bin/scap-rebuild-cdbs')
             t.mark('scap-rebuild-cdbs')
 
-        with log.Timer('syncing wikiversions.cdb', stats) as t:
-            compile_wikiversions_cdb(cfg)
-            ssh.cluster_monitor(mw_install_hosts,
-                'sudo -u mwdeploy /usr/bin/rsync -l '
-                '%(master_rsync)s::common/wikiversions.{json,cdb} '
-                '%(deploy_dir)s' % cfg)
+        # Update and sync wikiversions.cdb
+        sync_wikiversions(mw_install_hosts, cfg)

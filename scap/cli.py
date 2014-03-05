@@ -20,6 +20,7 @@ class Application(object):
     """Base class for creating command line applications."""
     program_name = None
     _logger = None
+    _announce_logger = None
     arguments = None
     config = None
 
@@ -34,6 +35,17 @@ class Application(object):
         if self._logger is None:
             self._logger = logging.getLogger(self.program_name)
         return self._logger
+
+    def announce(self, *args):
+        """Announce a message to broadcast listeners.
+
+        Emits a logging event to the 'scap.announce' logger which can be
+        configured to broadcast messages via irc or another real-time
+        notification channel.
+        """
+        if self._announce_logger is None:
+            self._announce_logger = logging.getLogger('scap.announce')
+        self._announce_logger.info(*args)
 
     def _parse_arguments(self, argv):
         """Parse command line arguments.

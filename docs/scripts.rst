@@ -7,8 +7,8 @@ Scripts
 scap
 ====
 **scap** is the driver script for syncing the MediaWiki versions and
-configuration files currently staged on ``tin.eqiad.wmnet`` to the rest of the
-production cluster.
+configuration files currently staged on the deploy server to the rest of the
+cluster.
 
 .. program-output:: ../bin/scap --help
 .. seealso::
@@ -25,6 +25,18 @@ local host. It is typically called automatically on hosts during the execution o
 .. seealso::
    * :func:`scap.SyncCommon`
    * :func:`scap.tasks.sync_common`
+
+
+sync-wikiversions
+=================
+**sync-wikiversions** compiles wikiversions.json into a CDB database and then
+syncs both the JSON and CDB versions to the rest of the cluster.
+
+.. program-output:: ../bin/sync-wikiversions --help
+.. seealso::
+   * :func:`scap.SyncWikiversions`
+   * :func:`scap.tasks.compile_wikiversions_cdb`
+   * :func:`scap.tasks.sync_wikiversions`
 
 
 mwversionsinuse

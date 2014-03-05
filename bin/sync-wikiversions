@@ -1,30 +1,17 @@
-#!/bin/bash
-. /usr/local/lib/mw-deployment-vars.sh
-BINDIR="/usr/local/bin"
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+#
+# Rebuild and sync wikiversions.cdb to the cluster.
+#
+# Copyright © 2014 Wikimedia Foundation and contributors
 
-if [ ! -S "$SSH_AUTH_SOCK" ]; then
-	echo >&2 "SSH_AUTH_SOCK not set or not pointing to a socket."
-	echo >&2 "Did you start your ssh-agent?"
-	exit 1
-fi
+import os
+import sys
 
-if ! $MW_COMMON_SOURCE/multiversion/refreshWikiversionsCDB; then
-	echo 'Error: could not rebuild the wikiversions.cdb file'
-fi
+# Add scap package to search path
+script = os.path.realpath(sys.argv[0])
+scap_src = os.path.dirname(os.path.dirname(script))
+sys.path.append(scap_src)
 
-# No use going any further if we can't complete the sync
-[ $(which dsh 2>/dev/null) ] || {
-	echo >&2 "Error: no dsh on this host, aborting"
-	exit 1
-}
-
-# Copy files to apaches
-echo -n 'Copying wikiversions dat and cdb files to apaches...'
-dsh "${MW_DSH_ARGS[@]}" -- "sudo -u mwdeploy rsync -l $MW_RSYNC_HOST::common/wikiversions.{json,cdb} $MW_COMMON"
-
-echo 'Finished'
-
-# Notify
-$BINDIR/dologmsg "!log $USER rebuilt wikiversions.cdb and synchronized wikiversions files: $*"
-$BINDIR/deploy2graphite sync-wikiversions
-exit 0
+import scap
+scap.SyncWikiversions.run()

@@ -256,8 +256,8 @@ def setup_loggers():
     udp_handler.setFormatter(LogstashFormatter())
     logging.root.addHandler(udp_handler)
 
-    # Send 'scap' messages to irc relay
-    irc_logger = logging.getLogger('scap')
+    # Send 'scap.announce' messages to irc relay
+    irc_logger = logging.getLogger('scap.announce')
     irc_logger.addHandler(IRCSocketHandler(*IRC_LOG_ENDPOINT))
 
 

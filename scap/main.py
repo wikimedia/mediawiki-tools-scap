@@ -51,6 +51,26 @@ class SyncCommon(cli.Application):
         return 0
 
 
+class SyncWikiversions(cli.Application):
+    """Rebuild and sync wikiversions.cdb to the cluster."""
+
+    def _process_arguments(self, args, extra_args):
+        args.message = ' '.join(args.message) or '(no message)'
+        return args, extra_args
+
+    @cli.argument('message', nargs='*', help='Log message for SAL')
+    def main(self, *extra_args):
+        assert 'SSH_AUTH_SOCK' in os.environ, \
+            '%s requires SSH agent forwarding' % self.program_name
+
+        mw_install_hosts = utils.read_dsh_hosts_file('mediawiki-installation')
+        tasks.sync_wikiversions(mw_install_hosts, self.config)
+
+        self.announce(
+            'rebuilt wikiversions.cdb and synchronized wikiversions files: %s',
+            self.arguments.message)
+
+
 class Scap(cli.Application):
     """Deploy MediaWiki to the cluster."""
 
@@ -68,9 +88,10 @@ class Scap(cli.Application):
         assert 'SSH_AUTH_SOCK' in os.environ, \
             'scap requires SSH agent forwarding'
 
-        tasks.scap(self.arguments.message, self.config)
+        self.announce('Started scap: %s', self.arguments.message)
+        tasks.scap(self.config)
 
-        self.logger.info('Finished scap: %s (duration: %s)',
+        self.announce('Finished scap: %s (duration: %s)',
             self.arguments.message, self.human_duration)
         return 0
 
@@ -85,13 +106,13 @@ class Scap(cli.Application):
         return utils.human_duration(self.duration)
 
     def _handle_keyboard_interrupt(self, ex):
-        self.logger.warning('scap aborted: %s (duration: %s)',
+        self.announce('scap aborted: %s (duration: %s)',
             self.arguments.message, self.human_duration)
         return 1
 
     def _handle_exception(self, ex):
         self.logger.debug('Unhandled error:', exc_info=True)
-        self.logger.error('scap failed: %s %s (duration: %s)',
+        self.announce('scap failed: %s %s (duration: %s)',
             type(ex).__name__, ex, self.human_duration)
         return 1
 
