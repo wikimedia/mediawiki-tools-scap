@@ -1,0 +1,106 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "4e04eb01_41d570e8",
+        "filename": "/COMMIT_MSG",
+        "patchSetId": 1
+      },
+      "lineNbr": 12,
+      "author": {
+        "id": 24
+      },
+      "writtenOn": "2014-03-05T20:14:40Z",
+      "side": 1,
+      "message": "verizon -\u003e version :D",
+      "revId": "20216715411c7ec3195110ea85761d2175710b71",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "4e04eb01_6142acb2",
+        "filename": "scap/cli.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 60,
+      "author": {
+        "id": 24
+      },
+      "writtenOn": "2014-03-05T20:14:40Z",
+      "side": 1,
+      "message": "os.path.join() accept multi arguments, whenever it encounter an absolute path it would throw away all previous arguments.  So the five lines there can be replaced by a single call:\n\n os.path.join( path, filename )\n\nExample:\n\n \u003e\u003e\u003e os.path.join(\u0027\u0027, \u0027relative.txt\u0027)\n \u0027relative.txt\u0027\n \u003e\u003e\u003e os.path.join(\u0027/base/path\u0027, \u0027relative.txt\u0027)\n \u0027/base/path/relative.txt\u0027\n \u003e\u003e\u003e os.path.join(\u0027/base/path\u0027, \u0027/dir/absolute.txt\u0027)\n \u0027/dir/absolute.txt\u0027\n \u003e\u003e\u003e \n\nIsn\u0027t python awesome?\n\nThat being said, you can most probably drop this realm_specific_filename() method and....",
+      "revId": "20216715411c7ec3195110ea85761d2175710b71",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "4e04eb01_016ac8ea",
+        "filename": "scap/cli.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 69,
+      "author": {
+        "id": 24
+      },
+      "writtenOn": "2014-03-05T20:14:40Z",
+      "side": 1,
+      "message": "What about naming that source_tree accepting \u0027deploy\u0027 and \u0027stage\u0027?",
+      "revId": "20216715411c7ec3195110ea85761d2175710b71",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "4e04eb01_0151a83a",
+        "filename": "scap/cli.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 75,
+      "author": {
+        "id": 24
+      },
+      "writtenOn": "2014-03-05T20:14:40Z",
+      "side": 1,
+      "message": "Then here you can:\n\n directory \u003d self.config[source_tree + \u0027_dir\u0027]\n\nWich would KeyError if that source_tree is not defined.",
+      "revId": "20216715411c7ec3195110ea85761d2175710b71",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "4e04eb01_21f3846a",
+        "filename": "scap/cli.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 77,
+      "author": {
+        "id": 24
+      },
+      "writtenOn": "2014-03-05T20:14:40Z",
+      "side": 1,
+      "message": "... there call:\n\n path \u003d utils.get_real_specific_filename( \n   os.path.join(directory, \u0027wikiversions.json\u0027),\n   self.config[\u0027wmf_realm\u0027], self.config[\u0027datacenter\u0027]\n )\n\n\nOverall that saves a method.",
+      "revId": "20216715411c7ec3195110ea85761d2175710b71",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "4e04eb01_214dc4c7",
+        "filename": "scap/cli.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 83,
+      "author": {
+        "id": 24
+      },
+      "writtenOn": "2014-03-05T20:14:40Z",
+      "side": 1,
+      "message": "Lovely \u0027php-\u0027 prefix :]   Maybe make it explicit with:\n\n len(\u0027php-\u0027)\n\nNitpick, not a blocker.",
+      "revId": "20216715411c7ec3195110ea85761d2175710b71",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
+    }
+  ]
+}
