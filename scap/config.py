@@ -67,7 +67,9 @@ def load(cfg_file=None, overrides=None):
     config = {}
     for section in sections:
         if parser.has_section(section):
-            config.update(parser.items(section))
+            # Do not interpolate items in the section.
+            # Fixes crash on tin: 'int' object has no attribute 'find'
+            config.update(parser.items(section, True))
 
     if overrides:
         config.update(overrides)
