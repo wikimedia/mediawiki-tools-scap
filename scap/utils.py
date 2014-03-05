@@ -8,7 +8,6 @@
 import contextlib
 import errno
 import fcntl
-import json
 import os
 import random
 import re
@@ -26,24 +25,6 @@ def read_dsh_hosts_file(path):
             return re.findall(r'^[\w\.]+', hosts_file.read(), re.MULTILINE)
     except IOError, e:
         raise IOError(e.errno, e.strerror, path)
-
-
-def wikiversions(location):
-    """Get a collection of active MediaWiki versions.
-
-    :param location: Directory to read wikiversions.json from
-    :returns: dict of {version:wikidb} values
-    """
-    with open(os.path.join(location, 'wikiversions.json')) as f:
-        wikiversions = json.load(f)
-
-    versions = {}
-    for wikidb, version in wikiversions.items():
-        version = version[4:]
-        if version not in versions:
-            versions[version] = wikidb
-
-    return versions
 
 
 @contextlib.contextmanager

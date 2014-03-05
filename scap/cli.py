@@ -6,11 +6,13 @@
 
 """
 import argparse
+import json
 import logging
 import os
 import sys
 
 from . import config
+from . import utils
 
 
 ATTR_ARGUMENTS = '_app_arguments'
@@ -46,6 +48,28 @@ class Application(object):
         if self._announce_logger is None:
             self._announce_logger = logging.getLogger('scap.announce')
         self._announce_logger.info(*args)
+
+    def active_wikiversions(self, source_tree='deploy'):
+        """Get a collection of active MediaWiki versions.
+
+        :param source_tree: Source tree to read file from: 'deploy' or 'stage'
+        :returns: dict of {version:wikidb} values
+        """
+        directory = self.config[source_tree + '_dir']
+        path = utils.get_realm_specific_filename(
+            os.path.join(directory, 'wikiversions.json'),
+            self.config['wmf_realm'], self.config['datacenter'])
+
+        with open(path) as f:
+            wikiversions = json.load(f)
+
+        versions = {}
+        for wikidb, version in wikiversions.items():
+            version = version[4:]  # trim 'php-' from version
+            if version not in versions:
+                versions[version] = wikidb
+
+        return versions
 
     def _parse_arguments(self, argv):
         """Parse command line arguments.

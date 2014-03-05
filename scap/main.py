@@ -21,7 +21,7 @@ class MWVersionsInUse(cli.Application):
     @cli.argument('--withdb', action='store_true',
         help='Add `=wikidb` with some wiki using the version.')
     def main(self, *extra_args):
-        versions = utils.wikiversions(self.config['deploy_dir'])
+        versions = self.active_wikiversions()
 
         if self.arguments.withdb:
             output = ['%s=%s' % (version, wikidb)
