@@ -19,6 +19,24 @@
     },
     {
       "key": {
+        "uuid": "4e04eb01_b36da7c9",
+        "filename": "/COMMIT_MSG",
+        "patchSetId": 1
+      },
+      "lineNbr": 12,
+      "author": {
+        "id": 1001
+      },
+      "writtenOn": "2014-03-05T20:51:13Z",
+      "side": 1,
+      "message": "Done",
+      "parentUuid": "4e04eb01_41d570e8",
+      "revId": "20216715411c7ec3195110ea85761d2175710b71",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "4e04eb01_6142acb2",
         "filename": "scap/cli.py",
         "patchSetId": 1
@@ -47,6 +65,24 @@
       "writtenOn": "2014-03-05T20:14:40Z",
       "side": 1,
       "message": "What about naming that source_tree accepting \u0027deploy\u0027 and \u0027stage\u0027?",
+      "revId": "20216715411c7ec3195110ea85761d2175710b71",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "4e04eb01_93662be9",
+        "filename": "scap/cli.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 69,
+      "author": {
+        "id": 1001
+      },
+      "writtenOn": "2014-03-05T20:51:13Z",
+      "side": 1,
+      "message": "Much better. I didn\u0027t like what I\u0027d written at all.",
+      "parentUuid": "4e04eb01_016ac8ea",
       "revId": "20216715411c7ec3195110ea85761d2175710b71",
       "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
       "unresolved": false
@@ -98,6 +134,24 @@
       "writtenOn": "2014-03-05T20:14:40Z",
       "side": 1,
       "message": "Lovely \u0027php-\u0027 prefix :]   Maybe make it explicit with:\n\n len(\u0027php-\u0027)\n\nNitpick, not a blocker.",
+      "revId": "20216715411c7ec3195110ea85761d2175710b71",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "4e04eb01_535c231e",
+        "filename": "scap/cli.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 83,
+      "author": {
+        "id": 1001
+      },
+      "writtenOn": "2014-03-05T20:51:13Z",
+      "side": 1,
+      "message": "I added a comment to make the intent more transparent.",
+      "parentUuid": "4e04eb01_214dc4c7",
       "revId": "20216715411c7ec3195110ea85761d2175710b71",
       "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
       "unresolved": false
