@@ -68,6 +68,7 @@ for i in ${mwExtVerDbSets[@]}; do
 
 	mwExtensionMessages="$MW_COMMON_SOURCE/wmf-config/ExtensionMessages-${mwVerNum}.php"
 	if [[ ! -e $mwExtensionMessages ]]; then
+		# Bug: 51174
 		# Touch mwExtensionMessages so that the require in CommonSettings
 		# doesn't explode while we are generating it for the first time on
 		# a new release branch.
@@ -76,13 +77,16 @@ for i in ${mwExtVerDbSets[@]}; do
 	fi
 
 	mwL10nCacheDir="$MW_COMMON_SOURCE/php-$mwVerNum/cache/l10n"
+	mwEnCDBStubbed=
 	if [[ ! -e $mwL10nCacheDir/l10n_cache-en.cdb ]]; then
+		# Bug: 51174
 		# Another potential bootstrapping problem, mergeMessageFileList.php
 		# will fail if there is no en l10n data.
 		echo "Bootstrapping en LocalisationCache for $mwVerNum... "
 		sudo -u l10nupdate $BINDIR/mwscript rebuildLocalisationCache.php \
 			--wiki="$mwDbName" --lang=en --outdir="$mwL10nCacheDir" --quiet ||
 			die
+		mwEnCDBStubbed=true
 	fi
 	echo -n "Updating ExtensionMessages-$mwVerNum.php..."
 	mwTempDest=$(sudo -u apache mktemp) || die
@@ -104,6 +108,12 @@ for i in ${mwExtVerDbSets[@]}; do
 		echo "done"
 	fi
 
+	if [[ -n ${mwEnCDBStubbed} ]]; then
+		# Bug: 51174
+		# Delete stub en localization before full l10n update.
+		echo "Cleaning up stub l10n_cache-en.cdb"
+		rm "${mwL10nCacheDir}/l10n_cache-en.cdb"
+	fi
 	# Rebuild all the CDB files for each language
 	echo -n "Updating LocalisationCache for $mwVerNum... "
 	sudo -u l10nupdate $BINDIR/mwscript rebuildLocalisationCache.php \
