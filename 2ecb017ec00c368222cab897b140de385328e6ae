@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "4e04eb01_0cbb1c72",
+        "filename": "scap/main.py",
+        "patchSetId": 2
+      },
+      "lineNbr": 71,
+      "author": {
+        "id": 1001
+      },
+      "writtenOn": "2014-03-06T01:26:11Z",
+      "side": 1,
+      "message": "I\u0027d like to make a follow up change set that kills tasks.scap (because it\u0027s not really a \"task\") and inlines the non-task bits here.",
+      "revId": "2ecb017ec00c368222cab897b140de385328e6ae",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
+    }
+  ]
+}
