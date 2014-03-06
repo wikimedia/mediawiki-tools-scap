@@ -112,7 +112,7 @@ for i in ${mwExtVerDbSets[@]}; do
 		# Bug: 51174
 		# Delete stub en localization before full l10n update.
 		echo "Cleaning up stub l10n_cache-en.cdb"
-		rm "${mwL10nCacheDir}/l10n_cache-en.cdb"
+		sudo -u l10nupdate rm "${mwL10nCacheDir}/l10n_cache-en.cdb"
 	fi
 	# Rebuild all the CDB files for each language
 	echo -n "Updating LocalisationCache for $mwVerNum... "
