@@ -53,19 +53,6 @@ for i in ${mwExtVerDbSets[@]}; do
 	mwVerNum=${i%=*}
 	mwDbName=${i#*=}
 
-	# Only looks at certain MW version if specified
-	if [ -n "$MW_VERSIONS_SYNC" ]; then
-		skip=1
-		for v in ${MW_VERSIONS_SYNC[@]}; do
-			if [ "$mwVerNum" == "$v" ]; then
-				skip=0
-			fi
-		done
-		if [ "$skip" -eq "1" ]; then
-			continue
-		fi
-	fi
-
 	mwExtensionMessages="$MW_COMMON_SOURCE/wmf-config/ExtensionMessages-${mwVerNum}.php"
 	if [[ ! -e $mwExtensionMessages ]]; then
 		# Bug: 51174
