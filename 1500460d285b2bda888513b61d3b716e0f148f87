@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "4e04eb01_0fa89cd6",
+        "filename": "scap/tasks.py",
+        "patchSetId": 3
+      },
+      "lineNbr": 111,
+      "author": {
+        "id": 24
+      },
+      "writtenOn": "2014-03-08T22:10:50Z",
+      "side": 1,
+      "message": "Cant you init the reporters directly in the function instead of passing it as yet another argument?\n\nWith python logging one would do:\n\n myfunc( \u0027param\u0027 )\n\n def myfunc:\n    logger \u003d logger.getLogger( \u0027myfunc\u0027 )\n    logger.debug(\"Called with %s\" % param)\n\nin scap.ssh you would have to:\n\n from . import log\n\nYou could init it using the basename of the command being run and already passed to each cluster_monitor calls (DRY).",
+      "revId": "1500460d285b2bda888513b61d3b716e0f148f87",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
+    }
+  ]
+}
