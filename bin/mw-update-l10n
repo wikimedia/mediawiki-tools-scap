@@ -21,6 +21,7 @@ if [ "`uname -s`" != Linux ]; then
 fi
 
 QUIET=--quiet
+FORCE_FULL_REBUILD=
 TEMP=`getopt -o '' -l verbose -- "$@"`
 if [ $? -ne 0 ]; then
 	exit 1
@@ -64,7 +65,6 @@ for i in ${mwExtVerDbSets[@]}; do
 	fi
 
 	mwL10nCacheDir="$MW_COMMON_SOURCE/php-$mwVerNum/cache/l10n"
-	mwEnCDBStubbed=
 	if [[ ! -e $mwL10nCacheDir/l10n_cache-en.cdb ]]; then
 		# Bug: 51174
 		# Another potential bootstrapping problem, mergeMessageFileList.php
@@ -73,7 +73,9 @@ for i in ${mwExtVerDbSets[@]}; do
 		sudo -u l10nupdate $BINDIR/mwscript rebuildLocalisationCache.php \
 			--wiki="$mwDbName" --lang=en --outdir="$mwL10nCacheDir" --quiet ||
 			die
-		mwEnCDBStubbed=true
+		# Force full rebuild in subequent rebuild call to override stub l10n
+		# files
+		FORCE_FULL_REBUILD="--force"
 	fi
 	echo -n "Updating ExtensionMessages-$mwVerNum.php..."
 	mwTempDest=$(sudo -u apache mktemp) || die
@@ -95,17 +97,11 @@ for i in ${mwExtVerDbSets[@]}; do
 		echo "done"
 	fi
 
-	if [[ -n ${mwEnCDBStubbed} ]]; then
-		# Bug: 51174
-		# Delete stub en localization before full l10n update.
-		echo "Cleaning up stub l10n_cache-en.cdb"
-		sudo -u l10nupdate rm "${mwL10nCacheDir}/l10n_cache-en.cdb"
-	fi
 	# Rebuild all the CDB files for each language
 	echo -n "Updating LocalisationCache for $mwVerNum... "
 	sudo -u l10nupdate $BINDIR/mwscript rebuildLocalisationCache.php \
 		--wiki="$mwDbName" --outdir="$mwL10nCacheDir" $QUIET \
-		--threads=$THREADS ||
+		--threads=$THREADS $FORCE_FULL_REBUILD ||
 		die
 
 	# Include JSON versions of the CDB files and add MD5 files
