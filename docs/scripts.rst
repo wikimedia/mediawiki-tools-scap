@@ -13,7 +13,10 @@ cluster.
 .. program-output:: ../bin/scap --help
 .. seealso::
    * :func:`scap.Scap`
-   * :func:`scap.tasks.scap`
+   * :func:`scap.tasks.check_php_syntax`
+   * :func:`scap.tasks.compile_wikiversions_cdb`
+   * :func:`scap.tasks.sync_common`
+   * :func:`scap.tasks.sync_wikiversions`
 
 
 sync-common
@@ -47,4 +50,3 @@ MediaWiki versions.
 .. program-output:: ../bin/mwversionsinuse --help
 .. seealso::
    * :func:`scap.MWVersionsInUse`
-   * :func:`scap.utils.wikiversions`

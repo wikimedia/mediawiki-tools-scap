@@ -7,10 +7,12 @@
 """
 import argparse
 import os
+import subprocess
 import time
 
 from . import cli
 from . import log
+from . import ssh
 from . import tasks
 from . import utils
 
@@ -85,11 +87,63 @@ class Scap(cli.Application):
     @cli.argument('message', nargs=argparse.REMAINDER,
         help='Log message for SAL')
     def main(self, *extra_args):
+        """Core business logic of scap process.
+
+        1. Validate php syntax of wmf-config and multiversion
+        2. Sync deploy directory on localhost with staging area
+        3. Update l10n files in staging area
+        4. Ask scap proxies to sync with master server
+        5. Ask apaches to sync with fastest rsync server
+        6. Ask apaches to rebuild l10n CDB files
+        7. Update wikiversions.cdb on localhost
+        8. Ask apaches to sync wikiversions.cdb
+        """
         assert 'SSH_AUTH_SOCK' in os.environ, \
             'scap requires SSH agent forwarding'
 
-        self.announce('Started scap: %s', self.arguments.message)
-        tasks.scap(self.config)
+        with utils.lock('/var/lock/scap'):
+            self.announce('Started scap: %s', self.arguments.message)
+
+            tasks.check_php_syntax(
+                '%(stage_dir)s/wmf-config' % self.config,
+                '%(stage_dir)s/multiversion' % self.config)
+
+            # Update the current machine so that serialization works. Push
+            # wikiversions.json changes so mwversionsinuse, set-group-write,
+            # and mwscript work with the right version of the files.
+            tasks.sync_common(self.config)
+
+            # Update list of extension message files and regenerate the
+            # localisation cache.
+            with log.Timer('mw-update-l10n', self.stats):
+                subprocess.check_call('/usr/local/bin/mw-update-l10n')
+
+            # Update rsync proxies
+            scap_proxies = utils.read_dsh_hosts_file('scap-proxies')
+            with log.Timer('sync-common to proxies', self.stats):
+                update_proxies = ssh.Job(scap_proxies)
+                update_proxies.command('/usr/local/bin/sync-common')
+                update_proxies.progress('sync-common').run()
+
+            # Update apaches
+            mw_install_hosts = utils.read_dsh_hosts_file(
+                'mediawiki-installation')
+            with log.Timer('update apaches', self.stats) as t:
+                update_apaches = ssh.Job(mw_install_hosts)
+                update_apaches.exclude_hosts(scap_proxies)
+                update_apaches.shuffle()
+                update_apaches.command(
+                    ['/usr/local/bin/sync-common'] + scap_proxies)
+                update_apaches.progress('sync-common').run()
+                t.mark('sync-common to apaches')
+
+                rebuild_cdbs = ssh.Job(mw_install_hosts)
+                rebuild_cdbs.command('/usr/local/bin/scap-rebuild-cdbs')
+                rebuild_cdbs.progress('scap-rebuild-cdbs').run()
+                t.mark('scap-rebuild-cdbs')
+
+            # Update and sync wikiversions.cdb
+            tasks.sync_wikiversions(mw_install_hosts, self.config)
 
         self.announce('Finished scap: %s (duration: %s)',
             self.arguments.message, self.human_duration)
@@ -118,7 +172,5 @@ class Scap(cli.Application):
 
     def _before_exit(self, exit_status):
         if self.config:
-            stats = log.Stats(
-                self.config['statsd_host'], int(self.config['statsd_port']))
-            stats.increment('scap.scap')
-            stats.timing('scap.scap', self.duration * 1000)
+            self.stats.increment('scap.scap')
+            self.stats.timing('scap.scap', self.duration * 1000)

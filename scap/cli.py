@@ -12,6 +12,7 @@ import os
 import sys
 
 from . import config
+from . import log
 from . import utils
 
 
@@ -23,6 +24,7 @@ class Application(object):
     program_name = None
     _logger = None
     _announce_logger = None
+    _stats = None
     arguments = None
     config = None
 
@@ -37,6 +39,13 @@ class Application(object):
         if self._logger is None:
             self._logger = logging.getLogger(self.program_name)
         return self._logger
+
+    @property
+    def stats(self):
+        if self._stats is None:
+            self._stats = log.Stats(
+                self.config['statsd_host'], int(self.config['statsd_port']))
+        return self._stats
 
     def announce(self, *args):
         """Announce a message to broadcast listeners.
