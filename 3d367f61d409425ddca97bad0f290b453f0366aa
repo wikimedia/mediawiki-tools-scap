@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "2e0177f3_3b48d78b",
+        "filename": "docs/api.rst",
+        "patchSetId": 1
+      },
+      "lineNbr": 11,
+      "author": {
+        "id": 1001
+      },
+      "writtenOn": "2014-03-11T03:58:41Z",
+      "side": 0,
+      "message": "Everything from scap.main is in scap so this was redundant.",
+      "revId": "3d367f61d409425ddca97bad0f290b453f0366aa",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
+    }
+  ]
+}
