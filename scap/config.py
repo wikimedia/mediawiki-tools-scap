@@ -46,7 +46,7 @@ def load(cfg_file=None, overrides=None):
     :param overrides: Dict of configuration values
     :returns: dict of configuration values
     """
-    parser = ConfigParser.SafeConfigParser(DEFAULT_CONFIG)
+    parser = ConfigParser.SafeConfigParser()
     if cfg_file:
         try:
             cfg_file = open(cfg_file)
@@ -67,6 +67,7 @@ def load(cfg_file=None, overrides=None):
     sections += ['.'.join(fqdn[l:]) for l in range(0, len(fqdn))][::-1]
 
     config = {}
+    config.update(DEFAULT_CONFIG)
     for section in sections:
         if parser.has_section(section):
             # Do not interpolate items in the section.
