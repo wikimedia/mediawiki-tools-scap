@@ -99,6 +99,39 @@ def compile_wikiversions_cdb(cfg):
     os.chmod(cdb_file, 0664)
 
 
+def purge_l10n_cache(version, cfg):
+    """Purge the localization cache for a given version.
+
+    :param version: MediaWiki version (eg '1.23wmf15')
+    :param cfg: Global configuration
+    :raises: :class:`IOError` if l10n cache dirs for the given version are
+             not found
+    """
+    branch_dir = 'php-%s' % version
+    staged_l10n = os.path.join(cfg['stage_dir'], branch_dir, 'cache/l10n')
+    deployed_l10n = os.path.join(cfg['deploy_dir'], branch_dir, 'cache/l10n')
+
+    if not os.path.isdir(staged_l10n):
+        raise IOError(errno.ENOENT, 'Invalid l10n dir', staged_l10n)
+
+    if not os.path.isdir(deployed_l10n):
+        raise IOError(errno.ENOENT, 'Invalid l10n dir', deployed_l10n)
+
+    # Purge from staging directory locally
+    # Shell is needed on subprocess to allow wildcard expansion
+    # --force option given to rm to ignore missing files
+    subprocess.check_call(
+        'sudo -u l10nupdate /bin/rm --recursive --force %s/*' % staged_l10n,
+        shell=True)
+
+    # Purge from deploy directroy across cluster
+    # --force option given to rm to ignore missing files as before
+    purge = ssh.Job().role('mediawiki-installation')
+    purge.command('sudo -u mwdeploy /bin/rm '
+        '--recursive --force %s/*' % deployed_l10n)
+    purge.progress('l10n purge').run()
+
+
 def sync_common(cfg, sync_from=None):
     """Sync local deploy dir with upstream rsync server's copy
 

@@ -7,6 +7,7 @@
 
 """
 from .main import MWVersionsInUse
+from .main import PurgeL10nCache
 from .main import Scap
 from .main import SyncCommon
 from .main import SyncWikiversions
@@ -15,6 +16,7 @@ from . import log
 
 __all__ = (
     'MWVersionsInUse',
+    'PurgeL10nCache',
     'Scap',
     'SyncCommon',
     'SyncWikiversions',
@@ -22,6 +24,7 @@ __all__ = (
 
 any((
     MWVersionsInUse,
+    PurgeL10nCache,
     Scap,
     SyncCommon,
     SyncWikiversions))  # Ignore unused import warning
