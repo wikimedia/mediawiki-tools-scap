@@ -16,6 +16,24 @@
       "revId": "3871ff3ebb83cb689cc0eb7ae39836803bc24ef0",
       "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
       "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "2e0177f3_076b7983",
+        "filename": "scap/cli.py",
+        "patchSetId": 5
+      },
+      "lineNbr": 63,
+      "author": {
+        "id": 255
+      },
+      "writtenOn": "2014-03-12T04:56:08Z",
+      "side": 1,
+      "message": "on second thought, if all that you\u0027d be doing is report the error, the standard exceptions may be adequate, i suppose",
+      "parentUuid": "2e0177f3_47598100",
+      "revId": "3871ff3ebb83cb689cc0eb7ae39836803bc24ef0",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
     }
   ]
 }
