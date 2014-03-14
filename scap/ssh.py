@@ -14,6 +14,7 @@ import shlex
 import subprocess
 
 from . import log
+from . import utils
 
 
 SSH = ('/usr/bin/ssh', '-oBatchMode=yes', '-oSetupTimeout=10')
@@ -75,6 +76,10 @@ class Job(object):
         """Set hosts to run command on."""
         self._hosts = list(hosts)
         return self
+
+    def role(self, role):
+        """Set hosts to run command on by network role."""
+        return self.hosts(utils.read_dsh_hosts_file(role))
 
     def shuffle(self):
         """Randomize order of target hosts."""

@@ -50,3 +50,14 @@ MediaWiki versions.
 .. program-output:: ../bin/mwversionsinuse --help
 .. seealso::
    * :func:`scap.MWVersionsInUse`
+
+
+scap-purge-l10n-cache
+=====================
+**scap-purge-l10n-cache** deletes localization files (CDB and JSON) across the
+cluster.
+
+.. program-output:: ../bin/scap-purge-l10n-cache --help
+.. seealso::
+   * :func:`scap.PurgeL10nCache`
+   * :func:`scap.tasks.purge_l10n_cache`
