@@ -98,7 +98,7 @@ for i in ${mwExtVerDbSets[@]}; do
 	fi
 
 	# Rebuild all the CDB files for each language
-	echo -n "Updating LocalisationCache for $mwVerNum... "
+	echo -n "Updating LocalisationCache for $mwVerNum using $THREADS thread(s)..."
 	sudo -u l10nupdate $BINDIR/mwscript rebuildLocalisationCache.php \
 		--wiki="$mwDbName" --outdir="$mwL10nCacheDir" $QUIET \
 		--threads=$THREADS $FORCE_FULL_REBUILD ||
