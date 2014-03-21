@@ -2,7 +2,7 @@
 <?php
 
 /**
- * Create JSON/MD5 files for all CDB files in a directory
+ * Create JSON/MD5 files for all CDB files in a directory.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -28,7 +28,7 @@ if ( PHP_SAPI !== 'cli' ) {
 }
 
 $script = new RefreshCdbJsonFiles(
-	getopt( '', array( 'directory:', 'threads:' ) )
+	getopt( '', array( 'verbose', 'directory:', 'threads:' ) )
 );
 $script->execute();
 
@@ -53,12 +53,13 @@ class RefreshCdbJsonFiles {
 	public function __construct( array $params ) {
 		foreach ( array( 'directory' ) as $par ) {
 			if ( !isset( $params[$par] ) ) {
-				die( "Usage: refreshCdbJsonFiles " .
+				die( "Usage: refreshCdbJsonFiles [--verbose] " .
 					"--directory <directory> --threads <integer>\n"
 				);
 			}
 		}
 		$this->params = $params;
+		$this->params['verbose'] = isset( $params['verbose'] );
 		$this->params['threads'] = isset( $params['threads'] ) ? $params['threads'] : 1;
 	}
 
@@ -146,6 +147,9 @@ class RefreshCdbJsonFiles {
 	protected function doUpdate( $directory, array $files, $resFile ) {
 		$rebuilt = 0;
 		foreach ( $files as $file ) {
+			if ( $this->params['verbose' ) {
+				$this->output( "Processing $directory/$file\n" );
+			}
 			$newCdbMd5 = md5_file( "$directory/$file" );
 			if ( is_file( "$directory/upstream/$file.MD5" ) &&
 				is_file( "$directory/upstream/$file.json" ) &&
