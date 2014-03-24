@@ -147,7 +147,7 @@ class RefreshCdbJsonFiles {
 	protected function doUpdate( $directory, array $files, $resFile ) {
 		$rebuilt = 0;
 		foreach ( $files as $file ) {
-			if ( $this->params['verbose' ) {
+			if ( $this->params['verbose'] ) {
 				$this->output( "Processing $directory/$file\n" );
 			}
 			$newCdbMd5 = md5_file( "$directory/$file" );
