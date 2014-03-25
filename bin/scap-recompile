@@ -11,7 +11,9 @@ if [ -z "$mwVersionNums" ]; then
 fi
 
 arr=($mwVersionNums)
-mwVerNum=${arr[1]}
+# Only recompile from latest mw version
+# Note beta only has one version: master
+mwVerNum=${arr[${#arr[@]} -1]}
 
 echo -n "MediaWiki: Compiling texvc..."
 builddir=`mktemp -dt texvc-build.XXXXXXXXXX`
