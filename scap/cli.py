@@ -6,6 +6,8 @@
 
 """
 import argparse
+import collections
+import distutils.version
 import json
 import logging
 import os
@@ -59,10 +61,11 @@ class Application(object):
         self._announce_logger.info(*args)
 
     def active_wikiversions(self, source_tree='deploy'):
-        """Get a collection of active MediaWiki versions.
+        """Get an ordered collection of active MediaWiki versions.
 
         :param source_tree: Source tree to read file from: 'deploy' or 'stage'
-        :returns: dict of {version:wikidb} values
+        :returns: collections.OrderedDict of {version:wikidb} values sorted by
+                  version number in ascending order
         """
         directory = self.config[source_tree + '_dir']
         path = utils.get_realm_specific_filename(
@@ -78,7 +81,12 @@ class Application(object):
             if version not in versions:
                 versions[version] = wikidb
 
-        return versions
+        # Convert to list of (version, db) tuples sorted by version number
+        # and then convert that list to an OrderedDict
+        sorted_versions = collections.OrderedDict(sorted(versions.iteritems(),
+            key=lambda v: distutils.version.LooseVersion(v[0])))
+
+        return sorted_versions
 
     def _parse_arguments(self, argv):
         """Parse command line arguments.
