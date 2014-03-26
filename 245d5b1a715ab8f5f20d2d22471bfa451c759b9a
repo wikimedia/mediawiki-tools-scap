@@ -16,6 +16,24 @@
       "revId": "245d5b1a715ab8f5f20d2d22471bfa451c759b9a",
       "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
       "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "ae0e4726_facca568",
+        "filename": "scap/main.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 27,
+      "author": {
+        "id": 1001
+      },
+      "writtenOn": "2014-03-26T14:51:34Z",
+      "side": 1,
+      "message": "Yes, it could return a sorted list of tuples. That might not be the prettiest interface for clients to consume. It would probably be better to construct and return a collections.OrderedDict from the sorted tuples.",
+      "parentUuid": "ce09bb20_ec43d313",
+      "revId": "245d5b1a715ab8f5f20d2d22471bfa451c759b9a",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
     }
   ]
 }
