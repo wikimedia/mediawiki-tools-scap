@@ -182,7 +182,7 @@ class Application(object):
 
         :returns: exit status
         """
-        pass
+        return exit_status
 
     @classmethod
     def run(cls, argv=sys.argv, exit=True):

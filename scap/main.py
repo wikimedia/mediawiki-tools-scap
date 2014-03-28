@@ -192,3 +192,4 @@ class Scap(cli.Application):
         if self.config:
             self.stats.increment('scap.scap')
             self.stats.timing('scap.scap', self.duration * 1000)
+        return exit_status
