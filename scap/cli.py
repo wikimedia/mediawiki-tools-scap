@@ -224,6 +224,9 @@ class Application(object):
             exit_status = app._before_exit(exit_status)
 
         if exit:
+            # Flush logger before exiting
+            logging.shutdown()
+
             sys.exit(exit_status)
         else:
             return (app, exit_status)
