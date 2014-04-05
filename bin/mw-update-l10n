@@ -50,7 +50,7 @@ if [ $THREADS -lt 1 ]; then
 	THREADS=1
 fi
 
-mwExtVerDbSets=$($BINDIR/mwversionsinuse --extended --withdb) || die
+mwExtVerDbSets=$($BINDIR/mwversionsinuse --withdb) || die
 # Regenerate the extension message file list for all active MediaWiki versions
 for i in ${mwExtVerDbSets[@]}; do
 	mwVerNum=${i%=*}
