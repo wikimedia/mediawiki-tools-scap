@@ -8,6 +8,7 @@
 import contextlib
 import errno
 import fcntl
+import pwd
 import os
 import random
 import re
@@ -132,3 +133,8 @@ def get_realm_specific_filename(filename, realm, datacenter):
 
     # If all else fails, return the original filename
     return filename
+
+
+def get_username():
+    """Get the username of the current user."""
+    return pwd.getpwuid(os.getuid())[0]

@@ -61,3 +61,13 @@ cluster.
 .. seealso::
    * :func:`scap.PurgeL10nCache`
    * :func:`scap.tasks.purge_l10n_cache`
+
+
+compile-wikiversions
+====================
+**compile-wikiversions** compiles wikiversions.json into wikiversions.cdb.
+
+.. program-output:: ../bin/compile-wikiversions --help
+.. seealso::
+   * :func:`scap.CompileWikiversions`
+   * :func:`scap.tasks.compile_wikiversions_cdb`

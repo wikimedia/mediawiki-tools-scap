@@ -38,7 +38,7 @@ def check_php_syntax(*paths):
     return subprocess.check_call(cmd.split() + list(paths))
 
 
-def compile_wikiversions_cdb(cfg):
+def compile_wikiversions_cdb(source_tree, cfg):
     """Validate and compile the wikiversions.json file into a CDB database.
 
     1. Find the realm specific filename for wikiversions.json in staging area
@@ -50,11 +50,15 @@ def compile_wikiversions_cdb(cfg):
     5. Atomically rename the temporary CDB to the realm specific
        wikiversions.cdb filename
 
+    :param source_tree: Source tree to read file from: 'deploy' or 'stage'
     :param cfg: Global configuration
     """
+    logger = logging.getLogger('compile_wikiversions')
+
+    working_dir = cfg['%s_dir' % source_tree]
 
     # Find the realm specific wikiverisons file names
-    base_file = os.path.join(cfg['stage_dir'], 'wikiversions.json')
+    base_file = os.path.join(working_dir, 'wikiversions.json')
     json_file = utils.get_realm_specific_filename(
         base_file, cfg['wmf_realm'], cfg['datacenter'])
     cdb_file = '%s.cdb' % os.path.splitext(json_file)[0]
@@ -64,13 +68,13 @@ def compile_wikiversions_cdb(cfg):
 
     # Validate that all versions in the json file exist locally
     for dbname, version in wikiversions.items():
-        version_dir = os.path.join(cfg['stage_dir'], version)
+        version_dir = os.path.join(working_dir, version)
         if not os.path.isdir(version_dir):
             raise IOError(errno.ENOENT, 'Invalid version dir', version_dir)
 
     # Get the list of all wikis
     all_dblist_file = utils.get_realm_specific_filename(
-        os.path.join(cfg['stage_dir'], 'all.dblist'),
+        os.path.join(working_dir, 'all.dblist'),
         cfg['wmf_realm'], cfg['datacenter'])
     all_dbs = set(line.strip() for line in open(all_dblist_file))
 
@@ -81,8 +85,10 @@ def compile_wikiversions_cdb(cfg):
             len(missing_dbs), json_file, ', '.join(missing_dbs)))
 
     tmp_cdb_file = '%s.tmp' % cdb_file
-    if os.path.exists(tmp_cdb_file):
+    try:
         os.unlink(tmp_cdb_file)
+    except OSError:
+        pass
 
     # Write temp cdb file
     with open(tmp_cdb_file, 'wb') as fp:
@@ -97,6 +103,7 @@ def compile_wikiversions_cdb(cfg):
 
     os.rename(tmp_cdb_file, cdb_file)
     os.chmod(cdb_file, 0664)
+    logger.debug('Compiled %s to %s', json_file, cdb_file)
 
 
 def purge_l10n_cache(version, cfg):
@@ -175,7 +182,7 @@ def sync_wikiversions(hosts, cfg):
     """
     stats = log.Stats(cfg['statsd_host'], int(cfg['statsd_port']))
     with log.Timer('sync_wikiversions', stats):
-        compile_wikiversions_cdb(cfg)
+        compile_wikiversions_cdb('stage', cfg)
 
         rsync = ssh.Job(hosts).shuffle()
         rsync.command('sudo -u mwdeploy /usr/bin/rsync -l '

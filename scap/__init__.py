@@ -6,6 +6,7 @@
     configuration to a group of servers via SSH and rsync.
 
 """
+from .main import CompileWikiversions
 from .main import MWVersionsInUse
 from .main import PurgeL10nCache
 from .main import Scap
@@ -15,6 +16,7 @@ from .main import SyncWikiversions
 from . import log
 
 __all__ = (
+    'CompileWikiversions',
     'MWVersionsInUse',
     'PurgeL10nCache',
     'Scap',
@@ -23,6 +25,7 @@ __all__ = (
 )
 
 any((
+    CompileWikiversions,
     MWVersionsInUse,
     PurgeL10nCache,
     Scap,

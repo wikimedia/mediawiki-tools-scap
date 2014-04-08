@@ -17,6 +17,17 @@ from . import tasks
 from . import utils
 
 
+class CompileWikiversions(cli.Application):
+    """Compile wikiversions.json to wikiversions.cdb."""
+
+    def main(self, *extra_args):
+        assert utils.get_username() == 'mwdeploy', \
+            '%s must be run as user mwdeploy' % self.program_name
+
+        tasks.compile_wikiversions_cdb('deploy', self.config)
+        return 0
+
+
 class MWVersionsInUse(cli.Application):
     """Get a list of the active MediaWiki versions."""
 
@@ -109,12 +120,13 @@ class Scap(cli.Application):
 
         1. Validate php syntax of wmf-config and multiversion
         2. Sync deploy directory on localhost with staging area
-        3. Update l10n files in staging area
-        4. Ask scap proxies to sync with master server
-        5. Ask apaches to sync with fastest rsync server
-        6. Ask apaches to rebuild l10n CDB files
-        7. Update wikiversions.cdb on localhost
-        8. Ask apaches to sync wikiversions.cdb
+        3. Compile wikiversions.json to cdb in deploy directory
+        4. Update l10n files in staging area
+        5. Ask scap proxies to sync with master server
+        6. Ask apaches to sync with fastest rsync server
+        7. Ask apaches to rebuild l10n CDB files
+        8. Update wikiversions.cdb on localhost
+        9. Ask apaches to sync wikiversions.cdb
         """
         assert 'SSH_AUTH_SOCK' in os.environ, \
             'scap requires SSH agent forwarding'
@@ -130,6 +142,10 @@ class Scap(cli.Application):
             # wikiversions.json changes so mwversionsinuse, set-group-write,
             # and mwscript work with the right version of the files.
             tasks.sync_common(self.config)
+
+            # Bug 63659: Compile deploy_dir/wikiversions.json to cdb
+            subprocess.check_call('sudo -u mwdeploy -- '
+                '/usr/local/bin/compile-wikiversions', shell=True)
 
             # Update list of extension message files and regenerate the
             # localisation cache.
