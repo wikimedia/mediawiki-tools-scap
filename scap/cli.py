@@ -73,12 +73,7 @@ class Application(object):
             self.config['wmf_realm'], self.config['datacenter'])
 
         with open(path) as f:
-            # Bug 63659: Load json into an ordered dict to preserve php
-            # behavior of iterating the dict in the order that is given in the
-            # json file. This insanity brought to you by the variance of
-            # generating ExtensionMessages with different wikidb versions.
-            wikiversions = json.load(
-                f, object_pairs_hook=collections.OrderedDict)
+            wikiversions = json.load(f)
 
         versions = {}
         for wikidb, version in wikiversions.items():
