@@ -126,10 +126,29 @@ class Scap(cli.Application):
                 '%(stage_dir)s/wmf-config' % self.config,
                 '%(stage_dir)s/multiversion' % self.config)
 
+            # Bug 63659: Compile wikiversions.json as a cdb for MWMultiVersion.
+            # It would be safer to sync locally and then compile the synced
+            # version in the deploy_dir, but this is difficult because of the
+            # ownership/permissions differences between the stage_dir and the
+            # deploy_dir. We will remove the compiled cdb right after we sync
+            # locally so that we don't put the comipled version out on cluster
+            # before the rest of the scap process is complete.
+            self.logger.debug('Compiling wikiversions.json to cdb')
+            tasks.compile_wikiversions_cdb(self.config)
+
             # Update the current machine so that serialization works. Push
             # wikiversions.json changes so mwversionsinuse, set-group-write,
-            # and mwscript work with the right version of the files.
+            # and mwscript work with the correct versions of the files.
             tasks.sync_common(self.config)
+
+            # Bug 63659: Remove compiled wikiversions.cdb from stage dir so
+            # that it isn't synced to the rest of the cluster prematurely.
+            stage_cdb_file = utils.get_realm_specific_filename(
+                os.path.join(self.config['stage_dir'], 'wikiversions.cdb'),
+                self.config['wmf_realm'], self.config['datacenter'])
+            if os.path.exists(stage_cdb_file):
+                self.logger.debug('Removing %s', stage_cdb_file)
+                os.unlink(stage_cdb_file)
 
             # Update list of extension message files and regenerate the
             # localisation cache.
