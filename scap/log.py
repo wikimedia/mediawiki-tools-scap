@@ -8,7 +8,6 @@
 import json
 import logging
 import logging.handlers
-import os
 import re
 import socket
 import sys
@@ -57,7 +56,8 @@ class IRCSocketHandler(logging.Handler):
         self.timeout = timeout
 
     def emit(self, record):
-        message = '!log %s %s' % (os.getlogin(), record.getMessage())
+        message = '!log %s %s' % (
+            utils.get_real_username(), record.getMessage())
         try:
             sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             sock.settimeout(self.timeout)
@@ -145,10 +145,7 @@ class LogstashFormatter(logging.Formatter):
         self.type = type
         self.host = socket.gethostname()
         self.script = sys.argv[0]
-        try:
-            self.user = os.getlogin()
-        except OSError:
-            self.user = None
+        self.user = utils.get_real_username()
 
     def format(self, record):
         """Format a record as a logstash v1 JSON string."""

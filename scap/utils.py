@@ -8,8 +8,8 @@
 import contextlib
 import errno
 import fcntl
-import pwd
 import os
+import pwd
 import random
 import re
 import socket
@@ -136,5 +136,18 @@ def get_realm_specific_filename(filename, realm, datacenter):
 
 
 def get_username():
-    """Get the username of the current user."""
+    """Get the username of the effective user."""
     return pwd.getpwuid(os.getuid())[0]
+
+
+def get_real_username():
+    """Get the username of the real user."""
+    try:
+        # Get the username of the user owning the terminal (ie the user
+        # that is running scap even if they are sudo-ing something)
+        return os.getlogin()
+    except OSError:
+        # When running under Jenkins there is no terminal so os.getlogin()
+        # blows up. Use the username matching the effective user id
+        # instead.
+        return get_username()
