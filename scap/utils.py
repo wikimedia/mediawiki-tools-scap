@@ -23,7 +23,7 @@ def read_dsh_hosts_file(path):
     """
     try:
         with open(os.path.join('/etc/dsh/group', path)) as hosts_file:
-            return re.findall(r'^[\w\.]+', hosts_file.read(), re.MULTILINE)
+            return re.findall(r'^[\w\.\-]+', hosts_file.read(), re.MULTILINE)
     except IOError, e:
         raise IOError(e.errno, e.strerror, path)
 
