@@ -16,6 +16,24 @@
       "revId": "f6282fe8a2ba50159b79d1d424d6551f6fa26e24",
       "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
       "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "8e23439c_d2fcec0a",
+        "filename": "scap/utils.py",
+        "patchSetId": 2
+      },
+      "lineNbr": 153,
+      "author": {
+        "id": 1001
+      },
+      "writtenOn": "2014-04-11T01:04:37Z",
+      "side": 1,
+      "message": "Ha. I actually did mean to use it. The other method already existed for the check in scap.main.CompileWikiversions to ensure that `sudo -u mwdeploy` was being used.",
+      "parentUuid": "8e23439c_47113c5e",
+      "revId": "f6282fe8a2ba50159b79d1d424d6551f6fa26e24",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
     }
   ]
 }
