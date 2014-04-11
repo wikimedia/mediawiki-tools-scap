@@ -16,6 +16,24 @@
       "revId": "e37e1f055cc00eb6e770ef0d98219835af08469b",
       "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
       "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "8e23439c_87175456",
+        "filename": "scap/log.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 61,
+      "author": {
+        "id": 1001
+      },
+      "writtenOn": "2014-04-11T00:45:39Z",
+      "side": 1,
+      "message": "Good idea. I even found another place that functionally did the same dance.",
+      "parentUuid": "8e23439c_879cf413",
+      "revId": "e37e1f055cc00eb6e770ef0d98219835af08469b",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
     }
   ]
 }
