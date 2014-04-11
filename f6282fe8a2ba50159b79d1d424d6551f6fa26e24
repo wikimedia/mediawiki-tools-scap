@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "8e23439c_47113c5e",
+        "filename": "scap/utils.py",
+        "patchSetId": 2
+      },
+      "lineNbr": 153,
+      "author": {
+        "id": 255
+      },
+      "writtenOn": "2014-04-11T01:01:26Z",
+      "side": 1,
+      "message": "I don\u0027t think you need to factor just this line into a separate method (though I\u0027m not opposed either), but if you do you should use it :)",
+      "revId": "f6282fe8a2ba50159b79d1d424d6551f6fa26e24",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
+    }
+  ]
+}
