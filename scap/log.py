@@ -21,19 +21,6 @@ from . import utils
 # for attribute names you can include here.
 CONSOLE_LOG_FORMAT = '%(asctime)s %(levelname)-8s - %(message)s'
 
-# A tuple of (host, port) representing the address of a tcpircbot instance to
-# use for logging messages. tcpircbot is a simple script that listens for
-# line-oriented data on a TCP socket and outputs it to IRC.
-# See <https://doc.wikimedia.org/puppet/classes/tcpircbot.html>.
-IRC_LOG_ENDPOINT = ('neon.wikimedia.org', 9200)
-
-# A tuple of (host, port) representing the address of a udp2log instance to
-# use for logging messages. udp2log is a log aggregation service that listens
-# for UDP datagrams and writes their contents to files and/or relays the
-# messages to other services.
-# See <https://wikitech.wikimedia.org/wiki/Udp2log>
-UDP2LOG_LOG_ENDPOINT = ('10.64.0.21', 8420)
-
 
 class IRCSocketHandler(logging.Handler):
     """Log handler for logmsgbot on #wikimedia-operation.
@@ -232,30 +219,33 @@ class Stats(object):
             self.logger.exception('Failed to send metric "%s"', metric)
 
 
-def setup_loggers():
-    """Setup the root logger and a special scap logger.
+def setup_loggers(cfg):
+    """Setup the logging system.
 
-    The 'scap' logger uses :class:`IRCSocketHandler` to send log messages of
-    level info or higher to logmsgbot.
+    * Configure the root logger to use :class:`AnsiColorFormatter`
+    * Optionally add a :class:`Udp2LogHandler` to send logs to a udp2log server
+    * Optional add a :class:`IRCSocketHandler` for the `scap.announce` log
+      channel to send messages to a tcpircbot server
+
+    :param cfg: Dict of global configuration values
     """
-    logging.basicConfig(
-        level=logging.DEBUG,
-        format=CONSOLE_LOG_FORMAT,
-        datefmt='%H:%M:%S')
-
     # Colorize log messages sent to stderr
     logging.root.handlers[0].setFormatter(AnsiColorFormatter(
         '%(asctime)s %(message)s', '%H:%M:%S'))
 
-    # Send a copy of all logs to the udp2log relay
-    udp_handler = Udp2LogHandler(*UDP2LOG_LOG_ENDPOINT)
-    udp_handler.setLevel(logging.DEBUG)
-    udp_handler.setFormatter(LogstashFormatter())
-    logging.root.addHandler(udp_handler)
+    if cfg['udp2log_host']:
+        # Send a copy of all logs to the udp2log relay
+        udp_handler = Udp2LogHandler(
+            cfg['udp2log_host'], int(cfg['udp2log_port']))
+        udp_handler.setLevel(logging.DEBUG)
+        udp_handler.setFormatter(LogstashFormatter())
+        logging.root.addHandler(udp_handler)
 
-    # Send 'scap.announce' messages to irc relay
-    irc_logger = logging.getLogger('scap.announce')
-    irc_logger.addHandler(IRCSocketHandler(*IRC_LOG_ENDPOINT))
+    if cfg['tcpircbot_host']:
+        # Send 'scap.announce' messages to irc relay
+        irc_logger = logging.getLogger('scap.announce')
+        irc_logger.addHandler(IRCSocketHandler(
+            cfg['tcpircbot_host'], int(cfg['tcpircbot_port'])))
 
 
 class Timer(object):

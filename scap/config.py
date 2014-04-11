@@ -16,7 +16,11 @@ DEFAULT_CONFIG = {
     'lock_file': '/var/lock/scap',
     'master_rsync': 'localhost',
     'statsd_host': '127.0.0.1',
-    'statsd_port': 2003,
+    'statsd_port': '2003',
+    'tcpircbot_host': None,
+    'tcpircbot_port': '9200',
+    'udp2log_host': None,
+    'udp2log_port': '8420',
     'wmf_realm': 'production',
     'datacenter': 'pmtpa',
 }

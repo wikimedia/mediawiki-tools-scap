@@ -138,6 +138,10 @@ class Application(object):
             defines = dict(self.arguments.defines)
         self.config = config.load(self.arguments.conf_file, defines)
 
+    def _setup_loggers(self):
+        """Setup logging."""
+        log.setup_loggers(self.config)
+
     def main(self, *extra_args):
         """Main business logic of the application.
 
@@ -198,6 +202,12 @@ class Application(object):
         :param exit: Call sys.exit after execution
         :returns: Tuple of class instance and exit status when not exiting
         """
+        # Bootstrap the logging system
+        logging.basicConfig(
+            level=logging.DEBUG,
+            format=log.CONSOLE_LOG_FORMAT,
+            datefmt='%H:%M:%S')
+
         argv = list(argv)
         app = cls(argv.pop(0))
         exit_status = 0
@@ -206,6 +216,7 @@ class Application(object):
             args, extra_args = app._process_arguments(args, extra_args)
             app.arguments = args
             app._load_config()
+            app._setup_loggers()
             exit_status = app.main(extra_args)
 
         except SystemExit as ex:

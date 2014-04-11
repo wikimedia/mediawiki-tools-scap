@@ -51,7 +51,7 @@ def compile_wikiversions_cdb(source_tree, cfg):
        wikiversions.cdb filename
 
     :param source_tree: Source tree to read file from: 'deploy' or 'stage'
-    :param cfg: Global configuration
+    :param cfg: Dict of global configuration values
     """
     logger = logging.getLogger('compile_wikiversions')
 
@@ -110,7 +110,7 @@ def purge_l10n_cache(version, cfg):
     """Purge the localization cache for a given version.
 
     :param version: MediaWiki version (eg '1.23wmf15')
-    :param cfg: Global configuration
+    :param cfg: Dict of global configuration values
     :raises: :class:`IOError` if l10n cache dirs for the given version are
              not found
     """
@@ -148,7 +148,7 @@ def sync_common(cfg, sync_from=None):
     have issues we will fall back to using the server named by
     ``master_rsync`` in the configuration data.
 
-    :param cfg: Global configuration
+    :param cfg: Dict of global configuration values
     :param sync_from: List of rsync servers to fetch from.
     """
     logger = logging.getLogger('sync_common')
@@ -178,7 +178,7 @@ def sync_wikiversions(hosts, cfg):
     """Rebuild and sync wikiversions.cdb to the cluster.
 
     :param hosts: List of hosts to sync to
-    :param cfg: Global configuration
+    :param cfg: Dict of global configuration values
     """
     stats = log.Stats(cfg['statsd_host'], int(cfg['statsd_port']))
     with log.Timer('sync_wikiversions', stats):

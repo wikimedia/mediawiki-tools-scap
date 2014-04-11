@@ -13,8 +13,6 @@ from .main import Scap
 from .main import SyncCommon
 from .main import SyncWikiversions
 
-from . import log
-
 __all__ = (
     'CompileWikiversions',
     'MWVersionsInUse',
@@ -31,5 +29,3 @@ any((
     Scap,
     SyncCommon,
     SyncWikiversions))  # Ignore unused import warning
-
-log.setup_loggers()
