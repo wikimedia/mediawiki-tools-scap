@@ -188,6 +188,26 @@ class Application(object):
         """
         return exit_status
 
+    def _run_as(self, user):
+        """Ensure that this program is run as the given user."""
+        if utils.get_username() != user:
+            self.logger.info(
+                '%s must be run as user %s', self.program_name, user)
+            # Replace the current process with a sudo call to the same script
+            os.execvp('sudo', ['sudo', '-u', user, '-n', '--'] + sys.argv)
+
+    def _assert_current_user(self, user):
+        """Assert that this program is run as the given user."""
+        if utils.get_username() != user:
+            raise RuntimeError(
+                '%s must be run as user %s' % (self.program_name, user))
+
+    def _assert_auth_sock(self):
+        """Assert that SSH_AUTH_SOCK is present in the environment."""
+        if 'SSH_AUTH_SOCK' not in os.environ:
+            raise RuntimeError(
+                '%s requires SSH agent forwarding' % self.program_name)
+
     @classmethod
     def run(cls, argv=sys.argv, exit=True):
         """Construct and run an application.

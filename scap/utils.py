@@ -8,6 +8,7 @@
 import contextlib
 import errno
 import fcntl
+import hashlib
 import os
 import pwd
 import random
@@ -166,3 +167,17 @@ def get_real_username():
         # blows up. Use the username matching the effective user id
         # instead.
         return get_username()
+
+
+def md5_file(path):
+    """Compute the md5 checksum of a file's contents.
+
+    :param path: Path to file
+    :returns: hexdigest of md5 checksum
+    """
+    crc = hashlib.md5()
+    with open(path, 'rb') as f:
+        # Digest file in 1M chunks just in case it's huge
+        for block in iter(lambda: f.read(1048576), b''):
+            crc.update(block)
+    return crc.hexdigest()

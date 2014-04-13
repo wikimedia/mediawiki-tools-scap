@@ -1,18 +1,17 @@
-#!/bin/bash
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+#
+# Rebuild localization cache CDB files from the JSON versions.
+#
+# Copyright © 2014 Wikimedia Foundation and contributors
 
-BINDIR=/usr/local/bin
-PATH=/bin:/usr/bin:/sbin:/usr/sbin:
-TERM=dumb
+import os
+import sys
 
-. /usr/local/lib/mw-deployment-vars.sh
+# Add scap package to search path
+script = os.path.realpath(sys.argv[0])
+scap_src = os.path.dirname(os.path.dirname(script))
+sys.path.append(scap_src)
 
-# Leave some of the cores free for apache processes
-CPUS=`grep -c 'model name' /proc/cpuinfo`
-THREADS=`expr $CPUS / 2`
-
-# Rebuild the CDB files from the JSON versions
-# Regenerate the extension message file list for all active MediaWiki versions
-for mwVerNum in $($BINDIR/mwversionsinuse); do
-	sudo -u mwdeploy TERM="$TERM" $BINDIR/mergeCdbFileUpdates --directory="$MW_COMMON/php-$mwVerNum/cache/l10n" \
-		--trustmtime --threads=$THREADS
-done
+import scap
+scap.RebuildCdbs.run()

@@ -109,8 +109,11 @@ class Job(object):
 
         :returns: List of (host, status, output) tuples or
                   tuple of (success, fail) counts
+        :raises: RuntimeError if command has not been set
         """
-        assert self._command, 'Command must be provided'
+        if not self._command:
+            raise RuntimeError('Command must be provided')
+
         if not self._hosts:
             self.logger.warning('Job %s called with an empty host list.',
                 self._command)

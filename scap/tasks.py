@@ -6,8 +6,11 @@
 
 """
 import errno
+import glob
+import itertools
 import json
 import logging
+import multiprocessing
 import os
 import socket
 import subprocess
@@ -189,3 +192,116 @@ def sync_wikiversions(hosts, cfg):
             '%(master_rsync)s::common/wikiversions*.{json,cdb} '
             '%(deploy_dir)s' % cfg)
         return rsync.progress('sync_wikiversions').run()
+
+
+def merge_cdb_updates(directory, pool_size, trust_mtime=False):
+    """Update l10n CDB files using JSON data.
+
+    :param directory: L10n cache directory
+    :param pool_size: Number of parallel processes to use
+    :param trust_mtime: Trust file modification time?
+    """
+    logger = logging.getLogger('merge_cdb_updates')
+
+    cache_dir = os.path.realpath(directory)
+    upstream_dir = os.path.join(cache_dir, 'upstream')
+
+    files = [os.path.splitext(os.path.basename(f))[0]
+        for f in glob.glob('%s/*.json' % upstream_dir)]
+    if not files:
+        logger.warning('Directory %s is empty', upstream_dir)
+        return 0
+
+    pool = multiprocessing.Pool(pool_size)
+    updated = 0
+
+    reporter = log.ProgressReporter('l10n merge')
+    reporter.expect(len(files))
+    reporter.start()
+
+    for i, result in enumerate(pool.imap_unordered(
+        update_l10n_cdb_wrapper, itertools.izip(
+            itertools.repeat(cache_dir),
+            files,
+            itertools.repeat(trust_mtime))), 1):
+        if result:
+            updated += 1
+        reporter.add_success()
+
+    reporter.finish()
+    logger.info('Updated %d CDB files(s) in %s', updated, cache_dir)
+
+
+def update_l10n_cdb(cache_dir, cdb_file, trust_mtime=False):
+    """Update a localization CDB database.
+
+    :param cache_dir: L10n cache directory
+    :param cdb_file: L10n CDB database
+    :param trust_mtime: Trust file modification time?
+    """
+    logger = logging.getLogger('update_l10n_cdb')
+
+    md5_path = os.path.join(cache_dir, 'upstream', '%s.MD5' % cdb_file)
+    if not os.path.exists(md5_path):
+        logger.warning('skipped %s; no md5 file', cdb_file)
+        return False
+
+    json_path = os.path.join(cache_dir, 'upstream', '%s.json' % cdb_file)
+    if not os.path.exists(json_path):
+        logger.warning('skipped %s; no json file', cdb_file)
+        return False
+
+    cdb_path = os.path.join(cache_dir, cdb_file)
+
+    json_mtime = os.path.getmtime(json_path)
+    if os.path.exists(cdb_path):
+        if trust_mtime:
+            cdb_mtime = os.path.getmtime(cdb_path)
+            # If the CDB was built by this process in a previous sync, the CDB
+            # file mtime will have been set equal to the json file mtime.
+            need_rebuild = cdb_mtime != json_mtime
+        else:
+            upstream_md5 = open(md5_path).read(100).strip()
+            local_md5 = utils.md5_file(cdb_path)
+            need_rebuild = local_md5 != upstream_md5
+    else:
+        need_rebuild = True
+
+    if need_rebuild:
+        with open(json_path) as f:
+            data = json.load(f)
+
+        # Write temp cdb file
+        tmp_cdb_path = '%s.tmp' % cdb_path
+        with open(tmp_cdb_path, 'wb') as fp:
+            writer = cdblib.Writer(fp)
+            for key, value in data.items():
+                writer.put(key.encode('utf-8'), value.encode('utf-8'))
+            writer.finalize()
+            os.fsync(fp.fileno())
+
+        if not os.path.isfile(tmp_cdb_path):
+            raise IOError(errno.ENOENT, 'Failed to create CDB', tmp_cdb_path)
+
+        # Move temp file over old file
+        os.chmod(tmp_cdb_path, 0664)
+        os.rename(tmp_cdb_path, cdb_path)
+        # Set timestamp to match upstream json
+        os.utime(cdb_path, (json_mtime, json_mtime))
+        return True
+    return False
+
+
+def update_l10n_cdb_wrapper(args):
+    """Wrapper for update_l10n_cdb to be used in contexts where only a single
+    argument can be provided.
+
+    :param args: Sequence of arguments to pass to update_l10n_cdb
+    """
+    try:
+        return update_l10n_cdb(*args)
+    except:
+        # Log detailed error; multiprocessing will truncate the stack trace
+        logging.getLogger('update_l10n_cdb_wrapper').exception(
+            'Failure processing %s', args)
+        raise

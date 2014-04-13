@@ -6,6 +6,7 @@
 
 """
 import argparse
+import multiprocessing
 import os
 import subprocess
 import time
@@ -21,9 +22,8 @@ class CompileWikiversions(cli.Application):
     """Compile wikiversions.json to wikiversions.cdb."""
 
     def main(self, *extra_args):
-        assert utils.get_username() == 'mwdeploy', \
-            '%s must be run as user mwdeploy' % self.program_name
-
+        self._run_as('mwdeploy')
+        self._assert_current_user('mwdeploy')
         tasks.compile_wikiversions_cdb('deploy', self.config)
         return 0
 
@@ -72,6 +72,25 @@ class PurgeL10nCache(cli.Application):
         return 0
 
 
+class RebuildCdbs(cli.Application):
+    """Rebuild localization cache CDB files from the JSON versions."""
+
+    def main(self, *extra_args):
+        self._run_as('mwdeploy')
+        self._assert_current_user('mwdeploy')
+
+        # Leave some of the cores free for apache processes
+        use_cores = multiprocessing.cpu_count() / 2
+
+        # Rebuild the CDB files from the JSON versions
+        # Regenerate the extension message file list for all active MediaWiki
+        # versions
+        for version, wikidb in self.active_wikiversions().items():
+            cache_dir = os.path.join(self.config['deploy_dir'],
+                'php-%s' % version, 'cache', 'l10n')
+            tasks.merge_cdb_updates(cache_dir, use_cores, True)
+
+
 class SyncCommon(cli.Application):
     """Sync local MediaWiki deployment directory with deploy server state."""
 
@@ -91,8 +110,7 @@ class SyncWikiversions(cli.Application):
 
     @cli.argument('message', nargs='*', help='Log message for SAL')
     def main(self, *extra_args):
-        assert 'SSH_AUTH_SOCK' in os.environ, \
-            '%s requires SSH agent forwarding' % self.program_name
+        self._assert_auth_sock()
 
         mw_install_hosts = utils.read_dsh_hosts_file('mediawiki-installation')
         tasks.sync_wikiversions(mw_install_hosts, self.config)
@@ -128,8 +146,7 @@ class Scap(cli.Application):
         8. Update wikiversions.cdb on localhost
         9. Ask apaches to sync wikiversions.cdb
         """
-        assert 'SSH_AUTH_SOCK' in os.environ, \
-            'scap requires SSH agent forwarding'
+        self._assert_auth_sock()
 
         soft_errors = False
         with utils.lock(self.config['lock_file']):
@@ -183,7 +200,8 @@ class Scap(cli.Application):
                 t.mark('sync-common to apaches')
 
                 rebuild_cdbs = ssh.Job(mw_install_hosts)
-                rebuild_cdbs.command('/usr/local/bin/scap-rebuild-cdbs')
+                rebuild_cdbs.command(
+                    'sudo -u mwdeploy -n -- /usr/local/bin/scap-rebuild-cdbs')
                 rebuild_cdbs.progress('scap-rebuild-cdbs')
                 succeeded, failed = rebuild_cdbs.run()
                 if failed:

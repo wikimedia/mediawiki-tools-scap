@@ -71,3 +71,13 @@ compile-wikiversions
 .. seealso::
    * :func:`scap.CompileWikiversions`
    * :func:`scap.tasks.compile_wikiversions_cdb`
+
+
+scap-rebuild-cdbs
+=================
+**scap-rebuild-cdbs** rebuilds localization cache CDB files from JSON files.
+
+.. program-output:: ../bin/scap-rebuild-cdbs --help
+.. seealso::
+   * :func:`scap.RebuildCdbs`
+   * :func:`scap.tasks.merge_cdb_updates`
