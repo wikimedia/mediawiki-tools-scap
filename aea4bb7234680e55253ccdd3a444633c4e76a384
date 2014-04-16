@@ -33,6 +33,24 @@
       "revId": "aea4bb7234680e55253ccdd3a444633c4e76a384",
       "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
       "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "8e23439c_b8c48a95",
+        "filename": "scap/log.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 236,
+      "author": {
+        "id": 1001
+      },
+      "writtenOn": "2014-04-16T20:48:11Z",
+      "side": 1,
+      "message": "I see the information hiding going the right direction here. Why should a logging component know anything about the embedding application\u0027s configuration management system? The handlers define a reasonable interface (I need a host and port to know who to send data to) and this method bridges that to the local usage.\n\nNow that I\u0027ve hoisted the use of this into cli.Application I could just as easily move the implementation there rather than delegating to this helper method if that makes anyone feel better.",
+      "parentUuid": "8e23439c_9d7b0023",
+      "revId": "aea4bb7234680e55253ccdd3a444633c4e76a384",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
     }
   ]
 }
