@@ -1,0 +1,38 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "8e23439c_1d97f03f",
+        "filename": "scap/log.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 230,
+      "author": {
+        "id": 255
+      },
+      "writtenOn": "2014-04-16T18:48:55Z",
+      "side": 1,
+      "message": "Uh? What is it? Mapping type? ConfigParser instance?",
+      "revId": "aea4bb7234680e55253ccdd3a444633c4e76a384",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "8e23439c_9d7b0023",
+        "filename": "scap/log.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 236,
+      "author": {
+        "id": 255
+      },
+      "writtenOn": "2014-04-16T18:48:55Z",
+      "side": 1,
+      "message": "Having setup_loggers know which special configuration variables each log handler needs is bad. See \u003chttp://c2.com/cgi/wiki?InformationHiding\u003e. You should add a constructor to these classes that takes a config as a parameter.",
+      "revId": "aea4bb7234680e55253ccdd3a444633c4e76a384",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
+    }
+  ]
+}
