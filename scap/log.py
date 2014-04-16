@@ -245,7 +245,7 @@ def setup_loggers():
 
     # Colorize log messages sent to stderr
     logging.root.handlers[0].setFormatter(AnsiColorFormatter(
-        CONSOLE_LOG_FORMAT, '%H:%M:%S'))
+        '%(asctime)s %(message)s', '%H:%M:%S'))
 
     # Send a copy of all logs to the udp2log relay
     udp_handler = Udp2LogHandler(*UDP2LOG_LOG_ENDPOINT)
