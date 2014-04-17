@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "8e23439c_568b02c4",
+        "filename": "scap/utils.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 39,
+      "author": {
+        "id": 24
+      },
+      "writtenOn": "2014-04-17T13:56:13Z",
+      "side": 1,
+      "message": "Additionally the open() calls might file when filename does not exist:\n\n  IOError: [Errno 2] No such file or directory: \u0027/var/lock/scap\u0027",
+      "revId": "300441e1dec133adab03c3e4be1385309d0f250e",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
+    }
+  ]
+}
