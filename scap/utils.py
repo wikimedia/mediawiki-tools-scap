@@ -28,15 +28,30 @@ def read_dsh_hosts_file(path):
         raise IOError(e.errno, e.strerror, path)
 
 
+class LockFailedError(Exception):
+    """Signal that a locking attempt failed."""
+    pass
+
+
 @contextlib.contextmanager
 def lock(filename):
-    """Context manager. Acquires a file lock on entry, releases on exit."""
-    with open(filename, 'w+') as lock_fd:
+    """Context manager. Acquires a file lock on entry, releases on exit.
+
+    :param filename: File to lock
+    :raises: LockFailedError on failure
+    """
+    lock_fd = None
+    try:
+        lock_fd = open(filename, 'w+')
         fcntl.lockf(lock_fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
-        try:
-            yield
-        finally:
+    except IOError as e:
+        raise LockFailedError('Failed to lock %s: %s' % (filename, e))
+    else:
+        yield
+    finally:
+        if lock_fd:
             fcntl.lockf(lock_fd, fcntl.LOCK_UN)
+            lock_fd.close()
 
 
 def human_duration(elapsed):
