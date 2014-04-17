@@ -13,6 +13,7 @@ import socket
 DEFAULT_CONFIG = {
     'deploy_dir': '/usr/local/apache/common-local',
     'stage_dir': '/a/common',
+    'lock_file': '/var/lock/scap',
     'master_rsync': 'localhost',
     'statsd_host': '127.0.0.1',
     'statsd_port': 2003,

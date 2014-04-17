@@ -131,7 +131,7 @@ class Scap(cli.Application):
         assert 'SSH_AUTH_SOCK' in os.environ, \
             'scap requires SSH agent forwarding'
 
-        with utils.lock('/var/lock/scap'):
+        with utils.lock(self.config['lock_file']):
             self.announce('Started scap: %s', self.arguments.message)
 
             tasks.check_php_syntax(
