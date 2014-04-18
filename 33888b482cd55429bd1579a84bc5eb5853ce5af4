@@ -1,0 +1,72 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "8e23439c_97ce315e",
+        "filename": "scap/cli.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 197,
+      "author": {
+        "id": 255
+      },
+      "writtenOn": "2014-04-18T18:26:20Z",
+      "side": 1,
+      "message": "Asserts in Python are really meant for debugging, which is why the interpreter turns them off when it is invoked with -O or when PYTHONOPTIMIZE is set. So instead:\n\n    if utils.get_username() !\u003d user:\n        throw RuntimeError(\u0027...\u0027).",
+      "revId": "33888b482cd55429bd1579a84bc5eb5853ce5af4",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "8e23439c_57d89921",
+        "filename": "scap/main.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 92,
+      "author": {
+        "id": 255
+      },
+      "writtenOn": "2014-04-18T18:26:20Z",
+      "side": 1,
+      "message": "Heh. It wasn\u0027t threads in PHP, and now it\u0027s not threads in Python.",
+      "revId": "33888b482cd55429bd1579a84bc5eb5853ce5af4",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "8e23439c_37499dd3",
+        "filename": "scap/tasks.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 281,
+      "author": {
+        "id": 255
+      },
+      "writtenOn": "2014-04-18T18:26:20Z",
+      "side": 1,
+      "message": "wb will truncate the file, making the os.unlink call unnecessary",
+      "revId": "33888b482cd55429bd1579a84bc5eb5853ce5af4",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "8e23439c_178ea133",
+        "filename": "scap/utils.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 163,
+      "author": {
+        "id": 255
+      },
+      "writtenOn": "2014-04-18T18:26:20Z",
+      "side": 1,
+      "message": "Engineers at Intel sob when they see code written in 2014 that targets PDP-11. It\u0027ll be much faster (and less code) to read the the whole file into memory and calculate a hash in one slurp.",
+      "revId": "33888b482cd55429bd1579a84bc5eb5853ce5af4",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
+    }
+  ]
+}

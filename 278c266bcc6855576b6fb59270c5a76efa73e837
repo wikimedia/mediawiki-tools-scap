@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "8e23439c_777cb51b",
+        "filename": "bin/mergeCdbFileUpdates",
+        "patchSetId": 1
+      },
+      "lineNbr": 1,
+      "author": {
+        "id": 255
+      },
+      "writtenOn": "2014-04-18T18:26:20Z",
+      "side": 0,
+      "message": "From the \"code I won\u0027t miss\" department",
+      "revId": "278c266bcc6855576b6fb59270c5a76efa73e837",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
+    }
+  ]
+}
