@@ -1,0 +1,38 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "8e23439c_0bdb1826",
+        "filename": "scap/main.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 162,
+      "author": {
+        "id": 255
+      },
+      "writtenOn": "2014-04-18T18:51:47Z",
+      "side": 1,
+      "message": "This is purely a matter of style, but I think it\u0027s far more readable to unpack all the returned values, even if you don\u0027t end up using them.\n\n    succeeded, failed \u003d update_proxies.run()\n\nCompare that to errors \u003d update_proxies.run()[1]. The latter requires that you go look up what update_proxies returns. The former documents the return type succinctly.",
+      "revId": "6ac464b46f25e20d9bce4c08fa265c407703e920",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "8e23439c_abb0a4d8",
+        "filename": "scap/main.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 205,
+      "author": {
+        "id": 255
+      },
+      "writtenOn": "2014-04-18T18:51:47Z",
+      "side": 1,
+      "message": "Better:\n\n    return 1 if soft_errors else 0\n\nEven better:\n\n    if soft_errors:\n        return 1\n    else:\n        return 0",
+      "revId": "6ac464b46f25e20d9bce4c08fa265c407703e920",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
+    }
+  ]
+}
