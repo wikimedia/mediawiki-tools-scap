@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "8e23439c_cb23e052",
+        "filename": "scap/utils.py",
+        "patchSetId": 3
+      },
+      "lineNbr": 64,
+      "author": {
+        "id": 255
+      },
+      "writtenOn": "2014-04-18T18:36:26Z",
+      "side": 1,
+      "message": "This is bogus. Why wrap open with a helper that converts exceptions to return values but not fcntl.lockf? In my opinion, you should wrap neither, but just add another try / except to this function.:\n\n    try:\n        with open(filename, \u0027w+\u0027) as lockfile:\n            fcntl.lockf(lockfile, fcntl.LOCK_EX | fcntl.LOCK_NB)\n    except IOError as e:\n        raise LockFailedError(\u0027Failed to lock %s: %s\u0027 % (filename, e))",
+      "revId": "af875e64c3aa4328d057bad5a290e6a3b3de4779",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
+    }
+  ]
+}
