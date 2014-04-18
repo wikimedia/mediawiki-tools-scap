@@ -16,6 +16,24 @@
       "revId": "af875e64c3aa4328d057bad5a290e6a3b3de4779",
       "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
       "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "8e23439c_01c09753",
+        "filename": "scap/utils.py",
+        "patchSetId": 3
+      },
+      "lineNbr": 64,
+      "author": {
+        "id": 1001
+      },
+      "writtenOn": "2014-04-18T21:18:34Z",
+      "side": 1,
+      "message": "I\u0027ve tested the syntax you\u0027ve suggested and it doesn\u0027t seem to work. With what I\u0027ve implemented, when I start a scap in session A and then again in session B, session B will halt with a log failure message:\n\n    scap failed: LockFailedError Failed to lock /var/lock/scap\n\nWhen I use what I think is your suggested syntax:\n\n    try:\n        with open(...):\n            fcntl.lock(...)\n    except IOError as e:\n        raise LockFailedError(...)\n    else:\n        try:\n            yield\n        finally:\n            fcntl.lockf(...)\n\nOr the variant:\n\n    try:\n        with open(...):\n            fcntl.lock(...)\n            try:\n                yield\n            finally:\n                fcntl.lockf(...)\n    except IOError as e:\n        raise LockFailedError(...)\n\nsession B continues merrily along with a second parallel scap invocation.\n\nI\u0027m not entirely sure why this is the case, but it seems to have something to do with the `with` internals. Maybe we could get it to do what we want using an object with `__enter__` \u0026 `__exit__` methods instead of the generator form for a contextmanager, but I\u0027m not sure that would actually be any simplier.",
+      "parentUuid": "8e23439c_cb23e052",
+      "revId": "af875e64c3aa4328d057bad5a290e6a3b3de4779",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
     }
   ]
 }
