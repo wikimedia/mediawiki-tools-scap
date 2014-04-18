@@ -34,6 +34,24 @@
       "revId": "af875e64c3aa4328d057bad5a290e6a3b3de4779",
       "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
       "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "8e23439c_c1961f42",
+        "filename": "scap/utils.py",
+        "patchSetId": 3
+      },
+      "lineNbr": 64,
+      "author": {
+        "id": 255
+      },
+      "writtenOn": "2014-04-18T21:24:29Z",
+      "side": 1,
+      "message": "I didn\u0027t notice that lock itself was a context manager. Try this:\n\n    lockfile \u003d None\n    try:\n        lockfile \u003d open(filename, \u0027w+\u0027)\n        fcntl.lockf(lockfile, fcntl.LOCK_EX | fcntl.LOCK_NB)\n    except IOError as e:\n        raise LockFailedError(\u0027Failed to lock %s: %s\u0027 % (filename, e))\n    else:\n        yield\n    finally:\n        if lockfile:\n            lockfile.close()\n        fcntl.lockf(lock_fd, fcntl.LOCK_UN)",
+      "parentUuid": "8e23439c_01c09753",
+      "revId": "af875e64c3aa4328d057bad5a290e6a3b3de4779",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
     }
   ]
 }
