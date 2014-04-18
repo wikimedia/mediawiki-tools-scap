@@ -131,6 +131,7 @@ class Scap(cli.Application):
         assert 'SSH_AUTH_SOCK' in os.environ, \
             'scap requires SSH agent forwarding'
 
+        soft_errors = False
         with utils.lock(self.config['lock_file']):
             self.announce('Started scap: %s', self.arguments.message)
 
@@ -157,7 +158,12 @@ class Scap(cli.Application):
             with log.Timer('sync-common to proxies', self.stats):
                 update_proxies = ssh.Job(scap_proxies)
                 update_proxies.command('/usr/local/bin/sync-common')
-                update_proxies.progress('sync-common').run()
+                update_proxies.progress('sync-common')
+                succeeded, failed = update_proxies.run()
+                if failed:
+                    self.logger.warning(
+                        '%d proxies had sync-common errors', failed)
+                    soft_errors = True
 
             # Update apaches
             mw_install_hosts = utils.read_dsh_hosts_file(
@@ -168,20 +174,39 @@ class Scap(cli.Application):
                 update_apaches.shuffle()
                 update_apaches.command(
                     ['/usr/local/bin/sync-common'] + scap_proxies)
-                update_apaches.progress('sync-common').run()
+                update_apaches.progress('sync-common')
+                succeeded, failed = update_apaches.run()
+                if failed:
+                    self.logger.warning(
+                        '%d apaches had sync-common errors', failed)
+                    soft_errors = True
                 t.mark('sync-common to apaches')
 
                 rebuild_cdbs = ssh.Job(mw_install_hosts)
                 rebuild_cdbs.command('/usr/local/bin/scap-rebuild-cdbs')
-                rebuild_cdbs.progress('scap-rebuild-cdbs').run()
+                rebuild_cdbs.progress('scap-rebuild-cdbs')
+                succeeded, failed = rebuild_cdbs.run()
+                if failed:
+                    self.logger.warning(
+                        '%d hosts had scap-rebuild-cdbs errors', failed)
+                    soft_errors = True
                 t.mark('scap-rebuild-cdbs')
 
             # Update and sync wikiversions.cdb
-            tasks.sync_wikiversions(mw_install_hosts, self.config)
+            succeeded, failed = tasks.sync_wikiversions(
+                mw_install_hosts, self.config)
+            if failed:
+                self.logger.warning(
+                    '%d hosts had sync_wikiversions errors', failed)
+                soft_errors = True
 
         self.announce('Finished scap: %s (duration: %s)',
             self.arguments.message, self.human_duration)
-        return 0
+        # Return a non-zero status if soft errors were seen
+        if soft_errors:
+            return 1
+        else:
+            return 0
 
     @property
     def duration(self):

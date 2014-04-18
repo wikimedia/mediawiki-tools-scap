@@ -114,7 +114,10 @@ class Job(object):
         if not self._hosts:
             self.logger.warning('Job %s called with an empty host list.',
                 self._command)
-            return None
+            if self._reporter:
+                return (0, 0)
+            else:
+                return []
 
         if self._reporter:
             return self._run_with_reporter(batch_size)

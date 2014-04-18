@@ -188,4 +188,4 @@ def sync_wikiversions(hosts, cfg):
         rsync.command('sudo -u mwdeploy /usr/bin/rsync -l '
             '%(master_rsync)s::common/wikiversions*.{json,cdb} '
             '%(deploy_dir)s' % cfg)
-        rsync.progress('sync_wikiversions').run()
+        return rsync.progress('sync_wikiversions').run()
