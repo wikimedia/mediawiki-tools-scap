@@ -33,6 +33,24 @@
       "revId": "6ac464b46f25e20d9bce4c08fa265c407703e920",
       "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
       "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "8e23439c_4190cff0",
+        "filename": "scap/main.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 205,
+      "author": {
+        "id": 1001
+      },
+      "writtenOn": "2014-04-18T23:12:15Z",
+      "side": 1,
+      "message": "Every time I try to guess which coding style Ori will like most I lose. :)",
+      "parentUuid": "8e23439c_abb0a4d8",
+      "revId": "6ac464b46f25e20d9bce4c08fa265c407703e920",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
     }
   ]
 }
