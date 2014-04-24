@@ -16,6 +16,41 @@
       "revId": "0f9f4c0d69fab51f75f849e41493c12a2c9d73c2",
       "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
       "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "8e23439c_7ed1f756",
+        "filename": "scap/tasks.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 321,
+      "author": {
+        "id": 255
+      },
+      "writtenOn": "2014-04-24T23:23:10Z",
+      "side": 1,
+      "message": "It\u0027s fine as an abstraction; I\u0027m just not sure why it needs to be nested. Even if its only caller exists in update_localization_cache, it should be a top-level function",
+      "parentUuid": "8e23439c_f8dbdfeb",
+      "revId": "0f9f4c0d69fab51f75f849e41493c12a2c9d73c2",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "8e23439c_5ecabba3",
+        "filename": "scap/tasks.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 343,
+      "author": {
+        "id": 255
+      },
+      "writtenOn": "2014-04-24T23:23:10Z",
+      "side": 1,
+      "message": "I thought you were standardizing on \u0027cores\u0027 or something",
+      "revId": "0f9f4c0d69fab51f75f849e41493c12a2c9d73c2",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
     }
   ]
 }
