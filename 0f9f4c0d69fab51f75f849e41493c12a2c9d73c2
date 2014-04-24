@@ -37,6 +37,24 @@
     },
     {
       "key": {
+        "uuid": "8e23439c_3e46df25",
+        "filename": "scap/tasks.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 321,
+      "author": {
+        "id": 1001
+      },
+      "writtenOn": "2014-04-24T23:29:14Z",
+      "side": 1,
+      "message": "I can hoist it out to utils.",
+      "parentUuid": "8e23439c_7ed1f756",
+      "revId": "0f9f4c0d69fab51f75f849e41493c12a2c9d73c2",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "8e23439c_5ecabba3",
         "filename": "scap/tasks.py",
         "patchSetId": 1
@@ -48,6 +66,24 @@
       "writtenOn": "2014-04-24T23:23:10Z",
       "side": 1,
       "message": "I thought you were standardizing on \u0027cores\u0027 or something",
+      "revId": "0f9f4c0d69fab51f75f849e41493c12a2c9d73c2",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "8e23439c_febce702",
+        "filename": "scap/tasks.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 343,
+      "author": {
+        "id": 1001
+      },
+      "writtenOn": "2014-04-24T23:29:14Z",
+      "side": 1,
+      "message": "Gah. Yeah I\u0027ll fix.",
+      "parentUuid": "8e23439c_5ecabba3",
       "revId": "0f9f4c0d69fab51f75f849e41493c12a2c9d73c2",
       "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
       "unresolved": false
