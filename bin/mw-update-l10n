@@ -1,118 +1,17 @@
-#!/bin/bash
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+#
+# Update localization files.
+#
+# Copyright © 2014 Wikimedia Foundation and contributors
 
-# WARNING: make sure to run any PHP scripts coming from MediaWiki under a
-# dedicated user such as `mwdeploy`. This script is running as user `root` on
-# the beta cluster.
+import os
+import sys
 
-. /usr/local/lib/mw-deployment-vars.sh
-BINDIR=/usr/local/bin
+# Add scap package to search path
+script = os.path.realpath(sys.argv[0])
+scap_src = os.path.dirname(os.path.dirname(script))
+sys.path.append(scap_src)
 
-function die() {
-	if [ -n "$*" ]; then
-		echo >&2 "$*"
-	else
-		echo >&2 "Update of MediaWiki localisation messages failed" 
-	fi
-	exit 1
-}
-
-if [ "`uname -s`" != Linux ]; then
-	die "ERROR: This script requires the Linux operating system to function correctly"
-fi
-
-QUIET=--quiet
-VERBOSE=
-FORCE_FULL_REBUILD=
-TEMP=`getopt -o '' -l verbose -- "$@"`
-if [ $? -ne 0 ]; then
-	exit 1
-fi
-eval set -- "$TEMP"
-while true; do
-	case "$1" in
-		--verbose)
-			QUIET=
-			VERBOSE='--verbose'
-			shift
-			;;
-		--)
-			shift
-			break
-	esac
-done
-
-# Calculate the number of parallel threads
-# Leave a couple of cores free for other stuff
-CPUS=`grep -c 'model name' /proc/cpuinfo`
-THREADS=`expr $CPUS - 2`
-
-if [ $THREADS -lt 1 ]; then
-	THREADS=1
-fi
-
-mwExtVerDbSets=$($BINDIR/mwversionsinuse --withdb) || die
-# Regenerate the extension message file list for all active MediaWiki versions
-for i in ${mwExtVerDbSets[@]}; do
-	mwVerNum=${i%=*}
-	mwDbName=${i#*=}
-
-	mwExtensionMessages="$MW_COMMON_SOURCE/wmf-config/ExtensionMessages-${mwVerNum}.php"
-	if [[ ! -e $mwExtensionMessages ]]; then
-		# Bug: 51174
-		# Touch mwExtensionMessages so that the require in CommonSettings
-		# doesn't explode while we are generating it for the first time on
-		# a new release branch.
-		echo "Creating empty $mwExtensionMessages ..."
-		touch "$mwExtensionMessages" || die
-	fi
-
-	mwL10nCacheDir="$MW_COMMON_SOURCE/php-$mwVerNum/cache/l10n"
-	if [[ ! -e $mwL10nCacheDir/l10n_cache-en.cdb ]]; then
-		# Bug: 51174
-		# Another potential bootstrapping problem, mergeMessageFileList.php
-		# will fail if there is no en l10n data.
-		echo "Bootstrapping en LocalisationCache for $mwVerNum... "
-		sudo -u l10nupdate $BINDIR/mwscript rebuildLocalisationCache.php \
-			--wiki="$mwDbName" --lang=en --outdir="$mwL10nCacheDir" --quiet ||
-			die
-		# Force full rebuild in subequent rebuild call to override stub l10n
-		# files
-		FORCE_FULL_REBUILD="--force"
-	fi
-	echo -n "Updating ExtensionMessages-$mwVerNum.php..."
-	mwTempDest=$(sudo -u apache mktemp) || die
-	sudo -u apache $BINDIR/mwscript mergeMessageFileList.php --wiki="$mwDbName" \
-		--list-file=$MW_COMMON_SOURCE/wmf-config/extension-list $QUIET --output="$mwTempDest" \
-		|| die
-	sudo -u apache chmod 664 "$mwTempDest"  || die
-	cp "$mwTempDest" "$mwExtensionMessages" || die
-	sudo -u apache rm "$mwTempDest" || die
-	echo "done"
-
-	# Update ExtensionMessages-*.php in the local copy
-	# Though only when commons are different files. Beta has everything on the same
-	# shared filesystem and thus cp would complain about copying to the same file.
-	if [ `readlink -f $MW_COMMON_SOURCE` != `readlink -f $MW_COMMON` ]; then
-		echo "Copying to local copy..."
-		sudo -u mwdeploy \
-			cp "$mwExtensionMessages" $MW_COMMON/wmf-config/ || die
-		echo "done"
-	fi
-
-	# Rebuild all the CDB files for each language
-	echo -n "Updating LocalisationCache for $mwVerNum using $THREADS thread(s)..."
-	sudo -u l10nupdate $BINDIR/mwscript rebuildLocalisationCache.php \
-		--wiki="$mwDbName" --outdir="$mwL10nCacheDir" $QUIET \
-		--threads=$THREADS $FORCE_FULL_REBUILD ||
-		die
-	echo "done"
-
-	# Include JSON versions of the CDB files and add MD5 files
-	echo "Generating JSON versions and md5 files..."
-	sudo -u l10nupdate $BINDIR/refreshCdbJsonFiles $VERBOSE \
-		--directory="$MW_COMMON_SOURCE/php-$mwVerNum/cache/l10n" \
-		--threads=$THREADS \
-		|| die
-
-	echo "done"
-done
+import scap
+scap.UpdateL10n.run()

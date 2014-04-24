@@ -83,8 +83,6 @@ class RebuildCdbs(cli.Application):
         use_cores = multiprocessing.cpu_count() / 2
 
         # Rebuild the CDB files from the JSON versions
-        # Regenerate the extension message file list for all active MediaWiki
-        # versions
         for version, wikidb in self.active_wikiversions().items():
             cache_dir = os.path.join(self.config['deploy_dir'],
                 'php-%s' % version, 'cache', 'l10n')
@@ -131,6 +129,8 @@ class Scap(cli.Application):
         args.message = ' '.join(args.message) or '(no message)'
         return args, extra_args
 
+    @cli.argument('-v', '--verbose', action='store_true',
+        help='Verbose output')
     @cli.argument('message', nargs=argparse.REMAINDER,
         help='Log message for SAL')
     def main(self, *extra_args):
@@ -168,7 +168,9 @@ class Scap(cli.Application):
             # Update list of extension message files and regenerate the
             # localisation cache.
             with log.Timer('mw-update-l10n', self.stats):
-                subprocess.check_call('/usr/local/bin/mw-update-l10n')
+                for version, wikidb in self.active_wikiversions().items():
+                    tasks.update_localization_cache(
+                        version, wikidb, self.arguments.verbose, self.config)
 
             # Update rsync proxies
             scap_proxies = utils.read_dsh_hosts_file('scap-proxies')
@@ -252,3 +254,14 @@ class Scap(cli.Application):
             self.stats.increment('scap.scap')
             self.stats.timing('scap.scap', self.duration * 1000)
         return exit_status
+
+
+class UpdateL10n(cli.Application):
+    """Update localization files"""
+
+    @cli.argument('-v', '--verbose', action='store_true',
+        help='Verbose output')
+    def main(self, *extra_args):
+        for version, wikidb in self.active_wikiversions().items():
+            tasks.update_localization_cache(
+                version, wikidb, self.arguments.verbose, self.config)

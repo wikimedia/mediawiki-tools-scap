@@ -81,3 +81,13 @@ scap-rebuild-cdbs
 .. seealso::
    * :func:`scap.RebuildCdbs`
    * :func:`scap.tasks.merge_cdb_updates`
+
+
+mw-update-l10n
+==============
+**mw-update-l10n** generates localization cache files.
+
+.. program-output:: ../bin/mw-update-l10n --help
+.. seealso::
+   * :func:`scap.UpdateL10n`
+   * :func:`scap.tasks.update_localization_cache`

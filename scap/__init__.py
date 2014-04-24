@@ -13,6 +13,7 @@ from .main import RebuildCdbs
 from .main import Scap
 from .main import SyncCommon
 from .main import SyncWikiversions
+from .main import UpdateL10n
 
 __all__ = (
     'CompileWikiversions',
@@ -22,6 +23,7 @@ __all__ = (
     'Scap',
     'SyncCommon',
     'SyncWikiversions',
+    'UpdateL10n',
 )
 
 any((
@@ -31,4 +33,5 @@ any((
     RebuildCdbs,
     Scap,
     SyncCommon,
-    SyncWikiversions))  # Ignore unused import warning
+    SyncWikiversions,
+    UpdateL10n))  # Ignore unused import warning
