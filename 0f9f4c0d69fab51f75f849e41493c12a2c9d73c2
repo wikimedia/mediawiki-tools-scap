@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "8e23439c_f8dbdfeb",
+        "filename": "scap/tasks.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 321,
+      "author": {
+        "id": 1001
+      },
+      "writtenOn": "2014-04-24T21:12:23Z",
+      "side": 1,
+      "message": "I\u0027m not in love with this nested function, but I haven\u0027t come up with a prettier abstraction. The real time logging is the main feature this was added for. Running in verbose mode with the logging enabled is very nice for figuring out if then l10n update is actually doing something for the ~10m it can take to touch every language file (as happens any time a new key has been added).",
+      "revId": "0f9f4c0d69fab51f75f849e41493c12a2c9d73c2",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
+    }
+  ]
+}
