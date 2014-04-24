@@ -19,6 +19,24 @@
     },
     {
       "key": {
+        "uuid": "8e23439c_581e5312",
+        "filename": "scap/cli.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 197,
+      "author": {
+        "id": 1001
+      },
+      "writtenOn": "2014-04-24T20:45:28Z",
+      "side": 1,
+      "message": "Done",
+      "parentUuid": "8e23439c_97ce315e",
+      "revId": "33888b482cd55429bd1579a84bc5eb5853ce5af4",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "8e23439c_57d89921",
         "filename": "scap/main.py",
         "patchSetId": 1
@@ -30,6 +48,24 @@
       "writtenOn": "2014-04-18T18:26:20Z",
       "side": 1,
       "message": "Heh. It wasn\u0027t threads in PHP, and now it\u0027s not threads in Python.",
+      "revId": "33888b482cd55429bd1579a84bc5eb5853ce5af4",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "8e23439c_98df4b3f",
+        "filename": "scap/main.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 92,
+      "author": {
+        "id": 1001
+      },
+      "writtenOn": "2014-04-24T20:45:28Z",
+      "side": 1,
+      "message": "Changed to \u0027use_cores\u0027 here and \u0027pool_size\u0027 in tasks.merge_cdb_updates",
+      "parentUuid": "8e23439c_57d89921",
       "revId": "33888b482cd55429bd1579a84bc5eb5853ce5af4",
       "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
       "unresolved": false
@@ -53,6 +89,24 @@
     },
     {
       "key": {
+        "uuid": "8e23439c_18f33bd3",
+        "filename": "scap/tasks.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 281,
+      "author": {
+        "id": 1001
+      },
+      "writtenOn": "2014-04-24T20:45:28Z",
+      "side": 1,
+      "message": "Done",
+      "parentUuid": "8e23439c_37499dd3",
+      "revId": "33888b482cd55429bd1579a84bc5eb5853ce5af4",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "8e23439c_178ea133",
         "filename": "scap/utils.py",
         "patchSetId": 1
@@ -64,6 +118,24 @@
       "writtenOn": "2014-04-18T18:26:20Z",
       "side": 1,
       "message": "Engineers at Intel sob when they see code written in 2014 that targets PDP-11. It\u0027ll be much faster (and less code) to read the the whole file into memory and calculate a hash in one slurp.",
+      "revId": "33888b482cd55429bd1579a84bc5eb5853ce5af4",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "8e23439c_58d41317",
+        "filename": "scap/utils.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 163,
+      "author": {
+        "id": 1001
+      },
+      "writtenOn": "2014-04-24T20:45:28Z",
+      "side": 1,
+      "message": "I upped the chunk size to 1M. Reading the whole file seems too scary as there is no guarantee that someone won\u0027t try to compute the md5 of a multi-GB binary file at some point.",
+      "parentUuid": "8e23439c_178ea133",
       "revId": "33888b482cd55429bd1579a84bc5eb5853ce5af4",
       "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
       "unresolved": false
