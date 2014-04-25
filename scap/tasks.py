@@ -318,31 +318,9 @@ def update_localization_cache(version, wikidb, verbose, cfg):
     """
     logger = logging.getLogger('update_localization_cache')
 
-    def check_sudo(user, cmd):
-        """Run a command as a specific user. Reports stdout/stderr of process
-        to logger during execution.
-
-        :param user: User to run command as
-        :param cmd: Command to execute
-        :raises: subprocess.CalledProcessError on non-zero process exit
-        """
-        # Several of the calls in this module fail if a full shell isn't used
-        proc = subprocess.Popen('sudo -u %s -- %s' % (user, cmd),
-            stdout=subprocess.PIPE, stderr=subprocess.STDOUT, shell=True)
-
-        while proc.poll() is None:
-            line = proc.stdout.readline().strip()
-            if line:
-                logger.debug(line)
-
-        if proc.returncode:
-            raise subprocess.CalledProcessError(proc.retcode, cmd)
-
     # Calculate the number of parallel threads
     # Leave a couple of cores free for other stuff
-    num_threads = multiprocessing.cpu_count() - 2
-    if num_threads < 1:
-        num_threads = 1
+    use_cores = max(multiprocessing.cpu_count() - 2, 1)
 
     verbose_messagelist = ''
     force_rebuild = ''
@@ -365,45 +343,55 @@ def update_localization_cache(version, wikidb, verbose, cfg):
     if not os.path.exists(os.path.join(cache_dir, 'l10n_cache-en.cdb')):
         # mergeMessageFileList.php needs a l10n file
         logger.info('Bootstrapping l10n cache for %s', version)
-        check_sudo('l10nupdate',
+        utils.sudo_check_call('l10nupdate',
             '/usr/local/bin/mwscript rebuildLocalisationCache.php '
             '--wiki="%s" --lang=en --outdir="%s" --quiet' % (
-                version, cache_dir))
+                version, cache_dir),
+            logger)
         # Force subsequent cache rebuild to overwrite bootstrap version
         force_rebuild = '--force'
 
     logger.info('Updating ExtensionMessages-%s.php', version)
     new_extension_messages = subprocess.check_output(
         'sudo -u apache -- /bin/mktemp', shell=True).strip()
-    check_sudo('apache', '/usr/local/bin/mwscript mergeMessageFileList.php '
+    utils.sudo_check_call('apache',
+        '/usr/local/bin/mwscript mergeMessageFileList.php '
         '--wiki="%s" --list-file="%s/wmf-config/extension-list" '
         '--output="%s" %s' % (
             wikidb, cfg['stage_dir'], new_extension_messages,
-            verbose_messagelist))
-    check_sudo('apache', 'chmod 0664 "%s"' % new_extension_messages)
+            verbose_messagelist),
+        logger)
+    utils.sudo_check_call('apache',
+        'chmod 0664 "%s"' % new_extension_messages,
+        logger)
     logger.debug('Copying %s to %s' % (
         new_extension_messages, extension_messages))
     shutil.copyfile(new_extension_messages, extension_messages)
-    check_sudo('apache', 'rm "%s"' % new_extension_messages)
+    utils.sudo_check_call('apache', 'rm "%s"' % new_extension_messages, logger)
 
     # Update ExtensionMessages-*.php in the local copy.
     deploy_dir = os.path.realpath(cfg['deploy_dir'])
     stage_dir = os.path.realpath(cfg['stage_dir'])
     if stage_dir != deploy_dir:
         logger.debug('Copying to local copy')
-        check_sudo('mwdeploy', 'cp "%s" "%s/wmf-config/"' % (
-            extension_messages, cfg['deploy_dir']))
+        utils.sudo_check_call('mwdeploy',
+            'cp "%s" "%s/wmf-config/"' % (
+                extension_messages, cfg['deploy_dir']),
+            logger)
 
     # Rebuild all the CDB files for each language
     logger.info('Updating LocalisationCache for %s '
-        'using %s thread(s)' % (version, num_threads))
-    check_sudo('l10nupdate', '/usr/local/bin/mwscript '
-        'rebuildLocalisationCache.php --wiki="%s" --outdir="%s" '
-        '--threads=%s %s %s' % (wikidb, cache_dir, num_threads,
-            force_rebuild, quiet_rebuild))
+        'using %s thread(s)' % (version, use_cores))
+    utils.sudo_check_call('l10nupdate',
+        '/usr/local/bin/mwscript rebuildLocalisationCache.php '
+        '--wiki="%s" --outdir="%s" --threads=%s %s %s' % (
+            wikidb, cache_dir, use_cores, force_rebuild, quiet_rebuild),
+        logger)
 
     # Include JSON versions of the CDB files and add MD5 files
     logger.info('Generating JSON versions and md5 files')
-    check_sudo('l10nupdate', '/usr/local/bin/refreshCdbJsonFiles '
+    utils.sudo_check_call('l10nupdate',
+        '/usr/local/bin/refreshCdbJsonFiles '
         '--directory="%s" --threads=%s %s' % (
-            cache_dir, num_threads, verbose_messagelist))
+            cache_dir, use_cores, verbose_messagelist),
+        logger)

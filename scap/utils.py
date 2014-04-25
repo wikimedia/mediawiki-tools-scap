@@ -9,12 +9,14 @@ import contextlib
 import errno
 import fcntl
 import hashlib
+import logging
 import os
 import pwd
 import random
 import re
 import socket
 import struct
+import subprocess
 
 
 def read_dsh_hosts_file(path):
@@ -181,3 +183,27 @@ def md5_file(path):
         for block in iter(lambda: f.read(1048576), b''):
             crc.update(block)
     return crc.hexdigest()
+
+
+def sudo_check_call(user, cmd, logger=None):
+    """Run a command as a specific user. Reports stdout/stderr of process
+    to logger during execution.
+
+    :param user: User to run command as
+    :param cmd: Command to execute
+    :param logger: Logger to send process output to
+    :raises: subprocess.CalledProcessError on non-zero process exit
+    """
+    if logger is None:
+        logger = logging.getLogger('sudo_check_call')
+
+    proc = subprocess.Popen('sudo -u %s -- %s' % (user, cmd),
+        stdout=subprocess.PIPE, stderr=subprocess.STDOUT, shell=True)
+
+    while proc.poll() is None:
+        line = proc.stdout.readline().strip()
+        if line:
+            logger.debug(line)
+
+    if proc.returncode:
+        raise subprocess.CalledProcessError(proc.retcode, cmd)

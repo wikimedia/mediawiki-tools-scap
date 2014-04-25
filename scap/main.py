@@ -80,7 +80,7 @@ class RebuildCdbs(cli.Application):
         self._assert_current_user('mwdeploy')
 
         # Leave some of the cores free for apache processes
-        use_cores = multiprocessing.cpu_count() / 2
+        use_cores = max(multiprocessing.cpu_count() / 2, 1)
 
         # Rebuild the CDB files from the JSON versions
         for version, wikidb in self.active_wikiversions().items():
