@@ -206,4 +206,4 @@ def sudo_check_call(user, cmd, logger=None):
             logger.debug(line)
 
     if proc.returncode:
-        raise subprocess.CalledProcessError(proc.retcode, cmd)
+        raise subprocess.CalledProcessError(proc.returncode, cmd)

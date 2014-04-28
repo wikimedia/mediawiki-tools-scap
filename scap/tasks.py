@@ -346,7 +346,7 @@ def update_localization_cache(version, wikidb, verbose, cfg):
         utils.sudo_check_call('l10nupdate',
             '/usr/local/bin/mwscript rebuildLocalisationCache.php '
             '--wiki="%s" --lang=en --outdir="%s" --quiet' % (
-                version, cache_dir),
+                wikidb, cache_dir),
             logger)
         # Force subsequent cache rebuild to overwrite bootstrap version
         force_rebuild = '--force'
