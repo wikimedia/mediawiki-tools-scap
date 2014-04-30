@@ -207,3 +207,90 @@ def sudo_check_call(user, cmd, logger=None):
 
     if proc.returncode:
         raise subprocess.CalledProcessError(proc.returncode, cmd)
+
+
+def iterate_subdirectories(root):
+    for name in os.listdir(root):
+        subdir = os.path.join(root, name)
+        if os.path.isdir(subdir):
+            yield subdir
+
+
+def git_info_filename(directory, install_path, cache_path):
+    """Compute the path for a git_info cache file related to a given
+    directory.
+
+    >>> git_info_filename('foo', 'foo', '')
+    'info.json'
+    >>> git_info_filename('foo/bar/baz', 'foo', 'xyzzy')
+    'xyzzy/info-bar-baz.json'
+    """
+    path = directory
+    if path.startswith(install_path):
+        path = path[len(install_path):]
+    return os.path.join(cache_path, 'info%s.json' % path.replace('/', '-'))
+
+
+def git_info(directory):
+    """Compute git version information for a given directory that is
+    compatible with MediaWiki's GitInfo class.
+
+    :param directory: Directory to scan for git information
+    :returns: Dict of information about current repository state
+    """
+    git_dir = os.path.join(directory, '.git')
+    if not os.path.exists(git_dir):
+        raise IOError(errno.ENOENT, '.git not found', directory)
+
+    if os.path.isfile(git_dir):
+        # submodules
+        with open(git_dir, 'r') as f:
+            git_ref = f.read().strip()
+
+        if not git_ref.startswith('gitdir: '):
+            raise IOError(errno.EINVAL, 'Unexpected .git contents', git_dir)
+        git_ref = git_ref[8:]
+        if git_ref[0] != '/':
+            git_ref = os.path.abspath(os.path.join(directory, git_ref))
+        git_dir = git_ref
+
+    head_file = os.path.join(git_dir, 'HEAD')
+    with open(head_file, 'r') as f:
+        head = f.read().strip()
+    if head.startswith('ref: '):
+        head = head[5:]
+
+    if re.match(r'^[0-9a-f]{40}$', head, re.IGNORECASE):
+        # Working copy is a detached head, so we can't check for upstream
+        # intersection easily.
+        head_sha1 = head
+    else:
+        # Find first commit shared with the upstream branch. This keeps us
+        # from leaking information about locally committed changes such as
+        # security patches.
+        head_sha1 = subprocess.check_output(
+            ('/usr/bin/git', 'rev-list', '-1', '@{upstream}'),
+            cwd=git_dir).strip()
+
+    commit_date = subprocess.check_output(
+        ('/usr/bin/git', 'show', '-s', '--format=%ct', head_sha1),
+        cwd=git_dir).strip()
+
+    if head.startswith('refs/heads/'):
+        branch = head[11:]
+    else:
+        branch = head
+
+    # Requires git v1.7.5+
+    remote_url = subprocess.check_output(
+        ('/usr/bin/git', 'ls-remote', '--get-url'),
+        cwd=git_dir).strip()
+
+    return {
+        '@directory': directory,
+        'head': head,
+        'headSHA1': head_sha1,
+        'headCommitDate': commit_date,
+        'branch': branch,
+        'remoteURL': remote_url,
+    }

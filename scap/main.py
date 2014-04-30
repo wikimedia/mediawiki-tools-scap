@@ -140,11 +140,12 @@ class Scap(cli.Application):
         2. Sync deploy directory on localhost with staging area
         3. Compile wikiversions.json to cdb in deploy directory
         4. Update l10n files in staging area
-        5. Ask scap proxies to sync with master server
-        6. Ask apaches to sync with fastest rsync server
-        7. Ask apaches to rebuild l10n CDB files
-        8. Update wikiversions.cdb on localhost
-        9. Ask apaches to sync wikiversions.cdb
+        5. Compute git version information
+        6. Ask scap proxies to sync with master server
+        7. Ask apaches to sync with fastest rsync server
+        8. Ask apaches to rebuild l10n CDB files
+        9. Update wikiversions.cdb on localhost
+        10. Ask apaches to sync wikiversions.cdb
         """
         self._assert_auth_sock()
 
@@ -171,6 +172,11 @@ class Scap(cli.Application):
                 for version, wikidb in self.active_wikiversions().items():
                     tasks.update_localization_cache(
                         version, wikidb, self.arguments.verbose, self.config)
+
+            # Compute git version information
+            with log.Timer('cache_git_info', self.stats):
+                for version, wikidb in self.active_wikiversions().items():
+                    tasks.cache_git_info(version, self.config)
 
             # Update rsync proxies
             scap_proxies = utils.read_dsh_hosts_file('scap-proxies')

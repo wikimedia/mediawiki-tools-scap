@@ -36,6 +36,40 @@ DEFAULT_RSYNC_ARGS = (
     '--no-perms')
 
 
+def cache_git_info(version, cfg):
+    """Create JSON cache files of git branch information.
+
+    :param version: MediaWiki version (eg '1.23wmf15')
+    :param cfg: Dict of global configuration values
+    :raises: :class:`IOError` if version directory is not found
+    """
+    branch_dir = os.path.join(cfg['stage_dir'], 'php-%s' % version)
+
+    if not os.path.isdir(branch_dir):
+        raise IOError(errno.ENOENT, 'Invalid branch directory', branch_dir)
+
+    # Create cache directory if needed
+    cache_dir = os.path.join(branch_dir, 'cache', 'gitinfo')
+    if not os.path.isdir(cache_dir):
+        os.mkdir(cache_dir)
+
+    # Create cache for branch
+    info = utils.git_info(branch_dir)
+    cache_file = utils.git_info_filename(branch_dir, branch_dir, cache_dir)
+    with open(cache_file, 'w') as f:
+        json.dump(info, f)
+
+    # Create cache for each extension
+    extensions_dir = os.path.join(branch_dir, 'extensions')
+    for subdir in utils.iterate_subdirectories(extensions_dir):
+        if os.path.exists(os.path.join(subdir, '.git')):
+            info = utils.git_info(subdir)
+            cache_file = utils.git_info_filename(
+                subdir, branch_dir, cache_dir)
+            with open(cache_file, 'w') as f:
+                json.dump(info, f)
+
+
 def check_php_syntax(*paths):
     """Run lint.php on `paths`; raise CalledProcessError if nonzero exit."""
     cmd = '/usr/bin/php -n -dextension=parsekit.so /usr/local/bin/lint.php'
