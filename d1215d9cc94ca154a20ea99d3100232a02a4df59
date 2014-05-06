@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "8e23439c_75b8b0c2",
+        "filename": "scap/utils.py",
+        "patchSetId": 2
+      },
+      "lineNbr": 284,
+      "author": {
+        "id": 255
+      },
+      "writtenOn": "2014-05-06T17:12:54Z",
+      "side": 1,
+      "message": "precise has 1.7.9.5, and we\u0027re not ever going to downgrade, so this is a throwaway comment IMO",
+      "revId": "d1215d9cc94ca154a20ea99d3100232a02a4df59",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
+    }
+  ]
+}
