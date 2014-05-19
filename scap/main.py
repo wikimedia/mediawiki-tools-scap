@@ -89,35 +89,6 @@ class RebuildCdbs(cli.Application):
             tasks.merge_cdb_updates(cache_dir, use_cores, True)
 
 
-class SyncCommon(cli.Application):
-    """Sync local MediaWiki deployment directory with deploy server state."""
-
-    @cli.argument('servers', nargs=argparse.REMAINDER,
-        help='Rsync server(s) to copy from')
-    def main(self, *extra_args):
-        tasks.sync_common(self.config, self.arguments.servers)
-        return 0
-
-
-class SyncWikiversions(cli.Application):
-    """Rebuild and sync wikiversions.cdb to the cluster."""
-
-    def _process_arguments(self, args, extra_args):
-        args.message = ' '.join(args.message) or '(no message)'
-        return args, extra_args
-
-    @cli.argument('message', nargs='*', help='Log message for SAL')
-    def main(self, *extra_args):
-        self._assert_auth_sock()
-
-        mw_install_hosts = utils.read_dsh_hosts_file('mediawiki-installation')
-        tasks.sync_wikiversions(mw_install_hosts, self.config)
-
-        self.announce(
-            'rebuilt wikiversions.cdb and synchronized wikiversions files: %s',
-            self.arguments.message)
-
-
 class Scap(cli.Application):
     """Deploy MediaWiki to the cluster."""
 
@@ -260,6 +231,35 @@ class Scap(cli.Application):
             self.stats.increment('scap.scap')
             self.stats.timing('scap.scap', self.duration * 1000)
         return exit_status
+
+
+class SyncCommon(cli.Application):
+    """Sync local MediaWiki deployment directory with deploy server state."""
+
+    @cli.argument('servers', nargs=argparse.REMAINDER,
+        help='Rsync server(s) to copy from')
+    def main(self, *extra_args):
+        tasks.sync_common(self.config, self.arguments.servers)
+        return 0
+
+
+class SyncWikiversions(cli.Application):
+    """Rebuild and sync wikiversions.cdb to the cluster."""
+
+    def _process_arguments(self, args, extra_args):
+        args.message = ' '.join(args.message) or '(no message)'
+        return args, extra_args
+
+    @cli.argument('message', nargs='*', help='Log message for SAL')
+    def main(self, *extra_args):
+        self._assert_auth_sock()
+
+        mw_install_hosts = utils.read_dsh_hosts_file('mediawiki-installation')
+        tasks.sync_wikiversions(mw_install_hosts, self.config)
+
+        self.announce(
+            'rebuilt wikiversions.cdb and synchronized wikiversions files: %s',
+            self.arguments.message)
 
 
 class UpdateL10n(cli.Application):

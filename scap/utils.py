@@ -19,55 +19,9 @@ import struct
 import subprocess
 
 
-def read_dsh_hosts_file(path):
-    """Reads hosts from a file into a list.
-
-    Blank lines and comments are ignored.
-    """
-    try:
-        with open(os.path.join('/etc/dsh/group', path)) as hosts_file:
-            return re.findall(r'^[\w\.\-]+', hosts_file.read(), re.MULTILINE)
-    except IOError, e:
-        raise IOError(e.errno, e.strerror, path)
-
-
 class LockFailedError(Exception):
     """Signal that a locking attempt failed."""
     pass
-
-
-@contextlib.contextmanager
-def lock(filename):
-    """Context manager. Acquires a file lock on entry, releases on exit.
-
-    :param filename: File to lock
-    :raises: LockFailedError on failure
-    """
-    lock_fd = None
-    try:
-        lock_fd = open(filename, 'w+')
-        fcntl.lockf(lock_fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
-    except IOError as e:
-        raise LockFailedError('Failed to lock %s: %s' % (filename, e))
-    else:
-        yield
-    finally:
-        if lock_fd:
-            fcntl.lockf(lock_fd, fcntl.LOCK_UN)
-            lock_fd.close()
-
-
-def human_duration(elapsed):
-    """Format an elapsed seconds count as human readable duration.
-
-    >>> human_duration(1)
-    '00m 01s'
-    >>> human_duration(65)
-    '01m 05s'
-    >>> human_duration(60*30+11)
-    '30m 11s'
-    """
-    return '%02dm %02ds' % divmod(elapsed, 60)
 
 
 def find_nearest_host(hosts, port=22, timeout=1):
@@ -118,6 +72,19 @@ def find_nearest_host(hosts, port=22, timeout=1):
                 s.close()
 
 
+def get_real_username():
+    """Get the username of the real user."""
+    try:
+        # Get the username of the user owning the terminal (ie the user
+        # that is running scap even if they are sudo-ing something)
+        return os.getlogin()
+    except OSError:
+        # When running under Jenkins there is no terminal so os.getlogin()
+        # blows up. Use the username matching the effective user id
+        # instead.
+        return get_username()
+
+
 def get_realm_specific_filename(filename, realm, datacenter):
     """Find the most specific file for the given realm and datacenter.
 
@@ -156,79 +123,6 @@ def get_realm_specific_filename(filename, realm, datacenter):
 def get_username():
     """Get the username of the effective user."""
     return pwd.getpwuid(os.getuid())[0]
-
-
-def get_real_username():
-    """Get the username of the real user."""
-    try:
-        # Get the username of the user owning the terminal (ie the user
-        # that is running scap even if they are sudo-ing something)
-        return os.getlogin()
-    except OSError:
-        # When running under Jenkins there is no terminal so os.getlogin()
-        # blows up. Use the username matching the effective user id
-        # instead.
-        return get_username()
-
-
-def md5_file(path):
-    """Compute the md5 checksum of a file's contents.
-
-    :param path: Path to file
-    :returns: hexdigest of md5 checksum
-    """
-    crc = hashlib.md5()
-    with open(path, 'rb') as f:
-        # Digest file in 1M chunks just in case it's huge
-        for block in iter(lambda: f.read(1048576), b''):
-            crc.update(block)
-    return crc.hexdigest()
-
-
-def sudo_check_call(user, cmd, logger=None):
-    """Run a command as a specific user. Reports stdout/stderr of process
-    to logger during execution.
-
-    :param user: User to run command as
-    :param cmd: Command to execute
-    :param logger: Logger to send process output to
-    :raises: subprocess.CalledProcessError on non-zero process exit
-    """
-    if logger is None:
-        logger = logging.getLogger('sudo_check_call')
-
-    proc = subprocess.Popen('sudo -u %s -- %s' % (user, cmd),
-        stdout=subprocess.PIPE, stderr=subprocess.STDOUT, shell=True)
-
-    while proc.poll() is None:
-        line = proc.stdout.readline().strip()
-        if line:
-            logger.debug(line)
-
-    if proc.returncode:
-        raise subprocess.CalledProcessError(proc.returncode, cmd)
-
-
-def iterate_subdirectories(root):
-    for name in os.listdir(root):
-        subdir = os.path.join(root, name)
-        if os.path.isdir(subdir):
-            yield subdir
-
-
-def git_info_filename(directory, install_path, cache_path):
-    """Compute the path for a git_info cache file related to a given
-    directory.
-
-    >>> git_info_filename('foo', 'foo', '')
-    'info.json'
-    >>> git_info_filename('foo/bar/baz', 'foo', 'xyzzy')
-    'xyzzy/info-bar-baz.json'
-    """
-    path = directory
-    if path.startswith(install_path):
-        path = path[len(install_path):]
-    return os.path.join(cache_path, 'info%s.json' % path.replace('/', '-'))
 
 
 def git_info(directory):
@@ -294,3 +188,110 @@ def git_info(directory):
         'branch': branch,
         'remoteURL': remote_url,
     }
+
+
+def git_info_filename(directory, install_path, cache_path):
+    """Compute the path for a git_info cache file related to a given
+    directory.
+
+    >>> git_info_filename('foo', 'foo', '')
+    'info.json'
+    >>> git_info_filename('foo/bar/baz', 'foo', 'xyzzy')
+    'xyzzy/info-bar-baz.json'
+    """
+    path = directory
+    if path.startswith(install_path):
+        path = path[len(install_path):]
+    return os.path.join(cache_path, 'info%s.json' % path.replace('/', '-'))
+
+
+def human_duration(elapsed):
+    """Format an elapsed seconds count as human readable duration.
+
+    >>> human_duration(1)
+    '00m 01s'
+    >>> human_duration(65)
+    '01m 05s'
+    >>> human_duration(60*30+11)
+    '30m 11s'
+    """
+    return '%02dm %02ds' % divmod(elapsed, 60)
+
+
+def iterate_subdirectories(root):
+    """Generator over the child directories of a given directory."""
+    for name in os.listdir(root):
+        subdir = os.path.join(root, name)
+        if os.path.isdir(subdir):
+            yield subdir
+
+
+@contextlib.contextmanager
+def lock(filename):
+    """Context manager. Acquires a file lock on entry, releases on exit.
+
+    :param filename: File to lock
+    :raises: LockFailedError on failure
+    """
+    lock_fd = None
+    try:
+        lock_fd = open(filename, 'w+')
+        fcntl.lockf(lock_fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except IOError as e:
+        raise LockFailedError('Failed to lock %s: %s' % (filename, e))
+    else:
+        yield
+    finally:
+        if lock_fd:
+            fcntl.lockf(lock_fd, fcntl.LOCK_UN)
+            lock_fd.close()
+
+
+def md5_file(path):
+    """Compute the md5 checksum of a file's contents.
+
+    :param path: Path to file
+    :returns: hexdigest of md5 checksum
+    """
+    crc = hashlib.md5()
+    with open(path, 'rb') as f:
+        # Digest file in 1M chunks just in case it's huge
+        for block in iter(lambda: f.read(1048576), b''):
+            crc.update(block)
+    return crc.hexdigest()
+
+
+def read_dsh_hosts_file(path):
+    """Reads hosts from a file into a list.
+
+    Blank lines and comments are ignored.
+    """
+    try:
+        with open(os.path.join('/etc/dsh/group', path)) as hosts_file:
+            return re.findall(r'^[\w\.\-]+', hosts_file.read(), re.MULTILINE)
+    except IOError, e:
+        raise IOError(e.errno, e.strerror, path)
+
+
+def sudo_check_call(user, cmd, logger=None):
+    """Run a command as a specific user. Reports stdout/stderr of process
+    to logger during execution.
+
+    :param user: User to run command as
+    :param cmd: Command to execute
+    :param logger: Logger to send process output to
+    :raises: subprocess.CalledProcessError on non-zero process exit
+    """
+    if logger is None:
+        logger = logging.getLogger('sudo_check_call')
+
+    proc = subprocess.Popen('sudo -u %s -- %s' % (user, cmd),
+        stdout=subprocess.PIPE, stderr=subprocess.STDOUT, shell=True)
+
+    while proc.poll() is None:
+        line = proc.stdout.readline().strip()
+        if line:
+            logger.debug(line)
+
+    if proc.returncode:
+        raise subprocess.CalledProcessError(proc.returncode, cmd)

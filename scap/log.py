@@ -22,6 +22,35 @@ from . import utils
 CONSOLE_LOG_FORMAT = '%(asctime)s %(levelname)-8s - %(message)s'
 
 
+class AnsiColorFormatter(logging.Formatter):
+    """Colorize output according to logging level."""
+
+    colors = {
+        'CRITICAL': '41;37',  # white on red
+        'ERROR': '31',        # red
+        'WARNING': '33',      # yellow
+        'INFO': '32',         # green
+        'DEBUG': '36',        # cyan
+    }
+
+    def __init__(self, fmt=None, datefmt=None, colors=None):
+        """
+        :param fmt: Message format string
+        :param datefmt: Time format string
+        :param colors: Dict of {'levelname': ANSI SGR parameters}
+
+        .. seealso:: https://en.wikipedia.org/wiki/ANSI_escape_code
+        """
+        super(self.__class__, self).__init__(fmt, datefmt)
+        if colors:
+            self.colors.extend(colors)
+
+    def format(self, record):
+        msg = super(self.__class__, self).format(record)
+        color = self.colors.get(record.levelname, '0')
+        return '\x1b[%sm%s\x1b[0m' % (color, msg)
+
+
 class IRCSocketHandler(logging.Handler):
     """Log handler for logmsgbot on #wikimedia-operation.
 
@@ -53,68 +82,6 @@ class IRCSocketHandler(logging.Handler):
             sock.close()
         except (socket.timeout, socket.error, socket.gaierror):
             self.handleError(record)
-
-
-class Udp2LogHandler(logging.handlers.DatagramHandler):
-    """Log handler for udp2log."""
-
-    def __init__(self, host, port, prefix='scap'):
-        """
-        :param host: Hostname or ip address
-        :param port: Port
-        :param prefix: Line prefix (udp2log destination)
-        """
-        super(self.__class__, self).__init__(host, port)
-        self.prefix = prefix
-
-    def makePickle(self, record):
-        """Format record as a udp2log packet.
-
-        >>> Udp2LogHandler('127.0.0.1', 12345).makePickle(
-        ...     logging.makeLogRecord({'msg':'line1\\nline2'}))
-        'scap line1\\nscap line2\\n'
-        >>> Udp2LogHandler('127.0.0.1', 12345).makePickle(
-        ...     logging.makeLogRecord({'msg':'%s12'% ('0'*65500)}))
-        ...     # doctest: +ELLIPSIS
-        'scap 00000...00001\\n'
-        """
-        text = self.format(record)
-        if self.prefix:
-            text = re.sub(r'^', self.prefix + ' ', text, flags=re.MULTILINE)
-        if len(text) > 65506:
-            text = text[:65506]
-        if text[-1] != '\n':
-            text = text + '\n'
-        return text
-
-
-class AnsiColorFormatter(logging.Formatter):
-    """Colorize output according to logging level."""
-
-    colors = {
-        'CRITICAL': '41;37',  # white on red
-        'ERROR': '31',        # red
-        'WARNING': '33',      # yellow
-        'INFO': '32',         # green
-        'DEBUG': '36',        # cyan
-    }
-
-    def __init__(self, fmt=None, datefmt=None, colors=None):
-        """
-        :param fmt: Message format string
-        :param datefmt: Time format string
-        :param colors: Dict of {'levelname': ANSI SGR parameters}
-
-        .. seealso:: https://en.wikipedia.org/wiki/ANSI_escape_code
-        """
-        super(self.__class__, self).__init__(fmt, datefmt)
-        if colors:
-            self.colors.extend(colors)
-
-    def format(self, record):
-        msg = super(self.__class__, self).format(record)
-        color = self.colors.get(record.levelname, '0')
-        return '\x1b[%sm%s\x1b[0m' % (color, msg)
 
 
 class LogstashFormatter(logging.Formatter):
@@ -190,6 +157,77 @@ class LogstashFormatter(logging.Formatter):
         }
 
 
+class ProgressReporter(object):
+    """Track and display progress of a process.
+
+    Report on the status of a multi-step process by displaying the completion
+    percentage and succes, failure and remaining task counts on a single
+    output line.
+    """
+
+    def __init__(self, name, expect=0, fd=sys.stderr):
+        """
+        :param name: Name of command being monitored
+        :param expect: Number of results to expect
+        :param fd: File handle to write status messages to
+        """
+        self._name = name
+        self._expect = expect
+        self._done = 0
+        self._ok = 0
+        self._failed = 0
+        self._fd = fd
+
+    @property
+    def ok(self):
+        return self._ok
+
+    @property
+    def failed(self):
+        return self._failed
+
+    @property
+    def remaining(self):
+        return self._expect - self._done
+
+    @property
+    def percent_complete(self):
+        return 100.0 * (float(self._done) / max(self._expect, 1))
+
+    def expect(self, count):
+        """Set expected result count."""
+        self._expect = count
+
+    def start(self):
+        """Start tracking progress."""
+        self._progress()
+
+    def finish(self):
+        """Finish tracking progress."""
+        self._progress()
+        self._fd.write('\n')
+
+    def add_success(self):
+        """Record a sucessful task completion."""
+        self._done += 1
+        self._ok += 1
+        self._progress()
+
+    def add_failure(self):
+        """Record a failed task completion."""
+        self._done += 1
+        self._failed += 1
+        self._progress()
+
+    def _progress(self):
+        self._fd.write('%-80s\r' % self._output())
+
+    def _output(self):
+        return '%s: %3.0f%% (ok: %d; fail: %d; left: %d)' % (
+            self._name, self.percent_complete,
+            self.ok, self.failed, self.remaining)
+
+
 class Stats(object):
     """A simple StatsD metric client that can log measurements and counts to
     a remote StatsD host.
@@ -217,35 +255,6 @@ class Stats(object):
             self.socket.sendto(metric.encode('utf-8'), self.address)
         except Exception:
             self.logger.exception('Failed to send metric "%s"', metric)
-
-
-def setup_loggers(cfg):
-    """Setup the logging system.
-
-    * Configure the root logger to use :class:`AnsiColorFormatter`
-    * Optionally add a :class:`Udp2LogHandler` to send logs to a udp2log server
-    * Optional add a :class:`IRCSocketHandler` for the `scap.announce` log
-      channel to send messages to a tcpircbot server
-
-    :param cfg: Dict of global configuration values
-    """
-    # Colorize log messages sent to stderr
-    logging.root.handlers[0].setFormatter(AnsiColorFormatter(
-        '%(asctime)s %(message)s', '%H:%M:%S'))
-
-    if cfg['udp2log_host']:
-        # Send a copy of all logs to the udp2log relay
-        udp_handler = Udp2LogHandler(
-            cfg['udp2log_host'], int(cfg['udp2log_port']))
-        udp_handler.setLevel(logging.DEBUG)
-        udp_handler.setFormatter(LogstashFormatter())
-        logging.root.addHandler(udp_handler)
-
-    if cfg['tcpircbot_host']:
-        # Send 'scap.announce' messages to irc relay
-        irc_logger = logging.getLogger('scap.announce')
-        irc_logger.addHandler(IRCSocketHandler(
-            cfg['tcpircbot_host'], int(cfg['tcpircbot_port'])))
 
 
 class Timer(object):
@@ -320,72 +329,63 @@ class Timer(object):
             self.stats.timing('scap.%s' % label, elapsed * 1000)
 
 
-class ProgressReporter(object):
-    """Track and display progress of a process.
+class Udp2LogHandler(logging.handlers.DatagramHandler):
+    """Log handler for udp2log."""
 
-    Report on the status of a multi-step process by displaying the completion
-    percentage and succes, failure and remaining task counts on a single
-    output line.
+    def __init__(self, host, port, prefix='scap'):
+        """
+        :param host: Hostname or ip address
+        :param port: Port
+        :param prefix: Line prefix (udp2log destination)
+        """
+        super(self.__class__, self).__init__(host, port)
+        self.prefix = prefix
+
+    def makePickle(self, record):
+        """Format record as a udp2log packet.
+
+        >>> Udp2LogHandler('127.0.0.1', 12345).makePickle(
+        ...     logging.makeLogRecord({'msg':'line1\\nline2'}))
+        'scap line1\\nscap line2\\n'
+        >>> Udp2LogHandler('127.0.0.1', 12345).makePickle(
+        ...     logging.makeLogRecord({'msg':'%s12'% ('0'*65500)}))
+        ...     # doctest: +ELLIPSIS
+        'scap 00000...00001\\n'
+        """
+        text = self.format(record)
+        if self.prefix:
+            text = re.sub(r'^', self.prefix + ' ', text, flags=re.MULTILINE)
+        if len(text) > 65506:
+            text = text[:65506]
+        if text[-1] != '\n':
+            text = text + '\n'
+        return text
+
+
+def setup_loggers(cfg):
+    """Setup the logging system.
+
+    * Configure the root logger to use :class:`AnsiColorFormatter`
+    * Optionally add a :class:`Udp2LogHandler` to send logs to a udp2log server
+    * Optional add a :class:`IRCSocketHandler` for the `scap.announce` log
+      channel to send messages to a tcpircbot server
+
+    :param cfg: Dict of global configuration values
     """
+    # Colorize log messages sent to stderr
+    logging.root.handlers[0].setFormatter(AnsiColorFormatter(
+        '%(asctime)s %(message)s', '%H:%M:%S'))
 
-    def __init__(self, name, expect=0, fd=sys.stderr):
-        """
-        :param name: Name of command being monitored
-        :param expect: Number of results to expect
-        :param fd: File handle to write status messages to
-        """
-        self._name = name
-        self._expect = expect
-        self._done = 0
-        self._ok = 0
-        self._failed = 0
-        self._fd = fd
+    if cfg['udp2log_host']:
+        # Send a copy of all logs to the udp2log relay
+        udp_handler = Udp2LogHandler(
+            cfg['udp2log_host'], int(cfg['udp2log_port']))
+        udp_handler.setLevel(logging.DEBUG)
+        udp_handler.setFormatter(LogstashFormatter())
+        logging.root.addHandler(udp_handler)
 
-    @property
-    def ok(self):
-        return self._ok
-
-    @property
-    def failed(self):
-        return self._failed
-
-    @property
-    def remaining(self):
-        return self._expect - self._done
-
-    @property
-    def percent_complete(self):
-        return 100.0 * (float(self._done) / max(self._expect, 1))
-
-    def expect(self, count):
-        """Set expected result count."""
-        self._expect = count
-
-    def start(self):
-        """Start tracking progress."""
-        self._progress()
-
-    def finish(self):
-        """Finish tracking progress."""
-        self._progress()
-        self._fd.write('\n')
-
-    def add_success(self):
-        """Record a sucessful task completion."""
-        self._done += 1
-        self._ok += 1
-        self._progress()
-
-    def add_failure(self):
-        """Record a failed task completion."""
-        self._done += 1
-        self._failed += 1
-        self._progress()
-
-    def _progress(self):
-        self._fd.write('%-80s\r' % self._output())
-
-    def _output(self):
-        return '%s: %3.0f%% (ok: %d; fail: %d; left: %d)' % (
-            self._name, self.percent_complete,
-            self.ok, self.failed, self.remaining)
+    if cfg['tcpircbot_host']:
+        # Send 'scap.announce' messages to irc relay
+        irc_logger = logging.getLogger('scap.announce')
+        irc_logger.addHandler(IRCSocketHandler(
+            cfg['tcpircbot_host'], int(cfg['tcpircbot_port'])))

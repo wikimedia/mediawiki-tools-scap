@@ -144,6 +144,44 @@ def compile_wikiversions_cdb(source_tree, cfg):
     logger.debug('Compiled %s to %s', json_file, cdb_file)
 
 
+def merge_cdb_updates(directory, pool_size, trust_mtime=False):
+    """Update l10n CDB files using JSON data.
+
+    :param directory: L10n cache directory
+    :param pool_size: Number of parallel processes to use
+    :param trust_mtime: Trust file modification time?
+    """
+    logger = logging.getLogger('merge_cdb_updates')
+
+    cache_dir = os.path.realpath(directory)
+    upstream_dir = os.path.join(cache_dir, 'upstream')
+
+    files = [os.path.splitext(os.path.basename(f))[0]
+        for f in glob.glob('%s/*.json' % upstream_dir)]
+    if not files:
+        logger.warning('Directory %s is empty', upstream_dir)
+        return 0
+
+    pool = multiprocessing.Pool(pool_size)
+    updated = 0
+
+    reporter = log.ProgressReporter('l10n merge')
+    reporter.expect(len(files))
+    reporter.start()
+
+    for i, result in enumerate(pool.imap_unordered(
+        update_l10n_cdb_wrapper, itertools.izip(
+            itertools.repeat(cache_dir),
+            files,
+            itertools.repeat(trust_mtime))), 1):
+        if result:
+            updated += 1
+        reporter.add_success()
+
+    reporter.finish()
+    logger.info('Updated %d CDB files(s) in %s', updated, cache_dir)
+
+
 def purge_l10n_cache(version, cfg):
     """Purge the localization cache for a given version.
 
@@ -227,44 +265,6 @@ def sync_wikiversions(hosts, cfg):
             '%(master_rsync)s::common/wikiversions*.{json,cdb} '
             '%(deploy_dir)s' % cfg)
         return rsync.progress('sync_wikiversions').run()
-
-
-def merge_cdb_updates(directory, pool_size, trust_mtime=False):
-    """Update l10n CDB files using JSON data.
-
-    :param directory: L10n cache directory
-    :param pool_size: Number of parallel processes to use
-    :param trust_mtime: Trust file modification time?
-    """
-    logger = logging.getLogger('merge_cdb_updates')
-
-    cache_dir = os.path.realpath(directory)
-    upstream_dir = os.path.join(cache_dir, 'upstream')
-
-    files = [os.path.splitext(os.path.basename(f))[0]
-        for f in glob.glob('%s/*.json' % upstream_dir)]
-    if not files:
-        logger.warning('Directory %s is empty', upstream_dir)
-        return 0
-
-    pool = multiprocessing.Pool(pool_size)
-    updated = 0
-
-    reporter = log.ProgressReporter('l10n merge')
-    reporter.expect(len(files))
-    reporter.start()
-
-    for i, result in enumerate(pool.imap_unordered(
-        update_l10n_cdb_wrapper, itertools.izip(
-            itertools.repeat(cache_dir),
-            files,
-            itertools.repeat(trust_mtime))), 1):
-        if result:
-            updated += 1
-        reporter.add_success()
-
-    reporter.finish()
-    logger.info('Updated %d CDB files(s) in %s', updated, cache_dir)
 
 
 def update_l10n_cdb(cache_dir, cdb_file, trust_mtime=False):
