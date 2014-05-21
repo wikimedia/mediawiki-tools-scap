@@ -141,7 +141,7 @@ def compile_wikiversions_cdb(source_tree, cfg):
 
     os.rename(tmp_cdb_file, cdb_file)
     os.chmod(cdb_file, 0664)
-    logger.debug('Compiled %s to %s', json_file, cdb_file)
+    logger.info('Compiled %s to %s', json_file, cdb_file)
 
 
 def merge_cdb_updates(directory, pool_size, trust_mtime=False):
@@ -244,7 +244,7 @@ def sync_common(cfg, sync_from=None):
     rsync = ('sudo', '-u', 'mwdeploy') + DEFAULT_RSYNC_ARGS
     rsync += ('%s::common' % server, cfg['deploy_dir'])
 
-    logger.debug('Copying to %s from %s', socket.getfqdn(), server)
+    logger.info('Copying to %s from %s', socket.getfqdn(), server)
     stats = log.Stats(cfg['statsd_host'], int(cfg['statsd_port']))
     with log.Timer('rsync common', stats):
         subprocess.check_call(rsync)
@@ -407,7 +407,7 @@ def update_localization_cache(version, wikidb, verbose, cfg):
     deploy_dir = os.path.realpath(cfg['deploy_dir'])
     stage_dir = os.path.realpath(cfg['stage_dir'])
     if stage_dir != deploy_dir:
-        logger.debug('Copying to local copy')
+        logger.debug('Copying ExtensionMessages-*.php to local copy')
         utils.sudo_check_call('mwdeploy',
             'cp "%s" "%s/wmf-config/"' % (
                 extension_messages, cfg['deploy_dir']),

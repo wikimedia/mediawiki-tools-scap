@@ -49,6 +49,10 @@ class Application(object):
                 self.config['statsd_host'], int(self.config['statsd_port']))
         return self._stats
 
+    @property
+    def verbose(self):
+        return self.arguments.loglevel < logging.INFO
+
     def announce(self, *args):
         """Announce a message to broadcast listeners.
 
@@ -115,6 +119,9 @@ class Application(object):
         parser.add_argument('-D', '--define', dest='defines',
             action='append', type=lambda v: tuple(v.split(':')),
             help='Set a configuration value', metavar='<name>:<value>')
+        parser.add_argument('-v', '--verbose', action='store_const',
+            const=logging.DEBUG, default=logging.INFO, dest='loglevel',
+            help='Verbose output')
 
         return parser
 
@@ -141,6 +148,7 @@ class Application(object):
     def _setup_loggers(self):
         """Setup logging."""
         log.setup_loggers(self.config)
+        logging.root.setLevel(self.arguments.loglevel)
 
     def main(self, *extra_args):
         """Main business logic of the application.
@@ -173,7 +181,7 @@ class Application(object):
 
         :returns: exit status
         """
-        self.logger.debug('Unhandled error:', exc_info=True)
+        self.logger.warn('Unhandled error:', exc_info=True)
         self.logger.error('%s failed: <%s> %s',
             self.program_name, type(ex).__name__, ex)
         return 70
@@ -224,7 +232,7 @@ class Application(object):
         """
         # Bootstrap the logging system
         logging.basicConfig(
-            level=logging.DEBUG,
+            level=logging.INFO,
             format=log.CONSOLE_LOG_FORMAT,
             datefmt='%H:%M:%S')
 

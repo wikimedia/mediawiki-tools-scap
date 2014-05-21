@@ -306,7 +306,7 @@ class Timer(object):
         """
         self.start = time.time()
         self.mark_start = self.start
-        self.logger.debug('Started %s' % self.label)
+        self.logger.info('Started %s' % self.label)
         return self
 
     def __exit__(self, exc_type, exc_value, traceback):

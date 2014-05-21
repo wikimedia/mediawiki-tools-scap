@@ -57,7 +57,7 @@ class MWVersionsInUse(cli.Application):
 class PurgeL10nCache(cli.Application):
     """Purge the localization cache for an inactive MediaWiki version."""
 
-    @cli.argument('-v', '--version', required=True,
+    @cli.argument('--version', required=True,
         help='MediaWiki version (eg 1.23wmf16)')
     def main(self, *extra_args):
         if self.arguments.version.startswith('php-'):
@@ -100,8 +100,6 @@ class Scap(cli.Application):
         args.message = ' '.join(args.message) or '(no message)'
         return args, extra_args
 
-    @cli.argument('-v', '--verbose', action='store_true',
-        help='Verbose output')
     @cli.argument('message', nargs=argparse.REMAINDER,
         help='Log message for SAL')
     def main(self, *extra_args):
@@ -142,7 +140,7 @@ class Scap(cli.Application):
             with log.Timer('mw-update-l10n', self.stats):
                 for version, wikidb in self.active_wikiversions().items():
                     tasks.update_localization_cache(
-                        version, wikidb, self.arguments.verbose, self.config)
+                        version, wikidb, self.verbose, self.config)
 
             # Compute git version information
             with log.Timer('cache_git_info', self.stats):
@@ -221,7 +219,7 @@ class Scap(cli.Application):
         return 1
 
     def _handle_exception(self, ex):
-        self.logger.debug('Unhandled error:', exc_info=True)
+        self.logger.warn('Unhandled error:', exc_info=True)
         self.announce('scap failed: %s %s (duration: %s)',
             type(ex).__name__, ex, self.human_duration)
         return 1
@@ -265,9 +263,7 @@ class SyncWikiversions(cli.Application):
 class UpdateL10n(cli.Application):
     """Update localization files"""
 
-    @cli.argument('-v', '--verbose', action='store_true',
-        help='Verbose output')
     def main(self, *extra_args):
         for version, wikidb in self.active_wikiversions().items():
             tasks.update_localization_cache(
-                version, wikidb, self.arguments.verbose, self.config)
+                version, wikidb, self.verbose, self.config)
