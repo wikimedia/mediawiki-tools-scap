@@ -9,13 +9,109 @@ import argparse
 import multiprocessing
 import os
 import subprocess
-import time
 
 from . import cli
 from . import log
 from . import ssh
 from . import tasks
 from . import utils
+
+
+class AbstractSync(cli.Application):
+    """Base class for applications that want to sync one or more files from
+    the deployment server to the rest of the cluster."""
+
+    needs_local_sync = False
+    needs_two_phase_sync = False
+    soft_errors = False
+
+    def main(self, *extra_args):
+        """Perform a sync operation to the cluster."""
+        self._assert_auth_sock()
+
+        with utils.lock(self.config['lock_file']):
+            self._after_lock_aquire()
+
+            if self.needs_local_sync:
+                self._local_sync()
+
+            self._before_cluster_sync()
+
+            # Update proxies
+            proxies = self._get_proxy_list()
+            with log.Timer('sync-proxies', self.stats):
+                update_proxies = ssh.Job(proxies)
+                update_proxies.command(self._proxy_sync_command())
+                update_proxies.progress('sync-proxies')
+                succeeded, failed = update_proxies.run()
+                if failed:
+                    self.logger.warning('%d proxies had sync errors', failed)
+                    self.soft_errors = True
+
+            # Update apaches
+            apaches = self._get_apache_list()
+            with log.Timer('update apaches', self.stats) as t:
+                update_apaches = ssh.Job(apaches)
+                update_apaches.exclude_hosts(proxies)
+                update_apaches.shuffle()
+                update_apaches.command(self._apache_sync_command(proxies))
+                update_apaches.progress('sync-common')
+                succeeded, failed = update_apaches.run()
+                if failed:
+                    self.logger.warning(
+                        '%d apaches had sync errors', failed)
+                    self.soft_errors = True
+                t.mark('sync to apaches')
+
+                if self.needs_two_phase_sync:
+                    self._phase_two_sync(apaches, t)
+
+            self._after_cluster_sync()
+        self._after_lock_release()
+        if self.soft_errors:
+            return 1
+        else:
+            return 0
+
+    def _after_lock_aquire(self):
+        pass
+
+    def _local_sync(self):
+        tasks.sync_common(self.config)
+
+    def _before_cluster_sync(self):
+        pass
+
+    def _get_proxy_list(self):
+        return utils.read_dsh_hosts_file('scap-proxies')
+
+    def _proxy_sync_command(self):
+        cmd = ['/usr/local/bin/sync-common']
+        if self.verbose:
+            cmd += ['--verbose']
+        return cmd
+
+    def _get_apache_list(self):
+        return utils.read_dsh_hosts_file('mediawiki-installation')
+
+    def _apache_sync_command(self, proxies):
+        """
+        :param proxies: List of proxy hostnames
+        """
+        return self._proxy_sync_command() + proxies
+
+    def _phase_two_sync(self, apaches, timer):
+        """
+        :param apaches: List of apache hostnames
+        :param timer: :class:`log.Timer` object timing the cluster sync
+        """
+        pass
+
+    def _after_cluster_sync(self):
+        pass
+
+    def _after_lock_release(self):
+        pass
 
 
 class CompileWikiversions(cli.Application):
@@ -89,12 +185,11 @@ class RebuildCdbs(cli.Application):
             tasks.merge_cdb_updates(cache_dir, use_cores, True)
 
 
-class Scap(cli.Application):
+class Scap(AbstractSync):
     """Deploy MediaWiki to the cluster."""
 
-    def __init__(self, exe_name):
-        super(self.__class__, self).__init__(exe_name)
-        self.start = time.time()
+    needs_local_sync = True
+    needs_two_phase_sync = True
 
     def _process_arguments(self, args, extra_args):
         args.message = ' '.join(args.message) or '(no message)'
@@ -105,113 +200,67 @@ class Scap(cli.Application):
     def main(self, *extra_args):
         """Core business logic of scap process.
 
-        1. Validate php syntax of wmf-config and multiversion
-        2. Sync deploy directory on localhost with staging area
-        3. Compile wikiversions.json to cdb in deploy directory
-        4. Update l10n files in staging area
-        5. Compute git version information
-        6. Ask scap proxies to sync with master server
-        7. Ask apaches to sync with fastest rsync server
-        8. Ask apaches to rebuild l10n CDB files
-        9. Update wikiversions.cdb on localhost
-        10. Ask apaches to sync wikiversions.cdb
+        #. Validate php syntax of wmf-config and multiversion
+        #. Sync deploy directory on localhost with staging area
+        #. Compile wikiversions.json to cdb in deploy directory
+        #. Update l10n files in staging area
+        #. Compute git version information
+        #. Ask scap proxies to sync with master server
+        #. Ask apaches to sync with fastest rsync server
+        #. Ask apaches to rebuild l10n CDB files
+        #. Update wikiversions.cdb on localhost
+        #. Ask apaches to sync wikiversions.cdb
         """
-        self._assert_auth_sock()
+        super(Scap, self).main(*extra_args)
 
-        soft_errors = False
-        with utils.lock(self.config['lock_file']):
-            self.announce('Started scap: %s', self.arguments.message)
+    def _after_lock_aquire(self):
+        self.announce('Started scap: %s', self.arguments.message)
 
-            tasks.check_php_syntax(
-                '%(stage_dir)s/wmf-config' % self.config,
-                '%(stage_dir)s/multiversion' % self.config)
+        tasks.check_php_syntax(
+            '%(stage_dir)s/wmf-config' % self.config,
+            '%(stage_dir)s/multiversion' % self.config)
 
-            # Update the current machine so that serialization works. Push
-            # wikiversions.json changes so mwversionsinuse, set-group-write,
-            # and mwscript work with the right version of the files.
-            tasks.sync_common(self.config)
+    def _before_cluster_sync(self):
+        # Bug 63659: Compile deploy_dir/wikiversions.json to cdb
+        subprocess.check_call('sudo -u mwdeploy -- '
+            '/usr/local/bin/compile-wikiversions', shell=True)
 
-            # Bug 63659: Compile deploy_dir/wikiversions.json to cdb
-            subprocess.check_call('sudo -u mwdeploy -- '
-                '/usr/local/bin/compile-wikiversions', shell=True)
+        # Update list of extension message files and regenerate the
+        # localisation cache.
+        with log.Timer('mw-update-l10n', self.stats):
+            for version, wikidb in self.active_wikiversions().items():
+                tasks.update_localization_cache(
+                    version, wikidb, self.verbose, self.config)
 
-            # Update list of extension message files and regenerate the
-            # localisation cache.
-            with log.Timer('mw-update-l10n', self.stats):
-                for version, wikidb in self.active_wikiversions().items():
-                    tasks.update_localization_cache(
-                        version, wikidb, self.verbose, self.config)
+        # Compute git version information
+        with log.Timer('cache_git_info', self.stats):
+            for version, wikidb in self.active_wikiversions().items():
+                tasks.cache_git_info(version, self.config)
 
-            # Compute git version information
-            with log.Timer('cache_git_info', self.stats):
-                for version, wikidb in self.active_wikiversions().items():
-                    tasks.cache_git_info(version, self.config)
+    def _phase_two_sync(self, apaches, timer):
+        rebuild_cdbs = ssh.Job(apaches)
+        rebuild_cdbs.command(
+            'sudo -u mwdeploy -n -- /usr/local/bin/scap-rebuild-cdbs')
+        rebuild_cdbs.progress('scap-rebuild-cdbs')
+        succeeded, failed = rebuild_cdbs.run()
+        if failed:
+            self.logger.warning(
+                '%d hosts had scap-rebuild-cdbs errors', failed)
+            self.soft_errors = True
+        timer.mark('scap-rebuild-cdbs')
 
-            # Update rsync proxies
-            scap_proxies = utils.read_dsh_hosts_file('scap-proxies')
-            with log.Timer('sync-common to proxies', self.stats):
-                update_proxies = ssh.Job(scap_proxies)
-                update_proxies.command('/usr/local/bin/sync-common')
-                update_proxies.progress('sync-common')
-                succeeded, failed = update_proxies.run()
-                if failed:
-                    self.logger.warning(
-                        '%d proxies had sync-common errors', failed)
-                    soft_errors = True
+    def _after_cluster_sync(self):
+        # Update and sync wikiversions.cdb
+        succeeded, failed = tasks.sync_wikiversions(
+            self._get_apache_list(), self.config)
+        if failed:
+            self.logger.warning(
+                '%d hosts had sync_wikiversions errors', failed)
+            self.soft_errors = True
 
-            # Update apaches
-            mw_install_hosts = utils.read_dsh_hosts_file(
-                'mediawiki-installation')
-            with log.Timer('update apaches', self.stats) as t:
-                update_apaches = ssh.Job(mw_install_hosts)
-                update_apaches.exclude_hosts(scap_proxies)
-                update_apaches.shuffle()
-                update_apaches.command(
-                    ['/usr/local/bin/sync-common'] + scap_proxies)
-                update_apaches.progress('sync-common')
-                succeeded, failed = update_apaches.run()
-                if failed:
-                    self.logger.warning(
-                        '%d apaches had sync-common errors', failed)
-                    soft_errors = True
-                t.mark('sync-common to apaches')
-
-                rebuild_cdbs = ssh.Job(mw_install_hosts)
-                rebuild_cdbs.command(
-                    'sudo -u mwdeploy -n -- /usr/local/bin/scap-rebuild-cdbs')
-                rebuild_cdbs.progress('scap-rebuild-cdbs')
-                succeeded, failed = rebuild_cdbs.run()
-                if failed:
-                    self.logger.warning(
-                        '%d hosts had scap-rebuild-cdbs errors', failed)
-                    soft_errors = True
-                t.mark('scap-rebuild-cdbs')
-
-            # Update and sync wikiversions.cdb
-            succeeded, failed = tasks.sync_wikiversions(
-                mw_install_hosts, self.config)
-            if failed:
-                self.logger.warning(
-                    '%d hosts had sync_wikiversions errors', failed)
-                soft_errors = True
-
+    def _after_lock_release(self):
         self.announce('Finished scap: %s (duration: %s)',
             self.arguments.message, self.human_duration)
-        # Return a non-zero status if soft errors were seen
-        if soft_errors:
-            return 1
-        else:
-            return 0
-
-    @property
-    def duration(self):
-        """Get the elapsed duration in seconds."""
-        return time.time() - self.start
-
-    @property
-    def human_duration(self):
-        """Get the elapsed duration in human readable form."""
-        return utils.human_duration(self.duration)
 
     def _handle_keyboard_interrupt(self, ex):
         self.announce('scap aborted: %s (duration: %s)',

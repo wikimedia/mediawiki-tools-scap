@@ -12,6 +12,7 @@ import json
 import logging
 import os
 import sys
+import time
 
 from . import config
 from . import log
@@ -34,6 +35,7 @@ class Application(object):
         if self.program_name is None:
             self.program_name = os.path.basename(exe_name)
         self.exe_name = exe_name
+        self.start = time.time()
 
     @property
     def logger(self):
@@ -52,6 +54,16 @@ class Application(object):
     @property
     def verbose(self):
         return self.arguments.loglevel < logging.INFO
+
+    @property
+    def duration(self):
+        """Get the elapsed duration in seconds."""
+        return time.time() - self.start
+
+    @property
+    def human_duration(self):
+        """Get the elapsed duration in human readable form."""
+        return utils.human_duration(self.duration)
 
     def announce(self, *args):
         """Announce a message to broadcast listeners.
