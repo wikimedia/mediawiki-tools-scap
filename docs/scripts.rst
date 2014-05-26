@@ -30,6 +30,15 @@ local host. It is typically called automatically on hosts during the execution o
    * :func:`scap.tasks.sync_common`
 
 
+sync-dblist
+===========
+**sync-dblist** synchronizes dblist files to the cluster.
+
+.. program-output:: ../bin/sync-dblist --help
+.. seealso::
+   * :func:`scap.SyncDblist`
+
+
 sync-dir
 ========
 **sync-dir** synchronizes a directory from the staging directory to the

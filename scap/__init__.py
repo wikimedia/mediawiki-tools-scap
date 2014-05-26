@@ -12,6 +12,7 @@ from .main import PurgeL10nCache
 from .main import RebuildCdbs
 from .main import Scap
 from .main import SyncCommon
+from .main import SyncDblist
 from .main import SyncDir
 from .main import SyncFile
 from .main import SyncWikiversions
@@ -24,6 +25,7 @@ __all__ = (
     'RebuildCdbs',
     'Scap',
     'SyncCommon',
+    'SyncDblist',
     'SyncDir',
     'SyncFile',
     'SyncWikiversions',
@@ -37,6 +39,7 @@ any((
     RebuildCdbs,
     Scap,
     SyncCommon,
+    SyncDblist,
     SyncDir,
     SyncFile,
     SyncWikiversions,

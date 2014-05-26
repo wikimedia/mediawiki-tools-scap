@@ -299,6 +299,30 @@ class SyncCommon(cli.Application):
         return 0
 
 
+class SyncDblist(AbstractSync):
+    """Sync dblist files to the cluster."""
+
+    def _process_arguments(self, args, extra_args):
+        args.message = ' '.join(args.message) or '(no message)'
+        return args, extra_args
+
+    @cli.argument('message', nargs='*', help='Log message for SAL')
+    def main(self, *extra_args):
+        super(SyncDblist, self).main(*extra_args)
+
+    def _proxy_sync_command(self):
+        cmd = ['/usr/local/bin/sync-common', '--include', '*.dblist']
+        if self.verbose:
+            cmd += ['--verbose']
+        return cmd
+
+    def _after_lock_release(self):
+        self.announce('Synchronized database lists: %s (duration: %s)',
+            self.arguments.message, self.human_duration)
+        self.stats.increment('deploy.sync-dblist')
+        self.stats.increment('deploy.all')
+
+
 class SyncDir(AbstractSync):
     """Sync a directory to the cluster."""
 

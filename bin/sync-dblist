@@ -1,9 +1,17 @@
-#!/bin/bash
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+#
+# Synchronize dblist files to the cluster.
+#
+# Copyright © 2014 Wikimedia Foundation and contributors
 
-. /usr/local/lib/mw-deployment-vars.sh
-BINDIR=/usr/local/bin
-echo "Synchronizing $MW_COMMON_SOURCE/*.dblist to $MW_COMMON/*.dblist..."
-dsh "${MW_DSH_ARGS[@]}" -- "sudo -u mwdeploy rsync -a $MW_RSYNC_HOST::common/*.dblist $MW_COMMON"
-echo "done!"
+import os
+import sys
 
-$BINDIR/dologmsg "!log $USER synchronized database lists files: $*"
+# Add scap package to search path
+script = os.path.realpath(sys.argv[0])
+scap_src = os.path.dirname(os.path.dirname(script))
+sys.path.append(scap_src)
+
+import scap
+scap.SyncDblist.run()
