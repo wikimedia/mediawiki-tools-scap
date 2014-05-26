@@ -22,9 +22,9 @@ from . import ssh
 from . import utils
 
 
-DEFAULT_RSYNC_ARGS = (
+DEFAULT_RSYNC_ARGS = [
     '/usr/bin/rsync',
-    '-a',
+    '--archive',
     '--delete-delay',
     '--delay-updates',
     '--compress',
@@ -33,7 +33,8 @@ DEFAULT_RSYNC_ARGS = (
     '--exclude=**/.git/objects',
     '--exclude=**/.git/**/objects',
     '--exclude=**/cache/l10n/*.cdb',
-    '--no-perms')
+    '--no-perms',
+]
 
 
 def cache_git_info(version, cfg):
@@ -215,16 +216,20 @@ def purge_l10n_cache(version, cfg):
     purge.progress('l10n purge').run()
 
 
-def sync_common(cfg, sync_from=None):
+def sync_common(cfg, include=None, sync_from=None, verbose=False):
     """Sync local deploy dir with upstream rsync server's copy
 
-    Rsync from ``server::common/`` to the local deploy directory.
+    Rsync from ``server::common`` to the local deploy directory.
     If a list of servers is given in ``sync_from`` we will attempt to select
     the "best" one to sync from. If no servers are given or all servers given
     have issues we will fall back to using the server named by
     ``master_rsync`` in the configuration data.
 
-    :param cfg: Dict of global configuration values
+    :param cfg: Dict of global configuration values.
+    :param include: List of rsync include patterns to limit the sync to. If
+        ``None`` is given the entire ``common`` module on the target rsync
+        server will be transferred. Rsync syntax for syncing a directory is
+        ``<dirname>/***``.
     :param sync_from: List of rsync servers to fetch from.
     """
     logger = logging.getLogger('sync_common')
@@ -241,10 +246,21 @@ def sync_common(cfg, sync_from=None):
     server = server.strip()
 
     # Execute rsync fetch locally via sudo
-    rsync = ('sudo', '-u', 'mwdeploy') + DEFAULT_RSYNC_ARGS
-    rsync += ('%s::common' % server, cfg['deploy_dir'])
+    rsync = ['sudo', '-u', 'mwdeploy', '-n', '--'] + DEFAULT_RSYNC_ARGS
+    if verbose:
+        rsync.append('--verbose')
+
+    if include:
+        for path in include:
+            rsync.append('--include=/%s' % path)
+        # Exclude everything not explicitly included
+        rsync.append('--exclude=*')
+
+    rsync.append('%s::common' % server)
+    rsync.append(cfg['deploy_dir'])
 
     logger.info('Copying to %s from %s', socket.getfqdn(), server)
+    logger.debug('Running rsync command: `%s`', ' '.join(rsync))
     stats = log.Stats(cfg['statsd_host'], int(cfg['statsd_port']))
     with log.Timer('rsync common', stats):
         subprocess.check_call(rsync)

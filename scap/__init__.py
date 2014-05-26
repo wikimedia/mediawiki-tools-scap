@@ -12,6 +12,8 @@ from .main import PurgeL10nCache
 from .main import RebuildCdbs
 from .main import Scap
 from .main import SyncCommon
+from .main import SyncDir
+from .main import SyncFile
 from .main import SyncWikiversions
 from .main import UpdateL10n
 
@@ -22,6 +24,8 @@ __all__ = (
     'RebuildCdbs',
     'Scap',
     'SyncCommon',
+    'SyncDir',
+    'SyncFile',
     'SyncWikiversions',
     'UpdateL10n',
 )
@@ -33,5 +37,7 @@ any((
     RebuildCdbs,
     Scap,
     SyncCommon,
+    SyncDir,
+    SyncFile,
     SyncWikiversions,
     UpdateL10n))  # Ignore unused import warning

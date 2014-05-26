@@ -6,6 +6,7 @@
 
 """
 import argparse
+import errno
 import multiprocessing
 import os
 import subprocess
@@ -283,11 +284,90 @@ class Scap(AbstractSync):
 class SyncCommon(cli.Application):
     """Sync local MediaWiki deployment directory with deploy server state."""
 
+    @cli.argument('-i', '--include', default=None, action='append',
+        help='Rsync include pattern to limit transfer to.'
+        'End directories with a trailing `/***`. Can be used multiple times.')
     @cli.argument('servers', nargs=argparse.REMAINDER,
         help='Rsync server(s) to copy from')
     def main(self, *extra_args):
-        tasks.sync_common(self.config, self.arguments.servers)
+        tasks.sync_common(
+            self.config,
+            include=self.arguments.include,
+            sync_from=self.arguments.servers,
+            verbose=self.verbose
+        )
         return 0
+
+
+class SyncDir(AbstractSync):
+    """Sync a directory to the cluster."""
+
+    def _process_arguments(self, args, extra_args):
+        args.message = ' '.join(args.message) or '(no message)'
+        return args, extra_args
+
+    @cli.argument('dir', help='Directory to sync')
+    @cli.argument('message', nargs='*', help='Log message for SAL')
+    def main(self, *extra_args):
+        super(SyncDir, self).main(*extra_args)
+
+    def _before_cluster_sync(self):
+        # assert file exists
+        abspath = os.path.join(
+            self.config['stage_dir'], self.arguments.dir)
+        if not os.path.isdir(abspath):
+            raise IOError(errno.ENOENT, 'Directory not found', abspath)
+
+        relpath = os.path.relpath(abspath, self.config['stage_dir'])
+        self.include = '%s/***' % relpath
+        tasks.check_php_syntax(abspath)
+
+    def _proxy_sync_command(self):
+        cmd = ['/usr/local/bin/sync-common', '--include', self.include]
+        if self.verbose:
+            cmd += ['--verbose']
+        return cmd
+
+    def _after_lock_release(self):
+        self.announce('Synchronized %s: %s (duration: %s)',
+            self.arguments.dir, self.arguments.message, self.human_duration)
+        self.stats.increment('deploy.sync-dir')
+        self.stats.increment('deploy.all')
+
+
+class SyncFile(AbstractSync):
+    """Sync a specific file to the cluster."""
+
+    def _process_arguments(self, args, extra_args):
+        args.message = ' '.join(args.message) or '(no message)'
+        return args, extra_args
+
+    @cli.argument('file', help='File to sync')
+    @cli.argument('message', nargs='*', help='Log message for SAL')
+    def main(self, *extra_args):
+        super(SyncFile, self).main(*extra_args)
+
+    def _before_cluster_sync(self):
+        # assert file exists
+        abspath = os.path.join(
+            self.config['stage_dir'], self.arguments.file)
+        if not os.path.isfile(abspath):
+            raise IOError(errno.ENOENT, 'File not found', abspath)
+
+        self.include = os.path.relpath(abspath, self.config['stage_dir'])
+        subprocess.check_call('/usr/bin/php -l %s' % abspath, shell=True)
+
+    def _proxy_sync_command(self):
+        cmd = ['/usr/local/bin/sync-common', '--include', self.include]
+        if self.verbose:
+            cmd += ['--verbose']
+        return cmd
+
+    def _after_lock_release(self):
+        self.announce('Synchronized %s: %s (duration: %s)',
+            self.arguments.file, self.arguments.message, self.human_duration)
+        self.stats.increment('deploy.sync-file')
+        self.stats.increment('deploy.all')
 
 
 class SyncWikiversions(cli.Application):

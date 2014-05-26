@@ -30,6 +30,25 @@ local host. It is typically called automatically on hosts during the execution o
    * :func:`scap.tasks.sync_common`
 
 
+sync-dir
+========
+**sync-dir** synchronizes a directory from the staging directory to the
+cluster.
+
+.. program-output:: ../bin/sync-dir --help
+.. seealso::
+   * :func:`scap.SyncDir`
+
+
+sync-file
+=========
+**sync-file** synchronizes a file from the staging directory to the cluster.
+
+.. program-output:: ../bin/sync-file --help
+.. seealso::
+   * :func:`scap.SyncFile`
+
+
 sync-wikiversions
 =================
 **sync-wikiversions** compiles wikiversions.json into a CDB database and then
