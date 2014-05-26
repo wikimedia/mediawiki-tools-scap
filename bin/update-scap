@@ -1,5 +1,0 @@
-#!/usr/bin/env bash
-# Quick and dirty "deployment" script for scap itself.
-
-dsh -g mediawiki-installation -M -F 80 -- \
-    'umask 002 ; cd /srv/scap ; git pull --ff-only'
