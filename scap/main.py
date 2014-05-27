@@ -39,17 +39,18 @@ class AbstractSync(cli.Application):
 
             # Update proxies
             proxies = self._get_proxy_list()
-            with log.Timer('sync-proxies', self.stats):
+            with log.Timer('sync-proxies', self.get_stats()):
                 update_proxies = ssh.Job(proxies)
                 update_proxies.command(self._proxy_sync_command())
                 update_proxies.progress('sync-proxies')
                 succeeded, failed = update_proxies.run()
                 if failed:
-                    self.logger.warning('%d proxies had sync errors', failed)
+                    self.get_logger().warning(
+                        '%d proxies had sync errors', failed)
                     self.soft_errors = True
 
             # Update apaches
-            with log.Timer('sync-apaches', self.stats):
+            with log.Timer('sync-apaches', self.get_stats()):
                 update_apaches = ssh.Job(self._get_apache_list())
                 update_apaches.exclude_hosts(proxies)
                 update_apaches.shuffle()
@@ -57,7 +58,7 @@ class AbstractSync(cli.Application):
                 update_apaches.progress('sync-common')
                 succeeded, failed = update_apaches.run()
                 if failed:
-                    self.logger.warning(
+                    self.get_logger().warning(
                         '%d apaches had sync errors', failed)
                     self.soft_errors = True
 
@@ -132,7 +133,7 @@ class MWVersionsInUse(cli.Application):
     def _process_arguments(self, args, extra_args):
         """Log warnings about unexpected arguments but don't exit."""
         if extra_args:
-            self.logger.warning(
+            self.get_logger().warning(
                 'Unexpected argument(s) ignored: %s', extra_args)
 
         return args, extra_args
@@ -148,7 +149,8 @@ class PurgeL10nCache(cli.Application):
             self.arguments.version = self.arguments.version[4:]
 
         if self.arguments.version in self.active_wikiversions():
-            self.logger.error('Version %s is in use' % self.arguments.version)
+            self.get_logger().error(
+                'Version %s is in use' % self.arguments.version)
             return 1
 
         tasks.purge_l10n_cache(self.arguments.version, self.config)
@@ -205,19 +207,19 @@ class Scap(AbstractSync):
 
         # Update list of extension message files and regenerate the
         # localisation cache.
-        with log.Timer('mw-update-l10n', self.stats):
+        with log.Timer('mw-update-l10n', self.get_stats()):
             for version, wikidb in self.active_wikiversions().items():
                 tasks.update_localization_cache(
                     version, wikidb, self.verbose, self.config)
 
         # Compute git version information
-        with log.Timer('cache_git_info', self.stats):
+        with log.Timer('cache_git_info', self.get_stats()):
             for version, wikidb in self.active_wikiversions().items():
                 tasks.cache_git_info(version, self.config)
 
     def _after_cluster_sync(self):
         # Ask apaches to rebuild l10n CDB files
-        with log.Timer('scap-rebuild-cdbs', self.stats):
+        with log.Timer('scap-rebuild-cdbs', self.get_stats()):
             rebuild_cdbs = ssh.Job(self._get_apache_list())
             rebuild_cdbs.shuffle()
             rebuild_cdbs.command(
@@ -225,7 +227,7 @@ class Scap(AbstractSync):
             rebuild_cdbs.progress('scap-rebuild-cdbs')
             succeeded, failed = rebuild_cdbs.run()
             if failed:
-                self.logger.warning(
+                self.get_logger().warning(
                     '%d hosts had scap-rebuild-cdbs errors', failed)
                 self.soft_errors = True
 
@@ -233,29 +235,29 @@ class Scap(AbstractSync):
         succeeded, failed = tasks.sync_wikiversions(
             self._get_apache_list(), self.config)
         if failed:
-            self.logger.warning(
+            self.get_logger().warning(
                 '%d hosts had sync_wikiversions errors', failed)
             self.soft_errors = True
 
     def _after_lock_release(self):
         self.announce('Finished scap: %s (duration: %s)',
-            self.arguments.message, self.human_duration)
+            self.arguments.message, utils.human_duration(self.get_duration()))
 
     def _handle_keyboard_interrupt(self, ex):
         self.announce('scap aborted: %s (duration: %s)',
-            self.arguments.message, self.human_duration)
+            self.arguments.message, utils.human_duration(self.get_duration()))
         return 1
 
     def _handle_exception(self, ex):
-        self.logger.warn('Unhandled error:', exc_info=True)
+        self.get_logger().warn('Unhandled error:', exc_info=True)
         self.announce('scap failed: %s %s (duration: %s)',
-            type(ex).__name__, ex, self.human_duration)
+            type(ex).__name__, ex, utils.human_duration(self.get_duration()))
         return 1
 
     def _before_exit(self, exit_status):
         if self.config:
-            self.stats.increment('scap.scap')
-            self.stats.timing('scap.scap', self.duration * 1000)
+            self.get_stats().increment('scap.scap')
+            self.get_stats().timing('scap.scap', self.get_duration() * 1000)
         return exit_status
 
 
@@ -288,9 +290,9 @@ class SyncDblist(AbstractSync):
 
     def _after_lock_release(self):
         self.announce('Synchronized database lists: %s (duration: %s)',
-            self.arguments.message, self.human_duration)
-        self.stats.increment('deploy.sync-dblist')
-        self.stats.increment('deploy.all')
+            self.arguments.message, utils.human_duration(self.get_duration()))
+        self.get_stats().increment('deploy.sync-dblist')
+        self.get_stats().increment('deploy.all')
 
 
 class SyncDir(AbstractSync):
@@ -320,9 +322,10 @@ class SyncDir(AbstractSync):
 
     def _after_lock_release(self):
         self.announce('Synchronized %s: %s (duration: %s)',
-            self.arguments.dir, self.arguments.message, self.human_duration)
-        self.stats.increment('deploy.sync-dir')
-        self.stats.increment('deploy.all')
+            self.arguments.dir, self.arguments.message,
+            utils.human_duration(self.get_duration()))
+        self.get_stats().increment('deploy.sync-dir')
+        self.get_stats().increment('deploy.all')
 
 
 class SyncDocroot(AbstractSync):
@@ -339,9 +342,9 @@ class SyncDocroot(AbstractSync):
 
     def _after_lock_release(self):
         self.announce('Synchronized docroot and w: %s (duration: %s)',
-            self.arguments.message, self.human_duration)
-        self.stats.increment('deploy.sync-docroot')
-        self.stats.increment('deploy.all')
+            self.arguments.message, utils.human_duration(self.get_duration()))
+        self.get_stats().increment('deploy.sync-docroot')
+        self.get_stats().increment('deploy.all')
 
 
 class SyncFile(AbstractSync):
@@ -370,9 +373,10 @@ class SyncFile(AbstractSync):
 
     def _after_lock_release(self):
         self.announce('Synchronized %s: %s (duration: %s)',
-            self.arguments.file, self.arguments.message, self.human_duration)
-        self.stats.increment('deploy.sync-file')
-        self.stats.increment('deploy.all')
+            self.arguments.file, self.arguments.message,
+            utils.human_duration(self.get_duration()))
+        self.get_stats().increment('deploy.sync-file')
+        self.get_stats().increment('deploy.all')
 
 
 class SyncWikiversions(cli.Application):
