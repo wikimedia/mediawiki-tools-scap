@@ -22,8 +22,6 @@ class AbstractSync(cli.Application):
     """Base class for applications that want to sync one or more files from
     the deployment server to the rest of the cluster."""
 
-    needs_local_sync = False
-    needs_two_phase_sync = False
     soft_errors = False
 
     def _process_arguments(self, args, extra_args):
@@ -37,11 +35,6 @@ class AbstractSync(cli.Application):
         self._assert_auth_sock()
 
         with utils.lock(self.config['lock_file']):
-            self._after_lock_aquire()
-
-            if self.needs_local_sync:
-                self._local_sync()
-
             self._before_cluster_sync()
 
             # Update proxies
@@ -56,9 +49,8 @@ class AbstractSync(cli.Application):
                     self.soft_errors = True
 
             # Update apaches
-            apaches = self._get_apache_list()
-            with log.Timer('update apaches', self.stats) as t:
-                update_apaches = ssh.Job(apaches)
+            with log.Timer('sync-apaches', self.stats):
+                update_apaches = ssh.Job(self._get_apache_list())
                 update_apaches.exclude_hosts(proxies)
                 update_apaches.shuffle()
                 update_apaches.command(self._apache_sync_command(proxies))
@@ -68,51 +60,40 @@ class AbstractSync(cli.Application):
                     self.logger.warning(
                         '%d apaches had sync errors', failed)
                     self.soft_errors = True
-                t.mark('sync to apaches')
-
-                if self.needs_two_phase_sync:
-                    self._phase_two_sync(apaches, t)
 
             self._after_cluster_sync()
+
         self._after_lock_release()
         if self.soft_errors:
             return 1
         else:
             return 0
 
-    def _after_lock_aquire(self):
-        pass
-
-    def _local_sync(self):
-        tasks.sync_common(self.config)
-
     def _before_cluster_sync(self):
         pass
 
     def _get_proxy_list(self):
+        """Get list of sync proxy hostnames that should be updated before the
+        rest of the cluster."""
         return utils.read_dsh_hosts_file('scap-proxies')
 
     def _proxy_sync_command(self):
+        """Synchronization command to run on the proxy hosts."""
         cmd = ['/usr/local/bin/sync-common']
         if self.verbose:
             cmd += ['--verbose']
         return cmd
 
     def _get_apache_list(self):
+        """Get list of hostnames that should be updated from the proxies."""
         return utils.read_dsh_hosts_file('mediawiki-installation')
 
     def _apache_sync_command(self, proxies):
-        """
+        """Synchronization command to run on the apache hosts.
+
         :param proxies: List of proxy hostnames
         """
         return self._proxy_sync_command() + proxies
-
-    def _phase_two_sync(self, apaches, timer):
-        """
-        :param apaches: List of apache hostnames
-        :param timer: :class:`log.Timer` object timing the cluster sync
-        """
-        pass
 
     def _after_cluster_sync(self):
         pass
@@ -207,17 +188,17 @@ class Scap(AbstractSync):
     #. Ask apaches to sync wikiversions.cdb
     """
 
-    needs_local_sync = True
-    needs_two_phase_sync = True
-
-    def _after_lock_aquire(self):
+    def _before_cluster_sync(self):
         self.announce('Started scap: %s', self.arguments.message)
 
+        # Validate php syntax of wmf-config and multiversion
         tasks.check_php_syntax(
             '%(stage_dir)s/wmf-config' % self.config,
             '%(stage_dir)s/multiversion' % self.config)
 
-    def _before_cluster_sync(self):
+        # Sync deploy directory on localhost with staging area
+        tasks.sync_common(self.config)
+
         # Bug 63659: Compile deploy_dir/wikiversions.json to cdb
         subprocess.check_call('sudo -u mwdeploy -- '
             '/usr/local/bin/compile-wikiversions', shell=True)
@@ -234,19 +215,20 @@ class Scap(AbstractSync):
             for version, wikidb in self.active_wikiversions().items():
                 tasks.cache_git_info(version, self.config)
 
-    def _phase_two_sync(self, apaches, timer):
-        rebuild_cdbs = ssh.Job(apaches)
-        rebuild_cdbs.command(
-            'sudo -u mwdeploy -n -- /usr/local/bin/scap-rebuild-cdbs')
-        rebuild_cdbs.progress('scap-rebuild-cdbs')
-        succeeded, failed = rebuild_cdbs.run()
-        if failed:
-            self.logger.warning(
-                '%d hosts had scap-rebuild-cdbs errors', failed)
-            self.soft_errors = True
-        timer.mark('scap-rebuild-cdbs')
-
     def _after_cluster_sync(self):
+        # Ask apaches to rebuild l10n CDB files
+        with log.Timer('scap-rebuild-cdbs', self.stats):
+            rebuild_cdbs = ssh.Job(self._get_apache_list())
+            rebuild_cdbs.shuffle()
+            rebuild_cdbs.command(
+                'sudo -u mwdeploy -n -- /usr/local/bin/scap-rebuild-cdbs')
+            rebuild_cdbs.progress('scap-rebuild-cdbs')
+            succeeded, failed = rebuild_cdbs.run()
+            if failed:
+                self.logger.warning(
+                    '%d hosts had scap-rebuild-cdbs errors', failed)
+                self.soft_errors = True
+
         # Update and sync wikiversions.cdb
         succeeded, failed = tasks.sync_wikiversions(
             self._get_apache_list(), self.config)
