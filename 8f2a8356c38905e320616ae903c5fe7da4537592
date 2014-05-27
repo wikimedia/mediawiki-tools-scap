@@ -19,6 +19,24 @@
     },
     {
       "key": {
+        "uuid": "4e1dcb5b_5c6498e1",
+        "filename": "scap/cli.py",
+        "patchSetId": 2
+      },
+      "lineNbr": 49,
+      "author": {
+        "id": 1001
+      },
+      "writtenOn": "2014-05-27T05:24:26Z",
+      "side": 1,
+      "message": "Lazy initialization is bad? I think I disagree.",
+      "parentUuid": "4e1dcb5b_bc4e0c71",
+      "revId": "8f2a8356c38905e320616ae903c5fe7da4537592",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "4e1dcb5b_7c219499",
         "filename": "scap/cli.py",
         "patchSetId": 2
@@ -30,6 +48,24 @@
       "writtenOn": "2014-05-27T05:16:12Z",
       "side": 1,
       "message": "You\u0027re overdoing with properties here. It\u0027s time.time(), not time.time, because the value is dynamic and computed. This should be get_duration.\n\nIMO, it\u0027s also not the business of this class to provide human-readable durations. The caller should invoke utils.human_duration.",
+      "revId": "8f2a8356c38905e320616ae903c5fe7da4537592",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "4e1dcb5b_fc5a4421",
+        "filename": "scap/cli.py",
+        "patchSetId": 2
+      },
+      "lineNbr": 59,
+      "author": {
+        "id": 1001
+      },
+      "writtenOn": "2014-05-27T05:24:26Z",
+      "side": 1,
+      "message": "Ok. This class (or it\u0027s subclass) is the caller so I don\u0027t really see the difference, but I can change it.",
+      "parentUuid": "4e1dcb5b_7c219499",
       "revId": "8f2a8356c38905e320616ae903c5fe7da4537592",
       "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
       "unresolved": false
