@@ -34,6 +34,24 @@
       "revId": "28a4f0efa2e8da748d729e7de96092b56e3417b0",
       "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
       "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "4e1dcb5b_3bbd5fae",
+        "filename": "scap/tasks.py",
+        "patchSetId": 4
+      },
+      "lineNbr": 257,
+      "author": {
+        "id": 1001
+      },
+      "writtenOn": "2014-05-27T17:41:19Z",
+      "side": 1,
+      "message": "`--exclude\u003d*` does seem to exclude dotfiles in the root of the common rsync module. I tested this by creating /a/common/.test-dotfile-exclusion and then running `sync-common --include \u0027wmf-config/***\u0027 --verbose` and `sync-common --include s1.dblist --verbose`. Neither command copied the .test-dotfile-exclusion file to /usr/local/apache/common-local. The file is copied using the commands `sync-common --include \u0027.*\u0027 --verbose` and `sync-common --include \u0027*\u0027 --verbose`.",
+      "parentUuid": "4e1dcb5b_1285e79f",
+      "revId": "28a4f0efa2e8da748d729e7de96092b56e3417b0",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
     }
   ]
 }
