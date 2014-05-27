@@ -37,6 +37,24 @@
     },
     {
       "key": {
+        "uuid": "4e1dcb5b_9c80f04c",
+        "filename": "scap/cli.py",
+        "patchSetId": 2
+      },
+      "lineNbr": 49,
+      "author": {
+        "id": 255
+      },
+      "writtenOn": "2014-05-27T05:36:17Z",
+      "side": 1,
+      "message": "Lazy initialization is fine, but removing the \u0027@property\u0027 decorator and making this \u0027get_stats\u0027 would not make this non-lazy. Computed properties are OK in special cases where property access is the right metaphor for some API, but they should be used in moderation because they\u0027re magical (they conceal where computation is performed).\n\nJust think about how confusing it is to have a line of code like:\n\n    if app.stats:\n\nthrow KeyError \"statsd_host\"",
+      "parentUuid": "4e1dcb5b_5c6498e1",
+      "revId": "8f2a8356c38905e320616ae903c5fe7da4537592",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "4e1dcb5b_7c219499",
         "filename": "scap/cli.py",
         "patchSetId": 2
