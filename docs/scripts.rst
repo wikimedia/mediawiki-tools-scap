@@ -49,6 +49,15 @@ cluster.
    * :func:`scap.SyncDir`
 
 
+sync-docroot
+============
+**sync-docroot** synchronizes common/docroot and common/w to the cluster.
+
+.. program-output:: ../bin/sync-docroot --help
+.. seealso::
+   * :func:`scap.SyncDocroot`
+
+
 sync-file
 =========
 **sync-file** synchronizes a file from the staging directory to the cluster.

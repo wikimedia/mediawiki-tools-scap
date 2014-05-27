@@ -14,6 +14,7 @@ from .main import Scap
 from .main import SyncCommon
 from .main import SyncDblist
 from .main import SyncDir
+from .main import SyncDocroot
 from .main import SyncFile
 from .main import SyncWikiversions
 from .main import UpdateL10n
@@ -27,6 +28,7 @@ __all__ = (
     'SyncCommon',
     'SyncDblist',
     'SyncDir',
+    'SyncDocroot',
     'SyncFile',
     'SyncWikiversions',
     'UpdateL10n',
@@ -41,6 +43,7 @@ any((
     SyncCommon,
     SyncDblist,
     SyncDir,
+    SyncDocroot,
     SyncFile,
     SyncWikiversions,
     UpdateL10n))  # Ignore unused import warning

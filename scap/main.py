@@ -26,6 +26,12 @@ class AbstractSync(cli.Application):
     needs_two_phase_sync = False
     soft_errors = False
 
+    def _process_arguments(self, args, extra_args):
+        if hasattr(args, 'message'):
+            args.message = ' '.join(args.message) or '(no message)'
+        return args, extra_args
+
+    @cli.argument('message', nargs='*', help='Log message for SAL')
     def main(self, *extra_args):
         """Perform a sync operation to the cluster."""
         self._assert_auth_sock()
@@ -187,32 +193,22 @@ class RebuildCdbs(cli.Application):
 
 
 class Scap(AbstractSync):
-    """Deploy MediaWiki to the cluster."""
+    """Deploy MediaWiki to the cluster.
+
+    #. Validate php syntax of wmf-config and multiversion
+    #. Sync deploy directory on localhost with staging area
+    #. Compile wikiversions.json to cdb in deploy directory
+    #. Update l10n files in staging area
+    #. Compute git version information
+    #. Ask scap proxies to sync with master server
+    #. Ask apaches to sync with fastest rsync server
+    #. Ask apaches to rebuild l10n CDB files
+    #. Update wikiversions.cdb on localhost
+    #. Ask apaches to sync wikiversions.cdb
+    """
 
     needs_local_sync = True
     needs_two_phase_sync = True
-
-    def _process_arguments(self, args, extra_args):
-        args.message = ' '.join(args.message) or '(no message)'
-        return args, extra_args
-
-    @cli.argument('message', nargs=argparse.REMAINDER,
-        help='Log message for SAL')
-    def main(self, *extra_args):
-        """Core business logic of scap process.
-
-        #. Validate php syntax of wmf-config and multiversion
-        #. Sync deploy directory on localhost with staging area
-        #. Compile wikiversions.json to cdb in deploy directory
-        #. Update l10n files in staging area
-        #. Compute git version information
-        #. Ask scap proxies to sync with master server
-        #. Ask apaches to sync with fastest rsync server
-        #. Ask apaches to rebuild l10n CDB files
-        #. Update wikiversions.cdb on localhost
-        #. Ask apaches to sync wikiversions.cdb
-        """
-        super(Scap, self).main(*extra_args)
 
     def _after_lock_aquire(self):
         self.announce('Started scap: %s', self.arguments.message)
@@ -302,14 +298,6 @@ class SyncCommon(cli.Application):
 class SyncDblist(AbstractSync):
     """Sync dblist files to the cluster."""
 
-    def _process_arguments(self, args, extra_args):
-        args.message = ' '.join(args.message) or '(no message)'
-        return args, extra_args
-
-    @cli.argument('message', nargs='*', help='Log message for SAL')
-    def main(self, *extra_args):
-        super(SyncDblist, self).main(*extra_args)
-
     def _proxy_sync_command(self):
         cmd = ['/usr/local/bin/sync-common', '--include', '*.dblist']
         if self.verbose:
@@ -325,10 +313,6 @@ class SyncDblist(AbstractSync):
 
 class SyncDir(AbstractSync):
     """Sync a directory to the cluster."""
-
-    def _process_arguments(self, args, extra_args):
-        args.message = ' '.join(args.message) or '(no message)'
-        return args, extra_args
 
     @cli.argument('dir', help='Directory to sync')
     @cli.argument('message', nargs='*', help='Log message for SAL')
@@ -359,12 +343,27 @@ class SyncDir(AbstractSync):
         self.stats.increment('deploy.all')
 
 
+class SyncDocroot(AbstractSync):
+
+    def _proxy_sync_command(self):
+        cmd = [
+            '/usr/local/bin/sync-common',
+            '--include', 'docroot/***',
+            '--include', 'w/***',
+        ]
+        if self.verbose:
+            cmd += ['--verbose']
+        return cmd
+
+    def _after_lock_release(self):
+        self.announce('Synchronized docroot and w: %s (duration: %s)',
+            self.arguments.message, self.human_duration)
+        self.stats.increment('deploy.sync-docroot')
+        self.stats.increment('deploy.all')
+
+
 class SyncFile(AbstractSync):
     """Sync a specific file to the cluster."""
-
-    def _process_arguments(self, args, extra_args):
-        args.message = ' '.join(args.message) or '(no message)'
-        return args, extra_args
 
     @cli.argument('file', help='File to sync')
     @cli.argument('message', nargs='*', help='Log message for SAL')
