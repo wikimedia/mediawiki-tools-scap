@@ -81,7 +81,7 @@ class AbstractSync(cli.Application):
         """Synchronization command to run on the proxy hosts."""
         cmd = ['/usr/local/bin/sync-common']
         if self.verbose:
-            cmd += ['--verbose']
+            cmd.append('--verbose')
         return cmd
 
     def _get_apache_list(self):
@@ -283,7 +283,7 @@ class SyncDblist(AbstractSync):
     def _proxy_sync_command(self):
         cmd = ['/usr/local/bin/sync-common', '--include', '*.dblist']
         if self.verbose:
-            cmd += ['--verbose']
+            cmd.append('--verbose')
         return cmd
 
     def _after_lock_release(self):
@@ -315,7 +315,7 @@ class SyncDir(AbstractSync):
     def _proxy_sync_command(self):
         cmd = ['/usr/local/bin/sync-common', '--include', self.include]
         if self.verbose:
-            cmd += ['--verbose']
+            cmd.append('--verbose')
         return cmd
 
     def _after_lock_release(self):
@@ -334,7 +334,7 @@ class SyncDocroot(AbstractSync):
             '--include', 'w/***',
         ]
         if self.verbose:
-            cmd += ['--verbose']
+            cmd.append('--verbose')
         return cmd
 
     def _after_lock_release(self):
@@ -365,7 +365,7 @@ class SyncFile(AbstractSync):
     def _proxy_sync_command(self):
         cmd = ['/usr/local/bin/sync-common', '--include', self.include]
         if self.verbose:
-            cmd += ['--verbose']
+            cmd.append('--verbose')
         return cmd
 
     def _after_lock_release(self):
