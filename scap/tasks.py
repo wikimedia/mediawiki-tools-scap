@@ -265,6 +265,14 @@ def sync_common(cfg, include=None, sync_from=None, verbose=False):
     with log.Timer('rsync common', stats):
         subprocess.check_call(rsync)
 
+    # Bug 58618: Invalidate local configuration cache by updating the
+    # timestamp of wmf-config/InitialiseSettings.php
+    settings_path = os.path.join(
+        cfg['deploy_dir'], 'wmf-config', 'InitialiseSettings.php')
+    logger.debug('Touching %s', settings_path)
+    subprocess.check_call(('sudo', '-u', 'mwdeploy', '-n', '--',
+        '/usr/bin/touch', settings_path))
+
 
 def sync_wikiversions(hosts, cfg):
     """Rebuild and sync wikiversions.cdb to the cluster.
