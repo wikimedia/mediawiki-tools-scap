@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "4e1dcb5b_a13f07d3",
+        "filename": "scap/__init__.py",
+        "patchSetId": 2
+      },
+      "lineNbr": 9,
+      "author": {
+        "id": 255
+      },
+      "writtenOn": "2014-05-27T05:02:15Z",
+      "side": 1,
+      "message": "I\u0027m sorry for not catching this earlier, but this should be:\n\n    from .main import (\n        MWVersionsInUse,\n        PurgeL10nCache,\n        # ...\n        UpdateL10n,\n    )",
+      "revId": "e36522d9b091f1a3d8b932f82741884af1049f20",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
+    }
+  ]
+}
