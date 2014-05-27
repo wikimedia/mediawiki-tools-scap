@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "4e1dcb5b_f79ffd60",
+        "filename": "scap/tasks.py",
+        "patchSetId": 4
+      },
+      "lineNbr": 257,
+      "author": {
+        "id": 34
+      },
+      "writtenOn": "2014-05-27T10:29:08Z",
+      "side": 1,
+      "message": "Contrary to how this interface is exposed, if I understand correctly, in rsync --include is not a whitelist, but an override for --exclude. \n\nWe expose it here as a whitelist by excluding everything by default.\n\nThis feels wrong, but I guess it\u0027s fine if it works. I suspect there is at least one edge case though: dot files (and anything else not matched by \u0027*\u0027).\n\nThose would be unexpectedly synced by sync-file and sync-dir.\n\nWhen only one file or directory is at play, would it make sense to change the source/target directory to that directory instead (like sync-common-file did) so that this is not needed? I wonder why that is no longer the case (is there some issue with other options or scripts involved when rsync is not acting from the perspective of \"common/\"?).",
+      "revId": "28a4f0efa2e8da748d729e7de96092b56e3417b0",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
+    }
+  ]
+}
