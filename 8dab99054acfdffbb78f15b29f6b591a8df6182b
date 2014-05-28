@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "4e1dcb5b_52f238ce",
+        "filename": "scap/tasks.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 270,
+      "author": {
+        "id": 255
+      },
+      "writtenOn": "2014-05-28T01:04:43Z",
+      "side": 1,
+      "message": "pet peeve: since even windows accepts backslashes, the systems that require os.path.join are pretty obscure. I would much prefer:\n\n    settings_path \u003d \u0027%(deploy_dir)s/wmf-config/InitialiseSettings.php\u0027 % cfg\n\nnot going to penalize this with a -1 since it\u0027s a matter of taste, but thought i\u0027d flag it",
+      "revId": "8dab99054acfdffbb78f15b29f6b591a8df6182b",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
+    }
+  ]
+}
