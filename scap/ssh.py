@@ -28,8 +28,7 @@ class Job(object):
         self.hosts(hosts or [])
         self._command = command
 
-    @property
-    def logger(self):
+    def get_logger(self):
         """Lazy getter for a logger instance."""
         if self._logger is None:
             self._logger = logging.getLogger('scap.ssh.job')
@@ -78,8 +77,8 @@ class Job(object):
             raise RuntimeError('Command must be provided')
 
         if not self._hosts:
-            self.logger.warning('Job %s called with an empty host list.',
-                self._command)
+            self.get_logger().warning(
+                'Job %s called with an empty host list.', self._command)
             if self._reporter:
                 return (0, 0)
             else:
@@ -101,7 +100,7 @@ class Job(object):
             if status == 0:
                 self._reporter.add_success()
             else:
-                self.logger.warning('%s on %s returned [%d]: %s',
+                self.get_logger().warning('%s on %s returned [%d]: %s',
                     self._command, host, status, output)
                 self._reporter.add_failure()
         self._reporter.finish()

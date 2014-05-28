@@ -37,15 +37,13 @@ class Application(object):
         self.exe_name = exe_name
         self.start = time.time()
 
-    @property
-    def logger(self):
+    def get_logger(self):
         """Lazy getter for a logger instance."""
         if self._logger is None:
             self._logger = logging.getLogger(self.program_name)
         return self._logger
 
-    @property
-    def stats(self):
+    def get_stats(self):
         if self._stats is None:
             self._stats = log.Stats(
                 self.config['statsd_host'], int(self.config['statsd_port']))
@@ -55,15 +53,9 @@ class Application(object):
     def verbose(self):
         return self.arguments.loglevel < logging.INFO
 
-    @property
-    def duration(self):
+    def get_duration(self):
         """Get the elapsed duration in seconds."""
         return time.time() - self.start
-
-    @property
-    def human_duration(self):
-        """Get the elapsed duration in human readable form."""
-        return utils.human_duration(self.duration)
 
     def announce(self, *args):
         """Announce a message to broadcast listeners.
@@ -185,7 +177,7 @@ class Application(object):
 
         :returns: exit status
         """
-        self.logger.warning('%s aborted', self.program_name)
+        self.get_logger().warning('%s aborted', self.program_name)
         return 130
 
     def _handle_exception(self, ex):
@@ -193,8 +185,8 @@ class Application(object):
 
         :returns: exit status
         """
-        self.logger.warn('Unhandled error:', exc_info=True)
-        self.logger.error('%s failed: <%s> %s',
+        self.get_logger().warn('Unhandled error:', exc_info=True)
+        self.get_logger().error('%s failed: <%s> %s',
             self.program_name, type(ex).__name__, ex)
         return 70
 
@@ -211,7 +203,7 @@ class Application(object):
     def _run_as(self, user):
         """Ensure that this program is run as the given user."""
         if utils.get_username() != user:
-            self.logger.info(
+            self.get_logger().info(
                 '%s must be run as user %s', self.program_name, user)
             # Replace the current process with a sudo call to the same script
             os.execvp('sudo', ['sudo', '-u', user, '-n', '--'] + sys.argv)
