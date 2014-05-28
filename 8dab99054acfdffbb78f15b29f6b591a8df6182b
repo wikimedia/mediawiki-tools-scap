@@ -16,6 +16,24 @@
       "revId": "8dab99054acfdffbb78f15b29f6b591a8df6182b",
       "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
       "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "4e1dcb5b_222d2b8c",
+        "filename": "scap/tasks.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 270,
+      "author": {
+        "id": 1001
+      },
+      "writtenOn": "2014-05-28T16:08:49Z",
+      "side": 1,
+      "message": "How about the other 27 uses of os.path.join in the application? ;) It would be easy enough to remove all of them, but I\u0027d rather not mix styles for path creation.",
+      "parentUuid": "4e1dcb5b_52f238ce",
+      "revId": "8dab99054acfdffbb78f15b29f6b591a8df6182b",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
     }
   ]
 }
