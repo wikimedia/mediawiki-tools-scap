@@ -315,7 +315,17 @@ class SyncDir(AbstractSync):
         tasks.check_php_syntax(abspath)
 
     def _proxy_sync_command(self):
-        cmd = ['/usr/local/bin/sync-common', '--include', self.include]
+        cmd = ['/usr/local/bin/sync-common']
+
+        if '/' in self.include:
+            parts = self.include.split('/')
+            for i in range(1, len(parts)):
+                # Include parent directories in sync command or the default
+                # exclude will block them and by extension block the target
+                # file.
+                cmd.extend(['--include', '/'.join(parts[:i])])
+
+        cmd.extend(['--include', self.include])
         if self.verbose:
             cmd.append('--verbose')
         return cmd
@@ -366,7 +376,17 @@ class SyncFile(AbstractSync):
         subprocess.check_call('/usr/bin/php -l %s' % abspath, shell=True)
 
     def _proxy_sync_command(self):
-        cmd = ['/usr/local/bin/sync-common', '--include', self.include]
+        cmd = ['/usr/local/bin/sync-common']
+
+        if '/' in self.include:
+            parts = self.include.split('/')
+            for i in range(1, len(parts)):
+                # Include parent directories in sync command or the default
+                # exclude will block them and by extension block the target
+                # file.
+                cmd.extend(['--include', '/'.join(parts[:i])])
+
+        cmd.extend(['--include', self.include])
         if self.verbose:
             cmd.append('--verbose')
         return cmd
