@@ -109,6 +109,10 @@ class LogstashFormatter(logging.Formatter):
         fields['channel'] = fields.pop('name', 'unnamed')
         fields['@timestamp'] = self.formatTime(record, self.datefmt)
 
+        # Ensure message is populated
+        if 'message' not in fields:
+            fields['message'] = fields['msg'] % fields['args']
+
         # Format exception
         if 'exc_info' in fields and fields['exc_info']:
             fields['exception'] = self.formatException(fields['exc_info'])
@@ -362,7 +366,7 @@ class Udp2LogHandler(logging.handlers.DatagramHandler):
         return text
 
 
-def setup_loggers(cfg):
+def setup_loggers(cfg, console_level=logging.INFO):
     """Setup the logging system.
 
     * Configure the root logger to use :class:`AnsiColorFormatter`
@@ -371,7 +375,12 @@ def setup_loggers(cfg):
       channel to send messages to a tcpircbot server
 
     :param cfg: Dict of global configuration values
+    :param console_level: Logging level for the local console appender
     """
+    # Set logger levels
+    logging.root.setLevel(logging.DEBUG)
+    logging.root.handlers[0].setLevel(console_level)
+
     # Colorize log messages sent to stderr
     logging.root.handlers[0].setFormatter(AnsiColorFormatter(
         '%(asctime)s %(message)s', '%H:%M:%S'))

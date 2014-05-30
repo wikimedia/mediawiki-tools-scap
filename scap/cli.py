@@ -151,8 +151,7 @@ class Application(object):
 
     def _setup_loggers(self):
         """Setup logging."""
-        log.setup_loggers(self.config)
-        logging.root.setLevel(self.arguments.loglevel)
+        log.setup_loggers(self.config, self.arguments.loglevel)
 
     def main(self, *extra_args):
         """Main business logic of the application.
