@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "4e1dcb5b_79629838",
+        "filename": "scap/cli.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 75,
+      "author": {
+        "id": 24
+      },
+      "writtenOn": "2014-06-02T19:26:51Z",
+      "side": 1,
+      "message": "boracast?  I am too lazy to open a dictionary, I guess it is broadcast.",
+      "revId": "c3e485212cff5803774ffa4eacc14265b25cf180",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
+    }
+  ]
+}
