@@ -63,10 +63,21 @@ class Application(object):
         Emits a logging event to the 'scap.announce' logger which can be
         configured to broadcast messages via irc or another real-time
         notification channel.
+
+        Announcements can be disabled by setting 'DOLOGMSGNOLOG' in the calling
+        shell environment (e.g. `DOLOGMSGNOLOG=1 sync-file foo.php`). In this
+        case the log event will still be emitted to the normal logger as
+        though `self.get_logger().info()` was used instead of
+        `self.announce()`.
         """
-        if self._announce_logger is None:
-            self._announce_logger = logging.getLogger('scap.announce')
-        self._announce_logger.info(*args)
+        if 'DOLOGMSGNOLOG' in os.environ:
+            # Do not log to the announce logger, but do log the event for the
+            # console and other non-broadcast log collectors.
+            self.get_logger().info(*args)
+        else:
+            if self._announce_logger is None:
+                self._announce_logger = logging.getLogger('scap.announce')
+            self._announce_logger.info(*args)
 
     def active_wikiversions(self, source_tree='deploy'):
         """Get an ordered collection of active MediaWiki versions.
