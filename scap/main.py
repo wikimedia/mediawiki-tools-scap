@@ -80,7 +80,7 @@ class AbstractSync(cli.Application):
 
     def _proxy_sync_command(self):
         """Synchronization command to run on the proxy hosts."""
-        cmd = ['/usr/local/bin/sync-common']
+        cmd = ['sync-common']
         if self.verbose:
             cmd.append('--verbose')
         return cmd
@@ -203,7 +203,7 @@ class Scap(AbstractSync):
 
         # Bug 63659: Compile deploy_dir/wikiversions.json to cdb
         subprocess.check_call('sudo -u mwdeploy -- '
-            '/usr/local/bin/compile-wikiversions', shell=True)
+            'compile-wikiversions', shell=True)
 
         # Update list of extension message files and regenerate the
         # localisation cache.
@@ -223,7 +223,7 @@ class Scap(AbstractSync):
             rebuild_cdbs = ssh.Job(self._get_apache_list())
             rebuild_cdbs.shuffle()
             rebuild_cdbs.command(
-                'sudo -u mwdeploy -n -- /usr/local/bin/scap-rebuild-cdbs')
+                'sudo -u mwdeploy -n -- scap-rebuild-cdbs')
             rebuild_cdbs.progress('scap-rebuild-cdbs')
             succeeded, failed = rebuild_cdbs.run()
             if failed:
@@ -283,7 +283,7 @@ class SyncDblist(AbstractSync):
     """Sync dblist files to the cluster."""
 
     def _proxy_sync_command(self):
-        cmd = ['/usr/local/bin/sync-common', '--include', '*.dblist']
+        cmd = ['sync-common', '--include', '*.dblist']
         if self.verbose:
             cmd.append('--verbose')
         return cmd
@@ -315,7 +315,7 @@ class SyncDir(AbstractSync):
         tasks.check_php_syntax(abspath)
 
     def _proxy_sync_command(self):
-        cmd = ['/usr/local/bin/sync-common']
+        cmd = ['sync-common']
 
         if '/' in self.include:
             parts = self.include.split('/')
@@ -342,7 +342,7 @@ class SyncDocroot(AbstractSync):
 
     def _proxy_sync_command(self):
         cmd = [
-            '/usr/local/bin/sync-common',
+            'sync-common',
             '--include', 'docroot/***',
             '--include', 'w/***',
         ]
@@ -376,7 +376,7 @@ class SyncFile(AbstractSync):
         subprocess.check_call('/usr/bin/php -l %s' % abspath, shell=True)
 
     def _proxy_sync_command(self):
-        cmd = ['/usr/local/bin/sync-common']
+        cmd = ['sync-common']
 
         if '/' in self.include:
             parts = self.include.split('/')
