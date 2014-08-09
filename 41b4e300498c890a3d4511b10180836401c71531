@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "8e28a382_f8048582",
+        "filename": "scap/tasks.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 67,
+      "author": {
+        "id": 255
+      },
+      "writtenOn": "2014-08-09T17:39:07Z",
+      "side": 1,
+      "message": "This is prone to race conditions, and doesn\u0027t handle corrupted or empty git directories gracefully. Consider:\n\n    try:\n        info \u003d utils.git_info(subdir)\n    except IOError:\n        pass  # (or log, if you like)\n    cache_file \u003d utils.git_info_filename(subdir, branch_dir, cache_dir)\n    with open(cache_file, \u0027w\u0027) as f:\n        json.dump(info, f)\n\nSee EAFP vs LBYL:\n\nhttps://docs.python.org/2/glossary.html#term-lbyl\nhttps://docs.python.org/2/glossary.html#term-eafp",
+      "revId": "41b4e300498c890a3d4511b10180836401c71531",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
+    }
+  ]
+}
