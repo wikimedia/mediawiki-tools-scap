@@ -34,6 +34,24 @@
       "revId": "41b4e300498c890a3d4511b10180836401c71531",
       "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
       "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "8e28a382_f833655d",
+        "filename": "scap/tasks.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 67,
+      "author": {
+        "id": 255
+      },
+      "writtenOn": "2014-08-09T17:43:32Z",
+      "side": 1,
+      "message": "Oh, definitely. utils.git_info also has excessive (and dangerous) LBYL-style checks. Bryan: I blame you.",
+      "parentUuid": "8e28a382_38ea0d9d",
+      "revId": "41b4e300498c890a3d4511b10180836401c71531",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
     }
   ]
 }
