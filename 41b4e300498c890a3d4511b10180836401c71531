@@ -16,6 +16,24 @@
       "revId": "41b4e300498c890a3d4511b10180836401c71531",
       "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
       "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "8e28a382_38ea0d9d",
+        "filename": "scap/tasks.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 67,
+      "author": {
+        "id": 417
+      },
+      "writtenOn": "2014-08-09T17:40:39Z",
+      "side": 1,
+      "message": "Blame Bryan! This code is straight from https://gerrit.wikimedia.org/r/#/c/130560/",
+      "parentUuid": "8e28a382_f8048582",
+      "revId": "41b4e300498c890a3d4511b10180836401c71531",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
     }
   ]
 }
