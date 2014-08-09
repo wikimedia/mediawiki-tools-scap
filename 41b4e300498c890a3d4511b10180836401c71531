@@ -52,6 +52,24 @@
       "revId": "41b4e300498c890a3d4511b10180836401c71531",
       "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
       "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "8e28a382_7bf1afd9",
+        "filename": "scap/tasks.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 67,
+      "author": {
+        "id": 1001
+      },
+      "writtenOn": "2014-08-09T19:34:26Z",
+      "side": 1,
+      "message": "Consider me shamed. Also I/we/somebody should fix this to work with extensions/skins which may themselves have submodules. I noticed that we don\u0027t display any hash for wikidata\u0027s child extensions.\n\nHmm.. those aren\u0027t really submodules however are they?",
+      "parentUuid": "8e28a382_f833655d",
+      "revId": "41b4e300498c890a3d4511b10180836401c71531",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
     }
   ]
 }
