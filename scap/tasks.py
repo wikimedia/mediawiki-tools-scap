@@ -239,8 +239,9 @@ def sync_common(cfg, include=None, sync_from=None, verbose=False):
     logger = logging.getLogger('sync_common')
 
     if not os.path.isdir(cfg['deploy_dir']):
-        raise Exception(('rsync target directory %s not found. '
-            'Ask root to create it.') % cfg['deploy_dir'])
+        raise Exception((
+            'rsync target directory %s not found. Ask root to create it '
+            '(should belong to mwdeploy:mwdeploy).') % cfg['deploy_dir'])
 
     server = None
     if sync_from:
