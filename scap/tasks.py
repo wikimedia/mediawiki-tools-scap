@@ -60,15 +60,19 @@ def cache_git_info(version, cfg):
     with open(cache_file, 'w') as f:
         json.dump(info, f)
 
-    # Create cache for each extension
-    extensions_dir = os.path.join(branch_dir, 'extensions')
-    for subdir in utils.iterate_subdirectories(extensions_dir):
-        if os.path.exists(os.path.join(subdir, '.git')):
-            info = utils.git_info(subdir)
-            cache_file = utils.git_info_filename(
-                subdir, branch_dir, cache_dir)
-            with open(cache_file, 'w') as f:
-                json.dump(info, f)
+    # Create cache for each extension and skin
+    for dirname in ['extensions', 'skins']:
+        dir = os.path.join(branch_dir, dirname)
+        for subdir in utils.iterate_subdirectories(dir):
+            try:
+                info = utils.git_info(subdir)
+            except IOError:
+                pass
+            else:
+                cache_file = utils.git_info_filename(
+                    subdir, branch_dir, cache_dir)
+                with open(cache_file, 'w') as f:
+                    json.dump(info, f)
 
 
 def check_php_syntax(*paths):
