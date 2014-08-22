@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "4e322bf2_c7dd7de3",
+        "filename": "scap/log.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 232,
+      "author": {
+        "id": 24
+      },
+      "writtenOn": "2014-08-22T09:29:12Z",
+      "side": 1,
+      "message": "This one could use the build in string.format() which has support to display percentages:\n\n \u003e\u003e\u003e print \"{:.2%}\".format(float(449) / 450)\n 99.78%\n\nI would use that instead of math/floor merely because that is less code :-D",
+      "revId": "24089e3a6d2ce7c5a70656b355d056cce7be8fcc",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
+    }
+  ]
+}
