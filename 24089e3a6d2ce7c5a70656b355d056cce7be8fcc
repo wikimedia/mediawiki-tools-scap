@@ -16,6 +16,24 @@
       "revId": "24089e3a6d2ce7c5a70656b355d056cce7be8fcc",
       "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
       "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "4e322bf2_020db341",
+        "filename": "scap/log.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 232,
+      "author": {
+        "id": 1001
+      },
+      "writtenOn": "2014-08-22T15:00:46Z",
+      "side": 1,
+      "message": "Less code, but not desired result. Seeing more precision in the output isn\u0027t really valuable. It would make the UI more noisy. The floor function does exactly what is desired, namely truncation rather than rounding.",
+      "parentUuid": "4e322bf2_c7dd7de3",
+      "revId": "24089e3a6d2ce7c5a70656b355d056cce7be8fcc",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
     }
   ]
 }
