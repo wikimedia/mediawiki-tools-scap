@@ -7,6 +7,7 @@
 """
 import json
 import logging
+import math
 import logging.handlers
 import re
 import socket
@@ -196,7 +197,7 @@ class ProgressReporter(object):
 
     @property
     def percent_complete(self):
-        return 100.0 * (float(self._done) / max(self._expect, 1))
+        return math.floor(100.0 * (float(self._done) / max(self._expect, 1)))
 
     def expect(self, count):
         """Set expected result count."""
