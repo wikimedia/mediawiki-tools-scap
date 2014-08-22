@@ -34,6 +34,24 @@
       "revId": "24089e3a6d2ce7c5a70656b355d056cce7be8fcc",
       "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
       "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "4e322bf2_a175ba94",
+        "filename": "scap/log.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 232,
+      "author": {
+        "id": 24
+      },
+      "writtenOn": "2014-08-22T19:31:36Z",
+      "side": 1,
+      "message": "Ah I forgot to test with no decimals:\n\n \u003e\u003e\u003e print \"{:.0%}\".format(float(449) / 450)\n 100%\n\n:-D",
+      "parentUuid": "4e322bf2_020db341",
+      "revId": "24089e3a6d2ce7c5a70656b355d056cce7be8fcc",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
     }
   ]
 }
