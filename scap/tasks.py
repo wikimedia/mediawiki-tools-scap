@@ -149,12 +149,13 @@ def compile_wikiversions_cdb(source_tree, cfg):
     logger.info('Compiled %s to %s', json_file, cdb_file)
 
 
-def merge_cdb_updates(directory, pool_size, trust_mtime=False):
+def merge_cdb_updates(directory, pool_size, trust_mtime=False, mute=False):
     """Update l10n CDB files using JSON data.
 
     :param directory: L10n cache directory
     :param pool_size: Number of parallel processes to use
     :param trust_mtime: Trust file modification time?
+    :param mute: Disable progress indicator
     """
     logger = logging.getLogger('merge_cdb_updates')
 
@@ -170,7 +171,10 @@ def merge_cdb_updates(directory, pool_size, trust_mtime=False):
     pool = multiprocessing.Pool(pool_size)
     updated = 0
 
-    reporter = log.ProgressReporter('l10n merge')
+    if mute:
+        reporter = log.MuteReporter()
+    else:
+        reporter = log.ProgressReporter('l10n merge')
     reporter.expect(len(files))
     reporter.start()
 

@@ -233,6 +233,18 @@ class ProgressReporter(object):
             self.ok, self.failed, self.remaining)
 
 
+class MuteReporter(ProgressReporter):
+    """A report that declines to report anything."""
+    def __init__(self, name='', expect=0, fd=sys.stderr):
+        super(self.__class__, self).__init__(name)
+
+    def _progress(self):
+        pass
+
+    def finish(self):
+        pass
+
+
 class Stats(object):
     """A simple StatsD metric client that can log measurements and counts to
     a remote StatsD host.

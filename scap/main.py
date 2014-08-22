@@ -80,7 +80,7 @@ class AbstractSync(cli.Application):
 
     def _proxy_sync_command(self):
         """Synchronization command to run on the proxy hosts."""
-        cmd = ['sync-common']
+        cmd = ['sync-common', '--no-update-l10n']
         if self.verbose:
             cmd.append('--verbose')
         return cmd
@@ -161,6 +161,8 @@ class PurgeL10nCache(cli.Application):
 class RebuildCdbs(cli.Application):
     """Rebuild localization cache CDB files from the JSON versions."""
 
+    @cli.argument('--no-progress', action='store_true', dest='mute',
+        help='Do not show progress indicator.')
     def main(self, *extra_args):
         self._run_as('mwdeploy')
         self._assert_current_user('mwdeploy')
@@ -172,7 +174,8 @@ class RebuildCdbs(cli.Application):
         for version, wikidb in self.active_wikiversions().items():
             cache_dir = os.path.join(self.config['deploy_dir'],
                 'php-%s' % version, 'cache', 'l10n')
-            tasks.merge_cdb_updates(cache_dir, use_cores, True)
+            tasks.merge_cdb_updates(
+                cache_dir, use_cores, True, self.arguments.mute)
 
 
 class Scap(AbstractSync):
@@ -264,6 +267,8 @@ class Scap(AbstractSync):
 class SyncCommon(cli.Application):
     """Sync local MediaWiki deployment directory with deploy server state."""
 
+    @cli.argument('--no-update-l10n', action='store_false', dest='update_l10n',
+        help='Do not update l10n cache files.')
     @cli.argument('-i', '--include', default=None, action='append',
         help='Rsync include pattern to limit transfer to.'
         'End directories with a trailing `/***`. Can be used multiple times.')
@@ -276,6 +281,9 @@ class SyncCommon(cli.Application):
             sync_from=self.arguments.servers,
             verbose=self.verbose
         )
+        if self.arguments.update_l10n:
+            utils.sudo_check_call('mwdeploy',
+                'scap-rebuild-cdbs --no-progress', self.get_logger())
         return 0
 
 
@@ -283,7 +291,7 @@ class SyncDblist(AbstractSync):
     """Sync dblist files to the cluster."""
 
     def _proxy_sync_command(self):
-        cmd = ['sync-common', '--include', '*.dblist']
+        cmd = ['sync-common', '--no-update-l10n', '--include', '*.dblist']
         if self.verbose:
             cmd.append('--verbose')
         return cmd
@@ -315,7 +323,7 @@ class SyncDir(AbstractSync):
         tasks.check_php_syntax(abspath)
 
     def _proxy_sync_command(self):
-        cmd = ['sync-common']
+        cmd = ['sync-common', '--no-update-l10n']
 
         if '/' in self.include:
             parts = self.include.split('/')
@@ -342,7 +350,7 @@ class SyncDocroot(AbstractSync):
 
     def _proxy_sync_command(self):
         cmd = [
-            'sync-common',
+            'sync-common', '--no-update-l10n',
             '--include', 'docroot/***',
             '--include', 'w/***',
         ]
@@ -376,7 +384,7 @@ class SyncFile(AbstractSync):
         subprocess.check_call('/usr/bin/php -l %s' % abspath, shell=True)
 
     def _proxy_sync_command(self):
-        cmd = ['sync-common']
+        cmd = ['sync-common', '--no-update-l10n']
 
         if '/' in self.include:
             parts = self.include.split('/')
