@@ -22,7 +22,7 @@ if [ -z "$builddir" ]; then
 	exit 1
 fi
 
-mwIP=/usr/local/apache/common-local/php-"$mwVerNum"
+mwIP=/srv/mediawiki/php-"$mwVerNum"
 MATHPATH=$mwIP/extensions/Math/math
 rsync -r --exclude=.git/ $MATHPATH/ "$builddir"
 cd "$builddir"

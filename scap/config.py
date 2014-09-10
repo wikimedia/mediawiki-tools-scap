@@ -11,7 +11,7 @@ import socket
 
 
 DEFAULT_CONFIG = {
-    'deploy_dir': '/usr/local/apache/common-local',
+    'deploy_dir': '/srv/mediawiki',
     'stage_dir': '/a/common',
     'lock_file': '/var/lock/scap',
     'master_rsync': 'localhost',
