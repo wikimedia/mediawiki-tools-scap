@@ -12,7 +12,7 @@ import socket
 
 DEFAULT_CONFIG = {
     'deploy_dir': '/srv/mediawiki',
-    'stage_dir': '/a/common',
+    'stage_dir': '/srv/mediawiki-staging',
     'lock_file': '/var/lock/scap',
     'master_rsync': 'localhost',
     'statsd_host': '127.0.0.1',
