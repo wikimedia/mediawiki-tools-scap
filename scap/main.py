@@ -80,7 +80,7 @@ class AbstractSync(cli.Application):
 
     def _proxy_sync_command(self):
         """Synchronization command to run on the proxy hosts."""
-        cmd = ['sync-common', '--no-update-l10n']
+        cmd = [self.get_script_path('sync-common'), '--no-update-l10n']
         if self.verbose:
             cmd.append('--verbose')
         return cmd
@@ -225,8 +225,8 @@ class Scap(AbstractSync):
         with log.Timer('scap-rebuild-cdbs', self.get_stats()):
             rebuild_cdbs = ssh.Job(self._get_apache_list())
             rebuild_cdbs.shuffle()
-            rebuild_cdbs.command(
-                'sudo -u mwdeploy -n -- scap-rebuild-cdbs')
+            rebuild_cdbs.command('sudo -u mwdeploy -n -- %s' %
+                                 self.get_script_path('scap-rebuild-cdbs'))
             rebuild_cdbs.progress('scap-rebuild-cdbs')
             succeeded, failed = rebuild_cdbs.run()
             if failed:
@@ -282,8 +282,11 @@ class SyncCommon(cli.Application):
             verbose=self.verbose
         )
         if self.arguments.update_l10n:
-            utils.sudo_check_call('mwdeploy',
-                'scap-rebuild-cdbs --no-progress', self.get_logger())
+            utils.sudo_check_call(
+                'mwdeploy',
+                self.get_script_path('scap-rebuild-cdbs') + ' --no-progress',
+                self.get_logger()
+            )
         return 0
 
 
@@ -291,7 +294,8 @@ class SyncDblist(AbstractSync):
     """Sync dblist files to the cluster."""
 
     def _proxy_sync_command(self):
-        cmd = ['sync-common', '--no-update-l10n', '--include', '*.dblist']
+        cmd = [self.get_script_path('sync-common'),
+               '--no-update-l10n', '--include', '*.dblist']
         if self.verbose:
             cmd.append('--verbose')
         return cmd
@@ -323,7 +327,7 @@ class SyncDir(AbstractSync):
         tasks.check_php_syntax(abspath)
 
     def _proxy_sync_command(self):
-        cmd = ['sync-common', '--no-update-l10n']
+        cmd = [self.get_script_path('sync-common'), '--no-update-l10n']
 
         if '/' in self.include:
             parts = self.include.split('/')
@@ -350,7 +354,8 @@ class SyncDocroot(AbstractSync):
 
     def _proxy_sync_command(self):
         cmd = [
-            'sync-common', '--no-update-l10n',
+            self.get_script_path('sync-common'),
+            '--no-update-l10n',
             '--include', 'docroot/***',
             '--include', 'w/***',
         ]
@@ -384,7 +389,7 @@ class SyncFile(AbstractSync):
         subprocess.check_call('/usr/bin/php -l %s' % abspath, shell=True)
 
     def _proxy_sync_command(self):
-        cmd = ['sync-common', '--no-update-l10n']
+        cmd = [self.get_script_path('sync-common'), '--no-update-l10n']
 
         if '/' in self.include:
             parts = self.include.split('/')

@@ -57,6 +57,10 @@ class Application(object):
         """Get the elapsed duration in seconds."""
         return time.time() - self.start
 
+    def get_script_path(self, script_name):
+        """Qualify the path to a scap script."""
+        return os.path.join(self.config['bin_dir'], script_name)
+
     def announce(self, *args):
         """Announce a message to broadcast listeners.
 

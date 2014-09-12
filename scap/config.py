@@ -11,6 +11,7 @@ import socket
 
 
 DEFAULT_CONFIG = {
+    'bin_dir': '/srv/deployment/scap/scap/bin',
     'deploy_dir': '/srv/mediawiki',
     'stage_dir': '/srv/mediawiki-staging',
     'lock_file': '/var/lock/scap',
