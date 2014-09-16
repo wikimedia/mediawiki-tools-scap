@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "2e2fb78d_6479abf1",
+        "filename": "scap/tasks.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 82,
+      "author": {
+        "id": 1001
+      },
+      "writtenOn": "2014-09-16T15:49:35Z",
+      "side": 1,
+      "message": "Line continuation is not \"pythonic\" and makes Ori sad. Use parens to group instead.\n\n  cmd \u003d ( \"some string\"\n      \"more strings!\"\n      \"we can keep going\" ) % (param1, param2, ...)\n\n\nOr even better, just create the command inline in the supbprocess.check_call() below like we do in update_localization_cache()",
+      "revId": "abbed8a3285002b9112c66faf1645946f30c6244",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
+    }
+  ]
+}
