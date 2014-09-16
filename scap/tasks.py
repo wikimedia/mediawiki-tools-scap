@@ -76,9 +76,16 @@ def cache_git_info(version, cfg):
 
 
 def check_php_syntax(*paths):
-    """Run lint.php on `paths`; raise CalledProcessError if nonzero exit."""
-    cmd = '/usr/bin/php -n -dextension=parsekit.so /usr/local/bin/lint.php'
-    return subprocess.check_call(cmd.split() + list(paths))
+    """Run php -l in parallel on `paths`; raise CalledProcessError if nonzero
+    exit."""
+    logger = logging.getLogger('check_php_syntax')
+    quoted_paths = ["'%s'" % x for x in paths]
+    cmd = (
+        "find %s -name '*.php' -or -name '*.inc' -or -name '*.phtml' "
+        "| xargs -n1 -P%d -exec php -l >/dev/null"
+    ) % (' '.join(quoted_paths), multiprocessing.cpu_count())
+    logger.debug('Running command: `%s`', cmd)
+    return subprocess.check_call(cmd, shell=True)
 
 
 def compile_wikiversions_cdb(source_tree, cfg):
