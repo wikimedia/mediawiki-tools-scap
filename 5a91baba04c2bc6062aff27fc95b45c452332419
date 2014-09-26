@@ -16,6 +16,24 @@
       "revId": "5a91baba04c2bc6062aff27fc95b45c452332419",
       "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
       "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "ee62ffec_65b0c6d8",
+        "filename": "scap/main.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 248,
+      "author": {
+        "id": 255
+      },
+      "writtenOn": "2014-09-26T01:21:14Z",
+      "side": 1,
+      "message": "Good point.",
+      "parentUuid": "ee62ffec_259bee69",
+      "revId": "5a91baba04c2bc6062aff27fc95b45c452332419",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
     }
   ]
 }
