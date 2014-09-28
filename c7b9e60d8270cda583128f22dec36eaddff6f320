@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "ce8c5bf9_fa284998",
+        "filename": "scap/main.py",
+        "patchSetId": 2
+      },
+      "lineNbr": 248,
+      "author": {
+        "id": 1001
+      },
+      "writtenOn": "2014-09-28T06:03:10Z",
+      "side": 1,
+      "message": "I think this will still report all precise hosts as failing. You want to build a command that always returns true if there is no hhvm to restart and otherwise returns the status of the restart command.",
+      "revId": "c7b9e60d8270cda583128f22dec36eaddff6f320",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
+    }
+  ]
+}
