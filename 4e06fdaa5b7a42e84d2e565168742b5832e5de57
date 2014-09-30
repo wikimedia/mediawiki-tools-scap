@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "ce8c5bf9_c78b1e71",
+        "filename": "scap/main.py",
+        "patchSetId": 6
+      },
+      "lineNbr": 249,
+      "author": {
+        "id": 1001
+      },
+      "writtenOn": "2014-09-30T17:54:30Z",
+      "side": 1,
+      "message": "Missing `sudo` for the restart command.\n\n7:50:08 /usr/bin/test ! -f /etc/init/hhvm.conf || /sbin/restart hhvm on deployment-mediawiki03.eqiad.wmflabs returned [1]: Warning: Permanently added \u0027deployment-mediawiki03.eqiad.wmflabs,10.68.16.163\u0027 (RSA) to the list of known hosts.\nrestart: Rejected send message, 1 matched rules; type\u003d\"method_call\", sender\u003d\":1.87\" (uid\u003d603 pid\u003d6055 comm\u003d\"/sbin/restart hhvm \") interface\u003d\"com.ubuntu.Upstart0_6.Job\" member\u003d\"Restart\" error name\u003d\"(unset)\" requested_reply\u003d\"0\" destination\u003d\"com.ubuntu.Upstart\" (uid\u003d0 pid\u003d1 comm\u003d\"/sbin/init\")",
+      "revId": "4e06fdaa5b7a42e84d2e565168742b5832e5de57",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
+    }
+  ]
+}
