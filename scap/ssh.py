@@ -27,6 +27,7 @@ class Job(object):
     def __init__(self, hosts=None, command=None):
         self.hosts(hosts or [])
         self._command = command
+        self._reporter = None
 
     def get_logger(self):
         """Lazy getter for a logger instance."""
