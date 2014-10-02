@@ -131,7 +131,7 @@ def compile_wikiversions_cdb(source_tree, cfg):
     # Validate that all wikis are in the json file
     missing_dbs = [db for db in wikiversions.keys() if db not in all_dbs]
     if missing_dbs:
-        raise KeyError('Missing %d expected dbs in %f: %s' % (
+        raise KeyError('Missing %d expected dbs in %s: %s' % (
             len(missing_dbs), json_file, ', '.join(missing_dbs)))
 
     tmp_cdb_file = '%s.tmp' % cdb_file
