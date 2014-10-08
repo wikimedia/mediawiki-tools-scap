@@ -125,6 +125,25 @@ def get_username():
     return pwd.getpwuid(os.getuid())[0]
 
 
+def get_disclosable_head(repo_directory):
+    """Get the SHA1 of the most recent commit that can be publicly disclosed.
+    If a commit only exists locally, it is considered private. This function
+    will try to get the tip of the remote tracking branch, and fall back to
+    the common ancestor of HEAD and origin."""
+    with open(os.devnull, 'wb') as dev_null:
+        try:
+            return subprocess.check_output(
+                ('/usr/bin/git', 'rev-list', '-1', '@{upstream}'),
+                cwd=repo_directory, stderr=dev_null).strip()
+        except subprocess.CalledProcessError:
+            remote = subprocess.check_output('/usr/bin/git', 'remote',
+                                             cwd=repo_directory,
+                                             stderr=dev_null).strip()
+            return subprocess.check_output(
+                ('/usr/bin/git', 'merge-base', 'HEAD', remote),
+                cwd=repo_directory, stderr=dev_null).strip()
+
+
 def git_info(directory):
     """Compute git version information for a given directory that is
     compatible with MediaWiki's GitInfo class.
@@ -154,18 +173,7 @@ def git_info(directory):
     if head.startswith('ref: '):
         head = head[5:]
 
-    if re.match(r'^[0-9a-f]{40}$', head, re.IGNORECASE):
-        # Working copy is a detached head, so we can't check for upstream
-        # intersection easily.
-        head_sha1 = head
-    else:
-        # Find first commit shared with the upstream branch. This keeps us
-        # from leaking information about locally committed changes such as
-        # security patches.
-        head_sha1 = subprocess.check_output(
-            ('/usr/bin/git', 'rev-list', '-1', '@{upstream}'),
-            cwd=git_dir).strip()
-
+    head_sha1 = get_disclosable_head(directory)
     commit_date = subprocess.check_output(
         ('/usr/bin/git', 'show', '-s', '--format=%ct', head_sha1),
         cwd=git_dir).strip()
