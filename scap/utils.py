@@ -136,9 +136,9 @@ def get_disclosable_head(repo_directory):
                 ('/usr/bin/git', 'rev-list', '-1', '@{upstream}'),
                 cwd=repo_directory, stderr=dev_null).strip()
         except subprocess.CalledProcessError:
-            remote = subprocess.check_output('/usr/bin/git', 'remote',
-                                             cwd=repo_directory,
-                                             stderr=dev_null).strip()
+            remote = subprocess.check_output(
+                ('/usr/bin/git', 'remote'),
+                cwd=repo_directory, stderr=dev_null).strip()
             return subprocess.check_output(
                 ('/usr/bin/git', 'merge-base', 'HEAD', remote),
                 cwd=repo_directory, stderr=dev_null).strip()
