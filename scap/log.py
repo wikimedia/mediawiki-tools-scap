@@ -79,7 +79,7 @@ class IRCSocketHandler(logging.Handler):
             sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             sock.settimeout(self.timeout)
             sock.connect(self.addr)
-            sock.sendall(message.encode('utf-8'))
+            sock.sendall(message)
             sock.close()
         except (socket.timeout, socket.error, socket.gaierror):
             self.handleError(record)
@@ -269,7 +269,7 @@ class Stats(object):
 
     def _send_metric(self, metric):
         try:
-            self.socket.sendto(metric.encode('utf-8'), self.address)
+            self.socket.sendto(metric, self.address)
         except Exception:
             self.logger.exception('Failed to send metric "%s"', metric)
 
