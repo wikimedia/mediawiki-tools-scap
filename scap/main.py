@@ -242,17 +242,6 @@ class Scap(AbstractSync):
                 '%d hosts had sync_wikiversions errors', failed)
             self.soft_errors = True
 
-        # Restart HHVM to reset the JIT cache.
-        restart_hhvm = ssh.Job(self._get_apache_list())
-        restart_hhvm.shuffle()
-        restart_hhvm.command('/usr/bin/test ! -f /etc/init/hhvm.conf || '
-                             'sudo /sbin/restart hhvm')
-        succeeded, failed = restart_hhvm.progress('hhvm_restart').run()
-        if failed:
-            self.get_logger().warning(
-                'failed to restart HHVM on %d hosts', failed)
-            self.soft_errors = True
-
     def _after_lock_release(self):
         self.announce('Finished scap: %s (duration: %s)',
             self.arguments.message, utils.human_duration(self.get_duration()))
