@@ -205,8 +205,8 @@ class Scap(AbstractSync):
         tasks.sync_common(self.config)
 
         # Bug 63659: Compile deploy_dir/wikiversions.json to cdb
-        subprocess.check_call('sudo -u mwdeploy -- '
-            'compile-wikiversions', shell=True)
+        subprocess.check_call('sudo -u mwdeploy -n -- %s' %
+            self.get_script_path('compile-wikiversions'), shell=True)
 
         # Update list of extension message files and regenerate the
         # localisation cache.
