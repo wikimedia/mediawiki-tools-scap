@@ -220,13 +220,14 @@ def purge_l10n_cache(version, cfg):
     # Shell is needed on subprocess to allow wildcard expansion
     # --force option given to rm to ignore missing files
     subprocess.check_call(
-        'sudo -u l10nupdate /bin/rm --recursive --force %s/*' % staged_l10n,
+        'sudo -u l10nupdate -n -- /bin/rm '
+        '--recursive --force %s/*' % staged_l10n,
         shell=True)
 
     # Purge from deploy directroy across cluster
     # --force option given to rm to ignore missing files as before
     purge = ssh.Job().role('mediawiki-installation')
-    purge.command('sudo -u mwdeploy /bin/rm '
+    purge.command('sudo -u mwdeploy -n -- /bin/rm '
         '--recursive --force %s/*' % deployed_l10n)
     purge.progress('l10n purge').run()
 
@@ -301,7 +302,7 @@ def sync_wikiversions(hosts, cfg):
         compile_wikiversions_cdb('stage', cfg)
 
         rsync = ssh.Job(hosts).shuffle()
-        rsync.command('sudo -u mwdeploy /usr/bin/rsync -l '
+        rsync.command('sudo -u mwdeploy -n -- /usr/bin/rsync -l '
             '%(master_rsync)s::common/wikiversions*.{json,cdb} '
             '%(deploy_dir)s' % cfg)
         return rsync.progress('sync_wikiversions').run()
@@ -427,7 +428,7 @@ def update_localization_cache(version, wikidb, verbose, cfg):
 
     logger.info('Updating ExtensionMessages-%s.php', version)
     new_extension_messages = subprocess.check_output(
-        'sudo -u apache -- /bin/mktemp', shell=True).strip()
+        'sudo -u apache -n -- /bin/mktemp', shell=True).strip()
     utils.sudo_check_call('apache',
         '/usr/local/bin/mwscript mergeMessageFileList.php '
         '--wiki="%s" --list-file="%s/wmf-config/extension-list" '

@@ -293,7 +293,7 @@ def sudo_check_call(user, cmd, logger=None):
     if logger is None:
         logger = logging.getLogger('sudo_check_call')
 
-    proc = subprocess.Popen('sudo -u %s -- %s' % (user, cmd),
+    proc = subprocess.Popen('sudo -u %s -n -- %s' % (user, cmd),
         stdout=subprocess.PIPE, stderr=subprocess.STDOUT, shell=True)
 
     while proc.poll() is None:
