@@ -226,7 +226,7 @@ def purge_l10n_cache(version, cfg):
 
     # Purge from deploy directroy across cluster
     # --force option given to rm to ignore missing files as before
-    purge = ssh.Job().role('mediawiki-installation')
+    purge = ssh.Job(user=cfg['ssh_user']).role('mediawiki-installation')
     purge.command('sudo -u mwdeploy -n -- /bin/rm '
         '--recursive --force %s/*' % deployed_l10n)
     purge.progress('l10n purge').run()
@@ -301,7 +301,7 @@ def sync_wikiversions(hosts, cfg):
     with log.Timer('sync_wikiversions', stats):
         compile_wikiversions_cdb('stage', cfg)
 
-        rsync = ssh.Job(hosts).shuffle()
+        rsync = ssh.Job(hosts, user=cfg['ssh_user']).shuffle()
         rsync.command('sudo -u mwdeploy -n -- /usr/bin/rsync -l '
             '%(master_rsync)s::common/wikiversions*.{json,cdb} '
             '%(deploy_dir)s' % cfg)

@@ -24,10 +24,11 @@ class Job(object):
     """Execute a job on a group of remote hosts via ssh."""
     _logger = None
 
-    def __init__(self, hosts=None, command=None):
+    def __init__(self, hosts=None, command=None, user=None):
         self.hosts(hosts or [])
         self._command = command
         self._reporter = None
+        self._user = user
 
     def get_logger(self):
         """Lazy getter for a logger instance."""
@@ -88,7 +89,8 @@ class Job(object):
         if self._reporter:
             return self._run_with_reporter(batch_size)
         else:
-            return list(cluster_ssh(self._hosts, self._command, batch_size))
+            return list(cluster_ssh(self._hosts, self._command, self._user,
+                                    batch_size))
 
     def _run_with_reporter(self, batch_size):
         """Run job and feed results to a :class:`log.ProgressReporter` as they
@@ -97,7 +99,7 @@ class Job(object):
         self._reporter.start()
 
         for host, status, output in cluster_ssh(
-                self._hosts, self._command, batch_size):
+                self._hosts, self._command, self._user, batch_size):
             if status == 0:
                 self._reporter.add_success()
             else:
@@ -108,7 +110,7 @@ class Job(object):
         return self._reporter.ok, self._reporter.failed
 
 
-def cluster_ssh(hosts, command, limit=80):
+def cluster_ssh(hosts, command, user=None, limit=80):
     """Run a command via SSH on multiple hosts concurrently."""
     hosts = set(hosts)
 
@@ -124,7 +126,11 @@ def cluster_ssh(hosts, command, limit=80):
         while hosts or procs:
             if hosts and len(procs) < limit:
                 host = hosts.pop()
-                ssh_command = SSH + (host,) + tuple(command)
+                ssh_command = list(SSH)
+                if user:
+                    ssh_command.append('-l%s' % user)
+                ssh_command.append(host)
+                ssh_command.extend(command)
                 proc = subprocess.Popen(ssh_command, stdout=subprocess.PIPE,
                         stderr=subprocess.STDOUT, preexec_fn=os.setsid)
                 procs[proc.pid] = (proc, host)

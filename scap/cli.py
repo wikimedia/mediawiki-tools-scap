@@ -168,6 +168,12 @@ class Application(object):
         """Setup logging."""
         log.setup_loggers(self.config, self.arguments.loglevel)
 
+    def _setup_environ(self):
+        """Setup shell environment."""
+        auth_sock = self.config.get('ssh_auth_sock')
+        if auth_sock is not None:
+            os.environ['SSH_AUTH_SOCK'] = auth_sock
+
     def main(self, *extra_args):
         """Main business logic of the application.
 
@@ -263,6 +269,7 @@ class Application(object):
             app.arguments = args
             app._load_config()
             app._setup_loggers()
+            app._setup_environ()
             exit_status = app.main(extra_args)
 
         except SystemExit as ex:

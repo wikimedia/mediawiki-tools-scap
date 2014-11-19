@@ -40,7 +40,7 @@ class AbstractSync(cli.Application):
             # Update proxies
             proxies = self._get_proxy_list()
             with log.Timer('sync-proxies', self.get_stats()):
-                update_proxies = ssh.Job(proxies)
+                update_proxies = ssh.Job(proxies, user=self.config['ssh_user'])
                 update_proxies.command(self._proxy_sync_command())
                 update_proxies.progress('sync-proxies')
                 succeeded, failed = update_proxies.run()
@@ -51,7 +51,8 @@ class AbstractSync(cli.Application):
 
             # Update apaches
             with log.Timer('sync-apaches', self.get_stats()):
-                update_apaches = ssh.Job(self._get_apache_list())
+                update_apaches = ssh.Job(self._get_apache_list(),
+                                         user=self.config['ssh_user'])
                 update_apaches.exclude_hosts(proxies)
                 update_apaches.shuffle()
                 update_apaches.command(self._apache_sync_command(proxies))
@@ -223,7 +224,8 @@ class Scap(AbstractSync):
     def _after_cluster_sync(self):
         # Ask apaches to rebuild l10n CDB files
         with log.Timer('scap-rebuild-cdbs', self.get_stats()):
-            rebuild_cdbs = ssh.Job(self._get_apache_list())
+            rebuild_cdbs = ssh.Job(self._get_apache_list(),
+                                   user=self.config['ssh_user'])
             rebuild_cdbs.shuffle()
             rebuild_cdbs.command('sudo -u mwdeploy -n -- %s' %
                                  self.get_script_path('scap-rebuild-cdbs'))

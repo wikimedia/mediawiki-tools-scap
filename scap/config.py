@@ -6,6 +6,7 @@
 
 """
 import ConfigParser
+import getpass
 import os
 import socket
 
@@ -23,6 +24,7 @@ DEFAULT_CONFIG = {
     'udp2log_host': None,
     'udp2log_port': '8420',
     'wmf_realm': 'production',
+    'ssh_user': getpass.getuser(),
     'datacenter': 'pmtpa',
 }
 
