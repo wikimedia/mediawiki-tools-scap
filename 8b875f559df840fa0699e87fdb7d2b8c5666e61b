@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "6e936f18_fe9299a0",
+        "filename": "scap/tasks.py",
+        "patchSetId": 2
+      },
+      "lineNbr": 305,
+      "author": {
+        "id": 1001
+      },
+      "writtenOn": "2014-11-20T00:51:52Z",
+      "side": 1,
+      "message": "Why drop the `-n` flag?",
+      "revId": "8b875f559df840fa0699e87fdb7d2b8c5666e61b",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
+    }
+  ]
+}
