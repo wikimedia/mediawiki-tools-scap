@@ -17,7 +17,7 @@ from . import log
 from . import utils
 
 
-SSH = ('/usr/bin/ssh', '-oBatchMode=yes', '-oSetupTimeout=10')
+SSH = ('/usr/bin/ssh', '-oBatchMode=yes', '-oSetupTimeout=10', '-F/dev/null')
 
 
 class Job(object):
