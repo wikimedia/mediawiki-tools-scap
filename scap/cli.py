@@ -11,6 +11,7 @@ import distutils.version
 import json
 import logging
 import os
+import socket
 import sys
 import time
 
@@ -172,7 +173,17 @@ class Application(object):
         """Setup shell environment."""
         auth_sock = self.config.get('ssh_auth_sock')
         if auth_sock is not None:
-            os.environ['SSH_AUTH_SOCK'] = auth_sock
+            sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+            try:
+                sock.connect(auth_sock)
+            except OSError:
+                logger = self.get_logger()
+                logger.exception('Configured ssh_auth_sock is not usable:')
+            else:
+                os.environ['SSH_AUTH_SOCK'] = auth_sock
+            finally:
+                sock.shutdown(socket.SHUT_RDWR)
+                sock.close()
 
     def main(self, *extra_args):
         """Main business logic of the application.
