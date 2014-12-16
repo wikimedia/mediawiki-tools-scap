@@ -386,6 +386,10 @@ class SyncFile(AbstractSync):
             self.config['stage_dir'], self.arguments.file)
         if not os.path.isfile(abspath):
             raise IOError(errno.ENOENT, 'File not found', abspath)
+        # Warn when syncing a symlink.
+        if os.path.islink(abspath):
+            self.get_logger().warning(
+                '%s: did you mean to sync a symbolic link?', abspath)
 
         self.include = os.path.relpath(abspath, self.config['stage_dir'])
         subprocess.check_call('/usr/bin/php -l %s' % abspath, shell=True)
