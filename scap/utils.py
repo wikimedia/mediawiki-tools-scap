@@ -253,6 +253,7 @@ def lock(filename):
         if lock_fd:
             fcntl.lockf(lock_fd, fcntl.LOCK_UN)
             lock_fd.close()
+            os.unlink(filename)
 
 
 def md5_file(path):
