@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "6e7c4fa4_38821c98",
+        "filename": "tox.ini",
+        "patchSetId": 1
+      },
+      "lineNbr": 19,
+      "author": {
+        "id": 24
+      },
+      "writtenOn": "2015-02-05T12:57:14Z",
+      "side": 1,
+      "message": "That section pass parameters to tox. To tweak flake8 you want to add the parameter in setup.cfg [flake8] section instead.",
+      "revId": "144668356cc169042a78206c95cc3c62ab2b8e44",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
+    }
+  ]
+}
