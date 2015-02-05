@@ -428,21 +428,22 @@ def update_localization_cache(version, wikidb, verbose, cfg):
 
     logger.info('Updating ExtensionMessages-%s.php', version)
     new_extension_messages = subprocess.check_output(
-        'sudo -u apache -n -- /bin/mktemp', shell=True).strip()
-    utils.sudo_check_call('apache',
+        'sudo -u www-data -n -- /bin/mktemp', shell=True).strip()
+    utils.sudo_check_call('www-data',
         '/usr/local/bin/mwscript mergeMessageFileList.php '
         '--wiki="%s" --list-file="%s/wmf-config/extension-list" '
         '--output="%s" %s' % (
             wikidb, cfg['stage_dir'], new_extension_messages,
             verbose_messagelist),
         logger)
-    utils.sudo_check_call('apache',
+    utils.sudo_check_call('www-data',
         'chmod 0664 "%s"' % new_extension_messages,
         logger)
     logger.debug('Copying %s to %s' % (
         new_extension_messages, extension_messages))
     shutil.copyfile(new_extension_messages, extension_messages)
-    utils.sudo_check_call('apache', 'rm "%s"' % new_extension_messages, logger)
+    utils.sudo_check_call('www-data',
+        'rm "%s"' % new_extension_messages, logger)
 
     # Update ExtensionMessages-*.php in the local copy.
     deploy_dir = os.path.realpath(cfg['deploy_dir'])
