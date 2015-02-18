@@ -141,6 +141,9 @@ class Application(object):
         parser.add_argument('-v', '--verbose', action='store_const',
             const=logging.DEBUG, default=logging.INFO, dest='loglevel',
             help='Verbose output')
+        parser.add_argument('--no-shared-authsock', dest='shared_authsock',
+            action='store_false',
+            help='Ignore any shared ssh-auth configuration')
 
         return parser
 
@@ -171,7 +174,7 @@ class Application(object):
     def _setup_environ(self):
         """Setup shell environment."""
         auth_sock = self.config.get('ssh_auth_sock')
-        if auth_sock is not None:
+        if auth_sock is not None and self.arguments.shared_authsock:
             os.environ['SSH_AUTH_SOCK'] = auth_sock
 
     def main(self, *extra_args):
