@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "6e7c4fa4_bf0cc046",
+        "filename": "scap/tasks.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 93,
+      "author": {
+        "id": 34
+      },
+      "writtenOn": "2015-03-12T19:18:00Z",
+      "side": 1,
+      "message": "It\u0027s an edge case but in CI we tend to include php5 as well.\n\nhttps://github.com/wikimedia/integration-config/blob/38690000cc9205cb9c64edfc29e83afd22febed6/jjb/macro.yaml#L529\n\nhttps://github.com/wikimedia/integration-config/blob/76af60d66e61bf1f65a706c9d3796a0e272ee14b/zuul/layout.yaml#L525",
+      "revId": "6dd402160658e0db3b33ad8170c996fbbac18241",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
+    }
+  ]
+}
