@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "6e7c4fa4_5aed7ab3",
+        "filename": "scap/tasks.py",
+        "patchSetId": 2
+      },
+      "lineNbr": 95,
+      "author": {
+        "id": 1001
+      },
+      "writtenOn": "2015-03-12T20:04:48Z",
+      "side": 1,
+      "message": "I\u0027d move this part to a function in utils (check_php_leader?)",
+      "revId": "2b1ed48eff0c8601800e896c05251607e3fd971c",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
+    }
+  ]
+}
