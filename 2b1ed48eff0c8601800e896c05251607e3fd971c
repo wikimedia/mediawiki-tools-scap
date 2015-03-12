@@ -16,6 +16,24 @@
       "revId": "2b1ed48eff0c8601800e896c05251607e3fd971c",
       "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
       "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "6e7c4fa4_631c4e6b",
+        "filename": "scap/tasks.py",
+        "patchSetId": 2
+      },
+      "lineNbr": 95,
+      "author": {
+        "id": 458
+      },
+      "writtenOn": "2015-03-12T22:58:51Z",
+      "side": 1,
+      "message": "Done",
+      "parentUuid": "6e7c4fa4_5aed7ab3",
+      "revId": "2b1ed48eff0c8601800e896c05251607e3fd971c",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
     }
   ]
 }
