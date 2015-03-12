@@ -82,10 +82,16 @@ def check_php_syntax(*paths):
     quoted_paths = ["'%s'" % x for x in paths]
     cmd = (
         "find %s -name '*.php' -or -name '*.inc' -or -name '*.phtml' "
-        "| xargs -n1 -P%d -exec php -l >/dev/null"
+        " -or -name '*.php5' | xargs -n1 -P%d -exec php -l >/dev/null"
     ) % (' '.join(quoted_paths), multiprocessing.cpu_count())
     logger.debug('Running command: `%s`', cmd)
-    return subprocess.check_call(cmd, shell=True)
+    subprocess.check_call(cmd, shell=True)
+    # Check for anything that isn't a shebang before <?php (T92534)
+    for path in paths:
+        for root, dirs, files in os.walk(path):
+            for filename in files:
+                if filename.endswith(('.php', '.inc', '.phtml', '.php5')):
+                    utils.check_php_opening_tag(os.path.join(root, filename))
 
 
 def compile_wikiversions_cdb(source_tree, cfg):

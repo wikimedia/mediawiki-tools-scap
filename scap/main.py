@@ -393,6 +393,7 @@ class SyncFile(AbstractSync):
 
         self.include = os.path.relpath(abspath, self.config['stage_dir'])
         subprocess.check_call('/usr/bin/php -l %s' % abspath, shell=True)
+        utils.check_php_opening_tag(abspath)
 
     def _proxy_sync_command(self):
         cmd = [self.get_script_path('sync-common'), '--no-update-l10n']

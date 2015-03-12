@@ -304,3 +304,24 @@ def sudo_check_call(user, cmd, logger=None):
 
     if proc.returncode:
         raise subprocess.CalledProcessError(proc.returncode, cmd)
+
+
+def check_php_opening_tag(path):
+    """Checks a PHP file to make sure nothing is before the opening <?php
+    except for shebangs.
+
+    :param path: Location of file
+    :raises: ValueError on invalid file
+    """
+    with open(path) as f:
+        text = f.read()
+        if text.strip() and not text.startswith('<?php'):
+            # If the first line is a shebang and the
+            # second has <?php, that's ok
+            lines = text.splitlines()
+            if not (lines[0].startswith('#!')
+                    and lines[1].startswith('<?php')):
+                raise ValueError(
+                    '%s has content before opening <?php tag'
+                    % path
+                )
