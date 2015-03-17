@@ -12,6 +12,7 @@ import json
 import logging
 import multiprocessing
 import os
+import random
 import shutil
 import socket
 import subprocess
@@ -389,6 +390,50 @@ def update_l10n_cdb_wrapper(args):
         raise
 
 
+def _call_rebuildLocalisationCache(wikidb, out_dir, use_cores=1,
+        lang=None, force=False, quiet=False):
+    """Helper for update_localization_cache
+
+    :param wikidb: Wiki running given version
+    :param out_dir: The output directory
+    :param use_cores: The number of cores to run in
+    :param lang: The --lang option, or None to omit
+    :param force: Whether to pass --force
+    :param quiet: Whether to pass --quiet
+    """
+    logger = logging.getLogger('update_localization_cache')
+    temp_dir = '/tmp/scap_l10n_' + str(
+        random.SystemRandom().randint(0, 0xffffffff))
+
+    # Generate the files into a temporary directory as www-data
+    utils.sudo_check_call('www-data',
+        'mkdir "%(temp_dir)s" && '
+        '/usr/local/bin/mwscript rebuildLocalisationCache.php '
+        '--wiki="%(wikidb)s" --outdir="%(temp_dir)s" '
+        '--threads=%(use_cores)s %(lang)s %(force)s %(quiet)s' % {
+            'wikidb': wikidb,
+            'temp_dir': temp_dir,
+            'use_cores': use_cores,
+            'lang': '--lang ' + lang if lang else '',
+            'force': '--force' if force else '',
+            'quiet': '--quiet' if quiet else ''
+        },
+        logger)
+
+    # Copy the files into the real directory as l10nupdate
+    utils.sudo_check_call('l10nupdate',
+        'cp -r "%(temp_dir)s"/* "%(out_dir)s"' % {
+            'temp_dir': temp_dir,
+            'out_dir': out_dir
+        },
+        logger)
+
+    # Delete the temporary files
+    utils.sudo_check_call('www-data',
+        'find "%s" -maxdepth 1 -delete' % (temp_dir),
+        logger)
+
+
 def update_localization_cache(version, wikidb, verbose, cfg):
     """Update the localization cache for a given MW version.
 
@@ -404,11 +449,11 @@ def update_localization_cache(version, wikidb, verbose, cfg):
     use_cores = max(multiprocessing.cpu_count() - 2, 1)
 
     verbose_messagelist = ''
-    force_rebuild = ''
-    quiet_rebuild = '--quiet'
+    force_rebuild = False
+    quiet_rebuild = True
     if verbose:
         verbose_messagelist = '--verbose'
-        quiet_rebuild = ''
+        quiet_rebuild = False
 
     extension_messages = os.path.join(
         cfg['stage_dir'], 'wmf-config', 'ExtensionMessages-%s.php' % version)
@@ -424,13 +469,10 @@ def update_localization_cache(version, wikidb, verbose, cfg):
     if not os.path.exists(os.path.join(cache_dir, 'l10n_cache-en.cdb')):
         # mergeMessageFileList.php needs a l10n file
         logger.info('Bootstrapping l10n cache for %s', version)
-        utils.sudo_check_call('l10nupdate',
-            '/usr/local/bin/mwscript rebuildLocalisationCache.php '
-            '--wiki="%s" --lang=en --outdir="%s" --quiet' % (
-                wikidb, cache_dir),
-            logger)
+        _call_rebuildLocalisationCache(wikidb, cache_dir, use_cores,
+            lang='en', quiet=True)
         # Force subsequent cache rebuild to overwrite bootstrap version
-        force_rebuild = '--force'
+        force_rebuild = True
 
     logger.info('Updating ExtensionMessages-%s.php', version)
     new_extension_messages = subprocess.check_output(
@@ -464,11 +506,8 @@ def update_localization_cache(version, wikidb, verbose, cfg):
     # Rebuild all the CDB files for each language
     logger.info('Updating LocalisationCache for %s '
         'using %s thread(s)' % (version, use_cores))
-    utils.sudo_check_call('l10nupdate',
-        '/usr/local/bin/mwscript rebuildLocalisationCache.php '
-        '--wiki="%s" --outdir="%s" --threads=%s %s %s' % (
-            wikidb, cache_dir, use_cores, force_rebuild, quiet_rebuild),
-        logger)
+    _call_rebuildLocalisationCache(wikidb, cache_dir, use_cores,
+        force=force_rebuild, quiet=quiet_rebuild)
 
     # Include JSON versions of the CDB files and add MD5 files
     logger.info('Generating JSON versions and md5 files')
