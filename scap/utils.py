@@ -317,13 +317,27 @@ def check_php_opening_tag(path):
         return
     with open(path) as f:
         text = f.read()
-        if text.strip() and not text.startswith('<?php'):
-            # If the first line is a shebang and the
-            # second has <?php, that's ok
-            lines = text.splitlines()
-            if not (lines[0].startswith('#!')
-                    and lines[1].startswith('<?php')):
-                raise ValueError(
-                    '%s has content before opening <?php tag'
-                    % path
-                )
+
+        if text.strip() and text.startswith('<?php'):
+            return
+
+        if len(text) < 1:
+            return
+
+        # If the first line is a shebang and the
+        # second has <?php, that's ok
+        lines = text.splitlines()
+
+        if (
+            len(lines) > 1
+            and lines[0].startswith('#!')
+            and lines[1].startswith('<?php')
+        ):
+            return
+
+        # none of the return conditions matched, the file must contain <?php
+        # but with some content preceeding it.
+        raise ValueError(
+            '%s has content before opening <?php tag'
+            % path
+        )
