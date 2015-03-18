@@ -1,0 +1,38 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "6e7c4fa4_965186df",
+        "filename": "/COMMIT_MSG",
+        "patchSetId": 2
+      },
+      "lineNbr": 25,
+      "author": {
+        "id": 458
+      },
+      "writtenOn": "2015-03-18T01:23:58Z",
+      "side": 1,
+      "message": "Issue was fixed in Ie1d16423787a25e3c45e77d9447e8e2d51fd0299",
+      "revId": "3c9ff1f5345179abea0a5d07ebc99d6916c34ab9",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "6e7c4fa4_d66e1e93",
+        "filename": "scap/utils.py",
+        "patchSetId": 2
+      },
+      "lineNbr": 318,
+      "author": {
+        "id": 458
+      },
+      "writtenOn": "2015-03-18T01:23:58Z",
+      "side": 1,
+      "message": "If a file has a .php extension, why doesn\u0027t it have PHP code?\n\nI think the rest of the changes are fine though.",
+      "revId": "3c9ff1f5345179abea0a5d07ebc99d6916c34ab9",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
+    }
+  ]
+}
