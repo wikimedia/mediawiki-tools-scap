@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "6e7c4fa4_b6fa82b4",
+        "filename": "scap/utils.py",
+        "patchSetId": 3
+      },
+      "lineNbr": 320,
+      "author": {
+        "id": 1001
+      },
+      "writtenOn": "2015-03-18T01:30:08Z",
+      "side": 1,
+      "message": "I think this is taken care of by the new extension check that wasn\u0027t here when you started the patch.",
+      "revId": "508e86145b26e74c8cd2270a63c725bef8afedb2",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
+    }
+  ]
+}
