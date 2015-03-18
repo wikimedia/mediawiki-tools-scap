@@ -91,8 +91,7 @@ def check_php_syntax(*paths):
     for path in paths:
         for root, dirs, files in os.walk(path):
             for filename in files:
-                if filename.endswith(('.php', '.inc', '.phtml', '.php5')):
-                    utils.check_php_opening_tag(os.path.join(root, filename))
+                utils.check_php_opening_tag(os.path.join(root, filename))
 
 
 def compile_wikiversions_cdb(source_tree, cfg):
