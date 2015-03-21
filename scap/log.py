@@ -225,7 +225,11 @@ class ProgressReporter(object):
         self._progress()
 
     def _progress(self):
-        self._fd.write('%-80s\r' % self._output())
+        if sys.stdout.isatty():
+            fmt = '%-80s\r'
+        else:
+            fmt = '%-80s\n'
+        self._fd.write(fmt % self._output())
 
     def _output(self):
         return '%s: %3.0f%% (ok: %d; fail: %d; left: %d)' % (
