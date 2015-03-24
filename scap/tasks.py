@@ -404,9 +404,19 @@ def _call_rebuildLocalisationCache(wikidb, out_dir, use_cores=1,
     temp_dir = '/tmp/scap_l10n_' + str(
         random.SystemRandom().randint(0, 0xffffffff))
 
+    # Create a temporary directory for l10n CDB files
+    utils.sudo_check_call('www-data', 'mkdir "%s"' % (temp_dir), logger)
+
+    # Seed the temporary directory with the current CDB files
+    utils.sudo_check_call('www-data',
+        "cp '%(out_dir)s/'*.cdb '%(temp_dir)s'" % {
+            'temp_dir': temp_dir,
+            'out_dir': out_dir
+        },
+        logger)
+
     # Generate the files into a temporary directory as www-data
     utils.sudo_check_call('www-data',
-        'mkdir "%(temp_dir)s" && '
         '/usr/local/bin/mwscript rebuildLocalisationCache.php '
         '--wiki="%(wikidb)s" --outdir="%(temp_dir)s" '
         '--threads=%(use_cores)s %(lang)s %(force)s %(quiet)s' % {
