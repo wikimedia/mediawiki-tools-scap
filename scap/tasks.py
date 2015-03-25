@@ -408,12 +408,13 @@ def _call_rebuildLocalisationCache(wikidb, out_dir, use_cores=1,
     utils.sudo_check_call('www-data', 'mkdir "%s"' % (temp_dir), logger)
 
     # Seed the temporary directory with the current CDB files
-    utils.sudo_check_call('www-data',
-        "cp '%(out_dir)s/'*.cdb '%(temp_dir)s'" % {
-            'temp_dir': temp_dir,
-            'out_dir': out_dir
-        },
-        logger)
+    if glob.glob('%s/*.cdb' % out_dir):
+        utils.sudo_check_call('www-data',
+            "cp '%(out_dir)s/'*.cdb '%(temp_dir)s'" % {
+                'temp_dir': temp_dir,
+                'out_dir': out_dir
+            },
+            logger)
 
     # Generate the files into a temporary directory as www-data
     utils.sudo_check_call('www-data',
