@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "6e7c4fa4_ac872eb9",
+        "filename": "scap/utils.py",
+        "patchSetId": 2
+      },
+      "lineNbr": 49,
+      "author": {
+        "id": 15
+      },
+      "writtenOn": "2015-03-27T19:46:03Z",
+      "side": 1,
+      "message": "cfg should likely be \"conf\" instead, like in conf[\u0027filter_proxies\u0027] above.",
+      "revId": "0da1f7c1a023a40739dcc59dd087a95b12ce4707",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
+    }
+  ]
+}
