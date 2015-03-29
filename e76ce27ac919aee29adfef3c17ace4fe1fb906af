@@ -1,0 +1,55 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "6e7c4fa4_81deb46e",
+        "filename": "scap/utils.py",
+        "patchSetId": 5
+      },
+      "lineNbr": 50,
+      "author": {
+        "id": 24
+      },
+      "writtenOn": "2015-03-29T19:42:25Z",
+      "side": 1,
+      "message": "ConfigParser has a getboolean which seems to nicely match this need ( https://docs.python.org/2/library/configparser.html#ConfigParser.RawConfigParser.getboolean )\n\nAt least it recognize yes / no.",
+      "revId": "e76ce27ac919aee29adfef3c17ace4fe1fb906af",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "6e7c4fa4_41e41c36",
+        "filename": "scap/utils.py",
+        "patchSetId": 5
+      },
+      "lineNbr": 67,
+      "author": {
+        "id": 24
+      },
+      "writtenOn": "2015-03-29T19:42:25Z",
+      "side": 1,
+      "message": "Maybe you could add a few unit tests to verify the new functionality?",
+      "revId": "e76ce27ac919aee29adfef3c17ace4fe1fb906af",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "6e7c4fa4_21e9e00f",
+        "filename": "scap/utils.py",
+        "patchSetId": 5
+      },
+      "lineNbr": 77,
+      "author": {
+        "id": 24
+      },
+      "writtenOn": "2015-03-29T19:42:25Z",
+      "side": 1,
+      "message": "Since filter_proxies deserves a comment, maybe it should be renamed to make it more obvious. Specially when reading the conf file.  I would prefer the option to be named \u0027local_dc_only\u0027.",
+      "revId": "e76ce27ac919aee29adfef3c17ace4fe1fb906af",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
+    }
+  ]
+}
