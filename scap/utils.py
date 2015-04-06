@@ -348,14 +348,14 @@ def check_php_opening_tag(path):
 def logo(color=True, **colors):
     """Get the scap logo::
 
-                 ___ ____
-               ⎛   ⎛ ,----
-                \  //==--',
-           _//|,.·//==--'     ___________________________
-          _OO≣=-⎫ ︶ ᴹw ⎞_§  ______  ___⎞ ___⎞,/__ ⎞/ __ ⎞
-         (∞)_, ⎠ ⎛      ⎟  ______(__  ⎞/ /__ / /_/ / /_/ /
-           ¨--¨|| |-⎝   / ______⎝____/ \___/ \__^_/  .__/
-               ««_/  «_/ jgs/bd808                /_/'''
+               ___ ____
+             ⎛   ⎛ ,----
+              \  //==--'
+         _//| .·//==--'    ____________________________
+        _OO≣=-  ︶ ᴹw ⎞_§ ______  ___\ ___\ ,\__ \/ __ \
+       (∞)_, )  (     |  ______/__  \/ /__ / /_/ / /_/ /
+         ¨--¨|| |- (  / _______\____/\___/ \__^_/  .__/
+             ««_/  «_/ jgs/bd808               /_/
 
     Ascii art derived from original work by Joan Stark [#]_ and the `speed`
     figlet font [#]_.
@@ -390,19 +390,20 @@ def logo(color=True, **colors):
         '''           %(wing)s___%(reset)s %(wing)s____%(reset)s\n''',
         '''         %(wing)s⎛   ⎛ ,----%(reset)s\n''',
         '''          %(wing)s\  //==--'%(reset)s\n''',
-        '''     %(pig)s_//|,.·%(wing)s//==--'%(reset)s     ''',
+        '''     %(pig)s_//|,.·%(wing)s//==--'%(reset)s    ''',
         '''%(speed)s______%(text)s____''',
-        '''%(speed)s__%(text)s___''',
-        '''%(speed)s___%(text)s___''',
+        '''%(speed)s_%(text)s____''',
+        '''%(speed)s___%(text)s____''',
         '''%(speed)s__%(text)s____%(reset)s\n''',
-        '''    %(pig)s_%(goggles)sOO≣=-%(pig)s⎫''',
-        ''' %(wing)s︶%(pig)s %(brand)sᴹw%(pig)s ⎞_§%(reset)s  ''',
-        '''%(speed)s_____%(text)s_  ___⎞ ___⎞,/__ ⎞/ __ ⎞%(reset)s\n''',
+
+        '''    %(pig)s_%(goggles)sOO≣=-%(pig)s ''',
+        ''' %(wing)s︶%(pig)s %(brand)sᴹw%(pig)s ⎞_§%(reset)s ''',
+        '''%(speed)s______%(text)s  ___\ ___\ ,\__ \/ __ \%(reset)s\n''',
         '''   %(pig)s(%(nose)s∞%(pig)s)%(mouth)s_,''',
-        '''%(pig)s ⎠ ⎛      ⎟%(reset)s''',
-        '''  %(speed)s______%(text)s(__  ⎞/ /__ / /_/ / /_/ /%(reset)s\n''',
-        '''     %(pig)s¨--¨|| |-⎝   /%(reset)s''',
-        ''' %(speed)s______%(text)s⎝____/ \___/ \__^_/  .__/%(reset)s\n''',
+        '''%(pig)s )  (     |%(reset)s''',
+        '''  %(speed)s______%(text)s/__  \/ /__ / /_/ / /_/ /%(reset)s\n''',
+        '''     %(pig)s¨--¨|| |- (  /%(reset)s''',
+        ''' %(speed)s______%(text)s\____/ \___/ \__^_/  .__/%(reset)s\n''',
         '''         %(hoof)s««%(pig)s_/%(reset)s''',
         '''  %(hoof)s«%(pig)s_/%(reset)s''',
         ''' %(signature)sjgs/bd808%(reset)s''',
