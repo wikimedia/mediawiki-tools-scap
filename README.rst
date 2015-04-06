@@ -1,3 +1,5 @@
+::
+
            ___ ____
          ⎛   ⎛ ,----
           \  //==--'
@@ -10,14 +12,15 @@
 scap
 ====
 
-scap is the deployment script used by Wikimedia Foundation.
+**Scap** ("sync-common-all-php) is the deployment script used by Wikimedia
+Foundation to publish code and configuration on production web servers.
 
 
 credits
 ~~~~~~~
 
-Ascii art derived from original work by Joan Stark [#]_ and the `speed` figlet
-font [#]_.
+Ascii art derived from original work by Joan Stark [#pig]_ and the `speed`
+figlet font [#speedfont]_.
 
-... [#] http://www.geocities.com/spunk1111/farm.htm#pig
-... [#] http://www.jave.de/figlet/fonts/details/speed.html
+.. [#pig] http://www.geocities.com/spunk1111/farm.htm#pig
+.. [#speedfont] http://www.jave.de/figlet/fonts/details/speed.html

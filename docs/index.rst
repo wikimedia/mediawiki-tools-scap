@@ -2,8 +2,10 @@
 Scap documentation
 ##################
 
-**Scap** ("sync-common-all-php") is a collection of scripts used to publish code
-and configuration to the Wikimedia Foundation production web servers.
+.. include:: ../README.rst
+
+Content
+=======
 
 .. toctree::
    :maxdepth: 2
