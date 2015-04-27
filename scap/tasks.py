@@ -12,7 +12,6 @@ import json
 import logging
 import multiprocessing
 import os
-import random
 import shutil
 import socket
 import subprocess
@@ -401,47 +400,38 @@ def _call_rebuildLocalisationCache(wikidb, out_dir, use_cores=1,
     :param quiet: Whether to pass --quiet
     """
     logger = logging.getLogger('update_localization_cache')
-    temp_dir = '/tmp/scap_l10n_' + str(
-        random.SystemRandom().randint(0, 0xffffffff))
 
-    # Create a temporary directory for l10n CDB files
-    utils.sudo_check_call('www-data', 'mkdir "%s"' % (temp_dir), logger)
+    with utils.sudo_temp_dir('www-data', 'scap_l10n_') as temp_dir:
+        # Seed the temporary directory with the current CDB files
+        if glob.glob('%s/*.cdb' % out_dir):
+            utils.sudo_check_call('www-data',
+                "cp '%(out_dir)s/'*.cdb '%(temp_dir)s'" % {
+                    'temp_dir': temp_dir,
+                    'out_dir': out_dir
+                },
+                logger)
 
-    # Seed the temporary directory with the current CDB files
-    if glob.glob('%s/*.cdb' % out_dir):
+        # Generate the files into a temporary directory as www-data
         utils.sudo_check_call('www-data',
-            "cp '%(out_dir)s/'*.cdb '%(temp_dir)s'" % {
+            '/usr/local/bin/mwscript rebuildLocalisationCache.php '
+            '--wiki="%(wikidb)s" --outdir="%(temp_dir)s" '
+            '--threads=%(use_cores)s %(lang)s %(force)s %(quiet)s' % {
+                'wikidb': wikidb,
+                'temp_dir': temp_dir,
+                'use_cores': use_cores,
+                'lang': '--lang ' + lang if lang else '',
+                'force': '--force' if force else '',
+                'quiet': '--quiet' if quiet else ''
+            },
+            logger)
+
+        # Copy the files into the real directory as l10nupdate
+        utils.sudo_check_call('l10nupdate',
+            'cp -r "%(temp_dir)s"/* "%(out_dir)s"' % {
                 'temp_dir': temp_dir,
                 'out_dir': out_dir
             },
             logger)
-
-    # Generate the files into a temporary directory as www-data
-    utils.sudo_check_call('www-data',
-        '/usr/local/bin/mwscript rebuildLocalisationCache.php '
-        '--wiki="%(wikidb)s" --outdir="%(temp_dir)s" '
-        '--threads=%(use_cores)s %(lang)s %(force)s %(quiet)s' % {
-            'wikidb': wikidb,
-            'temp_dir': temp_dir,
-            'use_cores': use_cores,
-            'lang': '--lang ' + lang if lang else '',
-            'force': '--force' if force else '',
-            'quiet': '--quiet' if quiet else ''
-        },
-        logger)
-
-    # Copy the files into the real directory as l10nupdate
-    utils.sudo_check_call('l10nupdate',
-        'cp -r "%(temp_dir)s"/* "%(out_dir)s"' % {
-            'temp_dir': temp_dir,
-            'out_dir': out_dir
-        },
-        logger)
-
-    # Delete the temporary files
-    utils.sudo_check_call('www-data',
-        'find "%s" -maxdepth 1 -delete' % (temp_dir),
-        logger)
 
 
 def update_localization_cache(version, wikidb, verbose, cfg):

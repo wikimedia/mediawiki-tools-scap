@@ -17,6 +17,7 @@ import re
 import socket
 import struct
 import subprocess
+import tempfile
 
 from . import ansi
 
@@ -409,3 +410,29 @@ def logo(color=True, **colors):
         ''' %(signature)sjgs/bd808%(reset)s''',
         '''                %(text)s/_/%(reset)s\n''',
     ])
+
+
+@contextlib.contextmanager
+def sudo_temp_dir(owner, prefix):
+    """Create a temporary directory and delete it after the block.
+
+    :param owner: Directory owner
+    :param prefix: Temp directory prefix
+    :returns: Full path to temporary directory
+    """
+    logger = logging.getLogger('sudo_temp_dir')
+
+    while True:
+        dirname = os.path.join(tempfile.gettempdir(),
+            prefix + str(random.SystemRandom().randint(0, 0xffffffff)))
+        if not os.path.exists(dirname):
+            break
+    # Yes, there is a small race condition here in theory. In practice it
+    # should be pretty hard to hit due to scap's global concurrency lock.
+    sudo_check_call(owner, 'mkdir "%s"' % dirname, logger)
+
+    try:
+        yield dirname
+    finally:
+        sudo_check_call(owner,
+            'find "%s" -maxdepth 1 -delete' % dirname, logger)
