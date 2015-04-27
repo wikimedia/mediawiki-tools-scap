@@ -16,6 +16,24 @@
       "revId": "c8632584f92faec2036b6d15f30e623827ec9554",
       "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
       "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "0ed113e2_931d1e7b",
+        "filename": "scap/tasks.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 405,
+      "author": {
+        "id": 2321
+      },
+      "writtenOn": "2015-04-27T18:51:39Z",
+      "side": 1,
+      "message": "has to be owned by www-data for the following steps to succeed. tempfile.mkdtemp will be owned by whoever runs scap, AFAICT. A chown would probably be fine on beta, but I\u0027m not sure if it would work on tin(?).",
+      "parentUuid": "0ed113e2_d385e6a0",
+      "revId": "c8632584f92faec2036b6d15f30e623827ec9554",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
     }
   ]
 }
