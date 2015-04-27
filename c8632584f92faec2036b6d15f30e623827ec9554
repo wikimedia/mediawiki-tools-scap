@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "0ed113e2_d385e6a0",
+        "filename": "scap/tasks.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 405,
+      "author": {
+        "id": 1001
+      },
+      "writtenOn": "2015-04-27T18:44:00Z",
+      "side": 1,
+      "message": "Maybe this should just use tempfile.mkdtemp() ?",
+      "revId": "c8632584f92faec2036b6d15f30e623827ec9554",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
+    }
+  ]
+}
