@@ -248,6 +248,8 @@ class Scap(AbstractSync):
     def _after_lock_release(self):
         self.announce('Finished scap: %s (duration: %s)',
             self.arguments.message, utils.human_duration(self.get_duration()))
+        self.get_stats().increment('deploy.scap')
+        self.get_stats().increment('deploy.all')
 
     def _handle_keyboard_interrupt(self, ex):
         self.announce('scap aborted: %s (duration: %s)',
@@ -262,7 +264,6 @@ class Scap(AbstractSync):
 
     def _before_exit(self, exit_status):
         if self.config:
-            self.get_stats().increment('scap.scap')
             self.get_stats().timing('scap.scap', self.get_duration() * 1000)
         return exit_status
 

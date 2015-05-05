@@ -346,7 +346,6 @@ class Timer(object):
             label, utils.human_duration(elapsed))
         if self.stats:
             label = re.sub(r'\W', '_', label.lower())
-            self.stats.increment('scap.%s' % label)
             self.stats.timing('scap.%s' % label, elapsed * 1000)
 
 
