@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "0ed113e2_176c762c",
+        "filename": "scap/log.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 349,
+      "author": {
+        "id": 1001
+      },
+      "writtenOn": "2015-05-05T16:23:35Z",
+      "side": 0,
+      "message": "Caught by godog in his review on T64667. The existing scap.* stats on graphite may need to be dropped to get these metrics created as timers rather than counters.",
+      "revId": "ef15380f0ffc839e64956a4c974ca280f4b660db",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
+    }
+  ]
+}

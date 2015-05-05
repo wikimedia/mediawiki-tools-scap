@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "0ed113e2_775aa286",
+        "filename": "scap/main.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 252,
+      "author": {
+        "id": 1001
+      },
+      "writtenOn": "2015-05-05T16:23:35Z",
+      "side": 1,
+      "message": "Adding these makes scap act like the sync-* commands. This should make using the \"deploy.all\" counter as a marker in event graphs more indicative of all deploy related activities.",
+      "revId": "57036d2cd219cc94ba2da9b241a79f892367d464",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
+    }
+  ]
+}
