@@ -321,10 +321,16 @@ def check_php_opening_tag(path):
     with open(path) as f:
         text = f.read()
 
-        if text.strip() and text.startswith('<?php'):
+        # Empty files are ok
+        if len(text) < 1:
             return
 
-        if len(text) < 1:
+        # Best case scenario to begin with the php open tag
+        if text.startswith('<?php'):
+            return
+
+        # Also reasonable to start with a doctype declaration
+        if text.startswith('<!DOCTYPE'):
             return
 
         # If the first line is a shebang and the
@@ -338,7 +344,7 @@ def check_php_opening_tag(path):
         ):
             return
 
-        # none of the return conditions matched, the file must contain <?php
+        # None of the return conditions matched, the file must contain <?php
         # but with some content preceeding it.
         raise ValueError(
             '%s has content before opening <?php tag'
