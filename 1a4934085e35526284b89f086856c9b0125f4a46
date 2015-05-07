@@ -16,6 +16,24 @@
       "revId": "1a4934085e35526284b89f086856c9b0125f4a46",
       "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
       "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "0ed113e2_4a3b2598",
+        "filename": "scap/utils.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 333,
+      "author": {
+        "id": 1001
+      },
+      "writtenOn": "2015-05-07T04:15:42Z",
+      "side": 1,
+      "message": "Done",
+      "parentUuid": "0ed113e2_aacad1a0",
+      "revId": "1a4934085e35526284b89f086856c9b0125f4a46",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
     }
   ]
 }
