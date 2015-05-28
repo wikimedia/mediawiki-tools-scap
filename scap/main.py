@@ -199,7 +199,7 @@ class Scap(AbstractSync):
         self.announce('Started scap: %s', self.arguments.message)
 
         # Validate php syntax of wmf-config and multiversion
-        tasks.check_php_syntax(
+        tasks.check_valid_syntax(
             '%(stage_dir)s/wmf-config' % self.config,
             '%(stage_dir)s/multiversion' % self.config)
 
@@ -328,7 +328,7 @@ class SyncDir(AbstractSync):
 
         relpath = os.path.relpath(abspath, self.config['stage_dir'])
         self.include = '%s/***' % relpath
-        tasks.check_php_syntax(abspath)
+        tasks.check_valid_syntax(abspath)
 
     def _proxy_sync_command(self):
         cmd = [self.get_script_path('sync-common'), '--no-update-l10n']
@@ -397,6 +397,8 @@ class SyncFile(AbstractSync):
         if abspath.endswith(('.php', '.inc', '.phtml', '.php5')):
             subprocess.check_call('/usr/bin/php -l %s' % abspath, shell=True)
             utils.check_php_opening_tag(abspath)
+        elif abspath.endswith('.json'):
+            utils.check_valid_json_file(abspath)
 
     def _proxy_sync_command(self):
         cmd = [self.get_script_path('sync-common'), '--no-update-l10n']

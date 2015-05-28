@@ -9,6 +9,7 @@ import contextlib
 import errno
 import fcntl
 import hashlib
+import json
 import logging
 import os
 import pwd
@@ -307,6 +308,19 @@ def sudo_check_call(user, cmd, logger=None):
 
     if proc.returncode:
         raise subprocess.CalledProcessError(proc.returncode, cmd)
+
+
+def check_valid_json_file(path):
+    if not path.endswith('.json'):
+        return
+    with open(path) as f:
+        try:
+            json.load(f)
+        except ValueError:
+            raise ValueError(
+                '%s is an invalid JSON file'
+                % path
+            )
 
 
 def check_php_opening_tag(path):

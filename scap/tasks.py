@@ -75,7 +75,7 @@ def cache_git_info(version, cfg):
                     json.dump(info, f)
 
 
-def check_php_syntax(*paths):
+def check_valid_syntax(*paths):
     """Run php -l in parallel on `paths`; raise CalledProcessError if nonzero
     exit."""
     logger = logging.getLogger('check_php_syntax')
@@ -90,7 +90,9 @@ def check_php_syntax(*paths):
     for path in paths:
         for root, dirs, files in os.walk(path):
             for filename in files:
-                utils.check_php_opening_tag(os.path.join(root, filename))
+                abspath = os.path.join(root, filename)
+                utils.check_php_opening_tag(abspath)
+                utils.check_valid_json_file(abspath)
 
 
 def compile_wikiversions_cdb(source_tree, cfg):
