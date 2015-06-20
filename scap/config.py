@@ -29,6 +29,7 @@ DEFAULT_CONFIG = {
     'hhvm_pid_file': '/run/hhvm/hhvm.pid',
     'apache_pid_file': '/var/run/apache2/apache2.pid',
     'pybal_interface': 'lo:LVS',
+    'dsh_targets': 'mediawiki-installation',
 }
 
 

@@ -54,7 +54,7 @@ class AbstractSync(cli.Application):
 
             # Update apaches
             with log.Timer('sync-apaches', self.get_stats()):
-                update_apaches = ssh.Job(self._get_apache_list(),
+                update_apaches = ssh.Job(self._get_target_list(),
                                          user=self.config['ssh_user'])
                 update_apaches.exclude_hosts(proxies)
                 update_apaches.shuffle()
@@ -80,7 +80,7 @@ class AbstractSync(cli.Application):
     def _get_proxy_list(self):
         """Get list of sync proxy hostnames that should be updated before the
         rest of the cluster."""
-        return utils.read_dsh_hosts_file('scap-proxies')
+        return utils.read_dsh_hosts_file(self.config['dsh_proxies'])
 
     def _proxy_sync_command(self):
         """Synchronization command to run on the proxy hosts."""
@@ -89,9 +89,9 @@ class AbstractSync(cli.Application):
             cmd.append('--verbose')
         return cmd
 
-    def _get_apache_list(self):
+    def _get_target_list(self):
         """Get list of hostnames that should be updated from the proxies."""
-        return utils.read_dsh_hosts_file('mediawiki-installation')
+        return utils.read_dsh_hosts_file(self.config['dsh_targets'])
 
     def _apache_sync_command(self, proxies):
         """Synchronization command to run on the apache hosts.
@@ -234,7 +234,7 @@ class Scap(AbstractSync):
     def _after_cluster_sync(self):
         # Ask apaches to rebuild l10n CDB files
         with log.Timer('scap-rebuild-cdbs', self.get_stats()):
-            rebuild_cdbs = ssh.Job(self._get_apache_list(),
+            rebuild_cdbs = ssh.Job(self._get_target_list(),
                                    user=self.config['ssh_user'])
             rebuild_cdbs.shuffle()
             rebuild_cdbs.command('sudo -u mwdeploy -n -- %s' %
@@ -248,7 +248,7 @@ class Scap(AbstractSync):
 
         # Update and sync wikiversions.cdb
         succeeded, failed = tasks.sync_wikiversions(
-            self._get_apache_list(), self.config)
+            self._get_target_list(), self.config)
         if failed:
             self.get_logger().warning(
                 '%d hosts had sync_wikiversions errors', failed)
@@ -453,7 +453,8 @@ class SyncWikiversions(cli.Application):
     def main(self, *extra_args):
         self._assert_auth_sock()
 
-        mw_install_hosts = utils.read_dsh_hosts_file('mediawiki-installation')
+        mw_install_hosts = utils.read_dsh_hosts_file(
+            self.config['dsh_targets'])
         tasks.sync_wikiversions(mw_install_hosts, self.config)
 
         self.announce(
