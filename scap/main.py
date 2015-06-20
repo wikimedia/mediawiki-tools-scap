@@ -8,7 +8,9 @@
 import argparse
 import errno
 import multiprocessing
+import netifaces
 import os
+import psutil
 import subprocess
 
 from . import cli
@@ -193,7 +195,14 @@ class Scap(AbstractSync):
     #. Ask apaches to rebuild l10n CDB files
     #. Update wikiversions.cdb on localhost
     #. Ask apaches to sync wikiversions.cdb
+    #. Restart HHVM across the cluster
     """
+
+    @cli.argument('-r', '--restart', action='store_true', dest='restart',
+        help='Restart HHVM process on target hosts.')
+    @cli.argument('message', nargs='*', help='Log message for SAL')
+    def main(self, *extra_args):
+        super(Scap, self).main(*extra_args)
 
     def _before_cluster_sync(self):
         self.announce('Started scap: %s', self.arguments.message)
@@ -244,6 +253,15 @@ class Scap(AbstractSync):
             self.get_logger().warning(
                 '%d hosts had sync_wikiversions errors', failed)
             self.soft_errors = True
+
+        if self.arguments.restart:
+            # Restart HHVM across the cluster
+            succeeded, failed = tasks.restart_hhvm(
+                self._get_apache_list(), self.config)
+            if failed:
+                self.get_logger().warning(
+                    '%d hosts failed to restart HHVM', failed)
+                self.soft_errors = True
 
     def _after_lock_release(self):
         self.announce('Finished scap: %s (duration: %s)',
@@ -450,3 +468,56 @@ class UpdateL10n(cli.Application):
         for version, wikidb in self.active_wikiversions().items():
             tasks.update_localization_cache(
                 version, wikidb, self.verbose, self.config)
+
+
+class RestartHHVM(cli.Application):
+    """Restart the HHVM fcgi process
+
+    #. Depool the server if registered with pybal
+    #. Wait for pending requests to complete
+    #. Restart HHVM process
+    #. Re-pool the server if needed
+    """
+
+    def main(self, *extra_args):
+        self._run_as('mwdeploy')
+        self._assert_current_user('mwdeploy')
+
+        try:
+            hhvm_pid = utils.read_pid(self.config['hhvm_pid_file'])
+        except IOError:
+            self.get_logger().debug('HHVM pid not found', exc_info=True)
+            return 0
+        else:
+            if not psutil.pid_exists(hhvm_pid):
+                self.get_logger().debug('HHVM not running')
+                return 0
+
+        try:
+            # Check for pybal interface
+            have_pybal = netifaces.ifaddresses(self.config['pybal_interface'])
+        except ValueError:
+            self.get_logger().debug('Pybal interface not found', exc_info=True)
+            have_pybal = False
+
+        if have_pybal:
+            # Depool by gracefully shutting down apache (SIGWINCH)
+            try:
+                apache_pid = utils.read_pid(self.config['apache_pid_file'])
+            except IOError:
+                self.get_logger().debug('Apache pid not found', exc_info=True)
+                pass
+            else:
+                subprocess.check_call(
+                    'sudo -n -- /usr/sbin/apache2ctl graceful-stop')
+                # Wait for Apache to stop hard after GracefulShutdownTimeout
+                # seconds or when requests actually complete
+                psutil.Process(apache_pid).wait()
+
+        # Restart HHVM
+        subprocess.check_call('sudo -n -- /sbin/restart hhvm')
+
+        if have_pybal:
+            subprocess.check_call('sudo -n -- /sbin/start apache2')
+
+        return 0

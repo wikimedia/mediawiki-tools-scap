@@ -456,3 +456,11 @@ def sudo_temp_dir(owner, prefix):
     finally:
         sudo_check_call(owner,
             'find "%s" -maxdepth 1 -delete' % dirname, logger)
+
+
+def read_pid(path):
+    """Read a PID from a file"""
+    try:
+        return open(path).read().strip()
+    except IOError as e:
+        raise IOError(e.errno, e.strerror, path)

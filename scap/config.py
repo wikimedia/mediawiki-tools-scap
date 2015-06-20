@@ -26,6 +26,9 @@ DEFAULT_CONFIG = {
     'wmf_realm': 'production',
     'ssh_user': getpass.getuser(),
     'datacenter': 'pmtpa',
+    'hhvm_pid_file': '/run/hhvm/hhvm.pid',
+    'apache_pid_file': '/var/run/apache2/apache2.pid',
+    'pybal_interface': 'lo:LVS',
 }
 
 
