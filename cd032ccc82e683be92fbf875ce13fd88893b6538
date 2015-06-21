@@ -1,0 +1,72 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "8ec42329_8d3cddbc",
+        "filename": "scap/main.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 251,
+      "author": {
+        "id": 1001
+      },
+      "writtenOn": "2015-06-21T18:23:12Z",
+      "side": 1,
+      "message": "Should we have a cli argument to enable/disable this?",
+      "revId": "cd032ccc82e683be92fbf875ce13fd88893b6538",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "8ec42329_ad68b9b8",
+        "filename": "scap/main.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 504,
+      "author": {
+        "id": 1001
+      },
+      "writtenOn": "2015-06-21T18:23:12Z",
+      "side": 1,
+      "message": "This probably needs to be done with `sudo apache2ctl graceful-stop` instead. mwdeploy won\u0027t have rights to signal apache normally.",
+      "revId": "cd032ccc82e683be92fbf875ce13fd88893b6538",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "8ec42329_2d45a947",
+        "filename": "scap/main.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 509,
+      "author": {
+        "id": 1001
+      },
+      "writtenOn": "2015-06-21T18:23:12Z",
+      "side": 1,
+      "message": "This will need a sudoers rule",
+      "revId": "cd032ccc82e683be92fbf875ce13fd88893b6538",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "8ec42329_4d427540",
+        "filename": "scap/main.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 512,
+      "author": {
+        "id": 1001
+      },
+      "writtenOn": "2015-06-21T18:23:12Z",
+      "side": 1,
+      "message": "This will need a sudoers rule",
+      "revId": "cd032ccc82e683be92fbf875ce13fd88893b6538",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
+    }
+  ]
+}
