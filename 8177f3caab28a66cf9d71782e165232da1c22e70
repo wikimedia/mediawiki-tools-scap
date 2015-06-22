@@ -1,0 +1,89 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "8ec42329_19802cc4",
+        "filename": "scap/psposix.py",
+        "patchSetId": 3
+      },
+      "lineNbr": 1,
+      "author": {
+        "id": 255
+      },
+      "writtenOn": "2015-06-22T19:02:32Z",
+      "side": 1,
+      "message": "psutil is packaged for debian; let\u0027s just install it via puppet and use it.",
+      "revId": "8177f3caab28a66cf9d71782e165232da1c22e70",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "8ec42329_19b58ccb",
+        "filename": "scap/utils.py",
+        "patchSetId": 3
+      },
+      "lineNbr": 465,
+      "author": {
+        "id": 255
+      },
+      "writtenOn": "2015-06-22T19:02:32Z",
+      "side": 1,
+      "message": "what is the purpose of this try / except? It seems to reraise the same exception it is catching.",
+      "revId": "8177f3caab28a66cf9d71782e165232da1c22e70",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "8ec42329_f9fd206a",
+        "filename": "scap/utils.py",
+        "patchSetId": 3
+      },
+      "lineNbr": 469,
+      "author": {
+        "id": 255
+      },
+      "writtenOn": "2015-06-22T19:02:32Z",
+      "side": 1,
+      "message": "get_interface_ip please",
+      "revId": "8177f3caab28a66cf9d71782e165232da1c22e70",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "8ec42329_391e48c5",
+        "filename": "scap/utils.py",
+        "patchSetId": 3
+      },
+      "lineNbr": 482,
+      "author": {
+        "id": 255
+      },
+      "writtenOn": "2015-06-22T19:02:32Z",
+      "side": 1,
+      "message": "looks good, but it\u0027s a lot of action for one line -- could you split it up?",
+      "revId": "8177f3caab28a66cf9d71782e165232da1c22e70",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "8ec42329_9945fcbb",
+        "filename": "scap/utils.py",
+        "patchSetId": 3
+      },
+      "lineNbr": 484,
+      "author": {
+        "id": 255
+      },
+      "writtenOn": "2015-06-22T19:02:32Z",
+      "side": 1,
+      "message": "same as line 465 -- what is the purpose of this?",
+      "revId": "8177f3caab28a66cf9d71782e165232da1c22e70",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
+    }
+  ]
+}
