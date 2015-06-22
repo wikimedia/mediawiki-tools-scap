@@ -19,6 +19,24 @@
     },
     {
       "key": {
+        "uuid": "8ec42329_74fa95b7",
+        "filename": "scap/psposix.py",
+        "patchSetId": 3
+      },
+      "lineNbr": 1,
+      "author": {
+        "id": 1001
+      },
+      "writtenOn": "2015-06-22T19:55:08Z",
+      "side": 1,
+      "message": "Done",
+      "parentUuid": "8ec42329_19802cc4",
+      "revId": "8177f3caab28a66cf9d71782e165232da1c22e70",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "8ec42329_19b58ccb",
         "filename": "scap/utils.py",
         "patchSetId": 3
@@ -36,6 +54,24 @@
     },
     {
       "key": {
+        "uuid": "8ec42329_19bb4c72",
+        "filename": "scap/utils.py",
+        "patchSetId": 3
+      },
+      "lineNbr": 465,
+      "author": {
+        "id": 1001
+      },
+      "writtenOn": "2015-06-22T19:55:08Z",
+      "side": 1,
+      "message": "It decorates the exception with the path that was being read which makes for nicer debugging. Instead of \"IOError: [Errno 2] No such file or directory\" you get \"IOError: [Errno 2] No such file or directory: \u0027/run/hhvm/hhvm.pid\u0027\".",
+      "parentUuid": "8ec42329_19b58ccb",
+      "revId": "8177f3caab28a66cf9d71782e165232da1c22e70",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "8ec42329_f9fd206a",
         "filename": "scap/utils.py",
         "patchSetId": 3
@@ -47,6 +83,24 @@
       "writtenOn": "2015-06-22T19:02:32Z",
       "side": 1,
       "message": "get_interface_ip please",
+      "revId": "8177f3caab28a66cf9d71782e165232da1c22e70",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "8ec42329_b41b1d1f",
+        "filename": "scap/utils.py",
+        "patchSetId": 3
+      },
+      "lineNbr": 469,
+      "author": {
+        "id": 1001
+      },
+      "writtenOn": "2015-06-22T19:55:08Z",
+      "side": 1,
+      "message": "Replaced by netifaces.ifaddresses()",
+      "parentUuid": "8ec42329_f9fd206a",
       "revId": "8177f3caab28a66cf9d71782e165232da1c22e70",
       "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
       "unresolved": false
