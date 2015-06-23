@@ -521,6 +521,6 @@ class RestartHHVM(cli.Application):
 
         if have_pybal:
             subprocess.check_call(
-                'sudo -n -- /sbin/start apache2', shell=True)
+                'sudo -n -- /usr/sbin/service apache2 start', shell=True)
 
         return 0
