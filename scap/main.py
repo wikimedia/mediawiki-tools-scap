@@ -232,10 +232,10 @@ class Scap(AbstractSync):
                 tasks.cache_git_info(version, self.config)
 
     def _after_cluster_sync(self):
+        target_hosts = self._get_target_list()
         # Ask apaches to rebuild l10n CDB files
         with log.Timer('scap-rebuild-cdbs', self.get_stats()):
-            rebuild_cdbs = ssh.Job(self._get_target_list(),
-                                   user=self.config['ssh_user'])
+            rebuild_cdbs = ssh.Job(target_hosts, user=self.config['ssh_user'])
             rebuild_cdbs.shuffle()
             rebuild_cdbs.command('sudo -u mwdeploy -n -- %s' %
                                  self.get_script_path('scap-rebuild-cdbs'))
@@ -247,8 +247,7 @@ class Scap(AbstractSync):
                 self.soft_errors = True
 
         # Update and sync wikiversions.cdb
-        succeeded, failed = tasks.sync_wikiversions(
-            self._get_target_list(), self.config)
+        succeeded, failed = tasks.sync_wikiversions(target_hosts, self.config)
         if failed:
             self.get_logger().warning(
                 '%d hosts had sync_wikiversions errors', failed)
@@ -257,7 +256,9 @@ class Scap(AbstractSync):
         if self.arguments.restart:
             # Restart HHVM across the cluster
             succeeded, failed = tasks.restart_hhvm(
-                self._get_target_list(), self.config)
+                target_hosts, self.config,
+                # Use a batch size of 5% of the total target list
+                len(target_hosts) // 20)
             if failed:
                 self.get_logger().warning(
                     '%d hosts failed to restart HHVM', failed)
