@@ -216,8 +216,8 @@ class Scap(AbstractSync):
         tasks.sync_common(self.config)
 
         # Bug 63659: Compile deploy_dir/wikiversions.json to cdb
-        subprocess.check_call('sudo -u mwdeploy -n -- %s' %
-            self.get_script_path('compile-wikiversions'), shell=True)
+        utils.sudo_check_call('mwdeploy',
+            self.get_script_path('compile-wikiversions'), self.get_logger())
 
         # Update list of extension message files and regenerate the
         # localisation cache.
@@ -509,18 +509,17 @@ class RestartHHVM(cli.Application):
                 self.get_logger().debug('Apache pid not found', exc_info=True)
                 pass
             else:
-                subprocess.check_call(
-                    'sudo -n -- /usr/sbin/apache2ctl graceful-stop',
-                    shell=True)
+                utils.sudo_check_call('root',
+                    '/usr/sbin/apache2ctl graceful-stop', self.get_logger())
                 # Wait for Apache to stop hard after GracefulShutdownTimeout
                 # seconds or when requests actually complete
                 psutil.Process(apache_pid).wait()
 
         # Restart HHVM
-        subprocess.check_call('sudo -n -- /sbin/restart hhvm', shell=True)
+        utils.sudo_check_call('root', '/sbin/restart hhvm', self.get_logger())
 
         if have_pybal:
-            subprocess.check_call(
-                'sudo -n -- /usr/sbin/service apache2 start', shell=True)
+            utils.sudo_check_call('root',
+                '/usr/sbin/service apache2 start', self.get_logger())
 
         return 0
