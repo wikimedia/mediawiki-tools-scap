@@ -510,15 +510,17 @@ class RestartHHVM(cli.Application):
                 pass
             else:
                 subprocess.check_call(
-                    'sudo -n -- /usr/sbin/apache2ctl graceful-stop')
+                    'sudo -n -- /usr/sbin/apache2ctl graceful-stop',
+                    shell=True)
                 # Wait for Apache to stop hard after GracefulShutdownTimeout
                 # seconds or when requests actually complete
                 psutil.Process(apache_pid).wait()
 
         # Restart HHVM
-        subprocess.check_call('sudo -n -- /sbin/restart hhvm')
+        subprocess.check_call('sudo -n -- /sbin/restart hhvm', shell=True)
 
         if have_pybal:
-            subprocess.check_call('sudo -n -- /sbin/start apache2')
+            subprocess.check_call(
+                'sudo -n -- /sbin/start apache2', shell=True)
 
         return 0
