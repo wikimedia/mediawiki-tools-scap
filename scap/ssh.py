@@ -6,6 +6,7 @@
     via SSH.
 
 """
+import errno
 import logging
 import os
 import random
@@ -135,10 +136,24 @@ def cluster_ssh(hosts, command, user=None, limit=80):
                         stderr=subprocess.STDOUT, preexec_fn=os.setsid)
                 procs[proc.pid] = (proc, host)
                 poll.register(proc.stdout, select.EPOLLIN)
-            else:
-                pid, status = os.waitpid(-1, os.WNOHANG)
+
+            elif procs:
+                try:
+                    pid, status = os.waitpid(-1, os.WNOHANG)
+                except OSError as e:
+                    # We lost track of our children somehow. So grab any child
+                    # process from procs (they're all dead anyway) and pretend
+                    # it exited normally.
+                    # See https://bugs.python.org/issue1731717
+                    if e.errno == errno.ECHILD:
+                        pid = next(iter(procs))
+                        status = 0
+                    else:
+                        raise
+
                 for fd, event in poll.poll(0.01):
                     fds[fd] = fds.get(fd, '') + os.read(fd, 1048576)
+
                 if pid:
                     status = -(status & 255) or (status >> 8)
                     proc, host = procs.pop(pid)
