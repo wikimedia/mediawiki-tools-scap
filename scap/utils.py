@@ -461,6 +461,6 @@ def sudo_temp_dir(owner, prefix):
 def read_pid(path):
     """Read a PID from a file"""
     try:
-        return open(path).read().strip()
+        return int(open(path).read().strip())
     except IOError as e:
         raise IOError(e.errno, e.strerror, path)
