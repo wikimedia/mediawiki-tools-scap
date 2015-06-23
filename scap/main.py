@@ -257,7 +257,7 @@ class Scap(AbstractSync):
         if self.arguments.restart:
             # Restart HHVM across the cluster
             succeeded, failed = tasks.restart_hhvm(
-                self._get_apache_list(), self.config)
+                self._get_target_list(), self.config)
             if failed:
                 self.get_logger().warning(
                     '%d hosts failed to restart HHVM', failed)
