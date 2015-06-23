@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "8ec42329_29990871",
+        "filename": "scap/main.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 262,
+      "author": {
+        "id": 255
+      },
+      "writtenOn": "2015-06-23T19:46:09Z",
+      "side": 1,
+      "message": "len(target_hosts) // 20 # (// \u003d integer floor division)",
+      "revId": "5d3d999591ee72e2a2f1a2e57774c13c37a556cd",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
+    }
+  ]
+}
