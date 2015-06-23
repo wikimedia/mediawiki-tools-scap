@@ -114,6 +114,8 @@ class Job(object):
 def cluster_ssh(hosts, command, user=None, limit=80):
     """Run a command via SSH on multiple hosts concurrently."""
     hosts = set(hosts)
+    # Ensure a minimum batch size of 1
+    limit = max(limit, 1)
 
     try:
         command = shlex.split(command)
