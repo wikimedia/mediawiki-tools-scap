@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "8ec42329_e15c7a84",
+        "filename": "scap/main.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 260,
+      "author": {
+        "id": 1001
+      },
+      "writtenOn": "2015-06-23T16:16:08Z",
+      "side": 1,
+      "message": "I missed this when manually rebasing the parent patch.",
+      "revId": "947b93f6eae5d6e55792bdffd0e57ded0f047773",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
+    }
+  ]
+}
