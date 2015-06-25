@@ -263,6 +263,7 @@ class Scap(AbstractSync):
                 self.get_logger().warning(
                     '%d hosts failed to restart HHVM', failed)
                 self.soft_errors = True
+            self.get_stats().increment('deploy.restart')
 
     def _after_lock_release(self):
         self.announce('Finished scap: %s (duration: %s)',
@@ -473,7 +474,7 @@ class UpdateL10n(cli.Application):
 
 
 class RestartHHVM(cli.Application):
-    """Restart the HHVM fcgi process
+    """Restart the HHVM fcgi process on the local server
 
     #. Depool the server if registered with pybal
     #. Wait for pending requests to complete
@@ -524,3 +525,33 @@ class RestartHHVM(cli.Application):
                 '/usr/sbin/service apache2 start', self.get_logger())
 
         return 0
+
+
+class HHVMGracefulAll(cli.Application):
+    """Perform a rolling restart of HHVM across the cluster."""
+
+    def _process_arguments(self, args, extra_args):
+        if hasattr(args, 'message'):
+            args.message = ' '.join(args.message) or '(no message)'
+        return args, extra_args
+
+    @cli.argument('message', nargs='*', help='Log message for SAL')
+    def main(self, *extra_args):
+        exit_code = 0
+        self.announce('Restarting HHVM: %s', self.arguments.message)
+
+        target_hosts = utils.read_dsh_hosts_file(self.config['dsh_targets'])
+        succeeded, failed = tasks.restart_hhvm(
+            target_hosts, self.config,
+            # Use a batch size of 5% of the total target list
+            len(target_hosts) // 20)
+        if failed:
+            self.get_logger().warning(
+                '%d hosts failed to restart HHVM', failed)
+            exit_code = 1
+
+        self.announce('Finished HHVM restart: %s (duration: %s)',
+            self.arguments.message, utils.human_duration(self.get_duration()))
+        self.get_stats().increment('deploy.restart')
+
+        return exit_code

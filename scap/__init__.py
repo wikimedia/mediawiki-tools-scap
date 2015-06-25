@@ -8,6 +8,7 @@
 """
 from .main import (
     CompileWikiversions,
+    HHVMGracefulAll,
     MWVersionsInUse,
     PurgeL10nCache,
     RebuildCdbs,
@@ -24,6 +25,7 @@ from .main import (
 
 __all__ = (
     'CompileWikiversions',
+    'HHVMGracefulAll',
     'MWVersionsInUse',
     'PurgeL10nCache',
     'RebuildCdbs',
@@ -40,6 +42,7 @@ __all__ = (
 
 any((
     CompileWikiversions,
+    HHVMGracefulAll,
     MWVersionsInUse,
     PurgeL10nCache,
     RebuildCdbs,
