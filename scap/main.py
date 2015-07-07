@@ -463,6 +463,9 @@ class SyncWikiversions(cli.Application):
             'rebuilt wikiversions.cdb and synchronized wikiversions files: %s',
             self.arguments.message)
 
+        self.get_stats().increment('deploy.sync-wikiversions')
+        self.get_stats().increment('deploy.all')
+
 
 class UpdateL10n(cli.Application):
     """Update localization files"""
@@ -548,6 +551,7 @@ class HHVMGracefulAll(cli.Application):
         if failed:
             self.get_logger().warning(
                 '%d hosts failed to restart HHVM', failed)
+            self.get_stats().increment('deploy.fail')
             exit_code = 1
 
         self.announce('Finished HHVM restart: %s (duration: %s)',
