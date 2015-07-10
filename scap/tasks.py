@@ -15,6 +15,7 @@ import os
 import shutil
 import socket
 import subprocess
+import time
 
 from . import cdblib
 from . import log
@@ -571,3 +572,133 @@ def restart_hhvm(hosts, cfg, batch_size=1):
         restart.command('sudo -u mwdeploy -n -- %s' %
             os.path.join(cfg['bin_dir'], 'scap-hhvm-restart'))
         return restart.progress('restart_hhvm').run(batch_size=batch_size)
+
+
+@utils.inside_git_dir
+def git_remote_exists(location, remote):
+    """Check if remote exists in location"""
+    with utils.cd(location):
+        cmd = '/usr/bin/git config --local --get remote.{}.url'.format(remote)
+        return subprocess.call(cmd, shell=True) == 0
+
+
+@utils.inside_git_dir
+def git_remote_set(location, repo, remote='origin', user='mwdeploy'):
+    """set the remote at location to repo"""
+    with utils.cd(location):
+        if git_remote_exists(location, remote):
+            cmd = '/usr/bin/git remote rm {}'.format(remote)
+            utils.sudo_check_call(user, cmd)
+
+        cmd = '/usr/bin/git remote add {} {}'.format(remote, repo)
+        utils.sudo_check_call(user, cmd)
+
+
+def git_fetch(location, repo, user="mwdeploy"):
+    """Fetch a git repo to a location as a user
+    """
+    if utils.is_git_dir(location):
+        git_remote_set(location, repo, user=user)
+        with utils.cd(location):
+            cmd = '/usr/bin/git fetch'
+            utils.sudo_check_call(user, cmd)
+    else:
+        cmd = '/usr/bin/git clone {0} {1}'.format(repo, location)
+        utils.sudo_check_call(user, cmd)
+
+
+@utils.inside_git_dir
+def git_checkout(location, rev, submodules=False, user="mwdeploy"):
+    """Checkout a git repo sha at a location as a user
+    """
+    logger = logging.getLogger('git_checkout')
+    with utils.cd(location):
+        logger.debug(
+            'Checking out rev: {} at location: {}'.format(rev, location))
+        cmd = '/usr/bin/git checkout --force --quiet {}'.format(rev)
+        utils.sudo_check_call(user, cmd)
+
+        if submodules:
+            logger.debug('Checking out submodules')
+            cmd = '/usr/bin/git submodule update --init --recursive'
+            utils.sudo_check_call(user, cmd)
+
+
+def git_update_server_info(has_submodules=False, location=os.getcwd()):
+    """runs git update-server-info and tags submodules"""
+    logger = logging.getLogger('git_update_server_info')
+
+    with utils.cd(location):
+        cmd = '/usr/bin/git update-server-info'
+        subprocess.check_call(cmd, shell=True)
+        logger.debug('Update server info')
+
+        if has_submodules:
+            cmd = "/usr/bin/git submodule foreach --recursive '{}'".format(cmd)
+            subprocess.check_call(cmd, shell=True)
+
+
+@utils.inside_git_dir
+def git_deploy_file(tag_info, location=os.getcwd()):
+    """creates new .git/deploy file and generates tag
+
+    :param tag_info: Json tag info to write to file
+    :param (optional) location: git directory location (default cwd)
+    """
+    logger = logging.getLogger('git_deploy_file')
+
+    with utils.cd(location):
+        deploy_file = os.path.join(location, '.git', 'DEPLOY_HEAD')
+        logger.debug('Creating {}'.format(deploy_file))
+        with open(deploy_file, 'w+') as f:
+            f.write(json.dumps(tag_info))
+            f.close()
+
+
+@utils.inside_git_dir
+def git_tag_repo(tag, tag_info, rev='HEAD', location=os.getcwd()):
+    """creates new tag in deploy repo"""
+
+    rev = utils.git_sha(location, rev)
+
+    with utils.cd(location):
+        cmd = """
+        /usr/bin/git tag -fa \\
+                -m 'user {0}' \\
+                -m 'timestamp {1}' -- \\
+                {2} {3}
+        """.format(
+            tag_info['user'],
+            tag_info['timestamp'],
+            tag,
+            rev
+        )
+        subprocess.check_call(cmd, shell=True)
+
+
+def restart_service(service, user='mwdeploy'):
+    logger = logging.getLogger('service_restart')
+
+    logger.debug('Restarting service {}'.format(service))
+    cmd_format = 'sudo /usr/sbin/service {} {}'
+    utils.sudo_check_call(user, cmd_format.format(service, 'restart'))
+
+
+def check_port(port_number):
+    logger = logging.getLogger('port_check')
+    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+
+    # Try this a few times while we wait for the service to come up
+    i = 0
+    while(i < 10):
+        if sock.connect_ex(('127.0.0.1', port_number)) == 0:
+            logger.debug('Port: {} up in {} tries'.format(port_number, i))
+            return True
+        i += 1
+        logger.debug('Port {} not accepting connections'.format(port_number))
+        time.sleep(5)
+
+    raise OSError(
+        errno.ENOTCONN,
+        "Specified port {} is not accepting connections".format(port_number)
+    )

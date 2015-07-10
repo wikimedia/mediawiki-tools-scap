@@ -573,3 +573,113 @@ class HHVMGracefulAll(cli.Application):
         self.get_stats().increment('deploy.restart')
 
         return exit_code
+
+
+class DeployLocal(cli.Application):
+    """Deploy service code via git"""
+
+    def main(self, *extra_args):
+        repo = self.config['git_repo']
+        repo_user = self.config['git_repo_user']
+        server = self.config['git_server']
+        rev = self.config['git_rev']
+        has_submodules = self.config['git_submodules']
+
+        # service_name/service_port only set for deploys requiring restart
+        service_name = self.config.get('service_name', None)
+        service_port = self.config.get('service_port', None)
+
+        location = os.path.normpath("{0}/{1}".format(
+            self.config['git_deploy_dir'], repo))
+
+        # only supports http from tin for the moment
+        scheme = 'http'
+
+        url = os.path.normpath('{0}/{1}'.format(server, repo))
+        url = "{0}://{1}/.git".format(scheme, url)
+        self.get_logger().debug('Fetching from: {}'.format(url))
+
+        tasks.git_fetch(location, url, repo_user)
+        tasks.git_checkout(location, rev, has_submodules, repo_user)
+
+        if service_name is not None:
+            tasks.restart_service(service_name, user=repo_user)
+
+        if service_port is not None:
+            tasks.check_port(int(service_port))
+
+
+class Deploy(cli.Application):
+    """Sync new service code across cluster
+
+    Uses local .scaprc as config for each host in cluster
+    """
+
+    @cli.argument('-r', '--rev', default='HEAD', help='Revision to deploy')
+    def main(self, *extra_args):
+        logger = self.get_logger()
+        repo = self.config['git_repo']
+        deploy_dir = self.config['git_deploy_dir']
+
+        in_deploy_dir = os.path.commonprefix(
+            [os.getcwd(), deploy_dir]) == deploy_dir
+
+        if not in_deploy_dir:
+            raise RuntimeError(errno.EPERM,
+                'Your path is not a part of the git deploy path', deploy_dir)
+
+        if not utils.is_git_dir(os.getcwd()):
+            raise RuntimeError(errno.EPERM,
+                'Script must be run from deployment repository under {}'
+                    .format(deploy_dir))
+
+        targets = utils.read_dsh_hosts_file(self.config['dsh_targets'])
+
+        # batch_size not required, don't allow a batch_size > 80 if set
+        batch_size = self.config.get('batch_size', 80)
+        batch_size = 80 if batch_size >= 80 else batch_size
+
+        with utils.lock(self.config['lock_file']):
+            with log.Timer('deploy_' + repo):
+                (tag, tag_json) = utils.generate_json_tag(location=os.getcwd())
+
+                tasks.git_deploy_file(tag_json)
+                tasks.git_tag_repo(tag, tag_json, self.arguments.rev)
+
+                self.config['git_rev'] = tag
+
+                # Run git update-server-info because git repo is a dumb
+                # apache server
+                tasks.git_update_server_info(self.config['git_submodules'])
+
+                deploy_conf = [
+                    'git_deploy_dir',
+                    'git_repo_user',
+                    'git_server',
+                    'git_scheme',
+                    'git_repo',
+                    'git_rev',
+                    'git_submodules',
+                    'service_name',
+                    'service_port',
+                ]
+
+                deploy_local_cmd = [self.get_script_path('deploy-local')]
+
+                deploy_local_cmd.extend([
+                    "-D '{}:{}'".format(x, self.config.get(x))
+                    for x in deploy_conf
+                    if self.config.get(x) is not None
+                ])
+
+                logger.debug('Running cmd {}'.format(deploy_local_cmd))
+                deploy_rev = ssh.Job(
+                    hosts=targets, user=self.config['ssh_user'])
+                deploy_rev.command(deploy_local_cmd).progress('deploy_' + repo)
+                succeeded, failed = deploy_rev.run(batch_size=batch_size)
+
+                if failed:
+                    logger.warning('%d targets had deploy errors', failed)
+                    return 1
+
+        return 0

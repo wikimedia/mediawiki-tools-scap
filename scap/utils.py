@@ -19,8 +19,10 @@ import socket
 import struct
 import subprocess
 import tempfile
+import inspect
 
 from . import ansi
+from datetime import datetime
 
 
 class LockFailedError(Exception):
@@ -260,6 +262,20 @@ def lock(filename):
             os.unlink(filename)
 
 
+@contextlib.contextmanager
+def cd(dirname):
+    """Context manager. Cds to dirname, moves back to previous dir on context exit
+
+    :param dirname: directory into which it should change
+    """
+    old_path = os.getcwd()
+    try:
+        os.chdir(dirname)
+        yield
+    finally:
+        os.chdir(old_path)
+
+
 def md5_file(path):
     """Compute the md5 checksum of a file's contents.
 
@@ -482,3 +498,65 @@ def read_pid(path):
         return int(open(path).read().strip())
     except IOError as e:
         raise IOError(e.errno, e.strerror, path)
+
+
+def inside_git_dir(func):
+    """Decorator to determine if the "location" argument is a git directory"""
+    def wrapper(*args, **kwargs):
+        argspec = inspect.getargspec(func)
+        try:
+            l = args[argspec.args.index('location')]
+        except IndexError:
+            l = None
+
+        if l is None and argspec.defaults is not None:
+            d = dict(zip(
+                argspec.args[-len(argspec.defaults):],
+                argspec.defaults
+            ))
+            l = kwargs.get('location', d.get('location'))
+
+        if l is None or not is_git_dir(l):
+            raise IOError(errno.ENOENT, 'Location is not a git repo', l)
+
+        return func(*args, **kwargs)
+    return wrapper
+
+
+def is_git_dir(path):
+    """Checks if path is a git, doesn't count submodule directories"""
+    git_path = os.path.join(
+        os.path.abspath(os.path.expandvars(os.path.expanduser(path))),
+        '.git'
+    )
+    return (os.path.isdir(git_path) and
+            os.path.isdir(os.path.join(git_path, 'objects')) and
+            os.path.isdir(os.path.join(git_path, 'refs')) and
+            os.path.isfile(os.path.join(git_path, 'HEAD')))
+
+
+@inside_git_dir
+def git_sha(location, rev='HEAD'):
+    """Returns SHA1 for things like HEAD or HEAD~~"""
+    with cd(location):
+        cmd = '/usr/bin/git rev-parse --verify {}'.format(rev)
+        return subprocess.check_output(cmd, shell=True).strip()
+
+
+@inside_git_dir
+def generate_json_tag(location, user=get_real_username()):
+    """Generates a json object"""
+    with cd(location):
+        timestamp = datetime.utcnow()
+        date = timestamp.strftime('%F')
+        cmd = ['/usr/bin/git', 'tag', '--list']
+        cmd.append('scap/sync/{}/*'.format(date))
+        seq = len(subprocess.check_output(cmd).splitlines()) + 1
+        tag = 'scap/sync/{0}/{1:04d}'.format(date, seq)
+        tag_info = {
+            'tag': tag,
+            'timestamp': timestamp.isoformat(),
+            'user': user,
+        }
+
+        return (tag, tag_info)

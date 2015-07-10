@@ -30,6 +30,11 @@ DEFAULT_CONFIG = {
     'apache_pid_file': '/var/run/apache2/apache2.pid',
     'pybal_interface': 'lo:LVS',
     'dsh_targets': 'mediawiki-installation',
+    'git_deploy_dir': '/srv/deployment',
+    'git_repo_user': 'mwdeploy',
+    'git_server': 'tin.eqiad.wmnet',
+    'git_scheme': 'http',
+    'git_submodules': False,
 }
 
 
@@ -72,6 +77,7 @@ def load(cfg_file=None, overrides=None):
             os.path.join(os.path.dirname(__file__), '..', 'scap.cfg'),
             '/srv/scap/scap.cfg',
             '/etc/scap.cfg',
+            os.path.join(os.getcwd(), 'scap.cfg'),
         ])
 
     fqdn = socket.getfqdn().split('.')
