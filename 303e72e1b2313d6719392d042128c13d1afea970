@@ -16,6 +16,24 @@
       "revId": "303e72e1b2313d6719392d042128c13d1afea970",
       "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
       "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "8ec42329_86c17085",
+        "filename": "scap/main.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 193,
+      "author": {
+        "id": 1001
+      },
+      "writtenOn": "2015-07-12T17:31:58Z",
+      "side": 0,
+      "message": "sync-common with no args syncs with the \u0027master_rsync\u0027 host from the config file. Today that is tin across all prod data centers. If we get this working we can change that default in scap.cfg to be set by data center. I think that would be a nice optimization (only one cross-dc rsync).",
+      "parentUuid": "8ec42329_26d3dc62",
+      "revId": "303e72e1b2313d6719392d042128c13d1afea970",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
     }
   ]
 }
