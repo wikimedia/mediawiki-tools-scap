@@ -1,0 +1,55 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "8ec42329_a6902c99",
+        "filename": "scap.cfg",
+        "patchSetId": 1
+      },
+      "lineNbr": 77,
+      "author": {
+        "id": 1001
+      },
+      "writtenOn": "2015-07-12T17:27:43Z",
+      "side": 1,
+      "message": "New dsh group that will need to be made in ops/puppet. For prod it would contain tin.eqiad.wmnet and mira.codfw.wmnet.",
+      "revId": "b1bd2b56990de7efc193cc40ff939c06def510dc",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "8ec42329_a6b90c2b",
+        "filename": "scap/tasks.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 256,
+      "author": {
+        "id": 1001
+      },
+      "writtenOn": "2015-07-12T17:27:43Z",
+      "side": 1,
+      "message": "I\u0027m not sure yet if this can be made to work or not. The intent is that the process changing files in /srv/mediawiki-staging will will have GID\u003dwikidev so that the files remain modifiable by deployers. This is tricky because we don\u0027t want mwdeploy to generally be able to own wikidev (\u003chttps://wikitech.wikimedia.org/wiki/UID\u003e). Not tested to see if sudo rules can grant effective GID for a group that the target user is not a member of. This may actually require a new local user instead.\n\nThis will certainly require new sudoers rules to be added to ops/puppet.",
+      "revId": "b1bd2b56990de7efc193cc40ff939c06def510dc",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "8ec42329_86bc101c",
+        "filename": "scap/tasks.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 313,
+      "author": {
+        "id": 1001
+      },
+      "writtenOn": "2015-07-12T17:27:43Z",
+      "side": 1,
+      "message": "This is a behavior change to completely exclude the .git directories rather than just the object files.",
+      "revId": "b1bd2b56990de7efc193cc40ff939c06def510dc",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
+    }
+  ]
+}
