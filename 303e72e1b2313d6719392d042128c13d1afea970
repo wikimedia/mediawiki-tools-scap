@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "8ec42329_26d3dc62",
+        "filename": "scap/main.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 193,
+      "author": {
+        "id": 3
+      },
+      "writtenOn": "2015-07-12T17:27:40Z",
+      "side": 0,
+      "message": "I know this is WIP still, but would the proxies sync to their local (same dc) master, or any master?",
+      "revId": "303e72e1b2313d6719392d042128c13d1afea970",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
+    }
+  ]
+}
