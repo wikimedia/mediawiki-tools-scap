@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "8ec42329_5dcb5275",
+        "filename": "scap/tasks.py",
+        "patchSetId": 2
+      },
+      "lineNbr": 35,
+      "author": {
+        "id": 1001
+      },
+      "writtenOn": "2015-07-13T22:46:58Z",
+      "side": 1,
+      "message": "This won\u0027t exclude cache/l10n/upstream/* as well will it?",
+      "revId": "d68141c95d5bf47dbfc5cec0b6c18bb067981858",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
+    }
+  ]
+}
