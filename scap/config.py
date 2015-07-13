@@ -25,7 +25,7 @@ DEFAULT_CONFIG = {
     'udp2log_port': '8420',
     'wmf_realm': 'production',
     'ssh_user': getpass.getuser(),
-    'datacenter': 'pmtpa',
+    'datacenter': 'eqiad',
     'hhvm_pid_file': '/run/hhvm/hhvm.pid',
     'apache_pid_file': '/var/run/apache2/apache2.pid',
     'pybal_interface': 'lo:LVS',
