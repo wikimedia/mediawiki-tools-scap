@@ -16,6 +16,24 @@
       "revId": "d68141c95d5bf47dbfc5cec0b6c18bb067981858",
       "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
       "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "8ec42329_fdb31efb",
+        "filename": "scap/tasks.py",
+        "patchSetId": 2
+      },
+      "lineNbr": 35,
+      "author": {
+        "id": 255
+      },
+      "writtenOn": "2015-07-13T22:49:41Z",
+      "side": 1,
+      "message": "It won\u0027t, but since this code will get cleaned up post-migration anyhow, I can exclude *.cdb and *.php files in two explicit rules.",
+      "parentUuid": "8ec42329_5dcb5275",
+      "revId": "d68141c95d5bf47dbfc5cec0b6c18bb067981858",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
     }
   ]
 }
