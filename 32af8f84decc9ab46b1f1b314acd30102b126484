@@ -1,0 +1,174 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "8ec42329_49d4fb4b",
+        "filename": "bin/deploy",
+        "patchSetId": 1
+      },
+      "lineNbr": 4,
+      "author": {
+        "id": 1001
+      },
+      "writtenOn": "2015-07-13T00:09:16Z",
+      "side": 1,
+      "message": "Deploy service to cluster",
+      "revId": "32af8f84decc9ab46b1f1b314acd30102b126484",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "8ec42329_69d9b782",
+        "filename": "bin/deploy",
+        "patchSetId": 1
+      },
+      "lineNbr": 6,
+      "author": {
+        "id": 1001
+      },
+      "writtenOn": "2015-07-13T00:09:16Z",
+      "side": 1,
+      "message": "2015",
+      "revId": "32af8f84decc9ab46b1f1b314acd30102b126484",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "8ec42329_c9c78b99",
+        "filename": "bin/deploy-local",
+        "patchSetId": 1
+      },
+      "lineNbr": 4,
+      "author": {
+        "id": 1001
+      },
+      "writtenOn": "2015-07-13T00:09:16Z",
+      "side": 1,
+      "message": "Sync service to localhost",
+      "revId": "32af8f84decc9ab46b1f1b314acd30102b126484",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "8ec42329_09cef3b9",
+        "filename": "bin/deploy-local",
+        "patchSetId": 1
+      },
+      "lineNbr": 6,
+      "author": {
+        "id": 1001
+      },
+      "writtenOn": "2015-07-13T00:09:16Z",
+      "side": 1,
+      "message": "2015",
+      "revId": "32af8f84decc9ab46b1f1b314acd30102b126484",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "8ec42329_a9bebff8",
+        "filename": "scap/__init__.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 25,
+      "author": {
+        "id": 1001
+      },
+      "writtenOn": "2015-07-13T00:09:16Z",
+      "side": 1,
+      "message": "Sort list alphabetically",
+      "revId": "32af8f84decc9ab46b1f1b314acd30102b126484",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "8ec42329_49339bc0",
+        "filename": "scap/__init__.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 44,
+      "author": {
+        "id": 1001
+      },
+      "writtenOn": "2015-07-13T00:09:16Z",
+      "side": 1,
+      "message": "Sort list alphabetically",
+      "revId": "32af8f84decc9ab46b1f1b314acd30102b126484",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "8ec42329_6938d79b",
+        "filename": "scap/__init__.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 63,
+      "author": {
+        "id": 1001
+      },
+      "writtenOn": "2015-07-13T00:09:16Z",
+      "side": 1,
+      "message": "Sort list alphabetically.",
+      "revId": "32af8f84decc9ab46b1f1b314acd30102b126484",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "8ec42329_093d938a",
+        "filename": "scap/config.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 84,
+      "author": {
+        "id": 1001
+      },
+      "writtenOn": "2015-07-13T00:09:16Z",
+      "side": 1,
+      "message": "cfg_paths.append(local_cfg), but the system is forgiving of missing files so you may as well add it by default.",
+      "revId": "32af8f84decc9ab46b1f1b314acd30102b126484",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "8ec42329_2942cf13",
+        "filename": "scap/main.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 565,
+      "author": {
+        "id": 1001
+      },
+      "writtenOn": "2015-07-13T00:09:16Z",
+      "side": 1,
+      "message": "Is this specific to restbase?",
+      "revId": "32af8f84decc9ab46b1f1b314acd30102b126484",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "8ec42329_c946ab26",
+        "filename": "scap/main.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 588,
+      "author": {
+        "id": 1001
+      },
+      "writtenOn": "2015-07-13T00:09:16Z",
+      "side": 1,
+      "message": "Needs class doc",
+      "revId": "32af8f84decc9ab46b1f1b314acd30102b126484",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
+    }
+  ]
+}
