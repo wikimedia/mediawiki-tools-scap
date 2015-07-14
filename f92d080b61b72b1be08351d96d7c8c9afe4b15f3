@@ -16,6 +16,24 @@
       "revId": "f92d080b61b72b1be08351d96d7c8c9afe4b15f3",
       "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
       "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "8ec42329_402da540",
+        "filename": "scap/tasks.py",
+        "patchSetId": 3
+      },
+      "lineNbr": 410,
+      "author": {
+        "id": 255
+      },
+      "writtenOn": "2015-07-14T00:11:33Z",
+      "side": 1,
+      "message": "Good catch. Works for me. I\u0027ll update.",
+      "parentUuid": "8ec42329_80fb8db9",
+      "revId": "f92d080b61b72b1be08351d96d7c8c9afe4b15f3",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
     }
   ]
 }
