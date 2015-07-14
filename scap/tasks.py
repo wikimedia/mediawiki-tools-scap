@@ -33,7 +33,6 @@ DEFAULT_RSYNC_ARGS = [
     '--exclude=**/.git/objects',
     '--exclude=**/.git/**/objects',
     '--exclude=**/cache/l10n/*.cdb',
-    '--exclude=**/cache/l10n/*.php',
     '--no-perms',
 ]
 
