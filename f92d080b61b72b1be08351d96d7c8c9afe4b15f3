@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "8ec42329_80fb8db9",
+        "filename": "scap/tasks.py",
+        "patchSetId": 3
+      },
+      "lineNbr": 410,
+      "author": {
+        "id": 1001
+      },
+      "writtenOn": "2015-07-14T00:10:37Z",
+      "side": 1,
+      "message": "cp will return 1 and make this check_call fail when it excludes the upstream directory since this is not a recursive copy.\n\nHow about:\n\n  \"cp \u0027%(out_dir)s/\u0027*.{cdb,php} \u0027%(temp_dir)s\u0027\"",
+      "revId": "f92d080b61b72b1be08351d96d7c8c9afe4b15f3",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
+    }
+  ]
+}
