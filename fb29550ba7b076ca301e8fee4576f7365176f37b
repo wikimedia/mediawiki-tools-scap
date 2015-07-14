@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "8ec42329_d19ac916",
+        "filename": "scap/tasks.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 475,
+      "author": {
+        "id": 1001
+      },
+      "writtenOn": "2015-07-14T15:54:13Z",
+      "side": 1,
+      "message": "It would be nice if we could know which was in use, but we don\u0027t have any nice way to do that.",
+      "revId": "fb29550ba7b076ca301e8fee4576f7365176f37b",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
+    }
+  ]
+}
