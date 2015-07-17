@@ -1,0 +1,191 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "8ec42329_ee6b4918",
+        "filename": "scap/config.py",
+        "patchSetId": 4
+      },
+      "lineNbr": 80,
+      "author": {
+        "id": 1629
+      },
+      "writtenOn": "2015-07-17T09:50:26Z",
+      "side": 1,
+      "message": "I think this should be consistent with the rest, e.g. scap.cfg",
+      "revId": "99e94b8fd30e4e6034f2f22ed87e13110d7662c6",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "8ec42329_aedb01ed",
+        "filename": "scap/main.py",
+        "patchSetId": 4
+      },
+      "lineNbr": 577,
+      "author": {
+        "id": 1629
+      },
+      "writtenOn": "2015-07-17T09:50:26Z",
+      "side": 1,
+      "message": "~ nitpick version:\n\nif self.config[\u0027git_scheme\u0027] in (\u0027git\u0027, \u0027http\u0027):\n  scheme \u003d \u0027http\u0027",
+      "revId": "99e94b8fd30e4e6034f2f22ed87e13110d7662c6",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "8ec42329_4eea9d74",
+        "filename": "scap/main.py",
+        "patchSetId": 4
+      },
+      "lineNbr": 598,
+      "author": {
+        "id": 1629
+      },
+      "writtenOn": "2015-07-17T09:50:26Z",
+      "side": 1,
+      "message": "~ you can use constants from \"errno\" module like you did elsewhere",
+      "revId": "99e94b8fd30e4e6034f2f22ed87e13110d7662c6",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "8ec42329_4ec37d0a",
+        "filename": "scap/tasks.py",
+        "patchSetId": 4
+      },
+      "lineNbr": 540,
+      "author": {
+        "id": 1629
+      },
+      "writtenOn": "2015-07-17T09:50:26Z",
+      "side": 1,
+      "message": "~ you can move this to a decorator if feeling fancy since it is repeated a few times",
+      "revId": "99e94b8fd30e4e6034f2f22ed87e13110d7662c6",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "8ec42329_6e67594a",
+        "filename": "scap/tasks.py",
+        "patchSetId": 4
+      },
+      "lineNbr": 544,
+      "author": {
+        "id": 1629
+      },
+      "writtenOn": "2015-07-17T09:50:26Z",
+      "side": 1,
+      "message": "this won\u0027t be idempotent when first setting a remote:\n\n$ git remote rm foo\nerror: Could not remove config section \u0027remote.foo\u0027\n$ echo $?\n1",
+      "revId": "99e94b8fd30e4e6034f2f22ed87e13110d7662c6",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "8ec42329_eea6e950",
+        "filename": "scap/tasks.py",
+        "patchSetId": 4
+      },
+      "lineNbr": 564,
+      "author": {
+        "id": 1629
+      },
+      "writtenOn": "2015-07-17T09:50:26Z",
+      "side": 1,
+      "message": "~ rename to git_checkout",
+      "revId": "99e94b8fd30e4e6034f2f22ed87e13110d7662c6",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "8ec42329_ae4c61cc",
+        "filename": "scap/tasks.py",
+        "patchSetId": 4
+      },
+      "lineNbr": 576,
+      "author": {
+        "id": 1629
+      },
+      "writtenOn": "2015-07-17T09:50:26Z",
+      "side": 1,
+      "message": "location will get set when the module is first loaded, not sure what\u0027s cwd value at that moment or if it matters?",
+      "revId": "99e94b8fd30e4e6034f2f22ed87e13110d7662c6",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "8ec42329_ce576d5b",
+        "filename": "scap/tasks.py",
+        "patchSetId": 4
+      },
+      "lineNbr": 603,
+      "author": {
+        "id": 1629
+      },
+      "writtenOn": "2015-07-17T09:50:26Z",
+      "side": 1,
+      "message": "~ why not \"with\" ?\n\nwith open(deploy_file, \u0027w+\u0027) as f:\n  f.write(json.dumps(tag_info)",
+      "revId": "99e94b8fd30e4e6034f2f22ed87e13110d7662c6",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "8ec42329_ced68dc8",
+        "filename": "scap/tasks.py",
+        "patchSetId": 4
+      },
+      "lineNbr": 606,
+      "author": {
+        "id": 1629
+      },
+      "writtenOn": "2015-07-17T09:50:26Z",
+      "side": 1,
+      "message": "looks like this should fail if there were errors writing the tag file",
+      "revId": "99e94b8fd30e4e6034f2f22ed87e13110d7662c6",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "8ec42329_aef22163",
+        "filename": "scap/tasks.py",
+        "patchSetId": 4
+      },
+      "lineNbr": 619,
+      "author": {
+        "id": 1629
+      },
+      "writtenOn": "2015-07-17T09:50:26Z",
+      "side": 1,
+      "message": "~ I think just dumping/prettyprinting tag_info is good enough for user/timestamp/etc",
+      "revId": "99e94b8fd30e4e6034f2f22ed87e13110d7662c6",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "8ec42329_6ebbd970",
+        "filename": "scap/utils.py",
+        "patchSetId": 4
+      },
+      "lineNbr": 498,
+      "author": {
+        "id": 1629
+      },
+      "writtenOn": "2015-07-17T09:50:26Z",
+      "side": 1,
+      "message": "utcnow()",
+      "revId": "99e94b8fd30e4e6034f2f22ed87e13110d7662c6",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
+    }
+  ]
+}
