@@ -455,6 +455,20 @@ class SyncWikiversions(cli.Application):
     def main(self, *extra_args):
         self._assert_auth_sock()
 
+        # check for the presence of ExtensionMessages and l10n cache
+        # for every branch of mediawiki that is referenced in wikiversions.json
+        # to avoid syncing a branch that is lacking these critical files.
+        for version, wikidb in self.active_wikiversions().items():
+            ext_msg = os.path.join(self.config['stage_dir'],
+                'wmf-config', 'ExtensionMessages-%s.php' % version)
+            err_msg = 'ExtensionMessages not found in {}' % ext_msg
+            utils.check_file_exists(ext_msg, err_msg)
+
+            cache_file = os.path.join(self.config['stage_dir'],
+                'php-%s' % version, 'cache', 'l10n', 'l10n_cache-en.cdb')
+            err_msg = 'l10n cache missing for {}' % version
+            utils.check_file_exists(cache_file, err_msg)
+
         mw_install_hosts = utils.read_dsh_hosts_file(
             self.config['dsh_targets'])
         tasks.sync_wikiversions(mw_install_hosts, self.config)

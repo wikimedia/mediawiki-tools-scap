@@ -323,6 +323,24 @@ def check_valid_json_file(path):
             )
 
 
+def check_exists(path, message=False):
+    if not os.path.isfile(path):
+        raise IOError(
+            errno.ENOENT,
+            message or 'Error: %s is not a file.' % path,
+            path
+        )
+
+
+def check_dir_exists(path, message=False):
+    if not os.path.isdir(path):
+        raise IOError(
+            errno.ENOTDIR,
+            message or 'Error: %s is not a directory.' % path,
+            path
+        )
+
+
 def check_php_opening_tag(path):
     """Checks a PHP file to make sure nothing is before the opening <?php
     except for shebangs.
