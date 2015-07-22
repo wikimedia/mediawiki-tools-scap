@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "8ec42329_953f11d3",
+        "filename": "scap/main.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 465,
+      "author": {
+        "id": 3
+      },
+      "writtenOn": "2015-07-22T20:26:21Z",
+      "side": 1,
+      "message": "I presume the resultant error displayed includes the file name?\n\nI prefer the error message below than the 404 type one of this :)",
+      "revId": "4dd723be51a1447b50807908f49e8592f7a5b906",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
+    }
+  ]
+}
