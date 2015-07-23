@@ -1,0 +1,38 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "8ec42329_c4e3a201",
+        "filename": "scap/utils.py",
+        "patchSetId": 3
+      },
+      "lineNbr": 329,
+      "author": {
+        "id": 1001
+      },
+      "writtenOn": "2015-07-23T18:14:03Z",
+      "side": 1,
+      "message": "Passing the third filename arg to IOError might be nice",
+      "revId": "69b82709f8b134051552cb030476e9e805bd3cf0",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "8ec42329_84e91ae3",
+        "filename": "scap/utils.py",
+        "patchSetId": 3
+      },
+      "lineNbr": 334,
+      "author": {
+        "id": 1001
+      },
+      "writtenOn": "2015-07-23T18:14:03Z",
+      "side": 1,
+      "message": "Passing the third filename arg to IOError might be nice",
+      "revId": "69b82709f8b134051552cb030476e9e805bd3cf0",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
+    }
+  ]
+}
