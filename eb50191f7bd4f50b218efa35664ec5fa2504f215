@@ -1,0 +1,293 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "8ec42329_a7bc3f02",
+        "filename": "scap/config.py",
+        "patchSetId": 6
+      },
+      "lineNbr": 14,
+      "author": {
+        "id": 24
+      },
+      "writtenOn": "2015-07-27T21:29:32Z",
+      "side": 1,
+      "message": "Nitpick: should bin_dir be made relative to git_deploy_dir ?  If we deploy scap with scap ...",
+      "revId": "eb50191f7bd4f50b218efa35664ec5fa2504f215",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "8ec42329_27404f09",
+        "filename": "scap/config.py",
+        "patchSetId": 6
+      },
+      "lineNbr": 80,
+      "author": {
+        "id": 24
+      },
+      "writtenOn": "2015-07-27T21:29:32Z",
+      "side": 1,
+      "message": "I am not a lawyer, but that might cause unwanted side effects with someone running scap from their home dir having a scap.cfg file for example.   We can set it with cfg_file.\n\nI am suspecting that is to load a per repo configuration file  (.scaprc in your commit message and DeployLocal ).",
+      "revId": "eb50191f7bd4f50b218efa35664ec5fa2504f215",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "8ec42329_27e4cf09",
+        "filename": "scap/main.py",
+        "patchSetId": 6
+      },
+      "lineNbr": 574,
+      "author": {
+        "id": 24
+      },
+      "writtenOn": "2015-07-27T21:29:32Z",
+      "side": 1,
+      "message": "Mind adding a comment that service_name and service_port are optional?  Or maybe mention the second parameter explicitly:\n\n    service_name \u003d self.config.get(\u0027service_name\u0027, None)\n    service_port \u003d self.config.get(\u0027service_port\u0027, None)\n\nThis is way it is obvious they are optional.  I wondered why you did not use  self.config[\u0027service_name\u0027]  :-D",
+      "revId": "eb50191f7bd4f50b218efa35664ec5fa2504f215",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "8ec42329_07b673f6",
+        "filename": "scap/main.py",
+        "patchSetId": 6
+      },
+      "lineNbr": 577,
+      "author": {
+        "id": 24
+      },
+      "writtenOn": "2015-07-27T21:29:32Z",
+      "side": 1,
+      "message": "Since I am paranoid about the content of \u0027repo\u0027 which might well contains .. or whatever typo, I would ensure the path is still under git_deploy_dir:\n\n  \u003e\u003e\u003e import os.path\n  \u003e\u003e\u003e git_deploy_dir \u003d \u0027/srv/deployment\u0027\n  \u003e\u003e\u003e os.path.commonprefix([git_deploy_dir, \u0027/srv/deployment/foo\u0027])\n  \u0027/srv/deployment\u0027\n  \u003e\u003e\u003e os.path.commonprefix([git_deploy_dir, \u0027/srv/MISTAKE\u0027])\n  \u0027/srv/\u0027\n\nSo you could:\n\n if not self.config[\u0027git_deploy_dir\u0027] \u003d\u003d os.path.commonprefix( self.config[\u0027git_deploy_dir\u0027], location ):\n    raise Exception(\"Repo location %s is not under git deploy dir %s\" % (location, self.config[\u0027git_deploy_dir\u0027] ).\n\nBut maybe I am crazy.\n\nRegardless, can you ensure \u0027location\u0027:\n* exists\n* is a directory\n* is writable\n\nWill probably save us debugging troubles one day.\n\n\nNote you are actually doing some sanity check in Deploy around line 609.",
+      "revId": "eb50191f7bd4f50b218efa35664ec5fa2504f215",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "8ec42329_87a0239c",
+        "filename": "scap/main.py",
+        "patchSetId": 6
+      },
+      "lineNbr": 579,
+      "author": {
+        "id": 24
+      },
+      "writtenOn": "2015-07-27T21:29:32Z",
+      "side": 1,
+      "message": "So I guess \u0027https\u0027 is kept, but scheme would be unset.  I would:\n\n  scheme \u003d \u0027http\u0027\n  if self.config[\u0027git_scheme\u0027] \u003d\u003d \u0027git\u0027:\n      scheme \u003d \u0027http\u0027   # some useful comment",
+      "revId": "eb50191f7bd4f50b218efa35664ec5fa2504f215",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "8ec42329_47d9db5a",
+        "filename": "scap/main.py",
+        "patchSetId": 6
+      },
+      "lineNbr": 590,
+      "author": {
+        "id": 24
+      },
+      "writtenOn": "2015-07-27T21:29:32Z",
+      "side": 1,
+      "message": "i would split the definition of the server name and the server restart.  I can imagine people willing to deploy code but restart in batches while still defining the service_name.",
+      "revId": "eb50191f7bd4f50b218efa35664ec5fa2504f215",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "8ec42329_e7c48746",
+        "filename": "scap/main.py",
+        "patchSetId": 6
+      },
+      "lineNbr": 606,
+      "author": {
+        "id": 24
+      },
+      "writtenOn": "2015-07-27T21:29:32Z",
+      "side": 1,
+      "message": "I would rephrase it:\n\n \u0027Script must be run from the repository to deploy under %s\u0027 % (self.config[\u0027git_deploy_dir\u0027] ).",
+      "revId": "eb50191f7bd4f50b218efa35664ec5fa2504f215",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "8ec42329_e72807df",
+        "filename": "scap/main.py",
+        "patchSetId": 6
+      },
+      "lineNbr": 655,
+      "author": {
+        "id": 24
+      },
+      "writtenOn": "2015-07-27T21:29:32Z",
+      "side": 1,
+      "message": "Maybe set the \u0027deploy-local\u0027 first then extend the array with the arguments:\n\n deploy_local_cmd \u003d self.get_scriptPath( \u0027deploy-local\u0027 )\n deploy_local_cmd.extend( [\u0027-D\u0027, \u0027foo:bar\u0027] )\n\nSeems easier to read to me.",
+      "revId": "eb50191f7bd4f50b218efa35664ec5fa2504f215",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "8ec42329_e76fa724",
+        "filename": "scap/main.py",
+        "patchSetId": 6
+      },
+      "lineNbr": 658,
+      "author": {
+        "id": 24
+      },
+      "writtenOn": "2015-07-27T21:29:32Z",
+      "side": 1,
+      "message": "I usually get the logger at the top of the function in a log variable. So you then just:\n\n log.debug(\"foo\")\n log.warning(\"blah\")\n\nI would log the actual command at info level, but maybe ssh.Job reports it already -:-}",
+      "revId": "eb50191f7bd4f50b218efa35664ec5fa2504f215",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "8ec42329_07cbd321",
+        "filename": "scap/tasks.py",
+        "patchSetId": 6
+      },
+      "lineNbr": 641,
+      "author": {
+        "id": 24
+      },
+      "writtenOn": "2015-07-27T21:29:32Z",
+      "side": 1,
+      "message": "I haven\u0027t checked but all those git commands can probably be replaced by using the GitPython module.\n\ntin.eqiad.wmnet has 0.3.2.RC1-1 , can be added to requirements.txt and we are set.\n\nOur CI installation has been using it for age and it is has a nice enough API interface.   Will save us to have to maintain all those git commands.",
+      "revId": "eb50191f7bd4f50b218efa35664ec5fa2504f215",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "8ec42329_67bf375d",
+        "filename": "scap/tasks.py",
+        "patchSetId": 6
+      },
+      "lineNbr": 658,
+      "author": {
+        "id": 24
+      },
+      "writtenOn": "2015-07-27T21:29:32Z",
+      "side": 1,
+      "message": "Here a fun story.\n\nIf one change \u0027127.0.0.1\u0027 to \u0027localhost\u0027 and gethostbyname yields an IPv6 IP while the service is IPv4 only: you are in trouble :-} Not an issue there since you are using the IPv4 address.",
+      "revId": "eb50191f7bd4f50b218efa35664ec5fa2504f215",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "8ec42329_4769dbf4",
+        "filename": "scap/tasks.py",
+        "patchSetId": 6
+      },
+      "lineNbr": 659,
+      "author": {
+        "id": 24
+      },
+      "writtenOn": "2015-07-27T21:29:32Z",
+      "side": 1,
+      "message": "will show 0 tries :-D  Not a big deal though",
+      "revId": "eb50191f7bd4f50b218efa35664ec5fa2504f215",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "8ec42329_e779e7c3",
+        "filename": "scap/tasks.py",
+        "patchSetId": 6
+      },
+      "lineNbr": 663,
+      "author": {
+        "id": 24
+      },
+      "writtenOn": "2015-07-27T21:29:32Z",
+      "side": 1,
+      "message": "Any clue how fast our service come back up usually?  Seems waiting for 50 seconds might be a bit to long.",
+      "revId": "eb50191f7bd4f50b218efa35664ec5fa2504f215",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "8ec42329_274b6f89",
+        "filename": "scap/utils.py",
+        "patchSetId": 6
+      },
+      "lineNbr": 277,
+      "author": {
+        "id": 24
+      },
+      "writtenOn": "2015-07-27T21:29:32Z",
+      "side": 1,
+      "message": "That is nice, I love it :)",
+      "revId": "eb50191f7bd4f50b218efa35664ec5fa2504f215",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "8ec42329_c72aab8e",
+        "filename": "scap/utils.py",
+        "patchSetId": 6
+      },
+      "lineNbr": 514,
+      "author": {
+        "id": 24
+      },
+      "writtenOn": "2015-07-27T21:29:32Z",
+      "side": 1,
+      "message": "On old git versions, maybe the one we have on Precise, the submodules are in a .git dir whereas in recent git version it is a .git file that contains the reference to the parent repo which hold the actual git objets ( .git/modules/somesubmodule ).\n\nWe might be hit by that with git 1.7 on Precise.",
+      "revId": "eb50191f7bd4f50b218efa35664ec5fa2504f215",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "8ec42329_2256fd09",
+        "filename": "scap/utils.py",
+        "patchSetId": 6
+      },
+      "lineNbr": 517,
+      "author": {
+        "id": 24
+      },
+      "writtenOn": "2015-07-27T21:29:32Z",
+      "side": 1,
+      "message": "You can probably replace all of that by relying on git:\n\n git --git-dir git_path rev-parse\n\nWill exit 128 if it is not a git directory, else 0.",
+      "revId": "eb50191f7bd4f50b218efa35664ec5fa2504f215",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "8ec42329_47379bfc",
+        "filename": "scap/utils.py",
+        "patchSetId": 6
+      },
+      "lineNbr": 525,
+      "author": {
+        "id": 24
+      },
+      "writtenOn": "2015-07-27T21:29:32Z",
+      "side": 1,
+      "message": "See my comment in https://gerrit.wikimedia.org/r/#/c/224374/6/scap/tasks.py about using GitPython module instead.",
+      "revId": "eb50191f7bd4f50b218efa35664ec5fa2504f215",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
+    }
+  ]
+}
