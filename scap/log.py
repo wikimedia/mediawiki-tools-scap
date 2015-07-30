@@ -73,8 +73,10 @@ class IRCSocketHandler(logging.Handler):
         self.timeout = timeout
 
     def emit(self, record):
-        message = '!log %s %s' % (
-            utils.get_real_username(), record.getMessage())
+        message = '!log %s@%s %s' % (
+            utils.get_real_username(),
+            socket.gethostname(),
+            record.getMessage())
         try:
             sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             sock.settimeout(self.timeout)
