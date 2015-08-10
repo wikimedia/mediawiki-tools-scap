@@ -118,7 +118,9 @@ def compile_wikiversions_cdb(source_tree, cfg):
     base_file = os.path.join(working_dir, 'wikiversions.json')
     json_file = utils.get_realm_specific_filename(
         base_file, cfg['wmf_realm'], cfg['datacenter'])
-    cdb_file = '%s.cdb' % os.path.splitext(json_file)[0]
+    base_name = os.path.splitext(json_file)[0]
+    cdb_file = base_name + '.cdb'
+    php_file = base_name + '.php'
 
     with open(json_file) as f:
         wikiversions = json.load(f)
@@ -161,6 +163,20 @@ def compile_wikiversions_cdb(source_tree, cfg):
     os.rename(tmp_cdb_file, cdb_file)
     os.chmod(cdb_file, 0664)
     logger.info('Compiled %s to %s', json_file, cdb_file)
+
+    php_code = '<?php\nreturn array(\n%s\n);\n' % json.dumps(
+        wikiversions,
+        separators=(',', ' => '),
+        sort_keys=True,
+        indent=4
+    ).strip('{}\n')
+
+    with open(php_file, 'wt') as fp:
+        fp.write(php_code)
+        fp.flush()
+        os.fsync(fp.fileno())
+    os.chmod(php_file, 0664)
+    logger.info('Compiled %s to %s', json_file, php_file)
 
 
 def merge_cdb_updates(directory, pool_size, trust_mtime=False, mute=False):
@@ -310,7 +326,7 @@ def sync_wikiversions(hosts, cfg):
 
         rsync = ssh.Job(hosts, user=cfg['ssh_user']).shuffle()
         rsync.command('sudo -u mwdeploy -n -- /usr/bin/rsync -l '
-            '%(master_rsync)s::common/wikiversions*.{json,cdb} '
+            '%(master_rsync)s::common/wikiversions*.{json,cdb,php} '
             '%(deploy_dir)s' % cfg)
         return rsync.progress('sync_wikiversions').run()
 
