@@ -95,8 +95,8 @@ def check_valid_syntax(*paths):
                 utils.check_valid_json_file(abspath)
 
 
-def compile_wikiversions_cdb(source_tree, cfg):
-    """Validate and compile the wikiversions.json file into a CDB database.
+def compile_wikiversions(source_tree, cfg):
+    """Validate and compile the wikiversions.json file.
 
     1. Find the realm specific filename for wikiversions.json in staging area
     2. Validate that all versions mentioned in the json exist as directories
@@ -106,6 +106,9 @@ def compile_wikiversions_cdb(source_tree, cfg):
     4. Create a temporary CDB file from the json contents
     5. Atomically rename the temporary CDB to the realm specific
        wikiversions.cdb filename
+    6. Create a temporary php file from the json contents
+    7. Atomically rename the temporary php to the realm specific
+       wikiversions.php filename
 
     :param source_tree: Source tree to read file from: 'deploy' or 'stage'
     :param cfg: Dict of global configuration values
@@ -114,7 +117,7 @@ def compile_wikiversions_cdb(source_tree, cfg):
 
     working_dir = cfg['%s_dir' % source_tree]
 
-    # Find the realm specific wikiverisons file names
+    # Find the realm specific wikiversions file names
     base_file = os.path.join(working_dir, 'wikiversions.json')
     json_file = utils.get_realm_specific_filename(
         base_file, cfg['wmf_realm'], cfg['datacenter'])
@@ -143,6 +146,7 @@ def compile_wikiversions_cdb(source_tree, cfg):
         raise KeyError('Missing %d expected dbs in %s: %s' % (
             len(missing_dbs), json_file, ', '.join(missing_dbs)))
 
+    # Build the CDB version
     tmp_cdb_file = '%s.tmp' % cdb_file
     try:
         os.unlink(tmp_cdb_file)
@@ -158,12 +162,14 @@ def compile_wikiversions_cdb(source_tree, cfg):
         os.fsync(fp.fileno())
 
     if not os.path.isfile(tmp_cdb_file):
-        raise IOError(errno.ENOENT, 'Failed to create CDB', tmp_cdb_file)
+        raise IOError(
+            errno.ENOENT, 'Failed to create cdb wikiversions', tmp_cdb_file)
 
     os.rename(tmp_cdb_file, cdb_file)
     os.chmod(cdb_file, 0664)
     logger.info('Compiled %s to %s', json_file, cdb_file)
 
+    # Build the php version
     php_code = '<?php\nreturn array(\n%s\n);\n' % json.dumps(
         wikiversions,
         separators=(',', ' => '),
@@ -171,10 +177,22 @@ def compile_wikiversions_cdb(source_tree, cfg):
         indent=4
     ).strip('{}\n')
 
-    with open(php_file, 'wt') as fp:
+    tmp_php_file = '%s.tmp' % php_file
+    try:
+        os.unlink(tmp_php_file)
+    except OSError:
+        pass
+
+    with open(tmp_php_file, 'wt') as fp:
         fp.write(php_code)
         fp.flush()
         os.fsync(fp.fileno())
+
+    if not os.path.isfile(tmp_php_file):
+        raise IOError(
+            errno.ENOENT, 'Failed to create php wikiversions', tmp_php_file)
+
+    os.rename(tmp_php_file, php_file)
     os.chmod(php_file, 0664)
     logger.info('Compiled %s to %s', json_file, php_file)
 
@@ -322,7 +340,7 @@ def sync_wikiversions(hosts, cfg):
     """
     stats = log.Stats(cfg['statsd_host'], int(cfg['statsd_port']))
     with log.Timer('sync_wikiversions', stats):
-        compile_wikiversions_cdb('stage', cfg)
+        compile_wikiversions('stage', cfg)
 
         rsync = ssh.Job(hosts, user=cfg['ssh_user']).shuffle()
         rsync.command('sudo -u mwdeploy -n -- /usr/bin/rsync -l '

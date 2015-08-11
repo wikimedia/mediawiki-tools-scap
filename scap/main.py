@@ -113,7 +113,7 @@ class CompileWikiversions(cli.Application):
     def main(self, *extra_args):
         self._run_as('mwdeploy')
         self._assert_current_user('mwdeploy')
-        tasks.compile_wikiversions_cdb('deploy', self.config)
+        tasks.compile_wikiversions('deploy', self.config)
         return 0
 
 

@@ -14,7 +14,7 @@ cluster.
 .. seealso::
    * :func:`scap.Scap`
    * :func:`scap.tasks.check_php_syntax`
-   * :func:`scap.tasks.compile_wikiversions_cdb`
+   * :func:`scap.tasks.compile_wikiversions`
    * :func:`scap.tasks.sync_common`
    * :func:`scap.tasks.sync_wikiversions`
 
@@ -75,7 +75,7 @@ syncs both the JSON and CDB versions to the rest of the cluster.
 .. program-output:: ../bin/sync-wikiversions --help
 .. seealso::
    * :func:`scap.SyncWikiversions`
-   * :func:`scap.tasks.compile_wikiversions_cdb`
+   * :func:`scap.tasks.compile_wikiversions`
    * :func:`scap.tasks.sync_wikiversions`
 
 
@@ -107,7 +107,7 @@ compile-wikiversions
 .. program-output:: ../bin/compile-wikiversions --help
 .. seealso::
    * :func:`scap.CompileWikiversions`
-   * :func:`scap.tasks.compile_wikiversions_cdb`
+   * :func:`scap.tasks.compile_wikiversions`
 
 
 scap-rebuild-cdbs
