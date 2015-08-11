@@ -461,12 +461,12 @@ class SyncWikiversions(cli.Application):
         for version, wikidb in self.active_wikiversions().items():
             ext_msg = os.path.join(self.config['stage_dir'],
                 'wmf-config', 'ExtensionMessages-%s.php' % version)
-            err_msg = 'ExtensionMessages not found in {}' % ext_msg
+            err_msg = 'ExtensionMessages not found in %s' % ext_msg
             utils.check_file_exists(ext_msg, err_msg)
 
             cache_file = os.path.join(self.config['stage_dir'],
                 'php-%s' % version, 'cache', 'l10n', 'l10n_cache-en.cdb')
-            err_msg = 'l10n cache missing for {}' % version
+            err_msg = 'l10n cache missing for %s' % version
             utils.check_file_exists(cache_file, err_msg)
 
         mw_install_hosts = utils.read_dsh_hosts_file(
