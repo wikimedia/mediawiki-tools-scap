@@ -323,7 +323,7 @@ def check_valid_json_file(path):
             )
 
 
-def check_exists(path, message=False):
+def check_file_exists(path, message=False):
     if not os.path.isfile(path):
         raise IOError(
             errno.ENOENT,
