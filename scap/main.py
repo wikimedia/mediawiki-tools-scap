@@ -202,7 +202,7 @@ class Scap(AbstractSync):
         help='Restart HHVM process on target hosts.')
     @cli.argument('message', nargs='*', help='Log message for SAL')
     def main(self, *extra_args):
-        super(Scap, self).main(*extra_args)
+        return super(Scap, self).main(*extra_args)
 
     def _before_cluster_sync(self):
         self.announce('Started scap: %s', self.arguments.message)
@@ -337,7 +337,7 @@ class SyncDir(AbstractSync):
     @cli.argument('dir', help='Directory to sync')
     @cli.argument('message', nargs='*', help='Log message for SAL')
     def main(self, *extra_args):
-        super(SyncDir, self).main(*extra_args)
+        return super(SyncDir, self).main(*extra_args)
 
     def _before_cluster_sync(self):
         # assert file exists
@@ -400,7 +400,7 @@ class SyncFile(AbstractSync):
     @cli.argument('file', help='File to sync')
     @cli.argument('message', nargs='*', help='Log message for SAL')
     def main(self, *extra_args):
-        super(SyncFile, self).main(*extra_args)
+        return super(SyncFile, self).main(*extra_args)
 
     def _before_cluster_sync(self):
         # assert file exists
