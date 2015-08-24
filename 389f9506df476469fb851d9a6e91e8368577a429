@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "6ec1af18_e64fd295",
+        "filename": "scap/utils.py",
+        "patchSetId": 7
+      },
+      "lineNbr": 546,
+      "author": {
+        "id": 1629
+      },
+      "writtenOn": "2015-08-24T08:38:13Z",
+      "side": 1,
+      "message": "the cwd returned here will be the one at declaration time, not call time, expected? ditto for get_real_username",
+      "revId": "389f9506df476469fb851d9a6e91e8368577a429",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
+    }
+  ]
+}
