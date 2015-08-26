@@ -552,9 +552,9 @@ def update_localization_cache(version, wikidb, verbose, cfg):
     # Include JSON versions of the CDB files and add MD5 files
     logger.info('Generating JSON versions and md5 files')
     utils.sudo_check_call('l10nupdate',
-        '/usr/local/bin/refreshCdbJsonFiles '
+        '%s/refreshCdbJsonFiles '
         '--directory="%s" --threads=%s %s' % (
-            cache_dir, use_cores, verbose_messagelist),
+            cfg['bin_dir'], cache_dir, use_cores, verbose_messagelist),
         logger)
 
 
