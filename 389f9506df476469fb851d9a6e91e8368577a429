@@ -34,6 +34,41 @@
       "revId": "389f9506df476469fb851d9a6e91e8368577a429",
       "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
       "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "6ec1af18_641f305f",
+        "filename": "scap/utils.py",
+        "patchSetId": 7
+      },
+      "lineNbr": 546,
+      "author": {
+        "id": 1629
+      },
+      "writtenOn": "2015-08-28T08:36:23Z",
+      "side": 1,
+      "message": "my point being that assigning default values in python on results that might change will lead to unexpected results, e.g. assigning mutables. I don\u0027t think it\u0027ll work when used with the cd decorator above, for example.",
+      "parentUuid": "6ec1af18_5e3be697",
+      "revId": "389f9506df476469fb851d9a6e91e8368577a429",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "6ec1af18_0438acce",
+        "filename": "scap/utils.py",
+        "patchSetId": 7
+      },
+      "lineNbr": 548,
+      "author": {
+        "id": 1629
+      },
+      "writtenOn": "2015-08-28T08:36:23Z",
+      "side": 1,
+      "message": "can the timestamp format change? if so rfc3339 dates should be used",
+      "revId": "389f9506df476469fb851d9a6e91e8368577a429",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
     }
   ]
 }
