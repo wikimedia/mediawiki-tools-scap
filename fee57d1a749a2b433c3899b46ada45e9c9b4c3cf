@@ -1,0 +1,55 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "6ec1af18_28578ece",
+        "filename": "scap/config.py",
+        "patchSetId": 3
+      },
+      "lineNbr": 64,
+      "author": {
+        "id": 1629
+      },
+      "writtenOn": "2015-09-03T10:12:14Z",
+      "side": 1,
+      "message": "this will need an update too on the config search paths",
+      "revId": "fee57d1a749a2b433c3899b46ada45e9c9b4c3cf",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "6ec1af18_280eaee8",
+        "filename": "scap/config.py",
+        "patchSetId": 3
+      },
+      "lineNbr": 70,
+      "author": {
+        "id": 1629
+      },
+      "writtenOn": "2015-09-03T10:12:14Z",
+      "side": 1,
+      "message": "just to make sure, this changes the per-repo scap.cfg location from https://gerrit.wikimedia.org/r/#/c/224374",
+      "revId": "fee57d1a749a2b433c3899b46ada45e9c9b4c3cf",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "6ec1af18_48045a81",
+        "filename": "scap/main.py",
+        "patchSetId": 3
+      },
+      "lineNbr": 612,
+      "author": {
+        "id": 1629
+      },
+      "writtenOn": "2015-09-03T10:12:14Z",
+      "side": 1,
+      "message": "this should have some error handling I think, e.g in case of unwritable files",
+      "revId": "fee57d1a749a2b433c3899b46ada45e9c9b4c3cf",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
+    }
+  ]
+}
