@@ -1,0 +1,38 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "6ec1af18_88c1e284",
+        "filename": "scap/utils.py",
+        "patchSetId": 9
+      },
+      "lineNbr": 552,
+      "author": {
+        "id": 1629
+      },
+      "writtenOn": "2015-09-03T09:07:19Z",
+      "side": 1,
+      "message": "I don\u0027t think you need the shell here? --list wildcards will be matched by git\n\nalso not sure why strip()? seems like you could do len(output.splitlines())",
+      "revId": "291f3f6a8cb31f4b503658add0004001e6850c86",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "6ec1af18_a8bcde01",
+        "filename": "scap/utils.py",
+        "patchSetId": 9
+      },
+      "lineNbr": 553,
+      "author": {
+        "id": 1629
+      },
+      "writtenOn": "2015-09-03T09:07:19Z",
+      "side": 1,
+      "message": "good idea on the seq number! seems friendlier than hour/minute/second",
+      "revId": "291f3f6a8cb31f4b503658add0004001e6850c86",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
+    }
+  ]
+}
