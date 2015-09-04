@@ -1,0 +1,55 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "6ec1af18_42a2eda4",
+        "filename": "scap/utils.py",
+        "patchSetId": 4
+      },
+      "lineNbr": 655,
+      "author": {
+        "id": 1629
+      },
+      "writtenOn": "2015-09-04T10:56:58Z",
+      "side": 1,
+      "message": "negation",
+      "revId": "f2c061b1ed7d33da02cf1d9d03c748626d928fab",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "6ec1af18_8283f504",
+        "filename": "tests/utils_test.py",
+        "patchSetId": 4
+      },
+      "lineNbr": 43,
+      "author": {
+        "id": 1629
+      },
+      "writtenOn": "2015-09-04T10:56:58Z",
+      "side": 1,
+      "message": "what about unqualified hosts? perhaps in a separate test too, see other comment",
+      "revId": "f2c061b1ed7d33da02cf1d9d03c748626d928fab",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "6ec1af18_2293215c",
+        "filename": "tests/utils_test.py",
+        "patchSetId": 4
+      },
+      "lineNbr": 50,
+      "author": {
+        "id": 1629
+      },
+      "writtenOn": "2015-09-04T10:56:58Z",
+      "side": 1,
+      "message": "here and elsewhere, assertEqual(foo, bar)\n\nalso since there\u0027s a lot of cases to cover it can be refactored into iterating over a list of (filter, expected result)\n\nditto for negative/unexpected cases if you add them too",
+      "revId": "f2c061b1ed7d33da02cf1d9d03c748626d928fab",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
+    }
+  ]
+}
