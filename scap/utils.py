@@ -534,12 +534,17 @@ def inside_git_dir(func):
         except IndexError:
             l = None
 
-        if l is None and argspec.defaults is not None:
-            d = dict(zip(
-                argspec.args[-len(argspec.defaults):],
-                argspec.defaults
-            ))
-            l = kwargs.get('location', d.get('location'))
+        if l is None:
+            d = None
+
+            if argspec.defaults is not None:
+                defaults = dict(zip(
+                    argspec.args[-len(argspec.defaults):],
+                    argspec.defaults
+                ))
+                d = defaults.get('location')
+
+            l = kwargs.get('location', d)
 
         if l is None or not is_git_dir(l):
             raise IOError(errno.ENOENT, 'Location is not a git repo', l)
@@ -561,7 +566,7 @@ def is_git_dir(path):
 
 
 @inside_git_dir
-def git_sha(location, rev='HEAD'):
+def git_sha(location, rev):
     """Returns SHA1 for things like HEAD or HEAD~~"""
     with cd(location):
         cmd = '/usr/bin/git rev-parse --verify {}'.format(rev)
@@ -569,22 +574,15 @@ def git_sha(location, rev='HEAD'):
 
 
 @inside_git_dir
-def generate_json_tag(location, user=get_real_username()):
-    """Generates a json object"""
+def git_next_deploy_tag(location, user=get_real_username()):
+    """Calculates the scap/sync/{date}/{n} tag to use for this deployment"""
     with cd(location):
         timestamp = datetime.utcnow()
         date = timestamp.strftime('%F')
         cmd = ['/usr/bin/git', 'tag', '--list']
         cmd.append('scap/sync/{}/*'.format(date))
         seq = len(subprocess.check_output(cmd).splitlines()) + 1
-        tag = 'scap/sync/{0}/{1:04d}'.format(date, seq)
-        tag_info = {
-            'tag': tag,
-            'timestamp': timestamp.isoformat(),
-            'user': user,
-        }
-
-        return (tag, tag_info)
+        return 'scap/sync/{0}/{1:04d}'.format(date, seq)
 
 
 def get_target_hosts(pattern, hosts):

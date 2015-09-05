@@ -639,10 +639,10 @@ def git_update_server_info(has_submodules=False, location=os.getcwd()):
 
 
 @utils.inside_git_dir
-def git_deploy_file(tag_info, location=os.getcwd()):
-    """creates new .git/deploy file and generates tag
+def git_update_deploy_head(deploy_info, location):
+    """updates .git/DEPLOY_HEAD file
 
-    :param tag_info: Json tag info to write to file
+    :param deploy_info: current deploy info to write to file as JSON
     :param (optional) location: git directory location (default cwd)
     """
     logger = logging.getLogger('git_deploy_file')
@@ -651,15 +651,13 @@ def git_deploy_file(tag_info, location=os.getcwd()):
         deploy_file = os.path.join(location, '.git', 'DEPLOY_HEAD')
         logger.debug('Creating {}'.format(deploy_file))
         with open(deploy_file, 'w+') as f:
-            f.write(json.dumps(tag_info))
+            f.write(json.dumps(deploy_info))
             f.close()
 
 
 @utils.inside_git_dir
-def git_tag_repo(tag, tag_info, rev='HEAD', location=os.getcwd()):
+def git_tag_repo(deploy_info, location=os.getcwd()):
     """creates new tag in deploy repo"""
-
-    rev = utils.git_sha(location, rev)
 
     with utils.cd(location):
         cmd = """
@@ -668,10 +666,10 @@ def git_tag_repo(tag, tag_info, rev='HEAD', location=os.getcwd()):
                 -m 'timestamp {1}' -- \\
                 {2} {3}
         """.format(
-            tag_info['user'],
-            tag_info['timestamp'],
-            tag,
-            rev
+            deploy_info['user'],
+            deploy_info['timestamp'],
+            deploy_info['tag'],
+            deploy_info['commit']
         )
         subprocess.check_call(cmd, shell=True)
 
