@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "6ec1af18_8f8a0316",
+        "filename": "scap/config.py",
+        "patchSetId": 5
+      },
+      "lineNbr": 128,
+      "author": {
+        "id": 2177
+      },
+      "writtenOn": "2015-09-11T14:21:29Z",
+      "side": 1,
+      "message": "And if there is no such section?",
+      "revId": "058a4e14ddd20e0028f7d0584175c0db5b972fef",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
+    }
+  ]
+}
