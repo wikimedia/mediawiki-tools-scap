@@ -307,13 +307,21 @@ def md5_file(path):
     return crc.hexdigest()
 
 
-def read_dsh_hosts_file(path):
+def read_hosts_file(path):
     """Reads hosts from a file into a list.
+
+    if passed an absolute file path, this function treats that path as the
+    host list, otherwise, uses /etc/dsh/group/[path]
 
     Blank lines and comments are ignored.
     """
+    final_path = os.path.join('/etc/dsh/group', path)
+
+    if os.path.isabs(path):
+        final_path = path
+
     try:
-        with open(os.path.join('/etc/dsh/group', path)) as hosts_file:
+        with open(final_path) as hosts_file:
             return re.findall(r'^[\w\.\-]+', hosts_file.read(), re.MULTILINE)
     except IOError as e:
         raise IOError(e.errno, e.strerror, path)

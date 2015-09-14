@@ -44,7 +44,7 @@ class Job(object):
 
     def role(self, role):
         """Set hosts to run command on by network role."""
-        return self.hosts(utils.read_dsh_hosts_file(role))
+        return self.hosts(utils.read_hosts_file(role))
 
     def shuffle(self):
         """Randomize order of target hosts."""
