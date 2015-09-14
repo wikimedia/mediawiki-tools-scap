@@ -1,0 +1,9 @@
+This directory should have the following structure:
+
+    tests/env-test
+    ├── environments
+    │   └── test
+    │       └── README
+    └── README
+
+It is used in `tests/utils_test.py` to set the function `utils.get_env_specific_filename`

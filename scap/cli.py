@@ -144,6 +144,8 @@ class Application(object):
         parser.add_argument('--no-shared-authsock', dest='shared_authsock',
             action='store_false',
             help='Ignore any shared ssh-auth configuration')
+        parser.add_argument('-e', '--environment', default=None,
+              help='environment in which to execute scap')
 
         return parser
 
@@ -165,7 +167,11 @@ class Application(object):
         defines = None
         if self.arguments.defines:
             defines = dict(self.arguments.defines)
-        self.config = config.load(self.arguments.conf_file, defines)
+        self.config = config.load(
+            cfg_file=self.arguments.conf_file,
+            environment=self.arguments.environment,
+            overrides=defines
+        )
 
     def _setup_loggers(self):
         """Setup logging."""

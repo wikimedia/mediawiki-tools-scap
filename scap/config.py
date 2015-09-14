@@ -10,6 +10,8 @@ import getpass
 import os
 import socket
 
+from . import utils
+
 
 DEFAULT_CONFIG = {
     'bin_dir': '/srv/deployment/scap/scap/bin',
@@ -38,7 +40,7 @@ DEFAULT_CONFIG = {
 }
 
 
-def load(cfg_file=None, overrides=None):
+def load(cfg_file=None, environment=None, overrides=None):
     """Load configuration.
 
     A configuration file consists of sections, led by a ``[section]`` header
@@ -53,16 +55,27 @@ def load(cfg_file=None, overrides=None):
     ``eqiad.wmnet``, ``wmnet`` or ``global``. Sections not present in the
     configuration file will be ignored.
 
-    Configuration values are loaded either from a given file or from the
-    default locations of ``<path to scap python package>/../scap.cfg``,
-    ``/srv/scap/scap.cfg`` and ``/etc/scap.cfg``. When the default
-    configuration files are used and both are found, the vaules in
-    ``/etc/scap.cfg`` will replace any values loaded from earlier files.
+    Configuration values are loaded from a file specified by the ``-c`` or
+    ``--conf`` command-line options or from the default locations with the
+    following hierarchy, sorted by override priority:
+
+    #. ``$(pwd)/scap/environments/<environment>/scap.cfg`` or
+       ``$(pwd)/scap/scap.cfg`` (if no environment was specified)
+    #. ``/etc/scap.cfg``
+    #. ``/srv/scap/scap.cfg``
+    #. ``<path to scap python package>/../scap.cfg``
+
+    For example, if a configuration parameter is set in ``/srv/scap/scap.cfg``
+    and that same parameter is set in ``/etc/scap.cfg`` the value for that
+    parameter set in ``/etc/scap.cfg`` will be used during execution.
 
     :param cfg_file: Alternate configuration file
+    :param environment: the string path under which scap.cfg is found
     :param overrides: Dict of configuration values
     :returns: dict of configuration values
     """
+    local_cfg = os.path.join(os.getcwd(), 'scap')
+
     parser = ConfigParser.SafeConfigParser()
     if cfg_file:
         try:
@@ -77,7 +90,10 @@ def load(cfg_file=None, overrides=None):
             os.path.join(os.path.dirname(__file__), '..', 'scap.cfg'),
             '/srv/scap/scap.cfg',
             '/etc/scap.cfg',
-            os.path.join(os.getcwd(), 'scap.cfg'),
+            utils.get_env_specific_filename(
+                os.path.join(local_cfg, 'scap.cfg'),
+                environment
+            )
         ])
 
     fqdn = socket.getfqdn().split('.')

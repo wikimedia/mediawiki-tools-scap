@@ -92,6 +92,22 @@ def get_real_username():
         return get_username()
 
 
+def get_env_specific_filename(path, env=None):
+    """Find a file specific to the environment in which scap is running"""
+    if env is None:
+        return path
+
+    base = os.path.dirname(path)
+    filename = os.path.basename(path)
+
+    env_filename = os.path.join(base, 'environments', env, filename)
+
+    if os.path.isfile(env_filename):
+        return env_filename
+
+    return path
+
+
 def get_realm_specific_filename(filename, realm, datacenter):
     """Find the most specific file for the given realm and datacenter.
 

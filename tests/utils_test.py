@@ -88,3 +88,61 @@ class UtilsTest(unittest.TestCase):
         with self.assertRaises(ValueError):
             gth('test[10:01]')
             gth('test[z:a]')
+
+    def test_get_env_specific_filename(self):
+        base_dir = os.path.join(os.path.dirname(__file__), 'env-test')
+
+        filepath = os.path.join(base_dir, 'README')
+        filepath_fake = os.path.join(base_dir, 'fake')
+        test_filepath = os.path.join(base_dir,
+                                     'environments', 'test', 'README')
+        test_filepath_fake = os.path.join(base_dir,
+                                          'environments', 'test', 'fake')
+
+        no_env = lambda path: utils.get_env_specific_filename(path)
+        test_env = lambda path: utils.get_env_specific_filename(path, 'test')
+
+        equals = [
+            (
+                no_env(filepath),
+                filepath,
+                'Existing files should work without env'
+            ),
+            (
+                no_env(filepath_fake),
+                filepath_fake,
+                'Non-existent files should work without env'
+            ),
+            (
+                test_env(filepath),
+                test_filepath,
+                'Existent files should work with an env'
+            ),
+            (
+                test_env(filepath_fake),
+                filepath_fake,
+                'Non-existent files with an environment should return the'
+                'original path'
+            ),
+        ]
+
+        not_equals = [
+            (
+                test_env(filepath_fake),
+                test_filepath_fake,
+                'Non-existent files within an environment should not return'
+                'an environment specific path'
+            ),
+            (
+                test_env(filepath),
+                filepath,
+                'Files that exist within an environment should not return'
+                'their non-environment specific path'
+            ),
+        ]
+
+        for test in equals:
+            self.assertEqual(test[0], test[1], test[2])
+
+        for test in not_equals:
+            self.assertNotEqual(test[0], test[1], test[2])
