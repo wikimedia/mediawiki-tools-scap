@@ -616,6 +616,8 @@ class Deploy(cli.Application):
     """
 
     @cli.argument('-r', '--rev', default='HEAD', help='Revision to deploy')
+    @cli.argument('-l', '--limit-hosts', default='all',
+                  help='Limit deploy to hosts matching expression')
     def main(self, *extra_args):
         logger = self.get_logger()
         repo = self.config['git_repo']
@@ -633,7 +635,16 @@ class Deploy(cli.Application):
                 'Script must be run from deployment repository under {}'
                     .format(deploy_dir))
 
-        targets = utils.read_dsh_hosts_file(self.config['dsh_targets'])
+        targets = utils.get_target_hosts(
+            self.arguments.limit_hosts,
+            utils.read_dsh_hosts_file(self.config['dsh_targets'])
+        )
+
+        logger.info(
+            'Deploy will run on the following targets: \n\t- {}'.format(
+                '\n\t- '.join(targets)
+            )
+        )
 
         # batch_size not required, don't allow a batch_size > 80 if set
         batch_size = self.config.get('batch_size', 80)
