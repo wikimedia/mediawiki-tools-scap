@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "6ec1af18_ce546d59",
+        "filename": "scap/main.py",
+        "patchSetId": 3
+      },
+      "lineNbr": 586,
+      "author": {
+        "id": 2177
+      },
+      "writtenOn": "2015-09-15T23:04:03Z",
+      "side": 1,
+      "message": "Perhaps an extra blank line before main() would increase readability.",
+      "revId": "4b919c85526b048dad6cce450648aba85fa0fc75",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
+    }
+  ]
+}
