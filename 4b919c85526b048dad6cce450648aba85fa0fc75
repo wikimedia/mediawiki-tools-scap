@@ -16,6 +16,24 @@
       "revId": "4b919c85526b048dad6cce450648aba85fa0fc75",
       "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
       "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "6ec1af18_eeccc93a",
+        "filename": "scap/main.py",
+        "patchSetId": 3
+      },
+      "lineNbr": 586,
+      "author": {
+        "id": 1731
+      },
+      "writtenOn": "2015-09-15T23:05:30Z",
+      "side": 1,
+      "message": "I thought so, too, but flake8 complains. :)",
+      "parentUuid": "6ec1af18_ce546d59",
+      "revId": "4b919c85526b048dad6cce450648aba85fa0fc75",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
     }
   ]
 }
