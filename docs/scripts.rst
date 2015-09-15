@@ -4,6 +4,27 @@ Scripts
 
 .. _scap:
 
+deploy
+======
+The **deploy** command handles deployment of various wikimedia projects from
+the deployment server to a staging or production environment.
+
+* Tags the current revision in the current git directory
+* Runs `git update-server-info` for the current git directory (as well
+  as for any submodules)
+* SSHs into each server in the `dsh_targets` file
+* Runs git fetch in the `/srv/deployment/{repo}` directory of each target
+  (running checkout if it does not exist)
+* Checks out the tag created in step 1 on each of the target machines
+* If a `service_name` is specified, the service is restarted
+* If a `service_port` is specified, make sure that it is accepting
+  connections
+
+.. program-output:: ../bin/sync-common --help
+.. seealso::
+   * :class:`scap.Deploy`
+
+
 scap
 ====
 **scap** is the driver script for syncing the MediaWiki versions and
