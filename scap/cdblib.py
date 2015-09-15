@@ -22,7 +22,15 @@ from itertools import chain
 
 
 def py_djb_hash(s):
-    '''Return the value of DJB's hash function for the given 8-bit string.'''
+    '''Return the value of DJB's hash function for the given 8-bit string.
+
+    >>> py_djb_hash('')
+    5381
+    >>> py_djb_hash('\x01')
+    177572
+    >>> py_djb_hash('€')
+    193278953
+    '''
     h = 5381
     for c in s:
         h = (((h << 5) + h) ^ ord(c)) & 0xffffffff
@@ -41,7 +49,15 @@ class Reader(object):
 
     def __init__(self, data, hashfn=djb_hash):
         '''Create an instance reading from a sequence and using hashfn to hash
-        keys.'''
+        keys.
+
+        >>> Reader(data='')
+        Traceback (most recent call last):
+        ...
+        IOError: CDB too small
+        >>> Reader(data='a' * 2048) #doctest: +ELLIPSIS
+        <scap.cdblib.Reader object at 0x...>
+        '''
         if len(data) < 2048:
             raise IOError('CDB too small')
 
@@ -166,7 +182,13 @@ class Writer(object):
 
     def __init__(self, fp, hashfn=djb_hash):
         '''Create an instance writing to a file-like object, using hashfn to
-        hash keys.'''
+        hash keys.
+
+        >>> import tempfile
+        >>> temp_fp = tempfile.TemporaryFile()
+        >>> Writer(fp=temp_fp, hashfn=py_djb_hash) #doctest: +ELLIPSIS
+        <scap.cdblib.Writer object at 0x...>
+        '''
         self.fp = fp
         self.hashfn = hashfn
 
