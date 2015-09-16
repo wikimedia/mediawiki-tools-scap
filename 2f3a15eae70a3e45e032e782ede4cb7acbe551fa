@@ -123,6 +123,24 @@
     },
     {
       "key": {
+        "uuid": "6ec1af18_a5bb366f",
+        "filename": "scap/cli.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 114,
+      "author": {
+        "id": 1731
+      },
+      "writtenOn": "2015-09-16T23:03:43Z",
+      "side": 1,
+      "message": "Done",
+      "parentUuid": "6ec1af18_c5bc421d",
+      "revId": "2f3a15eae70a3e45e032e782ede4cb7acbe551fa",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "6ec1af18_45a932db",
         "filename": "scap/main.py",
         "patchSetId": 1
@@ -140,6 +158,24 @@
     },
     {
       "key": {
+        "uuid": "6ec1af18_45b29293",
+        "filename": "scap/main.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 601,
+      "author": {
+        "id": 1731
+      },
+      "writtenOn": "2015-09-16T23:03:43Z",
+      "side": 1,
+      "message": "Done",
+      "parentUuid": "6ec1af18_45a932db",
+      "revId": "2f3a15eae70a3e45e032e782ede4cb7acbe551fa",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "6ec1af18_4553721a",
         "filename": "scap/main.py",
         "patchSetId": 1
@@ -151,6 +187,24 @@
       "writtenOn": "2015-09-16T22:23:06Z",
       "side": 1,
       "message": "better to move `logger \u003d self.get_logger()` up higher—follow the same pattern everywhere (although this may be a moot point since logger may change)",
+      "revId": "2f3a15eae70a3e45e032e782ede4cb7acbe551fa",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "6ec1af18_65b54e78",
+        "filename": "scap/main.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 629,
+      "author": {
+        "id": 1731
+      },
+      "writtenOn": "2015-09-16T23:03:43Z",
+      "side": 1,
+      "message": "Done",
+      "parentUuid": "6ec1af18_4553721a",
       "revId": "2f3a15eae70a3e45e032e782ede4cb7acbe551fa",
       "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
       "unresolved": false
