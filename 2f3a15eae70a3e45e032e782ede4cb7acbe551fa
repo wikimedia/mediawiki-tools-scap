@@ -36,6 +36,24 @@
     },
     {
       "key": {
+        "uuid": "6ec1af18_d20f2b8c",
+        "filename": "/COMMIT_MSG",
+        "patchSetId": 1
+      },
+      "lineNbr": 20,
+      "author": {
+        "id": 1731
+      },
+      "writtenOn": "2015-09-16T22:28:47Z",
+      "side": 1,
+      "message": "\u003e For hardlinks to work, source and dest needs to be on the filesystem AND belong to the same user. I guess its both mwdeploy in this case.\n\nRight, this should be the case since `deploy-local` sudos to the same user for git operations regardless of the process owner.\n\n\u003e Note it only uses that for .git objects, not for the actual files. So we still ends up consuming disk spaces for all the MediaWiki source code in the working copy.\n\u003e\n\u003e That is not necessarily a problem if we manage to garbage collect obsolete revs.  We can still rollback to them easily by recloning with hardlinks and checking it out.\n\nAgreed. We should implement some form of collection to keep only the previous `n` revisions.\n\nAlso note that this rollback functionality is only for automated rollback mid deploy. Manual rollback can simply be a deploy of an explicit past revision.",
+      "parentUuid": "6ec1af18_72be77fc",
+      "revId": "2f3a15eae70a3e45e032e782ede4cb7acbe551fa",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "6ec1af18_f25827ff",
         "filename": "/COMMIT_MSG",
         "patchSetId": 1
@@ -81,6 +99,24 @@
       "writtenOn": "2015-09-16T22:23:06Z",
       "side": 1,
       "message": "This seems like a function that could be useful outside of cli.Application—could move to utils.py",
+      "revId": "2f3a15eae70a3e45e032e782ede4cb7acbe551fa",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "6ec1af18_85b2bae2",
+        "filename": "scap/cli.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 114,
+      "author": {
+        "id": 1731
+      },
+      "writtenOn": "2015-09-16T22:28:47Z",
+      "side": 1,
+      "message": "Oh yeah, good point!",
+      "parentUuid": "6ec1af18_c5bc421d",
       "revId": "2f3a15eae70a3e45e032e782ede4cb7acbe551fa",
       "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
       "unresolved": false
