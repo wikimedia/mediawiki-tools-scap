@@ -20,6 +20,7 @@ import socket
 import string
 import struct
 import subprocess
+import sys
 import tempfile
 
 from . import ansi
@@ -29,6 +30,22 @@ from datetime import datetime
 class LockFailedError(Exception):
     """Signal that a locking attempt failed."""
     pass
+
+
+def ask(question, default):
+    """Provides a y/n prompt if the controlling terminal is interactive.
+
+    :param question: Prompt message to display
+    :param default: Default answer to use in the case of a non-interactive
+                    terminal
+    :returns: str User input or default value
+    """
+
+    if not sys.stdout.isatty():
+        return default
+
+    ans = raw_input('{} [{}]: '.format(question, default)).strip()
+    return ans.lower() if ans else default
 
 
 def find_nearest_host(hosts, port=22, timeout=1):
@@ -571,6 +588,10 @@ def is_git_dir(path):
             os.path.isdir(os.path.join(git_path, 'objects')) and
             os.path.isdir(os.path.join(git_path, 'refs')) and
             os.path.isfile(os.path.join(git_path, 'HEAD')))
+
+
+def mkdir_p(path, user=get_real_username(), logger=None):
+    sudo_check_call(user, "mkdir -p '{}'".format(path), logger=logger)
 
 
 @inside_git_dir
