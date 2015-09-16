@@ -579,16 +579,19 @@ class HHVMGracefulAll(cli.Application):
 class DeployLocal(cli.Application):
     """Deploy service code via git"""
 
+    STAGES = ['fetch', 'promote', 'check']
+
+    @cli.argument('stage', metavar='STAGE', choices=STAGES,
+        help='Stage of the deployment to execute')
     def main(self, *extra_args):
+        getattr(self, self.arguments.stage)()
+
+    def fetch(self):
         repo = self.config['git_repo']
         repo_user = self.config['git_repo_user']
         server = self.config['git_server']
         rev = self.config['git_rev']
         has_submodules = self.config['git_submodules']
-
-        # service_name/service_port only set for deploys requiring restart
-        service_name = self.config.get('service_name', None)
-        service_port = self.config.get('service_port', None)
 
         location = os.path.normpath("{0}/{1}".format(
             self.config['git_deploy_dir'], repo))
@@ -603,11 +606,17 @@ class DeployLocal(cli.Application):
         tasks.git_fetch(location, url, repo_user)
         tasks.git_checkout(location, rev, has_submodules, repo_user)
 
-        if service_name is not None:
-            tasks.restart_service(service_name, user=repo_user)
+    def promote(self):
+        service = self.config.get('service_name', None)
 
-        if service_port is not None:
-            tasks.check_port(int(service_port))
+        if service is not None:
+            tasks.restart_service(service, user=self.config['git_repo_user'])
+
+    def check(self):
+        port = self.config.get('service_port', None)
+
+        if port is not None:
+            tasks.check_port(int(port))
 
 
 class Deploy(cli.Application):
@@ -648,6 +657,7 @@ class Deploy(cli.Application):
         )
 
         # batch_size not required, don't allow a batch_size > 80 if set
+        # TODO allow batch sizes to be configured per stage
         batch_size = self.config.get('batch_size', 80)
         batch_size = 80 if batch_size >= 80 else batch_size
 
@@ -694,14 +704,17 @@ class Deploy(cli.Application):
                     if self.config.get(x) is not None
                 ])
 
-                logger.debug('Running cmd {}'.format(deploy_local_cmd))
-                deploy_rev = ssh.Job(
-                    hosts=targets, user=self.config['ssh_user'])
-                deploy_rev.command(deploy_local_cmd).progress('deploy_' + repo)
-                succeeded, failed = deploy_rev.run(batch_size=batch_size)
+                for stage in DeployLocal.STAGES:
+                    deploy_stage_cmd = deploy_local_cmd + [stage]
+                    logger.debug('Running cmd {}'.format(deploy_stage_cmd))
+                    deploy_stage = ssh.Job(
+                        hosts=targets, user=self.config['ssh_user'])
+                    deploy_stage.command(deploy_stage_cmd)
+                    deploy_stage.progress('deploy_{}_{}'.format(repo, stage))
+                    succeeded, failed = deploy_stage.run(batch_size=batch_size)
 
-                if failed:
-                    logger.warning('%d targets had deploy errors', failed)
-                    return 1
+                    if failed:
+                        logger.warning('%d targets had deploy errors', failed)
+                        return 1
 
         return 0
