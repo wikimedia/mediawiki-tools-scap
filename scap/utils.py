@@ -343,12 +343,19 @@ def sudo_check_call(user, cmd, logger=None):
     proc = subprocess.Popen('sudo -u %s -n -- %s' % (user, cmd),
         stdout=subprocess.PIPE, stderr=subprocess.STDOUT, shell=True)
 
+    fullOut = []
     while proc.poll() is None:
         line = proc.stdout.readline().strip()
         if line:
             logger.debug(line)
+            fullOut.append(line)
+
+    # Consumes rest of stdout
+    leftover = proc.stdout.readlines()
+    map(logger.debug, leftover)
 
     if proc.returncode:
+        logger.error("Last output:\n" + '\n'.join(fullOut + leftover))
         raise subprocess.CalledProcessError(proc.returncode, cmd)
 
 
