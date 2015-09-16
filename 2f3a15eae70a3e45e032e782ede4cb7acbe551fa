@@ -1,0 +1,55 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "6ec1af18_72be77fc",
+        "filename": "/COMMIT_MSG",
+        "patchSetId": 1
+      },
+      "lineNbr": 20,
+      "author": {
+        "id": 24
+      },
+      "writtenOn": "2015-09-16T20:37:13Z",
+      "side": 1,
+      "message": "For hardlinks to work, source and dest needs to be on the filesystem AND belong to the same user. I guess its both mwdeploy in this case.\n\nNote it only uses that for .git objects, not for the actual files. So we still ends up consuming disk spaces for all the MediaWiki source code in the working copy.\n\nThat is not necessarily a problem if we manage to garbage collect obsolete revs.  We can still rollback to them easily by recloning with hardlinks and checking it out.",
+      "revId": "2f3a15eae70a3e45e032e782ede4cb7acbe551fa",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "6ec1af18_f25827ff",
+        "filename": "/COMMIT_MSG",
+        "patchSetId": 1
+      },
+      "lineNbr": 26,
+      "author": {
+        "id": 24
+      },
+      "writtenOn": "2015-09-16T20:37:13Z",
+      "side": 1,
+      "message": "So is that at the root of the revision checkout ?\n\nSeems to me the fetch occurs in the cached git repo on each node where as the check is for an individual revision.  I am a bit confused.",
+      "revId": "2f3a15eae70a3e45e032e782ede4cb7acbe551fa",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "6ec1af18_120133b9",
+        "filename": "/COMMIT_MSG",
+        "patchSetId": 1
+      },
+      "lineNbr": 31,
+      "author": {
+        "id": 24
+      },
+      "writtenOn": "2015-09-16T20:37:13Z",
+      "side": 1,
+      "message": "Can we get all of the above added somewhere in /docs/ instead?   Would be easier to tweak and even add some ASCII based workflows / directory tree etc. :}",
+      "revId": "2f3a15eae70a3e45e032e782ede4cb7acbe551fa",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
+    }
+  ]
+}
