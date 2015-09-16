@@ -1,0 +1,38 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "6ec1af18_add31ed6",
+        "filename": "scap/utils.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 348,
+      "author": {
+        "id": 24
+      },
+      "writtenOn": "2015-09-16T21:14:45Z",
+      "side": 1,
+      "message": "Keep the strip() or:\n\n* logger.debug(line) will have an extra newline\n* logger.error() does a \"\\n\".join()",
+      "revId": "9e410f1c8508817f3a97e59e4ae5265a4adb796d",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "6ec1af18_6ddd36e1",
+        "filename": "scap/utils.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 353,
+      "author": {
+        "id": 24
+      },
+      "writtenOn": "2015-09-16T21:14:45Z",
+      "side": 1,
+      "message": "That comments needs to be split. Accidentally joined the comment and actual code :-D\n\n # Consumes rest of stdout\n leftover \u003d proc.stdout.readlines()",
+      "revId": "9e410f1c8508817f3a97e59e4ae5265a4adb796d",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
+    }
+  ]
+}
