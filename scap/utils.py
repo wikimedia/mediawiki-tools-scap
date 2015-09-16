@@ -276,7 +276,8 @@ def lock(filename):
         if lock_fd:
             fcntl.lockf(lock_fd, fcntl.LOCK_UN)
             lock_fd.close()
-            os.unlink(filename)
+            if os.path.exists(filename):
+                os.unlink(filename)
 
 
 @contextlib.contextmanager
