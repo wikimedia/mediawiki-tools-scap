@@ -2,6 +2,23 @@
   "comments": [
     {
       "key": {
+        "uuid": "6ec1af18_25cd068a",
+        "filename": "/COMMIT_MSG",
+        "patchSetId": 1
+      },
+      "lineNbr": 13,
+      "author": {
+        "id": 2321
+      },
+      "writtenOn": "2015-09-16T22:23:06Z",
+      "side": 1,
+      "message": "I see that the new structure is `/srv/deployment/[repo]/{revs,current,cache}`.\n\nSince in trebuchet [repo] is always of the form: some/repo, i.e. there is always an additional directory, might it be less disruptive to use `/srv/deployment/[repo1]/{revs,current,cache,[repo2]}\n\nBenefits here:\n#. Backwards compatible with trebuchet\n#. No one changes their code structure\n#. Possible reduction of necessary puppet-wrangling to get everything working\n\nThe main draw back I see is it\u0027s sort of Worse-Is-Better-ism to leave the directory structure as is, especially when the main benefit is /possibly/ less work, but I think it\u0027s a tradeoff of, potentially, a lot of work vs. continuing to enforce an existing opaque rule for opaque reasons.",
+      "revId": "2f3a15eae70a3e45e032e782ede4cb7acbe551fa",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "6ec1af18_72be77fc",
         "filename": "/COMMIT_MSG",
         "patchSetId": 1
@@ -47,6 +64,57 @@
       "writtenOn": "2015-09-16T20:37:13Z",
       "side": 1,
       "message": "Can we get all of the above added somewhere in /docs/ instead?   Would be easier to tweak and even add some ASCII based workflows / directory tree etc. :}",
+      "revId": "2f3a15eae70a3e45e032e782ede4cb7acbe551fa",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "6ec1af18_c5bc421d",
+        "filename": "scap/cli.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 114,
+      "author": {
+        "id": 2321
+      },
+      "writtenOn": "2015-09-16T22:23:06Z",
+      "side": 1,
+      "message": "This seems like a function that could be useful outside of cli.Application—could move to utils.py",
+      "revId": "2f3a15eae70a3e45e032e782ede4cb7acbe551fa",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "6ec1af18_45a932db",
+        "filename": "scap/main.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 601,
+      "author": {
+        "id": 2321
+      },
+      "writtenOn": "2015-09-16T22:23:06Z",
+      "side": 1,
+      "message": "deploy_path \u003d lambda dir: os.path.join(self.deploy_dir, dir)\nself.cache_dir \u003d deploy_path(\u0027cache\u0027)\nself.revs_dir \u003d deploy_path(self.rev)\netc...\n\n...might be better? If you ever wanted to move everything, it\u0027s a lot less rote line-changes.",
+      "revId": "2f3a15eae70a3e45e032e782ede4cb7acbe551fa",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "6ec1af18_4553721a",
+        "filename": "scap/main.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 629,
+      "author": {
+        "id": 2321
+      },
+      "writtenOn": "2015-09-16T22:23:06Z",
+      "side": 1,
+      "message": "better to move `logger \u003d self.get_logger()` up higher—follow the same pattern everywhere (although this may be a moot point since logger may change)",
       "revId": "2f3a15eae70a3e45e032e782ede4cb7acbe551fa",
       "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
       "unresolved": false
