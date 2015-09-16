@@ -679,7 +679,7 @@ def restart_service(service, user='mwdeploy'):
 
     logger.debug('Restarting service {}'.format(service))
     cmd_format = 'sudo /usr/sbin/service {} {}'
-    utils.sudo_check_call(user, cmd_format.format(service, 'restart'))
+    utils.sudo_check_call(user, cmd_format.format(service, 'restart'), logger)
 
 
 def check_port(port_number):
