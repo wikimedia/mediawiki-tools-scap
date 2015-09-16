@@ -1,0 +1,38 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "6ec1af18_3721c1ac",
+        "filename": "scap/utils.py",
+        "patchSetId": 3
+      },
+      "lineNbr": 344,
+      "author": {
+        "id": 24
+      },
+      "writtenOn": "2015-09-16T20:10:35Z",
+      "side": 1,
+      "message": "Unrelated but there is a bug there.  Whenever the process terminates, the poll() aborts the loop and thus fails to read remaining lines from stdout.\n\nAlso it only process a line per iteration, and the buffer could have a whole more leftover.",
+      "revId": "3f937778afa6d384ee44a5fd534fc2c1ae923ecc",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "6ec1af18_52181b7a",
+        "filename": "scap/utils.py",
+        "patchSetId": 3
+      },
+      "lineNbr": 346,
+      "author": {
+        "id": 24
+      },
+      "writtenOn": "2015-09-16T20:10:35Z",
+      "side": 1,
+      "message": "Just above, note the call to strip() which remove the newline. So you will want something like:\n\n fullOut \u003d []\n while proc.poll() is None:\n     line \u003d proc.stdout.readline()\n     if line:\n         logger.debug(line)\n     fullOut.append(line)\n \n # Consumes rest of stdoutleftover \u003d proc.stdout.readlines()\n map(logger.debug,leftover)\n \n if proc.returncode:\n     logger.error(\"Last output:\\n\" + \u0027\\n\u0027.join(fullOut + leftover)\n\nWhich fix the bug that leaves behind a bunch of stdout.  You can give it a try with subprocess.open([\u0027/bin/ls\u0027, \u0027-l\u0027, \u0027/\u0027).",
+      "revId": "3f937778afa6d384ee44a5fd534fc2c1ae923ecc",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
+    }
+  ]
+}
