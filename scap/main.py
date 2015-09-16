@@ -18,6 +18,7 @@ from . import log
 from . import ssh
 from . import tasks
 from . import utils
+from datetime import datetime
 
 
 class AbstractSync(cli.Application):
@@ -622,15 +623,15 @@ class Deploy(cli.Application):
         logger = self.get_logger()
         repo = self.config['git_repo']
         deploy_dir = self.config['git_deploy_dir']
+        cwd = os.getcwd()
 
-        in_deploy_dir = os.path.commonprefix(
-            [os.getcwd(), deploy_dir]) == deploy_dir
+        in_deploy_dir = os.path.commonprefix([cwd, deploy_dir]) == deploy_dir
 
         if not in_deploy_dir:
             raise RuntimeError(errno.EPERM,
                 'Your path is not a part of the git deploy path', deploy_dir)
 
-        if not utils.is_git_dir(os.getcwd()):
+        if not utils.is_git_dir(cwd):
             raise RuntimeError(errno.EPERM,
                 'Script must be run from deployment repository under {}'
                     .format(deploy_dir))
@@ -652,12 +653,22 @@ class Deploy(cli.Application):
 
         with utils.lock(self.config['lock_file']):
             with log.Timer('deploy_' + repo):
-                (tag, tag_json) = utils.generate_json_tag(location=os.getcwd())
+                timestamp = datetime.utcnow()
+                tag = utils.git_next_deploy_tag(location=cwd)
+                commit = utils.git_sha(location=cwd, rev=self.arguments.rev)
+                user = utils.get_real_username()
 
-                tasks.git_deploy_file(tag_json)
-                tasks.git_tag_repo(tag, tag_json, self.arguments.rev)
+                deploy_info = {
+                    'tag': tag,
+                    'commit': commit,
+                    'user': user,
+                    'timestamp': timestamp.isoformat(),
+                }
 
-                self.config['git_rev'] = tag
+                tasks.git_update_deploy_head(deploy_info, location=cwd)
+                tasks.git_tag_repo(deploy_info, location=cwd)
+
+                self.config['git_rev'] = commit
 
                 # Run git update-server-info because git repo is a dumb
                 # apache server
