@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "6ec1af18_a1424fb0",
+        "filename": "scap/utils.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 142,
+      "author": {
+        "id": 2
+      },
+      "writtenOn": "2015-09-16T16:56:26Z",
+      "side": 1,
+      "message": "Why would we use anything other than origin here?",
+      "revId": "4e3c539c942fca14c317cdbbf4680d138023d68c",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
+    }
+  ]
+}
