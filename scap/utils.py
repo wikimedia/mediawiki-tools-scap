@@ -24,6 +24,7 @@ import tempfile
 
 from . import ansi
 from datetime import datetime
+from functools import wraps
 
 
 class LockFailedError(Exception):
@@ -271,6 +272,59 @@ def iterate_subdirectories(root):
         subdir = os.path.join(root, name)
         if os.path.isdir(subdir):
             yield subdir
+
+
+logger_stack = []
+
+
+@contextlib.contextmanager
+def context_logger(context_name, *args):
+    """
+    context_logger is a context manager that maintains nested logger
+    contexts. Each time you enter a with block using this context manager,
+    a named logger is set up as a child of the current logger.
+    When exiting the with block, the logger gets popped off the stack and
+    the parent logger takes it's place as the 'current' logging context.
+
+    The easiest way to use this is to decorate a function with log_context,
+    For Example::
+
+        @log_context('name')
+        def my_func(some, args, logger=None):
+            logger.debug('something')
+
+    """
+    if len(logger_stack) < 1:
+        logger_stack.append(logging.getLogger())
+
+    parent = logger_stack[-1]
+
+    logger = parent.getChild(context_name)
+    logger_stack.append(logger)
+    try:
+        yield logger
+    finally:
+        logger_stack.pop()
+
+
+def log_context(context_name):
+    """Decorator to wrap the a function in a new context_logger,
+       the logger is passed to the function via a kwarg named 'logger'"""
+    def arg_wrapper(func):
+        @wraps(func)
+        def context_wrapper(*args, **kwargs):
+            if 'logger' in kwargs:
+                return func(*args, **kwargs)
+
+            with context_logger(context_name) as logger:
+                kwargs['logger'] = logger
+                return func(*args, **kwargs)
+        return context_wrapper
+    return arg_wrapper
+
+
+def get_logger():
+    return logger_stack[-1]
 
 
 @contextlib.contextmanager
