@@ -1,0 +1,72 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "6ec1af18_841f135e",
+        "filename": "scap/log.py",
+        "patchSetId": 5
+      },
+      "lineNbr": 19,
+      "author": {
+        "id": 1731
+      },
+      "writtenOn": "2015-09-17T20:53:19Z",
+      "side": 1,
+      "message": "What\u0027s the reason for changing? Aren\u0027t we using relative imports everywhere else?",
+      "revId": "d3072112469213df746509b06e859e77f00e16c2",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "6ec1af18_1180478d",
+        "filename": "scap/log.py",
+        "patchSetId": 5
+      },
+      "lineNbr": 30,
+      "author": {
+        "id": 1731
+      },
+      "writtenOn": "2015-09-17T20:53:19Z",
+      "side": 1,
+      "message": "nit: PEP8 says lower underscore case for function/method names which we\u0027re using everywhere else.\n\nsupernit: Maybe a simpler like `nested_logger`. It would read nicely (`with: log.nested_logger`).",
+      "revId": "d3072112469213df746509b06e859e77f00e16c2",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "6ec1af18_d1515f3b",
+        "filename": "scap/log.py",
+        "patchSetId": 5
+      },
+      "lineNbr": 61,
+      "author": {
+        "id": 1731
+      },
+      "writtenOn": "2015-09-17T20:53:19Z",
+      "side": 1,
+      "message": "nit: PEP8 says lower underscore case for function/method names which we\u0027re using everywhere else.",
+      "revId": "d3072112469213df746509b06e859e77f00e16c2",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "6ec1af18_71166b5c",
+        "filename": "scap/log.py",
+        "patchSetId": 5
+      },
+      "lineNbr": 65,
+      "author": {
+        "id": 1731
+      },
+      "writtenOn": "2015-09-17T20:53:19Z",
+      "side": 1,
+      "message": "You should probably mention the alternate behavior when a `name` is given, that it creates and returns a new child logger.",
+      "revId": "d3072112469213df746509b06e859e77f00e16c2",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
+    }
+  ]
+}
