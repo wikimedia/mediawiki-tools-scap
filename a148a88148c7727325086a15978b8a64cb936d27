@@ -16,6 +16,24 @@
       "revId": "a148a88148c7727325086a15978b8a64cb936d27",
       "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
       "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "6ec1af18_748adee5",
+        "filename": "scap/tasks.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 21,
+      "author": {
+        "id": 2
+      },
+      "writtenOn": "2015-09-17T15:03:43Z",
+      "side": 1,
+      "message": "So which should we keep? :)",
+      "parentUuid": "6ec1af18_b41926dd",
+      "revId": "a148a88148c7727325086a15978b8a64cb936d27",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
     }
   ]
 }
