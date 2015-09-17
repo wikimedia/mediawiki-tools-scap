@@ -19,6 +19,24 @@
     },
     {
       "key": {
+        "uuid": "6ec1af18_c4943bed",
+        "filename": "scap/log.py",
+        "patchSetId": 5
+      },
+      "lineNbr": 19,
+      "author": {
+        "id": 1706
+      },
+      "writtenOn": "2015-09-17T21:07:08Z",
+      "side": 1,
+      "message": "The reason for changing is because python\u0027s \"from . import X\" statement works differently from \"import X\" ... the \"from .\" statement can\u0027t handle circular dependencies, on the other hand, \"import X\" does handle circular dependencies just fine.\n\nSo the choice was either put this in a file other than log.py (so that I don\u0027t need to import util) or make utils and log import using the regular import statement.\n\nI was tempted to refactor everything to use absolute imports, just for consistency, but I didn\u0027t want to go to that extreme before getting feedback on the change.",
+      "parentUuid": "6ec1af18_841f135e",
+      "revId": "d3072112469213df746509b06e859e77f00e16c2",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "6ec1af18_1180478d",
         "filename": "scap/log.py",
         "patchSetId": 5
@@ -30,6 +48,24 @@
       "writtenOn": "2015-09-17T20:53:19Z",
       "side": 1,
       "message": "nit: PEP8 says lower underscore case for function/method names which we\u0027re using everywhere else.\n\nsupernit: Maybe a simpler like `nested_logger`. It would read nicely (`with: log.nested_logger`).",
+      "revId": "d3072112469213df746509b06e859e77f00e16c2",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "6ec1af18_e48e17d5",
+        "filename": "scap/log.py",
+        "patchSetId": 5
+      },
+      "lineNbr": 30,
+      "author": {
+        "id": 1706
+      },
+      "writtenOn": "2015-09-17T21:07:08Z",
+      "side": 1,
+      "message": "ok",
+      "parentUuid": "6ec1af18_1180478d",
       "revId": "d3072112469213df746509b06e859e77f00e16c2",
       "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
       "unresolved": false
@@ -53,6 +89,24 @@
     },
     {
       "key": {
+        "uuid": "6ec1af18_c4bbdb6e",
+        "filename": "scap/log.py",
+        "patchSetId": 5
+      },
+      "lineNbr": 61,
+      "author": {
+        "id": 1706
+      },
+      "writtenOn": "2015-09-17T21:07:08Z",
+      "side": 1,
+      "message": "...",
+      "parentUuid": "6ec1af18_d1515f3b",
+      "revId": "d3072112469213df746509b06e859e77f00e16c2",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "6ec1af18_71166b5c",
         "filename": "scap/log.py",
         "patchSetId": 5
@@ -64,6 +118,24 @@
       "writtenOn": "2015-09-17T20:53:19Z",
       "side": 1,
       "message": "You should probably mention the alternate behavior when a `name` is given, that it creates and returns a new child logger.",
+      "revId": "d3072112469213df746509b06e859e77f00e16c2",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "6ec1af18_84b5d37a",
+        "filename": "scap/log.py",
+        "patchSetId": 5
+      },
+      "lineNbr": 65,
+      "author": {
+        "id": 1706
+      },
+      "writtenOn": "2015-09-17T21:07:08Z",
+      "side": 1,
+      "message": "If we just use the with statement everywhere, then this wouldn\u0027t matter.",
+      "parentUuid": "6ec1af18_71166b5c",
       "revId": "d3072112469213df746509b06e859e77f00e16c2",
       "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
       "unresolved": false
