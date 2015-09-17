@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "6ec1af18_94642a47",
+        "filename": "scap/ssh.py",
+        "patchSetId": 4
+      },
+      "lineNbr": 34,
+      "author": {
+        "id": 1706
+      },
+      "writtenOn": "2015-09-17T15:04:34Z",
+      "side": 1,
+      "message": "This could probably be \u0027ssh.job\u0027 now since the first level will be declared by the cli.Application.program_name (\u0027scap\u0027 \u0027sync-file\u0027, etc)",
+      "revId": "daaeffae05f0865b03021273dd71567d4c7aa3a2",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
+    }
+  ]
+}
