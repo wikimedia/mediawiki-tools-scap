@@ -834,7 +834,7 @@ class Deploy(cli.Application):
     def execute_stage(self, stage):
         logger = self.get_logger()
         deploy_local_cmd = [self.get_script_path('deploy-local')]
-        batch_size = self._get_batch_size()
+        batch_size = self._get_batch_size(stage)
 
         deploy_local_cmd.extend([
             "-D '{}:{}'".format(x, self.config.get(x))
@@ -856,6 +856,7 @@ class Deploy(cli.Application):
 
         return 0
 
-    def _get_batch_size(self):
-        size = self.config.get('batch_size', self.MAX_BATCH_SIZE)
+    def _get_batch_size(self, stage):
+        default = self.config.get('batch_size', self.MAX_BATCH_SIZE)
+        size = self.config.get('{}_batch_size'.format(stage), default)
         return min(size, self.MAX_BATCH_SIZE)
