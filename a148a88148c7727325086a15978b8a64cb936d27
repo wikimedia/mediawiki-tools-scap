@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "6ec1af18_b41926dd",
+        "filename": "scap/tasks.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 21,
+      "author": {
+        "id": 1706
+      },
+      "writtenOn": "2015-09-17T15:00:59Z",
+      "side": 1,
+      "message": "we don\u0027t need to do both \u0027from . import log\u0027 and \u0027import scap.log\u0027   the reason I used scap.log instead of \u0027from . import log\u0027 is because the second way causes problems with circular references but the \u0027scap.log\u0027 form doesn\u0027t have that problem.\n\nin other words,   utils imports log, and log imports utils, so I had to do it like that to avoid an error.",
+      "revId": "a148a88148c7727325086a15978b8a64cb936d27",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
+    }
+  ]
+}
