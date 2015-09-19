@@ -738,6 +738,8 @@ class Deploy(cli.Application):
     """
 
     MAX_BATCH_SIZE = 80
+    # Stop executing on new hosts after failure
+    MAX_FAILURES = 0
 
     DEPLOY_CONF = [
         'git_deploy_dir',
@@ -846,6 +848,7 @@ class Deploy(cli.Application):
         logger.debug('Running cmd {}'.format(deploy_stage_cmd))
         deploy_stage = ssh.Job(
             hosts=self.targets, user=self.config['ssh_user'])
+        deploy_stage.max_failure = self.MAX_FAILURES
         deploy_stage.command(deploy_stage_cmd)
         deploy_stage.progress('deploy_{}_{}'.format(self.repo, stage))
         succeeded, failed = deploy_stage.run(batch_size=batch_size)
@@ -858,5 +861,5 @@ class Deploy(cli.Application):
 
     def _get_batch_size(self, stage):
         default = self.config.get('batch_size', self.MAX_BATCH_SIZE)
-        size = self.config.get('{}_batch_size'.format(stage), default)
+        size = int(self.config.get('{}_batch_size'.format(stage), default))
         return min(size, self.MAX_BATCH_SIZE)

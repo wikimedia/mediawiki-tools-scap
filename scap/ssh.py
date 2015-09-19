@@ -30,6 +30,7 @@ class Job(object):
         self._command = command
         self._reporter = None
         self._user = user
+        self.max_failure = len(hosts)
 
     def get_logger(self):
         """Lazy getter for a logger instance."""
@@ -91,7 +92,7 @@ class Job(object):
             return self._run_with_reporter(batch_size)
         else:
             return list(cluster_ssh(self._hosts, self._command, self._user,
-                                    batch_size))
+                                    batch_size, self.max_failure))
 
     def _run_with_reporter(self, batch_size):
         """Run job and feed results to a :class:`log.ProgressReporter` as they
@@ -99,8 +100,9 @@ class Job(object):
         self._reporter.expect(len(self._hosts))
         self._reporter.start()
 
-        for host, status, output in cluster_ssh(
-                self._hosts, self._command, self._user, batch_size):
+        for host, status, output in cluster_ssh(self._hosts, self._command,
+                                                self._user, batch_size,
+                                                self.max_failure):
             if status == 0:
                 self._reporter.add_success()
             else:
@@ -111,17 +113,20 @@ class Job(object):
         return self._reporter.ok, self._reporter.failed
 
 
-def cluster_ssh(hosts, command, user=None, limit=80):
+def cluster_ssh(hosts, command, user=None, limit=80, max_fail=None):
     """Run a command via SSH on multiple hosts concurrently."""
     hosts = set(hosts)
     # Ensure a minimum batch size of 1
     limit = max(limit, 1)
+
+    max_failure = len(hosts) if max_fail is None else max_fail
 
     try:
         command = shlex.split(command)
     except AttributeError:
         pass
 
+    failures = 0
     procs = {}
     fds = {}
     poll = select.epoll()
@@ -158,9 +163,13 @@ def cluster_ssh(hosts, command, user=None, limit=80):
 
                 if pid:
                     status = -(status & 255) or (status >> 8)
+                    if status != 0:
+                        failures = failures + 1
                     proc, host = procs.pop(pid)
                     poll.unregister(proc.stdout)
                     output = fds.pop(proc.stdout.fileno(), '')
+                    if failures > max_failure:
+                        hosts = []
                     yield host, status, output
     finally:
         poll.close()
