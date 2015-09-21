@@ -578,23 +578,60 @@ class HHVMGracefulAll(cli.Application):
 
 class DeployLocal(cli.Application):
     """Deploy service code via git"""
-
     STAGES = ['fetch', 'promote', 'check']
+    EX_STAGES = ['rollback']
 
-    @cli.argument('stage', metavar='STAGE', choices=STAGES,
+    rev = None
+    cache_dir = None
+    revs_dir = None
+    rev_dir = None
+    cur_link = None
+    progress_flag = None
+    done_flag = None
+    user = None
+
+    @cli.argument('stage', metavar='STAGE', choices=STAGES + EX_STAGES,
         help='Stage of the deployment to execute')
     def main(self, *extra_args):
+        self.rev = self.config['git_rev']
+
+        root_deploy_dir = os.path.normpath("{0}/{1}".format(
+            self.config['git_deploy_dir'], self.config['git_repo']))
+
+        deploy_dir = lambda subdir: os.path.join(root_deploy_dir, subdir)
+
+        self.cache_dir = deploy_dir('cache')
+        self.revs_dir = deploy_dir('revs')
+
+        self.rev_dir = os.path.join(self.revs_dir, self.rev)
+
+        self.cur_link = deploy_dir('current')
+        self.progress_flag = deploy_dir('.in-progress')
+        self.done_flag = deploy_dir('.done')
+
+        self.user = self.config['git_repo_user']
+
         getattr(self, self.arguments.stage)()
 
     def fetch(self):
+        """Fetch the specified revision of the remote repo.
+
+        The given repo is cloned into the cache directory and a new working
+        directory for the given revision is created under revs/{rev}.
+
+        At the end of this stage, the .in-progress link is created to signal
+        the possibility for future rollback.
+        """
+
+        logger = self.get_logger()
+
         repo = self.config['git_repo']
-        repo_user = self.config['git_repo_user']
         server = self.config['git_server']
-        rev = self.config['git_rev']
         has_submodules = self.config['git_submodules']
 
-        location = os.path.normpath("{0}/{1}".format(
-            self.config['git_deploy_dir'], repo))
+        # create deployment directories if they don't already exist
+        for d in [self.cache_dir, self.revs_dir]:
+            utils.mkdir_p(d, logger=logger)
 
         # only supports http from tin for the moment
         scheme = 'http'
@@ -603,20 +640,95 @@ class DeployLocal(cli.Application):
         url = "{0}://{1}/.git".format(scheme, url)
         self.get_logger().debug('Fetching from: {}'.format(url))
 
-        tasks.git_fetch(location, url, repo_user)
-        tasks.git_checkout(location, rev, has_submodules, repo_user)
+        # clone/fetch from the repo to the cache directory
+        tasks.git_fetch(self.cache_dir, url, user=self.user)
+
+        # clone/fetch from the local cache directory to the revision directory
+        tasks.git_fetch(self.rev_dir, self.cache_dir, user=self.user)
+
+        # checkout the given revision
+        tasks.git_checkout(self.rev_dir, self.rev,
+                           submodules=has_submodules,
+                           user=self.user)
+
+        # link the .in-progress flag to the rev directory
+        self._link_rev_dir(self.progress_flag)
 
     def promote(self):
+        """Promote the current deployment.
+
+        Switches the `current` symlink to the current revision directory and
+        restarts the configured service.
+        """
+
         service = self.config.get('service_name', None)
+
+        self._link_rev_dir(self.cur_link)
 
         if service is not None:
             tasks.restart_service(service, user=self.config['git_repo_user'])
 
     def check(self):
+        """Verifies whether the promotion was successful.
+
+        Probes the configured service port to measure whether it successfully
+        restarted.
+
+        At the end of this stage, the .done link is created and the
+        .in-progress link is removed.
+        """
+
         port = self.config.get('service_port', None)
 
         if port is not None:
             tasks.check_port(int(port))
+
+        # move .done flag and remove the .in-progress flag
+        self._link_rev_dir(self.done_flag)
+        self._remove_progress_link()
+
+    def rollback(self):
+        """Performs a rollback to the last deployed revision.
+
+        The rollback stage expects an .in-progress symlink to points to the
+        revision directory for the currently running deployment. If the link
+        doesn't exist, it's assumed that the current deployment errored at an
+        early enough stage where a rollback isn't necessary.
+
+        It also looks for a .done symlink that points to the revision
+        directory for the last successful deployment. If this link doesn't
+        exist, a rollback isn't possible. If it does exist, the current
+        revision directory is replaced with the target of the link and the
+        promote stage is re-run.
+        """
+
+        logger = self.get_logger()
+
+        if not os.path.exists(self.progress_flag):
+            logger.info('No rollback necessary. Skipping')
+            return 0
+
+        if not os.path.exists(self.done_flag):
+            raise RuntimeError('there is no previous revision to rollback to')
+
+        rev_dir = os.path.realpath(self.done_flag)
+        rev = os.path.basename(rev_dir)
+
+        if not os.path.isdir(rev_dir):
+            msg = 'rollback failed due to missing rev directory {}'
+            raise RuntimeError(msg.format(rev_dir))
+
+        logger.info('Rolling back to revision {}'.format(rev))
+        self.rev = rev
+        self.rev_dir = rev_dir
+        self.promote()
+        self._remove_progress_link()
+
+    def _link_rev_dir(self, symlink_path):
+        tasks.move_symlink(self.rev_dir, symlink_path, user=self.user)
+
+    def _remove_progress_link(self):
+        tasks.remove_symlink(self.progress_flag, user=self.user)
 
 
 class Deploy(cli.Application):
@@ -625,14 +737,38 @@ class Deploy(cli.Application):
     Uses local .scaprc as config for each host in cluster
     """
 
+    MAX_BATCH_SIZE = 80
+
+    DEPLOY_CONF = [
+        'git_deploy_dir',
+        'git_repo_user',
+        'git_server',
+        'git_scheme',
+        'git_repo',
+        'git_rev',
+        'git_submodules',
+        'service_name',
+        'service_port',
+    ]
+
+    repo = None
+    targets = []
+
     @cli.argument('-r', '--rev', default='HEAD', help='Revision to deploy')
+    @cli.argument('-s', '--stages', choices=DeployLocal.STAGES,
+                  help='Deployment stages to execute. Used only for testing.')
     @cli.argument('-l', '--limit-hosts', default='all',
                   help='Limit deploy to hosts matching expression')
     def main(self, *extra_args):
         logger = self.get_logger()
-        repo = self.config['git_repo']
+        self.repo = self.config['git_repo']
         deploy_dir = self.config['git_deploy_dir']
         cwd = os.getcwd()
+
+        if self.arguments.stages:
+            stages = self.arguments.stages.split(',')
+        else:
+            stages = DeployLocal.STAGES
 
         in_deploy_dir = os.path.commonprefix([cwd, deploy_dir]) == deploy_dir
 
@@ -645,24 +781,19 @@ class Deploy(cli.Application):
                 'Script must be run from deployment repository under {}'
                     .format(deploy_dir))
 
-        targets = utils.get_target_hosts(
+        self.targets = utils.get_target_hosts(
             self.arguments.limit_hosts,
             utils.read_hosts_file(self.config['dsh_targets'])
         )
 
         logger.info(
             'Deploy will run on the following targets: \n\t- {}'.format(
-                '\n\t- '.join(targets)
+                '\n\t- '.join(self.targets)
             )
         )
 
-        # batch_size not required, don't allow a batch_size > 80 if set
-        # TODO allow batch sizes to be configured per stage
-        batch_size = self.config.get('batch_size', 80)
-        batch_size = 80 if batch_size >= 80 else batch_size
-
         with utils.lock(self.config['lock_file']):
-            with log.Timer('deploy_' + repo):
+            with log.Timer('deploy_' + self.repo):
                 timestamp = datetime.utcnow()
                 tag = utils.git_next_deploy_tag(location=cwd)
                 commit = utils.git_sha(location=cwd, rev=self.arguments.rev)
@@ -684,37 +815,47 @@ class Deploy(cli.Application):
                 # apache server
                 tasks.git_update_server_info(self.config['git_submodules'])
 
-                deploy_conf = [
-                    'git_deploy_dir',
-                    'git_repo_user',
-                    'git_server',
-                    'git_scheme',
-                    'git_repo',
-                    'git_rev',
-                    'git_submodules',
-                    'service_name',
-                    'service_port',
-                ]
-
-                deploy_local_cmd = [self.get_script_path('deploy-local')]
-
-                deploy_local_cmd.extend([
-                    "-D '{}:{}'".format(x, self.config.get(x))
-                    for x in deploy_conf
-                    if self.config.get(x) is not None
-                ])
-
-                for stage in DeployLocal.STAGES:
-                    deploy_stage_cmd = deploy_local_cmd + [stage]
-                    logger.debug('Running cmd {}'.format(deploy_stage_cmd))
-                    deploy_stage = ssh.Job(
-                        hosts=targets, user=self.config['ssh_user'])
-                    deploy_stage.command(deploy_stage_cmd)
-                    deploy_stage.progress('deploy_{}_{}'.format(repo, stage))
-                    succeeded, failed = deploy_stage.run(batch_size=batch_size)
-
-                    if failed:
-                        logger.warning('%d targets had deploy errors', failed)
-                        return 1
+                for stage in stages:
+                    ret = self.execute_stage(stage)
+                    if ret > 0:
+                        self.execute_rollback(stage)
+                        return ret
 
         return 0
+
+    def execute_rollback(self, stage):
+        prompt = "Stage '{}' failed. Perform rollback?".format(stage)
+
+        if utils.ask(prompt, 'y') == 'y':
+            return self.execute_stage('rollback')
+
+        return 0
+
+    def execute_stage(self, stage):
+        logger = self.get_logger()
+        deploy_local_cmd = [self.get_script_path('deploy-local')]
+        batch_size = self._get_batch_size()
+
+        deploy_local_cmd.extend([
+            "-D '{}:{}'".format(x, self.config.get(x))
+            for x in self.DEPLOY_CONF
+            if self.config.get(x) is not None
+        ])
+
+        deploy_stage_cmd = deploy_local_cmd + [stage]
+        logger.debug('Running cmd {}'.format(deploy_stage_cmd))
+        deploy_stage = ssh.Job(
+            hosts=self.targets, user=self.config['ssh_user'])
+        deploy_stage.command(deploy_stage_cmd)
+        deploy_stage.progress('deploy_{}_{}'.format(self.repo, stage))
+        succeeded, failed = deploy_stage.run(batch_size=batch_size)
+
+        if failed:
+            logger.warning('%d targets had deploy errors', failed)
+            return 1
+
+        return 0
+
+    def _get_batch_size(self):
+        size = self.config.get('batch_size', self.MAX_BATCH_SIZE)
+        return min(size, self.MAX_BATCH_SIZE)

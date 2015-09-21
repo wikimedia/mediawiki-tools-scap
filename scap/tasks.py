@@ -700,3 +700,18 @@ def check_port(port_number):
         errno.ENOTCONN,
         "Specified port {} is not accepting connections".format(port_number)
     )
+
+
+def move_symlink(source, dest, user='mwdeploy', logger=None):
+    common_path = os.path.commonprefix([source, dest])
+    rsource = os.path.relpath(source, common_path)
+    rdest = os.path.relpath(dest, common_path)
+
+    with utils.cd(common_path):
+        utils.sudo_check_call(user,
+                              "ln -sfT '{}' '{}'".format(rsource, rdest),
+                              logger)
+
+
+def remove_symlink(path, user='mwdeploy', logger=None):
+    utils.sudo_check_call(user, "rm '{}'".format(path), logger)
