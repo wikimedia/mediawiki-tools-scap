@@ -841,13 +841,19 @@ class Deploy(cli.Application):
             if self.config.get(x) is not None
         ])
 
+        # Handle JSON output from deploy-local
+        deploy_local_cmd = deploy_local_cmd + ['-D log_json:True', '-v']
+
         deploy_stage_cmd = deploy_local_cmd + [stage]
         logger.debug('Running cmd {}'.format(deploy_stage_cmd))
+
         deploy_stage = ssh.Job(
             hosts=self.targets, user=self.config['ssh_user'])
+        deploy_stage.output_handler = ssh.JSONOutputHandler
         deploy_stage.max_failure = self.MAX_FAILURES
         deploy_stage.command(deploy_stage_cmd)
         deploy_stage.progress('deploy_{}_{}'.format(self.repo, stage))
+
         succeeded, failed = deploy_stage.run(batch_size=batch_size)
 
         if failed:

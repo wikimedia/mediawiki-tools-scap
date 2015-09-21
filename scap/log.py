@@ -87,6 +87,29 @@ class IRCSocketHandler(logging.Handler):
             self.handleError(record)
 
 
+class JSONFormatter(logging.Formatter):
+    """Serialize logging output as JSON.
+
+    Can be used to maintain logged event structure between the deployment host
+    and remote targets.
+    """
+
+    FIELDS = ['created', 'name', 'levelno', 'pathname', 'lineno']
+    encoder = None
+
+    def format(self, record):
+        rec = record.__dict__
+        fields = {field: rec[field] for field in rec if field in self.FIELDS}
+        fields['message'] = super(self.__class__, self).format(record)
+
+        return self._encode(fields)
+
+    def _encode(self, fields):
+        if self.encoder is None:
+            self.encoder = json.JSONEncoder()
+        return self.encoder.encode(fields)
+
+
 class LogstashFormatter(logging.Formatter):
     """Format log messages for logstash."""
 
@@ -162,6 +185,20 @@ class LogstashFormatter(logging.Formatter):
             } for fname, line, func, text in
                 traceback.extract_tb(ex_traceback)]
         }
+
+
+class Message:
+    """Structured log message."""
+
+    loglevel = None
+    meta = {}
+
+    def __init__(self, **meta):
+        self.loglevel = meta.get('loglevel', logging.INFO)
+        self.meta = meta
+
+    def __str__(self):
+        return self.meta.get('message', '')
 
 
 class ProgressReporter(object):
@@ -401,9 +438,12 @@ def setup_loggers(cfg, console_level=logging.INFO):
     logging.root.setLevel(logging.DEBUG)
     logging.root.handlers[0].setLevel(console_level)
 
-    # Colorize log messages sent to stderr
-    logging.root.handlers[0].setFormatter(AnsiColorFormatter(
-        '%(asctime)s %(message)s', '%H:%M:%S'))
+    if cfg['log_json']:
+        logging.root.handlers[0].setFormatter(JSONFormatter())
+    else:
+        # Colorize log messages sent to stderr
+        logging.root.handlers[0].setFormatter(AnsiColorFormatter(
+            '%(asctime)s %(message)s', '%H:%M:%S'))
 
     if cfg['udp2log_host']:
         # Send a copy of all logs to the udp2log relay

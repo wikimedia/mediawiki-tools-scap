@@ -7,6 +7,7 @@
 
 """
 import errno
+import json
 import os
 import random
 import select
@@ -20,6 +21,72 @@ from . import utils
 SSH = ('/usr/bin/ssh', '-oBatchMode=yes', '-oSetupTimeout=10', '-F/dev/null')
 
 
+class OutputHandler:
+    """Standard handler for SSH command output from hosts.
+
+    Simply stores output as a string for future handling.
+    """
+
+    host = None
+    output = ''
+
+    def __init__(self, host):
+        self.host = host
+
+    def accept(self, output):
+        self.output += output
+
+
+class JSONOutputHandler(OutputHandler):
+    """Deserializes and logs structured JSON output from hosts.
+
+    Any non-structured output is stored for future handling.
+    """
+
+    _decoder = None
+    _logger = None
+    _partial = ''
+
+    def __init__(self, host):
+        self.host = host
+        self._decoder = json.JSONDecoder()
+        self._logger = utils.get_logger().getChild(host)
+
+    def accept(self, output):
+        """Extracts and deserializes line-wise JSON from the given output.
+
+        Any non-JSON is stored in self.output.
+        """
+        for line in self.lines(output):
+            if line.startswith('{'):
+                try:
+                    record = self._decoder.decode(line)
+                except ValueError:
+                    self.output += line + "\n"
+                    record = None
+
+                if record is not None:
+                    msg = log.Message(**record)
+                    self._logger.log(msg.loglevel, msg)
+            else:
+                self.output += line + "\n"
+
+    def lines(self, output):
+        """Generate each line of the given output.
+
+        Reconstructs partial lines using the leftovers from previous calls.
+        """
+        while True:
+            pos = output.find("\n")
+            if pos < 0:
+                self._partial += output
+                break
+
+            yield self._partial + output[0:pos]
+            output = output[pos + 1:]
+            self._partial = ''
+
+
 class Job(object):
     """Execute a job on a group of remote hosts via ssh."""
     @utils.log_context('ssh.job')
@@ -30,6 +97,7 @@ class Job(object):
         self._user = user
         self.max_failure = len(hosts)
         self._logger = logger
+        self.output_handler = OutputHandler
 
     def get_logger(self):
         """Lazy getter for a logger instance."""
@@ -70,7 +138,7 @@ class Job(object):
     def run(self, batch_size=80):
         """Run the job.
 
-        :returns: List of (host, status, output) tuples or
+        :returns: List of (host, status, ohandler) tuples or
                   tuple of (success, fail) counts
         :raises: RuntimeError if command has not been set
         """
@@ -89,7 +157,8 @@ class Job(object):
             return self._run_with_reporter(batch_size)
         else:
             return list(cluster_ssh(self._hosts, self._command, self._user,
-                                    batch_size, self.max_failure))
+                                    batch_size, self.max_failure,
+                                    self.output_handler))
 
     def _run_with_reporter(self, batch_size):
         """Run job and feed results to a :class:`log.ProgressReporter` as they
@@ -97,20 +166,22 @@ class Job(object):
         self._reporter.expect(len(self._hosts))
         self._reporter.start()
 
-        for host, status, output in cluster_ssh(self._hosts, self._command,
-                                                self._user, batch_size,
-                                                self.max_failure):
+        for host, status, ohandler in cluster_ssh(self._hosts, self._command,
+                                                  self._user, batch_size,
+                                                  self.max_failure,
+                                                  self.output_handler):
             if status == 0:
                 self._reporter.add_success()
             else:
                 self.get_logger().warning('%s on %s returned [%d]: %s',
-                    self._command, host, status, output)
+                    self._command, host, status, ohandler.output)
                 self._reporter.add_failure()
         self._reporter.finish()
         return self._reporter.ok, self._reporter.failed
 
 
-def cluster_ssh(hosts, command, user=None, limit=80, max_fail=None):
+def cluster_ssh(hosts, command, user=None, limit=80, max_fail=None,
+        output_handler=None):
     """Run a command via SSH on multiple hosts concurrently."""
     hosts = set(hosts)
     # Ensure a minimum batch size of 1
@@ -125,7 +196,7 @@ def cluster_ssh(hosts, command, user=None, limit=80, max_fail=None):
 
     failures = 0
     procs = {}
-    fds = {}
+    output_handlers = {}
     poll = select.epoll()
     try:
         while hosts or procs:
@@ -140,6 +211,7 @@ def cluster_ssh(hosts, command, user=None, limit=80, max_fail=None):
                         stderr=subprocess.STDOUT, preexec_fn=os.setsid)
                 procs[proc.pid] = (proc, host)
                 poll.register(proc.stdout, select.EPOLLIN)
+                output_handlers[proc.stdout.fileno()] = output_handler(host)
 
             elif procs:
                 try:
@@ -156,7 +228,8 @@ def cluster_ssh(hosts, command, user=None, limit=80, max_fail=None):
                         raise
 
                 for fd, event in poll.poll(0.01):
-                    fds[fd] = fds.get(fd, '') + os.read(fd, 1048576)
+                    output = os.read(fd, 1048576)
+                    output_handlers[fd].accept(output)
 
                 if pid:
                     status = -(status & 255) or (status >> 8)
@@ -164,10 +237,10 @@ def cluster_ssh(hosts, command, user=None, limit=80, max_fail=None):
                         failures = failures + 1
                     proc, host = procs.pop(pid)
                     poll.unregister(proc.stdout)
-                    output = fds.pop(proc.stdout.fileno(), '')
+                    ohandler = output_handlers.pop(proc.stdout.fileno())
                     if failures > max_failure:
                         hosts = []
-                    yield host, status, output
+                    yield host, status, ohandler
     finally:
         poll.close()
         for pid, (proc, host) in procs.items():

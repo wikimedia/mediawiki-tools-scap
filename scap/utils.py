@@ -324,7 +324,10 @@ def log_context(context_name):
 
 
 def get_logger():
-    return logger_stack[-1]
+    if len(logger_stack) > 0:
+        return logger_stack[-1]
+    else:
+        return logging.getLogger()
 
 
 @contextlib.contextmanager
