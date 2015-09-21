@@ -118,6 +118,10 @@ def get_env_specific_filename(path, env=None):
     base = os.path.dirname(path)
     filename = os.path.basename(path)
 
+    if base.endswith('/templates'):
+        base = os.path.dirname(base)
+        filename = os.path.join('templates', filename)
+
     env_filename = os.path.join(base, 'environments', env, filename)
 
     if os.path.isfile(env_filename):

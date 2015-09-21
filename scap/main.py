@@ -11,13 +11,18 @@ import multiprocessing
 import netifaces
 import os
 import psutil
+import requests
+import shutil
 import subprocess
+import yaml
 
 from . import cli
 from . import log
 from . import ssh
 from . import tasks
+from . import template
 from . import utils
+
 from datetime import datetime
 
 
@@ -577,7 +582,7 @@ class HHVMGracefulAll(cli.Application):
 
 class DeployLocal(cli.Application):
     """Deploy service code via git"""
-    STAGES = ['fetch', 'promote', 'check']
+    STAGES = ['config_deploy', 'fetch', 'promote', 'check']
     EX_STAGES = ['rollback']
 
     rev = None
@@ -604,6 +609,7 @@ class DeployLocal(cli.Application):
 
         self.cache_dir = deploy_dir('cache')
         self.revs_dir = deploy_dir('revs')
+        self.tmp_dir = deploy_dir('tmp')
 
         self.rev_dir = os.path.join(self.revs_dir, self.rev)
 
@@ -613,7 +619,63 @@ class DeployLocal(cli.Application):
 
         self.user = self.config['git_repo_user']
 
+        # only supports http from tin for the moment
+        scheme = 'http'
+        repo = self.config['git_repo']
+        server = self.config['git_server']
+
+        url = os.path.normpath('{0}/{1}'.format(server, repo))
+
+        self.server_url = "{0}://{1}".format(scheme, url)
+
         getattr(self, self.arguments.stage)()
+
+    def config_deploy(self):
+        """Renders config files
+
+        Grabs the current config yaml file from the deploy git server, and
+        renders the final template inside the repo-cache's tmp directory
+        """
+        logger = self.get_logger()
+        if not self.config['config_deploy']:
+            return
+
+        config_url = os.path.join(self.server_url, '.git', 'config-files',
+            '{}.yaml'.format(self.rev))
+
+        logger.debug('Get config yaml: {}'.format(config_url))
+        r = requests.get(config_url)
+        if r.status_code != requests.codes.ok:
+            raise IOError(errno.ENOENT, 'Config file not found', config_url)
+
+        config_files = yaml.load(r.text)
+        overrides = config_files.get('override_vars', {})
+
+        source_basepath = os.path.join(self.tmp_dir, self.rev, 'config-files')
+        logger.debug('Source basepath: {}'.format(source_basepath))
+        utils.mkdir_p(source_basepath)
+
+        for config_file in config_files['files']:
+            name = config_file['name']
+            tmpl = template.Template(
+                name=name,
+                loader={name: config_file['template']},
+                var_file=config_file.get('remote_vars', None),
+                overrides=overrides
+            )
+
+            filename = config_file['name']
+            if filename.startswith('/'):
+                filename = filename[1:]
+
+            utils.mkdir_p(os.path.join(
+                source_basepath, os.path.dirname(filename)))
+
+            source = os.path.join(source_basepath, filename)
+            logger.debug('Rendering config_file: {}'.format(source))
+
+            with open(source, 'w') as f:
+                f.write(tmpl.render())
 
     def fetch(self):
         """Fetch the specified revision of the remote repo.
@@ -624,24 +686,17 @@ class DeployLocal(cli.Application):
         At the end of this stage, the .in-progress link is created to signal
         the possibility for future rollback.
         """
-
-        repo = self.config['git_repo']
-        server = self.config['git_server']
         has_submodules = self.config['git_submodules']
 
         # create deployment directories if they don't already exist
         for d in [self.cache_dir, self.revs_dir]:
             utils.mkdir_p(d)
 
-        # only supports http from tin for the moment
-        scheme = 'http'
-
-        url = os.path.normpath('{0}/{1}'.format(server, repo))
-        url = "{0}://{1}/.git".format(scheme, url)
-        self.get_logger().debug('Fetching from: {}'.format(url))
+        git_remote = os.path.join(self.server_url, '.git')
+        self.get_logger().debug('Fetching from: {}'.format(git_remote))
 
         # clone/fetch from the repo to the cache directory
-        tasks.git_fetch(self.cache_dir, url, user=self.user)
+        tasks.git_fetch(self.cache_dir, git_remote, user=self.user)
 
         # clone/fetch from the local cache directory to the revision directory
         tasks.git_fetch(self.rev_dir, self.cache_dir, user=self.user)
@@ -665,6 +720,9 @@ class DeployLocal(cli.Application):
 
         self._link_rev_dir(self.cur_link)
         self._link_final_to_current()
+
+        if self.config['config_deploy']:
+            self._link_config_files()
 
         if service is not None:
             tasks.restart_service(service, user=self.config['git_repo_user'])
@@ -722,6 +780,9 @@ class DeployLocal(cli.Application):
         logger.info('Rolling back to revision {}'.format(rev))
         self.rev = rev
         self.rev_dir = rev_dir
+
+        # Config re-evaluation no longer necessary or desirable at this point
+        self.config['config_deploy'] = False
         self.promote()
         self._remove_progress_link()
 
@@ -736,6 +797,33 @@ class DeployLocal(cli.Application):
                 os.rename(self.root_dir, '{}.trebuchet'.format(self.root_dir))
 
         tasks.move_symlink(self.cur_link, self.root_dir, user=self.user)
+
+    def _link_config_files(self):
+        """Moves rendered configs inside the current checkout, then links
+        to final destination
+        """
+        logger = self.get_logger()
+
+        config_base = os.path.join(self.cur_link, '.git', 'config-files')
+
+        if os.path.isdir(config_base):
+            shutil.rmtree(config_base)
+
+        os.rename(
+            os.path.join(self.tmp_dir, self.rev, 'config-files'),
+            config_base
+        )
+
+        logger.debug('Linking config files at: {}'.format(config_base))
+
+        for dir_path, _, conf_files in os.walk(config_base):
+            for conf_file in conf_files:
+                full_path = os.path.normpath(
+                    '{}/{}'.format(dir_path, conf_file))
+
+                rel_path = os.path.relpath(full_path, config_base)
+                final_path = os.path.join('/', rel_path)
+                tasks.move_symlink(full_path, final_path, user=self.user)
 
     def _link_rev_dir(self, symlink_path):
         tasks.move_symlink(self.rev_dir, symlink_path, user=self.user)
@@ -764,6 +852,7 @@ class Deploy(cli.Application):
         'git_submodules',
         'service_name',
         'service_port',
+        'config_deploy',
     ]
 
     repo = None
@@ -824,6 +913,8 @@ class Deploy(cli.Application):
                 tasks.git_update_deploy_head(deploy_info, location=cwd)
                 tasks.git_tag_repo(deploy_info, location=cwd)
 
+                self.config_deploy_setup(commit)
+
                 self.config['git_rev'] = commit
 
                 # Run git update-server-info because git repo is a dumb
@@ -837,6 +928,83 @@ class Deploy(cli.Application):
                         return ret
 
         return 0
+
+    def config_deploy_setup(self, commit):
+        """Generate environment-specific config file and variable template list
+
+        Builds a yaml file that contains:
+        #. A list of file objects containing template files to be deployed
+        #. An object containing variables specified in the
+        environment-specific `vars.yaml` file and inheriting from the
+        `vars.yaml` file
+        """
+        logger = self.get_logger()
+
+        if not self.config['config_deploy']:
+            return
+
+        logger.debug('Deploy config: True')
+        path_root = os.path.join(self.config['git_deploy_dir'], self.repo)
+        scap_path = os.path.join(path_root, 'scap')
+
+        cfg_file = utils.get_env_specific_filename(
+            os.path.join(scap_path, 'config-files.yaml'),
+            self.arguments.environment
+        )
+
+        logger.debug('Config deploy file: {}'.format(cfg_file))
+        if not os.path.isfile(cfg_file):
+            return
+
+        config_file_path = os.path.join(path_root, '.git', 'config-files')
+        utils.mkdir_p(config_file_path)
+        tmp_cfg_file = os.path.join(config_file_path, '{}.yaml'.format(commit))
+        tmp_cfg = {}
+
+        with open(cfg_file, 'r') as cf:
+            config_files = yaml.load(cf.read())
+
+        tmp_cfg['files'] = []
+        # Get an environment specific template
+        for config_file in config_files:
+            f = {}
+            f['name'] = config_file
+            template_name = config_files[config_file]['template']
+            template = utils.get_env_specific_filename(
+                os.path.join(scap_path, 'templates', template_name),
+                self.arguments.environment
+            )
+            with open(template, 'r') as tmp:
+                f['template'] = tmp.read()
+
+            # Remote var file is optional
+            if config_files[config_file].get('remote_vars', None):
+                f['remote_vars'] = config_files[config_file]['remote_vars']
+
+            tmp_cfg['files'].append(f)
+
+        tmp_cfg['override_vars'] = {}
+
+        # Build vars to override remote
+        default_vars = os.path.join(scap_path, 'vars.yaml')
+        vars_files = [
+            default_vars,
+            utils.get_env_specific_filename(
+                default_vars,
+                self.arguments.environment
+            ),
+        ]
+
+        for vars_file in vars_files:
+            try:
+                with open(vars_file, 'r') as vf:
+                    tmp_cfg['override_vars'].update(yaml.load(vf.read()))
+            except IOError:
+                pass  # don't worry if a vars.yaml doesn't exist
+
+        with open(tmp_cfg_file, 'w') as tc:
+            yaml.dump(tmp_cfg, tc)
+            logger.debug('Wrote config deploy file: {}'.format(tmp_cfg_file))
 
     def execute_rollback(self, stage):
         prompt = "Stage '{}' failed. Perform rollback?".format(stage)
@@ -854,7 +1022,7 @@ class Deploy(cli.Application):
         deploy_local_cmd.extend([
             "-D '{}:{}'".format(x, self.config.get(x))
             for x in self.DEPLOY_CONF
-            if self.config.get(x) is not None
+            if self.config.get(x)
         ])
 
         # Handle JSON output from deploy-local

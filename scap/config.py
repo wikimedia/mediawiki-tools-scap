@@ -38,6 +38,7 @@ DEFAULT_CONFIG = {
     'git_server': 'tin.eqiad.wmnet',
     'git_scheme': 'http',
     'git_submodules': False,
+    'config_deploy': False,
 }
 
 
