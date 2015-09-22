@@ -436,7 +436,6 @@ def _call_rebuildLocalisationCache(wikidb, out_dir, use_cores=1,
     :param force: Whether to pass --force
     :param quiet: Whether to pass --quiet
     """
-    logger = logging.getLogger('update_localization_cache')
 
     with utils.sudo_temp_dir('www-data', 'scap_l10n_') as temp_dir:
         # Seed the temporary directory with the current CDB and/or PHP files.
@@ -449,8 +448,7 @@ def _call_rebuildLocalisationCache(wikidb, out_dir, use_cores=1,
                 "cp '%(out_dir)s/'*.[pc][hd][pb] '%(temp_dir)s'" % {
                     'temp_dir': temp_dir,
                     'out_dir': out_dir
-                },
-                logger)
+                })
 
         # Generate the files into a temporary directory as www-data
         utils.sudo_check_call('www-data',
@@ -463,16 +461,14 @@ def _call_rebuildLocalisationCache(wikidb, out_dir, use_cores=1,
                 'lang': '--lang ' + lang if lang else '',
                 'force': '--force' if force else '',
                 'quiet': '--quiet' if quiet else ''
-            },
-            logger)
+            })
 
         # Copy the files into the real directory as l10nupdate
         utils.sudo_check_call('l10nupdate',
             'cp -r "%(temp_dir)s"/* "%(out_dir)s"' % {
                 'temp_dir': temp_dir,
                 'out_dir': out_dir
-            },
-            logger)
+            })
 
 
 def update_localization_cache(version, wikidb, verbose, cfg):
@@ -523,16 +519,14 @@ def update_localization_cache(version, wikidb, verbose, cfg):
         '--wiki="%s" --list-file="%s/wmf-config/extension-list" '
         '--output="%s" %s' % (
             wikidb, cfg['stage_dir'], new_extension_messages,
-            verbose_messagelist),
-        logger)
+            verbose_messagelist))
     utils.sudo_check_call('www-data',
-        'chmod 0664 "%s"' % new_extension_messages,
-        logger)
+        'chmod 0664 "%s"' % new_extension_messages)
     logger.debug('Copying %s to %s' % (
         new_extension_messages, extension_messages))
     shutil.copyfile(new_extension_messages, extension_messages)
     utils.sudo_check_call('www-data',
-        'rm "%s"' % new_extension_messages, logger)
+        'rm "%s"' % new_extension_messages)
 
     # Update ExtensionMessages-*.php in the local copy.
     deploy_dir = os.path.realpath(cfg['deploy_dir'])
@@ -541,8 +535,7 @@ def update_localization_cache(version, wikidb, verbose, cfg):
         logger.debug('Copying ExtensionMessages-*.php to local copy')
         utils.sudo_check_call('mwdeploy',
             'cp "%s" "%s/wmf-config/"' % (
-                extension_messages, cfg['deploy_dir']),
-            logger)
+                extension_messages, cfg['deploy_dir']))
 
     # Rebuild all the CDB files for each language
     logger.info('Updating LocalisationCache for %s '
@@ -555,8 +548,7 @@ def update_localization_cache(version, wikidb, verbose, cfg):
     utils.sudo_check_call('l10nupdate',
         '%s/refreshCdbJsonFiles '
         '--directory="%s" --threads=%s %s' % (
-            cfg['bin_dir'], cache_dir, use_cores, verbose_messagelist),
-        logger)
+            cfg['bin_dir'], cache_dir, use_cores, verbose_messagelist))
 
 
 def restart_hhvm(hosts, cfg, batch_size=1):
@@ -680,7 +672,7 @@ def restart_service(service, user='mwdeploy'):
 
     logger.debug('Restarting service {}'.format(service))
     cmd_format = 'sudo /usr/sbin/service {} {}'
-    utils.sudo_check_call(user, cmd_format.format(service, 'restart'), logger)
+    utils.sudo_check_call(user, cmd_format.format(service, 'restart'))
 
 
 def check_port(port_number):
@@ -703,16 +695,15 @@ def check_port(port_number):
     )
 
 
-def move_symlink(source, dest, user='mwdeploy', logger=None):
+def move_symlink(source, dest, user='mwdeploy'):
     common_path = os.path.commonprefix([source, dest])
     rsource = os.path.relpath(source, common_path)
     rdest = os.path.relpath(dest, common_path)
 
     with utils.cd(common_path):
         utils.sudo_check_call(user,
-                              "ln -sfT '{}' '{}'".format(rsource, rdest),
-                              logger)
+                              "ln -sfT '{}' '{}'".format(rsource, rdest))
 
 
-def remove_symlink(path, user='mwdeploy', logger=None):
-    utils.sudo_check_call(user, "rm '{}'".format(path), logger)
+def remove_symlink(path, user='mwdeploy'):
+    utils.sudo_check_call(user, "rm '{}'".format(path))

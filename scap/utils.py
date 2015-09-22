@@ -398,6 +398,7 @@ def read_hosts_file(path):
         raise IOError(e.errno, e.strerror, path)
 
 
+@log_context('sudo_check_call')
 def sudo_check_call(user, cmd, logger=None):
     """Run a command as a specific user. Reports stdout/stderr of process
     to logger during execution.
@@ -407,8 +408,6 @@ def sudo_check_call(user, cmd, logger=None):
     :param logger: Logger to send process output to
     :raises: subprocess.CalledProcessError on non-zero process exit
     """
-    if logger is None:
-        logger = logging.getLogger('sudo_check_call')
 
     proc = subprocess.Popen('sudo -u %s -n -- %s' % (user, cmd),
         stdout=subprocess.PIPE, stderr=subprocess.STDOUT, shell=True)
@@ -577,7 +576,6 @@ def sudo_temp_dir(owner, prefix):
     :param prefix: Temp directory prefix
     :returns: Full path to temporary directory
     """
-    logger = logging.getLogger('sudo_temp_dir')
 
     while True:
         dirname = os.path.join(tempfile.gettempdir(),
@@ -586,13 +584,13 @@ def sudo_temp_dir(owner, prefix):
             break
     # Yes, there is a small race condition here in theory. In practice it
     # should be pretty hard to hit due to scap's global concurrency lock.
-    sudo_check_call(owner, 'mkdir "%s"' % dirname, logger)
+    sudo_check_call(owner, 'mkdir "%s"' % dirname)
 
     try:
         yield dirname
     finally:
         sudo_check_call(owner,
-            'find "%s" -maxdepth 1 -delete' % dirname, logger)
+            'find "%s" -maxdepth 1 -delete' % dirname)
 
 
 def read_pid(path):
@@ -621,7 +619,7 @@ def is_git_dir(path):
 
 
 def mkdir_p(path, user=get_real_username(), logger=None):
-    sudo_check_call(user, "mkdir -p '{}'".format(path), logger=logger)
+    sudo_check_call(user, "mkdir -p '{}'".format(path))
 
 
 def git_sha(location, rev):

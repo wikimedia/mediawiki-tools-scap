@@ -218,7 +218,7 @@ class Scap(AbstractSync):
 
         # Bug 63659: Compile deploy_dir/wikiversions.json to cdb
         utils.sudo_check_call('mwdeploy',
-            self.get_script_path('compile-wikiversions'), self.get_logger())
+            self.get_script_path('compile-wikiversions'))
 
         # Update list of extension message files and regenerate the
         # localisation cache.
@@ -309,8 +309,7 @@ class SyncCommon(cli.Application):
         if self.arguments.update_l10n:
             utils.sudo_check_call(
                 'mwdeploy',
-                self.get_script_path('scap-rebuild-cdbs') + ' --no-progress',
-                self.get_logger()
+                self.get_script_path('scap-rebuild-cdbs') + ' --no-progress'
             )
         return 0
 
@@ -530,17 +529,17 @@ class RestartHHVM(cli.Application):
                 pass
             else:
                 utils.sudo_check_call('root',
-                    '/usr/sbin/apache2ctl graceful-stop', self.get_logger())
+                    '/usr/sbin/apache2ctl graceful-stop')
                 # Wait for Apache to stop hard after GracefulShutdownTimeout
                 # seconds or when requests actually complete
                 psutil.Process(apache_pid).wait()
 
         # Restart HHVM
-        utils.sudo_check_call('root', '/sbin/restart hhvm', self.get_logger())
+        utils.sudo_check_call('root', '/sbin/restart hhvm')
 
         if have_pybal:
             utils.sudo_check_call('root',
-                '/usr/sbin/service apache2 start', self.get_logger())
+                '/usr/sbin/service apache2 start')
 
         return 0
 
@@ -623,15 +622,13 @@ class DeployLocal(cli.Application):
         the possibility for future rollback.
         """
 
-        logger = self.get_logger()
-
         repo = self.config['git_repo']
         server = self.config['git_server']
         has_submodules = self.config['git_submodules']
 
         # create deployment directories if they don't already exist
         for d in [self.cache_dir, self.revs_dir]:
-            utils.mkdir_p(d, logger=logger)
+            utils.mkdir_p(d)
 
         # only supports http from tin for the moment
         scheme = 'http'
