@@ -7,7 +7,6 @@
 
 """
 import errno
-import logging
 import os
 import random
 import select
@@ -23,19 +22,17 @@ SSH = ('/usr/bin/ssh', '-oBatchMode=yes', '-oSetupTimeout=10', '-F/dev/null')
 
 class Job(object):
     """Execute a job on a group of remote hosts via ssh."""
-    _logger = None
-
-    def __init__(self, hosts=None, command=None, user=None):
+    @utils.log_context('ssh.job')
+    def __init__(self, hosts=None, command=None, user=None, logger=None):
         self.hosts(hosts or [])
         self._command = command
         self._reporter = None
         self._user = user
         self.max_failure = len(hosts)
+        self._logger = logger
 
     def get_logger(self):
         """Lazy getter for a logger instance."""
-        if self._logger is None:
-            self._logger = logging.getLogger('scap.ssh.job')
         return self._logger
 
     def hosts(self, hosts):
