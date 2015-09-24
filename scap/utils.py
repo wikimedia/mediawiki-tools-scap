@@ -9,7 +9,6 @@ import contextlib
 import errno
 import fcntl
 import hashlib
-import inspect
 import json
 import logging
 import os
@@ -550,32 +549,9 @@ def read_pid(path):
         raise IOError(e.errno, e.strerror, path)
 
 
-def inside_git_dir(func):
-    """Decorator to determine if the "location" argument is a git directory"""
-    def wrapper(*args, **kwargs):
-        argspec = inspect.getargspec(func)
-        try:
-            l = args[argspec.args.index('location')]
-        except IndexError:
-            l = None
-
-        if l is None:
-            d = None
-
-            if argspec.defaults is not None:
-                defaults = dict(zip(
-                    argspec.args[-len(argspec.defaults):],
-                    argspec.defaults
-                ))
-                d = defaults.get('location')
-
-            l = kwargs.get('location', d)
-
-        if l is None or not is_git_dir(l):
-            raise IOError(errno.ENOENT, 'Location is not a git repo', l)
-
-        return func(*args, **kwargs)
-    return wrapper
+def ensure_git_dir(location):
+    if location is None or not is_git_dir(location):
+        raise IOError(errno.ENOENT, 'Location is not a git repo', location)
 
 
 def is_git_dir(path):
@@ -594,17 +570,17 @@ def mkdir_p(path, user=get_real_username(), logger=None):
     sudo_check_call(user, "mkdir -p '{}'".format(path), logger=logger)
 
 
-@inside_git_dir
 def git_sha(location, rev):
     """Returns SHA1 for things like HEAD or HEAD~~"""
+    ensure_git_dir(location)
     with cd(location):
         cmd = '/usr/bin/git rev-parse --verify {}'.format(rev)
         return subprocess.check_output(cmd, shell=True).strip()
 
 
-@inside_git_dir
 def git_next_deploy_tag(location, user=get_real_username()):
     """Calculates the scap/sync/{date}/{n} tag to use for this deployment"""
+    ensure_git_dir(location)
     with cd(location):
         timestamp = datetime.utcnow()
         date = timestamp.strftime('%F')

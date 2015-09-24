@@ -574,17 +574,17 @@ def restart_hhvm(hosts, cfg, batch_size=1):
         return restart.progress('restart_hhvm').run(batch_size=batch_size)
 
 
-@utils.inside_git_dir
 def git_remote_exists(location, remote):
     """Check if remote exists in location"""
+    utils.ensure_git_dir(location)
     with utils.cd(location):
         cmd = '/usr/bin/git config --local --get remote.{}.url'.format(remote)
         return subprocess.call(cmd, shell=True) == 0
 
 
-@utils.inside_git_dir
 def git_remote_set(location, repo, remote='origin', user='mwdeploy'):
     """set the remote at location to repo"""
+    utils.ensure_git_dir(location)
     with utils.cd(location):
         if git_remote_exists(location, remote):
             cmd = '/usr/bin/git remote rm {}'.format(remote)
@@ -607,10 +607,11 @@ def git_fetch(location, repo, user="mwdeploy"):
         utils.sudo_check_call(user, cmd)
 
 
-@utils.inside_git_dir
 def git_checkout(location, rev, submodules=False, user="mwdeploy"):
     """Checkout a git repo sha at a location as a user
     """
+    utils.ensure_git_dir(location)
+
     logger = logging.getLogger('git_checkout')
     with utils.cd(location):
         logger.debug(
@@ -638,13 +639,13 @@ def git_update_server_info(has_submodules=False, location=os.getcwd()):
             subprocess.check_call(cmd, shell=True)
 
 
-@utils.inside_git_dir
 def git_update_deploy_head(deploy_info, location):
     """updates .git/DEPLOY_HEAD file
 
     :param deploy_info: current deploy info to write to file as JSON
     :param (optional) location: git directory location (default cwd)
     """
+    utils.ensure_git_dir(location)
     logger = logging.getLogger('git_deploy_file')
 
     with utils.cd(location):
@@ -655,10 +656,10 @@ def git_update_deploy_head(deploy_info, location):
             f.close()
 
 
-@utils.inside_git_dir
 def git_tag_repo(deploy_info, location=os.getcwd()):
     """creates new tag in deploy repo"""
 
+    utils.ensure_git_dir(location)
     with utils.cd(location):
         cmd = """
         /usr/bin/git tag -fa \\
