@@ -96,7 +96,8 @@ def check_valid_syntax(*paths):
                 utils.check_valid_json_file(abspath)
 
 
-def compile_wikiversions(source_tree, cfg):
+@utils.log_context('compile_wikiversions')
+def compile_wikiversions(source_tree, cfg, logger=None):
     """Validate and compile the wikiversions.json file.
 
     1. Find the realm specific filename for wikiversions.json in staging area
@@ -114,7 +115,6 @@ def compile_wikiversions(source_tree, cfg):
     :param source_tree: Source tree to read file from: 'deploy' or 'stage'
     :param cfg: Dict of global configuration values
     """
-    logger = logging.getLogger('compile_wikiversions')
 
     working_dir = cfg['%s_dir' % source_tree]
 
@@ -198,7 +198,9 @@ def compile_wikiversions(source_tree, cfg):
     logger.info('Compiled %s to %s', json_file, php_file)
 
 
-def merge_cdb_updates(directory, pool_size, trust_mtime=False, mute=False):
+@utils.log_context('merge_cdb_updates')
+def merge_cdb_updates(directory, pool_size, trust_mtime=False, mute=False,
+                      logger=None):
     """Update l10n CDB files using JSON data.
 
     :param directory: L10n cache directory
@@ -206,7 +208,6 @@ def merge_cdb_updates(directory, pool_size, trust_mtime=False, mute=False):
     :param trust_mtime: Trust file modification time?
     :param mute: Disable progress indicator
     """
-    logger = logging.getLogger('merge_cdb_updates')
 
     cache_dir = os.path.realpath(directory)
     upstream_dir = os.path.join(cache_dir, 'upstream')
@@ -274,7 +275,8 @@ def purge_l10n_cache(version, cfg):
     purge.progress('l10n purge').run()
 
 
-def sync_common(cfg, include=None, sync_from=None, verbose=False):
+@utils.log_context('sync_common')
+def sync_common(cfg, include=None, sync_from=None, verbose=False, logger=None):
     """Sync local deploy dir with upstream rsync server's copy
 
     Rsync from ``server::common`` to the local deploy directory.
@@ -290,7 +292,6 @@ def sync_common(cfg, include=None, sync_from=None, verbose=False):
         ``<dirname>/***``.
     :param sync_from: List of rsync servers to fetch from.
     """
-    logger = logging.getLogger('sync_common')
 
     if not os.path.isdir(cfg['deploy_dir']):
         raise Exception((
@@ -350,14 +351,14 @@ def sync_wikiversions(hosts, cfg):
         return rsync.progress('sync_wikiversions').run()
 
 
-def update_l10n_cdb(cache_dir, cdb_file, trust_mtime=False):
+@utils.log_context('update_l10n_cdb')
+def update_l10n_cdb(cache_dir, cdb_file, trust_mtime=False, logger=None):
     """Update a localization CDB database.
 
     :param cache_dir: L10n cache directory
     :param cdb_file: L10n CDB database
     :param trust_mtime: Trust file modification time?
     """
-    logger = logging.getLogger('update_l10n_cdb')
 
     md5_path = os.path.join(cache_dir, 'upstream', '%s.MD5' % cdb_file)
     if not os.path.exists(md5_path):
@@ -410,7 +411,8 @@ def update_l10n_cdb(cache_dir, cdb_file, trust_mtime=False):
     return False
 
 
-def update_l10n_cdb_wrapper(args):
+@utils.log_context('update_l10n_cdb_wrapper')
+def update_l10n_cdb_wrapper(args, logger=None):
     """Wrapper for update_l10n_cdb to be used in contexts where only a single
     argument can be provided.
 
@@ -420,8 +422,7 @@ def update_l10n_cdb_wrapper(args):
         return update_l10n_cdb(*args)
     except:
         # Log detailed error; multiprocessing will truncate the stack trace
-        logging.getLogger('update_l10n_cdb_wrapper').exception(
-            'Failure processing %s', args)
+        logger.exception('Failure processing %s', args)
         raise
 
 
@@ -471,7 +472,8 @@ def _call_rebuildLocalisationCache(wikidb, out_dir, use_cores=1,
             })
 
 
-def update_localization_cache(version, wikidb, verbose, cfg):
+@utils.log_context('update_localization_cache')
+def update_localization_cache(version, wikidb, verbose, cfg, logger=None):
     """Update the localization cache for a given MW version.
 
     :param version: MediaWiki version
@@ -479,7 +481,6 @@ def update_localization_cache(version, wikidb, verbose, cfg):
     :param verbose: Provide verbose output
     :param cfg: Global configuration
     """
-    logger = logging.getLogger('update_localization_cache')
 
     # Calculate the number of parallel threads
     # Leave a couple of cores free for other stuff
@@ -599,12 +600,13 @@ def git_fetch(location, repo, user="mwdeploy"):
         utils.sudo_check_call(user, cmd)
 
 
-def git_checkout(location, rev, submodules=False, user="mwdeploy"):
+@utils.log_context('git_checkout')
+def git_checkout(location, rev, submodules=False, user="mwdeploy",
+                 logger=None):
     """Checkout a git repo sha at a location as a user
     """
     utils.ensure_git_dir(location)
 
-    logger = logging.getLogger('git_checkout')
     with utils.cd(location):
         logger.debug(
             'Checking out rev: {} at location: {}'.format(rev, location))
@@ -617,9 +619,10 @@ def git_checkout(location, rev, submodules=False, user="mwdeploy"):
             utils.sudo_check_call(user, cmd)
 
 
-def git_update_server_info(has_submodules=False, location=os.getcwd()):
+@utils.log_context('git_update_server_info')
+def git_update_server_info(has_submodules=False, location=os.getcwd(),
+                           logger=None):
     """runs git update-server-info and tags submodules"""
-    logger = logging.getLogger('git_update_server_info')
 
     with utils.cd(location):
         cmd = '/usr/bin/git update-server-info'
@@ -631,14 +634,14 @@ def git_update_server_info(has_submodules=False, location=os.getcwd()):
             subprocess.check_call(cmd, shell=True)
 
 
-def git_update_deploy_head(deploy_info, location):
+@utils.log_context('git_deploy_file')
+def git_update_deploy_head(deploy_info, location, logger=None):
     """updates .git/DEPLOY_HEAD file
 
     :param deploy_info: current deploy info to write to file as JSON
     :param (optional) location: git directory location (default cwd)
     """
     utils.ensure_git_dir(location)
-    logger = logging.getLogger('git_deploy_file')
 
     with utils.cd(location):
         deploy_file = os.path.join(location, '.git', 'DEPLOY_HEAD')
@@ -667,16 +670,15 @@ def git_tag_repo(deploy_info, location=os.getcwd()):
         subprocess.check_call(cmd, shell=True)
 
 
-def restart_service(service, user='mwdeploy'):
-    logger = logging.getLogger('service_restart')
-
+@utils.log_context('service_restart')
+def restart_service(service, user='mwdeploy', logger=None):
     logger.debug('Restarting service {}'.format(service))
     cmd_format = 'sudo /usr/sbin/service {} {}'
     utils.sudo_check_call(user, cmd_format.format(service, 'restart'))
 
 
-def check_port(port_number):
-    logger = logging.getLogger('port_check')
+@utils.log_context('port_check')
+def check_port(port_number, logger=None):
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
     # Try this a few times while we wait for the service to come up
