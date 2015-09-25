@@ -258,8 +258,9 @@ class Stats(object):
     See <https://github.com/etsy/statsd/wiki/Protocol> for details.
     """
 
-    def __init__(self, host, port):
-        self.logger = logging.getLogger('stats')
+    @utils.log_context('stats')
+    def __init__(self, host, port, logger=None):
+        self.logger = logger
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.address = (host, port)
 
@@ -301,7 +302,8 @@ class Timer(object):
     ...     t.mark('copy phase 2')
     """
 
-    def __init__(self, label, stats=None):
+    @utils.log_context('timer')
+    def __init__(self, label, stats=None, logger=None):
         """
         :param label: Label for block (e.g. 'scap' or 'rsync')
         :type label: str
@@ -310,7 +312,7 @@ class Timer(object):
         """
         self.label = label
         self.stats = stats
-        self.logger = logging.getLogger('timer')
+        self.logger = logger
 
     def mark(self, label):
         """
