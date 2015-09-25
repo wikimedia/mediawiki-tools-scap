@@ -106,10 +106,8 @@ def compile_wikiversions(source_tree, cfg, logger=None):
     3. Validate that all wikis listed in the realm specific all.dblist exist
        in the json
     4. Create a temporary CDB file from the json contents
-    5. Atomically rename the temporary CDB to the realm specific
-       wikiversions.cdb filename
-    6. Create a temporary php file from the json contents
-    7. Atomically rename the temporary php to the realm specific
+    5. Create a temporary php file from the json contents
+    6. Atomically rename the temporary php to the realm specific
        wikiversions.php filename
 
     :param source_tree: Source tree to read file from: 'deploy' or 'stage'
@@ -123,7 +121,6 @@ def compile_wikiversions(source_tree, cfg, logger=None):
     json_file = utils.get_realm_specific_filename(
         base_file, cfg['wmf_realm'], cfg['datacenter'])
     base_name = os.path.splitext(json_file)[0]
-    cdb_file = base_name + '.cdb'
     php_file = base_name + '.php'
 
     with open(json_file) as f:
@@ -146,29 +143,6 @@ def compile_wikiversions(source_tree, cfg, logger=None):
     if missing_dbs:
         raise KeyError('Missing %d expected dbs in %s: %s' % (
             len(missing_dbs), json_file, ', '.join(missing_dbs)))
-
-    # Build the CDB version
-    tmp_cdb_file = '%s.tmp' % cdb_file
-    try:
-        os.unlink(tmp_cdb_file)
-    except OSError:
-        pass
-
-    # Write temp cdb file
-    with open(tmp_cdb_file, 'wb') as fp:
-        writer = cdblib.Writer(fp)
-        for dbname, version in wikiversions.items():
-            writer.put(str('ver:%s' % dbname), str(version))
-        writer.finalize()
-        os.fsync(fp.fileno())
-
-    if not os.path.isfile(tmp_cdb_file):
-        raise IOError(
-            errno.ENOENT, 'Failed to create cdb wikiversions', tmp_cdb_file)
-
-    os.rename(tmp_cdb_file, cdb_file)
-    os.chmod(cdb_file, 0664)
-    logger.info('Compiled %s to %s', json_file, cdb_file)
 
     # Build the php version
     php_code = '<?php\nreturn array(\n%s\n);\n' % json.dumps(
@@ -335,7 +309,7 @@ def sync_common(cfg, include=None, sync_from=None, verbose=False, logger=None):
 
 
 def sync_wikiversions(hosts, cfg):
-    """Rebuild and sync wikiversions.cdb to the cluster.
+    """Rebuild and sync wikiversions.php to the cluster.
 
     :param hosts: List of hosts to sync to
     :param cfg: Dict of global configuration values
@@ -346,7 +320,7 @@ def sync_wikiversions(hosts, cfg):
 
         rsync = ssh.Job(hosts, user=cfg['ssh_user']).shuffle()
         rsync.command('sudo -u mwdeploy -n -- /usr/bin/rsync -l '
-            '%(master_rsync)s::common/wikiversions*.{json,cdb,php} '
+            '%(master_rsync)s::common/wikiversions*.{json,php} '
             '%(deploy_dir)s' % cfg)
         return rsync.progress('sync_wikiversions').run()
 
