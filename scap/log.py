@@ -5,6 +5,7 @@
     Helpers for routing and formatting log data.
 
 """
+import fnmatch
 import json
 import logging
 import math
@@ -276,6 +277,51 @@ class ProgressReporter(object):
             self.ok, self.failed, self.remaining)
 
 
+class Filter(object):
+    """Generic log filter that matches record properties against criteria.
+
+    You can provide either a glob pattern, regular expression, or lambda as
+    each property criteria, and invert the logic by passing filter=False.
+
+    Examples:
+        Filter(name='*.target.*')
+        Filter(message=re.compile('some annoying (message|msg)'))
+        Filter(levelno=lambda lvl: lvl < logging.WARNING)
+
+        Filter(filter=False, name='*.target.*')
+    """
+
+    def __init__(self, filter=True, **criteria):
+        self._filter = filter
+        self.criteria = {}
+
+        # Normalize all globs into regexs into lambdas
+        for prop in criteria:
+            criterion = criteria[prop]
+
+            if type(criterion) == str:
+                criterion = re.compile(fnmatch.translate(criterion))
+
+            if hasattr(criterion, '__call__'):
+                self.criteria[prop] = criterion
+            else:
+                self.criteria[prop] = lambda value: criterion.search(value)
+
+    def filter(self, record):
+        record = record.__dict__
+        matches = True
+
+        for prop in self.criteria:
+            if not self.criteria[prop](record.get(prop, '')):
+                matches = False
+                break
+
+        if self._filter:
+            return not matches
+        else:
+            return matches
+
+
 class MuteReporter(ProgressReporter):
     """A report that declines to report anything."""
     def __init__(self, name='', expect=0, fd=sys.stderr):
@@ -437,6 +483,9 @@ def setup_loggers(cfg, console_level=logging.INFO):
     # Set logger levels
     logging.root.setLevel(logging.DEBUG)
     logging.root.handlers[0].setLevel(console_level)
+
+    # Filter target output until we can properly filter it
+    logging.root.handlers[0].addFilter(Filter(name='target.*'))
 
     if cfg['log_json']:
         logging.root.handlers[0].setFormatter(JSONFormatter())
