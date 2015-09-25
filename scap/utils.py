@@ -9,6 +9,7 @@ import contextlib
 import errno
 import fcntl
 import hashlib
+import inspect
 import json
 import logging
 import os
@@ -313,7 +314,19 @@ def log_context(context_name):
     def arg_wrapper(func):
         @wraps(func)
         def context_wrapper(*args, **kwargs):
-            if 'logger' in kwargs:
+            argspec = inspect.getargspec(func)
+
+            # Check if logger was passed as a positional argument
+            try:
+                l = args[argspec.args.index('logger')]
+            except IndexError:
+                l = None
+
+            # Check if logger was passed as a keywork argument
+            if l is None:
+                l = kwargs.get('logger', None)
+
+            if l is not None:
                 return func(*args, **kwargs)
 
             with context_logger(context_name) as logger:
