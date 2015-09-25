@@ -18,6 +18,7 @@ DEFAULT_CONFIG = {
     'deploy_dir': '/srv/mediawiki',
     'stage_dir': '/srv/mediawiki-staging',
     'lock_file': '/var/lock/scap',
+    'log_json': False,
     'master_rsync': 'localhost',
     'statsd_host': '127.0.0.1',
     'statsd_port': '2003',
