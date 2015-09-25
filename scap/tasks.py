@@ -439,14 +439,10 @@ def _call_rebuildLocalisationCache(wikidb, out_dir, use_cores=1,
     """
 
     with utils.sudo_temp_dir('www-data', 'scap_l10n_') as temp_dir:
-        # Seed the temporary directory with the current CDB and/or PHP files.
-        # The unspeakable horror that is '[pc][hd][pb]' is a portable way of
-        # matching one or more .cdb / .php files. We only need this
-        # monstronsity during a temporary migration period. Slap Ori if it
-        # is still around after 1-Sep-2015.
-        if glob.glob('%s/*.[pc][hd][pb]' % out_dir):
+        # Seed the temporary directory with the current CDB files
+        if glob.glob('%s/*.cdb' % out_dir):
             utils.sudo_check_call('www-data',
-                "cp '%(out_dir)s/'*.[pc][hd][pb] '%(temp_dir)s'" % {
+                "cp '%(out_dir)s/'*.cdb '%(temp_dir)s'" % {
                     'temp_dir': temp_dir,
                     'out_dir': out_dir
                 })
