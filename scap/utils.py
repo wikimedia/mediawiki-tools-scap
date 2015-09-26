@@ -322,7 +322,7 @@ def log_context(context_name):
             except IndexError:
                 l = None
 
-            # Check if logger was passed as a keywork argument
+            # Check if logger was passed as a keyword argument
             if l is None:
                 l = kwargs.get('logger', None)
 
