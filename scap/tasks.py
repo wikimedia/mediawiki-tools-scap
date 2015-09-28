@@ -668,11 +668,14 @@ def check_port(port_number, logger=None):
 
 
 def move_symlink(source, dest, user='mwdeploy'):
-    common_path = os.path.commonprefix([source, dest])
-    rsource = os.path.relpath(source, common_path)
-    rdest = os.path.relpath(dest, common_path)
+    dest_dir = os.path.dirname(dest)
+    rsource = os.path.relpath(source, dest_dir)
+    rdest = os.path.relpath(dest, dest_dir)
 
-    with utils.cd(common_path):
+    # Make link target's parent directory if it doesn't exist
+    utils.mkdir_p(dest_dir, user=user)
+
+    with utils.cd(dest_dir):
         utils.sudo_check_call(user,
                               "ln -sfT '{}' '{}'".format(rsource, rdest))
 
