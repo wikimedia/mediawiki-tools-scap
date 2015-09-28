@@ -12,8 +12,8 @@ class JSONOutputHandlerTest(unittest.TestCase):
         self.host = 'host1'
         self.output_handler = ssh.JSONOutputHandler(self.host)
 
-        self.logger = logging.getLogger(self.host)
-        self.logger.setLevel(logging.DEBUG)
+        self.logger = logging.getLogger('target.' + self.host)
+        self.logger.setLevel(logging.INFO)
 
         for log_handler in self.logger.handlers:
             self.logger.removeHandler(log_handler)

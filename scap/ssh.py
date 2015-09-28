@@ -50,7 +50,7 @@ class JSONOutputHandler(OutputHandler):
     def __init__(self, host):
         self.host = host
         self._decoder = json.JSONDecoder()
-        self._logger = utils.get_logger().getChild(host)
+        self._logger = utils.get_logger().getChild('target').getChild(host)
 
     def accept(self, output):
         """Extracts and deserializes line-wise JSON from the given output.
