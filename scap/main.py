@@ -594,9 +594,12 @@ class DeployLocal(cli.Application):
     def main(self, *extra_args):
         self.rev = self.config['git_rev']
 
-        root_deploy_dir = os.path.normpath("{0}/{1}".format(
+        self.root_dir = os.path.normpath("{0}/{1}".format(
             self.config['git_deploy_dir'], self.config['git_repo']))
 
+        # cache, revs, and current directory go under [repo]-cache and are
+        # linked to [repo] as a final step
+        root_deploy_dir = '{}-cache'.format(self.root_dir)
         deploy_dir = lambda subdir: os.path.join(root_deploy_dir, subdir)
 
         self.cache_dir = deploy_dir('cache')
@@ -661,6 +664,7 @@ class DeployLocal(cli.Application):
         service = self.config.get('service_name', None)
 
         self._link_rev_dir(self.cur_link)
+        self._link_final_to_current()
 
         if service is not None:
             tasks.restart_service(service, user=self.config['git_repo_user'])
@@ -720,6 +724,18 @@ class DeployLocal(cli.Application):
         self.rev_dir = rev_dir
         self.promote()
         self._remove_progress_link()
+
+    def _link_final_to_current(self):
+        """Link the current checkout to final location at [repo]
+
+        This should really only be needed the first time that scap03 is
+        run. It links the [repo]-cache/current directory to [repo].
+        """
+        if (not os.path.islink(self.root_dir) and
+           (os.path.isfile(self.root_dir) or os.path.isdir(self.root_dir))):
+                os.rename(self.root_dir, '{}.trebuchet'.format(self.root_dir))
+
+        tasks.move_symlink(self.cur_link, self.root_dir, user=self.user)
 
     def _link_rev_dir(self, symlink_path):
         tasks.move_symlink(self.rev_dir, symlink_path, user=self.user)
