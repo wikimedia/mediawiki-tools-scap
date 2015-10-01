@@ -7,6 +7,7 @@
 """
 import argparse
 import errno
+import hashlib
 import multiprocessing
 import netifaces
 import os
@@ -610,8 +611,16 @@ class DeployLocal(cli.Application):
         self.cache_dir = deploy_dir('cache')
         self.revs_dir = deploy_dir('revs')
         self.tmp_dir = deploy_dir('tmp')
+        self.cfg_digest = os.path.join(self.tmp_dir, '.config-digest')
 
-        self.rev_dir = os.path.join(self.revs_dir, self.rev)
+        rev_dir = self.rev
+        try:
+            with open(self.cfg_digest, 'r') as f:
+                rev_dir = '{}-{}'.format(f.read(), self.rev)
+        except IOError:
+            pass
+
+        self.rev_dir = os.path.join(self.revs_dir, rev_dir)
 
         self.cur_link = deploy_dir('current')
         self.progress_flag = deploy_dir('.in-progress')
@@ -654,6 +663,7 @@ class DeployLocal(cli.Application):
         source_basepath = os.path.join(self.tmp_dir, self.rev, 'config-files')
         logger.debug('Source basepath: {}'.format(source_basepath))
         utils.mkdir_p(source_basepath)
+        config_file_tree = {}
 
         for config_file in config_files['files']:
             name = config_file['name']
@@ -675,7 +685,17 @@ class DeployLocal(cli.Application):
             logger.debug('Rendering config_file: {}'.format(source))
 
             with open(source, 'w') as f:
-                f.write(tmpl.render())
+                output_file = tmpl.render()
+                s = hashlib.sha1()
+                s.update('blob {}\0'.format(len(output_file)))
+                s.update(output_file)
+                config_file_tree[source] = s.hexdigest()
+                f.write(output_file)
+
+        with open(self.cfg_digest, 'w') as f:
+            s = hashlib.sha1()
+            s.update(repr(config_file_tree))
+            f.write(s.hexdigest())
 
     def fetch(self):
         """Fetch the specified revision of the remote repo.
@@ -744,7 +764,7 @@ class DeployLocal(cli.Application):
 
         # move .done flag and remove the .in-progress flag
         self._link_rev_dir(self.done_flag)
-        self._remove_progress_link()
+        self._cleanup()
 
     def rollback(self):
         """Performs a rollback to the last deployed revision.
@@ -773,6 +793,12 @@ class DeployLocal(cli.Application):
         rev_dir = os.path.realpath(self.done_flag)
         rev = os.path.basename(rev_dir)
 
+        try:
+            rev = rev.split('_')[1]
+        except IndexError:
+            # Don't blow up if there was no config deployed last time
+            pass
+
         if not os.path.isdir(rev_dir):
             msg = 'rollback failed due to missing rev directory {}'
             raise RuntimeError(msg.format(rev_dir))
@@ -784,7 +810,7 @@ class DeployLocal(cli.Application):
         # Config re-evaluation no longer necessary or desirable at this point
         self.config['config_deploy'] = False
         self.promote()
-        self._remove_progress_link()
+        self._cleanup()
 
     def _link_final_to_current(self):
         """Link the current checkout to final location at [repo]
@@ -828,8 +854,16 @@ class DeployLocal(cli.Application):
     def _link_rev_dir(self, symlink_path):
         tasks.move_symlink(self.rev_dir, symlink_path, user=self.user)
 
+    def _cleanup(self):
+        self._remove_progress_link()
+        self._remove_config_digest()
+
     def _remove_progress_link(self):
         tasks.remove_symlink(self.progress_flag, user=self.user)
+
+    def _remove_config_digest(self):
+        if os.path.exists(self.cfg_digest):
+            os.unlink(self.cfg_digest)
 
 
 class Deploy(cli.Application):
