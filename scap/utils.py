@@ -5,7 +5,9 @@
     Contains misc utility functions.
 
 """
+import collections
 import contextlib
+import distutils.version
 import errno
 import fcntl
 import hashlib
@@ -739,3 +741,29 @@ def get_target_hosts(pattern, hosts):
         targets = list(set(targets) ^ set(hosts))
 
     return targets
+
+
+def get_active_wikiversions(directory, realm, datacenter):
+    """Get an ordered collection of active MediaWiki versions.
+
+    :returns: collections.OrderedDict of {version:wikidb} values sorted by
+                version number in ascending order
+    """
+    path = get_realm_specific_filename(
+        os.path.join(directory, 'wikiversions.json'), realm, datacenter)
+
+    with open(path) as f:
+        wikiversions = json.load(f)
+
+    versions = {}
+    for wikidb, version in wikiversions.items():
+        version = version[4:]  # trim 'php-' from version
+        if version not in versions:
+            versions[version] = wikidb
+
+    # Convert to list of (version, db) tuples sorted by version number
+    # and then convert that list to an OrderedDict
+    sorted_versions = collections.OrderedDict(sorted(versions.iteritems(),
+        key=lambda v: distutils.version.LooseVersion(v[0])))
+
+    return sorted_versions

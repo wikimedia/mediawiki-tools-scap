@@ -16,6 +16,7 @@ import os
 import psutil
 import requests
 import shutil
+import socket
 import subprocess
 import time
 import yaml
@@ -54,6 +55,19 @@ class AbstractSync(cli.Application):
         with utils.lock(self.config['lock_file']):
             self._before_cluster_sync()
 
+            # Update masters
+            masters = self._get_master_list()
+            with log.Timer('sync-masters', self.get_stats()):
+                update_masters = ssh.Job(masters, user=self.config['ssh_user'])
+                update_masters.exclude_hosts([socket.getfqdn()])
+                update_masters.command(self._master_sync_command())
+                update_masters.progress('sync-masters')
+                succeeded, failed = update_masters.run()
+                if failed:
+                    self.get_logger().warning(
+                        '%d masters had sync errors', failed)
+                    self.soft_errors = True
+
             # Update proxies
             proxies = self._get_proxy_list()
             with log.Timer('sync-proxies', self.get_stats()):
@@ -91,10 +105,23 @@ class AbstractSync(cli.Application):
     def _before_cluster_sync(self):
         pass
 
+    def _get_master_list(self):
+        """Get list of deploy master hostnames that should be updated before
+        the rest of the cluster."""
+        return utils.read_hosts_file(self.config['dsh_masters'])
+
     def _get_proxy_list(self):
         """Get list of sync proxy hostnames that should be updated before the
         rest of the cluster."""
         return utils.read_hosts_file(self.config['dsh_proxies'])
+
+    def _master_sync_command(self):
+        """Synchronization command to run on the master hosts."""
+        cmd = [self.get_script_path('sync-master')]
+        if self.verbose:
+            cmd.append('--verbose')
+        cmd.append(socket.getfqdn())
+        return cmd
 
     def _proxy_sync_command(self):
         """Synchronization command to run on the proxy hosts."""
@@ -204,6 +231,7 @@ class Scap(AbstractSync):
     #. Compile wikiversions.json to cdb in deploy directory
     #. Update l10n files in staging area
     #. Compute git version information
+    #. Ask scap masters to sync with current master
     #. Ask scap proxies to sync with master server
     #. Ask apaches to sync with fastest rsync server
     #. Ask apaches to rebuild l10n CDB files
@@ -304,6 +332,19 @@ class Scap(AbstractSync):
         if self.config:
             self.get_stats().timing('scap.scap', self.get_duration() * 1000)
         return exit_status
+
+
+class SyncMaster(cli.Application):
+    """Sync local MediaWiki staging directory with deploy server state."""
+
+    @cli.argument('master', help='Master rsync server to copy from')
+    def main(self, *extra_args):
+        tasks.sync_master(
+            self.config,
+            master=self.arguments.master,
+            verbose=self.verbose
+        )
+        return 0
 
 
 class SyncCommon(cli.Application):

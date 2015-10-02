@@ -33,6 +33,8 @@ DEFAULT_CONFIG = {
     'apache_pid_file': '/var/run/apache2/apache2.pid',
     'pybal_interface': 'lo:LVS',
     'dsh_targets': 'mediawiki-installation',
+    'dsh_masters': 'scap-masters',
+    'dsh_proxies': 'scap-proxies',
     'git_deploy_dir': '/srv/deployment',
     'git_repo_user': 'mwdeploy',
     'git_server': 'tin.eqiad.wmnet',

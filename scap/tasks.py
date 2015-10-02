@@ -30,9 +30,6 @@ DEFAULT_RSYNC_ARGS = [
     '--delay-updates',
     '--compress',
     '--delete',
-    '--exclude=**/.svn/lock',
-    '--exclude=**/.git/objects',
-    '--exclude=**/.git/**/objects',
     '--exclude=**/cache/l10n/*.cdb',
     '--no-perms',
 ]
@@ -249,6 +246,47 @@ def purge_l10n_cache(version, cfg):
     purge.progress('l10n purge').run()
 
 
+@utils.log_context('sync_master')
+def sync_master(cfg, master, verbose=False, logger=None):
+    """Sync local staging dir with upstream rsync server's copy
+
+    Rsync from ``server::common`` to the local staging directory.
+
+    :param cfg: Dict of global configuration values.
+    :param master: Master server to sync with
+    :param verbose: Enable verbose logging?
+    """
+
+    if not os.path.isdir(cfg['stage_dir']):
+        raise Exception((
+            'rsync target directory %s not found. Ask root to create it '
+            '(should belong to root:wikidev).') % cfg['stage_dir'])
+
+    # Execute rsync fetch locally via sudo
+    rsync = ['sudo', '-u', 'mwdeploy', '-g', 'wikidev', '-n', '--']
+    rsync.extend(DEFAULT_RSYNC_ARGS)
+    if verbose:
+        rsync.append('--verbose')
+
+    rsync.append('%s::common' % master)
+    rsync.append(cfg['stage_dir'])
+
+    logger.info('Copying to %s from %s', socket.getfqdn(), master)
+    logger.debug('Running rsync command: `%s`', ' '.join(rsync))
+    stats = log.Stats(cfg['statsd_host'], int(cfg['statsd_port']))
+    with log.Timer('rsync master', stats):
+        subprocess.check_call(rsync)
+
+    # Rebuild the CDB files from the JSON versions
+    versions = utils.get_active_wikiversions(
+        cfg['stage_dir'], cfg['wmf_realm'], cfg['datacenter'])
+    use_cores = max(multiprocessing.cpu_count() - 2, 1)
+    for version, wikidb in versions.items():
+        cache_dir = os.path.join(cfg['stage_dir'],
+            'php-%s' % version, 'cache', 'l10n')
+        merge_cdb_updates(cache_dir, use_cores, True, True)
+
+
 @utils.log_context('sync_common')
 def sync_common(cfg, include=None, sync_from=None, verbose=False, logger=None):
     """Sync local deploy dir with upstream rsync server's copy
@@ -281,6 +319,8 @@ def sync_common(cfg, include=None, sync_from=None, verbose=False, logger=None):
 
     # Execute rsync fetch locally via sudo
     rsync = ['sudo', '-u', 'mwdeploy', '-n', '--'] + DEFAULT_RSYNC_ARGS
+    # Exclude .git metadata
+    rsync.append('--exclude=**/.git')
     if verbose:
         rsync.append('--verbose')
 

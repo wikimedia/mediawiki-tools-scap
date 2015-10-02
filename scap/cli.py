@@ -6,9 +6,6 @@
 
 """
 import argparse
-import collections
-import distutils.version
-import json
 import logging
 import os
 import sys
@@ -90,26 +87,9 @@ class Application(object):
         :returns: collections.OrderedDict of {version:wikidb} values sorted by
                   version number in ascending order
         """
-        directory = self.config[source_tree + '_dir']
-        path = utils.get_realm_specific_filename(
-            os.path.join(directory, 'wikiversions.json'),
+        return utils.get_active_wikiversions(
+            self.config[source_tree + '_dir'],
             self.config['wmf_realm'], self.config['datacenter'])
-
-        with open(path) as f:
-            wikiversions = json.load(f)
-
-        versions = {}
-        for wikidb, version in wikiversions.items():
-            version = version[4:]  # trim 'php-' from version
-            if version not in versions:
-                versions[version] = wikidb
-
-        # Convert to list of (version, db) tuples sorted by version number
-        # and then convert that list to an OrderedDict
-        sorted_versions = collections.OrderedDict(sorted(versions.iteritems(),
-            key=lambda v: distutils.version.LooseVersion(v[0])))
-
-        return sorted_versions
 
     def _parse_arguments(self, argv):
         """Parse command line arguments.
