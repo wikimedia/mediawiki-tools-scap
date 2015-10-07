@@ -2,13 +2,17 @@
   "linters": {
     "pep8": {
       "type": "pep8",
-      "include": "(\\.py$)",
-      "exclude": "(^bin/)"
+      "include": "(\\.py$|^bin/.+$)",
+      "exclude": "(^bin/refreshCdbJsonFiles$)"
     },
-    "pylint": {
-      "type": "pylint",
-      "include": "(\\.py$)",
-      "exclude": "(^bin/)"
+    "pyflakes": {
+      "type": "pyflakes",
+      "include": "(\\.py$|^bin/.+$)",
+      "exclude": "(^bin/refreshCdbJsonFiles$)"
+    },
+    "php": {
+      "type": "php",
+      "include": "(\\.php$|^bin/refreshCdbJsonFiles$)"
     }
   }
 }
