@@ -17,6 +17,7 @@ import shutil
 import subprocess
 import yaml
 
+from . import checks
 from . import cli
 from . import log
 from . import ssh
@@ -583,7 +584,7 @@ class HHVMGracefulAll(cli.Application):
 
 class DeployLocal(cli.Application):
     """Deploy service code via git"""
-    STAGES = ['config_deploy', 'fetch', 'promote', 'check']
+    STAGES = ['config_deploy', 'fetch', 'promote']
     EX_STAGES = ['rollback']
 
     rev = None
@@ -606,7 +607,9 @@ class DeployLocal(cli.Application):
         # cache, revs, and current directory go under [repo]-cache and are
         # linked to [repo] as a final step
         root_deploy_dir = '{}-cache'.format(self.root_dir)
-        deploy_dir = lambda subdir: os.path.join(root_deploy_dir, subdir)
+
+        def deploy_dir(subdir):
+            return os.path.join(root_deploy_dir, subdir)
 
         self.cache_dir = deploy_dir('cache')
         self.revs_dir = deploy_dir('revs')
@@ -637,7 +640,21 @@ class DeployLocal(cli.Application):
 
         self.server_url = "{0}://{1}".format(scheme, url)
 
-        getattr(self, self.arguments.stage)()
+        stage = self.arguments.stage
+
+        getattr(self, stage)()
+
+        if self.config['perform_checks']:
+            status = self._execute_checks(stage)
+
+            # Perform final tasks after the last stage
+            if status == 0 and self.STAGES[-1] == stage:
+                self._finalize()
+
+            return status
+
+        else:
+            return 0
 
     def config_deploy(self):
         """Renders config files
@@ -734,6 +751,9 @@ class DeployLocal(cli.Application):
 
         Switches the `current` symlink to the current revision directory and
         restarts the configured service.
+
+        Probes the configured service port to measure whether it successfully
+        restarted.
         """
 
         service = self.config.get('service_name', None)
@@ -747,24 +767,11 @@ class DeployLocal(cli.Application):
         if service is not None:
             tasks.restart_service(service, user=self.config['git_repo_user'])
 
-    def check(self):
-        """Verifies whether the promotion was successful.
+            port = self.config.get('service_port', None)
 
-        Probes the configured service port to measure whether it successfully
-        restarted.
-
-        At the end of this stage, the .done link is created and the
-        .in-progress link is removed.
-        """
-
-        port = self.config.get('service_port', None)
-
-        if port is not None:
-            tasks.check_port(int(port))
-
-        # move .done flag and remove the .in-progress flag
-        self._link_rev_dir(self.done_flag)
-        self._cleanup()
+            if port is not None:
+                timeout = float(self.config['service_timeout'])
+                tasks.check_port(int(port), timeout=timeout)
 
     def rollback(self):
         """Performs a rollback to the last deployed revision.
@@ -810,6 +817,41 @@ class DeployLocal(cli.Application):
         # Config re-evaluation no longer necessary or desirable at this point
         self.config['config_deploy'] = False
         self.promote()
+        self._cleanup()
+
+    @utils.log_context('checks')
+    def _execute_checks(self, stage, logger=None):
+        """Fetches and executes all checks configured for the given stage.
+
+        Checks are retrieved from the remote deploy host and cached within
+        tmp.
+        """
+
+        checks_url = os.path.join(self.server_url, 'scap', 'checks.yaml')
+        response = requests.get(checks_url)
+
+        if response.status_code != requests.codes.ok:
+            raise IOError(errno.ENOENT, 'Error downloading checks', checks_url)
+
+        chks = checks.load(response.text)
+        chks = [chk for chk in chks.values() if chk.stage == stage]
+
+        success, done = checks.execute(chks, logger=logger)
+        failed = [job.check.name for job in done if job.isfailure()]
+
+        if success:
+            return 0
+        else:
+            return 1 if len(failed) else 2
+
+    def _finalize(self):
+        """Performs the final deploy actions.
+
+        Moves the .done flag to the rev directory and removes the .in-progress
+        flag.
+        """
+
+        self._link_rev_dir(self.done_flag)
         self._cleanup()
 
     def _link_final_to_current(self):
@@ -886,7 +928,9 @@ class Deploy(cli.Application):
         'git_submodules',
         'service_name',
         'service_port',
+        'service_timeout',
         'config_deploy',
+        'perform_checks',
     ]
 
     repo = None
@@ -899,7 +943,11 @@ class Deploy(cli.Application):
                   help='Limit deploy to hosts matching expression')
     def main(self, *extra_args):
         logger = self.get_logger()
+
         self.repo = self.config['git_repo']
+        self.repo_dir = os.path.join(self.config['git_deploy_dir'], self.repo)
+        self.scap_dir = os.path.join(self.repo_dir, 'scap')
+
         deploy_dir = self.config['git_deploy_dir']
         cwd = os.getcwd()
 
@@ -978,11 +1026,9 @@ class Deploy(cli.Application):
             return
 
         logger.debug('Deploy config: True')
-        path_root = os.path.join(self.config['git_deploy_dir'], self.repo)
-        scap_path = os.path.join(path_root, 'scap')
 
         cfg_file = utils.get_env_specific_filename(
-            os.path.join(scap_path, 'config-files.yaml'),
+            os.path.join(self.scap_dir, 'config-files.yaml'),
             self.arguments.environment
         )
 
@@ -990,7 +1036,7 @@ class Deploy(cli.Application):
         if not os.path.isfile(cfg_file):
             return
 
-        config_file_path = os.path.join(path_root, '.git', 'config-files')
+        config_file_path = os.path.join(self.repo_dir, '.git', 'config-files')
         utils.mkdir_p(config_file_path)
         tmp_cfg_file = os.path.join(config_file_path, '{}.yaml'.format(commit))
         tmp_cfg = {}
@@ -1005,7 +1051,7 @@ class Deploy(cli.Application):
             f['name'] = config_file
             template_name = config_files[config_file]['template']
             template = utils.get_env_specific_filename(
-                os.path.join(scap_path, 'templates', template_name),
+                os.path.join(self.scap_dir, 'templates', template_name),
                 self.arguments.environment
             )
             with open(template, 'r') as tmp:
@@ -1020,7 +1066,7 @@ class Deploy(cli.Application):
         tmp_cfg['override_vars'] = {}
 
         # Build vars to override remote
-        default_vars = os.path.join(scap_path, 'vars.yaml')
+        default_vars = os.path.join(self.scap_dir, 'vars.yaml')
         vars_files = [
             default_vars,
             utils.get_env_specific_filename(
@@ -1060,16 +1106,21 @@ class Deploy(cli.Application):
         ])
 
         # Handle JSON output from deploy-local
-        deploy_local_cmd = deploy_local_cmd + ['-D log_json:True', '-v']
+        deploy_local_cmd += ['-D log_json:True', '-v']
 
-        deploy_stage_cmd = deploy_local_cmd + [stage]
-        logger.debug('Running cmd {}'.format(deploy_stage_cmd))
+        # Be sure to skip checks if they aren't configured
+        if not os.path.exists(os.path.join(self.scap_dir, 'checks.yaml')):
+            deploy_local_cmd += ['-D perform_checks:False']
+
+        deploy_local_cmd += [stage]
+
+        logger.debug('Running cmd {}'.format(deploy_local_cmd))
 
         deploy_stage = ssh.Job(
             hosts=self.targets, user=self.config['ssh_user'])
         deploy_stage.output_handler = ssh.JSONOutputHandler
         deploy_stage.max_failure = self.MAX_FAILURES
-        deploy_stage.command(deploy_stage_cmd)
+        deploy_stage.command(deploy_local_cmd)
         deploy_stage.progress('deploy_{}_{}'.format(self.repo, stage))
 
         succeeded, failed = deploy_stage.run(batch_size=batch_size)

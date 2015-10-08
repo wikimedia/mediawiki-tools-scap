@@ -18,7 +18,7 @@ the deployment server to a staging or production environment.
 * Checks out the tag created in step 1 on each of the target machines
 * If a `service_name` is specified, the service is restarted
 * If a `service_port` is specified, make sure that it is accepting
-  connections
+  connections, waiting up to `service_timeout` (120 seconds by default)
 
 .. program-output:: ../bin/sync-common --help
 .. seealso::

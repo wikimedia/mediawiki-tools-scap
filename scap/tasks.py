@@ -648,22 +648,26 @@ def restart_service(service, user='mwdeploy', logger=None):
 
 
 @utils.log_context('port_check')
-def check_port(port_number, logger=None):
+def check_port(port, timeout, interval=3, logger=None):
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
-    # Try this a few times while we wait for the service to come up
-    i = 0
-    while(i < 10):
-        if sock.connect_ex(('127.0.0.1', port_number)) == 0:
-            logger.debug('Port: {} up in {} tries'.format(port_number, i))
+    start = time.time()
+    elapsed = 0.0
+    while elapsed < timeout:
+        if elapsed > 0:
+            time.sleep(interval)
+
+        elapsed = time.time() - start
+
+        if sock.connect_ex(('127.0.0.1', port)) == 0:
+            logger.debug('Port {} up in {:.2f}s'.format(port, elapsed))
             return True
-        i += 1
-        logger.debug('Port {} not accepting connections'.format(port_number))
-        time.sleep(5)
+
+        logger.debug('Port {} not up. Waiting {:.2f}s'.format(port, interval))
 
     raise OSError(
         errno.ENOTCONN,
-        "Specified port {} is not accepting connections".format(port_number)
+        'Port {} not up within {:.2f}s'.format(port, timeout)
     )
 
 

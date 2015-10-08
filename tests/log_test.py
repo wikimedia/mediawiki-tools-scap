@@ -2,10 +2,10 @@
 
 import logging
 import re
+from StringIO import StringIO
 import unittest
 
 from scap import log
-from StringIO import StringIO
 
 
 class FilterTest(unittest.TestCase):
