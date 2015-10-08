@@ -273,6 +273,8 @@ class Application(object):
         app = cls(argv.pop(0))
         exit_status = 0
         try:
+            if os.geteuid() == 0:
+                raise SystemExit('Scap should not be run as root')
             args, extra_args = app._parse_arguments(argv)
             args, extra_args = app._process_arguments(args, extra_args)
             app.arguments = args
