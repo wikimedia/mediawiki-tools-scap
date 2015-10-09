@@ -13,8 +13,8 @@
             stage: promote
 
           some_other_check_name:
-            type: icinga
-            command: some_parsed_icinga_command_name
+            type: nrpe
+            command: some_parsed_nrpe_command_name
             stage: promote
 """
 import os

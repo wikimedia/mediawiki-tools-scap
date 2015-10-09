@@ -1,9 +1,7 @@
 #!/usr/bin/env python2
 
 import logging
-import os
 import select
-import tempfile
 from StringIO import StringIO
 from textwrap import dedent
 import unittest

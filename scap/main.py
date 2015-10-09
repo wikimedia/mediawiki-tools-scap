@@ -20,6 +20,7 @@ import yaml
 from . import checks
 from . import cli
 from . import log
+from . import nrpe
 from . import ssh
 from . import tasks
 from . import template
@@ -829,6 +830,10 @@ class DeployLocal(cli.Application):
         tmp.
         """
 
+        # Load NRPE checks
+        if os.path.isdir(self.config['nrpe_dir']):
+            nrpe.register(nrpe.load_directory(self.config['nrpe_dir']))
+
         checks_url = os.path.join(self.server_url, 'scap', 'checks.yaml')
         response = requests.get(checks_url)
 
@@ -928,6 +933,7 @@ class Deploy(cli.Application):
         'git_repo',
         'git_rev',
         'git_submodules',
+        'nrpe_dir',
         'service_name',
         'service_port',
         'service_timeout',

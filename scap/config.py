@@ -39,6 +39,7 @@ DEFAULT_CONFIG = {
     'git_scheme': 'http',
     'git_submodules': False,
     'config_deploy': False,
+    'nrpe_dir': '/etc/nagios/nrpe.d',
     'service_timeout': 120,
     'perform_checks': True,
 }
