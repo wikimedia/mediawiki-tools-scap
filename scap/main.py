@@ -27,6 +27,8 @@ from . import utils
 
 from datetime import datetime
 
+REV_DELIMITER = '_'
+
 
 class AbstractSync(cli.Application):
     """Base class for applications that want to sync one or more files from
@@ -619,7 +621,7 @@ class DeployLocal(cli.Application):
         rev_dir = self.rev
         try:
             with open(self.cfg_digest, 'r') as f:
-                rev_dir = '{}-{}'.format(f.read(), self.rev)
+                rev_dir = REV_DELIMITER.join([f.read(), self.rev])
         except IOError:
             pass
 
@@ -801,7 +803,7 @@ class DeployLocal(cli.Application):
         rev = os.path.basename(rev_dir)
 
         try:
-            rev = rev.split('_')[1]
+            rev = rev.split(REV_DELIMITER)[1]
         except IndexError:
             # Don't blow up if there was no config deployed last time
             pass
