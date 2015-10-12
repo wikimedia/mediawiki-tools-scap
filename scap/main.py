@@ -329,7 +329,7 @@ class SyncDblist(AbstractSync):
 
     def _proxy_sync_command(self):
         cmd = [self.get_script_path('sync-common'),
-               '--no-update-l10n', '--include', '*.dblist']
+               '--no-update-l10n', '--include', 'dblists/*.dblist']
         if self.verbose:
             cmd.append('--verbose')
         return cmd
