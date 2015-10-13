@@ -134,7 +134,7 @@ def compile_wikiversions(source_tree, cfg, logger=None):
 
     # Get the list of all wikis
     all_dblist_file = utils.get_realm_specific_filename(
-        os.path.join(working_dir, 'all.dblist'),
+        os.path.join(working_dir, 'dblists', 'all.dblist'),
         cfg['wmf_realm'], cfg['datacenter'])
     all_dbs = set(line.strip() for line in open(all_dblist_file))
 
