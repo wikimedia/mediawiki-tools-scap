@@ -600,7 +600,7 @@ class DeployLocal(cli.Application):
     user = None
 
     @cli.argument('stage', metavar='STAGE', choices=STAGES + EX_STAGES,
-        help='Stage of the deployment to execute')
+                  help='Stage of the deployment to execute')
     def main(self, *extra_args):
         self.rev = self.config['git_rev']
 
@@ -742,9 +742,13 @@ class DeployLocal(cli.Application):
         tasks.git_fetch(self.rev_dir, self.cache_dir, user=self.user)
 
         # checkout the given revision
-        tasks.git_checkout(self.rev_dir, self.rev,
-                           submodules=has_submodules,
-                           user=self.user)
+        tasks.git_checkout(self.rev_dir, self.rev, user=self.user)
+
+        if has_submodules:
+            upstream_submodules = self.config['git_upstream_submodules']
+            tasks.git_update_submodules(self.rev_dir, git_remote,
+                                        use_upstream=upstream_submodules,
+                                        user=self.user)
 
         # link the .in-progress flag to the rev directory
         self._link_rev_dir(self.progress_flag)
@@ -934,6 +938,7 @@ class Deploy(cli.Application):
         'git_rev',
         'git_submodules',
         'nrpe_dir',
+        'git_upstream_submodules',
         'service_name',
         'service_port',
         'service_timeout',

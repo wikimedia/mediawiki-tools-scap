@@ -570,12 +570,12 @@ def git_fetch(location, repo, user="mwdeploy"):
         utils.sudo_check_call(user, cmd)
 
 
-@utils.log_context('git_checkout')
-def git_checkout(location, rev, submodules=False, user="mwdeploy",
-                 logger=None):
+def git_checkout(location, rev, user="mwdeploy"):
     """Checkout a git repo sha at a location as a user
     """
     utils.ensure_git_dir(location)
+
+    logger = utils.get_logger()
 
     with utils.cd(location):
         logger.debug(
@@ -583,10 +583,20 @@ def git_checkout(location, rev, submodules=False, user="mwdeploy",
         cmd = '/usr/bin/git checkout --force --quiet {}'.format(rev)
         utils.sudo_check_call(user, cmd)
 
-        if submodules:
-            logger.debug('Checking out submodules')
-            cmd = '/usr/bin/git submodule update --init --recursive'
-            utils.sudo_check_call(user, cmd)
+
+def git_update_submodules(location, git_remote, use_upstream=False,
+                          user='mwdeploy'):
+    """Update git submodules on target machines"""
+    utils.ensure_git_dir(location)
+
+    logger = utils.get_logger()
+
+    with utils.cd(location):
+        logger.debug('Checking out submodules')
+        if not use_upstream:
+            git_remap_submodules(location, git_remote)
+        cmd = '/usr/bin/git submodule update --init --recursive'
+        utils.sudo_check_call(user, cmd)
 
 
 @utils.log_context('git_update_server_info')
@@ -638,6 +648,53 @@ def git_tag_repo(deploy_info, location=os.getcwd()):
             deploy_info['commit']
         )
         subprocess.check_call(cmd, shell=True)
+
+
+def git_remap_submodules(location, server):
+    """Remap all submodules to new server (tin)
+
+    This function supports remapping submodules available on the deployment
+    server. Since the remote is a non-bare repo (as of git 1.7.8) all
+    submodules should be available over http under the remote server
+    checkout's git dir:
+    [server]/[repo]/.git/modules/[submodule_path]
+
+    :param location: String path to local git checkout containing a
+                     `.gitmodules` file
+    :param server: String path to remote, non-bare, repo gitdir
+    """
+    utils.ensure_git_dir(location)
+
+    logger = utils.get_logger()
+
+    with utils.cd(location):
+        gitmodule = os.path.join(os.getcwd(), '.gitmodules')
+        if not os.path.isfile(gitmodule):
+            return
+
+        submodules = []
+        logger.info('Updating .gitmodule: {}'.format(
+            os.path.dirname(gitmodule)))
+
+        # ensure we're working with a non-modified .gitmodules file
+        subprocess.check_call('/usr/bin/git checkout .gitmodules',
+                              shell=True)
+        with open(gitmodule, 'r') as module:
+            for line in module.readlines():
+                keyval = line.split('=')
+                if keyval[0].strip() == 'path':
+                    submodules.append(keyval[1].strip())
+        with open(gitmodule, 'w') as module:
+            for submodule in submodules:
+                # Since we're using a non-bare http remote, map the submodule
+                # to the submodule path under $GIT_DIR/modules subdirectory of
+                # the superproject:
+                # https://github.com/git/git/blob/master/Documentation/RelNotes/1.7.8.txt#L109-L114
+                submodule_path = '{}/modules/{}'.format(
+                    server, submodule)
+                module.write('[submodule "{}"]\n'.format(submodule))
+                module.write('\tpath =  {}\n'.format(submodule))
+                module.write('\turl =  {}\n'.format(submodule_path))
 
 
 @utils.log_context('service_restart')
