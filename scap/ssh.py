@@ -7,7 +7,6 @@
 
 """
 import errno
-import json
 import os
 import random
 import select
@@ -43,14 +42,10 @@ class JSONOutputHandler(OutputHandler):
     Any non-structured output is stored for future handling.
     """
 
-    _decoder = None
-    _logger = None
-    _partial = ''
-
     def __init__(self, host):
         self.host = host
-        self._decoder = json.JSONDecoder()
         self._logger = utils.get_logger().getChild('target').getChild(host)
+        self._partial = ''
 
     def accept(self, output):
         """Extracts and deserializes line-wise JSON from the given output.
@@ -60,14 +55,15 @@ class JSONOutputHandler(OutputHandler):
         for line in self.lines(output):
             if line.startswith('{'):
                 try:
-                    record = self._decoder.decode(line)
-                except ValueError:
+                    record = log.JSONFormatter.make_record(line)
+                except (ValueError, TypeError):
                     self.output += line + "\n"
                     record = None
 
                 if record is not None:
-                    msg = log.Message(**record)
-                    self._logger.log(msg.loglevel, msg)
+                    # qualify the record name according to our prefix
+                    record.name = self._logger.name + '.' + record.name
+                    self._logger.handle(record)
             else:
                 self.output += line + "\n"
 

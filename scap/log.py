@@ -95,20 +95,39 @@ class JSONFormatter(logging.Formatter):
     and remote targets.
     """
 
-    FIELDS = ['created', 'name', 'levelno', 'pathname', 'lineno']
-    encoder = None
+    MAPPING = [('name', ''),
+               ('levelno', logging.INFO),
+               ('filename', None),
+               ('lineno', None),
+               ('msg', ''),
+               ('args', []),
+               ('exc_info', None),
+               ('funcName', None)]
+
+    # extrapolate efficient sets of mapped and built-in LogRecord attributes
+    TIMES = {'created', 'msecs', 'relativeCreated'}
+    FIELDS = {k for k, _ in MAPPING} | TIMES
+    NATIVE = set(logging.LogRecord(*[v for _, v in MAPPING]).__dict__.keys())
+
+    @staticmethod
+    def make_record(data):
+        fields = json.loads(data)
+        args = [fields.get(k, v) for k, v in JSONFormatter.MAPPING]
+        record = logging.LogRecord(*args)
+
+        for k in fields:
+            if k in JSONFormatter.TIMES or k not in JSONFormatter.NATIVE:
+                record.__dict__[k] = fields[k]
+
+        return record
 
     def format(self, record):
         rec = record.__dict__
-        fields = {field: rec[field] for field in rec if field in self.FIELDS}
-        fields['message'] = super(self.__class__, self).format(record)
+        fields = {k: rec[k] for k in rec if self._isvalid(k)}
+        return json.dumps(fields)
 
-        return self._encode(fields)
-
-    def _encode(self, fields):
-        if self.encoder is None:
-            self.encoder = json.JSONEncoder()
-        return self.encoder.encode(fields)
+    def _isvalid(self, field):
+        return field in self.FIELDS or field not in self.NATIVE
 
 
 class LogstashFormatter(logging.Formatter):
@@ -186,20 +205,6 @@ class LogstashFormatter(logging.Formatter):
             } for fname, line, func, text in
                 traceback.extract_tb(ex_traceback)]
         }
-
-
-class Message:
-    """Structured log message."""
-
-    loglevel = None
-    meta = {}
-
-    def __init__(self, **meta):
-        self.loglevel = meta.get('loglevel', logging.INFO)
-        self.meta = meta
-
-    def __str__(self):
-        return self.meta.get('message', '')
 
 
 class ProgressReporter(object):

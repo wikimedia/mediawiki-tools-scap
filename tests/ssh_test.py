@@ -33,7 +33,7 @@ class JSONOutputHandlerTest(unittest.TestCase):
         self.assertEqual(['three', 'four'], list(lines))
 
     def test_accept_parses_and_logs_json_messages(self):
-        self.output_handler.accept("{ \"message\": \"foo\" }\n")
+        self.output_handler.accept("{ \"msg\": \"foo\" }\n")
         self.assertLogged("foo\n")
 
     def test_accept_ignores_bad_json(self):

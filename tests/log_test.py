@@ -1,8 +1,10 @@
 #!/usr/bin/env python2
 
+import json
 import logging
 import re
 from StringIO import StringIO
+from textwrap import dedent
 import unittest
 
 from scap import log
@@ -62,6 +64,90 @@ class FilterTest(unittest.TestCase):
         self.c_logger.info('do not log this')
 
         self.assertEqual("do not log this\n", self.stream.getvalue())
+
+
+class JSONFormatterTest(unittest.TestCase):
+    def test_make_record(self):
+        data = dedent("""
+            {
+                "name": "foo",
+                "args": [],
+                "filename": "foo_file",
+                "levelno": 10,
+                "lineno": 123,
+                "msg": "foo message",
+                "exc_info": null,
+                "foo_extra": "bar",
+                "funcName": null,
+                "created": 1444873813.116016,
+                "msecs": 116.01591110229492,
+                "relativeCreated": 38272.172927856445
+            }
+        """)
+
+        record = log.JSONFormatter.make_record(data)
+
+        self.assertIsInstance(record, logging.LogRecord)
+
+        self.assertEqual(record.name, 'foo')
+        self.assertEqual(record.args, [])
+        self.assertEqual(record.filename, 'foo_file')
+        self.assertEqual(record.levelno, 10)
+        self.assertEqual(record.lineno, 123)
+        self.assertEqual(record.msg, 'foo message')
+        self.assertEqual(record.exc_info, None)
+        self.assertEqual(record.foo_extra, 'bar')
+        self.assertEqual(record.created, 1444873813.116016)
+        self.assertEqual(record.msecs, 116.01591110229492)
+        self.assertEqual(record.relativeCreated, 38272.172927856445)
+
+    def test_format_includes_all_logrecord_fields(self):
+        formatter = log.JSONFormatter()
+
+        args = ['foo', logging.DEBUG, 'foo_file', 123, 'foo message', [], None]
+        record = logging.LogRecord(*args)
+        line = formatter.format(record)
+
+        # we can't reliably test an unordered JSON string so load it back in
+        parsed = json.loads(line)
+
+        self.assertIs(type(parsed), dict)
+        self.assertIn('name', parsed)
+        self.assertIn('levelno', parsed)
+        self.assertIn('filename', parsed)
+        self.assertIn('lineno', parsed)
+        self.assertIn('msg', parsed)
+        self.assertIn('args', parsed)
+        self.assertIn('funcName', parsed)
+        self.assertIn('created', parsed)
+        self.assertIn('msecs', parsed)
+        self.assertIn('relativeCreated', parsed)
+
+        self.assertEqual(parsed['name'], 'foo')
+        self.assertEqual(parsed['levelno'], logging.DEBUG)
+        self.assertEqual(parsed['filename'], 'foo_file')
+        self.assertEqual(parsed['lineno'], 123)
+        self.assertEqual(parsed['msg'], 'foo message')
+        self.assertEqual(parsed['args'], [])
+        self.assertEqual(parsed['funcName'], None)
+        self.assertEqual(parsed['created'], record.created)
+        self.assertEqual(parsed['msecs'], record.msecs)
+        self.assertEqual(parsed['relativeCreated'], record.relativeCreated)
+
+    def test_format_includes_extra_fields(self):
+        formatter = log.JSONFormatter()
+
+        args = ['foo', logging.DEBUG, 'foo_file', 123, 'foo message', [], None]
+        record = logging.LogRecord(*args)
+        record.__dict__['foo_extra'] = 'bar'
+        line = formatter.format(record)
+
+        # we can't reliably test an unordered JSON string so load it back in
+        parsed = json.loads(line)
+
+        self.assertIs(type(parsed), dict)
+        self.assertIn('foo_extra', parsed)
+        self.assertEqual(parsed['foo_extra'], 'bar')
 
 
 if __name__ == '__main__':
