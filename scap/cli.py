@@ -121,7 +121,19 @@ class Application(object):
         return self._argparser.parse_known_args(argv)
 
     def _build_argparser(self):
-        parser = argparse.ArgumentParser(description=self.__doc__)
+        doc = self.__doc__.splitlines() if self.__doc__ else [None]
+        desc = doc[0]
+
+        if len(doc) > 1:
+            epilog = "\n".join(doc[1::]).strip()
+            formatter = argparse.RawDescriptionHelpFormatter
+        else:
+            epilog = None
+            formatter = argparse.HelpFormatter
+
+        parser = argparse.ArgumentParser(description=desc,
+                                         epilog=epilog,
+                                         formatter_class=formatter)
 
         # Look for arguments that were added to our main method
         local_args = getattr(self.main, ATTR_ARGUMENTS, [])

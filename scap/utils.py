@@ -189,6 +189,14 @@ def get_disclosable_head(repo_directory):
                 cwd=repo_directory, stderr=dev_null).strip()
 
 
+def git_describe(location):
+    """Returns a convenient label for the current state of the git repo."""
+    ensure_git_dir(location)
+    with cd(location):
+        cmd = '/usr/bin/git describe --always'
+        return subprocess.check_output(cmd, shell=True).strip()
+
+
 def git_info(directory):
     """Compute git version information for a given directory that is
     compatible with MediaWiki's GitInfo class.

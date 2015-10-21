@@ -7,6 +7,7 @@
 """
 import argparse
 import errno
+import glob
 import hashlib
 import multiprocessing
 import netifaces
@@ -15,6 +16,7 @@ import psutil
 import requests
 import shutil
 import subprocess
+import time
 import yaml
 
 from . import checks
@@ -585,7 +587,20 @@ class HHVMGracefulAll(cli.Application):
         return exit_code
 
 
-class DeployLocal(cli.Application):
+class DeployApplication(cli.Application):
+
+    def _load_config(self):
+        """Initializes commonly used attributes after the config is loaded."""
+
+        super(DeployApplication, self)._load_config()
+
+        self.root_dir = os.path.join(self.config['git_deploy_dir'],
+                                     self.config['git_repo'])
+        self.scap_dir = os.path.join(self.root_dir, 'scap')
+        self.log_dir = os.path.join(self.scap_dir, 'log')
+
+
+class DeployLocal(DeployApplication):
     """Deploy service code via git"""
     STAGES = ['config_deploy', 'fetch', 'promote']
     EX_STAGES = ['rollback']
@@ -603,9 +618,6 @@ class DeployLocal(cli.Application):
                   help='Stage of the deployment to execute')
     def main(self, *extra_args):
         self.rev = self.config['git_rev']
-
-        self.root_dir = os.path.normpath("{0}/{1}".format(
-            self.config['git_deploy_dir'], self.config['git_repo']))
 
         # cache, revs, and current directory go under [repo]-cache and are
         # linked to [repo] as a final step
@@ -919,7 +931,7 @@ class DeployLocal(cli.Application):
             os.unlink(self.cfg_digest)
 
 
-class Deploy(cli.Application):
+class Deploy(DeployApplication):
     """Sync new service code across cluster
 
     Uses local .scaprc as config for each host in cluster
@@ -958,8 +970,6 @@ class Deploy(cli.Application):
         logger = self.get_logger()
 
         self.repo = self.config['git_repo']
-        self.repo_dir = os.path.join(self.config['git_deploy_dir'], self.repo)
-        self.scap_dir = os.path.join(self.repo_dir, 'scap')
 
         deploy_dir = self.config['git_deploy_dir']
         cwd = os.getcwd()
@@ -1049,7 +1059,7 @@ class Deploy(cli.Application):
         if not os.path.isfile(cfg_file):
             return
 
-        config_file_path = os.path.join(self.repo_dir, '.git', 'config-files')
+        config_file_path = os.path.join(self.root_dir, '.git', 'config-files')
         utils.mkdir_p(config_file_path)
         tmp_cfg_file = os.path.join(config_file_path, '{}.yaml'.format(commit))
         tmp_cfg = {}
@@ -1148,3 +1158,114 @@ class Deploy(cli.Application):
         default = self.config.get('batch_size', self.MAX_BATCH_SIZE)
         size = int(self.config.get('{}_batch_size'.format(stage), default))
         return min(size, self.MAX_BATCH_SIZE)
+
+    def _setup_loggers(self):
+        """Sets up additional logging to `scap/deploy.log`."""
+
+        if not os.path.exists(self.log_dir):
+            os.mkdir(self.log_dir)
+
+        basename = utils.git_describe(self.root_dir).replace('/', '-')
+        log_file = os.path.join(self.log_dir, '{}.log'.format(basename))
+        log.setup_loggers(self.config,
+                          self.arguments.loglevel,
+                          handlers=[log.DeployLogHandler(log_file)])
+
+
+class DeployLog(DeployApplication):
+    """Tail/filter/output events from the deploy logs
+
+    examples::
+
+        deploy-log -v
+        deploy-log 'host == scap-target-01'
+        deploy-log 'msg ~ "some important (message|msg)"'
+        deploy-log 'levelno >= WARNING host == scap-target-*'
+    """
+
+    DATE_FORMAT = '%H:%M:%S'
+    DIR_SCAN_DELAY = 1
+    FORMAT = '%(asctime)s [%(host)s] %(message)s'
+
+    @cli.argument('expr', metavar='EXPR', nargs='?', default='',
+                  help='Filter expression.')
+    @cli.argument('-f', '--file', metavar='FILE', default=None,
+                  help='Parse and filter an existing log file')
+    @cli.argument('-l', '--latest', action='store_true',
+                  help='Parse and filter the latest log file')
+    def main(self, *extra_args):
+        if self.arguments.latest:
+            given_log = self._latest_log_file()
+        else:
+            given_log = self.arguments.file
+
+        filter = log.Filter.loads(self.arguments.expr, filter=False)
+
+        if not filter.isfiltering('levelno'):
+            filter.append({'levelno': lambda v: v >= self.arguments.loglevel})
+
+        formatter = log.AnsiColorFormatter(self.FORMAT, self.DATE_FORMAT)
+
+        if not os.path.exists(self.log_dir):
+            os.mkdir(self.log_dir)
+
+        cur_log_path = given_log
+        cur_log_file = open(given_log, 'r') if given_log else None
+        last_scan = 0
+
+        # How we do:
+        #  1. read the next line from the current file
+        #  2. if there's output, parse the line, match it, print it
+        #  3. if there's no output, scan the log directory for a new file
+        #  4. if a newer log file is found, open it instead
+        #  5. repeat
+        while True:
+            line = None
+            if cur_log_file:
+                line = cur_log_file.readline()
+
+            if line:
+                try:
+                    record = log.JSONFormatter.make_record(line)
+                    if filter.filter(record):
+                        print formatter.format(record)
+
+                except (ValueError, TypeError):
+                    pass
+            else:
+                if given_log:
+                    # we were given a file and there's nothing more to read
+                    break
+
+                now = time.time()
+
+                if (now - last_scan) > self.DIR_SCAN_DELAY:
+                    last_scan = now
+                    log_path = self._latest_log_file()
+
+                    if log_path and log_path != cur_log_path:
+                        print "-- Opening log file: '{}'".format(log_path)
+                        cur_log_path = log_path
+
+                        if cur_log_file:
+                            cur_log_file.close()
+
+                        cur_log_file = open(cur_log_path, 'r')
+                else:
+                    time.sleep(0.1)
+
+        if cur_log_file:
+            cur_log_file.close()
+
+        return 0
+
+    def _latest_log_file(self):
+        log_glob = os.path.join(self.log_dir, '*.log')
+
+        try:
+            return max(glob.iglob(log_glob), key=os.path.getmtime)
+        except ValueError:
+            return None
+
+    def _setup_loggers(self):
+        pass

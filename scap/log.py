@@ -6,11 +6,14 @@
 
 """
 import fnmatch
+from functools import partial
 import json
 import logging
 import math
+import operator
 import logging.handlers
 import re
+import shlex
 import socket
 import sys
 import time
@@ -95,28 +98,33 @@ class JSONFormatter(logging.Formatter):
     and remote targets.
     """
 
-    MAPPING = [('name', ''),
-               ('levelno', logging.INFO),
-               ('filename', None),
-               ('lineno', None),
-               ('msg', ''),
-               ('args', []),
-               ('exc_info', None),
-               ('funcName', None)]
+    DEFAULTS = [('name', ''),
+                ('levelno', logging.INFO),
+                ('filename', None),
+                ('lineno', None),
+                ('msg', ''),
+                ('args', []),
+                ('exc_info', None),
+                ('funcName', None)]
 
-    # extrapolate efficient sets of mapped and built-in LogRecord attributes
-    TIMES = {'created', 'msecs', 'relativeCreated'}
-    FIELDS = {k for k, _ in MAPPING} | TIMES
-    NATIVE = set(logging.LogRecord(*[v for _, v in MAPPING]).__dict__.keys())
+    # LogRecord fields that we omit because we can't reliably serialize them
+    UNSERIALIZABLE = {'exc_info'}
+
+    # Native fields that we propagate as is
+    PRESERVED = {'created', 'msecs', 'relativeCreated', 'exc_text'}
+
+    # Extrapolate efficient sets of mapped and built-in LogRecord attributes
+    FIELDS = ({k for k, _ in DEFAULTS} | PRESERVED) - UNSERIALIZABLE
+    NATIVE = set(logging.LogRecord(*[v for _, v in DEFAULTS]).__dict__.keys())
 
     @staticmethod
     def make_record(data):
         fields = json.loads(data)
-        args = [fields.get(k, v) for k, v in JSONFormatter.MAPPING]
+        args = [fields.get(k, v) for k, v in JSONFormatter.DEFAULTS]
         record = logging.LogRecord(*args)
 
         for k in fields:
-            if k in JSONFormatter.TIMES or k not in JSONFormatter.NATIVE:
+            if k in JSONFormatter.PRESERVED or k not in JSONFormatter.NATIVE:
                 record.__dict__[k] = fields[k]
 
         return record
@@ -124,7 +132,19 @@ class JSONFormatter(logging.Formatter):
     def format(self, record):
         rec = record.__dict__
         fields = {k: rec[k] for k in rec if self._isvalid(k)}
-        return json.dumps(fields)
+
+        # We can't serialize `exc_info` so preserve it as a formatted string
+        if rec.get('exc_info', None):
+            fields['exc_text'] = self.formatException(rec['exc_info'])
+
+        def serialize_obj(obj):
+            if hasattr(obj, 'getvalue'):
+                return obj.getvalue()
+            elif hasattr(obj, '__dict__'):
+                return obj.__dict__
+            return None
+
+        return json.dumps(fields, default=serialize_obj, skipkeys=True)
 
     def _isvalid(self, field):
         return field in self.FIELDS or field not in self.NATIVE
@@ -282,42 +302,138 @@ class ProgressReporter(object):
             self.ok, self.failed, self.remaining)
 
 
+class DeployLogFormatter(JSONFormatter):
+    """Ensures that all `deploy.log` records contain a host attribute."""
+
+    def format(self, record):
+        if not hasattr(record, 'host'):
+            record.host = socket.gethostname()
+
+        return super(DeployLogFormatter, self).format(record)
+
+
+class DeployLogHandler(logging.FileHandler):
+    """Handler for `scap/deploy.log`."""
+
+    def __init__(self, log_file):
+        super(DeployLogHandler, self).__init__(log_file)
+        self.setFormatter(DeployLogFormatter())
+        self.setLevel(logging.DEBUG)
+
+
 class Filter(object):
-    """Generic log filter that matches record properties against criteria.
+    """Generic log filter that matches record attributes against criteria.
 
     You can provide either a glob pattern, regular expression, or lambda as
-    each property criteria, and invert the logic by passing filter=False.
+    each attribute criterion, and invert the logic by passing filter=False.
 
     Examples:
-        Filter(name='*.target.*')
-        Filter(message=re.compile('some annoying (message|msg)'))
-        Filter(levelno=lambda lvl: lvl < logging.WARNING)
+        Filter({'name': '*.target.*', 'host': 'scap-target-01'})
+        Filter({'msg': re.compile('some annoying (message|msg)')})
+        Filter({'levelno': lambda lvl: lvl < logging.WARNING})
+        Filter({'name': '*.target.*'}, filter=False)
 
-        Filter(filter=False, name='*.target.*')
+    Equivalent DSL examples:
+        Filter.loads('name == *.target.* host == scap-target-01')
+        Filter.loads('msg ~ "some annoying (message|msg)"')
+        Filter.loads('levelno < WARNING')
+        Filter.loads('name == *.target.*', filter=False)
     """
 
-    def __init__(self, filter=True, **criteria):
+    OPERATORS = {'=', '==', '~', '>', '>=', '<', '<='}
+    COMPARISONS = {'>': 'gt', '>=': 'ge', '<': 'lt', '<=': 'le'}
+    LOG_LEVELS = ['CRITICAL', 'ERROR', 'WARNING', 'INFO', 'DEBUG']
+
+    @staticmethod
+    def loads(expression, filter=True):
+        """Constructs a `Filter` from the given free-form expression.
+
+        See :class:`Filter` for examples.
+        """
+
+        criteria = []
+
+        for lhs, op, rhs in Filter.parse(expression):
+            if lhs == 'levelno' and rhs in Filter.LOG_LEVELS:
+                criterion = getattr(logging, rhs)
+            elif rhs.isdigit():
+                criterion = int(rhs)
+            else:
+                criterion = rhs
+
+            if op in Filter.COMPARISONS:
+                # map to a "rich comparison" operator
+                # e.g. foo < 10 becomes `operator.lt(foo, 10)`
+                func = getattr(operator, Filter.COMPARISONS[op])
+                criterion = partial(lambda f, c, v: f(v, c), func, criterion)
+            elif op == '~':
+                criterion = re.compile(criterion)
+
+            criteria.append((lhs, criterion))
+
+        return Filter(criteria, filter=filter)
+
+    @staticmethod
+    def parse(expression):
+        """Parses the given filter expression and generates its parts.
+
+        :param expression: Filter expression.
+        :type expression: str
+
+        :yields: (lhs, op, rhs)
+        """
+
+        parts = shlex.split(expression)
+
+        # check that we're dealing with tuples of 3s (lhs, operator, rhs)
+        if len(parts) % 3 > 0:
+            raise ValueError("invalid expression '{}'".format(expression))
+
+        for i in range(0, len(parts), 3):
+            lhs, op, rhs = parts[i:i + 3]
+
+            if op not in Filter.OPERATORS:
+                raise ValueError("invalid operator '{}'".format(op))
+
+            yield lhs, op, rhs
+
+    def __init__(self, criteria, filter=True):
         self._filter = filter
-        self.criteria = {}
+        self.criteria = []
+        self.append(criteria)
+
+    def append(self, criteria):
+        """Appends the filter with the given criteria.
+
+        :param criteria: Filter criteria
+        :type criteria: iter
+        """
+
+        if hasattr(criteria, 'items'):
+            criteria = criteria.items()
 
         # Normalize all globs into regexs into lambdas
-        for prop in criteria:
-            criterion = criteria[prop]
-
+        for attr, criterion in criteria:
             if type(criterion) == str:
                 criterion = re.compile(fnmatch.translate(criterion))
 
-            if hasattr(criterion, '__call__'):
-                self.criteria[prop] = criterion
-            else:
-                self.criteria[prop] = lambda value: criterion.search(value)
+            if not hasattr(criterion, '__call__'):
+                criterion = partial(lambda c, v: c.search(v), criterion)
+
+            self.criteria.append((attr, criterion))
 
     def filter(self, record):
+        """Performs filtering on a given log record.
+
+        :param record: Log record.
+        :type record: LogRecord
+        """
+
         record = record.__dict__
         matches = True
 
-        for prop in self.criteria:
-            if not self.criteria[prop](record.get(prop, '')):
+        for attr, criterion in self.criteria:
+            if attr not in record or not criterion(record.get(attr)):
                 matches = False
                 break
 
@@ -325,6 +441,15 @@ class Filter(object):
             return not matches
         else:
             return matches
+
+    def isfiltering(self, attribute):
+        """Whether the filter has criteria for the given attribute."""
+
+        for attr, _ in self.criteria:
+            if attr == attribute:
+                return True
+
+        return False
 
 
 class MuteReporter(ProgressReporter):
@@ -474,7 +599,7 @@ class Udp2LogHandler(logging.handlers.DatagramHandler):
         return text
 
 
-def setup_loggers(cfg, console_level=logging.INFO):
+def setup_loggers(cfg, console_level=logging.INFO, handlers=[]):
     """Setup the logging system.
 
     * Configure the root logger to use :class:`AnsiColorFormatter`
@@ -484,13 +609,14 @@ def setup_loggers(cfg, console_level=logging.INFO):
 
     :param cfg: Dict of global configuration values
     :param console_level: Logging level for the local console appender
+    :param handlers: Additional handlers
     """
     # Set logger levels
     logging.root.setLevel(logging.DEBUG)
     logging.root.handlers[0].setLevel(console_level)
 
-    # Filter target output until we can properly filter it
-    logging.root.handlers[0].addFilter(Filter(name='target.*'))
+    # Filter target output from the main handler
+    logging.root.handlers[0].addFilter(Filter({'name': 'target.*'}))
 
     if cfg['log_json']:
         logging.root.handlers[0].setFormatter(JSONFormatter())
@@ -512,3 +638,6 @@ def setup_loggers(cfg, console_level=logging.INFO):
         irc_logger = logging.getLogger('scap.announce')
         irc_logger.addHandler(IRCSocketHandler(
             cfg['tcpircbot_host'], int(cfg['tcpircbot_port'])))
+
+    for handler in handlers:
+        logging.root.addHandler(handler)

@@ -8,8 +8,9 @@
 """
 from .main import (
     CompileWikiversions,
-    DeployLocal,
     Deploy,
+    DeployLocal,
+    DeployLog,
     HHVMGracefulAll,
     MWVersionsInUse,
     PurgeL10nCache,
@@ -27,8 +28,9 @@ from .main import (
 
 __all__ = (
     'CompileWikiversions',
-    'DeployLocal',
     'Deploy',
+    'DeployLocal',
+    'DeployLog',
     'HHVMGracefulAll',
     'MWVersionsInUse',
     'PurgeL10nCache',
@@ -46,8 +48,9 @@ __all__ = (
 
 any((
     CompileWikiversions,
-    DeployLocal,
     Deploy,
+    DeployLocal,
+    DeployLog,
     HHVMGracefulAll,
     MWVersionsInUse,
     PurgeL10nCache,

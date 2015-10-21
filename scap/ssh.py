@@ -63,6 +63,11 @@ class JSONOutputHandler(OutputHandler):
                 if record is not None:
                     # qualify the record name according to our prefix
                     record.name = self._logger.name + '.' + record.name
+
+                    # amend the record with the host name
+                    record.host = self.host
+
+                    # propagate the log record
                     self._logger.handle(record)
             else:
                 self.output += line + "\n"

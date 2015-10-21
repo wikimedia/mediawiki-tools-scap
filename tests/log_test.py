@@ -4,6 +4,7 @@ import json
 import logging
 import re
 from StringIO import StringIO
+import sys
 from textwrap import dedent
 import unittest
 
@@ -25,8 +26,62 @@ class FilterTest(unittest.TestCase):
         self.b_logger = self.root_logger.getChild('B')
         self.c_logger = self.b_logger.getChild('C')
 
+    def test_filter_loads(self):
+        expression = r"""
+            foo == 'bar.*' baz ~ "qux"
+            blah = splat.*
+        """
+
+        filter = log.Filter.loads(expression)
+
+        self.assertIsInstance(filter, log.Filter)
+
+    def test_filter_loads_filters_correctly(self):
+        expression = r"""
+            name == foo.*.baz
+            msg ~ 'log'
+        """
+
+        filter = log.Filter.loads(expression, filter=False)
+
+        record = ['foo.bar.baz', logging.DEBUG, '', 0, 'bologna', [], None]
+        record = logging.LogRecord(*record)
+        self.assertTrue(filter.filter(record))
+
+        record = ['bar.baz', logging.DEBUG, '', 0, 'bologna', [], None]
+        record = logging.LogRecord(*record)
+        self.assertFalse(filter.filter(record))
+
+    def test_filter_loads_supports_numeric_comparisons(self):
+        expression = r"""
+            levelno > 10
+        """
+
+        filter = log.Filter.loads(expression, filter=False)
+
+        record = ['', 10, '', 0, 'bologna', [], None]
+        record = logging.LogRecord(*record)
+        self.assertFalse(filter.filter(record))
+
+        record = ['', 20, '', 0, '', [], None]
+        record = logging.LogRecord(*record)
+        self.assertTrue(filter.filter(record))
+
+    def test_filter_parse(self):
+        expression = r"""
+            foo == 'bar.*' baz ~ "qux"
+            blah = splat.*
+        """
+
+        elements = list(log.Filter.parse(expression))
+
+        self.assertEqual(elements, [
+            ('foo', '==', 'bar.*'),
+            ('baz', '~', 'qux'),
+            ('blah', '=', 'splat.*')])
+
     def test_filter_filters_matching(self):
-        filter = log.Filter(name='A.B.*')
+        filter = log.Filter({'name': 'A.B.*'})
 
         self.root_handler.addFilter(filter)
 
@@ -36,7 +91,7 @@ class FilterTest(unittest.TestCase):
         self.assertEqual("please log this\n", self.stream.getvalue())
 
     def test_filter_filters_matching_regex(self):
-        filter = log.Filter(name=re.compile(r'^A\.B\.'))
+        filter = log.Filter({'name': re.compile(r'^A\.B\.')})
 
         self.root_handler.addFilter(filter)
 
@@ -46,7 +101,7 @@ class FilterTest(unittest.TestCase):
         self.assertEqual("please log this\n", self.stream.getvalue())
 
     def test_filter_filters_matching_lambda(self):
-        filter = log.Filter(levelno=lambda lvl: lvl < logging.WARNING)
+        filter = log.Filter({'levelno': lambda lvl: lvl < logging.WARNING})
 
         self.root_handler.addFilter(filter)
 
@@ -56,7 +111,7 @@ class FilterTest(unittest.TestCase):
         self.assertEqual("please log this\n", self.stream.getvalue())
 
     def test_filter_can_invert_behavior(self):
-        filter = log.Filter(filter=False, name='A.B.*')
+        filter = log.Filter({'name': 'A.B.*'}, filter=False)
 
         self.root_handler.addFilter(filter)
 
@@ -71,12 +126,11 @@ class JSONFormatterTest(unittest.TestCase):
         data = dedent("""
             {
                 "name": "foo",
-                "args": [],
                 "filename": "foo_file",
                 "levelno": 10,
                 "lineno": 123,
                 "msg": "foo message",
-                "exc_info": null,
+                "exc_text": "foo exception",
                 "foo_extra": "bar",
                 "funcName": null,
                 "created": 1444873813.116016,
@@ -95,17 +149,18 @@ class JSONFormatterTest(unittest.TestCase):
         self.assertEqual(record.levelno, 10)
         self.assertEqual(record.lineno, 123)
         self.assertEqual(record.msg, 'foo message')
-        self.assertEqual(record.exc_info, None)
+        self.assertEqual(record.exc_text, 'foo exception')
         self.assertEqual(record.foo_extra, 'bar')
         self.assertEqual(record.created, 1444873813.116016)
         self.assertEqual(record.msecs, 116.01591110229492)
         self.assertEqual(record.relativeCreated, 38272.172927856445)
 
-    def test_format_includes_all_logrecord_fields(self):
+    def test_format_includes_all_serializable_logrecord_fields(self):
         formatter = log.JSONFormatter()
 
         args = ['foo', logging.DEBUG, 'foo_file', 123, 'foo message', [], None]
         record = logging.LogRecord(*args)
+        record.exc_text = 'foo exception text'
         line = formatter.format(record)
 
         # we can't reliably test an unordered JSON string so load it back in
@@ -117,22 +172,22 @@ class JSONFormatterTest(unittest.TestCase):
         self.assertIn('filename', parsed)
         self.assertIn('lineno', parsed)
         self.assertIn('msg', parsed)
-        self.assertIn('args', parsed)
         self.assertIn('funcName', parsed)
         self.assertIn('created', parsed)
         self.assertIn('msecs', parsed)
         self.assertIn('relativeCreated', parsed)
+        self.assertIn('exc_text', parsed)
 
         self.assertEqual(parsed['name'], 'foo')
         self.assertEqual(parsed['levelno'], logging.DEBUG)
         self.assertEqual(parsed['filename'], 'foo_file')
         self.assertEqual(parsed['lineno'], 123)
         self.assertEqual(parsed['msg'], 'foo message')
-        self.assertEqual(parsed['args'], [])
         self.assertEqual(parsed['funcName'], None)
         self.assertEqual(parsed['created'], record.created)
         self.assertEqual(parsed['msecs'], record.msecs)
         self.assertEqual(parsed['relativeCreated'], record.relativeCreated)
+        self.assertEqual(parsed['exc_text'], record.exc_text)
 
     def test_format_includes_extra_fields(self):
         formatter = log.JSONFormatter()
@@ -148,6 +203,27 @@ class JSONFormatterTest(unittest.TestCase):
         self.assertIs(type(parsed), dict)
         self.assertIn('foo_extra', parsed)
         self.assertEqual(parsed['foo_extra'], 'bar')
+
+    def test_format_includes_exceptions_as_text(self):
+        formatter = log.JSONFormatter()
+
+        args = ['foo', logging.DEBUG, 'foo_file', 123, 'foo message', [], None]
+        record = logging.LogRecord(*args)
+
+        try:
+            raise RuntimeError('fail fail fail')
+        except RuntimeError:
+            record.exc_info = sys.exc_info()
+
+        line = formatter.format(record)
+
+        # we can't reliably test an unordered JSON string so load it back in
+        parsed = json.loads(line)
+
+        self.assertIs(type(parsed), dict)
+        self.assertNotIn('exc_info', parsed)
+        self.assertIn('exc_text', parsed)
+        self.assertIn('RuntimeError: fail fail fail', parsed['exc_text'])
 
 
 if __name__ == '__main__':
