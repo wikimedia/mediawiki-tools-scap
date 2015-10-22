@@ -6,6 +6,7 @@
 
 """
 import argparse
+import collections
 import errno
 import glob
 import hashlib
@@ -614,6 +615,8 @@ class DeployLocal(DeployApplication):
     done_flag = None
     user = None
 
+    @cli.argument('-g', '--group',
+                  help='Group of which this local machine is a part')
     @cli.argument('stage', metavar='STAGE', choices=STAGES + EX_STAGES,
                   help='Stage of the deployment to execute')
     def main(self, *extra_args):
@@ -656,11 +659,12 @@ class DeployLocal(DeployApplication):
         self.server_url = "{0}://{1}".format(scheme, url)
 
         stage = self.arguments.stage
+        group = self.arguments.group
 
         getattr(self, stage)()
 
         if self.config['perform_checks']:
-            status = self._execute_checks(stage)
+            status = self._execute_checks(stage, group)
 
             # Perform final tasks after the last stage
             if status == 0 and self.STAGES[-1] == stage:
@@ -839,7 +843,7 @@ class DeployLocal(DeployApplication):
         self._cleanup()
 
     @utils.log_context('checks')
-    def _execute_checks(self, stage, logger=None):
+    def _execute_checks(self, stage, group=None, logger=None):
         """Fetches and executes all checks configured for the given stage.
 
         Checks are retrieved from the remote deploy host and cached within
@@ -857,7 +861,13 @@ class DeployLocal(DeployApplication):
             raise IOError(errno.ENOENT, 'Error downloading checks', checks_url)
 
         chks = checks.load(response.text)
-        chks = [chk for chk in chks.values() if chk.stage == stage]
+        valid_chk = lambda chk: chk.stage == stage
+        if group is not None:
+            valid_chk = lambda chk: (chk.stage == stage and
+                                     (chk.group == group or
+                                      chk.group is None))
+
+        chks = [chk for chk in chks.values() if valid_chk(chk)]
 
         success, done = checks.execute(chks, logger=logger)
         failed = [job.check.name for job in done if job.isfailure()]
@@ -990,16 +1000,11 @@ class Deploy(DeployApplication):
                 'Script must be run from deployment repository under {}'
                     .format(deploy_dir))
 
-        self.targets = utils.get_target_hosts(
-            self.arguments.limit_hosts,
-            utils.read_hosts_file(self.config['dsh_targets'])
-        )
+        self._build_deploy_groups()
 
-        logger.info(
-            'Deploy will run on the following targets: \n\t- {}'.format(
-                '\n\t- '.join(self.targets)
-            )
-        )
+        if not len(self.all_targets):
+            logger.warn('No targets selected, check limits and dsh_targets')
+            return 1
 
         with utils.lock(self.config['lock_file']):
             with log.Timer('deploy_' + self.repo):
@@ -1026,11 +1031,32 @@ class Deploy(DeployApplication):
                 # apache server
                 tasks.git_update_server_info(self.config['git_submodules'])
 
-                for stage in stages:
-                    ret = self.execute_stage(stage)
-                    if ret > 0:
-                        self.execute_rollback(stage)
-                        return ret
+                return self._execute_for_groups(stages)
+        return 0
+
+    def _execute_for_groups(self, stages):
+        logger = self.get_logger()
+        last = lambda group: group == next(reversed(self.deploy_groups))
+
+        for group, targets in self.deploy_groups.iteritems():
+            if not len(targets):
+                continue
+
+            logger.info('\n== {0} ==\n:* {1}'.format(
+                group.upper(),
+                '\n:* '.join(targets)
+            ))
+
+            for stage in stages:
+                ret = self.execute_stage_on_group(stage, group, targets)
+                if ret > 0:
+                    self.execute_rollback(stage, group, targets)
+                    return ret
+
+            prompt = '{} deploy successful. Continue?'.format(group)
+
+            if not last(group) and utils.ask(prompt, 'y') != 'y':
+                break
 
         return 0
 
@@ -1109,15 +1135,54 @@ class Deploy(DeployApplication):
             yaml.dump(tmp_cfg, tc)
             logger.debug('Wrote config deploy file: {}'.format(tmp_cfg_file))
 
-    def execute_rollback(self, stage):
-        prompt = "Stage '{}' failed. Perform rollback?".format(stage)
+    def _build_deploy_groups(self):
+        """Build server groups based on configuration `server_groups` variable
+        """
+        groups = collections.OrderedDict()
+        all_hosts = []
+        server_groups = self.config.get('server_groups', None)
+
+        if server_groups is None:
+            server_groups = ['default']
+        else:
+            server_groups = server_groups.split(',')
+
+        for group in server_groups:
+            group = group.strip()
+            dsh_key = '{}_dsh_targets'.format(group)
+            limit = False
+            if group == 'default':
+                limit = True
+                dsh_key = 'dsh_targets'
+
+            dsh_file = self.config.get(dsh_key, None)
+
+            if dsh_file is None:
+                raise RuntimeError('Reading `{0}` file "{1}" failed'.format(
+                                   dsh_key, dsh_file))
+
+            targets = utils.read_hosts_file(dsh_file)
+            if limit and self.arguments.limit_hosts is not None:
+                targets = utils.get_target_hosts(self.arguments.limit_hosts,
+                                                 targets)
+
+            targets = list(set(targets) - set(all_hosts))
+            all_hosts += targets
+            groups[group] = targets
+
+        self.all_targets = all_hosts
+        self.deploy_groups = groups
+
+    def execute_rollback(self, stage, group, targets):
+        prompt = "Stage '{}' failed on group '{}'. Perform rollback?".format(
+            stage, group)
 
         if utils.ask(prompt, 'y') == 'y':
-            return self.execute_stage('rollback')
+            return self.execute_stage_on_group('rollback', group, targets)
 
         return 0
 
-    def execute_stage(self, stage):
+    def execute_stage_on_group(self, stage, group, targets):
         logger = self.get_logger()
         deploy_local_cmd = [self.get_script_path('deploy-local')]
         batch_size = self._get_batch_size(stage)
@@ -1135,14 +1200,15 @@ class Deploy(DeployApplication):
         if not os.path.exists(os.path.join(self.scap_dir, 'checks.yaml')):
             deploy_local_cmd += ['-D perform_checks:False']
 
-        deploy_local_cmd += [stage]
+        deploy_local_cmd += ['-g', group, stage]
 
         logger.debug('Running cmd {}'.format(deploy_local_cmd))
 
         deploy_stage = ssh.Job(
-            hosts=self.targets, user=self.config['ssh_user'])
+            hosts=targets, user=self.config['ssh_user'])
         deploy_stage.output_handler = ssh.JSONOutputHandler
         deploy_stage.max_failure = self.MAX_FAILURES
+        logger.debug('Running cmd {}'.format(deploy_local_cmd))
         deploy_stage.command(deploy_local_cmd)
         deploy_stage.progress('deploy_{}_{}'.format(self.repo, stage))
 

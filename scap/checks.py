@@ -160,10 +160,10 @@ def register_type(type, factory):
 class Check(object):
     """Represents a loaded 'command' check."""
 
-    def __init__(self, name, stage, canary=None, command='', **opts):
+    def __init__(self, name, stage, group=None, command='', **opts):
         self.name = name
         self.stage = stage
-        self.canary = canary
+        self.group = group
         self.command = command
         self.options = opts
 
