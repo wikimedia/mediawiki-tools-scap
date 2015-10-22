@@ -6,5 +6,6 @@
 /.venv
 /build
 /cover
+/tests/cover
 /dist
 /docs/_build

@@ -327,13 +327,15 @@ class Filter(object):
     You can provide either a glob pattern, regular expression, or lambda as
     each attribute criterion, and invert the logic by passing filter=False.
 
-    Examples:
+    Examples::
+
         Filter({'name': '*.target.*', 'host': 'scap-target-01'})
         Filter({'msg': re.compile('some annoying (message|msg)')})
         Filter({'levelno': lambda lvl: lvl < logging.WARNING})
         Filter({'name': '*.target.*'}, filter=False)
 
-    Equivalent DSL examples:
+    Equivalent DSL examples::
+
         Filter.loads('name == *.target.* host == scap-target-01')
         Filter.loads('msg ~ "some annoying (message|msg)"')
         Filter.loads('levelno < WARNING')
@@ -454,6 +456,7 @@ class Filter(object):
 
 class MuteReporter(ProgressReporter):
     """A report that declines to report anything."""
+
     def __init__(self, name='', expect=0, fd=sys.stderr):
         super(self.__class__, self).__init__(name)
 
@@ -560,7 +563,7 @@ class Timer(object):
         :type elapsed: float
         """
         self.logger.info('Finished %s (duration: %s)',
-            label, utils.human_duration(elapsed))
+                         label, utils.human_duration(elapsed))
         if self.stats:
             label = re.sub(r'\W', '_', label.lower())
             self.stats.timing('scap.%s' % label, elapsed * 1000)

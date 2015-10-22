@@ -12,6 +12,9 @@ Content
 
    scripts
    api
+   development
+
+.. include:: development.rst
 
 Indices and tables
 ==================

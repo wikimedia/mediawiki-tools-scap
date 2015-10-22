@@ -5,6 +5,9 @@ API
 .. automodule:: scap
    :exclude-members: __dict__,__weakref__
 
+.. automodule:: scap.checks
+   :exclude-members: __dict__,__weakref__
+
 .. automodule:: scap.cli
    :exclude-members: __dict__,__weakref__
 

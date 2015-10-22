@@ -20,10 +20,28 @@ the deployment server to a staging or production environment.
 * If a `service_port` is specified, make sure that it is accepting
   connections, waiting up to `service_timeout` (120 seconds by default)
 
-.. program-output:: ../bin/sync-common --help
+.. program-output:: ../bin/deploy --help
 .. seealso::
    * :class:`scap.Deploy`
 
+deploy-log
+==========
+The **deploy-log** command provides powerful filters for the `deploy` logs.
+
+The main deploy application sends all structured log output to a file under
+scap/log/{git-tag}.log. deploy-log is meant to run during or after a deploy,
+potentially in a separate terminal. Log entries can be filtered on one ore more
+fields using a given free-form expression. By default `deploy-log` will
+periodically scan the scap/log directory for new files and immediately begin
+tailing them. It can also be given an explicit log file to parse via the --file
+option or the latest log file by using --latest; in this case, it will simply
+filter the entire file for matching records and exit.
+
+.. program-output:: ../bin/deploy-log --help
+.. seealso::
+   * :func:`scap.DeployLog`
+   * :func:`scap.log.Filter`
+   * :func:`scap.log.JSONFormatter`
 
 scap
 ====

@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """
     scap.checks
-    ~~~~~~~~
+    ~~~~~~~~~~~
     Deployment checks.
 
     Definitions are typically loaded from YAML of the following format:

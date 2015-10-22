@@ -16,8 +16,15 @@ scap
 Foundation to publish code and configuration on production web servers.
 
 
+Reporting Issues
+================
+
+You can report issues on the `#scap3
+<https://phabricator.wikimedia.org/tag/scap3/>`_ project in phabricator.
+
+
 credits
-~~~~~~~
+=======
 
 Ascii art derived from original work by Joan Stark [#pig]_ and the `speed`
 figlet font [#speedfont]_.

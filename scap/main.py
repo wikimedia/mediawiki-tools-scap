@@ -135,13 +135,13 @@ class MWVersionsInUse(cli.Application):
     """Get a list of the active MediaWiki versions."""
 
     @cli.argument('--withdb', action='store_true',
-        help='Add `=wikidb` with some wiki using the version.')
+                  help='Add `=wikidb` with some wiki using the version.')
     def main(self, *extra_args):
         versions = self.active_wikiversions()
 
         if self.arguments.withdb:
             output = ['%s=%s' % (version, wikidb)
-                    for version, wikidb in versions.items()]
+                      for version, wikidb in versions.items()]
         else:
             output = [str(version) for version in versions.keys()]
 
@@ -161,7 +161,7 @@ class PurgeL10nCache(cli.Application):
     """Purge the localization cache for an inactive MediaWiki version."""
 
     @cli.argument('--version', required=True,
-        help='MediaWiki version (eg 1.23wmf16)')
+                  help='MediaWiki version (eg 1.23wmf16)')
     def main(self, *extra_args):
         if self.arguments.version.startswith('php-'):
             self.arguments.version = self.arguments.version[4:]
@@ -180,7 +180,7 @@ class RebuildCdbs(cli.Application):
     """Rebuild localization cache CDB files from the JSON versions."""
 
     @cli.argument('--no-progress', action='store_true', dest='mute',
-        help='Do not show progress indicator.')
+                  help='Do not show progress indicator.')
     def main(self, *extra_args):
         self._run_as('mwdeploy')
         self._assert_current_user('mwdeploy')
@@ -191,7 +191,7 @@ class RebuildCdbs(cli.Application):
         # Rebuild the CDB files from the JSON versions
         for version, wikidb in self.active_wikiversions().items():
             cache_dir = os.path.join(self.config['deploy_dir'],
-                'php-%s' % version, 'cache', 'l10n')
+                                     'php-%s' % version, 'cache', 'l10n')
             tasks.merge_cdb_updates(
                 cache_dir, use_cores, True, self.arguments.mute)
 
@@ -213,7 +213,7 @@ class Scap(AbstractSync):
     """
 
     @cli.argument('-r', '--restart', action='store_true', dest='restart',
-        help='Restart HHVM process on target hosts.')
+                  help='Restart HHVM process on target hosts.')
     @cli.argument('message', nargs='*', help='Log message for SAL')
     def main(self, *extra_args):
         return super(Scap, self).main(*extra_args)
@@ -231,7 +231,7 @@ class Scap(AbstractSync):
 
         # Bug 63659: Compile deploy_dir/wikiversions.json to cdb
         utils.sudo_check_call('mwdeploy',
-            self.get_script_path('compile-wikiversions'))
+                              self.get_script_path('compile-wikiversions'))
 
         # Update list of extension message files and regenerate the
         # localisation cache.
@@ -281,19 +281,23 @@ class Scap(AbstractSync):
 
     def _after_lock_release(self):
         self.announce('Finished scap: %s (duration: %s)',
-            self.arguments.message, utils.human_duration(self.get_duration()))
+                      self.arguments.message,
+                      utils.human_duration(self.get_duration()))
         self.get_stats().increment('deploy.scap')
         self.get_stats().increment('deploy.all')
 
     def _handle_keyboard_interrupt(self, ex):
         self.announce('scap aborted: %s (duration: %s)',
-            self.arguments.message, utils.human_duration(self.get_duration()))
+                      self.arguments.message,
+                      utils.human_duration(self.get_duration()))
         return 1
 
     def _handle_exception(self, ex):
         self.get_logger().warn('Unhandled error:', exc_info=True)
         self.announce('scap failed: %s %s (duration: %s)',
-            type(ex).__name__, ex, utils.human_duration(self.get_duration()))
+                      type(ex).__name__,
+                      ex,
+                      utils.human_duration(self.get_duration()))
         return 1
 
     def _before_exit(self, exit_status):
@@ -306,12 +310,13 @@ class SyncCommon(cli.Application):
     """Sync local MediaWiki deployment directory with deploy server state."""
 
     @cli.argument('--no-update-l10n', action='store_false', dest='update_l10n',
-        help='Do not update l10n cache files.')
+                  help='Do not update l10n cache files.')
     @cli.argument('-i', '--include', default=None, action='append',
-        help='Rsync include pattern to limit transfer to.'
-        'End directories with a trailing `/***`. Can be used multiple times.')
+                  help='Rsync include pattern to limit transfer to.'
+                  ' End directories with a trailing `/***`.'
+                  ' Can be used multiple times.')
     @cli.argument('servers', nargs=argparse.REMAINDER,
-        help='Rsync server(s) to copy from')
+                  help='Rsync server(s) to copy from')
     def main(self, *extra_args):
         tasks.sync_common(
             self.config,
@@ -339,7 +344,8 @@ class SyncDblist(AbstractSync):
 
     def _after_lock_release(self):
         self.announce('Synchronized database lists: %s (duration: %s)',
-            self.arguments.message, utils.human_duration(self.get_duration()))
+                      self.arguments.message,
+                      utils.human_duration(self.get_duration()))
         self.get_stats().increment('deploy.sync-dblist')
         self.get_stats().increment('deploy.all')
 
@@ -381,8 +387,8 @@ class SyncDir(AbstractSync):
 
     def _after_lock_release(self):
         self.announce('Synchronized %s: %s (duration: %s)',
-            self.arguments.dir, self.arguments.message,
-            utils.human_duration(self.get_duration()))
+                      self.arguments.dir, self.arguments.message,
+                      utils.human_duration(self.get_duration()))
         self.get_stats().increment('deploy.sync-dir')
         self.get_stats().increment('deploy.all')
 
@@ -402,7 +408,8 @@ class SyncDocroot(AbstractSync):
 
     def _after_lock_release(self):
         self.announce('Synchronized docroot and w: %s (duration: %s)',
-            self.arguments.message, utils.human_duration(self.get_duration()))
+                      self.arguments.message,
+                      utils.human_duration(self.get_duration()))
         self.get_stats().increment('deploy.sync-docroot')
         self.get_stats().increment('deploy.all')
 
@@ -451,8 +458,8 @@ class SyncFile(AbstractSync):
 
     def _after_lock_release(self):
         self.announce('Synchronized %s: %s (duration: %s)',
-            self.arguments.file, self.arguments.message,
-            utils.human_duration(self.get_duration()))
+                      self.arguments.file, self.arguments.message,
+                      utils.human_duration(self.get_duration()))
         self.get_stats().increment('deploy.sync-file')
         self.get_stats().increment('deploy.all')
 
@@ -473,12 +480,15 @@ class SyncWikiversions(cli.Application):
         # to avoid syncing a branch that is lacking these critical files.
         for version, wikidb in self.active_wikiversions().items():
             ext_msg = os.path.join(self.config['stage_dir'],
-                'wmf-config', 'ExtensionMessages-%s.php' % version)
+                                   'wmf-config',
+                                   'ExtensionMessages-%s.php' % version)
             err_msg = 'ExtensionMessages not found in %s' % ext_msg
             utils.check_file_exists(ext_msg, err_msg)
 
             cache_file = os.path.join(self.config['stage_dir'],
-                'php-%s' % version, 'cache', 'l10n', 'l10n_cache-en.cdb')
+                                      'php-%s' % version,
+                                      'cache', 'l10n',
+                                      'l10n_cache-en.cdb')
             err_msg = 'l10n cache missing for %s' % version
             utils.check_file_exists(cache_file, err_msg)
 
@@ -542,7 +552,7 @@ class RestartHHVM(cli.Application):
                 pass
             else:
                 utils.sudo_check_call('root',
-                    '/usr/sbin/apache2ctl graceful-stop')
+                                      '/usr/sbin/apache2ctl graceful-stop')
                 # Wait for Apache to stop hard after GracefulShutdownTimeout
                 # seconds or when requests actually complete
                 psutil.Process(apache_pid).wait()
@@ -552,7 +562,7 @@ class RestartHHVM(cli.Application):
 
         if have_pybal:
             utils.sudo_check_call('root',
-                '/usr/sbin/service apache2 start')
+                                  '/usr/sbin/service apache2 start')
 
         return 0
 
@@ -582,7 +592,8 @@ class HHVMGracefulAll(cli.Application):
             exit_code = 1
 
         self.announce('Finished HHVM restart: %s (duration: %s)',
-            self.arguments.message, utils.human_duration(self.get_duration()))
+                      self.arguments.message,
+                      utils.human_duration(self.get_duration()))
         self.get_stats().increment('deploy.restart')
 
         return exit_code
@@ -686,7 +697,7 @@ class DeployLocal(DeployApplication):
             return
 
         config_url = os.path.join(self.server_url, '.git', 'config-files',
-            '{}.yaml'.format(self.rev))
+                                  '{}.yaml'.format(self.rev))
 
         logger.debug('Get config yaml: {}'.format(config_url))
         r = requests.get(config_url)
@@ -894,8 +905,9 @@ class DeployLocal(DeployApplication):
         run. It links the [repo]-cache/current directory to [repo].
         """
         if (not os.path.islink(self.root_dir) and
-           (os.path.isfile(self.root_dir) or os.path.isdir(self.root_dir))):
-                os.rename(self.root_dir, '{}.trebuchet'.format(self.root_dir))
+                (os.path.isfile(self.root_dir) or
+                 os.path.isdir(self.root_dir))):
+            os.rename(self.root_dir, '{}.trebuchet'.format(self.root_dir))
 
         tasks.move_symlink(self.cur_link, self.root_dir, user=self.user)
 
@@ -993,12 +1005,13 @@ class Deploy(DeployApplication):
 
         if not in_deploy_dir:
             raise RuntimeError(errno.EPERM,
-                'Your path is not a part of the git deploy path', deploy_dir)
+                               'Path is not a part of the git deploy path',
+                               deploy_dir)
 
         if not utils.is_git_dir(cwd):
             raise RuntimeError(errno.EPERM,
-                'Script must be run from deployment repository under {}'
-                    .format(deploy_dir))
+                               'Script must be run from repository under {}'
+                               .format(deploy_dir))
 
         self._build_deploy_groups()
 
