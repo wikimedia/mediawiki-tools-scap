@@ -851,7 +851,7 @@ class DeployLocal(DeployApplication):
         # Config re-evaluation no longer necessary or desirable at this point
         self.config['config_deploy'] = False
         self.promote()
-        self._cleanup()
+        self._finalize()
 
     @utils.log_context('checks')
     def _execute_checks(self, stage, group=None, logger=None):
