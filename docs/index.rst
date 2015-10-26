@@ -10,6 +10,7 @@ Content
 .. toctree::
    :maxdepth: 2
 
+   intro
    scripts
    api
    development
