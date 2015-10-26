@@ -872,13 +872,9 @@ class DeployLocal(DeployApplication):
             raise IOError(errno.ENOENT, 'Error downloading checks', checks_url)
 
         chks = checks.load(response.text)
-        valid_chk = lambda chk: chk.stage == stage
-        if group is not None:
-            valid_chk = lambda chk: (chk.stage == stage and
-                                     (chk.group == group or
-                                      chk.group is None))
-
-        chks = [chk for chk in chks.values() if valid_chk(chk)]
+        chks = [
+            chk for chk in chks.values() if self._valid_chk(chk, stage, group)
+        ]
 
         success, done = checks.execute(chks, logger=logger)
         failed = [job.check.name for job in done if job.isfailure()]
@@ -887,6 +883,14 @@ class DeployLocal(DeployApplication):
             return 0
         else:
             return 1 if len(failed) else 2
+
+    def _valid_chk(self, chk, stage, group):
+        """Make sure a check is valid for our current group"""
+        if group is not None:
+            return chk.stage == stage and (chk.group == group or
+                chk.group is None)
+        else:
+            return chk.stage == stage
 
     def _finalize(self):
         """Performs the final deploy actions.
@@ -1049,7 +1053,6 @@ class Deploy(DeployApplication):
 
     def _execute_for_groups(self, stages):
         logger = self.get_logger()
-        last = lambda group: group == next(reversed(self.deploy_groups))
 
         for group, targets in self.deploy_groups.iteritems():
             if not len(targets):
@@ -1068,10 +1071,13 @@ class Deploy(DeployApplication):
 
             prompt = '{} deploy successful. Continue?'.format(group)
 
-            if not last(group) and utils.ask(prompt, 'y') != 'y':
+            if not self._last_group(group) and utils.ask(prompt, 'y') != 'y':
                 break
 
         return 0
+
+    def _last_group(self, group):
+        return group == next(reversed(self.deploy_groups))
 
     def config_deploy_setup(self, commit):
         """Generate environment-specific config file and variable template list

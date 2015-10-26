@@ -516,9 +516,9 @@ def check_php_opening_tag(path):
         lines = text.splitlines()
 
         if (
-            len(lines) > 1
-            and lines[0].startswith('#!')
-            and lines[1].startswith('<?php')
+            len(lines) > 1 and
+            lines[0].startswith('#!') and
+            lines[1].startswith('<?php')
         ):
             return
 
@@ -689,12 +689,11 @@ def get_target_hosts(pattern, hosts):
         regex = re.compile(pattern[1:])
         return [target for target in hosts if regex.match(target)]
 
-    # Handle replacements of anything like [*:*] in pattern
-    has_range = lambda x: 0 <= x.find('[') < x.find(':') < x.find(']')
-
     patterns = []
     rpattern = pattern
-    while(has_range(rpattern)):
+
+    # Handle replacements of anything like [*:*] in pattern
+    while(0 <= rpattern.find('[') < rpattern.find(':') < rpattern.find(']')):
         head, nrange, tail = rpattern.replace(
             '[', '|', 1).replace(']', '|', 1).split('|')
 
