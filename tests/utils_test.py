@@ -146,3 +146,6 @@ class UtilsTest(unittest.TestCase):
 
         for test in not_equals:
             self.assertNotEqual(test[0], test[1], test[2])
+
+if __name__ == '__main__':
+    unittest.main()
