@@ -1,9 +1,16 @@
 {
   "linters": {
-    "pep8": {
+    "pep8-py": {
       "type": "pep8",
-      "include": "(\\.py$|^bin/.+$)",
-      "exclude": "(^bin/refreshCdbJsonFiles$)"
+      "include": "(\\.py$)"
+    },
+    "pep8-bin": {
+      "type": "pep8",
+      "include": "(^bin/.+$)",
+      "exclude": "(^bin/refreshCdbJsonFiles$)",
+      "severity": {
+        "E402" : "disabled"
+      }
     },
     "pyflakes": {
       "type": "pyflakes",
