@@ -1,5 +1,6 @@
 {
   "phabricator.uri" : "https://phabricator.wikimedia.org/",
   "repository.callsign" : "MSCA",
-  "history.immutable" : false
+  "history.immutable" : false,
+  "unit.engine": "NoseTestEngine"
 }
