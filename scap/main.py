@@ -71,8 +71,12 @@ class AbstractSync(cli.Application):
             # Update proxies
             proxies = self._get_proxy_list()
             with log.Timer('sync-proxies', self.get_stats()):
+                sync_cmd = self._proxy_sync_command()
+                # Proxies should always use the current host as their sync
+                # origin server.
+                sync_cmd.append(socket.getfqdn())
                 update_proxies = ssh.Job(proxies, user=self.config['ssh_user'])
-                update_proxies.command(self._proxy_sync_command())
+                update_proxies.command(sync_cmd)
                 update_proxies.progress('sync-proxies')
                 succeeded, failed = update_proxies.run()
                 if failed:
