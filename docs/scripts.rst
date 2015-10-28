@@ -1,6 +1,6 @@
-#######
-Scripts
-#######
+#############
+Scap3 Scripts
+#############
 
 .. _scap:
 
@@ -42,6 +42,10 @@ filter the entire file for matching records and exit.
    * :func:`scap.DeployLog`
    * :func:`scap.log.Filter`
    * :func:`scap.log.JSONFormatter`
+
+######################
+Mediawiki Scap Scripts
+######################
 
 scap
 ====
