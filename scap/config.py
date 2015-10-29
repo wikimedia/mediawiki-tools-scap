@@ -14,37 +14,37 @@ from . import utils
 
 
 DEFAULT_CONFIG = {
-    'bin_dir': '/srv/deployment/scap/scap/bin',
-    'deploy_dir': '/srv/mediawiki',
-    'stage_dir': '/srv/mediawiki-staging',
-    'lock_file': '/var/lock/scap',
-    'log_json': False,
-    'master_rsync': 'localhost',
-    'statsd_host': '127.0.0.1',
-    'statsd_port': '2003',
-    'tcpircbot_host': None,
-    'tcpircbot_port': '9200',
-    'udp2log_host': None,
-    'udp2log_port': '8420',
-    'wmf_realm': 'production',
-    'ssh_user': getpass.getuser(),
-    'datacenter': 'eqiad',
-    'hhvm_pid_file': '/run/hhvm/hhvm.pid',
-    'apache_pid_file': '/var/run/apache2/apache2.pid',
-    'pybal_interface': 'lo:LVS',
-    'dsh_targets': 'mediawiki-installation',
-    'dsh_masters': 'scap-masters',
-    'dsh_proxies': 'scap-proxies',
-    'git_deploy_dir': '/srv/deployment',
-    'git_repo_user': 'mwdeploy',
-    'git_server': 'tin.eqiad.wmnet',
-    'git_scheme': 'http',
-    'git_submodules': False,
-    'git_upstream_submodules': False,
-    'config_deploy': False,
-    'nrpe_dir': '/etc/nagios/nrpe.d',
-    'service_timeout': 120,
-    'perform_checks': True,
+    'bin_dir': (str, '/srv/deployment/scap/scap/bin'),
+    'deploy_dir': (str, '/srv/mediawiki'),
+    'stage_dir': (str, '/srv/mediawiki-staging'),
+    'lock_file': (str, '/var/lock/scap'),
+    'log_json': (bool, False),
+    'master_rsync': (str, 'localhost'),
+    'statsd_host': (str, '127.0.0.1'),
+    'statsd_port': (str, '2003'),
+    'tcpircbot_host': (str, None),
+    'tcpircbot_port': (str, '9200'),
+    'udp2log_host': (str, None),
+    'udp2log_port': (str, '8420'),
+    'wmf_realm': (str, 'production'),
+    'ssh_user': (str, getpass.getuser()),
+    'datacenter': (str, 'eqiad'),
+    'hhvm_pid_file': (str, '/run/hhvm/hhvm.pid'),
+    'apache_pid_file': (str, '/var/run/apache2/apache2.pid'),
+    'pybal_interface': (str, 'lo:LVS'),
+    'dsh_targets': (str, 'mediawiki-installation'),
+    'dsh_masters': (str, 'scap-masters'),
+    'dsh_proxies': (str, 'scap-proxies'),
+    'git_deploy_dir': (str, '/srv/deployment'),
+    'git_repo_user': (str, 'mwdeploy'),
+    'git_server': (str, 'tin.eqiad.wmnet'),
+    'git_scheme': (str, 'http'),
+    'git_submodules': (bool, False),
+    'git_upstream_submodules': (bool, False),
+    'config_deploy': (bool, False),
+    'nrpe_dir': (str, '/etc/nagios/nrpe.d'),
+    'service_timeout': (float, 120.0),
+    'perform_checks': (bool, True),
 }
 
 
@@ -108,15 +108,41 @@ def load(cfg_file=None, environment=None, overrides=None):
     sections = ['global']
     sections += ['.'.join(fqdn[l:]) for l in range(0, len(fqdn))][::-1]
 
-    config = {}
-    config.update(DEFAULT_CONFIG)
+    config = {key: value for key, (_, value) in DEFAULT_CONFIG.iteritems()}
+
     for section in sections:
         if parser.has_section(section):
             # Do not interpolate items in the section.
             # Fixes crash on tin: 'int' object has no attribute 'find'
-            config.update(parser.items(section, True))
+            for key, value in parser.items(section, True):
+                config[key] = coerce_value(key, value)
 
     if overrides:
-        config.update(overrides)
+        for key, value in overrides.iteritems():
+            config[key] = coerce_value(key, value)
 
     return config
+
+
+def coerce_value(key, value):
+    """Coerce the given value based on the default config type."""
+
+    if key in DEFAULT_CONFIG:
+        default_type, _ = DEFAULT_CONFIG[key]
+
+        if default_type == bool:
+            lower = value.lower()
+
+            # Accept the same bool values accepted by ConfigParser
+            if lower in ['1', 'yes', 'true', 'on']:
+                return True
+            elif lower in ['0', 'no', 'false', 'off']:
+                return False
+            else:
+                msg = "invalid boolean value '{}'".format(value)
+                raise ValueError(msg)
+
+        else:
+            return default_type(value)
+
+    return value
