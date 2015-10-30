@@ -131,17 +131,17 @@ def load(string):
     """
 
     checks = {}
-    definitions = yaml.load(string)['checks']
+    definitions = yaml.load(string)
 
-    for name in definitions:
-        options = definitions[name]
+    if definitions and definitions.get('checks', None):
+        for name, options in definitions['checks'].iteritems():
+            check_type = options.get('type', 'command')
 
-        check_type = options.get('type', 'command')
+            if check_type not in _types:
+                msg = "unknown check type '{}'".format(check_type)
+                raise CheckInvalid(msg)
 
-        if check_type not in _types:
-            raise CheckInvalid("unknown check type '{}'".format(check_type))
-
-        checks[name] = _types[check_type](name=name, **options)
+            checks[name] = _types[check_type](name=name, **options)
 
     return checks
 

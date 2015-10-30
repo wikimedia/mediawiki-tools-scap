@@ -36,6 +36,19 @@ class ChecksConfigTest(unittest.TestCase):
         self.assertEqual(chks['bar'].stage, 'promote')
         self.assertEqual(chks['bar'].command, '/bin/false')
 
+    def test_load_tolerates_empty_config(self):
+        chks = checks.load("")
+
+        self.assertEqual(len(chks), 0)
+
+    def test_load_tolerates_empty_checks(self):
+        chks = checks.load(dedent("""
+            ---
+            checks:
+        """))
+
+        self.assertEqual(len(chks), 0)
+
     def test_load_bad_type(self):
         with self.assertRaises(checks.CheckInvalid):
             checks.load(dedent("""

@@ -1290,31 +1290,34 @@ class Deploy(DeployApplication):
         deploy_local_cmd = [self.get_script_path('deploy-local')]
         batch_size = self._get_batch_size(stage)
 
-        deploy_local_cmd.extend([
-            "-D '{}:{}'".format(x, self.config.get(x))
-            for x in self.DEPLOY_CONF
-            if self.config.get(x)
-        ])
+        config = {
+            key: self.config.get(key)
+            for key in self.DEPLOY_CONF
+            if self.config.get(key) is not None
+        }
 
         # Handle JSON output from deploy-local
-        deploy_local_cmd += ['-D log_json:True', '-v']
+        config['log_json'] = True
+        deploy_local_cmd.append('-v')
 
         # Be sure to skip checks if they aren't configured
         if not os.path.exists(os.path.join(self.scap_dir, 'checks.yaml')):
-            deploy_local_cmd += ['-D perform_checks:False']
+            config['perform_checks'] = False
+
+        for key, value in config.iteritems():
+            deploy_local_cmd.extend(['-D', '{}:{}'.format(key, value)])
 
         if self.arguments.force:
                 deploy_local_cmd.append('--force')
 
         deploy_local_cmd += ['-g', group, stage]
 
-        logger.debug('Running cmd {}'.format(deploy_local_cmd))
+        logger.debug('Running remote deploy cmd {}'.format(deploy_local_cmd))
 
         deploy_stage = ssh.Job(
             hosts=targets, user=self.config['ssh_user'])
         deploy_stage.output_handler = ssh.JSONOutputHandler
         deploy_stage.max_failure = self.MAX_FAILURES
-        logger.debug('Running cmd {}'.format(deploy_local_cmd))
         deploy_stage.command(deploy_local_cmd)
         deploy_stage.progress('deploy_{}_{}'.format(self.repo, stage))
 
