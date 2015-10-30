@@ -19,8 +19,9 @@ Foundation to publish code and configuration on production web servers.
 Reporting Issues
 ================
 
-You can report issues on the `#scap3
-<https://phabricator.wikimedia.org/tag/scap3/>`_ project in phabricator.
+You can report issues to the `#scap3
+<https://phabricator.wikimedia.org/maniphest/task/create/?projects=Scap3>`_
+project on phabricator.wikimedia.org
 
 
 credits
