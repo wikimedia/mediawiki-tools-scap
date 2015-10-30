@@ -769,6 +769,9 @@ def check_port(port, timeout, interval=3, logger=None):
 
 
 def move_symlink(source, dest, user='mwdeploy'):
+    if os.path.realpath(dest) == source:
+        return
+
     dest_dir = os.path.dirname(dest)
     rsource = os.path.relpath(source, dest_dir)
     rdest = os.path.relpath(dest, dest_dir)

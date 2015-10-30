@@ -675,6 +675,8 @@ class DeployLocal(DeployApplication):
                   help='Group of which this local machine is a part')
     @cli.argument('stage', metavar='STAGE', choices=STAGES + EX_STAGES,
                   help='Stage of the deployment to execute')
+    @cli.argument('-f', '--force', action='store_true',
+                  help='force stage even when noop detected')
     def main(self, *extra_args):
         self.rev = self.config['git_rev']
 
@@ -689,6 +691,7 @@ class DeployLocal(DeployApplication):
         self.revs_dir = deploy_dir('revs')
         self.tmp_dir = deploy_dir('tmp')
         self.cfg_digest = os.path.join(self.tmp_dir, '.config-digest')
+        self.noop = False
 
         rev_dir = self.rev
         try:
@@ -719,17 +722,16 @@ class DeployLocal(DeployApplication):
 
         getattr(self, stage)()
 
-        if self.config['perform_checks']:
+        status = 0
+
+        if not self.noop and self.config['perform_checks']:
             status = self._execute_checks(stage, group)
 
-            # Perform final tasks after the last stage
-            if status == 0 and self.STAGES[-1] == stage:
-                self._finalize()
+        # Perform final tasks after the last stage
+        if status == 0 and self.STAGES[-1] == stage:
+            self._finalize()
 
-            return status
-
-        else:
-            return 0
+        return status
 
     def config_deploy(self):
         """Renders config files
@@ -787,7 +789,18 @@ class DeployLocal(DeployApplication):
         with open(self.cfg_digest, 'w') as f:
             s = hashlib.sha1()
             s.update(repr(config_file_tree))
-            f.write(s.hexdigest())
+            digest = s.hexdigest()
+            if os.path.isdir(self.cur_link):
+                current = os.path.basename(os.path.realpath(self.cur_link))
+                if '_' in current:
+                    if (digest == current.split(REV_DELIMITER)[0] and
+                            not self.arguments.force):
+                        # Even when a noop is detected, we still write the
+                        # digest file: it is required to determine the
+                        # rev_dir in all future steps
+                        logger.info('Config already deployed')
+                        self.noop = True
+            f.write(digest)
 
     def fetch(self):
         """Fetch the specified revision of the remote repo.
@@ -799,16 +812,32 @@ class DeployLocal(DeployApplication):
         the possibility for future rollback.
         """
         has_submodules = self.config['git_submodules']
+        logger = self.get_logger()
 
         # create deployment directories if they don't already exist
         for d in [self.cache_dir, self.revs_dir]:
             utils.mkdir_p(d)
 
         git_remote = os.path.join(self.server_url, '.git')
-        self.get_logger().debug('Fetching from: {}'.format(git_remote))
+        logger.debug('Fetching from: {}'.format(git_remote))
 
         # clone/fetch from the repo to the cache directory
         tasks.git_fetch(self.cache_dir, git_remote, user=self.user)
+
+        # If the rev_dir already exists AND the currently checked-out HEAD is
+        # already at the revision specified by ``self.rev`` then you can assume
+        #
+        # 1. If there is a config deploy, the config is inside the rev_dir
+        # 2. The code represented by the SHA1 to be deployed is inside
+        #    the rev_dir
+        #
+        # Set the noop flag and return
+        if os.path.isdir(self.rev_dir) and not self.arguments.force:
+            rev = utils.git_sha(self.rev_dir, 'HEAD')
+            if rev == self.rev:
+                logger.info('Revision directory already exists')
+                self.noop = True
+                return
 
         # clone/fetch from the local cache directory to the revision directory
         tasks.git_fetch(self.rev_dir, self.cache_dir, user=self.user)
@@ -836,6 +865,13 @@ class DeployLocal(DeployApplication):
         """
 
         service = self.config.get('service_name', None)
+        logger = self.get_logger()
+
+        if (os.path.realpath(self.cur_link) == self.rev_dir and
+                not self.arguments.force):
+            logger.info('{} is already live'.format(self.rev_dir))
+            self.noop = True
+            return
 
         self._link_rev_dir(self.cur_link)
         self._link_final_to_current()
@@ -991,7 +1027,8 @@ class DeployLocal(DeployApplication):
         tasks.move_symlink(self.rev_dir, symlink_path, user=self.user)
 
     def _cleanup(self):
-        self._remove_progress_link()
+        if not self.noop:
+            self._remove_progress_link()
         self._remove_config_digest()
 
     def _remove_progress_link(self):
@@ -1037,6 +1074,8 @@ class Deploy(DeployApplication):
                   help='Deployment stages to execute. Used only for testing.')
     @cli.argument('-l', '--limit-hosts', default='all',
                   help='Limit deploy to hosts matching expression')
+    @cli.argument('-f', '--force', action='store_true',
+                  help='force re-fetch and checkout')
     def main(self, *extra_args):
         logger = self.get_logger()
 
@@ -1263,6 +1302,9 @@ class Deploy(DeployApplication):
         # Be sure to skip checks if they aren't configured
         if not os.path.exists(os.path.join(self.scap_dir, 'checks.yaml')):
             deploy_local_cmd += ['-D perform_checks:False']
+
+        if self.arguments.force:
+                deploy_local_cmd.append('--force')
 
         deploy_local_cmd += ['-g', group, stage]
 
