@@ -153,7 +153,7 @@ class AbstractSync(cli.Application):
 
 
 class CompileWikiversions(cli.Application):
-    """Compile wikiversions.json to wikiversions.cdb."""
+    """Compile wikiversions.json to wikiversions.php."""
 
     def main(self, *extra_args):
         self._run_as('mwdeploy')
@@ -232,15 +232,15 @@ class Scap(AbstractSync):
 
     #. Validate php syntax of wmf-config and multiversion
     #. Sync deploy directory on localhost with staging area
-    #. Compile wikiversions.json to cdb in deploy directory
+    #. Compile wikiversions.json to php in deploy directory
     #. Update l10n files in staging area
     #. Compute git version information
     #. Ask scap masters to sync with current master
     #. Ask scap proxies to sync with master server
     #. Ask apaches to sync with fastest rsync server
     #. Ask apaches to rebuild l10n CDB files
-    #. Update wikiversions.cdb on localhost
-    #. Ask apaches to sync wikiversions.cdb
+    #. Update wikiversions.php on localhost
+    #. Ask apaches to sync wikiversions.php
     #. Restart HHVM across the cluster
     """
 
@@ -292,7 +292,7 @@ class Scap(AbstractSync):
                     '%d hosts had scap-rebuild-cdbs errors', failed)
                 self.soft_errors = True
 
-        # Update and sync wikiversions.cdb
+        # Update and sync wikiversions.php
         succeeded, failed = tasks.sync_wikiversions(target_hosts, self.config)
         if failed:
             self.get_logger().warning(
@@ -510,7 +510,7 @@ class SyncFile(AbstractSync):
 
 
 class SyncWikiversions(cli.Application):
-    """Rebuild and sync wikiversions.cdb to the cluster."""
+    """Rebuild and sync wikiversions.php to the cluster."""
 
     def _process_arguments(self, args, extra_args):
         args.message = ' '.join(args.message) or '(no message)'
@@ -542,7 +542,7 @@ class SyncWikiversions(cli.Application):
         tasks.sync_wikiversions(mw_install_hosts, self.config)
 
         self.announce(
-            'rebuilt wikiversions.cdb and synchronized wikiversions files: %s',
+            'rebuilt wikiversions.php and synchronized wikiversions files: %s',
             self.arguments.message)
 
         self.get_stats().increment('deploy.sync-wikiversions')

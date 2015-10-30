@@ -145,7 +145,7 @@ cluster.
 
 compile-wikiversions
 ====================
-**compile-wikiversions** compiles wikiversions.json into wikiversions.cdb.
+**compile-wikiversions** compiles wikiversions.json into wikiversions.php.
 
 .. program-output:: ../bin/compile-wikiversions --help
 .. seealso::
