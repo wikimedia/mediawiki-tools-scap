@@ -31,6 +31,7 @@ DEFAULT_RSYNC_ARGS = [
     '--compress',
     '--delete',
     '--exclude=**/cache/l10n/*.cdb',
+    '--exclude=*.swp',
     '--no-perms',
 ]
 
