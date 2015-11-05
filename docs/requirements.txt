@@ -1,5 +1,4 @@
 -r ../requirements.txt
-fontconfig
 sphinx
 sphinxcontrib-actdiag
 sphinxcontrib-blockdiag
