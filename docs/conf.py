@@ -2,6 +2,7 @@
 
 import sys
 import os
+import subprocess
 from datetime import date
 
 sys.path.insert(0, os.path.abspath('..'))
@@ -26,3 +27,14 @@ htmlhelp_basename = 'scapdoc'
 html_favicon = 'favicon.ico'
 autodoc_default_flags = ['members', 'private-members', 'special-members']
 autodoc_memeber_order = 'groupwise'
+
+# diagram support
+extensions += ['sphinxcontrib.actdiag', 'sphinxcontrib.blockdiag']
+actdiag_html_image_format = blockdiag_html_image_format = 'svg'
+
+try:
+    # attempt to find a decent font using font-config
+    actdiag_fontpath = blockdiag_fontpath = subprocess.check_output(
+        ['fc-match', '-f', '%{file}', 'arial'])
+except OSError:
+    pass

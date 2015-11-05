@@ -50,6 +50,8 @@ An example of a sensible default config file is seen here::
     [wmnet]
     git_server: tin.eqiad.wmnet
 
+.. _available-configuration:
+
 Available configuration variables
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 +-----------------------------+----------------------------+------------------------------------+

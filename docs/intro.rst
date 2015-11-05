@@ -12,3 +12,4 @@ added to Scap to allow it to deploy any git-based repositories on `tin
 
     intro_what_does_it_mean
     intro_repo_config
+    intro_architecture
