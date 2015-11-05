@@ -529,7 +529,7 @@ class SyncFile(AbstractSync):
         self.get_stats().increment('deploy.all')
 
 
-class SyncWikiversions(cli.Application):
+class SyncWikiversions(AbstractSync):
     """Rebuild and sync wikiversions.php to the cluster."""
 
     def _process_arguments(self, args, extra_args):
