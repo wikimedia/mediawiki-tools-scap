@@ -136,7 +136,11 @@ class AbstractSync(cli.Application):
 
     def _get_target_list(self):
         """Get list of hostnames that should be updated from the proxies."""
-        return utils.read_hosts_file(self.config['dsh_targets'])
+        return list(
+            set(self._get_master_list()) |
+            set(self._get_proxy_list()) |
+            set(utils.read_hosts_file(self.config['dsh_targets']))
+        )
 
     def _apache_sync_command(self, proxies):
         """Synchronization command to run on the apache hosts.
@@ -537,8 +541,7 @@ class SyncWikiversions(cli.Application):
             err_msg = 'l10n cache missing for %s' % version
             utils.check_file_exists(cache_file, err_msg)
 
-        mw_install_hosts = utils.read_hosts_file(
-            self.config['dsh_targets'])
+        mw_install_hosts = self._get_target_list()
         tasks.sync_wikiversions(mw_install_hosts, self.config)
 
         self.announce(
@@ -625,7 +628,7 @@ class HHVMGracefulAll(cli.Application):
         exit_code = 0
         self.announce('Restarting HHVM: %s', self.arguments.message)
 
-        target_hosts = utils.read_hosts_file(self.config['dsh_targets'])
+        target_hosts = self._get_target_list()
         succeeded, failed = tasks.restart_hhvm(
             target_hosts, self.config,
             # Use a batch size of 5% of the total target list
