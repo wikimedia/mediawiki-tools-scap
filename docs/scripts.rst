@@ -44,8 +44,30 @@ filter the entire file for matching records and exit.
    * :func:`scap.log.JSONFormatter`
 
 ######################
-Mediawiki Scap Scripts
+Mediawiki Sync Scripts
 ######################
+
+Overview
+========
+
+:command:`scap` and the various :command:`sync-*` commands are legacy scap
+deployment scripts. These use rsync to deploy mediawiki from a deployment
+host (`tin` or `mira`) to hundreds of production web servers maintained by the
+Wikimedia Foundation.
+
+sync.flag
+~~~~~~~~~
+
+sync.flag is a persistent lock file that prevents scap from
+syncing to the cluster. The sync.flag is created by a deployer
+when the staging directory is in a bad state.
+
+When you are preparing to make modifications to the mediawiki-staging
+directory, you can/should create a file named sync.flag to alert other
+deployers that it is not currently safe to sync to the cluster.
+Scap will enforce the sync.flag by mentioning it's existence as
+well as the username of the file's owner. The file must be removed
+before any deployments can continue.
 
 scap
 ====

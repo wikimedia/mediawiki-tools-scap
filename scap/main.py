@@ -20,6 +20,7 @@ import socket
 import subprocess
 import time
 import yaml
+import pwd
 
 from . import checks
 from . import cli
@@ -53,6 +54,8 @@ class AbstractSync(cli.Application):
         self._assert_auth_sock()
 
         with utils.lock(self.config['lock_file']):
+            self._check_sync_flag(self.config['stage_dir'])
+
             self._before_cluster_sync()
 
             # Update masters
@@ -105,6 +108,17 @@ class AbstractSync(cli.Application):
             return 1
         else:
             return 0
+
+    def _check_sync_flag(self, check_dir=None):
+        if check_dir is None:
+            check_dir = self.config['stage_dir']
+        sync_flag = os.path.join(check_dir, 'sync.flag')
+        if os.path.exists(sync_flag):
+            stat = os.stat(sync_flag)
+            owner = pwd.getpwuid(stat.st_uid).pw_name
+            utils.get_logger().error("%s's sync.flag is blocking deployments",
+                                     owner)
+            raise IOError(errno.EPERM, 'Blocked by sync.flag', sync_flag)
 
     def _before_cluster_sync(self):
         pass
@@ -413,6 +427,8 @@ class SyncDir(AbstractSync):
             self.config['stage_dir'], self.arguments.dir)
         if not os.path.isdir(abspath):
             raise IOError(errno.ENOENT, 'Directory not found', abspath)
+
+        self._check_sync_flag(abspath)
 
         relpath = os.path.relpath(abspath, self.config['stage_dir'])
         self.include = '%s/***' % relpath
