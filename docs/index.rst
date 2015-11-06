@@ -1,25 +1,37 @@
-##################
-Scap documentation
-##################
+####
+Scap
+####
 
 .. include:: ../README.rst
 
-Content
-=======
+Background
+==========
+
+*Scap* is a tool that was originally designed to deploy MediaWiki code
+on Wikimedia Foundation servers. In Summer/Fall 2015 functionality was
+added to Scap to allow it to deploy any git-based repositories on `tin
+<https://wikitech.wikimedia.org/wiki/Tin>`_.
+
+What does "Scap" mean?
+----------------------
+
+It used to mean, “Sync Common All PHP.” Now, it doesn’t make sense.
+
+
+Topic Index
+-----------
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 3
 
-   intro
-   scripts
-   api
+   scap3
+   scap2
    development
+   api
 
-.. include:: development.rst
 
 Indices and tables
 ==================
 
 * :ref:`genindex`
-* :ref:`modindex`
 * :ref:`search`

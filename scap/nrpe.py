@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """
     scap.nrpe
-    ~~~~~~~~
+    ~~~~~~~~~
     NRPE based deployment checks.
 
     Available Icinga/NRPE command definitions must be loaded and registered

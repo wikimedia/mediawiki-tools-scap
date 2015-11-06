@@ -9,8 +9,6 @@
      ¨--¨|| |- (  / _______\___/ \___/ \__^_/  .__/
          ««_/  «_/ jgs/bd808               /_/
 
-scap
-====
 
 **Scap** ("sync-common-all-php) is the deployment script used by Wikimedia
 Foundation to publish code and configuration on production web servers.
@@ -24,7 +22,7 @@ You can report issues to the `#scap3
 project on phabricator.wikimedia.org
 
 
-credits
+Credits
 =======
 
 Ascii art derived from original work by Joan Stark [#pig]_ and the `speed`
