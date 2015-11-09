@@ -24,14 +24,14 @@ Topic Index
 .. toctree::
    :maxdepth: 3
 
-   scap3
-   scap2
+   scap3/index
+   scap2/index
    development
    api
+   glossary
 
 
 Indices and tables
 ==================
-
 * :ref:`genindex`
 * :ref:`search`

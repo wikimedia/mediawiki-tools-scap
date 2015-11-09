@@ -1,9 +1,9 @@
-##################
-Repo Configuration
-##################
 
-This document is mainly relevant only for git-based repositories,
-which currently (2015-10) does **NOT** include MediaWiki deploys.
+.. _configuration:
+
+####################################
+Deploying a git repository with scap
+####################################
 
 Since version 3, *Scap* is now able to deploy any git-based repository from tin
 to any number of hosts. This deployment can happen in serial or in parallel. All

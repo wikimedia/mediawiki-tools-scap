@@ -1,8 +1,8 @@
+.. _commands:
+
 ###############
 Deploy commands
 ###############
-
-.. _scap:
 
 deploy
 ======
@@ -24,9 +24,12 @@ the deployment server to a staging or production environment.
 .. seealso::
    * :class:`scap.Deploy`
 
+.. _deploy-log:
+
 deploy-log
 ==========
-The **deploy-log** command provides powerful filters for the `deploy` logs.
+
+The :command:`deploy-log` command provides powerful filters for the `deploy` logs.
 
 The main deploy application sends all structured log output to a file under
 :file:`scap/log/{git-tag}.log`. deploy-log is meant to run during or after a
