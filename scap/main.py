@@ -395,24 +395,6 @@ class SyncCommon(cli.Application):
         return 0
 
 
-class SyncDblist(AbstractSync):
-    """Sync dblist files to the cluster."""
-
-    def _proxy_sync_command(self):
-        cmd = [self.get_script_path('sync-common'),
-               '--no-update-l10n', '--include', 'dblists/*.dblist']
-        if self.verbose:
-            cmd.append('--verbose')
-        return cmd
-
-    def _after_lock_release(self):
-        self.announce('Synchronized database lists: %s (duration: %s)',
-                      self.arguments.message,
-                      utils.human_duration(self.get_duration()))
-        self.get_stats().increment('deploy.sync-dblist')
-        self.get_stats().increment('deploy.all')
-
-
 class SyncDir(AbstractSync):
     """Sync a directory to the cluster."""
 
