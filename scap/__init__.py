@@ -8,9 +8,6 @@
 """
 from .main import (
     CompileWikiversions,
-    Deploy,
-    DeployLocal,
-    DeployLog,
     HHVMGracefulAll,
     MWVersionsInUse,
     PurgeL10nCache,
@@ -25,6 +22,12 @@ from .main import (
     SyncMaster,
     SyncWikiversions,
     UpdateL10n,
+)
+
+from .deploy import (
+    Deploy,
+    DeployLocal,
+    DeployLog,
 )
 
 __all__ = (
