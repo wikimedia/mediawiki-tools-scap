@@ -2,6 +2,7 @@
 /*.egg
 /*.egg-info
 /.coverage
+/.pc
 /.tox
 /.venv
 /build
