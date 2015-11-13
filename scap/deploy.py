@@ -1,3 +1,10 @@
+# -*- coding: utf-8 -*-
+"""
+    scap.deploy
+    ~~~~~~~~~~~
+    Command wrappers for deploy tasks
+
+"""
 import collections
 import glob
 import hashlib
@@ -175,7 +182,8 @@ class DeployLocal(DeployApplication):
                         # Even when a noop is detected, we still write the
                         # digest file: it is required to determine the
                         # rev_dir in all future steps
-                        logger.info('Config already deployed')
+                        logger.info('Config already deployed '
+                                    '(use --force to override)')
                         self.noop = True
             f.write(digest)
 
@@ -212,7 +220,8 @@ class DeployLocal(DeployApplication):
         if os.path.isdir(self.rev_dir) and not self.arguments.force:
             rev = utils.git_sha(self.rev_dir, 'HEAD')
             if rev == self.rev:
-                logger.info('Revision directory already exists')
+                logger.info('Revision directory already exists '
+                            '(use --force to override)')
                 self.noop = True
                 return
 
@@ -246,7 +255,8 @@ class DeployLocal(DeployApplication):
 
         if (os.path.realpath(self.cur_link) == self.rev_dir and
                 not self.arguments.force):
-            logger.info('{} is already live'.format(self.rev_dir))
+            logger.info('{} is already live '
+                        '(use --force to override)'.format(self.rev_dir))
             self.noop = True
             return
 
