@@ -96,7 +96,7 @@ class Job(object):
         self._command = command
         self._reporter = None
         self._user = user
-        self.max_failure = len(hosts)
+        self.max_failure = len(self._hosts)
         self._logger = logger
         self.output_handler = OutputHandler
 
