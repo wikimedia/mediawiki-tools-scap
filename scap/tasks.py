@@ -263,14 +263,8 @@ def sync_master(cfg, master, verbose=False, logger=None):
             'rsync target directory %s not found. Ask root to create it '
             '(should belong to root:wikidev).') % cfg['stage_dir'])
 
-    # Execute rsync fetch locally via sudo
-    rsync = ['sudo', '-u', 'mwdeploy', '-g', 'wikidev', '-n', '--']
-    rsync.extend(DEFAULT_RSYNC_ARGS)
-    if verbose:
-        rsync.append('--verbose')
-
-    rsync.append('%s::common' % master)
-    rsync.append(cfg['stage_dir'])
+    # Execute rsync fetch locally via sudo and wrapper script
+    rsync = ['sudo', '-n', '--', '/usr/local/bin/scap-master-sync', master]
 
     logger.info('Copying to %s from %s', socket.getfqdn(), master)
     logger.debug('Running rsync command: `%s`', ' '.join(rsync))
