@@ -216,16 +216,27 @@ class RebuildCdbs(cli.Application):
 
     @cli.argument('--no-progress', action='store_true', dest='mute',
                   help='Do not show progress indicator.')
+    @cli.argument('--staging', action='store_true',
+                  help='Rebuild cdb files in staging directory')
     def main(self, *extra_args):
-        self._run_as('mwdeploy')
-        self._assert_current_user('mwdeploy')
+        user = 'mwdeploy'
+        source_tree = 'deploy'
+        root_dir = self.config['deploy_dir']
+
+        if self.arguments.staging:
+            user = 'l10nupdate'
+            source_tree = 'stage'
+            root_dir = self.config['stage_dir']
+
+        self._run_as(user)
+        self._assert_current_user(user)
 
         # Leave some of the cores free for apache processes
         use_cores = max(multiprocessing.cpu_count() / 2, 1)
 
         # Rebuild the CDB files from the JSON versions
-        for version, wikidb in self.active_wikiversions().items():
-            cache_dir = os.path.join(self.config['deploy_dir'],
+        for version, wikidb in self.active_wikiversions(source_tree).items():
+            cache_dir = os.path.join(root_dir,
                                      'php-%s' % version, 'cache', 'l10n')
             tasks.merge_cdb_updates(
                 cache_dir, use_cores, True, self.arguments.mute)

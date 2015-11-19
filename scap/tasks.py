@@ -272,14 +272,12 @@ def sync_master(cfg, master, verbose=False, logger=None):
     with log.Timer('rsync master', stats):
         subprocess.check_call(rsync)
 
+    scap_rebuild_cdbs = os.path.join(cfg['bin_dir'], 'scap-rebuild-cdbs')
+
     # Rebuild the CDB files from the JSON versions
-    versions = utils.get_active_wikiversions(
-        cfg['stage_dir'], cfg['wmf_realm'], cfg['datacenter'])
-    use_cores = max(multiprocessing.cpu_count() - 2, 1)
-    for version, wikidb in versions.items():
-        cache_dir = os.path.join(cfg['stage_dir'],
-            'php-%s' % version, 'cache', 'l10n')
-        merge_cdb_updates(cache_dir, use_cores, True, True)
+    with log.Timer('rebuild CDB staging files', stats):
+        subprocess.check_call(['sudo', '-u', 'l10nupdate', '-n', '--',
+            scap_rebuild_cdbs, '--no-progress', '--staging', '--verbose'])
 
 
 @utils.log_context('sync_common')
@@ -723,8 +721,7 @@ def git_remap_submodules(location, server):
             for submodule in submodules:
                 # Since we're using a non-bare http remote, map the submodule
                 # to the submodule path under $GIT_DIR/modules subdirectory of
-                # the superproject:
-                # https://github.com/git/git/blob/master/Documentation/RelNotes/1.7.8.txt#L109-L114
+                # the superproject (git documentation: https://git.io/v4W9F).
                 submodule_path = '{}/modules/{}'.format(
                     server, submodule)
                 module.write('[submodule "{}"]\n'.format(submodule))
