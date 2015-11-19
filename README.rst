@@ -10,8 +10,8 @@
          ««_/  «_/ jgs/bd808               /_/
 
 
-**Scap** ("sync-common-all-php) is the deployment script used by Wikimedia
-Foundation to publish code and configuration on production web servers.
+**Scap** is the deployment script used by Wikimedia Foundation to publish
+code and configuration on production web servers.
 
 
 Reporting Issues

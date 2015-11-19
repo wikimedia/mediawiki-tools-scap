@@ -1,9 +1,9 @@
 
 .. _configuration:
 
-####################################
-Deploying a git repository with scap
-####################################
+######################
+Configuring a Git Repo
+######################
 
 Since version 3, *Scap* is now able to deploy any git-based repository from tin
 to any number of hosts. This deployment can happen in serial or in parallel. All
