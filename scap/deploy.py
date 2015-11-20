@@ -29,20 +29,28 @@ REV_DELIMITER = '_'
 
 
 class DeployApplication(cli.Application):
+    """Common base class for all deployments"""
 
     def _load_config(self):
         """Initializes commonly used attributes after the config is loaded."""
 
         super(DeployApplication, self)._load_config()
 
-        self.root_dir = os.path.join(self.config['git_deploy_dir'],
-                                     self.config['git_repo'])
+        # We don't want to enforce a directory structure where
+        # config['git_deploy_dir'] has to be the root of both the deploy-host
+        # and deploy-target of the application. The 'git_deploy_dir' is the
+        # place on the targets in which your repo is placed and should have no
+        # impact on the deployer. T116207
+        self.root_dir = os.getcwd()
         self.scap_dir = os.path.join(self.root_dir, 'scap')
         self.log_dir = os.path.join(self.scap_dir, 'log')
 
 
 class DeployLocal(DeployApplication):
-    """Deploy service code via git"""
+    """Command that runs on target hosts. Responsible for fetching code from
+    the git server, checking out the appropriate revisions, restarting services
+    and running checks.
+    """
     STAGES = ['config_deploy', 'fetch', 'promote']
     EX_STAGES = ['rollback']
 
@@ -62,6 +70,9 @@ class DeployLocal(DeployApplication):
     @cli.argument('-f', '--force', action='store_true',
                   help='force stage even when noop detected')
     def main(self, *extra_args):
+        self.root_dir = os.path.join(self.config['git_deploy_dir'],
+                                     self.config['git_repo'])
+
         self.rev = self.config['git_rev']
 
         # cache, revs, and current directory go under [repo]-cache and are
@@ -496,7 +507,6 @@ class Deploy(DeployApplication):
 
         self.repo = self.config['git_repo']
 
-        deploy_dir = self.config['git_deploy_dir']
         cwd = os.getcwd()
 
         if self.arguments.stages:
@@ -504,17 +514,8 @@ class Deploy(DeployApplication):
         else:
             stages = DeployLocal.STAGES
 
-        in_deploy_dir = os.path.commonprefix([cwd, deploy_dir]) == deploy_dir
-
-        if not in_deploy_dir:
-            raise RuntimeError(errno.EPERM,
-                               'Path is not a part of the git deploy path',
-                               deploy_dir)
-
         if not utils.is_git_dir(cwd):
-            raise RuntimeError(errno.EPERM,
-                               'Script must be run from repository under {}'
-                               .format(deploy_dir))
+            raise RuntimeError(errno.EPERM, 'Script must be run from git repo')
 
         self._build_deploy_groups()
 
