@@ -81,7 +81,7 @@ Available configuration variables
 |                             |                            | of deploy targets. If              |
 |                             |                            | the path is not absolute,          |
 |                             |                            | Scap looks for a file in           |
-|                             |                            | ``/etc/dsh/groups``. For           |
+|                             |                            | ``/etc/dsh/group``. For            |
 |                             |                            | an absolute path, it just          |
 |                             |                            | uses the full path to              |
 |                             |                            | the file.                          |
@@ -174,4 +174,3 @@ Available configuration variables
 |                             |                            | will be performed after            |
 |                             |                            | each-stage of checkout.            |
 +-----------------------------+----------------------------+------------------------------------+
-

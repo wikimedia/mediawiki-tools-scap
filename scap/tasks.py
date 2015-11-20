@@ -241,7 +241,8 @@ def purge_l10n_cache(version, cfg):
 
     # Purge from deploy directroy across cluster
     # --force option given to rm to ignore missing files as before
-    purge = ssh.Job(user=cfg['ssh_user']).role(cfg['dsh_targets'])
+    purge = ssh.Job(user=cfg['ssh_user']).hosts(
+        utils.read_hosts_file(cfg['dsh_targets']))
     purge.command('sudo -u mwdeploy -n -- /bin/rm '
         '--recursive --force %s/*' % deployed_l10n)
     purge.progress('l10n purge').run()

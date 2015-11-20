@@ -109,10 +109,6 @@ class Job(object):
         self._hosts = list(hosts)
         return self
 
-    def role(self, role):
-        """Set hosts to run command on by network role."""
-        return self.hosts(utils.read_hosts_file(role))
-
     def shuffle(self):
         """Randomize order of target hosts."""
         random.shuffle(self._hosts)
