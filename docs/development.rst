@@ -43,3 +43,27 @@ the documentation.
 
 To run unit tests, lint, coverage and update documentation, simply run
 :command:`tox` without any arguments.
+
+Git Pre-Commit hook
+-------------------
+
+There is an example pre-commit hook<pre-commit.sh>`_ that can
+run ``arc lint`` and ``tox -e doc`` before allowing a commit to
+proceed.
+
+.. literalinclude:: pre-commit.sh
+   :language: bash
+   :linenos:
+
+This can help you catch problems earlier, before preparing
+to submit a change for review. If you would like to install this
+hook in your repository, simply copy the pre-commit.sh into
+your .git/hooks folder and make it executable.
+
+Specifically, run the following from the root of your scap
+repository:
+
+.. code-block:: bash
+
+  cp docs/pre-commit.sh .git/hooks/pre-commit
+  chmod +x .git/hooks/pre-commit
