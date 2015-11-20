@@ -421,6 +421,7 @@ class DeployLocal(DeployApplication):
         if not self.noop:
             self._remove_progress_link()
         self._remove_config_digest()
+        self._clean_old_revs()
 
     def _remove_progress_link(self):
         tasks.remove_symlink(self.progress_flag, user=self.user)
@@ -428,6 +429,29 @@ class DeployLocal(DeployApplication):
     def _remove_config_digest(self):
         if os.path.exists(self.cfg_digest):
             os.unlink(self.cfg_digest)
+
+    def _clean_old_revs(self):
+        """If there are more than 5 directories in self.revs_dir, remove
+        the oldest
+        """
+        logger = self.get_logger()
+        with utils.cd(self.revs_dir):
+            # get list of top-level directories in revs_dir
+            dirs = os.walk('.').next()[1]
+
+            if len(dirs) <= 5:
+                return
+
+            sorted_dirs = sorted(dirs, key=os.path.getctime, reverse=True)
+            oldest = os.path.abspath(sorted_dirs.pop())
+
+            # if *somehow* the oldest directory is the current deployment
+            # directory, don't delete it
+            if oldest == self.rev_dir:
+                return
+
+            logger.info('Cleaning old revision {}'.format(oldest))
+            shutil.rmtree(oldest)
 
 
 class Deploy(DeployApplication):
