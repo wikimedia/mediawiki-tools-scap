@@ -376,10 +376,14 @@ class DeployLocal(DeployApplication):
         This should really only be needed the first time that scap03 is
         run. It links the [repo]-cache/current directory to [repo].
         """
+        timestamp = datetime.utcnow()
+        date = timestamp.isoformat()
+
+        # if the path is not a symlink, but it does exist, move it
         if (not os.path.islink(self.root_dir) and
                 (os.path.isfile(self.root_dir) or
                  os.path.isdir(self.root_dir))):
-            os.rename(self.root_dir, '{}.trebuchet'.format(self.root_dir))
+            os.rename(self.root_dir, '{}.{}'.format(self.root_dir, date))
 
         tasks.move_symlink(self.cur_link, self.root_dir, user=self.user)
 
