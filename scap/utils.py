@@ -408,24 +408,37 @@ def md5_file(path):
     return crc.hexdigest()
 
 
-def read_hosts_file(path):
+def read_hosts_file(filename, search_path=["/etc/dsh/group"]):
     """Reads hosts from a file into a list.
 
     if passed an absolute file path, this function treats that path as the
-    host list, otherwise, uses /etc/dsh/group/[path]
+    host list, otherwise, load (by default) /etc/dsh/group/[filename] or
+    search the specified [search_path] for a file named [filename].
 
     Blank lines and comments are ignored.
-    """
-    final_path = os.path.join('/etc/dsh/group', path)
 
-    if os.path.isabs(path):
-        final_path = path
+    :param filename: The file name for the hosts file to read
+    :param search_path: a list of directories to search for the hosts file.
+    :returns: a list of host names loaded from the specified hosts file.
+    """
+    hosts_file = None
+
+    if os.path.isabs(filename):
+        hosts_file = filename
+    else:
+        for path in search_path:
+            candidate = os.path.join(path, filename)
+            if os.path.exists(candidate):
+                hosts_file = os.path.abspath(candidate)
+                break
+
+    check_file_exists(hosts_file)
 
     try:
-        with open(final_path) as hosts_file:
-            return re.findall(r'^[\w\.\-]+', hosts_file.read(), re.MULTILINE)
+        with open(hosts_file) as f:
+            return re.findall(r'^[\w\.\-]+', f.read(), re.MULTILINE)
     except IOError as e:
-        raise IOError(e.errno, e.strerror, path)
+        raise IOError(e.errno, e.strerror, hosts_file)
 
 
 @log_context('sudo_check_call')

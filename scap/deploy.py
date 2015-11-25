@@ -679,7 +679,14 @@ class Deploy(DeployApplication):
                 raise RuntimeError('Reading `{0}` file "{1}" failed'.format(
                                    dsh_key, dsh_file))
 
-            targets = utils.read_hosts_file(dsh_file)
+            env = self.arguments.environment
+            if env and os.path.isdir(env):
+                search_path = [os.path.join(self.scap_dir, env)]
+            else:
+                search_path = []
+
+            search_path.extend([self.scap_dir, "/etc/dsh/group"])
+            targets = utils.read_hosts_file(dsh_file, search_path)
             if limit and self.arguments.limit_hosts is not None:
                 targets = utils.get_target_hosts(self.arguments.limit_hosts,
                                                  targets)
