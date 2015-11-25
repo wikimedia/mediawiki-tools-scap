@@ -8,3 +8,4 @@ Deployment Configuration
 
    repo_config
    checks
+   ssh-access

@@ -30,26 +30,6 @@ the repository at ``scap/scap.cfg``. This new file should be made in
     - ``git_repo_user``
     - ``dsh_targets``.
 
-An example of a sensible default config file is seen here::
-
-    [global]
-    ssh_user: service-deploy
-    git_repo: mockbase/deploy
-    git_repo_user: service-deploy
-    dsh_targets: mockbase
-    git_submodules: True
-    service_name: mockbase
-    service_port: 1134
-    batch_size: 80
-    promote_batch_size: 1
-    config_deploy: True
-
-    [wmflabs]
-    git_server: deployment-bastion.deployment-prep.eqiad.wmflabs
-
-    [wmnet]
-    git_server: tin.eqiad.wmnet
-
 .. _available-configuration:
 
 Available configuration variables
