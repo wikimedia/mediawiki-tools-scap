@@ -475,7 +475,7 @@ class SyncFile(AbstractSync):
         # Warn when syncing a symlink.
         if os.path.islink(abspath):
             self.get_logger().warning(
-                '%s: did you mean to sync a symbolic link?', abspath)
+                '%s: syncing symlink, not target file contents', abspath)
 
         self.include = os.path.relpath(abspath, self.config['stage_dir'])
         if abspath.endswith(('.php', '.inc', '.phtml', '.php5')):
