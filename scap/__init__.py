@@ -18,6 +18,7 @@ from .main import (
     SyncDir,
     SyncDocroot,
     SyncFile,
+    SyncL10n,
     SyncMaster,
     SyncWikiversions,
     UpdateL10n,
@@ -44,6 +45,7 @@ __all__ = (
     'SyncDir',
     'SyncDocroot',
     'SyncFile',
+    'SyncL10n',
     'SyncMaster',
     'SyncWikiversions',
     'UpdateL10n',
@@ -65,5 +67,6 @@ any((
     SyncDocroot,
     SyncFile,
     SyncMaster,
+    SyncL10n,
     SyncWikiversions,
     UpdateL10n))  # Ignore unused import warning

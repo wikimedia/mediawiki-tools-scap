@@ -214,6 +214,7 @@ class PurgeL10nCache(cli.Application):
 class RebuildCdbs(cli.Application):
     """Rebuild localization cache CDB files from the JSON versions."""
 
+    @cli.argument('--version', help='MediaWiki version (eg 1.27.0-wmf.7)')
     @cli.argument('--no-progress', action='store_true', dest='mute',
                   help='Do not show progress indicator.')
     @cli.argument('--staging', action='store_true',
@@ -234,8 +235,23 @@ class RebuildCdbs(cli.Application):
         # Leave some of the cores free for apache processes
         use_cores = max(multiprocessing.cpu_count() / 2, 1)
 
+        self.versions = self.active_wikiversions(source_tree)
+
+        if self.arguments.version:
+            version = self.arguments.version
+            if version.startswith('php-'):
+                version = version[4:]
+
+            # Assert version is active
+            if version not in self.versions:
+                raise IOError(
+                    errno.ENOENT, 'Version not active', version)
+
+            # Replace dict of active versions with the single version selected
+            self.versions = {version: self.versions[version]}
+
         # Rebuild the CDB files from the JSON versions
-        for version, wikidb in self.active_wikiversions(source_tree).items():
+        for version, wikidb in self.versions.items():
             cache_dir = os.path.join(root_dir,
                                      'php-%s' % version, 'cache', 'l10n')
             tasks.merge_cdb_updates(
@@ -506,6 +522,72 @@ class SyncFile(AbstractSync):
                       utils.human_duration(self.get_duration()))
         self.get_stats().increment('deploy.sync-file')
         self.get_stats().increment('deploy.all')
+
+
+class SyncL10n(AbstractSync):
+    """Sync l10n files for a given branch and rebuild cache files."""
+
+    @cli.argument('version', help='MediaWiki version (eg 1.27.0-wmf.7)')
+    def main(self, *extra_args):
+        return super(SyncL10n, self).main(*extra_args)
+
+    def _before_cluster_sync(self):
+        if self.arguments.version.startswith('php-'):
+            self.arguments.version = self.arguments.version[4:]
+
+        # Assert version is active
+        if self.arguments.version not in self.active_wikiversions():
+            raise IOError(
+                errno.ENOENT, 'Version not active', self.arguments.version)
+
+        # Assert l10n cache dir for version exists
+        abspath = os.path.join(
+            self.config['stage_dir'],
+            'php-%s/cache/l10n' % self.arguments.version)
+        if not os.path.isdir(abspath):
+            raise IOError(errno.ENOENT, 'Directory not found', abspath)
+
+        self._check_sync_flag(abspath)
+
+        relpath = os.path.relpath(abspath, self.config['stage_dir'])
+        self.include = '%s/***' % relpath
+
+    def _proxy_sync_command(self):
+        cmd = [self.get_script_path('sync-common'), '--no-update-l10n']
+
+        parts = self.include.split('/')
+        for i in range(1, len(parts)):
+            # Include parent directories in sync command or the default
+            # exclude will block them and by extension block the target
+            # file.
+            cmd.extend(['--include', '/'.join(parts[:i])])
+
+        cmd.extend(['--include', self.include])
+        if self.verbose:
+            cmd.append('--verbose')
+        return cmd
+
+    def _after_cluster_sync(self):
+        # Rebuild l10n CDB files
+        target_hosts = self._get_target_list()
+        with log.Timer('scap-rebuild-cdbs', self.get_stats()):
+            rebuild_cdbs = ssh.Job(target_hosts, user=self.config['ssh_user'])
+            rebuild_cdbs.shuffle()
+            rebuild_cdbs.command('sudo -u mwdeploy -n -- %s --version %s' % (
+                                 self.get_script_path('scap-rebuild-cdbs'),
+                                 self.arguments.version))
+            rebuild_cdbs.progress('scap-rebuild-cdbs')
+            succeeded, failed = rebuild_cdbs.run()
+            if failed:
+                self.get_logger().warning(
+                    '%d hosts had scap-rebuild-cdbs errors', failed)
+                self.soft_errors = True
+
+    def _after_lock_release(self):
+        self.announce('sync-l10nupdate completed (%s) (duration: %s)',
+                      self.arguments.version,
+                      utils.human_duration(self.get_duration()))
+        self.get_stats().increment('l10nupdate-sync')
 
 
 class SyncWikiversions(AbstractSync):
