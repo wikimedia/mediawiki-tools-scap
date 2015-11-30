@@ -584,7 +584,7 @@ class SyncL10n(AbstractSync):
                 self.soft_errors = True
 
     def _after_lock_release(self):
-        self.announce('sync-l10nupdate completed (%s) (duration: %s)',
+        self.announce('sync-l10n completed (%s) (duration: %s)',
                       self.arguments.version,
                       utils.human_duration(self.get_duration()))
         self.get_stats().increment('l10nupdate-sync')
