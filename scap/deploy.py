@@ -155,15 +155,16 @@ class DeployLocal(DeployApplication):
         config_file_tree = {}
 
         for config_file in config_files['files']:
-            name = config_file['name']
+            filename = config_file['name']
+
             tmpl = template.Template(
-                name=name,
-                loader={name: config_file['template']},
+                name=filename,
+                loader={filename: config_file['template']},
+                erb_syntax=config_file.get('erb_syntax', False),
                 var_file=config_file.get('remote_vars', None),
                 overrides=overrides
             )
 
-            filename = config_file['name']
             if filename.startswith('/'):
                 filename = filename[1:]
 
@@ -617,7 +618,9 @@ class Deploy(DeployApplication):
         for config_file in config_files:
             f = {}
             f['name'] = config_file
-            template_name = config_files[config_file]['template']
+
+            template_attrs = config_files[config_file]
+            template_name = template_attrs['template']
             template = utils.get_env_specific_filename(
                 os.path.join(self.scap_dir, 'templates', template_name),
                 self.arguments.environment
@@ -626,8 +629,10 @@ class Deploy(DeployApplication):
                 f['template'] = tmp.read()
 
             # Remote var file is optional
-            if config_files[config_file].get('remote_vars', None):
-                f['remote_vars'] = config_files[config_file]['remote_vars']
+            if template_attrs.get('remote_vars', None):
+                f['remote_vars'] = template_attrs['remote_vars']
+
+            f['erb_syntax'] = template_attrs.get('erb_syntax', False)
 
             tmp_cfg['files'].append(f)
 

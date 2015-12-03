@@ -10,16 +10,36 @@ import yaml
 
 
 class Template(object):
-    """Adapter class that wraps jinja2 templates
-    """
-    def __init__(self, name, loader, var_file=None, overrides=None):
-        loader = jinja2.DictLoader(loader)
-        self._env = jinja2.Environment(loader=loader)
+    """Adapter class that wraps jinja2 templates"""
+    def __init__(self, name, loader, erb_syntax=False, var_file=None,
+                 overrides=None):
+        env_args = self._make_env_args(loader, erb_syntax)
+        self._env = jinja2.Environment(**env_args)
         self._template = self._env.get_template(name)
         self._overrides = overrides
         self.var_file = var_file
 
+    def _make_env_args(self, loader, erb_syntax):
+        """Generates properties to pass to the jinja template"""
+        loader = jinja2.DictLoader(loader)
+        env_args = {'loader': loader}
+        if erb_syntax:
+            env_args.update({
+                'block_start_string': '<%',
+                'block_end_string': '%>',
+                'variable_start_string': '<%=',
+                'variable_end_string': '%>',
+                'comment_start_string': '<%#',
+                'comment_end_string': '%>',
+            })
+
+        return env_args
+
     def _get_file_vars(self):
+        """Loads yaml var file if it exists
+
+        :return: dict variables for template use
+        """
         if not self.var_file:
             return {}
 
