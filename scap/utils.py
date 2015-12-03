@@ -552,6 +552,25 @@ def mkdir_p(path, user=get_real_username(), logger=None):
     sudo_check_call(user, "mkdir -p '{}'".format(path))
 
 
+def move_symlink(source, dest, user=get_real_username()):
+    if os.path.realpath(dest) == source:
+        return
+
+    dest_dir = os.path.dirname(dest)
+    rsource = os.path.relpath(source, dest_dir)
+    rdest = os.path.relpath(dest, dest_dir)
+
+    # Make link target's parent directory if it doesn't exist
+    mkdir_p(dest_dir, user=user)
+
+    with cd(dest_dir):
+        sudo_check_call(user, "ln -sf '{}' '{}'".format(rsource, rdest))
+
+
+def remove_symlink(path, user=get_real_username()):
+    sudo_check_call(user, "rm '{}'".format(path))
+
+
 def get_target_hosts(pattern, hosts):
     """Returns a subset of hosts based on wildcards
 

@@ -17,6 +17,7 @@ import errno
 from datetime import datetime
 
 from . import checks
+from . import context
 from . import nrpe
 from . import template
 from . import cli
@@ -26,43 +27,15 @@ from . import tasks
 from . import utils
 from . import git
 
-REV_DELIMITER = '_'
+STAGES = ['config_deploy', 'fetch', 'promote']
+EX_STAGES = ['rollback']
 
 
-class DeployApplication(cli.Application):
-    """Common base class for all deployments"""
-
-    def _load_config(self):
-        """Initializes commonly used attributes after the config is loaded."""
-
-        super(DeployApplication, self)._load_config()
-
-        # We don't want to enforce a directory structure where
-        # config['git_deploy_dir'] has to be the root of both the deploy-host
-        # and deploy-target of the application. The 'git_deploy_dir' is the
-        # place on the targets in which your repo is placed and should have no
-        # impact on the deployer. T116207
-        self.root_dir = os.getcwd()
-        self.scap_dir = os.path.join(self.root_dir, 'scap')
-        self.log_dir = os.path.join(self.scap_dir, 'log')
-
-
-class DeployLocal(DeployApplication):
+class DeployLocal(cli.Application):
     """Command that runs on target hosts. Responsible for fetching code from
     the git server, checking out the appropriate revisions, restarting services
     and running checks.
     """
-    STAGES = ['config_deploy', 'fetch', 'promote']
-    EX_STAGES = ['rollback']
-
-    rev = None
-    cache_dir = None
-    revs_dir = None
-    rev_dir = None
-    cur_link = None
-    progress_flag = None
-    done_flag = None
-    user = None
 
     @cli.argument('-g', '--group',
                   help='Group of which this local machine is a part')
@@ -71,47 +44,19 @@ class DeployLocal(DeployApplication):
     @cli.argument('-f', '--force', action='store_true',
                   help='force stage even when noop detected')
     def main(self, *extra_args):
-        self.root_dir = os.path.join(self.config['git_deploy_dir'],
-                                     self.config['git_repo'])
-
         self.rev = self.config['git_rev']
-
-        # cache, revs, and current directory go under [repo]-cache and are
-        # linked to [repo] as a final step
-        root_deploy_dir = '{}-cache'.format(self.root_dir)
-
-        def deploy_dir(subdir):
-            return os.path.join(root_deploy_dir, subdir)
-
-        self.cache_dir = deploy_dir('cache')
-        self.revs_dir = deploy_dir('revs')
-        self.tmp_dir = deploy_dir('tmp')
-        self.cfg_digest = os.path.join(self.tmp_dir, '.config-digest')
-        self.noop = False
-
-        rev_dir = self.rev
-        try:
-            with open(self.cfg_digest, 'r') as f:
-                rev_dir = REV_DELIMITER.join([f.read(), self.rev])
-        except IOError:
-            pass
-
-        self.rev_dir = os.path.join(self.revs_dir, rev_dir)
-
-        self.cur_link = deploy_dir('current')
-        self.progress_flag = deploy_dir('.in-progress')
-        self.done_flag = deploy_dir('.done')
-
         self.user = self.config['git_repo_user']
+        self.noop = False
+        self.final_path = os.path.join(self.config['git_deploy_dir'],
+                                       self.config['git_repo'])
+
+        root = '{}-cache'.format(self.final_path)
+        self.context = context.TargetContext(root, user=self.user)
+        self.context.setup()
 
         # only supports http from tin for the moment
-        scheme = 'http'
-        repo = self.config['git_repo']
-        server = self.config['git_server']
-
-        url = os.path.normpath('{0}/{1}'.format(server, repo))
-
-        self.server_url = "{0}://{1}".format(scheme, url)
+        url = os.path.normpath('{git_server}/{git_repo}'.format(**self.config))
+        self.server_url = 'http://{0}'.format(url)
 
         stage = self.arguments.stage
         group = self.arguments.group
@@ -124,7 +69,7 @@ class DeployLocal(DeployApplication):
             status = self._execute_checks(stage, group)
 
         # Perform final tasks after the last stage
-        if status == 0 and self.STAGES[-1] == stage:
+        if status == 0 and STAGES[-1] == stage:
             self._finalize()
 
         return status
@@ -143,6 +88,7 @@ class DeployLocal(DeployApplication):
                                   '{}.yaml'.format(self.rev))
 
         logger.debug('Get config yaml: {}'.format(config_url))
+
         r = requests.get(config_url)
         if r.status_code != requests.codes.ok:
             raise IOError(errno.ENOENT, 'Config file not found', config_url)
@@ -150,7 +96,7 @@ class DeployLocal(DeployApplication):
         config_files = yaml.load(r.text)
         overrides = config_files.get('override_vars', {})
 
-        source_basepath = os.path.join(self.tmp_dir, self.rev, 'config-files')
+        source_basepath = self.context.temp_path(self.rev, 'config-files')
         logger.debug('Source basepath: {}'.format(source_basepath))
         utils.mkdir_p(source_basepath)
         config_file_tree = {}
@@ -183,22 +129,19 @@ class DeployLocal(DeployApplication):
                 config_file_tree[source] = s.hexdigest()
                 f.write(output_file)
 
-        with open(self.cfg_digest, 'w') as f:
-            s = hashlib.sha1()
-            s.update(repr(config_file_tree))
-            digest = s.hexdigest()
-            if os.path.isdir(self.cur_link):
-                current = os.path.basename(os.path.realpath(self.cur_link))
-                if '_' in current:
-                    if (digest == current.split(REV_DELIMITER)[0] and
-                            not self.arguments.force):
-                        # Even when a noop is detected, we still write the
-                        # digest file: it is required to determine the
-                        # rev_dir in all future steps
-                        logger.info('Config already deployed '
-                                    '(use --force to override)')
-                        self.noop = True
-            f.write(digest)
+        s = hashlib.sha1()
+        s.update(repr(config_file_tree))
+        digest = s.hexdigest()
+
+        if digest == self.context.current_config_rev:
+            if not self.arguments.force:
+                logger.info('Config already deployed '
+                            '(use --force to override)')
+                self.noop = True
+
+        # Even though this may be a noop, we still record a change in the
+        # config rev as it's required by all future stages
+        self.context.use_config_rev(digest)
 
     def fetch(self):
         """Fetch the specified revision of the remote repo.
@@ -211,16 +154,13 @@ class DeployLocal(DeployApplication):
         """
         has_submodules = self.config['git_submodules']
         logger = self.get_logger()
-
-        # create deployment directories if they don't already exist
-        for d in [self.cache_dir, self.revs_dir]:
-            utils.mkdir_p(d)
+        rev_dir = self.context.rev_path(self.rev)
 
         git_remote = os.path.join(self.server_url, '.git')
         logger.debug('Fetching from: {}'.format(git_remote))
 
         # clone/fetch from the repo to the cache directory
-        git.fetch(self.cache_dir, git_remote, user=self.user)
+        git.fetch(self.context.cache_dir, git_remote, user=self.user)
 
         # If the rev_dir already exists AND the currently checked-out HEAD is
         # already at the revision specified by ``self.rev`` then you can assume
@@ -230,8 +170,8 @@ class DeployLocal(DeployApplication):
         #    the rev_dir
         #
         # Set the noop flag and return
-        if os.path.isdir(self.rev_dir) and not self.arguments.force:
-            rev = git.sha(self.rev_dir, 'HEAD')
+        if os.path.isdir(rev_dir) and not self.arguments.force:
+            rev = git.sha(rev_dir, 'HEAD')
             if rev == self.rev:
                 logger.info('Revision directory already exists '
                             '(use --force to override)')
@@ -239,21 +179,20 @@ class DeployLocal(DeployApplication):
                 return
 
         # clone/fetch from the local cache directory to the revision directory
-        git.fetch(self.rev_dir, self.cache_dir, user=self.user)
+        git.fetch(rev_dir, self.context.cache_dir, user=self.user)
 
         # checkout the given revision
-        git.checkout(self.rev_dir, self.rev, user=self.user)
+        git.checkout(rev_dir, self.rev, user=self.user)
 
         if has_submodules:
             upstream_submodules = self.config['git_upstream_submodules']
-            git.update_submodules(self.rev_dir, git_remote,
+            git.update_submodules(rev_dir, git_remote,
                                   use_upstream=upstream_submodules,
                                   user=self.user)
 
-        # link the .in-progress flag to the rev directory
-        self._link_rev_dir(self.progress_flag)
+        self.context.mark_rev_in_progress(self.rev)
 
-    def promote(self):
+    def promote(self, rev=None, rev_dir=None, config_deploy=True):
         """Promote the current deployment.
 
         Switches the `current` symlink to the current revision directory and
@@ -263,21 +202,49 @@ class DeployLocal(DeployApplication):
         restarted.
         """
 
+        if rev is None:
+            rev = self.rev
+
+        if rev_dir is None:
+            rev_dir = self.context.rev_path(rev)
+
+        config_deploy = config_deploy and self.config['config_deploy']
+
         service = self.config.get('service_name', None)
         logger = self.get_logger()
 
-        if (os.path.realpath(self.cur_link) == self.rev_dir and
+        if (self.context.current_rev_dir == rev_dir and
                 not self.arguments.force):
+
             logger.info('{} is already live '
-                        '(use --force to override)'.format(self.rev_dir))
+                        '(use --force to override)'.format(rev_dir))
             self.noop = True
             return
 
-        self._link_rev_dir(self.cur_link)
-        self._link_final_to_current()
+        if config_deploy:
+            # Move the rendered config files from their temporary location
+            # into a .git/config-files subdirectory of the rev directory
+            config_dest = self.context.rev_path(rev, '.git', 'config-files')
 
-        if self.config['config_deploy']:
-            self._link_config_files()
+            if os.path.isdir(config_dest):
+                shutil.rmtree(config_dest)
+
+            os.rename(self.context.temp_path(rev, 'config-files'),
+                      config_dest)
+
+            logger.debug('Linking config files at: {}'.format(config_dest))
+
+            for dir_path, _, conf_files in os.walk(config_dest):
+                for conf_file in conf_files:
+                    full_path = os.path.normpath(
+                        '{}/{}'.format(dir_path, conf_file))
+
+                    rel_path = os.path.relpath(full_path, config_dest)
+                    final_path = os.path.join('/', rel_path)
+                    utils.move_symlink(full_path, final_path, user=self.user)
+
+        self.context.mark_rev_current(rev)
+        self.context.link_path_to_rev(self.final_path, rev, backup=True)
 
         if service is not None:
             tasks.restart_service(service, user=self.config['git_repo_user'])
@@ -305,33 +272,28 @@ class DeployLocal(DeployApplication):
 
         logger = self.get_logger()
 
-        if not os.path.exists(self.progress_flag):
+        rollback_from = self.context.rev_in_progress
+        rollback_to = self.context.rev_done
+
+        if not rollback_from:
             logger.info('No rollback necessary. Skipping')
             return 0
 
-        if not os.path.exists(self.done_flag):
+        if not rollback_to:
             raise RuntimeError('there is no previous revision to rollback to')
 
-        rev_dir = os.path.realpath(self.done_flag)
-        rev = os.path.basename(rev_dir)
+        logger.info('Rolling back from revision {} to {}'.format(rollback_from,
+                                                                 rollback_to))
 
-        try:
-            rev = rev.split(REV_DELIMITER)[1]
-        except IndexError:
-            # Don't blow up if there was no config deployed last time
-            pass
+        rev_dir = self.context.done_rev_dir
 
         if not os.path.isdir(rev_dir):
             msg = 'rollback failed due to missing rev directory {}'
             raise RuntimeError(msg.format(rev_dir))
 
-        logger.info('Rolling back to revision {}'.format(rev))
-        self.rev = rev
-        self.rev_dir = rev_dir
-
-        # Config re-evaluation no longer necessary or desirable at this point
-        self.config['config_deploy'] = False
-        self.promote()
+        # Promote the previous rev and skip config re-evaluation as it's no
+        # longer necessary or desirable at this point
+        self.promote(rollback_to, rev_dir, config_deploy=False)
         self._finalize()
 
     @utils.log_context('checks')
@@ -379,95 +341,17 @@ class DeployLocal(DeployApplication):
         Moves the .done flag to the rev directory and removes the .in-progress
         flag.
         """
-
-        self._link_rev_dir(self.done_flag)
-        self._cleanup()
-
-    def _link_final_to_current(self):
-        """Link the current checkout to final location at [repo]
-
-        This should really only be needed the first time that scap03 is
-        run. It links the [repo]-cache/current directory to [repo].
-        """
-        timestamp = datetime.utcnow()
-        date = timestamp.isoformat()
-
-        # if the path is not a symlink, but it does exist, move it
-        if (not os.path.islink(self.root_dir) and
-                (os.path.isfile(self.root_dir) or
-                 os.path.isdir(self.root_dir))):
-            os.rename(self.root_dir, '{}.{}'.format(self.root_dir, date))
-
-        tasks.move_symlink(self.cur_link, self.root_dir, user=self.user)
-
-    def _link_config_files(self):
-        """Moves rendered configs inside the current checkout, then links
-        to final destination
-        """
         logger = self.get_logger()
 
-        config_base = os.path.join(self.cur_link, '.git', 'config-files')
+        self.context.mark_rev_done(self.rev)
+        self.context.cleanup()
 
-        if os.path.isdir(config_base):
-            shutil.rmtree(config_base)
-
-        os.rename(
-            os.path.join(self.tmp_dir, self.rev, 'config-files'),
-            config_base
-        )
-
-        logger.debug('Linking config files at: {}'.format(config_base))
-
-        for dir_path, _, conf_files in os.walk(config_base):
-            for conf_file in conf_files:
-                full_path = os.path.normpath(
-                    '{}/{}'.format(dir_path, conf_file))
-
-                rel_path = os.path.relpath(full_path, config_base)
-                final_path = os.path.join('/', rel_path)
-                tasks.move_symlink(full_path, final_path, user=self.user)
-
-    def _link_rev_dir(self, symlink_path):
-        tasks.move_symlink(self.rev_dir, symlink_path, user=self.user)
-
-    def _cleanup(self):
-        if not self.noop:
-            self._remove_progress_link()
-        self._remove_config_digest()
-        self._clean_old_revs()
-
-    def _remove_progress_link(self):
-        tasks.remove_symlink(self.progress_flag, user=self.user)
-
-    def _remove_config_digest(self):
-        if os.path.exists(self.cfg_digest):
-            os.unlink(self.cfg_digest)
-
-    def _clean_old_revs(self):
-        """If there are more than 5 directories in self.revs_dir, remove
-        the oldest
-        """
-        logger = self.get_logger()
-        with utils.cd(self.revs_dir):
-            # get list of top-level directories in revs_dir
-            dirs = os.walk('.').next()[1]
-
-            if len(dirs) <= 5:
-                return
-
-            sorted_dirs = sorted(dirs, key=os.path.getctime, reverse=True)
-            oldest = os.path.abspath(sorted_dirs.pop())
-
-            # if *somehow* the oldest directory is the current deployment
-            # directory, don't delete it
-            if oldest == self.rev_dir:
-                return
-
-            logger.info('Cleaning old revision {}'.format(oldest))
-            shutil.rmtree(oldest)
+        for rev_dir in self.context.find_old_rev_dirs():
+            logger.info('Removing old revision {}'.format(rev_dir))
+            shutil.rmtree(rev_dir)
 
 
-class Deploy(DeployApplication):
+class Deploy(cli.Application):
     """Sync new service code across cluster
 
     Uses local .scaprc as config for each host in cluster
@@ -498,7 +382,7 @@ class Deploy(DeployApplication):
     targets = []
 
     @cli.argument('-r', '--rev', default='HEAD', help='Revision to deploy')
-    @cli.argument('-s', '--stages', choices=DeployLocal.STAGES,
+    @cli.argument('-s', '--stages', choices=STAGES,
                   help='Deployment stages to execute. Used only for testing.')
     @cli.argument('-l', '--limit-hosts', default='all',
                   help='Limit deploy to hosts matching expression')
@@ -508,15 +392,14 @@ class Deploy(DeployApplication):
         logger = self.get_logger()
 
         self.repo = self.config['git_repo']
-
-        cwd = os.getcwd()
+        self.context.setup()
 
         if self.arguments.stages:
             stages = self.arguments.stages.split(',')
         else:
-            stages = DeployLocal.STAGES
+            stages = STAGES
 
-        if not git.is_dir(cwd):
+        if not git.is_dir(self.context.root):
             raise RuntimeError(errno.EPERM, 'Script must be run from git repo')
 
         self._build_deploy_groups()
@@ -528,19 +411,20 @@ class Deploy(DeployApplication):
         with utils.lock(self.config['lock_file']):
             with log.Timer('deploy_' + self.repo):
                 timestamp = datetime.utcnow()
-                tag = git.next_deploy_tag(location=cwd)
-                commit = git.sha(location=cwd, rev=self.arguments.rev)
-                user = utils.get_real_username()
+                tag = git.next_deploy_tag(location=self.context.root)
+                commit = git.sha(location=self.context.root,
+                                 rev=self.arguments.rev)
 
                 deploy_info = {
                     'tag': tag,
                     'commit': commit,
-                    'user': user,
+                    'user': self.context.user,
                     'timestamp': timestamp.isoformat(),
                 }
 
-                git.update_deploy_head(deploy_info, location=cwd)
-                git.tag_repo(deploy_info, location=cwd)
+                git.update_deploy_head(deploy_info,
+                                       location=self.context.root)
+                git.tag_repo(deploy_info, location=self.context.root)
 
                 self.config_deploy_setup(commit)
 
@@ -597,18 +481,16 @@ class Deploy(DeployApplication):
 
         logger.debug('Deploy config: True')
 
-        cfg_file = utils.get_env_specific_filename(
-            os.path.join(self.scap_dir, 'config-files.yaml'),
-            self.arguments.environment
-        )
+        cfg_file = self.context.env_specific_path('config-files.yaml')
 
         logger.debug('Config deploy file: {}'.format(cfg_file))
-        if not os.path.isfile(cfg_file):
+
+        if not cfg_file:
             return
 
-        config_file_path = os.path.join(self.root_dir, '.git', 'config-files')
-        utils.mkdir_p(config_file_path)
-        tmp_cfg_file = os.path.join(config_file_path, '{}.yaml'.format(commit))
+        tmp_cfg_file = self.context.path('.git', 'config-files',
+                                         '{}.yaml'.format(commit))
+        utils.mkdir_p(os.path.basename(tmp_cfg_file))
         tmp_cfg = {}
 
         with open(cfg_file, 'r') as cf:
@@ -619,13 +501,11 @@ class Deploy(DeployApplication):
         for config_file in config_files:
             f = {}
             f['name'] = config_file
-
             template_attrs = config_files[config_file]
             template_name = template_attrs['template']
-            template = utils.get_env_specific_filename(
-                os.path.join(self.scap_dir, 'templates', template_name),
-                self.arguments.environment
-            )
+            template = self.context.env_specific_path('templates',
+                                                      template_name)
+
             with open(template, 'r') as tmp:
                 f['template'] = tmp.read()
 
@@ -640,21 +520,10 @@ class Deploy(DeployApplication):
         tmp_cfg['override_vars'] = {}
 
         # Build vars to override remote
-        default_vars = os.path.join(self.scap_dir, 'vars.yaml')
-        vars_files = [
-            default_vars,
-            utils.get_env_specific_filename(
-                default_vars,
-                self.arguments.environment
-            ),
-        ]
-
-        for vars_file in vars_files:
-            try:
-                with open(vars_file, 'r') as vf:
-                    tmp_cfg['override_vars'].update(yaml.load(vf.read()))
-            except IOError:
-                pass  # don't worry if a vars.yaml doesn't exist
+        search = self.context.env_specific_paths('vars.yaml')
+        for vars_file in search:
+            with open(vars_file, 'r') as vf:
+                tmp_cfg['override_vars'].update(yaml.load(vf.read()))
 
         with open(tmp_cfg_file, 'w') as tc:
             yaml.dump(tmp_cfg, tc)
@@ -686,15 +555,10 @@ class Deploy(DeployApplication):
                 raise RuntimeError('Reading `{0}` file "{1}" failed'.format(
                                    dsh_key, dsh_file))
 
-            search_path = []
-
-            if self.arguments.environment:
-                search_path.append(os.path.join(self.scap_dir,
-                                                'environments',
-                                                self.arguments.environment))
-
-            search_path.extend([self.scap_dir, "/etc/dsh/group"])
+            search_path = self.context.env_specific_paths()
+            search_path.append('/etc/dsh/group')
             targets = utils.read_hosts_file(dsh_file, search_path)
+
             if limit and self.arguments.limit_hosts is not None:
                 targets = utils.get_target_hosts(self.arguments.limit_hosts,
                                                  targets)
@@ -731,7 +595,7 @@ class Deploy(DeployApplication):
         deploy_local_cmd.append('-v')
 
         # Be sure to skip checks if they aren't configured
-        if not os.path.exists(os.path.join(self.scap_dir, 'checks.yaml')):
+        if not os.path.exists(self.context.scap_path('checks.yaml')):
             config['perform_checks'] = False
 
         for key, value in config.iteritems():
@@ -744,8 +608,7 @@ class Deploy(DeployApplication):
 
         logger.debug('Running remote deploy cmd {}'.format(deploy_local_cmd))
 
-        deploy_stage = ssh.Job(
-            hosts=targets, user=self.config['ssh_user'])
+        deploy_stage = ssh.Job(hosts=targets, user=self.config['ssh_user'])
         deploy_stage.output_handler = ssh.JSONOutputHandler
         deploy_stage.max_failure = self.MAX_FAILURES
         deploy_stage.command(deploy_local_cmd)
@@ -764,20 +627,24 @@ class Deploy(DeployApplication):
         size = int(self.config.get('{}_batch_size'.format(stage), default))
         return min(size, self.MAX_BATCH_SIZE)
 
+    def _load_config(self):
+        """Sets the host directory after the config has been loaded."""
+
+        super(Deploy, self)._load_config()
+        env = self.arguments.environment
+        self.context = context.HostContext(os.getcwd(), environment=env)
+
     def _setup_loggers(self):
         """Sets up additional logging to `scap/deploy.log`."""
 
-        if not os.path.exists(self.log_dir):
-            os.mkdir(self.log_dir)
-
-        basename = git.describe(self.root_dir).replace('/', '-')
-        log_file = os.path.join(self.log_dir, '{}.log'.format(basename))
+        basename = git.describe(self.context.root).replace('/', '-')
+        log_file = self.context.log_path('{}.log'.format(basename))
         log.setup_loggers(self.config,
                           self.arguments.loglevel,
                           handlers=[log.DeployLogHandler(log_file)])
 
 
-class DeployLog(DeployApplication):
+class DeployLog(cli.Application):
     """Tail/filter/output events from the deploy logs
 
     examples::
@@ -799,8 +666,19 @@ class DeployLog(DeployApplication):
     @cli.argument('-l', '--latest', action='store_true',
                   help='Parse and filter the latest log file')
     def main(self, *extra_args):
+        ctx = context.HostContext(os.getcwd())
+        ctx.setup()
+
+        def latest_log_file():
+            log_glob = ctx.log_path('*.log')
+
+            try:
+                return max(glob.iglob(log_glob), key=os.path.getmtime)
+            except ValueError:
+                return None
+
         if self.arguments.latest:
-            given_log = self._latest_log_file()
+            given_log = latest_log_file()
         else:
             given_log = self.arguments.file
 
@@ -810,9 +688,6 @@ class DeployLog(DeployApplication):
             filter.append({'levelno': lambda v: v >= self.arguments.loglevel})
 
         formatter = log.AnsiColorFormatter(self.FORMAT, self.DATE_FORMAT)
-
-        if not os.path.exists(self.log_dir):
-            os.mkdir(self.log_dir)
 
         cur_log_path = given_log
         cur_log_file = open(given_log, 'r') if given_log else None
@@ -846,7 +721,7 @@ class DeployLog(DeployApplication):
 
                 if (now - last_scan) > self.DIR_SCAN_DELAY:
                     last_scan = now
-                    log_path = self._latest_log_file()
+                    log_path = latest_log_file()
 
                     if log_path and log_path != cur_log_path:
                         print "-- Opening log file: '{}'".format(log_path)
@@ -863,14 +738,6 @@ class DeployLog(DeployApplication):
             cur_log_file.close()
 
         return 0
-
-    def _latest_log_file(self):
-        log_glob = os.path.join(self.log_dir, '*.log')
-
-        try:
-            return max(glob.iglob(log_glob), key=os.path.getmtime)
-        except ValueError:
-            return None
 
     def _setup_loggers(self):
         pass

@@ -586,26 +586,6 @@ def check_port(port, timeout, interval=3, logger=None):
     )
 
 
-def move_symlink(source, dest, user='mwdeploy'):
-    if os.path.realpath(dest) == source:
-        return
-
-    dest_dir = os.path.dirname(dest)
-    rsource = os.path.relpath(source, dest_dir)
-    rdest = os.path.relpath(dest, dest_dir)
-
-    # Make link target's parent directory if it doesn't exist
-    utils.mkdir_p(dest_dir, user=user)
-
-    with utils.cd(dest_dir):
-        utils.sudo_check_call(user,
-                              "ln -sfT '{}' '{}'".format(rsource, rdest))
-
-
-def remove_symlink(path, user='mwdeploy'):
-    utils.sudo_check_call(user, "rm '{}'".format(path))
-
-
 def check_patch_files(version, cfg, patch_path='/srv/patches'):
     """Check to see if there are unmerged patch files from /srv/patches
     for a given revision.
