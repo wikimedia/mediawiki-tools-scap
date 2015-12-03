@@ -16,10 +16,19 @@ Core Application Infrastructure
 Command Execution
 =================
 
+.. automodule:: scap.cmd
+   :exclude-members: __dict__,__weakref__
+
 .. automodule:: scap.ssh
    :exclude-members: __dict__,__weakref__
 
 .. automodule:: scap.tasks
+   :exclude-members: __dict__,__weakref__
+
+Git Repository Deployment
+=========================
+
+.. automodule:: scap.deploy
    :exclude-members: __dict__,__weakref__
 
 General Utilities
@@ -29,15 +38,11 @@ General Utilities
    :exclude-members: __dict__,__weakref__
 
 
-Logging
-=======
+Logging and Monitoring
+======================
 
 .. automodule:: scap.log
    :exclude-members: __dict__,__weakref__
-
-
-Monitoring
-==========
 
 .. automodule:: scap.checks
    :exclude-members: __dict__,__weakref__

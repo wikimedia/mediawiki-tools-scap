@@ -13,11 +13,14 @@ import select
 import shlex
 import subprocess
 
-from . import log
-from . import utils
+import scap.log as log
+import scap.utils as utils
+import scap.cmd as cmd
 
 
-SSH = ('/usr/bin/ssh', '-oBatchMode=yes', '-oSetupTimeout=10', '-F/dev/null')
+SSH = cmd.Command('/usr/bin/ssh', '-oBatchMode=yes',
+                  '-oSetupTimeout=10',
+                  '-F/dev/null', cmd.arg('user', '-oUser={}'))
 
 
 class OutputHandler:
@@ -178,7 +181,7 @@ class Job(object):
 
 
 def cluster_ssh(hosts, command, user=None, limit=80, max_fail=None,
-        output_handler=None):
+                output_handler=None):
     """Run a command via SSH on multiple hosts concurrently."""
     hosts = set(hosts)
     # Ensure a minimum batch size of 1
@@ -199,13 +202,12 @@ def cluster_ssh(hosts, command, user=None, limit=80, max_fail=None,
         while hosts or procs:
             if hosts and len(procs) < limit:
                 host = hosts.pop()
-                ssh_command = list(SSH)
-                if user:
-                    ssh_command.append('-l%s' % user)
-                ssh_command.append(host)
-                ssh_command.extend(command)
-                proc = subprocess.Popen(ssh_command, stdout=subprocess.PIPE,
-                        stderr=subprocess.STDOUT, preexec_fn=os.setsid)
+                ssh_command = SSH(host, command, user=user)
+                proc = subprocess.Popen(ssh_command,
+                                        stdout=subprocess.PIPE,
+                                        stderr=subprocess.STDOUT,
+                                        preexec_fn=os.setsid)
+
                 procs[proc.pid] = (proc, host)
                 poll.register(proc.stdout, select.EPOLLIN)
                 output_handlers[proc.stdout.fileno()] = output_handler(host)

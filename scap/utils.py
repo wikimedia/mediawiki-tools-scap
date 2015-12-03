@@ -646,3 +646,110 @@ def get_active_wikiversions(directory, realm, datacenter):
         key=lambda v: distutils.version.LooseVersion(v[0])))
 
     return sorted_versions
+
+
+def uniqify(seq, idfun=None):
+    '''
+    return a copy of list with duplicate values removed, preserving order
+    :param seq: a list of items with possible duplicate values
+    :returns: list of values from seq, minus any duplicates
+    '''
+    # order preserving
+    if idfun is None:
+        def idfun(x):
+            return x
+    seen = {}
+    result = []
+    for item in seq:
+        marker = idfun(item)
+        if marker in seen:
+            continue
+        seen[marker] = 1
+        result.append(item)
+    return result
+
+
+def find_upwards(name, starting_point=os.getcwd()):
+    """
+    Search the specified directory, and all parent directories, for a given
+    filename, returning the first matching path that is found.
+
+    :param name: the relative path name to search for
+    :param starting_point: the directory to start searching from.
+                           Each parent directory will be searched until a
+                           match is found.
+    :return: if a match is found, returns the full path to the matching
+             file, None otherwise.
+    """
+    current = os.path.abspath(starting_point)
+    while True:
+        if not os.path.exists(current):
+            return None
+
+        search = join_path(current, name)
+        if os.path.exists(search):
+            return search
+
+        parent = os.path.dirname(current)
+        if parent == current or parent == "/":
+            return None
+        current = parent
+
+
+def find_in_path(name, paths=[os.getcwd()], match_func=os.path.exists):
+    """
+     Search a list of directories for a given file
+
+     :param name: the relative path name to search for
+     :param paths: a list of paths to be searched
+     :param match_func: a function which is called to test each candidate
+                        defaults to testing for path existence only.
+     """
+    for path in paths:
+        candidate = join_path(path, name)
+        if match_func(candidate):
+            return candidate
+    return None
+
+
+def find_dir(name, paths=[os.getcwd()]):
+    """
+    like find_in_path for directories only
+
+    :param name: the relative path name to search for
+    :param paths: a list of paths to be searched
+    """
+    return find_in_path(name, match_func=os.path.isdir)
+
+
+def find_file(name, paths=[os.getcwd()]):
+    """
+    like find_in_path for files only
+
+    :param name: the relative path name to search for
+    :param paths: a list of paths to be searched
+    """
+    return find_in_path(name, paths=paths, match_func=os.path.isfile)
+
+
+def join_path(*fragments):
+    """
+    Join several path fragments into a complete, normalized path string.
+    Strips leading and trailing slashes from path fragments to avoid an
+    unfortunate feature of `os.path.join()` which is described in the
+    python documentation for `os.path` as follows:
+
+      "If any component is an absolute path, all previous components are
+      thrown away, and joining continues."
+
+      - https://docs.python.org/2/library/os.path.html#os.path.join
+    """
+    path = []
+    for p in fragments:
+        if len(path) > 0:
+            p = p.strip('\t\r\n/')
+        if len(p) > 0:
+            path.append(p)
+
+    path_str = os.path.join(*path)
+    return os.path.normpath(path_str)
