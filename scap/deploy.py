@@ -24,6 +24,7 @@ from . import log
 from . import ssh
 from . import tasks
 from . import utils
+from . import git
 
 REV_DELIMITER = '_'
 
@@ -219,7 +220,7 @@ class DeployLocal(DeployApplication):
         logger.debug('Fetching from: {}'.format(git_remote))
 
         # clone/fetch from the repo to the cache directory
-        tasks.git_fetch(self.cache_dir, git_remote, user=self.user)
+        git.fetch(self.cache_dir, git_remote, user=self.user)
 
         # If the rev_dir already exists AND the currently checked-out HEAD is
         # already at the revision specified by ``self.rev`` then you can assume
@@ -230,7 +231,7 @@ class DeployLocal(DeployApplication):
         #
         # Set the noop flag and return
         if os.path.isdir(self.rev_dir) and not self.arguments.force:
-            rev = utils.git_sha(self.rev_dir, 'HEAD')
+            rev = git.sha(self.rev_dir, 'HEAD')
             if rev == self.rev:
                 logger.info('Revision directory already exists '
                             '(use --force to override)')
@@ -238,16 +239,16 @@ class DeployLocal(DeployApplication):
                 return
 
         # clone/fetch from the local cache directory to the revision directory
-        tasks.git_fetch(self.rev_dir, self.cache_dir, user=self.user)
+        git.fetch(self.rev_dir, self.cache_dir, user=self.user)
 
         # checkout the given revision
-        tasks.git_checkout(self.rev_dir, self.rev, user=self.user)
+        git.checkout(self.rev_dir, self.rev, user=self.user)
 
         if has_submodules:
             upstream_submodules = self.config['git_upstream_submodules']
-            tasks.git_update_submodules(self.rev_dir, git_remote,
-                                        use_upstream=upstream_submodules,
-                                        user=self.user)
+            git.update_submodules(self.rev_dir, git_remote,
+                                  use_upstream=upstream_submodules,
+                                  user=self.user)
 
         # link the .in-progress flag to the rev directory
         self._link_rev_dir(self.progress_flag)
@@ -515,7 +516,7 @@ class Deploy(DeployApplication):
         else:
             stages = DeployLocal.STAGES
 
-        if not utils.is_git_dir(cwd):
+        if not git.is_dir(cwd):
             raise RuntimeError(errno.EPERM, 'Script must be run from git repo')
 
         self._build_deploy_groups()
@@ -527,8 +528,8 @@ class Deploy(DeployApplication):
         with utils.lock(self.config['lock_file']):
             with log.Timer('deploy_' + self.repo):
                 timestamp = datetime.utcnow()
-                tag = utils.git_next_deploy_tag(location=cwd)
-                commit = utils.git_sha(location=cwd, rev=self.arguments.rev)
+                tag = git.next_deploy_tag(location=cwd)
+                commit = git.sha(location=cwd, rev=self.arguments.rev)
                 user = utils.get_real_username()
 
                 deploy_info = {
@@ -538,8 +539,8 @@ class Deploy(DeployApplication):
                     'timestamp': timestamp.isoformat(),
                 }
 
-                tasks.git_update_deploy_head(deploy_info, location=cwd)
-                tasks.git_tag_repo(deploy_info, location=cwd)
+                git.update_deploy_head(deploy_info, location=cwd)
+                git.tag_repo(deploy_info, location=cwd)
 
                 self.config_deploy_setup(commit)
 
@@ -547,7 +548,7 @@ class Deploy(DeployApplication):
 
                 # Run git update-server-info because git repo is a dumb
                 # apache server
-                tasks.git_update_server_info(self.config['git_submodules'])
+                git.update_server_info(self.config['git_submodules'])
 
                 return self._execute_for_groups(stages)
         return 0
@@ -768,7 +769,7 @@ class Deploy(DeployApplication):
         if not os.path.exists(self.log_dir):
             os.mkdir(self.log_dir)
 
-        basename = utils.git_describe(self.root_dir).replace('/', '-')
+        basename = git.describe(self.root_dir).replace('/', '-')
         log_file = os.path.join(self.log_dir, '{}.log'.format(basename))
         log.setup_loggers(self.config,
                           self.arguments.loglevel,

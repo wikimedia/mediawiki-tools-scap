@@ -26,7 +26,6 @@ import sys
 import tempfile
 
 from . import ansi
-from datetime import datetime
 from functools import wraps
 
 
@@ -170,102 +169,6 @@ def get_realm_specific_filename(filename, realm, datacenter):
 def get_username():
     """Get the username of the effective user."""
     return pwd.getpwuid(os.getuid())[0]
-
-
-def get_disclosable_head(repo_directory):
-    """Get the SHA1 of the most recent commit that can be publicly disclosed.
-    If a commit only exists locally, it is considered private. This function
-    will try to get the tip of the remote tracking branch, and fall back to
-    the common ancestor of HEAD and origin."""
-    with open(os.devnull, 'wb') as dev_null:
-        try:
-            return subprocess.check_output(
-                ('/usr/bin/git', 'rev-list', '-1', '@{upstream}'),
-                cwd=repo_directory, stderr=dev_null).strip()
-        except subprocess.CalledProcessError:
-            remote = subprocess.check_output(
-                ('/usr/bin/git', 'remote'),
-                cwd=repo_directory, stderr=dev_null).strip()
-            return subprocess.check_output(
-                ('/usr/bin/git', 'merge-base', 'HEAD', remote),
-                cwd=repo_directory, stderr=dev_null).strip()
-
-
-def git_describe(location):
-    """Returns a convenient label for the current state of the git repo."""
-    ensure_git_dir(location)
-    with cd(location):
-        cmd = '/usr/bin/git describe --always'
-        return subprocess.check_output(cmd, shell=True).strip()
-
-
-def git_info(directory):
-    """Compute git version information for a given directory that is
-    compatible with MediaWiki's GitInfo class.
-
-    :param directory: Directory to scan for git information
-    :returns: Dict of information about current repository state
-    """
-    git_dir = os.path.join(directory, '.git')
-    if not os.path.exists(git_dir):
-        raise IOError(errno.ENOENT, '.git not found', directory)
-
-    if os.path.isfile(git_dir):
-        # submodules
-        with open(git_dir, 'r') as f:
-            git_ref = f.read().strip()
-
-        if not git_ref.startswith('gitdir: '):
-            raise IOError(errno.EINVAL, 'Unexpected .git contents', git_dir)
-        git_ref = git_ref[8:]
-        if git_ref[0] != '/':
-            git_ref = os.path.abspath(os.path.join(directory, git_ref))
-        git_dir = git_ref
-
-    head_file = os.path.join(git_dir, 'HEAD')
-    with open(head_file, 'r') as f:
-        head = f.read().strip()
-    if head.startswith('ref: '):
-        head = head[5:]
-
-    head_sha1 = get_disclosable_head(directory)
-    commit_date = subprocess.check_output(
-        ('/usr/bin/git', 'show', '-s', '--format=%ct', head_sha1),
-        cwd=git_dir).strip()
-
-    if head.startswith('refs/heads/'):
-        branch = head[11:]
-    else:
-        branch = head
-
-    # Requires git v1.7.5+
-    remote_url = subprocess.check_output(
-        ('/usr/bin/git', 'ls-remote', '--get-url'),
-        cwd=git_dir).strip()
-
-    return {
-        '@directory': directory,
-        'head': head,
-        'headSHA1': head_sha1,
-        'headCommitDate': commit_date,
-        'branch': branch,
-        'remoteURL': remote_url,
-    }
-
-
-def git_info_filename(directory, install_path, cache_path):
-    """Compute the path for a git_info cache file related to a given
-    directory.
-
-    >>> git_info_filename('foo', 'foo', '')
-    'info.json'
-    >>> git_info_filename('foo/bar/baz', 'foo', 'xyzzy')
-    'xyzzy/info-bar-baz.json'
-    """
-    path = directory
-    if path.startswith(install_path):
-        path = path[len(install_path):]
-    return os.path.join(cache_path, 'info%s.json' % path.replace('/', '-'))
 
 
 def human_duration(elapsed):
@@ -644,45 +547,8 @@ def read_pid(path):
         raise IOError(e.errno, e.strerror, path)
 
 
-def ensure_git_dir(location):
-    if location is None or not is_git_dir(location):
-        raise IOError(errno.ENOENT, 'Location is not a git repo', location)
-
-
-def is_git_dir(path):
-    """Checks if path is a git, doesn't count submodule directories"""
-    git_path = os.path.join(
-        os.path.abspath(os.path.expandvars(os.path.expanduser(path))),
-        '.git'
-    )
-    return (os.path.isdir(git_path) and
-            os.path.isdir(os.path.join(git_path, 'objects')) and
-            os.path.isdir(os.path.join(git_path, 'refs')) and
-            os.path.isfile(os.path.join(git_path, 'HEAD')))
-
-
 def mkdir_p(path, user=get_real_username(), logger=None):
     sudo_check_call(user, "mkdir -p '{}'".format(path))
-
-
-def git_sha(location, rev):
-    """Returns SHA1 for things like HEAD or HEAD~~"""
-    ensure_git_dir(location)
-    with cd(location):
-        cmd = '/usr/bin/git rev-parse --verify {}'.format(rev)
-        return subprocess.check_output(cmd, shell=True).strip()
-
-
-def git_next_deploy_tag(location, user=get_real_username()):
-    """Calculates the scap/sync/{date}/{n} tag to use for this deployment"""
-    ensure_git_dir(location)
-    with cd(location):
-        timestamp = datetime.utcnow()
-        date = timestamp.strftime('%F')
-        cmd = ['/usr/bin/git', 'tag', '--list']
-        cmd.append('scap/sync/{}/*'.format(date))
-        seq = len(subprocess.check_output(cmd).splitlines()) + 1
-        return 'scap/sync/{0}/{1:04d}'.format(date, seq)
 
 
 def get_target_hosts(pattern, hosts):
