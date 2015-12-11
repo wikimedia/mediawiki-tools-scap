@@ -40,7 +40,7 @@ class AbstractSync(cli.Application):
         self._assert_auth_sock()
 
         with utils.lock(self.config['lock_file']):
-            self._check_sync_flag(self.config['stage_dir'])
+            self._check_sync_flag()
 
             self._before_cluster_sync()
 
@@ -98,10 +98,8 @@ class AbstractSync(cli.Application):
     def _before_cluster_sync(self):
         pass
 
-    def _check_sync_flag(self, check_dir=None):
-        if check_dir is None:
-            check_dir = self.config['stage_dir']
-        sync_flag = os.path.join(check_dir, 'sync.flag')
+    def _check_sync_flag(self):
+        sync_flag = os.path.join(self.config['stage_dir'], 'sync.flag')
         if os.path.exists(sync_flag):
             stat = os.stat(sync_flag)
             owner = pwd.getpwuid(stat.st_uid).pw_name
@@ -423,8 +421,6 @@ class SyncDir(AbstractSync):
         if not os.path.isdir(abspath):
             raise IOError(errno.ENOENT, 'Directory not found', abspath)
 
-        self._check_sync_flag(abspath)
-
         relpath = os.path.relpath(abspath, self.config['stage_dir'])
         self.include = '%s/***' % relpath
         tasks.check_valid_syntax(abspath)
@@ -546,8 +542,6 @@ class SyncL10n(AbstractSync):
             'php-%s/cache/l10n' % self.arguments.version)
         if not os.path.isdir(abspath):
             raise IOError(errno.ENOENT, 'Directory not found', abspath)
-
-        self._check_sync_flag(abspath)
 
         relpath = os.path.relpath(abspath, self.config['stage_dir'])
         self.include = '%s/***' % relpath
