@@ -235,10 +235,8 @@ def purge_l10n_cache(version, cfg):
     # Purge from staging directory locally
     # Shell is needed on subprocess to allow wildcard expansion
     # --force option given to rm to ignore missing files
-    subprocess.check_call(
-        'sudo -u l10nupdate -n -- /bin/rm '
-        '--recursive --force %s/*' % staged_l10n,
-        shell=True)
+    utils.sudo_check_call(
+        'l10nupdate', '/bin/rm --recursive --force %s/*' % staged_l10n)
 
     # Purge from deploy directroy across cluster
     # --force option given to rm to ignore missing files as before
