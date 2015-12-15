@@ -604,3 +604,44 @@ def move_symlink(source, dest, user='mwdeploy'):
 
 def remove_symlink(path, user='mwdeploy'):
     utils.sudo_check_call(user, "rm '{}'".format(path))
+
+
+def check_patch_files(version, cfg, patch_path='/srv/patches'):
+    """Check to see if there are unmerged patch files from /srv/patches
+    for a given revision.
+
+    :param version: MediaWiki version string (e.g., '1.27.0-wmf.8')
+    :param patch_path: MediaWiki patch base-path string
+    """
+
+    logger = logging.getLogger('check_patch_files')
+
+    # Patches should live in /srv/patches/[version]
+    version_base = os.path.join(patch_path, version)
+
+    ext_dir = os.path.join(version_base, 'extensions')
+    _, extensions, _ = os.walk(ext_dir).next()
+
+    patches = utils.get_patches(['core'], version_base)
+    patches.update(utils.get_patches(extensions, ext_dir))
+
+    git_patch_check = ['/usr/bin/git', 'apply', '--check', '--reverse']
+    version_dir = 'php-{}'.format(version)
+    apply_dir = os.path.join(cfg['stage_dir'], version_dir)
+
+    for extension, diffs in patches.iteritems():
+        diff = '\n'.join(diffs)
+
+        if extension != 'core':
+            apply_dir = os.path.join(apply_dir, 'extensions', extension)
+
+        with utils.cd(apply_dir):
+            p = subprocess.Popen(git_patch_check,
+                                 stdin=subprocess.PIPE,
+                                 stdout=subprocess.PIPE)
+
+            p.communicate(diff)
+
+            if p.returncode > 0:
+                logger.warn(
+                    'Patch(s) for {} have not been applied.'.format(apply_dir))

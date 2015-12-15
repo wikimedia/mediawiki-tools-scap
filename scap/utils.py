@@ -10,6 +10,7 @@ import contextlib
 import distutils.version
 import errno
 import fcntl
+import glob
 import hashlib
 import inspect
 import json
@@ -753,3 +754,21 @@ def join_path(*fragments):
 
     path_str = os.path.join(*path)
     return os.path.normpath(path_str)
+
+
+def get_patches(sub_dirs, root_dir):
+    """ Find all patches under each subdirectory
+    :param sub_dirs list of sub directories under which to search
+    :param root_dir base path under which subdirectories reside
+    :return dictionary of patches, keyed by sub_dir
+    """
+    patches = {}
+    for sub_dir in sub_dirs:
+        for patch_file in sorted(
+                glob.glob(os.path.join(root_dir, sub_dir, '*.patch')),
+                reverse=True):
+
+            with open(patch_file, 'r') as f:
+                patches.setdefault(sub_dir, []).append(f.read())
+
+    return patches

@@ -154,6 +154,18 @@ class AbstractSync(cli.Application):
         pass
 
 
+class SecurityPatchCheck(cli.Application):
+    """class to check if patches in ``/srv/patches`` have been applied to the
+    active wikiversions
+    """
+
+    def main(self, *extra_args):
+        for version in self.active_wikiversions():
+            tasks.check_patch_files(version, self.config)
+
+        return 0
+
+
 class CompileWikiversions(cli.Application):
     """Compile wikiversions.json to wikiversions.php."""
 
