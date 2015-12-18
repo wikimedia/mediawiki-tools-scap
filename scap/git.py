@@ -264,28 +264,37 @@ def remap_submodules(location, server):
         if not os.path.isfile(gitmodule):
             return
 
-        submodules = []
         logger.info('Updating .gitmodule: {}'.format(
             os.path.dirname(gitmodule)))
 
         # ensure we're working with a non-modified .gitmodules file
-        subprocess.check_call('/usr/bin/git checkout .gitmodules',
-                              shell=True)
-        with open(gitmodule, 'r') as module:
-            for line in module.readlines():
-                keyval = line.split('=')
-                if keyval[0].strip() == 'path':
-                    submodules.append(keyval[1].strip())
+        subprocess.check_call(['/usr/bin/git', 'checkout', '.gitmodules'])
+
+        # get .gitmodule info
+        modules = subprocess.check_output(['/usr/bin/git', 'config', '--list',
+                                           '--file', '.gitmodules'])
+
+        submodules = {}
+        for line in modules.split('\n'):
+            if not line.startswith('submodule.'):
+                continue
+
+            module_conf = line.split('=')
+            module_name = module_conf[0].strip()
+
+            if module_name.endswith('.path'):
+                name = module_name[len('submodule.'):-len('.path')]
+                submodules[name] = module_conf[1].strip()
+
         with open(gitmodule, 'w') as module:
-            for submodule in submodules:
+            for submodule_name, submodule_path in submodules.iteritems():
                 # Since we're using a non-bare http remote, map the submodule
                 # to the submodule path under $GIT_DIR/modules subdirectory of
                 # the superproject (git documentation: https://git.io/v4W9F).
-                submodule_path = '{}/modules/{}'.format(
-                    server, submodule)
-                module.write('[submodule "{}"]\n'.format(submodule))
-                module.write('\tpath =  {}\n'.format(submodule))
-                module.write('\turl =  {}\n'.format(submodule_path))
+                remote_path = '{}/modules/{}'.format(server, submodule_name)
+                module.write('[submodule "{}"]\n'.format(submodule_name))
+                module.write('\tpath = {}\n'.format(submodule_path))
+                module.write('\turl = {}\n'.format(remote_path))
 
 
 def get_disclosable_head(repo_directory):
