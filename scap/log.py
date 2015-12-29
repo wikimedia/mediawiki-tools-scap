@@ -103,7 +103,7 @@ class JSONFormatter(logging.Formatter):
                 ('filename', None),
                 ('lineno', None),
                 ('msg', ''),
-                ('args', []),
+                ('args', ()),
                 ('exc_info', None),
                 ('funcName', None)]
 
@@ -120,7 +120,15 @@ class JSONFormatter(logging.Formatter):
     @staticmethod
     def make_record(data):
         fields = json.loads(data)
-        args = [fields.get(k, v) for k, v in JSONFormatter.DEFAULTS]
+        args = []
+        for k, v in JSONFormatter.DEFAULTS:
+            val = fields.get(k, v)
+
+            if k == 'args':
+                val = tuple(val)
+
+            args.append(val)
+
         record = logging.LogRecord(*args)
 
         for k in fields:

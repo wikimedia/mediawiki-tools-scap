@@ -144,7 +144,7 @@ class JSONFormatterTest(unittest.TestCase):
         self.assertIsInstance(record, logging.LogRecord)
 
         self.assertEqual(record.name, 'foo')
-        self.assertEqual(record.args, [])
+        self.assertEqual(record.args, ())
         self.assertEqual(record.filename, 'foo_file')
         self.assertEqual(record.levelno, 10)
         self.assertEqual(record.lineno, 123)
