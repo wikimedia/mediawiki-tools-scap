@@ -461,27 +461,6 @@ class SyncDir(AbstractSync):
         self.get_stats().increment('deploy.all')
 
 
-class SyncDocroot(AbstractSync):
-
-    def _proxy_sync_command(self):
-        cmd = [
-            self.get_script_path('sync-common'),
-            '--no-update-l10n',
-            '--include', 'docroot/***',
-            '--include', 'w/***',
-        ]
-        if self.verbose:
-            cmd.append('--verbose')
-        return cmd
-
-    def _after_lock_release(self):
-        self.announce('Synchronized docroot and w: %s (duration: %s)',
-                      self.arguments.message,
-                      utils.human_duration(self.get_duration()))
-        self.get_stats().increment('deploy.sync-docroot')
-        self.get_stats().increment('deploy.all')
-
-
 class SyncFile(AbstractSync):
     """Sync a specific file to the cluster."""
 
