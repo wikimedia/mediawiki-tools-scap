@@ -242,7 +242,7 @@ class Application(object):
                 '%s requires SSH agent forwarding' % self.program_name)
 
     @classmethod
-    def run(cls, argv=sys.argv, exit=True):
+    def run(cls, argv=sys.argv):
         """Construct and run an application.
 
         Calls ``sys.exit`` with exit status returned by application by
@@ -252,7 +252,6 @@ class Application(object):
 
         :param cls: Class to create and run
         :param argv: Command line arguments
-        :param exit: Call sys.exit after execution
         :returns: Tuple of class instance and exit status when not exiting
         """
         # Bootstrap the logging system
@@ -290,13 +289,16 @@ class Application(object):
         finally:
             exit_status = app._before_exit(exit_status)
 
-        if exit:
-            # Flush logger before exiting
-            logging.shutdown()
+        # Flush logger before exiting
+        logging.shutdown()
 
-            sys.exit(exit_status)
-        else:
-            return (app, exit_status)
+        # Make a beep
+        if exit_status != 0:
+            sys.stdout.write('\a')
+            sys.stdout.flush()
+
+        # Exit
+        sys.exit(exit_status)
 
 
 def argument(*args, **kwargs):
