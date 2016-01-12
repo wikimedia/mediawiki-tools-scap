@@ -7,11 +7,9 @@
 """
 from datetime import datetime
 import os
-import shutil
 
 from . import utils
 
-REV_DELIMITER = '_'
 REVS_TO_KEEP = 5
 
 
@@ -30,17 +28,6 @@ class Context(object):
         self.environment = environment
         self.user = user
 
-    def cleanup(self):
-        """Deletes all files in the temporary directory."""
-
-        _, dirs, files = os.walk(self.temp_path()).next()
-
-        for d in dirs:
-            shutil.rmtree(self.temp_path(d))
-
-        for f in files:
-            os.unlink(self.temp_path(f))
-
     def path(self, *relpaths):
         """Qualifies path relative to the root path."""
 
@@ -49,13 +36,7 @@ class Context(object):
     def setup(self):
         """Creates the root and temporary directories as needed."""
 
-        for d in [self.root, self.temp_path()]:
-            utils.mkdir_p(d, user=self.user)
-
-    def temp_path(self, *relpaths):
-        """Qualifies a path to be used for temporary files/directories."""
-
-        return self.path('tmp', *relpaths)
+        utils.mkdir_p(self.root, user=self.user)
 
 
 class HostContext(Context):
@@ -128,20 +109,6 @@ class TargetContext(Context):
         """Path to the cached repo clone."""
 
         return self.path('cache')
-
-    @property
-    def current_config_rev(self):
-        """Currently deployed config revision."""
-
-        if self.current_rev_dir is None:
-            return None
-
-        rev_dir = os.path.basename(self.current_rev_dir)
-
-        if rev_dir and REV_DELIMITER in rev_dir:
-            return rev_dir.split(REV_DELIMITER)[0]
-        else:
-            return None
 
     @property
     def current_link(self):
@@ -243,14 +210,7 @@ class TargetContext(Context):
     def rev_path(self, rev, *paths):
         """Returns the path to the given repo revision."""
 
-        config_rev = self._saved_config_rev
-
-        if config_rev:
-            rpath = REV_DELIMITER.join([config_rev, rev])
-        else:
-            rpath = rev
-
-        return os.path.join(self.revs_dir, rpath, *paths)
+        return os.path.join(self.revs_dir, rev, *paths)
 
     @property
     def revs_dir(self):
@@ -269,16 +229,6 @@ class TargetContext(Context):
         for d in [self.cache_dir, self.revs_dir]:
             utils.mkdir_p(d, user=self.user)
 
-    def use_config_rev(self, config_rev):
-        """Use the given config revision in namespacing the rev directory."""
-
-        with open(self._config_rev_temp_path, 'w') as f:
-            f.write(config_rev)
-
-    @property
-    def _config_rev_temp_path(self):
-        return self.temp_path('.config-digest')
-
     @property
     def _done_link(self):
         return self.path('.done')
@@ -291,14 +241,6 @@ class TargetContext(Context):
         realpath = os.path.realpath(path)
 
         if os.path.exists(realpath):
-            return os.path.basename(realpath).split(REV_DELIMITER)[-1]
-        else:
-            return None
-
-    @property
-    def _saved_config_rev(self):
-        if os.path.exists(self._config_rev_temp_path):
-            with open(self._config_rev_temp_path) as f:
-                return f.read()
+            return os.path.basename(realpath)
         else:
             return None

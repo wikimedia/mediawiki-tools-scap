@@ -6,7 +6,6 @@
 
 """
 import glob
-import hashlib
 import os
 import requests
 import shutil
@@ -27,7 +26,7 @@ from . import tasks
 from . import utils
 from . import git
 
-STAGES = ['config_deploy', 'fetch', 'promote']
+STAGES = ['fetch', 'config_deploy', 'promote']
 EX_STAGES = ['rollback']
 
 
@@ -96,10 +95,11 @@ class DeployLocal(cli.Application):
         config_files = yaml.load(r.text)
         overrides = config_files.get('override_vars', {})
 
-        source_basepath = self.context.temp_path(self.rev, 'config-files')
+        source_basepath = self.context.rev_path(self.rev,
+                                                '.git',
+                                                'config-files')
         logger.debug('Source basepath: {}'.format(source_basepath))
         utils.mkdir_p(source_basepath)
-        config_file_tree = {}
 
         for config_file in config_files['files']:
             filename = config_file['name']
@@ -112,6 +112,17 @@ class DeployLocal(cli.Application):
                 overrides=overrides
             )
 
+            if self.rev in os.path.realpath(filename):
+                self.noop = True
+
+            if self.noop and not self.arguments.force:
+                logger.info('{} is already linked to current rev'
+                            '(use --force to override)'.format(filename))
+                return 0
+
+            # Checks should run if the --force argument is used
+            self.noop = False
+
             if filename.startswith('/'):
                 filename = filename[1:]
 
@@ -121,27 +132,9 @@ class DeployLocal(cli.Application):
             source = os.path.join(source_basepath, filename)
             logger.debug('Rendering config_file: {}'.format(source))
 
-            with open(source, 'w') as f:
+            with open(source, 'w+') as f:
                 output_file = tmpl.render()
-                s = hashlib.sha1()
-                s.update('blob {}\0'.format(len(output_file)))
-                s.update(output_file)
-                config_file_tree[source] = s.hexdigest()
                 f.write(output_file)
-
-        s = hashlib.sha1()
-        s.update(repr(config_file_tree))
-        digest = s.hexdigest()
-
-        if digest == self.context.current_config_rev:
-            if not self.arguments.force:
-                logger.info('Config already deployed '
-                            '(use --force to override)')
-                self.noop = True
-
-        # Even though this may be a noop, we still record a change in the
-        # config rev as it's required by all future stages
-        self.context.use_config_rev(digest)
 
     def fetch(self):
         """Fetch the specified revision of the remote repo.
@@ -225,12 +218,6 @@ class DeployLocal(cli.Application):
             # Move the rendered config files from their temporary location
             # into a .git/config-files subdirectory of the rev directory
             config_dest = self.context.rev_path(rev, '.git', 'config-files')
-
-            if os.path.isdir(config_dest):
-                shutil.rmtree(config_dest)
-
-            os.rename(self.context.temp_path(rev, 'config-files'),
-                      config_dest)
 
             logger.debug('Linking config files at: {}'.format(config_dest))
 
@@ -344,7 +331,6 @@ class DeployLocal(cli.Application):
         logger = self.get_logger()
 
         self.context.mark_rev_done(self.rev)
-        self.context.cleanup()
 
         for rev_dir in self.context.find_old_rev_dirs():
             logger.info('Removing old revision {}'.format(rev_dir))

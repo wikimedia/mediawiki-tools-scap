@@ -15,15 +15,6 @@ class ContextTest(unittest.TestCase):
         self.root = tempfile.mkdtemp(suffix='-scap-test-dir')
         self.context = context.Context(self.root)
 
-    def test_cleanup(self):
-        os.mkdir(self.context.temp_path())
-        with open(self.context.temp_path('foo'), 'w') as f:
-            f.write('bar')
-
-        self.context.cleanup()
-
-        self.assertEqual(os.listdir(self.context.temp_path()), [])
-
     def test_path(self):
         self.assertEqual(self.context.path(), os.path.join(self.root))
 
@@ -35,17 +26,6 @@ class ContextTest(unittest.TestCase):
         self.context.setup()
 
         self.assertTrue(os.path.exists(self.root))
-        self.assertTrue(os.path.exists(self.context.temp_path()))
-
-    def test_temp_path(self):
-        path = self.context.temp_path()
-
-        self.assertEqual(path, os.path.join(self.root, 'tmp'))
-
-    def test_temp_path_joins_subpaths(self):
-        path = self.context.temp_path('foo', 'bar')
-
-        self.assertEqual(path, os.path.join(self.root, 'tmp/foo/bar'))
 
     def tearDown(self):
         shutil.rmtree(self.root)
@@ -152,29 +132,6 @@ class TargetContextTest(unittest.TestCase):
         self.assertEqual(self.context.cache_dir,
                          os.path.join(self.root, 'cache'))
 
-    @unittest.skipIf(sys.platform == 'darwin', 'Tests of `ln` fail on OS X')
-    def test_current_config_rev(self):
-        self.context.setup()
-        os.mkdir(os.path.join(self.context.revs_dir, 'foo123_bar321'))
-        self.context.use_config_rev('foo123')
-        self.context.mark_rev_current('bar321')
-
-        self.assertEqual(self.context.current_config_rev, 'foo123')
-
-    def test_current_config_rev_with_no_current_rev(self):
-        self.context.setup()
-        os.mkdir(os.path.join(self.context.revs_dir, 'foo123_bar321'))
-
-        self.assertIsNone(self.context.current_config_rev)
-
-    @unittest.skipIf(sys.platform == 'darwin', 'Tests of `ln` fail on OS X')
-    def test_current_config_rev_with_no_config_rev(self):
-        self.context.setup()
-        os.mkdir(os.path.join(self.context.revs_dir, 'foo123_bar321'))
-        self.context.mark_rev_current('bar321')
-
-        self.assertIsNone(self.context.current_config_rev)
-
     def test_current_link(self):
         self.assertEqual(self.context.current_link,
                          os.path.join(self.root, 'current'))
@@ -192,16 +149,6 @@ class TargetContextTest(unittest.TestCase):
         self.context.setup()
 
         self.assertIsNone(self.context.current_rev_dir)
-
-    @unittest.skipIf(sys.platform == 'darwin', 'Tests of `ln` fail on OS X')
-    def test_current_rev_dir_with_deployed_config_rev(self):
-        self.context.setup()
-        os.mkdir(os.path.join(self.context.revs_dir, 'foo123_bar123'))
-        self.context.use_config_rev('foo123')
-        self.context.mark_rev_current('bar123')
-
-        self.assertEqual(self.context.current_rev_dir,
-                         os.path.join(self.root, 'revs/foo123_bar123'))
 
     @unittest.skipIf(sys.platform == 'darwin', 'Tests of `ln` fail on OS X')
     def test_done_rev_dir(self):
@@ -311,13 +258,6 @@ class TargetContextTest(unittest.TestCase):
 
         self.assertEqual(self.context.rev_path('foo1'),
                          os.path.join(self.context.revs_dir, 'foo1'))
-
-    def test_rev_path_with_saved_config_rev(self):
-        self.context.setup()
-        self.context.use_config_rev('bar2')
-
-        self.assertEqual(self.context.rev_path('foo1'),
-                         os.path.join(self.context.revs_dir, 'bar2_foo1'))
 
     def tearDown(self):
         shutil.rmtree(self.root)
