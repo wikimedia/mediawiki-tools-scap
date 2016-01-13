@@ -18,9 +18,7 @@ import logging
 import os
 import pwd
 import random
-import re
 import socket
-import string
 import struct
 import subprocess
 import sys
@@ -312,39 +310,6 @@ def md5_file(path):
     return crc.hexdigest()
 
 
-def read_hosts_file(filename, search_path=["/etc/dsh/group"]):
-    """Reads hosts from a file into a list.
-
-    if passed an absolute file path, this function treats that path as the
-    host list, otherwise, load (by default) /etc/dsh/group/[filename] or
-    search the specified [search_path] for a file named [filename].
-
-    Blank lines and comments are ignored.
-
-    :param filename: The file name for the hosts file to read
-    :param search_path: a list of directories to search for the hosts file.
-    :returns: a list of host names loaded from the specified hosts file.
-    """
-    hosts_file = None
-
-    if os.path.isabs(filename):
-        hosts_file = filename
-    else:
-        for path in search_path:
-            candidate = os.path.join(path, filename)
-            if os.path.exists(candidate):
-                hosts_file = os.path.abspath(candidate)
-                break
-
-    check_file_exists(hosts_file)
-
-    try:
-        with open(hosts_file) as f:
-            return re.findall(r'^[\w\.\-]+', f.read(), re.MULTILINE)
-    except IOError as e:
-        raise IOError(e.errno, e.strerror, hosts_file)
-
-
 @log_context('sudo_check_call')
 def sudo_check_call(user, cmd, logger=None):
     """Run a command as a specific user. Reports stdout/stderr of process
@@ -569,77 +534,6 @@ def move_symlink(source, dest, user=get_real_username()):
 
 def remove_symlink(path, user=get_real_username()):
     sudo_check_call(user, "rm '{}'".format(path))
-
-
-def get_target_hosts(pattern, hosts):
-    """Returns a subset of hosts based on wildcards
-
-    if the pattern can specify a range of the format '[start:end]'
-
-    if the supplied pattern begins with ``~`` then it is treated as a
-    regular expression.
-
-    If the pattern begins with ``!`` then it is negated.
-    """
-    # Return early if there's no special pattern
-    if pattern == '*' or pattern == 'all':
-        return hosts
-
-    # If pattern is a regex, handle that and return
-    if pattern[0] == '~':
-        regex = re.compile(pattern[1:])
-        return [target for target in hosts if regex.match(target)]
-
-    patterns = []
-    rpattern = pattern
-
-    # Handle replacements of anything like [*:*] in pattern
-    while(0 <= rpattern.find('[') < rpattern.find(':') < rpattern.find(']')):
-        head, nrange, tail = rpattern.replace(
-            '[', '|', 1).replace(']', '|', 1).split('|')
-
-        beg, end = nrange.split(':')
-        zfill = len(end) if (len(beg) > 0 and beg.startswith('0')) else 0
-
-        if (zfill != 0 and len(beg) != len(end)) or beg > end:
-            raise ValueError("Host range incorrectly specified")
-
-        try:
-            asc = string.ascii_letters
-            seq = asc[asc.index(beg):asc.index(end) + 1]
-        except ValueError:  # numeric range
-            seq = range(int(beg), int(end) + 1)
-
-        patterns = [''.join([head, str(i).zfill(zfill), tail]) for i in seq]
-        rpattern = rpattern[rpattern.find(']') + 1:]
-
-    # If there weren't range replacements, make pattern an array
-    if len(patterns) == 0:
-        patterns = [pattern]
-
-    targets = []
-    for pattern in patterns:
-        # remove any leading '!'
-        test_pattern = pattern.lstrip('!')
-
-        # change '.' to literal period
-        test_pattern = test_pattern.replace('.', '\.')
-
-        # convert '*' to match a-Z, 0-9, _, -, or .
-        test_pattern = test_pattern.replace('*', '[\w\.-]*')
-
-        # Add beginning and end marks
-        test_pattern = '^{}$'.format(test_pattern)
-
-        regex = re.compile(test_pattern)
-
-        targets.extend([host for host in hosts if regex.match(host)])
-
-    # handle regation of patterns by inverting
-    if pattern.startswith('!'):
-        targets = list(set(targets) ^ set(hosts))
-
-    return targets
 
 
 def get_active_wikiversions(directory, realm, datacenter):

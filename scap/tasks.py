@@ -21,6 +21,7 @@ from . import cdblib
 from . import git
 from . import log
 from . import ssh
+from . import targets
 from . import utils
 
 
@@ -240,8 +241,9 @@ def purge_l10n_cache(version, cfg):
 
     # Purge from deploy directroy across cluster
     # --force option given to rm to ignore missing files as before
-    purge = ssh.Job(user=cfg['ssh_user']).hosts(
-        utils.read_hosts_file(cfg['dsh_targets']))
+    target_obj = targets.get(cfg)
+    target_list = target_obj.get_deploy_groups('dsh_targets')['all_targets']
+    purge = ssh.Job(user=cfg['ssh_user']).hosts(target_list)
     purge.command('sudo -u mwdeploy -n -- /bin/rm '
         '--recursive --force %s/*' % deployed_l10n)
     purge.progress('l10n purge').run()

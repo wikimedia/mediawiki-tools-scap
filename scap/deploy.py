@@ -5,7 +5,6 @@
     Command wrappers for deploy tasks
 
 """
-import collections
 import glob
 import hashlib
 import os
@@ -23,6 +22,7 @@ from . import template
 from . import cli
 from . import log
 from . import ssh
+from . import targets
 from . import tasks
 from . import utils
 from . import git
@@ -532,43 +532,15 @@ class Deploy(cli.Application):
     def _build_deploy_groups(self):
         """Build server groups based on configuration `server_groups` variable
         """
-        groups = collections.OrderedDict()
-        all_hosts = []
-        server_groups = self.config.get('server_groups', None)
+        target_obj = targets.get(
+            self.config,
+            self.arguments.limit_hosts,
+            self.context.env_specific_paths()
+        )
+        deploy_group_info = target_obj.get_deploy_groups('dsh_targets')
 
-        if server_groups is None:
-            server_groups = ['default']
-        else:
-            server_groups = server_groups.split(',')
-
-        for group in server_groups:
-            group = group.strip()
-            dsh_key = '{}_dsh_targets'.format(group)
-            limit = False
-            if group == 'default':
-                limit = True
-                dsh_key = 'dsh_targets'
-
-            dsh_file = self.config.get(dsh_key, None)
-
-            if dsh_file is None:
-                raise RuntimeError('Reading `{0}` file "{1}" failed'.format(
-                                   dsh_key, dsh_file))
-
-            search_path = self.context.env_specific_paths()
-            search_path.append('/etc/dsh/group')
-            targets = utils.read_hosts_file(dsh_file, search_path)
-
-            if limit and self.arguments.limit_hosts is not None:
-                targets = utils.get_target_hosts(self.arguments.limit_hosts,
-                                                 targets)
-
-            targets = list(set(targets) - set(all_hosts))
-            all_hosts += targets
-            groups[group] = targets
-
-        self.all_targets = all_hosts
-        self.deploy_groups = groups
+        self.all_targets = deploy_group_info['all_targets']
+        self.deploy_groups = deploy_group_info['deploy_groups']
 
     def execute_rollback(self, stage, group, targets):
         prompt = "Stage '{}' failed on group '{}'. Perform rollback?".format(
