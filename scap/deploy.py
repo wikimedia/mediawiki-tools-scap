@@ -15,6 +15,7 @@ import errno
 from datetime import datetime
 
 from . import checks
+from . import config
 from . import context
 from . import nrpe
 from . import template
@@ -35,6 +36,15 @@ class DeployLocal(cli.Application):
     the git server, checking out the appropriate revisions, restarting services
     and running checks.
     """
+    def _load_config(self):
+
+        super(DeployLocal, self)._load_config()
+
+        overrides = self._get_remote_overrides()
+        if self.arguments.defines:
+            overrides.update(dict(self.arguments.defines))
+
+        config.override_config(self.config, overrides)
 
     @cli.argument('-g', '--group',
                   help='Group of which this local machine is a part')
@@ -42,6 +52,8 @@ class DeployLocal(cli.Application):
                   help='Stage of the deployment to execute')
     @cli.argument('-f', '--force', action='store_true',
                   help='force stage even when noop detected')
+    @cli.argument('-r', '--repo',
+                  help='repo that you are deploying')
     def main(self, *extra_args):
         self.rev = self.config['git_rev']
         self.user = self.config['git_repo_user']
@@ -322,6 +334,18 @@ class DeployLocal(cli.Application):
         else:
             return chk.stage == stage
 
+    def _get_remote_overrides(self):
+        """Grab remote config from git_server"""
+        cfg_url = os.path.join(self.config['git_server'],
+                               self.arguments.repo,
+                               '.git', 'DEPLOY_HEAD')
+
+        r = requests.get('{}://{}'.format(self.config['git_scheme'], cfg_url))
+        if r.status_code != requests.codes.ok:
+            raise IOError(errno.ENOENT, 'Config file not found', cfg_url)
+
+        return yaml.load(r.text)
+
     def _finalize(self):
         """Performs the final deploy actions.
 
@@ -377,6 +401,7 @@ class Deploy(cli.Application):
     def main(self, *extra_args):
         logger = self.get_logger()
 
+        self.deploy_info = {}
         self.repo = self.config['git_repo']
         self.context.setup()
 
@@ -401,16 +426,14 @@ class Deploy(cli.Application):
                 commit = git.sha(location=self.context.root,
                                  rev=self.arguments.rev)
 
-                deploy_info = {
+                self.deploy_info.update({
                     'tag': tag,
                     'commit': commit,
                     'user': self.context.user,
                     'timestamp': timestamp.isoformat(),
-                }
+                })
 
-                git.update_deploy_head(deploy_info,
-                                       location=self.context.root)
-                git.tag_repo(deploy_info, location=self.context.root)
+                git.tag_repo(self.deploy_info, location=self.context.root)
 
                 self.config_deploy_setup(commit)
 
@@ -542,22 +565,21 @@ class Deploy(cli.Application):
         deploy_local_cmd = [self.get_script_path('deploy-local')]
         batch_size = self._get_batch_size(stage)
 
-        config = {
+        self.deploy_info.update({
             key: self.config.get(key)
             for key in self.DEPLOY_CONF
             if self.config.get(key) is not None
-        }
+        })
 
         # Handle JSON output from deploy-local
-        config['log_json'] = True
+        self.deploy_info['log_json'] = True
         deploy_local_cmd.append('-v')
 
         # Be sure to skip checks if they aren't configured
         if not os.path.exists(self.context.scap_path('checks.yaml')):
-            config['perform_checks'] = False
+            self.deploy_info['perform_checks'] = False
 
-        for key, value in config.iteritems():
-            deploy_local_cmd.extend(['-D', '{}:{}'.format(key, value)])
+        deploy_local_cmd += ['--repo', self.config['git_repo']]
 
         if self.arguments.force:
                 deploy_local_cmd.append('--force')
@@ -566,6 +588,7 @@ class Deploy(cli.Application):
 
         logger.debug('Running remote deploy cmd {}'.format(deploy_local_cmd))
 
+        git.update_deploy_head(self.deploy_info, self.context.root)
         deploy_stage = ssh.Job(hosts=targets, user=self.config['ssh_user'])
         deploy_stage.output_handler = ssh.JSONOutputHandler
         deploy_stage.max_failure = self.MAX_FAILURES

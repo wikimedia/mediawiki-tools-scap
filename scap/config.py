@@ -117,6 +117,13 @@ def load(cfg_file=None, environment=None, overrides=None):
             for key, value in parser.items(section, True):
                 config[key] = coerce_value(key, value)
 
+    config = override_config(config, overrides)
+
+    return config
+
+
+def override_config(config, overrides=None):
+    """Override values in a config with type-coerced values"""
     if overrides:
         for key, value in overrides.iteritems():
             config[key] = coerce_value(key, value)
@@ -129,6 +136,9 @@ def coerce_value(key, value):
 
     if key in DEFAULT_CONFIG:
         default_type, _ = DEFAULT_CONFIG[key]
+
+        if (isinstance(value, default_type)):
+            return value
 
         if default_type == bool:
             lower = value.lower()

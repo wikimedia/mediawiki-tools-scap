@@ -6,13 +6,14 @@
 
 """
 
+from datetime import datetime
 import errno
-import json
 import os
 import subprocess
 
 from . import utils
-from datetime import datetime
+
+import yaml
 
 
 def info_filename(directory, install_path, cache_path):
@@ -206,20 +207,20 @@ def update_server_info(has_submodules=False, location=os.getcwd(),
             subprocess.check_call(cmd, shell=True)
 
 
-@utils.log_context('git_deploy_file')
-def update_deploy_head(deploy_info, location, logger=None):
+def update_deploy_head(deploy_info, location):
     """updates .git/DEPLOY_HEAD file
 
     :param deploy_info: current deploy info to write to file as JSON
     :param (optional) location: git directory location (default cwd)
     """
+    logger = utils.get_logger()
     ensure_dir(location)
 
     with utils.cd(location):
         deploy_file = os.path.join(location, '.git', 'DEPLOY_HEAD')
         logger.debug('Creating {}'.format(deploy_file))
         with open(deploy_file, 'w+') as f:
-            f.write(json.dumps(deploy_info))
+            f.write(yaml.dump(deploy_info))
             f.close()
 
 
