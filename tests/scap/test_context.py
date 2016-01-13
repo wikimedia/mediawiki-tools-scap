@@ -102,7 +102,7 @@ class HostContextTest(unittest.TestCase):
 
         paths = self.context.env_specific_paths()
 
-        self.assertEqual(paths, [default_dir, environment_dir])
+        self.assertEqual(paths, [environment_dir, default_dir])
 
     def test_env_specific_paths_with_path(self):
         self.context.setup()
@@ -111,7 +111,7 @@ class HostContextTest(unittest.TestCase):
 
         paths = self.context.env_specific_paths('foo')
 
-        self.assertEqual(paths, [default_file, environment_file])
+        self.assertEqual(paths, [environment_file, default_file])
 
     def test_env_specific_paths_filters_exists(self):
         self.context.setup()

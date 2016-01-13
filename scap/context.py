@@ -72,7 +72,7 @@ class HostContext(Context):
         paths = self.env_specific_paths(*relpaths)
 
         if paths:
-            return paths[-1]
+            return paths[0]
         else:
             return None
 
@@ -84,11 +84,13 @@ class HostContext(Context):
         returned list for each one that exists.
         """
 
-        paths = [self.scap_path(*relpaths)]
+        paths = []
 
         if self.environment:
             paths.append(self.scap_path('environments', self.environment,
                                         *relpaths))
+
+        paths.append(self.scap_path(*relpaths))
 
         return filter(os.path.exists, paths)
 
