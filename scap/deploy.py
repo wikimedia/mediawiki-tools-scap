@@ -49,7 +49,7 @@ class DeployLocal(cli.Application):
     @cli.argument('-g', '--group',
                   help='Group of which this local machine is a part')
     @cli.argument('stage', metavar='STAGE', choices=STAGES + EX_STAGES,
-                  help='Stage of the deployment to execute')
+                  nargs='?', help='Stage of the deployment to execute')
     @cli.argument('-f', '--force', action='store_true',
                   help='force stage even when noop detected')
     @cli.argument('-r', '--repo',
@@ -57,7 +57,6 @@ class DeployLocal(cli.Application):
     def main(self, *extra_args):
         self.rev = self.config['git_rev']
         self.user = self.config['git_repo_user']
-        self.noop = False
         self.final_path = os.path.join(self.config['git_deploy_dir'],
                                        self.config['git_repo'])
 
@@ -69,19 +68,25 @@ class DeployLocal(cli.Application):
         url = os.path.normpath('{git_server}/{git_repo}'.format(**self.config))
         self.server_url = 'http://{0}'.format(url)
 
-        stage = self.arguments.stage
+        stages = [self.arguments.stage] if self.arguments.stage else STAGES
         group = self.arguments.group
-
-        getattr(self, stage)()
 
         status = 0
 
-        if not self.noop and self.config['perform_checks']:
-            status = self._execute_checks(stage, group)
+        for stage in stages:
+            self.noop = False
 
-        # Perform final tasks after the last stage
-        if status == 0 and STAGES[-1] == stage:
-            self._finalize()
+            getattr(self, stage)()
+
+            if not self.noop and self.config['perform_checks']:
+                status = self._execute_checks(stage, group)
+
+            if not status == 0:
+                break
+
+            # Perform final tasks after the last stage
+            if STAGES[-1] == stage:
+                self._finalize()
 
         return status
 
@@ -403,7 +408,6 @@ class Deploy(cli.Application):
 
         self.deploy_info = {}
         self.repo = self.config['git_repo']
-        self.context.setup()
 
         if self.arguments.stages:
             stages = self.arguments.stages.split(',')
@@ -614,6 +618,7 @@ class Deploy(cli.Application):
         super(Deploy, self)._load_config()
         env = self.arguments.environment
         self.context = context.HostContext(os.getcwd(), environment=env)
+        self.context.setup()
 
     def _setup_loggers(self):
         """Sets up additional logging to `scap/deploy.log`."""

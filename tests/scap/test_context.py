@@ -35,6 +35,7 @@ class HostContextTest(unittest.TestCase):
     def setUp(self):
         self.root = tempfile.mkdtemp(suffix='-scap-test-dir')
         self.context = context.HostContext(self.root, environment='env1')
+        os.mkdir(os.path.join(self.root, '.git'))
 
     def create_scap_file(self, *relpaths):
         def qualify(*relpaths):

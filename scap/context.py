@@ -88,7 +88,7 @@ class HostContext(Context):
 
         super(HostContext, self).setup()
 
-        for d in [self.scap_path(), self.log_path()]:
+        for d in [self.scap_path(), self.log_path(), self.temp_config_path()]:
             if not os.path.exists(d):
                 os.mkdir(d)
 
