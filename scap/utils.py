@@ -388,7 +388,7 @@ def check_php_opening_tag(path):
             return
 
         # Best case scenario to begin with the php open tag
-        if text.startswith('<?php'):
+        if text.lower().startswith('<?php'):
             return
 
         # Also reasonable to start with a doctype declaration
@@ -402,7 +402,7 @@ def check_php_opening_tag(path):
         if (
             len(lines) > 1 and
             lines[0].startswith('#!') and
-            lines[1].startswith('<?php')
+            lines[1].lower().startswith('<?php')
         ):
             return
 
