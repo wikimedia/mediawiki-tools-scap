@@ -27,7 +27,6 @@ the repository at ``scap/scap.cfg``. This new file should be made in
 .. warning::
    These values **must be** set in ``scap/scap.cfg``:
     - ``git_repo``
-    - ``git_repo_user``
     - ``dsh_targets``.
 
 .. _available-configuration:
@@ -41,18 +40,12 @@ Available configuration variables
 |                            |                           | which code is fetched           |
 +----------------------------+---------------------------+---------------------------------+
 | ``ssh_user``               | your username             | (*String*) User as whom         |
-|                            |                           | to ssh to target hosts          |
+|                            |                           | to ssh to target hosts and      |
+|                            |                           | execute remote commands         |
 +----------------------------+---------------------------+---------------------------------+
 | ``git_repo``               | **NONE**                  | (*String*) Repo on              |
 |                            |                           | ``git_server``                  |
 |                            |                           |                                 |
-+----------------------------+---------------------------+---------------------------------+
-| ``git_repo_user``          | ``mwdeploy``              | (*String*) User as whom         |
-|                            |                           | to make repo changes            |
-|                            |                           | like                            |
-|                            |                           | ``git update-server-info``      |
-|                            |                           | ``git checkout``                |
-|                            |                           | on remote targets, etc.         |
 +----------------------------+---------------------------+---------------------------------+
 | ``git_deploy_dir``         | ``/srv/deployment``       | (*String*) Directory on         |
 |                            |                           | targets in which                |

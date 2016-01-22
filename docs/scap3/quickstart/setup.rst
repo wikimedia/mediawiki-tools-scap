@@ -42,13 +42,10 @@ A good starting point for a scap directory can be seen here::
 The ``scap/scap.cfg`` file needs, at a minimum, values for these keys:
 
 #. ``git_repo``
-#. ``git_repo_user``
 #. ``dsh_targets``
 
 The ``git_repo`` is the path on the ``git_server`` (``tin.eqiad.wmnet`` by
 default) where your repository lives.
-
-The ``git_repo_user`` is the user that will execute code on the target machines.
 
 The ``dsh_targets`` file is the list of deployment targets for your repository.
 
@@ -60,9 +57,6 @@ An example of a sensible default ``scap/scap.cfg`` file is seen here::
 
     # code will be deployed to /srv/deployment/ on the target
     git_deploy_dir: /srv/deployment
-
-    # /srv/deployment/mockbase code will be owned by deploy-mockbase on targets
-    git_repo_user: deploy-mockbase
 
     # connect to targets with user deploy-mockbase
     ssh_user: deploy-mockbase
@@ -133,9 +127,6 @@ The full ``scap/scap.cfg`` file would now look like::
 
     # code will be deployed to /srv/deployment/mockbase on the target
     git_deploy_dir: /srv/deployment
-
-    # /srv/deployment/mockbase code will be owned by deploy-mockbase
-    git_repo_user: deploy-mockbase
 
     # connect to targets with user deploy-mockbase
     ssh_user: deploy-mockbase
@@ -330,8 +321,7 @@ file::
 
 During the next ``deploy`` run, in the ``config_deploy`` phase, this template
 will be fetched from tin (the ``git_server``) and symlinked to its final
-location at ``/etc/mockbase/config.yaml``. The ``git_repo_user`` must have
-permission to overwrite these files with symlinks.
+location at ``/etc/mockbase/config.yaml``.
 
 Config Template Variables
 -------------------------

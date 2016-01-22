@@ -56,12 +56,12 @@ class DeployLocal(cli.Application):
                   help='repo that you are deploying')
     def main(self, *extra_args):
         self.rev = self.config['git_rev']
-        self.user = self.config['git_repo_user']
+        self.noop = False
         self.final_path = os.path.join(self.config['git_deploy_dir'],
                                        self.config['git_repo'])
 
         root = '{}-cache'.format(self.final_path)
-        self.context = context.TargetContext(root, user=self.user)
+        self.context = context.TargetContext(root)
         self.context.setup()
 
         # only supports http from tin for the moment
@@ -170,7 +170,7 @@ class DeployLocal(cli.Application):
         logger.debug('Fetching from: {}'.format(git_remote))
 
         # clone/fetch from the repo to the cache directory
-        git.fetch(self.context.cache_dir, git_remote, user=self.user)
+        git.fetch(self.context.cache_dir, git_remote, user=self.context.user)
 
         # If the rev_dir already exists AND the currently checked-out HEAD is
         # already at the revision specified by ``self.rev`` then you can assume
@@ -189,16 +189,16 @@ class DeployLocal(cli.Application):
                 return
 
         # clone/fetch from the local cache directory to the revision directory
-        git.fetch(rev_dir, self.context.cache_dir, user=self.user)
+        git.fetch(rev_dir, self.context.cache_dir, user=self.context.user)
 
         # checkout the given revision
-        git.checkout(rev_dir, self.rev, user=self.user)
+        git.checkout(rev_dir, self.rev, user=self.context.user)
 
         if has_submodules:
             upstream_submodules = self.config['git_upstream_submodules']
             git.update_submodules(rev_dir, git_remote,
                                   use_upstream=upstream_submodules,
-                                  user=self.user)
+                                  user=self.context.user)
 
         self.context.mark_rev_in_progress(self.rev)
 
@@ -245,13 +245,15 @@ class DeployLocal(cli.Application):
 
                     rel_path = os.path.relpath(full_path, config_dest)
                     final_path = os.path.join('/', rel_path)
-                    utils.move_symlink(full_path, final_path, user=self.user)
+                    utils.move_symlink(full_path,
+                                       final_path,
+                                       user=self.context.user)
 
         self.context.mark_rev_current(rev)
         self.context.link_path_to_rev(self.final_path, rev, backup=True)
 
         if service is not None:
-            tasks.restart_service(service, user=self.config['git_repo_user'])
+            tasks.restart_service(service, user=self.context.user)
 
             port = self.config.get('service_port', None)
 
@@ -378,7 +380,6 @@ class Deploy(cli.Application):
 
     DEPLOY_CONF = [
         'git_deploy_dir',
-        'git_repo_user',
         'git_server',
         'git_scheme',
         'git_repo',
