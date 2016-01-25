@@ -423,7 +423,7 @@ class Deploy(cli.Application):
             logger.warn('No targets selected, check limits and dsh_targets')
             return 1
 
-        with utils.lock(self.config['lock_file']):
+        with utils.lock(self.context.lock_path()):
             with log.Timer('deploy_' + self.repo):
                 timestamp = datetime.utcnow()
                 tag = git.next_deploy_tag(location=self.context.root)
