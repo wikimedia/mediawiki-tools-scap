@@ -588,17 +588,21 @@ def check_port(port, timeout, interval=3, logger=None):
     )
 
 
-def check_patch_files(version, cfg, patch_path='/srv/patches'):
+def check_patch_files(version, cfg):
     """Check to see if there are unmerged patch files from /srv/patches
     for a given revision.
 
     :param version: MediaWiki version string (e.g., '1.27.0-wmf.8')
-    :param patch_path: MediaWiki patch base-path string
+    :param cfg: Scap configuration dict
     """
 
     logger = logging.getLogger('check_patch_files')
 
     # Patches should live in /srv/patches/[version]
+    patch_path = cfg['patch_path']
+    if patch_path is None:
+        return
+
     version_base = os.path.join(patch_path, version)
 
     ext_dir = os.path.join(version_base, 'extensions')
