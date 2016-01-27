@@ -322,7 +322,8 @@ def sudo_check_call(user, cmd, logger=None):
     """
 
     proc = subprocess.Popen('sudo -u %s -n -- %s' % (user, cmd),
-        stdout=subprocess.PIPE, stderr=subprocess.STDOUT, shell=True)
+                            stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                            shell=True)
 
     fullOut = []
     while proc.poll() is None:
@@ -490,7 +491,8 @@ def sudo_temp_dir(owner, prefix):
     """
 
     while True:
-        dirname = os.path.join(tempfile.gettempdir(),
+        dirname = os.path.join(
+            tempfile.gettempdir(),
             prefix + str(random.SystemRandom().randint(0, 0xffffffff)))
         if not os.path.exists(dirname):
             break
@@ -501,8 +503,7 @@ def sudo_temp_dir(owner, prefix):
     try:
         yield dirname
     finally:
-        sudo_check_call(owner,
-            'find "%s" -maxdepth 1 -delete' % dirname)
+        sudo_check_call(owner, 'find "%s" -maxdepth 1 -delete' % dirname)
 
 
 def read_pid(path):
@@ -556,8 +557,9 @@ def get_active_wikiversions(directory, realm, datacenter):
 
     # Convert to list of (version, db) tuples sorted by version number
     # and then convert that list to an OrderedDict
-    sorted_versions = collections.OrderedDict(sorted(versions.iteritems(),
-        key=lambda v: distutils.version.LooseVersion(v[0])))
+    sorted_versions = collections.OrderedDict(
+        sorted(versions.iteritems(),
+               key=lambda v: distutils.version.LooseVersion(v[0])))
 
     return sorted_versions
 

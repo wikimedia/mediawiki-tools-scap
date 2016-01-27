@@ -187,7 +187,7 @@ def merge_cdb_updates(directory, pool_size, trust_mtime=False, mute=False,
     upstream_dir = os.path.join(cache_dir, 'upstream')
 
     files = [os.path.splitext(os.path.basename(f))[0]
-        for f in glob.glob('%s/*.json' % upstream_dir)]
+             for f in glob.glob('%s/*.json' % upstream_dir)]
     if not files:
         logger.warning('Directory %s is empty', upstream_dir)
         return 0
@@ -245,7 +245,7 @@ def purge_l10n_cache(version, cfg):
     target_list = target_obj.get_deploy_groups('dsh_targets')['all_targets']
     purge = ssh.Job(user=cfg['ssh_user']).hosts(target_list)
     purge.command('sudo -u mwdeploy -n -- /bin/rm '
-        '--recursive --force %s/*' % deployed_l10n)
+                  '--recursive --force %s/*' % deployed_l10n)
     purge.progress('l10n purge').run()
 
 
@@ -279,7 +279,8 @@ def sync_master(cfg, master, verbose=False, logger=None):
     # Rebuild the CDB files from the JSON versions
     with log.Timer('rebuild CDB staging files', stats):
         subprocess.check_call(['sudo', '-u', 'l10nupdate', '-n', '--',
-            scap_rebuild_cdbs, '--no-progress', '--staging', '--verbose'])
+                              scap_rebuild_cdbs, '--no-progress', '--staging',
+                              '--verbose'])
 
 
 @utils.log_context('sync_common')
@@ -340,7 +341,7 @@ def sync_common(cfg, include=None, sync_from=None, verbose=False, logger=None):
         cfg['deploy_dir'], 'wmf-config', 'InitialiseSettings.php')
     logger.debug('Touching %s', settings_path)
     subprocess.check_call(('sudo', '-u', 'mwdeploy', '-n', '--',
-        '/usr/bin/touch', settings_path))
+                          '/usr/bin/touch', settings_path))
 
 
 def sync_wikiversions(hosts, cfg):
@@ -355,8 +356,8 @@ def sync_wikiversions(hosts, cfg):
 
         rsync = ssh.Job(hosts, user=cfg['ssh_user']).shuffle()
         rsync.command('sudo -u mwdeploy -n -- /usr/bin/rsync -l '
-            '%(master_rsync)s::common/wikiversions*.{json,php} '
-            '%(deploy_dir)s' % cfg)
+                      '%(master_rsync)s::common/wikiversions*.{json,php} '
+                      '%(deploy_dir)s' % cfg)
         return rsync.progress('sync_wikiversions').run()
 
 
@@ -436,7 +437,7 @@ def update_l10n_cdb_wrapper(args, logger=None):
 
 
 def _call_rebuildLocalisationCache(wikidb, out_dir, use_cores=1,
-        lang=None, force=False, quiet=False):
+                                   lang=None, force=False, quiet=False):
     """Helper for update_localization_cache
 
     :param wikidb: Wiki running given version
@@ -450,14 +451,16 @@ def _call_rebuildLocalisationCache(wikidb, out_dir, use_cores=1,
     with utils.sudo_temp_dir('www-data', 'scap_l10n_') as temp_dir:
         # Seed the temporary directory with the current CDB files
         if glob.glob('%s/*.cdb' % out_dir):
-            utils.sudo_check_call('www-data',
+            utils.sudo_check_call(
+                'www-data',
                 "cp '%(out_dir)s/'*.cdb '%(temp_dir)s'" % {
                     'temp_dir': temp_dir,
                     'out_dir': out_dir
                 })
 
         # Generate the files into a temporary directory as www-data
-        utils.sudo_check_call('www-data',
+        utils.sudo_check_call(
+            'www-data',
             '/usr/local/bin/mwscript rebuildLocalisationCache.php '
             '--wiki="%(wikidb)s" --outdir="%(temp_dir)s" '
             '--threads=%(use_cores)s %(lang)s %(force)s %(quiet)s' % {
@@ -470,7 +473,8 @@ def _call_rebuildLocalisationCache(wikidb, out_dir, use_cores=1,
             })
 
         # Copy the files into the real directory as l10nupdate
-        utils.sudo_check_call('l10nupdate',
+        utils.sudo_check_call(
+            'l10nupdate',
             'cp -r "%(temp_dir)s"/* "%(out_dir)s"' % {
                 'temp_dir': temp_dir,
                 'out_dir': out_dir
@@ -513,45 +517,47 @@ def update_localization_cache(version, wikidb, verbose, cfg, logger=None):
         # mergeMessageFileList.php needs a l10n file
         logger.info('Bootstrapping l10n cache for %s', version)
         _call_rebuildLocalisationCache(wikidb, cache_dir, use_cores,
-            lang='en', quiet=True)
+                                       lang='en', quiet=True)
         # Force subsequent cache rebuild to overwrite bootstrap version
         force_rebuild = True
 
     logger.info('Updating ExtensionMessages-%s.php', version)
     new_extension_messages = subprocess.check_output(
         'sudo -u www-data -n -- /bin/mktemp', shell=True).strip()
-    utils.sudo_check_call('www-data',
+    utils.sudo_check_call(
+        'www-data',
         '/usr/local/bin/mwscript mergeMessageFileList.php '
         '--wiki="%s" --list-file="%s/wmf-config/extension-list" '
         '--output="%s" %s' % (
             wikidb, cfg['stage_dir'], new_extension_messages,
             verbose_messagelist))
     utils.sudo_check_call('www-data',
-        'chmod 0664 "%s"' % new_extension_messages)
+                          'chmod 0664 "%s"' % new_extension_messages)
     logger.debug('Copying %s to %s' % (
         new_extension_messages, extension_messages))
     shutil.copyfile(new_extension_messages, extension_messages)
-    utils.sudo_check_call('www-data',
-        'rm "%s"' % new_extension_messages)
+    utils.sudo_check_call('www-data', 'rm "%s"' % new_extension_messages)
 
     # Update ExtensionMessages-*.php in the local copy.
     deploy_dir = os.path.realpath(cfg['deploy_dir'])
     stage_dir = os.path.realpath(cfg['stage_dir'])
     if stage_dir != deploy_dir:
         logger.debug('Copying ExtensionMessages-*.php to local copy')
-        utils.sudo_check_call('mwdeploy',
+        utils.sudo_check_call(
+            'mwdeploy',
             'cp "%s" "%s/wmf-config/"' % (
                 extension_messages, cfg['deploy_dir']))
 
     # Rebuild all the CDB files for each language
     logger.info('Updating LocalisationCache for %s '
-        'using %s thread(s)' % (version, use_cores))
+                'using %s thread(s)' % (version, use_cores))
     _call_rebuildLocalisationCache(wikidb, cache_dir, use_cores,
-        force=force_rebuild, quiet=quiet_rebuild)
+                                   force=force_rebuild, quiet=quiet_rebuild)
 
     # Include JSON versions of the CDB files and add MD5 files
     logger.info('Generating JSON versions and md5 files')
-    utils.sudo_check_call('l10nupdate',
+    utils.sudo_check_call(
+        'l10nupdate',
         '%s/refreshCdbJsonFiles '
         '--directory="%s" --threads=%s %s' % (
             cfg['bin_dir'], cache_dir, use_cores, verbose_messagelist))

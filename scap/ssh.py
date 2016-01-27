@@ -173,7 +173,8 @@ class Job(object):
             if status == 0:
                 self._reporter.add_success()
             else:
-                self.get_logger().warning('%s on %s returned [%d]: %s',
+                self.get_logger().warning(
+                    '%s on %s returned [%d]: %s',
                     self._command, host, status, ohandler.output)
                 self._reporter.add_failure()
         self._reporter.finish()

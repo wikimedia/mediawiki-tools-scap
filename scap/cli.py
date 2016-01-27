@@ -125,19 +125,21 @@ class Application(object):
             parser.add_argument(*flags, **argspec)
 
         parser.add_argument('-c', '--conf', dest='conf_file',
-            type=argparse.FileType('r'),
-            help='Path to configuration file')
+                            type=argparse.FileType('r'),
+                            help='Path to configuration file')
         parser.add_argument('-D', '--define', dest='defines',
-            action='append', type=lambda v: tuple(v.split(':')),
-            help='Set a configuration value', metavar='<name>:<value>')
+                            action='append',
+                            type=lambda v: tuple(v.split(':')),
+                            help='Set a configuration value',
+                            metavar='<name>:<value>')
         parser.add_argument('-v', '--verbose', action='store_const',
-            const=logging.DEBUG, default=logging.INFO, dest='loglevel',
-            help='Verbose output')
+                            const=logging.DEBUG, default=logging.INFO,
+                            dest='loglevel', help='Verbose output')
         parser.add_argument('--no-shared-authsock', dest='shared_authsock',
-            action='store_false',
-            help='Ignore any shared ssh-auth configuration')
+                            action='store_false',
+                            help='Ignore any shared ssh-auth configuration')
         parser.add_argument('-e', '--environment', default=None,
-              help='environment in which to execute scap')
+                            help='environment in which to execute scap')
 
         return parser
 
@@ -151,7 +153,7 @@ class Application(object):
         """
         if extra_args:
             self._argparser.error('extra arguments found: %s' %
-                ' '.join(extra_args))
+                                  ' '.join(extra_args))
         return args, extra_args
 
     def _load_config(self):
@@ -208,7 +210,7 @@ class Application(object):
         """
         self.get_logger().warn('Unhandled error:', exc_info=True)
         self.get_logger().error('%s failed: <%s> %s',
-            self.program_name, type(ex).__name__, ex)
+                                self.program_name, type(ex).__name__, ex)
         return 70
 
     def _before_exit(self, exit_status):
