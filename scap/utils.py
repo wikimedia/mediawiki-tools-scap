@@ -372,7 +372,7 @@ def check_valid_json_file(path):
 
 
 def check_file_exists(path, message=False):
-    if not os.path.isfile(path):
+    if path is None or not os.path.isfile(path):
         raise IOError(
             errno.ENOENT,
             message or 'Error: %s is not a file.' % path,
@@ -381,7 +381,7 @@ def check_file_exists(path, message=False):
 
 
 def check_dir_exists(path, message=False):
-    if not os.path.isdir(path):
+    if path is None or not os.path.isdir(path):
         raise IOError(
             errno.ENOTDIR,
             message or 'Error: %s is not a directory.' % path,

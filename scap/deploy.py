@@ -501,9 +501,7 @@ class Deploy(cli.Application):
         if not cfg_file:
             return
 
-        tmp_cfg_file = self.context.path('.git', 'config-files',
-                                         '{}.yaml'.format(commit))
-        utils.mkdir_p(os.path.basename(tmp_cfg_file))
+        tmp_cfg_file = self.context.temp_config_path('{}.yaml'.format(commit))
         tmp_cfg = {}
 
         with open(cfg_file, 'r') as cf:
