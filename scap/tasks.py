@@ -161,7 +161,7 @@ def compile_wikiversions(source_tree, cfg, logger=None):
     with open(tmp_php_file, 'wt') as fp:
         fp.write(php_code)
         fp.flush()
-        os.fsync(fp.fileno())
+        utils.eintr_retry(os.fsync, fp.fileno())
 
     if not os.path.isfile(tmp_php_file):
         raise IOError(
@@ -407,7 +407,7 @@ def update_l10n_cdb(cache_dir, cdb_file, trust_mtime=False, logger=None):
             for key, value in data.items():
                 writer.put(key.encode('utf-8'), value.encode('utf-8'))
             writer.finalize()
-            os.fsync(fp.fileno())
+            utils.eintr_retry(os.fsync, fp.fileno())
 
         if not os.path.isfile(tmp_cdb_path):
             raise IOError(errno.ENOENT, 'Failed to create CDB', tmp_cdb_path)

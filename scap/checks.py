@@ -24,6 +24,9 @@ import subprocess
 import time
 import yaml
 
+from . import utils
+
+
 _types = {}
 
 
@@ -227,8 +230,8 @@ class CheckJob(object):
         `checks.execute`.
         """
 
-        self.output += os.read(self.fd, 1048576)
-        result = self.proc.poll()
+        self.output += utils.eintr_retry(os.read, self.fd, 1048576)
+        result = utils.eintr_retry(self.proc.poll)
 
         if result is not None:
             self.ended = time.time()

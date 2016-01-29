@@ -215,7 +215,7 @@ def cluster_ssh(hosts, command, user=None, limit=80, max_fail=None,
 
             elif procs:
                 try:
-                    pid, status = os.waitpid(-1, os.WNOHANG)
+                    pid, status = utils.eintr_retry(os.waitpid, -1, os.WNOHANG)
                 except OSError as e:
                     # We lost track of our children somehow. So grab any child
                     # process from procs (they're all dead anyway) and pretend
@@ -227,8 +227,8 @@ def cluster_ssh(hosts, command, user=None, limit=80, max_fail=None,
                     else:
                         raise
 
-                for fd, event in poll.poll(0.01):
-                    output = os.read(fd, 1048576)
+                for fd, event in utils.eintr_retry(poll.poll, 0.01):
+                    output = utils.eintr_retry(os.read, fd, 1048576)
                     output_handlers[fd].accept(output)
 
                 if pid:

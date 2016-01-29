@@ -28,6 +28,23 @@ from . import ansi
 from functools import wraps
 
 
+def eintr_retry(func, *args):
+    """Retry a system call if it is interrupted by EINTR.
+
+    Extracted from stdlib's subprocess (where it is called `_eintr_retry_call`
+    -- the leading underscore indicating it is not part of the module's API).
+    This is not needed on Python >= 3.5, thanks to PEP 0475.
+
+    See <https://www.python.org/dev/peps/pep-0475/>."""
+    while True:
+        try:
+            return func(*args)
+        except (OSError, IOError) as e:
+            if e.errno == errno.EINTR:
+                continue
+            raise
+
+
 class LockFailedError(Exception):
     """Signal that a locking attempt failed."""
     pass
