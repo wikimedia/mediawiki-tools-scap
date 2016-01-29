@@ -1,9 +1,9 @@
-#!/usr/bin/env python
+#!/usr/bin/python2
 # -*- coding: utf-8 -*-
 #
 # Update localization files.
 #
-# Copyright © 2014 Wikimedia Foundation and contributors
+# Copyright © 2016 Wikimedia Foundation and contributors
 
 import os
 import sys
