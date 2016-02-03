@@ -529,13 +529,22 @@ def update_localization_cache(version, wikidb, verbose, cfg, logger=None):
     logger.info('Updating ExtensionMessages-%s.php', version)
     new_extension_messages = subprocess.check_output(
         'sudo -u www-data -n -- /bin/mktemp', shell=True).strip()
+
+    # attempt to read extension-list from the branch instead of wmf-config
+    ext_list = os.path.join(cfg['stage_dir'], "php-%s" % version,
+                            "extension-list")
+
+    if not os.path.isfile(ext_list):
+        # fall back to the old location in wmf-config
+        ext_list = "%s/wmf-config/extension-list" % cfg['stage_dir']
+
     utils.sudo_check_call(
         'www-data',
         '/usr/local/bin/mwscript mergeMessageFileList.php '
-        '--wiki="%s" --list-file="%s/wmf-config/extension-list" '
+        '--wiki="%s" --list-file="%s" '
         '--output="%s" %s' % (
-            wikidb, cfg['stage_dir'], new_extension_messages,
-            verbose_messagelist))
+            wikidb, ext_list, new_extension_messages, verbose_messagelist))
+
     utils.sudo_check_call('www-data',
                           'chmod 0664 "%s"' % new_extension_messages)
     logger.debug('Copying %s to %s' % (
