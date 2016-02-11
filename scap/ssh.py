@@ -11,6 +11,7 @@ import os
 import random
 import select
 import shlex
+import socket
 import subprocess
 
 import scap.log as log
@@ -118,8 +119,8 @@ class Job(object):
         return self
 
     def exclude_hosts(self, exclude):
-        exclude = list(exclude)
-        self.hosts([host for host in self._hosts if host not in exclude])
+        exclude = [socket.getfqdn(h) for h in exclude]
+        self.hosts([h for h in self._hosts if socket.fqdn(h) not in exclude])
 
     def command(self, command):
         """Set command to run."""
