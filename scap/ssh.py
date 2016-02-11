@@ -120,7 +120,8 @@ class Job(object):
 
     def exclude_hosts(self, exclude):
         exclude = [socket.getfqdn(h) for h in exclude]
-        self.hosts([h for h in self._hosts if socket.fqdn(h) not in exclude])
+        self.hosts(
+            [h for h in self._hosts if socket.getfqdn(h) not in exclude])
 
     def command(self, command):
         """Set command to run."""
