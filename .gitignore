@@ -10,3 +10,4 @@
 /tests/cover
 /dist
 /docs/_build
+/.pybuild

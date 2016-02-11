@@ -2,13 +2,14 @@ Source: scap
 Maintainer: Wikimedia Foundation Release Engineering <releng@wikimedia.org>
 Section: python
 Priority: optional
-Build-Depends: python-all (>= 2.6.6-3), debhelper (>= 9)
+Build-Depends: python-all (>= 2.6.6-3), debhelper (>= 9), dh-python (>= 1.2014)
 Standards-Version: 3.9.6
 
 Package: scap
 Architecture: all
 Depends: ${misc:Depends}, ${python:Depends}, python-jinja2, python-psutil,
  python-yaml, python-netifaces, python-requests, git, php5-cli
+Suggests: php5-cli
 Description: Deployment toolchain for Wikimedia projects
  Scap is a tool that was originally designed to deploy MediaWiki code on
  Wikimedia Foundation servers.
