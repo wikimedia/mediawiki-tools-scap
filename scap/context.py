@@ -16,7 +16,7 @@ REVS_TO_KEEP = 5
 class Context(object):
     """Base context for either the deployment host or target."""
 
-    def __init__(self, root, environment=None, user=utils.get_real_username()):
+    def __init__(self, root, environment=None, user=utils.get_username()):
         """Instantiates a new context at the given root path.
 
         :param root: Root directory
@@ -46,6 +46,13 @@ class Context(object):
 
 class HostContext(Context):
     """Manages deployment host paths and execution context."""
+
+    def __init__(self, root, environment=None, user=utils.get_real_username()):
+        """Instantiates a new host context.
+
+        :meth:`Context.__init__`
+        """
+        super(HostContext, self).__init__(root, environment, user)
 
     def env_specific_path(self, *relpaths):
         """Returns path to default or environment specific file/directory.
