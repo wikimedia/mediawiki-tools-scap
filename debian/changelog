@@ -1,3 +1,9 @@
+scap (3.0.1-1) unstable; urgency=low
+
+  * Tagged 3.0.1-1 for release. (see 3.0.1 for changes since 3.0)
+
+ -- Mukunda Modell <mmodell@wikimedia.org>  Mon, 15 Feb 2016 09:11:40 -0600
+
 scap (3.0.1) unstable; urgency=low
 
   * Add /usr/bin/refreshCdbJsonFiles script that was overlooked in 3.0-1
