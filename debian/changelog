@@ -1,3 +1,11 @@
+scap (3.0.1) unstable; urgency=low
+
+  * Add /usr/bin/refreshCdbJsonFiles script that was overlooked in 3.0-1
+  * Bug Fix: Socket has no fqdn method
+  * Improvement: Canonicalize host names when excluding hosts
+
+ -- Mukunda Modell <mmodell@wikimedia.org>  Mon, 15 Feb 2016 06:01:03 -0600
+
 scap (3.0-1) unstable; urgency=low
 
   * Initial release
