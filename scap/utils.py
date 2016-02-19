@@ -15,6 +15,7 @@ import hashlib
 import inspect
 import json
 import logging
+import math
 import os
 import pwd
 import random
@@ -26,6 +27,40 @@ import tempfile
 
 from . import ansi
 from functools import wraps
+
+
+def isclose(a, b, rel_tol=1e-9, abs_tol=0.0):
+    """ returns True if a is close in value to b. False otherwise
+
+    :param a: one of the values to be tested
+    :param b: the other value to be tested
+    :param rel_tol=1e-9: The relative tolerance -- the amount of error
+                         allowed, relative to the absolute value of the
+                         larger input values.
+    :param abs_tol=0.0: The minimum absolute tolerance level -- useful
+                        for comparisons to zero.
+
+    Copyright: Christopher H. Barker
+    Original License: Apache License 2.0
+    <https://github.com/PythonCHB/close_pep>
+    """
+    if a == b:  # short-circuit exact equality
+        return True
+
+    if rel_tol < 0.0 or abs_tol < 0.0:
+        raise ValueError('error tolerances must be non-negative')
+
+    # use cmath so it will work with complex ot float
+    if math.isinf(abs(a)) or math.isinf(abs(b)):
+        # This includes the case of two infinities of opposite sign, or
+        # one infinity and one finite number. Two infinities of opposite sign
+        # would otherwise have an infinite relative tolerance.
+        return False
+    diff = abs(b - a)
+
+    return (((diff <= abs(rel_tol * b)) or
+             (diff <= abs(rel_tol * a))) or
+            (diff <= abs_tol))
 
 
 def eintr_retry(func, *args):
