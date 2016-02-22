@@ -1,3 +1,10 @@
+scap (3.0.2-1) unstable; urgency=low
+
+  * Bug Fix: Treat linked dirs as link target as normal file
+  * Bug Fix: Only sudo when actually necessary for sudo_check_call
+
+ -- Tyler Cipriani <tcipriani@wikimediawiki.org>  Mon, 22 Feb 2016 13:21:12 -0800
+
 scap (3.0.1-1) unstable; urgency=low
 
   * Tagged 3.0.1-1 for release. (see 3.0.1 for changes since 3.0)
