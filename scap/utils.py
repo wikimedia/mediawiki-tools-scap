@@ -588,7 +588,7 @@ def move_symlink(source, dest, user=get_real_username()):
     mkdir_p(dest_dir, user=user)
 
     with cd(dest_dir):
-        sudo_check_call(user, "ln -sf '{}' '{}'".format(rsource, rdest))
+        sudo_check_call(user, "ln -sfT '{}' '{}'".format(rsource, rdest))
 
 
 def remove_symlink(path, user=get_real_username()):
