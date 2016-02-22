@@ -373,7 +373,13 @@ def sudo_check_call(user, cmd, logger=None):
     :raises: subprocess.CalledProcessError on non-zero process exit
     """
 
-    proc = subprocess.Popen('sudo -u %s -n -- %s' % (user, cmd),
+    # Only sudo when necessary
+    if user == get_username():
+        fullCmd = cmd
+    else:
+        fullCmd = 'sudo -u %s -n -- %s' % (user, cmd)
+
+    proc = subprocess.Popen(fullCmd,
                             stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
                             shell=True)
 
