@@ -237,6 +237,20 @@ class TargetContextTest(unittest.TestCase):
                          rev_dir)
 
     @unittest.skipIf(sys.platform == 'darwin', 'Tests of `ln` fail on OS X')
+    def test_mark_rev_current_overwrites_existing(self):
+        self.context.setup()
+
+        self.create_rev_dir('foo1')
+        self.context.mark_rev_current('foo1')
+
+        rev_dir = self.create_rev_dir('foo2')
+        self.context.mark_rev_current('foo2')
+
+        self.assertTrue(os.path.islink(os.path.join(self.root, 'current')))
+        self.assertEqual(os.path.realpath(self.context.current_link),
+                         rev_dir)
+
+    @unittest.skipIf(sys.platform == 'darwin', 'Tests of `ln` fail on OS X')
     def test_mark_rev_done(self):
         self.context.setup()
         self.create_rev_dir('foo1')
