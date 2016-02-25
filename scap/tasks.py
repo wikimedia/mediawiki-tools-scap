@@ -388,7 +388,7 @@ def update_l10n_cdb(cache_dir, cdb_file, trust_mtime=False, logger=None):
             cdb_mtime = os.path.getmtime(cdb_path)
             # If the CDB was built by this process in a previous sync, the CDB
             # file mtime will have been set equal to the json file mtime.
-            need_rebuild = utils.isclose(cdb_mtime, json_mtime)
+            need_rebuild = not utils.isclose(cdb_mtime, json_mtime)
         else:
             upstream_md5 = open(md5_path).read(100).strip()
             local_md5 = utils.md5_file(cdb_path)
