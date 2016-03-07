@@ -27,7 +27,7 @@ from . import tasks
 from . import utils
 from . import git
 
-STAGES = ['fetch', 'config_deploy', 'promote']
+STAGES = ['fetch', 'config_deploy', 'promote', 'restart_service']
 EX_STAGES = ['rollback']
 
 
@@ -226,7 +226,6 @@ class DeployLocal(cli.Application):
 
         config_deploy = config_deploy and self.config['config_deploy']
 
-        service = self.config.get('service_name', None)
         logger = self.get_logger()
 
         if (self.context.current_rev_dir == rev_dir and
@@ -258,14 +257,14 @@ class DeployLocal(cli.Application):
         self.context.mark_rev_current(rev)
         self.context.link_path_to_rev(self.final_path, rev, backup=True)
 
+    def restart_service(self):
+        service = self.config.get('service_name', None)
         if service is not None:
             tasks.restart_service(service, user=self.context.user)
-
             port = self.config.get('service_port', None)
-
             if port is not None:
-                timeout = float(self.config['service_timeout'])
-                tasks.check_port(int(port), timeout=timeout)
+                service_timeout = self.config['service_timeout']
+                tasks.check_port(int(port), timeout=service_timeout)
 
     def rollback(self):
         """Performs a rollback to the last deployed revision.
