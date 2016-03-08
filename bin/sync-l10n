@@ -1,4 +1,4 @@
-#!/usr/bin/python2
+#!/usr/bin/env python2
 # -*- coding: utf-8 -*-
 #
 # Synchronize the localization files for a MediaWiki branch
