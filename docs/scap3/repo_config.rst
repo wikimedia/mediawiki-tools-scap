@@ -88,6 +88,12 @@ Available configuration variables
 |                            |                           | checked-out as part of          |
 |                            |                           | the deploy on targets.          |
 +----------------------------+---------------------------+---------------------------------+
+| ``git_fat``                | False                     | (*Boolean*) (*Optional*)        |
+|                            |                           | Whether binary files are managed|
+|                            |                           | via git-fat and should be       |
+|                            |                           | synced as part of the deploy on |
+|                            |                           | targets.                        |
++----------------------------+---------------------------+---------------------------------+
 | ``service_name``           | **NONE**                  | (*String*) (*Optional*)         |
 |                            |                           | If a service name is            |
 |                            |                           | defined, the service            |

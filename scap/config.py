@@ -36,6 +36,7 @@ DEFAULT_CONFIG = {
     'dsh_masters': (str, 'scap-masters'),
     'dsh_proxies': (str, 'scap-proxies'),
     'git_deploy_dir': (str, '/srv/deployment'),
+    'git_fat': (bool, False),
     'git_server': (str, 'tin.eqiad.wmnet'),
     'git_scheme': (str, 'http'),
     'git_submodules': (bool, False),

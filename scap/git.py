@@ -47,6 +47,35 @@ def describe(location):
         return subprocess.check_output(cmd, shell=True).strip()
 
 
+def fat_init(location):
+    """Initializes the given directory for git-fat use."""
+
+    with utils.cd(location):
+        subprocess.check_call('/usr/bin/git fat init', shell=True)
+
+
+def fat_isinitialized(location):
+    """Returns whether git-fat has been initialized for the given directory."""
+
+    with utils.cd(location):
+        with open(os.devnull) as devnull:
+            try:
+                cmd = '/usr/bin/git config --local --get filter.fat.smudge'
+                subprocess.check_call(cmd, stdout=devnull, shell=True)
+                return True
+            except subprocess.CalledProcessError as e:
+                if e.returncode == 1:
+                    return False
+                raise e
+
+
+def fat_pull(location):
+    """Syncs all git-fat objects for the given repo directory."""
+
+    with utils.cd(location):
+        subprocess.check_call('/usr/bin/git fat pull', shell=True)
+
+
 def info(directory):
     """Compute git version information for a given directory that is
     compatible with MediaWiki's GitInfo class.

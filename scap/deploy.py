@@ -163,6 +163,7 @@ class DeployLocal(cli.Application):
         the possibility for future rollback.
         """
         has_submodules = self.config['git_submodules']
+        has_gitfat = self.config['git_fat']
         logger = self.get_logger()
         rev_dir = self.context.rev_path(self.rev)
 
@@ -199,6 +200,11 @@ class DeployLocal(cli.Application):
             git.update_submodules(rev_dir, git_remote,
                                   use_upstream=upstream_submodules,
                                   user=self.context.user)
+
+        if has_gitfat:
+            if not git.fat_isinitialized(rev_dir):
+                git.fat_init(rev_dir)
+            git.fat_pull(rev_dir)
 
         self.context.mark_rev_in_progress(self.rev)
 
@@ -380,6 +386,7 @@ class Deploy(cli.Application):
 
     DEPLOY_CONF = [
         'git_deploy_dir',
+        'git_fat',
         'git_server',
         'git_scheme',
         'git_repo',
