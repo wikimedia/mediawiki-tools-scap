@@ -7,13 +7,13 @@ mediawiki config and wmf/* code branches from the deploy server to the
 production web servers. There are also commands to perform other related
 house-keeping tasks as described in the individual command descriptions.
 
-scap
-----
-:command:`scap` is the driver script for syncing the MediaWiki versions and
+scap sync
+---------
+:command:`scap sync` is the driver script for syncing the MediaWiki versions and
 configuration files currently staged on the deploy server to the rest of the
 cluster.
 
-.. program-output:: ../bin/scap --help
+.. program-output:: ../bin/scap sync --help
 .. seealso::
    * :func:`scap.Scap`
    * :func:`scap.tasks.check_php_syntax`
@@ -22,103 +22,103 @@ cluster.
    * :func:`scap.tasks.sync_wikiversions`
 
 
-sync-common
------------
-:command:`sync-common` uses rsync to fetch MediaWiki code and configuration to the
-local host. It is typically called automatically on hosts during the execution of scap_.
+scap pull
+---------
+:command:`scap pull` uses rsync to fetch MediaWiki code and configuration to the
+local host. It is typically called automatically on hosts during the execution of `scap sync`_.
 
-.. program-output:: ../bin/sync-common --help
+.. program-output:: ../bin/scap pull --help
 .. seealso::
    * :func:`scap.SyncCommon`
    * :func:`scap.tasks.sync_common`
 
 
-sync-dir
------------
-:command:`sync-dir` synchronizes a directory from the staging directory to the
+scap sync-dir
+-------------
+:command:`scap sync-dir` synchronizes a directory from the staging directory to the
 cluster.
 
-.. program-output:: ../bin/sync-dir --help
+.. program-output:: ../bin/scap sync-dir --help
 .. seealso::
    * :func:`scap.SyncDir`
 
 
-sync-file
----------
-:command:`sync-file` synchronizes a file from the staging directory to the cluster.
+scap sync-file
+--------------
+:command:`scap sync-file` synchronizes a file from the staging directory to the cluster.
 
-.. program-output:: ../bin/sync-file --help
+.. program-output:: ../bin/scap sync-file --help
 .. seealso::
    * :func:`scap.SyncFile`
 
 
-sync-l10n
----------
-:command:`sync-l10n` synchronizes the localization files for a given
+scap sync-l10n
+--------------
+:command:`scap sync-l10n` synchronizes the localization files for a given
 MediaWiki version to the cluster and rebuilds the associated cache files.
 
-.. program-output:: ../bin/sync-l10n --help
+.. program-output:: ../bin/scap sync-l10n --help
 .. seealso::
    * :func:`scap.SyncL10n`
 
-sync-wikiversions
------------------
-:command:`sync-wikiversions` compiles wikiversions.json into a CDB database and then
+scap sync-wikiversions
+----------------------
+:command:`scap sync-wikiversions` compiles wikiversions.json into a CDB database and then
 syncs both the JSON and CDB versions to the rest of the cluster.
 
-.. program-output:: ../bin/sync-wikiversions --help
+.. program-output:: ../bin/scap sync-wikiversions --help
 .. seealso::
    * :func:`scap.SyncWikiversions`
    * :func:`scap.tasks.compile_wikiversions`
    * :func:`scap.tasks.sync_wikiversions`
 
 
-mwversionsinuse
----------------
-:command:`mwversionsinuse` examines wikiversions.json to find the current active
+scap wikiversions-inuse
+-----------------------
+:command:`scap wikiversions-inuse` examines wikiversions.json to find the current active
 MediaWiki versions.
 
-.. program-output:: ../bin/mwversionsinuse --help
+.. program-output:: ../bin/scap wikiversions-inuse --help
 .. seealso::
    * :func:`scap.MWVersionsInUse`
 
 
-scap-purge-l10n-cache
----------------------
-:command:`scap-purge-l10n-cache` deletes localization files (CDB and JSON) across the
+scap l10n-purge
+---------------
+:command:`scap l10n-purge` deletes localization files (CDB and JSON) across the
 cluster.
 
-.. program-output:: ../bin/scap-purge-l10n-cache --help
+.. program-output:: ../bin/scap l10n-purge --help
 .. seealso::
    * :func:`scap.PurgeL10nCache`
    * :func:`scap.tasks.purge_l10n_cache`
 
 
-compile-wikiversions
---------------------
-:command:`compile-wikiversions` compiles wikiversions.json into wikiversions.php.
+scap wikiversions-compile
+-------------------------
+:command:`wikiversions-compile` compiles wikiversions.json into wikiversions.php.
 
-.. program-output:: ../bin/compile-wikiversions --help
+.. program-output:: ../bin/scap wikiversions-compile --help
 .. seealso::
    * :func:`scap.CompileWikiversions`
    * :func:`scap.tasks.compile_wikiversions`
 
 
-scap-rebuild-cdbs
------------------
-:command:`scap-rebuild-cdbs` rebuilds localization cache CDB files from JSON files.
+scap cdb-rebuild
+----------------
+:command:`scap cdb-rebuild` rebuilds localization cache CDB files from JSON files.
 
-.. program-output:: ../bin/scap-rebuild-cdbs --help
+.. program-output:: ../bin/scap cdb-rebuild --help
 .. seealso::
    * :func:`scap.RebuildCdbs`
    * :func:`scap.tasks.merge_cdb_updates`
 
 
-mw-update-l10n
---------------
-:command:`mw-update-l10n` generates localization cache files.
+scap l10n-update
+----------------
+:command:`scap l10n-update` generates localization cache files.
 
-.. program-output:: ../bin/mw-update-l10n --help
+.. program-output:: ../bin/scap l10n-update --help
 .. seealso::
    * :func:`scap.UpdateL10n`
    * :func:`scap.tasks.update_localization_cache`

@@ -4,8 +4,8 @@
 Deploy commands
 ###############
 
-deploy
-======
+scap deploy
+===========
 The **deploy** command handles deployment of various wikimedia projects from
 the deployment server to a staging or production environment.
 
@@ -20,35 +20,35 @@ the deployment server to a staging or production environment.
 * If a `service_port` is specified, make sure that it is accepting
   connections, waiting up to `service_timeout` (120 seconds by default)
 
-.. program-output:: ../bin/deploy --help
+.. program-output:: ../bin/scap deploy --help
 .. seealso::
    * :class:`scap.Deploy`
 
 .. _deploy-log:
 
-deploy-log
-==========
+scap deploy-log
+===============
 
-The :command:`deploy-log` command provides powerful filters for the `deploy` logs.
+The :command:`scap deploy-log` command provides powerful filters for the `scap deploy` logs.
 
 The main deploy application sends all structured log output to a file under
 :file:`scap/log/{git-tag}.log`. deploy-log is meant to run during or after a
 deploy, potentially in a separate terminal. Log entries can be filtered on
 one or more fields using a given free-form expression. By default
-:command:`deploy-log` will periodically scan the scap/log directory for new
+:command:`scap deploy-log` will periodically scan the scap/log directory for new
 files and immediately begin tailing any newly discovered log file.
 
 As an alternative to the default behavior, you can either specify the log file
-to parse via the :option:`deploy-log --file` option or choose the newest log file by using
-:option:`deploy-log --latest`; in this case, it will simply filter the entire file for
+to parse via the :option:`scap deploy-log --file` option or choose the newest log file by using
+:option:`scap deploy-log --latest`; in this case, it will simply filter the entire file for
 matching records and exit, rather than watching for more log files to be
 created.
 
 
    The default behavior is convenient for monitoring an ongoing deployment from
-   a separate terminal. Simply start :command:`deploy-log` in a separate
+   a separate terminal. Simply start :command:`scap deploy-log` in a separate
    terminal prior to running
-   :command:`deploy`. Once your deployment starts, :command:`deploy-log` will
+   :command:`scap deploy`. Once your deployment starts, :command:`scap deploy-log` will
    discover the new log file and immediately begin displaying relevant log
    messages
 
@@ -56,10 +56,11 @@ created.
 Usage
 -----
 
-:command:`deploy-log` ``[--file <file>] [--latest] [-v] [expr]``
+:command:`scap deploy-log` ``[--file <file>] [--latest] [-v] [expr]``
 
+scap deploy-log ``[--file <file>] [--latest] [-v] [expr]``
 
-.. program:: deploy-log
+.. program:: scap deploy-log
 
 .. option:: -f <file>, --file <file>
 
@@ -86,15 +87,15 @@ Examples
 .. code-block:: bash
 
    # show verbose output:
-   deploy-log -v
+   scap deploy-log -v
    # tail the most recent log file:
-   deploy-log --latest
+   scap deploy-log --latest
    # show log messages for the host named scap-target-01
-   deploy-log 'host == scap-target-01'
+   scap deploy-log 'host == scap-target-01'
    # show log messages matching a regex pattern:
-   deploy-log 'msg ~ "some important (message|msg)"'
+   scap deploy-log 'msg ~ "some important (message|msg)"'
    # show WARNING messages for hosts whose name begins with "scap-target-"
-   deploy-log 'levelno >= WARNING host == scap-target-*'
+   scap deploy-log 'levelno >= WARNING host == scap-target-*'
 
 .. seealso::
    * :func:`scap.DeployLog`

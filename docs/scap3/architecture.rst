@@ -11,14 +11,14 @@ which currently (2015-10) does **NOT** include MediaWiki deploys.
 Process model
 -------------
 
-Scap's basic architecture consists of a main ``deploy`` process run by the
-user on the deployment host and a number of spawned ``deploy-local``
+Scap's basic architecture consists of a main ``scap deploy`` process run by the
+user on the deployment host and a number of spawned ``scap deploy-local``
 subprocesses running over SSH that perform the actual work of each deployment
 "stage".
 
 Structured logging events are sent back over the existing SSH channel, as
 line-wise JSON, where they are parsed and fed back into a unified logging
-stream. Optionally, a ``deploy-log`` process may be started by the user to
+stream. Optionally, a ``scap deploy-log`` process may be started by the user to
 filter and view the logging stream during or after the run.
 
 .. blockdiag::

@@ -180,12 +180,12 @@ And the ``scap/mockbase-canaries`` file looks like this::
     mockbase01.eqiad.wmnet
     mockbase02.eqiad.wmnet
 
-Now when I run ``deploy``: code fetch, update, and service restart will happen
+Now when I run ``scap deploy``: code fetch, update, and service restart will happen
 on ``mockbase01`` and ``mockbase02`` (from the ``scap/mockbase-canaries`` file)
 before I am prompted to continue the deploy on the default targets
 (from the ``scap/mockbase`` file).::
 
-    deployer@tin:/srv/deployment/mockbase$ deploy
+    deployer@tin:/srv/deployment/mockbase$ scap deploy
         00:05:22 Started deploy_mockbase
         Entering 'mockbase'
         00:05:22
@@ -330,7 +330,7 @@ file::
     /etc/mockbase/config.yaml:
       template: config.yaml.j2
 
-During the next ``deploy`` run, in the ``config_deploy`` phase, this template
+During the next ``scap deploy`` run, in the ``config_deploy`` phase, this template
 will be fetched from tin (the ``git_server``) and symlinked to its final
 location at ``/etc/mockbase/config.yaml``.
 
@@ -370,7 +370,7 @@ And we'll add the corresponding values to the ``scap/vars.yaml`` file::
     last_deployer: Scappy, the scap pig
     foo: bar
 
-After another ``deploy``, the final rendered file at ``/etc/mockbase/config.yaml``
+After another ``scap deploy``, the final rendered file at ``/etc/mockbase/config.yaml``
 will read::
 
     ---
@@ -433,7 +433,7 @@ the environment into which it is deployed. Staging vs production vs beta
 may all need different configurations. This is the use-case of the
 ``--environment`` flag and the ``environments`` directory.
 
-Running a mockbase ``deploy`` with a different environment means that every
+Running a mockbase ``scap deploy`` with a different environment means that every
 configuration file will first be searched-for under the ``scap/environments/[environment]``
 directory before falling-back to the global configuration file.
 
@@ -504,7 +504,7 @@ Contents of ``scap/environments/beta/vars.yaml``::
     foo: baz
 
 Final rendered content of ``/etc/mockbase/config.yaml`` after running
-``deploy --environment beta``::
+``scap deploy --environment beta``::
 
     ---
     info:

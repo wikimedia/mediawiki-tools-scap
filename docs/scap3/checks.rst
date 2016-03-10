@@ -15,7 +15,7 @@ previously deployed version. Additionally, you can run any arbitrary command usi
   console session.
 
 .. seealso::
-  * :ref:`deploy-log` - monitor output from scap deployment :term:`target` (s)
+  * :command:`scap deploy-log` - monitor output from scap deployment :term:`target` (s)
 
 .. _nrpe:
 
