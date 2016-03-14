@@ -27,8 +27,8 @@ from . import tasks
 from . import utils
 from . import git
 
-STAGES = ['fetch', 'config_deploy', 'promote', 'restart_service']
-EX_STAGES = ['rollback']
+STAGES = ['fetch', 'config_deploy', 'promote']
+EX_STAGES = ['restart_service', 'rollback']
 
 
 class DeployLocal(cli.Application):
@@ -68,12 +68,16 @@ class DeployLocal(cli.Application):
         url = os.path.normpath('{git_server}/{git_repo}'.format(**self.config))
         self.server_url = 'http://{0}'.format(url)
 
-        stages = [self.arguments.stage] if self.arguments.stage else STAGES
+        self.stages = STAGES
+
+        if self.arguments.stage:
+            self.stages = [self.arguments.stage]
+
         group = self.arguments.group
 
         status = 0
 
-        for stage in stages:
+        for stage in self.stages:
             self.noop = False
 
             getattr(self, stage)()
@@ -255,15 +259,21 @@ class DeployLocal(cli.Application):
 
         self.context.mark_rev_current(rev)
         self.context.link_path_to_rev(self.final_path, rev, backup=True)
+        self.stages.append('restart_service')
 
     def restart_service(self):
         service = self.config.get('service_name', None)
-        if service is not None:
-            tasks.restart_service(service, user=self.context.user)
-            port = self.config.get('service_port', None)
-            if port is not None:
-                service_timeout = self.config['service_timeout']
-                tasks.check_port(int(port), timeout=service_timeout)
+        if not service:
+            return
+
+        tasks.restart_service(service, user=self.context.user)
+
+        port = self.config.get('service_port', None)
+        if not port:
+            return
+
+        service_timeout = self.config['service_timeout']
+        tasks.check_port(int(port), timeout=service_timeout)
 
     def rollback(self):
         """Performs a rollback to the last deployed revision.
@@ -378,6 +388,10 @@ class Deploy(cli.Application):
     Uses local .scaprc as config for each host in cluster
     """
 
+    STAGE_NAMES_OVERRIDES = {
+        'promote': 'promote and restart_service',
+    }
+
     MAX_BATCH_SIZE = 80
     # Stop executing on new hosts after failure
     MAX_FAILURES = 0
@@ -409,6 +423,8 @@ class Deploy(cli.Application):
                   help='Limit deploy to hosts matching expression')
     @cli.argument('-f', '--force', action='store_true',
                   help='force re-fetch and checkout')
+    @cli.argument('--service-restart', action='store_true',
+                  help='restart service')
     def main(self, *extra_args):
         logger = self.get_logger()
 
@@ -419,6 +435,9 @@ class Deploy(cli.Application):
             stages = self.arguments.stages.split(',')
         else:
             stages = STAGES
+
+        if self.arguments.service_restart:
+            stages = ['restart_service']
 
         if not git.is_dir(self.context.root):
             raise RuntimeError(errno.EPERM, 'Script must be run from git repo')
@@ -601,7 +620,9 @@ class Deploy(cli.Application):
         deploy_stage.output_handler = ssh.JSONOutputHandler
         deploy_stage.max_failure = self.MAX_FAILURES
         deploy_stage.command(deploy_local_cmd)
-        deploy_stage.progress('deploy_{}_{}'.format(self.repo, stage))
+        display_name = self._get_stage_name(stage)
+        deploy_stage.progress('{}: {} stage(s)'.format(self.repo,
+                                                       display_name))
 
         succeeded, failed = deploy_stage.run(batch_size=batch_size)
 
@@ -610,6 +631,10 @@ class Deploy(cli.Application):
             return 1
 
         return 0
+
+    def _get_stage_name(self, stage):
+        """Maps a stage name to a stage display name"""
+        return self.STAGE_NAMES_OVERRIDES.get(stage, stage)
 
     def _get_batch_size(self, stage):
         default = self.config.get('batch_size', self.MAX_BATCH_SIZE)

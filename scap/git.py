@@ -58,7 +58,7 @@ def fat_isinitialized(location):
     """Returns whether git-fat has been initialized for the given directory."""
 
     with utils.cd(location):
-        with open(os.devnull) as devnull:
+        with open(os.devnull, 'w') as devnull:
             try:
                 cmd = '/usr/bin/git config --local --get filter.fat.smudge'
                 subprocess.check_call(cmd, stdout=devnull, shell=True)
