@@ -130,7 +130,7 @@ def info(directory):
     }
 
 
-def next_deploy_tag(location, user=utils.get_real_username()):
+def next_deploy_tag(location):
     """Calculates the scap/sync/{date}/{n} tag to use for this deployment"""
     ensure_dir(location)
     with utils.cd(location):
@@ -167,33 +167,33 @@ def remote_exists(location, remote):
         return subprocess.call(cmd, shell=True) == 0
 
 
-def remote_set(location, repo, remote='origin', user='mwdeploy'):
+def remote_set(location, repo, remote='origin'):
     """set the remote at location to repo"""
     ensure_dir(location)
     with utils.cd(location):
         if remote_exists(location, remote):
             cmd = '/usr/bin/git remote rm {}'.format(remote)
-            utils.sudo_check_call(user, cmd)
+            subprocess.check_call(cmd, shell=True)
 
         cmd = '/usr/bin/git remote add {} {}'.format(remote, repo)
-        utils.sudo_check_call(user, cmd)
+        subprocess.check_call(cmd, shell=True)
 
 
-def fetch(location, repo, user="mwdeploy"):
-    """Fetch a git repo to a location as a user
+def fetch(location, repo):
+    """Fetch a git repo to a location
     """
     if is_dir(location):
-        remote_set(location, repo, user=user)
+        remote_set(location, repo)
         with utils.cd(location):
             cmd = '/usr/bin/git fetch'
-            utils.sudo_check_call(user, cmd)
+            subprocess.check_call(cmd, shell=True)
     else:
         cmd = '/usr/bin/git clone {0} {1}'.format(repo, location)
-        utils.sudo_check_call(user, cmd)
+        subprocess.check_call(cmd, shell=True)
 
 
-def checkout(location, rev, user="mwdeploy"):
-    """Checkout a git repo sha at a location as a user
+def checkout(location, rev):
+    """Checkout a git repo sha at a location
     """
     ensure_dir(location)
 
@@ -203,11 +203,10 @@ def checkout(location, rev, user="mwdeploy"):
         logger.debug(
             'Checking out rev: {} at location: {}'.format(rev, location))
         cmd = '/usr/bin/git checkout --force --quiet {}'.format(rev)
-        utils.sudo_check_call(user, cmd)
+        subprocess.check_call(cmd, shell=True)
 
 
-def update_submodules(location, git_remote, use_upstream=False,
-                      user='mwdeploy'):
+def update_submodules(location, git_remote, use_upstream=False):
     """Update git submodules on target machines"""
     ensure_dir(location)
 
@@ -218,7 +217,7 @@ def update_submodules(location, git_remote, use_upstream=False,
         if not use_upstream:
             remap_submodules(location, git_remote)
         cmd = '/usr/bin/git submodule update --init --recursive'
-        utils.sudo_check_call(user, cmd)
+        subprocess.check_call(cmd, shell=True)
 
 
 @utils.log_context('git_update_server_info')

@@ -171,7 +171,7 @@ class DeployLocal(cli.Application):
         logger.debug('Fetching from: {}'.format(git_remote))
 
         # clone/fetch from the repo to the cache directory
-        git.fetch(self.context.cache_dir, git_remote, user=self.context.user)
+        git.fetch(self.context.cache_dir, git_remote)
 
         # If the rev_dir already exists AND the currently checked-out HEAD is
         # already at the revision specified by ``self.rev`` then you can assume
@@ -190,16 +190,15 @@ class DeployLocal(cli.Application):
                 return
 
         # clone/fetch from the local cache directory to the revision directory
-        git.fetch(rev_dir, self.context.cache_dir, user=self.context.user)
+        git.fetch(rev_dir, self.context.cache_dir)
 
         # checkout the given revision
-        git.checkout(rev_dir, self.rev, user=self.context.user)
+        git.checkout(rev_dir, self.rev)
 
         if has_submodules:
             upstream_submodules = self.config['git_upstream_submodules']
             git.update_submodules(rev_dir, git_remote,
-                                  use_upstream=upstream_submodules,
-                                  user=self.context.user)
+                                  use_upstream=upstream_submodules)
 
         if has_gitfat:
             if not git.fat_isinitialized(rev_dir):

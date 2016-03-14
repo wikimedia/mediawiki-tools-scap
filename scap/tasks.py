@@ -70,8 +70,7 @@ def cache_git_info(version, cfg):
             except IOError:
                 pass
             else:
-                cache_file = git.info_filename(
-                    subdir, branch_dir, cache_dir)
+                cache_file = git.info_filename(subdir, branch_dir, cache_dir)
                 with open(cache_file, 'w') as f:
                     json.dump(info, f)
 
