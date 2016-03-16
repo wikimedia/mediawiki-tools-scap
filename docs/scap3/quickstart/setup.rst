@@ -218,14 +218,18 @@ will timeout after 120 seconds. If a service takes a long time to begin
 accepting connections, you may need to set the ``service_timeout`` value
 to a number > 120.
 
-Additional checks
------------------
+Command Checks
+--------------
 
-After any stage of deployment (the stages being: ``config_deploy`` when any
-template files are built on targets, ``fetch`` when the git repository is fetched
-to the target machines, and ``promote`` when the newly fetched code is swapped for
-the currently live code and a service is restarted), additional, user-defined,
-checks may be preformed.
+User-defined checks may be preformed after any stage of deployment:
+
+#. ``fetch`` when the git repository is fetched to the target machines
+#. ``config_deploy`` when any template files are built on targets
+#. ``promote`` when the newly fetched code is swapped for the currently live code
+#. ``restart_service`` - a service is restarted
+
+.. note:: ``promote`` and ``restart_service`` happen in the same stage, but
+          have hooks to allow independent post-stage checks.
 
 User-defined checks are specified in the ``scap/checks.yaml`` file::
 

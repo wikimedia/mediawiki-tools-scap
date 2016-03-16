@@ -69,6 +69,26 @@ Example checks.yml:
     * :class:`scap.checks.Check`
     * :class:`scap.nrpe.NRPECheck`
 
+Command Checks
+===================
+
+The ``command`` check type allows users to define shell commands to run after
+each stage of deployment.
+
+Command checks can be referenced in `checks.yaml` using `type: command` and
+`command: {shell_command}`. The value of `{shell_command}` will be executed
+by the ``ssh_user`` after the stage specified by ``stage:``
+
+Example checks.yml:
+
+.. code-block:: yaml
+
+    checks:
+      mockbase_responds:
+        type: command
+        stage: promote
+        command: curl -Ss localhost:1134
+
 ..
  TODO: Logstash/Graphite Checks
  ==============================
@@ -77,3 +97,13 @@ Example checks.yml:
  either a logstash and/or a graphite metric to detect anomalies in the rate of
  key events related to the deployment. The canonical use case is to check for a
  jump in the error rate for a service after deploying a new version.
+
+Check stages
+============
+
+NRPE checks, and command checks may be executed following any stage of
+deployment (the stage is specified using the ``stage`` option in the
+``checks.yaml`` file:
+
+#. ``restart_service`` - a service is restarted
+

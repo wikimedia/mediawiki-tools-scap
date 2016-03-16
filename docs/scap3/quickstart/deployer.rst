@@ -139,7 +139,7 @@ with this information via an annotated ``git tag``.
       "commit": "70eb01ed946c6bdc7d94b5b71abe81b9ea2e8d0c"
     }
 
-.. _configuring a git repo: /scap3/repo_config.html#available-configuration-variables
-.. _deploy documentation: /scap3/deploy_commands.html#deploy
-.. _See ``deploy-log`` examples: /scap3/deploy_commands.html#examples
+.. _configuring a git repo: ../repo_config.html#available-configuration-variables
+.. _deploy documentation: ../deploy_commands.html#deploy
+.. _See ``deploy-log`` examples: ../deploy_commands.html#examples
 .. _logstash: https://logstash.wikimedia.org
