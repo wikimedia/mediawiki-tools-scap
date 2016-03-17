@@ -122,3 +122,15 @@ mw-update-l10n
 .. seealso::
    * :func:`scap.UpdateL10n`
    * :func:`scap.tasks.update_localization_cache`
+
+
+refreshCdbJsonFiles
+-------------------
+:command:`refreshCdbJsonFiles` Create JSON/MD5 files for all CDB files in a directory.
+
+.. program-output:: ../bin/refreshCdbJsonFiles --help
+.. seealso::
+   * :func:`scap.refreshCdbJsonFiles`
+   * :func:`scap.tasks.refresh_cdb_json_files`
+
+

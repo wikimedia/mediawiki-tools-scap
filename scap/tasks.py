@@ -5,6 +5,7 @@
     Contains functions implementing scap tasks
 
 """
+import collections
 import errno
 import glob
 import itertools
@@ -16,6 +17,7 @@ import shutil
 import socket
 import subprocess
 import time
+import tempfile
 
 from . import cdblib
 from . import git
@@ -560,6 +562,98 @@ def update_localization_cache(version, wikidb, verbose, cfg, logger=None):
         '%s/refreshCdbJsonFiles '
         '--directory="%s" --threads=%s %s' % (
             cfg['bin_dir'], cache_dir, use_cores, verbose_messagelist))
+
+
+def refresh_cdb_json_files(in_dir, pool_size, verbose):
+    """Update json files from corresponding cdb file in parallel
+
+    :param in_dir: directory containing cdb files
+    :param pool_size: number of "threads" to use
+    :param verbose: output verbosely
+    """
+    logger = utils.get_logger()
+    cdb_files = glob.glob(os.path.join(in_dir, '*.cdb'))
+    pool = multiprocessing.Pool(pool_size)
+
+    reporter = log.MuteReporter()
+    updated = 0
+
+    if verbose:
+        reporter = log.ProgressReporter('cdb update')
+
+    reporter.expect(len(cdb_files))
+    reporter.start()
+
+    for result in pool.imap_unordered(refresh_cdb_json_file, cdb_files):
+        if result:
+            updated += 1
+        reporter.add_success()
+
+    reporter.finish()
+    logger.info('Updated {} JSON file(s) in {}'.format(updated, in_dir))
+
+
+def refresh_cdb_json_file(file_path):
+    """Rebuild json file from cdb file
+
+    #. Check md5 file saved in upstream against md5 of cdb file
+    #. Read cdb file to dict
+    #. Write dict to named temporary file
+    #. Change permissions on named temporary file
+    #. Overwrite upstream json file
+    #. Write upstream md5 file
+    """
+    cdb_dir = os.path.dirname(file_path)
+    file_name = os.path.basename(file_path)
+    upstream_dir = os.path.join(cdb_dir, 'upstream')
+    upstream_md5 = os.path.join(upstream_dir, '{}.MD5'.format(file_name))
+    upstream_json = os.path.join(upstream_dir, '{}.json'.format(file_name))
+
+    logger = utils.get_logger()
+    logger.debug('Processing: {}'.format(file_name))
+
+    cdb_md5 = utils.md5_file(file_path)
+    try:
+        with open(upstream_md5, 'r') as f:
+            json_md5 = f.read()
+
+        # If the cdb file matches the generated md5,
+        # no changes are needed to the json
+        if json_md5 == cdb_md5:
+            return True
+    except IOError:
+        pass
+
+    tmp_json = tempfile.NamedTemporaryFile(delete=False)
+    with open(file_path, 'r') as fp:
+        reader = cdblib.Reader(fp.read())
+
+    out = collections.OrderedDict()
+    for k, v in reader.iteritems():
+        out[k] = v
+
+    json_data = json.dumps(out, indent=0, separators=(',', ':'))
+
+    # Make python json.dumps match php's json_encode
+    # Remove first newline
+    json_data = json_data.replace('\n', '', 1)
+
+    # Escape slashes
+    json_data = json_data.replace('/', '\/')
+
+    # Remove final newline
+    json_data = ''.join(json_data.rsplit('\n', 1))
+
+    tmp_json.write(json_data)
+    tmp_json.close()
+    os.chmod(tmp_json.name, 0644)
+    shutil.move(tmp_json.name, upstream_json)
+    logger.debug('Updated: {}'.format(upstream_json))
+
+    with open(upstream_md5, 'w') as md5:
+        md5.write(cdb_md5)
+
+    return True
 
 
 @utils.log_context('service_restart')

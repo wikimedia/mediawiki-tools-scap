@@ -711,3 +711,40 @@ class HHVMGracefulAll(cli.Application):
         self.get_stats().increment('deploy.restart')
 
         return exit_code
+
+
+class RefreshCdbJsonFiles(cli.Application):
+    """Create JSON/MD5 files for all CDB files in a directory
+
+    This will put a JSON and MD5 file in /upstream for each CDB file.
+
+    This can be combined with rsync and the scap-rebuild-cdbs to
+    push out large CDB files with minimal traffic. CDB files change
+    drastically with small key/value changes, where as JSON files do not, and
+    thus they diff/rdiff much better.
+
+    When pushing updates with rsync, this should be run before running rsync.
+    The rsync command should exclude CDB files or at least use
+    -ignore-existing. After the rsync is done, scap-rebuild-cdbs can be
+    run on each server to apply the updates to the CDB files.
+    """
+
+    @cli.argument('-d', '--directory', required=True,
+                  help='Directory containing cdb files')
+    @cli.argument('-t', '--threads', default=1, type=int,
+                  help='Number of threads to use to build json/md5 files')
+    def main(self, *extra_args):
+        cdb_dir = os.path.realpath(self.arguments.directory)
+        upstream_dir = os.path.join(cdb_dir, 'upstream')
+        use_cores = self.arguments.threads
+
+        if not os.path.isdir(cdb_dir):
+            raise IOError(errno.ENOENT, 'Directory does not exist', cdb_dir)
+
+        if use_cores < 1:
+            use_cores = max(multiprocessing.cpu_count() - 2, 1)
+
+        if not os.path.isdir(upstream_dir):
+            os.mkdir(upstream_dir)
+
+        tasks.refresh_cdb_json_files(cdb_dir, use_cores, self.verbose)
