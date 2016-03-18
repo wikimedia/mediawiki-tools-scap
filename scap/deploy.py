@@ -424,7 +424,9 @@ class Deploy(cli.Application):
     @cli.argument('-f', '--force', action='store_true',
                   help='force re-fetch and checkout')
     @cli.argument('--service-restart', action='store_true',
-                  help='restart service')
+                  help='Restart service')
+    @cli.argument('-i', '--init', action='store_true',
+                  help='Setup a repo for initial deployment')
     def main(self, *extra_args):
         logger = self.get_logger()
 
@@ -448,12 +450,18 @@ class Deploy(cli.Application):
             logger.warn('No targets selected, check limits and dsh_targets')
             return 1
 
+        deploy_name = 'Deploy' if not self.arguments.init else 'Setup'
+        display_name = '{}: {}'.format(deploy_name, self.repo)
+
         with utils.lock(self.context.lock_path()):
-            with log.Timer('deploy_' + self.repo):
+            with log.Timer(display_name):
                 timestamp = datetime.utcnow()
                 tag = git.next_deploy_tag(location=self.context.root)
                 commit = git.sha(location=self.context.root,
                                  rev=self.arguments.rev)
+
+                self.config_deploy_setup(commit)
+                self.config['git_rev'] = commit
 
                 self.deploy_info.update({
                     'tag': tag,
@@ -462,15 +470,30 @@ class Deploy(cli.Application):
                     'timestamp': timestamp.isoformat(),
                 })
 
+                self.deploy_info.update({
+                    key: self.config.get(key)
+                    for key in self.DEPLOY_CONF
+                    if self.config.get(key) is not None
+                })
+
+                # Handle JSON output from deploy-local
+                self.deploy_info['log_json'] = True
+
+                # Be sure to skip checks if they aren't configured
+                if not os.path.exists(self.context.scap_path('checks.yaml')):
+                    self.deploy_info['perform_checks'] = False
+
+                self.get_logger().debug('Update DEPLOY_HEAD')
+                git.update_deploy_head(self.deploy_info, self.context.root)
+
                 git.tag_repo(self.deploy_info, location=self.context.root)
-
-                self.config_deploy_setup(commit)
-
-                self.config['git_rev'] = commit
 
                 # Run git update-server-info because git repo is a dumb
                 # apache server
                 git.update_server_info(self.config['git_submodules'])
+
+                if self.arguments.init:
+                    return 0
 
                 return self._execute_for_groups(stages)
         return 0
@@ -592,19 +615,7 @@ class Deploy(cli.Application):
         deploy_local_cmd = [self.get_script_path('deploy-local')]
         batch_size = self._get_batch_size(stage)
 
-        self.deploy_info.update({
-            key: self.config.get(key)
-            for key in self.DEPLOY_CONF
-            if self.config.get(key) is not None
-        })
-
-        # Handle JSON output from deploy-local
-        self.deploy_info['log_json'] = True
         deploy_local_cmd.append('-v')
-
-        # Be sure to skip checks if they aren't configured
-        if not os.path.exists(self.context.scap_path('checks.yaml')):
-            self.deploy_info['perform_checks'] = False
 
         deploy_local_cmd += ['--repo', self.config['git_repo']]
 
@@ -615,7 +626,6 @@ class Deploy(cli.Application):
 
         logger.debug('Running remote deploy cmd {}'.format(deploy_local_cmd))
 
-        git.update_deploy_head(self.deploy_info, self.context.root)
         deploy_stage = ssh.Job(hosts=targets, user=self.config['ssh_user'])
         deploy_stage.output_handler = ssh.JSONOutputHandler
         deploy_stage.max_failure = self.MAX_FAILURES

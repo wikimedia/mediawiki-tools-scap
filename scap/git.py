@@ -248,7 +248,7 @@ def update_deploy_head(deploy_info, location):
         deploy_file = os.path.join(location, '.git', 'DEPLOY_HEAD')
         logger.debug('Creating {}'.format(deploy_file))
         with open(deploy_file, 'w+') as f:
-            f.write(yaml.dump(deploy_info))
+            f.write(yaml.dump(deploy_info, default_flow_style=False))
             f.close()
 
 
