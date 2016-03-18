@@ -5,7 +5,8 @@ Configuring Service Checks
 Scap can perform service checks during a deployment in order to detect any
 problems that might be caused by the new code (or configuration) and alert the
 deployer early in the process and offering the option to roll back to the
-previously deployed version.
+previously deployed version. Additionally, you can run any arbitrary command using checks.
+
 
 .. topic:: Logging and Monitoring
 
