@@ -1,3 +1,18 @@
+scap (3.1.0-1) unstable; urgency=low
+
+  * Add --init flag for deploy
+  * tox: run setup.py, add 'venv' to run any command
+  * Add a note that checks can be used to run any kind of commands
+  * check_valid_syntax filter out dir passed to php -l
+  * Rewrite refreshCdbJsonFiles in python
+  * Move restart_service to the end of promote
+  * Remove user arguments from git operations
+  * Move scap3 service restart to it's own stage
+  * Support for git-fat managed binary files
+  * Use absolute shebangs only when packaged
+
+ -- Tyler Cipriani <tcipriani@wikimediawiki.org>  Thu, 24 Mar 2016 17:39:20 -0800
+
 scap (3.0.3-1) unstable; urgency=low
 
   * Don't rebuild if cdb mtime is close to json mtime
