@@ -47,13 +47,12 @@ def checktype(type):
     return decorator
 
 
-def execute(checks, logger, concurrency=2, timeout=30):
+def execute(checks, logger, concurrency=2):
     """Executes the given checks in parallel.
 
     :param checks: iterable of `checks.Check` objects
     :param logger: `logging.Logger` to send messages to
     :param concurrency: level of concurrency
-    :param timeout: maximum time allowed for check execution
 
     :returns: tuple of the aggregate check success and list of executed checks
     :rtype: (bool, list)
@@ -112,9 +111,9 @@ def execute(checks, logger, concurrency=2, timeout=30):
 
             # Enforce timeout on running jobs
             for job in doing.values():
-                if job.duration() >= timeout:
+                if job.timedout():
                     msg = "Check '{}' exceeded {}s timeout"
-                    msg = msg.format(job.check.name, timeout)
+                    msg = msg.format(job.check.name, job.check.timeout)
                     handle_failure(job, msg)
 
     finally:
@@ -161,12 +160,21 @@ def register_type(type, factory):
 
 @checktype('command')
 class Check(object):
-    """Represents a loaded 'command' check."""
+    """Represents a loaded 'command' check.
 
-    def __init__(self, name, stage, group=None, command='', **opts):
+    :param name: check name
+    :param stage: stage after which to run the check
+    :param group: deploy group for which to run the check
+    :param timeout: maximum time allowed for check execution, in seconds
+    :param command: check command to run
+    """
+
+    def __init__(self, name, stage, group=None, timeout=30.0, command='',
+                 **opts):
         self.name = name
         self.stage = stage
         self.group = group
+        self.timeout = timeout
         self.command = command
         self.options = opts
 
@@ -237,6 +245,11 @@ class CheckJob(object):
             self.ended = time.time()
 
         return result
+
+    def timedout(self):
+        """Whether the job duration has exceeded the job timeout."""
+
+        return self.duration() > self.check.timeout
 
     def wait(self):
         """Blocks for the last stdout/stderr read of the check process.

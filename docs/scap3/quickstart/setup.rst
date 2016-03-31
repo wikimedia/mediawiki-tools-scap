@@ -246,11 +246,13 @@ a valid response to an HTTP request on localhost::
         type: command
         stage: promote
         command: curl -Ss localhost:1134
+        timeout: 60
 
 Now, after the ``service_name`` is restarted, and after the ``service_port`` is
 checked, at the end of the ``promote`` stage, the ``mockbase_responds`` check
 will run. If the exit status of the command is non-zero, the deployer will be
-notified and deployment will fail.
+notified and deployment will fail. If a check exceeds the given ``timeout``
+(30 seconds by default if none if specified), the check will also fail.
 
 In the example above, the user-defined check will happen for every service group.
 If I wanted to only run this check for the ``canary`` deploy group, I would modify
@@ -262,6 +264,7 @@ If I wanted to only run this check for the ``canary`` deploy group, I would modi
         stage: promote
         group: canary
         command: curl -Ss localhost:1134
+        timeout: 60
 
 In addition to the ``command``-type checks, you can also run any :ref:`nrpe`
 that are defined in ``/etc/nagios/nrpe.d``. For example, if, in addition to
@@ -276,6 +279,7 @@ of the fetch stage for all groups using the NRPE check at
         stage: promote
         group: canary
         command: curl -Ss localhost:1134
+        timeout: 60
 
       check_diskspace:
         type: nrpe

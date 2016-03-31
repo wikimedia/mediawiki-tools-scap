@@ -62,6 +62,7 @@ Example checks.yml:
         type: nrpe
         command: check_service_endpoints
         stage: promote
+        timeout: 60 # default is 30 seconds
 
 .. seealso::
 

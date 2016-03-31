@@ -18,6 +18,7 @@ class ChecksConfigTest(unittest.TestCase):
                 type: command
                 command: /bin/true
                 stage: promote
+                timeout: 60
               bar:
                 type: command
                 command: /bin/false
@@ -127,9 +128,10 @@ class ChecksExecuteTest(unittest.TestCase):
         self.assertGreater(done[3].started - done[0].started, 0.1)
 
     def test_execute_timeout(self):
-        chks = [checks.Check('foo', stage='x', command='sleep 0.1')]
+        chks = [checks.Check('foo', stage='x', command='sleep 0.1',
+                             timeout=0.01)]
 
-        result, done = checks.execute(chks, logger=self.logger, timeout=0.01)
+        result, done = checks.execute(chks, logger=self.logger)
 
         self.assertEqual(len(done), 0)
         self.assertFalse(result)
