@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-'''
+"""
 | Imported from: `python-pure-cdb <https://python-pure-cdb.googlecode.com/>`_
 | Author: David Wilson
 | License: MIT
@@ -15,14 +15,15 @@ rather than djb_hash() for a tidy speedup.
 .. note::
     Minor alterations made to comply with PEP8 style check and to remove
     attempt to import C implementation of djb_hash. -- bd808, 2014-03-04
-'''
+"""
 
 from _struct import Struct
 from itertools import chain
 
 
 def py_djb_hash(s):
-    '''Return the value of DJB's hash function for the given 8-bit string.
+    u"""
+    Return the value of DJB's hash function for the given 8-bit string.
 
     >>> py_djb_hash('')
     5381
@@ -30,7 +31,7 @@ def py_djb_hash(s):
     177572
     >>> py_djb_hash('€')
     193278953
-    '''
+    """
     h = 5381
     for c in s:
         h = (((h << 5) + h) ^ ord(c)) & 0xffffffff
@@ -44,12 +45,17 @@ write_2_le4 = Struct('<LL').pack
 
 
 class Reader(object):
-    '''A dictionary-like object for reading a Constant Database accessed
-    through a string or string-like sequence, such as mmap.mmap().'''
+
+    """
+    A dictionary-like object for reading a Constant Database.
+
+    Reader accesses through a string or string-like sequence
+    such as mmap.mmap().
+    """
 
     def __init__(self, data, hashfn=djb_hash):
-        '''Create an instance reading from a sequence and using hashfn to hash
-        keys.
+        """
+        Create an instance reading from a sequence and hash keys using hashfn.
 
         >>> Reader(data='')
         Traceback (most recent call last):
@@ -57,7 +63,7 @@ class Reader(object):
         IOError: CDB too small
         >>> Reader(data='a' * 2048) #doctest: +ELLIPSIS
         <scap.cdblib.Reader object at 0x...>
-        '''
+        """
         if len(data) < 2048:
             raise IOError('CDB too small')
 
@@ -70,7 +76,7 @@ class Reader(object):
         self.length = sum(p[1] >> 1 for p in self.index)
 
     def iteritems(self):
-        '''Like dict.iteritems(). Items are returned in insertion order.'''
+        """Like dict.iteritems(). Items are returned in insertion order."""
         pos = 2048
         while pos < self.table_start:
             klen, dlen = read_2_le4(self.data[pos:pos + 8])
@@ -85,44 +91,44 @@ class Reader(object):
             yield key, data
 
     def items(self):
-        '''Like dict.items().'''
+        """Like dict.items()."""
         return list(self.iteritems())
 
     def iterkeys(self):
-        '''Like dict.iterkeys().'''
+        """Like dict.iterkeys()."""
         return (p[0] for p in self.iteritems())
     __iter__ = iterkeys
 
     def itervalues(self):
-        '''Like dict.itervalues().'''
+        """Like dict.itervalues()."""
         return (p[1] for p in self.iteritems())
 
     def keys(self):
-        '''Like dict.keys().'''
+        """Like dict.keys()."""
         return [p[0] for p in self.iteritems()]
 
     def values(self):
-        '''Like dict.values().'''
+        """Like dict.values()."""
         return [p[1] for p in self.iteritems()]
 
     def __getitem__(self, key):
-        '''Like dict.__getitem__().'''
+        """Like dict.__getitem__()."""
         value = self.get(key)
         if value is None:
             raise KeyError(key)
         return value
 
     def has_key(self, key):
-        '''Return True if key exists in the database.'''
+        """Return True if key exists in the database."""
         return self.get(key) is not None
     __contains__ = has_key
 
     def __len__(self):
-        '''Return the number of records in the database.'''
+        """Return the number of records in the database."""
         return self.length
 
     def gets(self, key):
-        '''Yield values for key in insertion order.'''
+        """Yield values for key in insertion order."""
         # Truncate to 32 bits and remove sign.
         h = self.hashfn(key) & 0xffffffff
         start, nslots = self.index[h & 0xff]
@@ -146,49 +152,54 @@ class Reader(object):
                         yield self.data[rec_pos:rec_pos + dlen]
 
     def get(self, key, default=None):
-        '''Get the first value for key, returning default if missing.'''
+        """Get the first value for key, returning default if missing."""
         # Avoid exception catch when handling default case; much faster.
         return chain(self.gets(key), (default,)).next()
 
     def getint(self, key, default=None, base=0):
-        '''Get the first value for key converted it to an int, returning
-        default if missing.'''
+        """Get the first value for key converted it to an int.
+
+        It returns default if key is missing."""
         value = self.get(key, default)
         if value is not default:
             return int(value, base)
         return value
 
     def getints(self, key, base=0):
-        '''Yield values for key in insertion order after converting to int.'''
+        """Yield values for key in insertion order after converting to int."""
         return (int(v, base) for v in self.gets(key))
 
     def getstring(self, key, default=None, encoding='utf-8'):
-        '''Get the first value for key decoded as unicode, returning default if
-        not found.'''
+        """Get the first value for key decoded as unicode.
+
+        it returns default if key is not found."""
         value = self.get(key, default)
         if value is not default:
             return value.decode(encoding)
         return value
 
     def getstrings(self, key, encoding='utf-8'):
-        '''Yield values for key in insertion order after decoding as
-        unicode.'''
+        """Yield values for key in insertion order after decoding as
+        unicode."""
         return (v.decode(encoding) for v in self.gets(key))
 
 
 class Writer(object):
-    '''Object for building new Constant Databases, and writing them to a
-    seekable file-like object.'''
+
+    """Object for building new Constant Databases, and writing them to a
+    seekable file-like object."""
 
     def __init__(self, fp, hashfn=djb_hash):
-        '''Create an instance writing to a file-like object, using hashfn to
-        hash keys.
+        """
+        Create an instance writing to a file-like object and hash keys.
+
+        It uses hashfn to hash keys.
 
         >>> import tempfile
         >>> temp_fp = tempfile.TemporaryFile()
         >>> Writer(fp=temp_fp, hashfn=py_djb_hash) #doctest: +ELLIPSIS
         <scap.cdblib.Writer object at 0x...>
-        '''
+        """
         self.fp = fp
         self.hashfn = hashfn
 
@@ -196,7 +207,7 @@ class Writer(object):
         self._unordered = [[] for i in xrange(256)]
 
     def put(self, key, value=''):
-        '''Write a string key/value pair to the output file.'''
+        """Write a string key/value pair to the output file."""
         assert type(key) is str and type(value) is str
 
         pos = self.fp.tell()
@@ -208,34 +219,37 @@ class Writer(object):
         self._unordered[h & 0xff].append((h, pos))
 
     def puts(self, key, values):
-        '''Write more than one value for the same key to the output file.
-        Equivalent to calling put() in a loop.'''
+        """
+        Write more than one value for the same key to the output file.
+
+        Equivalent to calling put() in a loop.
+        """
         for value in values:
             self.put(key, value)
 
     def putint(self, key, value):
-        '''Write an integer as a base-10 string associated with the given key
-        to the output file.'''
+        """Write an integer as a base-10 string associated with the given key
+        to the output file."""
         self.put(key, str(value))
 
     def putints(self, key, values):
-        '''Write zero or more integers for the same key to the output file.
-        Equivalent to calling putint() in a loop.'''
+        """Write zero or more integers for the same key to the output file.
+        Equivalent to calling putint() in a loop."""
         self.puts(key, (str(value) for value in values))
 
     def putstring(self, key, value, encoding='utf-8'):
-        '''Write a unicode string associated with the given key to the output
-        file after encoding it as UTF-8 or the given encoding.'''
+        """Write a unicode string associated with the given key to the output
+        file after encoding it as UTF-8 or the given encoding."""
         self.put(key, unicode.encode(value, encoding))
 
     def putstrings(self, key, values, encoding='utf-8'):
-        '''Write zero or more unicode strings to the output file. Equivalent to
-        calling putstring() in a loop.'''
+        """Write zero or more unicode strings to the output file. Equivalent to
+        calling putstring() in a loop."""
         self.puts(key, (unicode.encode(value, encoding) for value in values))
 
     def finalize(self):
-        '''Write the final hash tables to the output file, and write out its
-        index. The output file remains open upon return.'''
+        """Write the final hash tables to the output file, and write out its
+        index. The output file remains open upon return."""
         index = []
         for tbl in self._unordered:
             length = len(tbl) << 1
