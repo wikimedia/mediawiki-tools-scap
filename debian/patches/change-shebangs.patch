@@ -88,6 +88,14 @@ Author: Wikimedia Release Engineering <releng@wikimedia.org>
  # -*- coding: utf-8 -*-
  #
  # Rebuild localization cache CDB files from the JSON versions.
+--- b/bin/scap-say
++++ a/bin/scap-say
+@@ -1,4 +1,4 @@
+-#!/usr/bin/env python2
++#!/usr/bin/python2
+ # -*- coding: utf-8 -*-
+ #
+ # Make the scap pig say stuff.
 --- b/bin/security-patch-check
 +++ a/bin/security-patch-check
 @@ -1,4 +1,4 @@

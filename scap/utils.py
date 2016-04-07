@@ -24,6 +24,7 @@ import struct
 import subprocess
 import sys
 import tempfile
+import textwrap
 
 from . import ansi
 from functools import wraps
@@ -536,6 +537,47 @@ def logo(color=True, **colors):
         '''  %(hoof)s«%(pig)s_/%(reset)s''',
         ''' %(signature)sjgs/bd808%(reset)s''',
         '''                %(text)s/_/%(reset)s\n''',
+    ])
+
+
+def scap_say(words=None, width=None):
+    """Make the scap pig say stuff"""
+    if not words:
+        words = fortune()
+
+    if not width:
+        width = min([50, os.environ.get('COLUMNS', 50)])
+
+    txt_width = width - 5
+    box_width = width - 2
+
+    if len(words) > txt_width:
+        words = textwrap.wrap(words, txt_width)
+    else:
+        words = [words]
+
+    lines = [' {:-^{width}}\n/{:^{width}}\\'.format('', '', width=box_width)]
+    lines += ['|{:^{width}}|'.format(word, width=box_width) for word in words]
+
+    lines.append('\{:^{width}}/\n {:-^{width}}'.format('', '',
+                                                       width=box_width))
+    lines.append('{:^10}'.format('\\'))
+    lines.append('{:^11}'.format('\\'))
+    lines.append('{:^13}'.format('\\'))
+    lines.append(logo())
+    return '\n'.join(lines)
+
+
+def fortune():
+    """Get a random fortune"""
+    return random.choice([
+        'S.C.A.P.: silencing communist american perpetrators',
+        'S.C.A.P.: someone can always pontificate',
+        'S.C.A.P.: scap can absolutely pollute',
+        'S.C.A.P.: sync cars and planes',
+        'S.C.A.P.: scatter crap around production',
+        'S.C.A.P.: succulent cacti are plentiful',
+        'S.C.A.P.: sorcerer\'s cats are powerful',
     ])
 
 
