@@ -34,13 +34,13 @@ Below is example puppet code for each of your targets that should:
         }
 
         ssh::userkey { $user:
-            source => puppet://modules/mockbase/deploy-test_rsa.pub,
+            source => 'puppet:///modules/mockbase/deploy-test_rsa.pub',
         }
 
         file { '/srv/deployment/mockbase':
             ensure  =>  directory,
             owner   =>  $user,
-            mode    => '0755'
+            mode    => '0755',
             recurse => true,
         }
 

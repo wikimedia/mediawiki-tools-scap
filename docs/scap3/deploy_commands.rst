@@ -39,8 +39,8 @@ one or more fields using a given free-form expression. By default
 files and immediately begin tailing any newly discovered log file.
 
 As an alternative to the default behavior, you can either specify the log file
-to parse via the :option:`--file` option or choose the newest log file by using
-:option:`--latest`; in this case, it will simply filter the entire file for
+to parse via the :option:`deploy-log --file` option or choose the newest log file by using
+:option:`deploy-log --latest`; in this case, it will simply filter the entire file for
 matching records and exit, rather than watching for more log files to be
 created.
 
@@ -56,7 +56,7 @@ created.
 Usage
 -----
 
-deploy-log [:option:`--file` <file>] [:option:`--latest`] [:option:`-v`] [:option:`expr`]
+:command:`deploy-log` ``[--file <file>] [--latest] [-v] [expr]``
 
 
 .. program:: deploy-log
