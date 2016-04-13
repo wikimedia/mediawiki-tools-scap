@@ -39,9 +39,20 @@ class Context(object):
         return os.path.join(self.root, *relpaths)
 
     def setup(self):
-        """Creates the root and temporary directories as needed."""
-
+        """Create the root directory, use it as the root context."""
         utils.mkdir_p(self.root, user=self.user)
+
+        # Needed for deploy-local.
+        #
+        # If deploy-local is run like:
+        #
+        #     sudo -u [deploy-user] -- deploy-local --repo [repo]
+        #
+        # it will fail unless the deploy-user is able to cd into the current
+        # directory. This is because the utils.cd context manager tries to
+        # move back to the directory in which it started after the
+        # cd context is closed.
+        os.chdir(self.root)
 
 
 class HostContext(Context):
