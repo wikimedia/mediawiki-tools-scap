@@ -14,4 +14,8 @@ scap_src = os.path.dirname(os.path.dirname(script))
 sys.path.append(scap_src)
 
 import scap
-scap.HHVMGracefulAll.run()
+
+out = scap.utils.deprecated_script('Try `scap hhvm-graceful`')
+sys.stderr.write(out)
+
+scap.cli.Application.run(script=scap.HHVMGracefulAll)

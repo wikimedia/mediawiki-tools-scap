@@ -5,18 +5,15 @@
     Classes and helpers for creating command line interfaces
 
 """
-import argparse
 import logging
 import os
 import sys
 import time
 
+from . import arg
 from . import config
 from . import log
 from . import utils
-
-
-ATTR_ARGUMENTS = '_app_arguments'
 
 
 class Application(object):
@@ -54,7 +51,7 @@ class Application(object):
         """Get the elapsed duration in seconds."""
         return time.time() - self.start
 
-    def get_script_path(self, script_name):
+    def get_script_path(self, script_name='scap'):
         """Qualify the path to a scap script."""
         return os.path.join(self.config['bin_dir'], script_name)
 
@@ -66,8 +63,8 @@ class Application(object):
         notification channel.
 
         Announcements can be disabled by setting 'DOLOGMSGNOLOG' in the calling
-        shell environment (e.g. `DOLOGMSGNOLOG=1 sync-file foo.php`). In this
-        case the log event will still be emitted to the normal logger as
+        shell environment (e.g. `DOLOGMSGNOLOG=1 scap sync-file foo.php`). In
+        this case the log event will still be emitted to the normal logger as
         though `self.get_logger().info()` was used instead of
         `self.announce()`.
         """
@@ -90,58 +87,6 @@ class Application(object):
         return utils.get_active_wikiversions(
             self.config[source_tree + '_dir'],
             self.config['wmf_realm'], self.config['datacenter'])
-
-    def _parse_arguments(self, argv):
-        """Parse command line arguments.
-
-        :returns: Tuple of parsed argument Namespace and list of any extra
-                  arguments that were not parsed.
-        """
-        self._argparser = self._build_argparser()
-        return self._argparser.parse_known_args(argv)
-
-    def _build_argparser(self):
-        doc = self.__doc__.splitlines() if self.__doc__ else [None]
-        desc = doc[0]
-
-        if len(doc) > 1:
-            epilog = "\n".join(doc[1::]).strip()
-            formatter = argparse.RawDescriptionHelpFormatter
-        else:
-            epilog = None
-            formatter = argparse.HelpFormatter
-
-        parser = argparse.ArgumentParser(description=desc,
-                                         epilog=epilog,
-                                         formatter_class=formatter)
-
-        # Look for arguments that were added to our main method
-        local_args = getattr(self.main, ATTR_ARGUMENTS, [])
-
-        # List is built from the bottom up so reverse it to make the parser
-        # arguments read in the same order as they were declared.
-        for argspec in reversed(local_args):
-            flags = argspec.pop('_flags')
-            parser.add_argument(*flags, **argspec)
-
-        parser.add_argument('-c', '--conf', dest='conf_file',
-                            type=argparse.FileType('r'),
-                            help='Path to configuration file')
-        parser.add_argument('-D', '--define', dest='defines',
-                            action='append',
-                            type=lambda v: tuple(v.split(':')),
-                            help='Set a configuration value',
-                            metavar='<name>:<value>')
-        parser.add_argument('-v', '--verbose', action='store_const',
-                            const=logging.DEBUG, default=logging.INFO,
-                            dest='loglevel', help='Verbose output')
-        parser.add_argument('--no-shared-authsock', dest='shared_authsock',
-                            action='store_false',
-                            help='Ignore any shared ssh-auth configuration')
-        parser.add_argument('-e', '--environment', default=None,
-                            help='environment in which to execute scap')
-
-        return parser
 
     def _process_arguments(self, args, extra_args):
         """Validate and process command line arguments.
@@ -243,8 +188,22 @@ class Application(object):
             raise RuntimeError(
                 '%s requires SSH agent forwarding' % self.program_name)
 
+    @staticmethod
+    def factory(argv, script=None):
+        parser = arg.build_parser(script)
+        args, extra_args = parser.parse_known_args()
+
+        command_name = getattr(args.which, arg.ATTR_SUBPARSER)['_flags'][0]
+
+        app = args.which(command_name)
+        app._argparser = parser
+        app.arguments = args
+        app.extra_arguments = extra_args
+
+        return app
+
     @classmethod
-    def run(cls, argv=sys.argv):
+    def run(cls, argv=sys.argv, script=None):
         """Construct and run an application.
 
         Calls ``sys.exit`` with exit status returned by application by
@@ -262,19 +221,25 @@ class Application(object):
             format=log.CONSOLE_LOG_FORMAT,
             datefmt='%H:%M:%S')
 
-        argv = list(argv)
-        app = cls(argv.pop(0))
+        # Setup instance for logger access
+        app = cls('scap')
+
         exit_status = 0
         try:
             if os.geteuid() == 0:
                 raise SystemExit('Scap should not be run as root')
-            args, extra_args = app._parse_arguments(argv)
-            args, extra_args = app._process_arguments(args, extra_args)
-            app.arguments = args
+
+            app = Application.factory(argv, script=script)
+
+            # Let each application handle `extra_args`
+            app.arguments, app.extra_arguments = app._process_arguments(
+                app.arguments,
+                app.extra_arguments)
+
             app._load_config()
             app._setup_loggers()
             app._setup_environ()
-            exit_status = app.main(extra_args)
+            exit_status = app.main(app.extra_arguments)
 
         except SystemExit as ex:
             # Triggered by sys.exit() calls
@@ -305,13 +270,24 @@ class Application(object):
 
 def argument(*args, **kwargs):
     """Decorator used to declare a command line argument on a
-    :class:`Application`'s ``main`` method.
+    :class:`Application`
 
     Use with the same signature as ``ArgumentParser.add_argument``.
     """
     def wrapper(func):
-        arguments = getattr(func, ATTR_ARGUMENTS, [])
+        arguments = getattr(func, arg.ATTR_ARGUMENTS, [])
         arguments.append(dict(_flags=args, **kwargs))
-        setattr(func, ATTR_ARGUMENTS, arguments)
+        setattr(func, arg.ATTR_ARGUMENTS, arguments)
         return func
+    return wrapper
+
+
+def command(*args, **kwargs):
+    """Decorator used to map a subcommand to a particular class
+
+    Use with the same signature as ``SubparsersAction.add_parser``
+    """
+    def wrapper(cls):
+        setattr(cls, arg.ATTR_SUBPARSER, dict(_flags=args, **kwargs))
+        return cls
     return wrapper

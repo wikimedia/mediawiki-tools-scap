@@ -81,7 +81,7 @@ class AbstractSync(cli.Application):
                 update_apaches.exclude_hosts(proxies)
                 update_apaches.shuffle()
                 update_apaches.command(self._apache_sync_command(proxies))
-                update_apaches.progress('sync-common')
+                update_apaches.progress('sync-apaches')
                 succeeded, failed = update_apaches.run()
                 if failed:
                     self.get_logger().warning(
@@ -131,7 +131,7 @@ class AbstractSync(cli.Application):
 
     def _master_sync_command(self):
         """Synchronization command to run on the master hosts."""
-        cmd = [self.get_script_path('sync-master')]
+        cmd = [self.get_script_path(), 'pull-master']
         if self.verbose:
             cmd.append('--verbose')
         cmd.append(socket.getfqdn())
@@ -139,7 +139,7 @@ class AbstractSync(cli.Application):
 
     def _proxy_sync_command(self):
         """Synchronization command to run on the proxy hosts."""
-        cmd = [self.get_script_path('sync-common'), '--no-update-l10n']
+        cmd = [self.get_script_path(), 'pull', '--no-update-l10n']
         if self.verbose:
             cmd.append('--verbose')
         return cmd
@@ -158,8 +158,11 @@ class AbstractSync(cli.Application):
         pass
 
 
+@cli.command('security-check')
 class SecurityPatchCheck(cli.Application):
-    """class to check if patches in ``/srv/patches`` have been applied to the
+    """Check if security patches are applied
+
+    class to check if patches in ``/srv/patches`` have been applied to the
     active wikiversions
     """
 
@@ -170,6 +173,7 @@ class SecurityPatchCheck(cli.Application):
         return 0
 
 
+@cli.command('wikiversions-compile', help=argparse.SUPPRESS)
 class CompileWikiversions(cli.Application):
     """Compile wikiversions.json to wikiversions.php."""
 
@@ -180,8 +184,9 @@ class CompileWikiversions(cli.Application):
         return 0
 
 
+@cli.command('wikiversions-inuse')
 class MWVersionsInUse(cli.Application):
-    """Get a list of the active MediaWiki versions."""
+    """Get a list of the active MediaWiki versions"""
 
     @cli.argument('--withdb', action='store_true',
                   help='Add `=wikidb` with some wiki using the version.')
@@ -206,8 +211,9 @@ class MWVersionsInUse(cli.Application):
         return args, extra_args
 
 
+@cli.command('l10n-purge')
 class PurgeL10nCache(cli.Application):
-    """Purge the localization cache for an inactive MediaWiki version."""
+    """Purge the localization cache for an inactive MediaWiki version"""
 
     @cli.argument('--version', required=True,
                   help='MediaWiki version (eg 1.23wmf16)')
@@ -225,6 +231,7 @@ class PurgeL10nCache(cli.Application):
         return 0
 
 
+@cli.command('cdb-rebuild', help=argparse.SUPPRESS)
 class RebuildCdbs(cli.Application):
     """Rebuild localization cache CDB files from the JSON versions."""
 
@@ -272,6 +279,7 @@ class RebuildCdbs(cli.Application):
                 cache_dir, use_cores, True, self.arguments.mute)
 
 
+@cli.command('sync', help='Deploy MediaWiki to the cluser (formerly scap)')
 class Scap(AbstractSync):
     """Deploy MediaWiki to the cluster.
 
@@ -307,12 +315,12 @@ class Scap(AbstractSync):
         tasks.sync_common(self.config)
 
         # Bug 63659: Compile deploy_dir/wikiversions.json to cdb
-        utils.sudo_check_call('mwdeploy',
-                              self.get_script_path('compile-wikiversions'))
+        cmd = '{} wikiversions-compile'.format(self.get_script_path())
+        utils.sudo_check_call('mwdeploy', cmd)
 
         # Update list of extension message files and regenerate the
         # localisation cache.
-        with log.Timer('mw-update-l10n', self.get_stats()):
+        with log.Timer('l10n-update', self.get_stats()):
             for version, wikidb in self.active_wikiversions().items():
                 tasks.update_localization_cache(
                     version, wikidb, self.verbose, self.config)
@@ -325,16 +333,16 @@ class Scap(AbstractSync):
     def _after_cluster_sync(self):
         target_hosts = self._get_target_list()
         # Ask apaches to rebuild l10n CDB files
-        with log.Timer('scap-rebuild-cdbs', self.get_stats()):
+        with log.Timer('scap-cdb-rebuild', self.get_stats()):
             rebuild_cdbs = ssh.Job(target_hosts, user=self.config['ssh_user'])
             rebuild_cdbs.shuffle()
-            rebuild_cdbs.command('sudo -u mwdeploy -n -- %s' %
-                                 self.get_script_path('scap-rebuild-cdbs'))
-            rebuild_cdbs.progress('scap-rebuild-cdbs')
+            rebuild_cdbs.command('sudo -u mwdeploy -n -- %s cdb-rebuild' %
+                                 self.get_script_path())
+            rebuild_cdbs.progress('scap-cdb-rebuild')
             succeeded, failed = rebuild_cdbs.run()
             if failed:
                 self.get_logger().warning(
-                    '%d hosts had scap-rebuild-cdbs errors', failed)
+                    '%d hosts had scap-cdb-rebuild errors', failed)
                 self.soft_errors = True
 
         # Update and sync wikiversions.php
@@ -383,6 +391,7 @@ class Scap(AbstractSync):
         return exit_status
 
 
+@cli.command('pull-master', help=argparse.SUPPRESS)
 class SyncMaster(cli.Application):
     """Sync local MediaWiki staging directory with deploy server state."""
 
@@ -396,6 +405,8 @@ class SyncMaster(cli.Application):
         return 0
 
 
+@cli.command('pull', help='Sync local MediaWiki deployment directory with '
+                          'deploy server state (formerly sync-common)')
 class SyncCommon(cli.Application):
     """Sync local MediaWiki deployment directory with deploy server state."""
 
@@ -417,13 +428,14 @@ class SyncCommon(cli.Application):
         if self.arguments.update_l10n:
             utils.sudo_check_call(
                 'mwdeploy',
-                self.get_script_path('scap-rebuild-cdbs') + ' --no-progress'
+                self.get_script_path() + ' cdb-rebuild --no-progress'
             )
         return 0
 
 
+@cli.command('sync-dir')
 class SyncDir(AbstractSync):
-    """Sync a directory to the cluster."""
+    """Sync a directory to the cluster"""
 
     @cli.argument('dir', help='Directory to sync')
     @cli.argument('message', nargs='*', help='Log message for SAL')
@@ -442,7 +454,7 @@ class SyncDir(AbstractSync):
         tasks.check_valid_syntax(abspath)
 
     def _proxy_sync_command(self):
-        cmd = [self.get_script_path('sync-common'), '--no-update-l10n']
+        cmd = [self.get_script_path(), 'pull', '--no-update-l10n']
 
         if '/' in self.include:
             parts = self.include.split('/')
@@ -465,8 +477,9 @@ class SyncDir(AbstractSync):
         self.get_stats().increment('deploy.all')
 
 
+@cli.command('sync-file')
 class SyncFile(AbstractSync):
-    """Sync a specific file to the cluster."""
+    """Sync a specific file to the cluster"""
 
     @cli.argument('file', help='File to sync')
     @cli.argument('message', nargs='*', help='Log message for SAL')
@@ -492,7 +505,7 @@ class SyncFile(AbstractSync):
             utils.check_valid_json_file(abspath)
 
     def _proxy_sync_command(self):
-        cmd = [self.get_script_path('sync-common'), '--no-update-l10n']
+        cmd = [self.get_script_path(), 'pull', '--no-update-l10n']
 
         if '/' in self.include:
             parts = self.include.split('/')
@@ -515,8 +528,9 @@ class SyncFile(AbstractSync):
         self.get_stats().increment('deploy.all')
 
 
+@cli.command('sync-l10n')
 class SyncL10n(AbstractSync):
-    """Sync l10n files for a given branch and rebuild cache files."""
+    """Sync l10n files for a given branch and rebuild cache files"""
 
     @cli.argument('version', help='MediaWiki version (eg 1.27.0-wmf.7)')
     def main(self, *extra_args):
@@ -542,7 +556,7 @@ class SyncL10n(AbstractSync):
         self.include = '%s/***' % relpath
 
     def _proxy_sync_command(self):
-        cmd = [self.get_script_path('sync-common'), '--no-update-l10n']
+        cmd = [self.get_script_path(), 'pull', '--no-update-l10n']
 
         parts = self.include.split('/')
         for i in range(1, len(parts)):
@@ -559,28 +573,30 @@ class SyncL10n(AbstractSync):
     def _after_cluster_sync(self):
         # Rebuild l10n CDB files
         target_hosts = self._get_target_list()
-        with log.Timer('scap-rebuild-cdbs', self.get_stats()):
+        with log.Timer('scap-cdb-rebuild', self.get_stats()):
             rebuild_cdbs = ssh.Job(target_hosts, user=self.config['ssh_user'])
             rebuild_cdbs.shuffle()
-            rebuild_cdbs.command('sudo -u mwdeploy -n -- %s --version %s' % (
-                                 self.get_script_path('scap-rebuild-cdbs'),
-                                 self.arguments.version))
-            rebuild_cdbs.progress('scap-rebuild-cdbs')
+            cdb_cmd = 'sudo -u mwdeploy -n -- %s cdb-rebuild --version %s' % (
+                      self.get_script_path(),
+                      self.arguments.version)
+            rebuild_cdbs.command(cdb_cmd)
+            rebuild_cdbs.progress('scap-cdb-rebuild')
             succeeded, failed = rebuild_cdbs.run()
             if failed:
                 self.get_logger().warning(
-                    '%d hosts had scap-rebuild-cdbs errors', failed)
+                    '%d hosts had scap-cdb-rebuild errors', failed)
                 self.soft_errors = True
 
     def _after_lock_release(self):
-        self.announce('sync-l10n completed (%s) (duration: %s)',
+        self.announce('scap sync-l10n completed (%s) (duration: %s)',
                       self.arguments.version,
                       utils.human_duration(self.get_duration()))
         self.get_stats().increment('l10nupdate-sync')
 
 
+@cli.command('sync-wikiversions')
 class SyncWikiversions(AbstractSync):
-    """Rebuild and sync wikiversions.php to the cluster."""
+    """Rebuild and sync wikiversions.php to the cluster"""
 
     def _process_arguments(self, args, extra_args):
         args.message = ' '.join(args.message) or '(no message)'
@@ -618,6 +634,7 @@ class SyncWikiversions(AbstractSync):
         self.get_stats().increment('deploy.all')
 
 
+@cli.command('l10n-update')
 class UpdateL10n(cli.Application):
     """Update localization files"""
 
@@ -627,6 +644,7 @@ class UpdateL10n(cli.Application):
                 version, wikidb, self.verbose, self.config)
 
 
+@cli.command('hhvm-restart')
 class RestartHHVM(cli.Application):
     """Restart the HHVM fcgi process on the local server
 
@@ -681,8 +699,9 @@ class RestartHHVM(cli.Application):
         return 0
 
 
+@cli.command('hhvm-graceful')
 class HHVMGracefulAll(cli.Application):
-    """Perform a rolling restart of HHVM across the cluster."""
+    """Perform a rolling restart of HHVM across the cluster"""
 
     def _process_arguments(self, args, extra_args):
         if hasattr(args, 'message'):
@@ -713,6 +732,7 @@ class HHVMGracefulAll(cli.Application):
         return exit_code
 
 
+@cli.command('cdb-json-refresh', help=argparse.SUPPRESS)
 class RefreshCdbJsonFiles(cli.Application):
     """Create JSON/MD5 files for all CDB files in a directory
 
@@ -750,12 +770,13 @@ class RefreshCdbJsonFiles(cli.Application):
         tasks.refresh_cdb_json_files(cdb_dir, use_cores, self.verbose)
 
 
+@cli.command('say')
 class Say(cli.Application):
-    """Scap propaganda of the lowest order."""
+    """Scap propogranda of the lowest order"""
 
     @cli.argument('-w', '--width', type=int,
                   help='Column width for message box')
-    @cli.argument('message', nargs='*', help='Message to print')
+    @cli.argument('message', nargs='*', help='message to print')
     def main(self, *extra_args):
         print utils.scap_say(' '.join(self.arguments.message),
                              width=self.arguments.width)

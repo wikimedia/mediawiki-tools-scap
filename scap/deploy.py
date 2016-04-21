@@ -5,6 +5,7 @@
     Command wrappers for deploy tasks
 
 """
+import argparse
 import glob
 import os
 import requests
@@ -31,6 +32,7 @@ STAGES = ['fetch', 'config_deploy', 'promote']
 EX_STAGES = ['restart_service', 'rollback']
 
 
+@cli.command('deploy-local', help=argparse.SUPPRESS)
 class DeployLocal(cli.Application):
     """Command that runs on target hosts. Responsible for fetching code from
     the git server, checking out the appropriate revisions, restarting services
@@ -382,6 +384,7 @@ class DeployLocal(cli.Application):
             shutil.rmtree(rev_dir)
 
 
+@cli.command('deploy', help='[SCAP 3] Sync new service code across cluster')
 class Deploy(cli.Application):
     """Sync new service code across cluster
 
@@ -669,6 +672,8 @@ class Deploy(cli.Application):
                           handlers=[log.DeployLogHandler(log_file)])
 
 
+@cli.command('deploy-log', help='[SCAP 3] Tail/filter/output events from the '
+                                'deploy logs')
 class DeployLog(cli.Application):
     """Tail/filter/output events from the deploy logs
 

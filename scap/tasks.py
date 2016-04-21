@@ -279,13 +279,13 @@ def sync_master(cfg, master, verbose=False, logger=None):
     with log.Timer('rsync master', stats):
         subprocess.check_call(rsync)
 
-    scap_rebuild_cdbs = os.path.join(cfg['bin_dir'], 'scap-rebuild-cdbs')
+    scap_cmd = os.path.join(cfg['bin_dir'], 'scap')
 
     # Rebuild the CDB files from the JSON versions
     with log.Timer('rebuild CDB staging files', stats):
         subprocess.check_call(['sudo', '-u', 'l10nupdate', '-n', '--',
-                              scap_rebuild_cdbs, '--no-progress', '--staging',
-                              '--verbose'])
+                              scap_cmd, 'cdb-rebuild', '--no-progress',
+                              '--staging', '--verbose'])
 
 
 @utils.log_context('sync_common')
@@ -572,7 +572,7 @@ def update_localization_cache(version, wikidb, verbose, cfg, logger=None):
     logger.info('Generating JSON versions and md5 files')
     utils.sudo_check_call(
         'l10nupdate',
-        '%s/refreshCdbJsonFiles '
+        '%s/scap cdb-json-refresh '
         '--directory="%s" --threads=%s %s' % (
             cfg['bin_dir'], cache_dir, use_cores, verbose_messagelist))
 
