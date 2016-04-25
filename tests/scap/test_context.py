@@ -102,6 +102,14 @@ class HostContextTest(unittest.TestCase):
 
         self.assertEqual(paths, [environment_file])
 
+    def test_env_specific_globs_exists(self):
+        self.context.setup()
+        a = self.create_scap_environment_file('1.yaml')
+        b = self.create_scap_environment_file('2.yml')
+
+        paths = self.context.env_specific_paths('*.y*ml')
+        self.assertEqual(sorted(paths), [a, b])
+
     def test_log_path(self):
         self.context.setup()
 

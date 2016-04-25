@@ -6,6 +6,7 @@
 
 """
 from datetime import datetime
+import glob
 import os
 
 from . import utils
@@ -96,7 +97,7 @@ class HostContext(Context):
 
         paths.append(self.scap_path(*relpaths))
 
-        return filter(os.path.exists, paths)
+        return [real_path for p in paths for real_path in glob.glob(p)]
 
     def log_path(self, *relpaths):
         """Qualifies the given log path."""
