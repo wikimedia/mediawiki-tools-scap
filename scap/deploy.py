@@ -419,7 +419,7 @@ class Deploy(cli.Application):
     repo = None
     targets = []
 
-    @cli.argument('-r', '--rev', default='HEAD', help='Revision to deploy')
+    @cli.argument('-r', '--rev', help='Revision to deploy')
     @cli.argument('-s', '--stages', choices=STAGES,
                   help='Deployment stages to execute. Used only for testing.')
     @cli.argument('-l', '--limit-hosts', default='all',
@@ -456,12 +456,16 @@ class Deploy(cli.Application):
         deploy_name = 'Deploy' if not self.arguments.init else 'Setup'
         display_name = '{}: {}'.format(deploy_name, self.repo)
 
+        rev = self.arguments.rev
+        if not rev:
+            rev = self.config.get('git_rev', 'HEAD')
+
         with utils.lock(self.context.lock_path()):
             with log.Timer(display_name):
                 timestamp = datetime.utcnow()
                 tag = git.next_deploy_tag(location=self.context.root)
-                commit = git.sha(location=self.context.root,
-                                 rev=self.arguments.rev)
+                commit = git.sha(location=self.context.root, rev=rev)
+                self.get_logger().debug('Deploying Rev: {}'.format(commit))
 
                 self.config_deploy_setup(commit)
                 self.config['git_rev'] = commit
