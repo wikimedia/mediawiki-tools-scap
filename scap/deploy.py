@@ -619,7 +619,7 @@ class Deploy(cli.Application):
 
     def execute_stage_on_group(self, stage, group, targets):
         logger = self.get_logger()
-        deploy_local_cmd = [self.get_script_path('deploy-local')]
+        deploy_local_cmd = [self.get_script_path(), 'deploy-local']
         batch_size = self._get_batch_size(stage)
 
         deploy_local_cmd.append('-v')
