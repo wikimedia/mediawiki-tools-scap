@@ -238,7 +238,7 @@ def update_server_info(has_submodules=False, location=os.getcwd(),
 def update_deploy_head(deploy_info, location):
     """updates .git/DEPLOY_HEAD file
 
-    :param deploy_info: current deploy info to write to file as JSON
+    :param deploy_info: current deploy info to write to file as YAML
     :param (optional) location: git directory location (default cwd)
     """
     logger = utils.get_logger()

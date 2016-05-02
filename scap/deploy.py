@@ -106,16 +106,10 @@ class DeployLocal(cli.Application):
         if not self.config['config_deploy']:
             return
 
-        config_url = os.path.join(self.server_url, '.git', 'config-files',
-                                  '{}.yaml'.format(self.rev))
+        config_files = self.config.get('config_files')
+        if not config_files:
+            raise IOError(errno.ENOENT, 'No config_files found!')
 
-        logger.debug('Get config yaml: {}'.format(config_url))
-
-        r = requests.get(config_url)
-        if r.status_code != requests.codes.ok:
-            raise IOError(errno.ENOENT, 'Config file not found', config_url)
-
-        config_files = yaml.load(r.text)
         overrides = config_files.get('override_vars', {})
 
         source_basepath = self.context.rev_path(self.rev,
@@ -330,13 +324,7 @@ class DeployLocal(cli.Application):
         if os.path.isdir(self.config['nrpe_dir']):
             nrpe.register(nrpe.load_directory(self.config['nrpe_dir']))
 
-        checks_url = os.path.join(self.server_url, 'scap', 'checks.yaml')
-        response = requests.get(checks_url)
-
-        if response.status_code != requests.codes.ok:
-            raise IOError(errno.ENOENT, 'Error downloading checks', checks_url)
-
-        chks = checks.load(response.text)
+        chks = checks.load(self.config['checks'])
         chks = [
             chk for chk in chks.values() if self._valid_chk(chk, stage, group)
         ]
@@ -416,6 +404,7 @@ class Deploy(cli.Application):
         'service_port',
         'service_timeout',
         'config_deploy',
+        'config_files',
         'perform_checks',
     ]
 
@@ -471,6 +460,8 @@ class Deploy(cli.Application):
                 self.get_logger().debug('Deploying Rev: {}'.format(commit))
 
                 self.config_deploy_setup(commit)
+                self.checks_setup()
+                self.get_logger().debug(self.config)
                 self.config['git_rev'] = commit
 
                 self.deploy_info.update({
@@ -480,20 +471,17 @@ class Deploy(cli.Application):
                     'timestamp': timestamp.isoformat(),
                 })
 
+                # Handle JSON output from deploy-local
+                self.deploy_info['log_json'] = True
+
+                self.get_logger().debug('Update DEPLOY_HEAD')
+
                 self.deploy_info.update({
                     key: self.config.get(key)
                     for key in self.DEPLOY_CONF
                     if self.config.get(key) is not None
                 })
 
-                # Handle JSON output from deploy-local
-                self.deploy_info['log_json'] = True
-
-                # Be sure to skip checks if they aren't configured
-                if not os.path.exists(self.context.scap_path('checks.yaml')):
-                    self.deploy_info['perform_checks'] = False
-
-                self.get_logger().debug('Update DEPLOY_HEAD')
                 git.update_deploy_head(self.deploy_info, self.context.root)
 
                 git.tag_repo(self.deploy_info, location=self.context.root)
@@ -552,14 +540,13 @@ class Deploy(cli.Application):
 
         logger.debug('Deploy config: True')
 
-        cfg_file = self.context.env_specific_path('config-files.yaml')
+        cfg_file = self.context.env_specific_path('config-files.y*ml')
 
         logger.debug('Config deploy file: {}'.format(cfg_file))
 
         if not cfg_file:
             return
 
-        tmp_cfg_file = self.context.temp_config_path('{}.yaml'.format(commit))
         tmp_cfg = {}
 
         with open(cfg_file, 'r') as cf:
@@ -594,9 +581,18 @@ class Deploy(cli.Application):
             with open(vars_file, 'r') as vf:
                 tmp_cfg['override_vars'].update(yaml.load(vf.read()))
 
-        with open(tmp_cfg_file, 'w') as tc:
-            yaml.dump(tmp_cfg, tc)
-            logger.debug('Wrote config deploy file: {}'.format(tmp_cfg_file))
+        self.config['config_files'] = tmp_cfg
+
+    def checks_setup(self):
+        """Build info to run checks."""
+        checks_path = self.context.env_specific_path('checks.y*ml')
+
+        if not os.path.exists(checks_path):
+            self.deploy_info['perform_checks'] = False
+            return
+
+        with open(checks_path, 'r') as f:
+            self.deploy_info.update(yaml.load(f.read()))
 
     def _build_deploy_groups(self):
         """Build server groups based on configuration `server_groups` variable

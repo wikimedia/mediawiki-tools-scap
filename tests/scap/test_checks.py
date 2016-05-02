@@ -3,7 +3,6 @@
 import logging
 import select
 from StringIO import StringIO
-from textwrap import dedent
 import unittest
 
 from scap import checks
@@ -11,19 +10,17 @@ from scap import checks
 
 class ChecksConfigTest(unittest.TestCase):
     def test_load_valid_config(self):
-        chks = checks.load(dedent("""
-            ---
-            checks:
-              foo:
-                type: command
-                command: /bin/true
-                stage: promote
-                timeout: 60
-              bar:
-                type: command
-                command: /bin/false
-                stage: promote
-        """))
+        chks = checks.load({
+            'checks': {
+                'foo': {
+                    'type': 'command',
+                    'command': '/bin/true',
+                    'stage': 'promote',
+                    'timeout': 60},
+                'bar': {
+                    'type': 'command',
+                    'command': '/bin/false',
+                    'stage': 'promote'}}})
 
         self.assertEqual(len(chks), 2)
 
@@ -43,21 +40,13 @@ class ChecksConfigTest(unittest.TestCase):
         self.assertEqual(len(chks), 0)
 
     def test_load_tolerates_empty_checks(self):
-        chks = checks.load(dedent("""
-            ---
-            checks:
-        """))
+        chks = checks.load({checks: {}})
 
         self.assertEqual(len(chks), 0)
 
     def test_load_bad_type(self):
         with self.assertRaises(checks.CheckInvalid):
-            checks.load(dedent("""
-                ---
-                checks:
-                  foo:
-                    type: badtype
-            """))
+            checks.load({'checks': {'foo': {'type': 'badtype'}}})
 
     def test_custom_type(self):
         @checks.checktype('custom')
@@ -65,14 +54,13 @@ class ChecksConfigTest(unittest.TestCase):
             pass
 
         try:
-            chks = checks.load(dedent("""
-                ---
-                checks:
-                  foo:
-                    type: custom
-                    command: /bin/true
-                    stage: promote
-            """))
+            chks = checks.load({
+                'checks': {
+                    'foo': {
+                        'type': 'custom',
+                        'command': '/bin/true',
+                        'stage': 'promote',
+                    }}})
 
             self.assertEqual(len(chks), 1)
 

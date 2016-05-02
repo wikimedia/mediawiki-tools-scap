@@ -22,7 +22,6 @@ import select
 import shlex
 import subprocess
 import time
-import yaml
 
 from . import utils
 
@@ -126,17 +125,15 @@ def execute(checks, logger, concurrency=2):
     return (len(done) == len(checks) == success, done)
 
 
-def load(string):
-    """Load checks from the given YAML.
+def load(cfg):
+    """Load checks from the given config dict
 
-    :param string: YAML check configuration
+    :param cfg: config dict
     """
 
     checks = {}
-    definitions = yaml.load(string)
-
-    if definitions and definitions.get('checks', None):
-        for name, options in definitions['checks'].iteritems():
+    if cfg and cfg.get('checks', None):
+        for name, options in cfg['checks'].iteritems():
             check_type = options.get('type', 'command')
 
             if check_type not in _types:
