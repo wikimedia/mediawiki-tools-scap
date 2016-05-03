@@ -316,7 +316,7 @@ class DeployLocal(cli.Application):
         # Promote the previous rev and skip config re-evaluation as it's no
         # longer necessary or desirable at this point
         self.promote(rollback_to, rev_dir, config_deploy=False)
-        self._finalize()
+        self._finalize(rollback=True)
 
     @utils.log_context('checks')
     def _execute_checks(self, stage, group=None, logger=None):
@@ -369,7 +369,7 @@ class DeployLocal(cli.Application):
 
         return yaml.load(r.text)
 
-    def _finalize(self):
+    def _finalize(self, rollback=False):
         """Performs the final deploy actions.
 
         Moves the .done flag to the rev directory and removes the .in-progress
@@ -377,7 +377,10 @@ class DeployLocal(cli.Application):
         """
         logger = self.get_logger()
 
-        self.context.mark_rev_done(self.rev)
+        if not rollback:
+            self.context.mark_rev_done(self.rev)
+
+        self.context.rm_in_progress()
 
         for rev_dir in self.context.find_old_rev_dirs():
             logger.info('Removing old revision {}'.format(rev_dir))

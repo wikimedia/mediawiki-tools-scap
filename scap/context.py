@@ -207,6 +207,7 @@ class TargetContext(Context):
 
         self.link_path_to_rev(self._done_link, rev)
 
+    def rm_in_progress(self):
         if os.path.exists(self._progress_link):
             utils.remove_symlink(self._progress_link, user=self.user)
 
