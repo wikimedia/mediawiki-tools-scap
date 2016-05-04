@@ -1,3 +1,33 @@
+scap (3.2.0-1) unstable; urgency=low
+
+  [ Filippo Giunchedi ]
+  * default options for git-buildpackage
+
+  [ Mukunda Modell ]
+  * Load extension-list from the branch if present.
+
+  [ Dan Duvall ]
+  * Support per-check timeouts
+
+  [ amir ]
+  * First pass on PEP257
+
+  [ Mukunda Modell ]
+  * Fix lintian warnings
+
+  [ Tyler Cipriani ]
+  * Fix doc generation
+  * Update check documentation add restart_service
+  * Use root context directory
+  * Scap say
+  * Consolidate scripts as subcommands of `scap`
+  * Allow env_specific_paths to accept a glob
+  * Add git_rev config var
+  * Use subcommand for deploy-local
+  * Rollback preserve done symlink
+
+ -- Tyler Cipriani <tcipriani@wikimediawiki.org>  Tue, 03 May 2016 21:09:10 -0800
+
 scap (3.1.0-1) unstable; urgency=low
 
   * Add --init flag for deploy
