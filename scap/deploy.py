@@ -324,7 +324,7 @@ class DeployLocal(cli.Application):
         if os.path.isdir(self.config['nrpe_dir']):
             nrpe.register(nrpe.load_directory(self.config['nrpe_dir']))
 
-        chks = checks.load(self.config['checks'])
+        chks = checks.load(self.config)
         chks = [
             chk for chk in chks.values() if self._valid_chk(chk, stage, group)
         ]
