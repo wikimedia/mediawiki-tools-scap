@@ -13,6 +13,7 @@ import psutil
 import pwd
 import socket
 import subprocess
+import time
 
 from . import cli
 from . import log
@@ -56,6 +57,40 @@ class AbstractSync(cli.Application):
                     self.get_logger().warning(
                         '%d masters had sync errors', failed)
                     self.soft_errors = True
+
+            # Run canary checks
+            if not self.arguments.force:
+                canaries = self._get_canary_list()
+                with log.Timer('sync-check-canaries', self.get_stats()):
+                    sync_cmd = self._proxy_sync_command()
+                    sync_cmd.append(socket.getfqdn())
+                    update_canaries = ssh.Job(canaries,
+                                              user=self.config['ssh_user'])
+                    update_canaries.command(sync_cmd)
+                    update_canaries.progress('check-canaries')
+                    succeeded, failed = update_canaries.run()
+                    if failed:
+                        self.get_logger().warning(
+                            '%d canaries had sync errors', failed)
+                        self.soft_errors = True
+
+                # Needs some time for log errors to happen
+                wait_time = self.config['canary_wait_time']
+                self.get_logger().info('Waiting for canary traffic...')
+                time.sleep(wait_time)
+                canary_checks = {
+                    'threshold': self.config['canary_threshold'],
+                    'logstash': self.config['logstash_host'],
+                    'delay': wait_time,
+                    'cores': max(multiprocessing.cpu_count() - 2, 1),
+                }
+
+                succeeded, failed = tasks.check_canaries(canaries,
+                                                         **canary_checks)
+
+                if failed:
+                    raise RuntimeError('%d test canaries had check failures',
+                                       failed)
 
             # Update proxies
             proxies = self._get_proxy_list()
@@ -123,6 +158,21 @@ class AbstractSync(cli.Application):
             set(self._get_master_list()) |
             set(self._get_proxy_list()) |
             set(targets.get('dsh_targets', self.config).all)
+        )
+
+    def _get_api_canary_list(self):
+        """Get list of MediaWiki api canaries."""
+        return targets.get('dsh_api_canaries', self.config).all
+
+    def _get_app_canary_list(self):
+        """Get list of MediaWiki api canaries."""
+        return targets.get('dsh_app_canaries', self.config).all
+
+    def _get_canary_list(self):
+        """Get list of MediaWiki canary hostnames."""
+        return list(
+            set(self._get_api_canary_list()) |
+            set(self._get_app_canary_list())
         )
 
     def _master_sync_command(self):
@@ -298,6 +348,7 @@ class Scap(AbstractSync):
 
     @cli.argument('-r', '--restart', action='store_true', dest='restart',
                   help='Restart HHVM process on target hosts.')
+    @cli.argument('--force', action='store_true', help='Skip canary checks')
     @cli.argument('message', nargs='*', help='Log message for SAL')
     def main(self, *extra_args):
         return super(Scap, self).main(*extra_args)
@@ -429,6 +480,7 @@ class SyncCommon(cli.Application):
                 'mwdeploy',
                 self.get_script_path() + ' cdb-rebuild --no-progress'
             )
+
         return 0
 
 
@@ -436,6 +488,7 @@ class SyncCommon(cli.Application):
 class SyncDir(AbstractSync):
     """Sync a directory to the cluster."""
 
+    @cli.argument('--force', action='store_true', help='Skip canary checks')
     @cli.argument('dir', help='Directory to sync')
     @cli.argument('message', nargs='*', help='Log message for SAL')
     def main(self, *extra_args):
@@ -480,6 +533,7 @@ class SyncDir(AbstractSync):
 class SyncFile(AbstractSync):
     """Sync a specific file to the cluster."""
 
+    @cli.argument('--force', action='store_true', help='Skip canary checks')
     @cli.argument('file', help='File to sync')
     @cli.argument('message', nargs='*', help='Log message for SAL')
     def main(self, *extra_args):
@@ -531,6 +585,7 @@ class SyncFile(AbstractSync):
 class SyncL10n(AbstractSync):
     """Sync l10n files for a given branch and rebuild cache files."""
 
+    @cli.argument('--force', action='store_true', help='Skip canary checks')
     @cli.argument('version', help='MediaWiki version (eg 1.27.0-wmf.7)')
     def main(self, *extra_args):
         return super(SyncL10n, self).main(*extra_args)
@@ -601,6 +656,7 @@ class SyncWikiversions(AbstractSync):
         args.message = ' '.join(args.message) or '(no message)'
         return args, extra_args
 
+    @cli.argument('--force', action='store_true', help='Skip canary checks')
     @cli.argument('message', nargs='*', help='Log message for SAL')
     def main(self, *extra_args):
         self._assert_auth_sock()

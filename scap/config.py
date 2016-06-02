@@ -15,10 +15,13 @@ from . import utils
 
 DEFAULT_CONFIG = {
     'bin_dir': (str, '/srv/deployment/scap/scap/bin'),
+    'canary_threshold': (float, 10.0),
+    'canary_wait_time': (int, 20),
     'deploy_dir': (str, '/srv/mediawiki'),
     'stage_dir': (str, '/srv/mediawiki-staging'),
     'lock_file': (str, '/var/lock/scap'),
     'log_json': (bool, False),
+    'logstash_host': (str, 'http://logstash1001.eqiad.wmnet;9200'),
     'master_rsync': (str, 'localhost'),
     'statsd_host': (str, '127.0.0.1'),
     'statsd_port': (str, '2003'),

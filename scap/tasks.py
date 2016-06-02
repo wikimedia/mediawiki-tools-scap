@@ -20,6 +20,7 @@ import time
 import tempfile
 
 from . import cdblib
+from . import checks
 from . import git
 from . import log
 from . import ssh
@@ -38,6 +39,39 @@ DEFAULT_RSYNC_ARGS = [
     '--exclude=*.swp',
     '--no-perms',
 ]
+
+
+def check_canaries(canaries, threshold, logstash, delay, cores=2):
+    """
+    Run canary checks on test application servers.
+
+    :param canaries: list, canaries to check
+    :param threshold: float, average log multiple at which to fail
+    :param logstash: str, logstash server
+    :param verbose: bool, verbose output
+    :param delay: float, time between deploy and now
+    """
+    logger = utils.get_logger()
+
+    canary_checks = []
+
+    # Build Check command list
+    for canary in canaries:
+        check_name = 'Logstash Error rate for {}'.format(canary)
+        cmd = ['/usr/local/bin/logstash_checker.py',
+               '--host', canary,
+               '--fail-threshold', threshold,
+               '--delay', delay,
+               '--logstash-host', logstash]
+
+        cmd = ' '.join(map(str, cmd))
+        canary_checks.append(
+            checks.Check(check_name, 'canary', command=cmd, timeout=120.0))
+
+    success, done = checks.execute(canary_checks, logger, concurrency=cores)
+    failed = [job.check.name for job in done if job.isfailure()]
+
+    return (len(done) - len(failed), len(failed))
 
 
 def cache_git_info(version, cfg):
