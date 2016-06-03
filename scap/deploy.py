@@ -108,6 +108,7 @@ class DeployLocal(cli.Application):
         """
         logger = self.get_logger()
         if not self.config['config_deploy']:
+            logger.info('No config files to deploy, skipping...')
             return
 
         config_files = self.config.get('config_files')
@@ -151,7 +152,7 @@ class DeployLocal(cli.Application):
                 source_basepath, os.path.dirname(filename)))
 
             source = os.path.join(source_basepath, filename)
-            logger.debug('Rendering config_file: {}'.format(source))
+            logger.info('Rendering config_file: {}'.format(source))
 
             with open(source, 'w+') as f:
                 output_file = tmpl.render()
@@ -173,7 +174,7 @@ class DeployLocal(cli.Application):
         rev_dir = self.context.rev_path(self.rev)
 
         git_remote = os.path.join(self.server_url, '.git')
-        logger.debug('Fetching from: {}'.format(git_remote))
+        logger.info('Fetch from: {}'.format(git_remote))
 
         # clone/fetch from the repo to the cache directory
         git.fetch(self.context.cache_dir, git_remote)
@@ -197,17 +198,23 @@ class DeployLocal(cli.Application):
         # clone/fetch from the local cache directory to the revision directory
         git.fetch(rev_dir, self.context.cache_dir)
 
+        logger.info('Checkout rev: {}'.format(self.rev))
+
         # checkout the given revision
         git.checkout(rev_dir, self.rev)
 
         if has_submodules:
             upstream_submodules = self.config['git_upstream_submodules']
+            logger.info('Update submodules')
             git.update_submodules(rev_dir, git_remote,
                                   use_upstream=upstream_submodules)
 
         if has_gitfat:
             if not git.fat_isinitialized(rev_dir):
+                logger.info('Git fat initialize')
                 git.fat_init(rev_dir)
+
+            logger.info("Git fat pull '%s'", rev_dir)
             git.fat_pull(rev_dir)
 
         self.context.mark_rev_in_progress(self.rev)
@@ -246,7 +253,7 @@ class DeployLocal(cli.Application):
             # into a .git/config-files subdirectory of the rev directory
             config_dest = self.context.rev_path(rev, '.git', 'config-files')
 
-            logger.debug('Linking config files at: {}'.format(config_dest))
+            logger.info('Linking config files at: {}'.format(config_dest))
 
             for dir_path, _, conf_files in os.walk(config_dest):
                 for conf_file in conf_files:

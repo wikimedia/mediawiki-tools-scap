@@ -671,7 +671,7 @@ def refresh_cdb_json_file(file_path):
 
 @utils.log_context('service_restart')
 def restart_service(service, user='mwdeploy', logger=None):
-    logger.debug('Restarting service {}'.format(service))
+    logger.info("Restarting service '{}'".format(service))
     cmd_format = 'sudo /usr/sbin/service {} {}'
     utils.sudo_check_call(user, cmd_format.format(service, 'restart'))
 

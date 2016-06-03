@@ -231,6 +231,9 @@ class Application(object):
             format=log.CONSOLE_LOG_FORMAT,
             datefmt='%H:%M:%S')
 
+        # Silence this noisy logger early
+        logging.getLogger('urllib3').setLevel(logging.WARNING)
+
         # Setup instance for logger access
         app = cls('scap')
 
