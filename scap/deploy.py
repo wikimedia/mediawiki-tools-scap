@@ -592,7 +592,8 @@ class Deploy(cli.Application):
             return
 
         with open(checks_path, 'r') as f:
-            self.deploy_info.update(yaml.load(f.read()))
+            checks_dict = utils.ordered_load(f, yaml.SafeLoader)
+            self.deploy_info.update(checks_dict)
 
     def _build_deploy_groups(self):
         """Build server groups based on configuration `server_groups` variable

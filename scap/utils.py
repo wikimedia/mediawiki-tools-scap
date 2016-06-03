@@ -25,6 +25,7 @@ import subprocess
 import sys
 import tempfile
 import textwrap
+import yaml
 
 from . import ansi
 from functools import wraps
@@ -772,7 +773,9 @@ def join_path(*fragments):
 
 
 def get_patches(sub_dirs, root_dir):
-    """ Find all patches under each subdirectory
+    """
+    Find all patches under each subdirectory.
+
     :param sub_dirs list of sub directories under which to search
     :param root_dir base path under which subdirectories reside
     :return dictionary of patches, keyed by sub_dir
@@ -790,7 +793,31 @@ def get_patches(sub_dirs, root_dir):
 
 
 def deprecated_script(additional):
-    """Generic error message about binstub removal"""
+    """Generic error message about binstub removal."""
     msg = '{}[WARNING] The script you have used is deprecated. {}{}\n\n'
     return msg.format(ansi.esc(ansi.BG_RED, ansi.BRIGHT),
                       additional, ansi.reset())
+
+
+def ordered_load(stream, Loader=yaml.Loader,
+                 object_pairs_hook=collections.OrderedDict):
+    """
+    Load yaml files and keeping order.
+
+    From stackoverflow.com/questions/5121931
+
+    :param stream the file object to read
+    :param loader yaml.Load or its subclasses
+    :object_pairs_hook type of return
+    :return OrderedDict object with the same order of the yaml file"""
+    class OrderedLoader(Loader):
+        pass
+
+    def construct_mapping(loader, node):
+        loader.flatten_mapping(node)
+        return object_pairs_hook(loader.construct_pairs(node))
+
+    OrderedLoader.add_constructor(
+        yaml.resolver.BaseResolver.DEFAULT_MAPPING_TAG,
+        construct_mapping)
+    return yaml.load(stream, OrderedLoader)

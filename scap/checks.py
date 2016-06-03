@@ -17,6 +17,7 @@
             command: some_parsed_nrpe_command_name
             stage: promote
 """
+import collections
 import os
 import select
 import shlex
@@ -34,7 +35,8 @@ class CheckInvalid(AssertionError):
 
 
 def checktype(type):
-    """Class decorator for registering a new check type.
+    """
+    Class decorator for registering a new check type.
 
     :param type: type name
     """
@@ -47,7 +49,8 @@ def checktype(type):
 
 
 def execute(checks, logger, concurrency=2):
-    """Executes the given checks in parallel.
+    """
+    Executes the given checks in parallel.
 
     :param checks: iterable of `checks.Check` objects
     :param logger: `logging.Logger` to send messages to
@@ -126,12 +129,13 @@ def execute(checks, logger, concurrency=2):
 
 
 def load(cfg):
-    """Load checks from the given config dict
+    """
+    Load checks from the given config dict.
 
     :param cfg: config dict
     """
 
-    checks = {}
+    checks = collections.OrderedDict()
     if cfg and cfg.get('checks', None):
         for name, options in cfg['checks'].iteritems():
             check_type = options.get('type', 'command')
@@ -146,7 +150,8 @@ def load(cfg):
 
 
 def register_type(type, factory):
-    """Register a new check type and factory.
+    """
+    Register a new check type and factory.
 
     :param type: type name
     :param factory: callable type factory
@@ -157,7 +162,8 @@ def register_type(type, factory):
 
 @checktype('command')
 class Check(object):
-    """Represents a loaded 'command' check.
+    """
+    Represents a loaded 'command' check.
 
     :param name: check name
     :param stage: stage after which to run the check
@@ -178,19 +184,20 @@ class Check(object):
         self.validate()
 
     def run(self):
-        """Returns a running :class:`CheckJob`."""
+        """Return a running :class:`CheckJob`."""
 
         return CheckJob(self)
 
     def validate(self):
-        """Validates check properties."""
+        """Validate check properties."""
 
         if not self.command:
             raise CheckInvalid("missing 'command'")
 
 
 class CheckJob(object):
-    """Represents and controls a running check.
+    """
+    Represent and control a running check.
 
     A :class:`CheckJob` begins execution immediately and should be controlled
     within some kind of poll loop, typically `checks.execute`.
@@ -212,23 +219,24 @@ class CheckJob(object):
         self.ended = None
 
     def duration(self):
-        """Returns the current or final job duration."""
+        """Return the current or final job duration."""
 
         ended = time.time() if self.ended is None else self.ended
         return ended - self.started
 
     def isfailure(self):
-        """Returns whether this check failed."""
+        """Return whether this check failed."""
 
         return self.proc.returncode != 0
 
     def kill(self):
-        """Kills the executing process."""
+        """Kill the executing process."""
 
         self.proc.kill()
 
     def poll(self):
-        """Reads output and polls the process for exit status.
+        """
+        Read output and polls the process for exit status.
 
         If the process has exited, an (approximate) end time is recorded. This
         method is non-blocking typically called within an event loop like
@@ -249,7 +257,8 @@ class CheckJob(object):
         return self.duration() > self.check.timeout
 
     def wait(self):
-        """Blocks for the last stdout/stderr read of the check process.
+        """
+        Block for the last stdout/stderr read of the check process.
 
         To ensure the least amount of blocking, this method should only be
         called within an event loop once `poll` has signaled that the process
