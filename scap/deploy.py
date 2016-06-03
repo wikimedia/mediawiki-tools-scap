@@ -34,10 +34,13 @@ EX_STAGES = ['restart_service', 'rollback']
 
 @cli.command('deploy-local', help=argparse.SUPPRESS)
 class DeployLocal(cli.Application):
-    """Command that runs on target hosts. Responsible for fetching code from
-    the git server, checking out the appropriate revisions, restarting services
-    and running checks.
     """
+    Command that runs on target hosts.
+
+    Responsible for fetching code from the git server, checking out
+    the appropriate revisions, restarting services and running checks.
+    """
+
     def _load_config(self):
 
         super(DeployLocal, self)._load_config()
@@ -97,10 +100,11 @@ class DeployLocal(cli.Application):
         return status
 
     def config_deploy(self):
-        """Renders config files
+        """
+        Render config files.
 
         Grabs the current config yaml file from the deploy git server, and
-        renders the final template inside the repo-cache's tmp directory
+        renders the final template inside the repo-cache's tmp directory.
         """
         logger = self.get_logger()
         if not self.config['config_deploy']:
@@ -154,7 +158,8 @@ class DeployLocal(cli.Application):
                 f.write(output_file)
 
     def fetch(self):
-        """Fetch the specified revision of the remote repo.
+        """
+        Fetch the specified revision of the remote repo.
 
         The given repo is cloned into the cache directory and a new working
         directory for the given revision is created under revs/{rev}.
@@ -208,7 +213,8 @@ class DeployLocal(cli.Application):
         self.context.mark_rev_in_progress(self.rev)
 
     def promote(self, rev=None, rev_dir=None, config_deploy=True):
-        """Promote the current deployment.
+        """
+        Promote the current deployment.
 
         Switches the `current` symlink to the current revision directory and
         restarts the configured service.
@@ -272,7 +278,8 @@ class DeployLocal(cli.Application):
         tasks.check_port(int(port), timeout=service_timeout)
 
     def rollback(self):
-        """Performs a rollback to the last deployed revision.
+        """
+        Performs a rollback to the last deployed revision.
 
         The rollback stage expects an .in-progress symlink to points to the
         revision directory for the currently running deployment. If the link
@@ -314,7 +321,8 @@ class DeployLocal(cli.Application):
 
     @utils.log_context('checks')
     def _execute_checks(self, stage, group=None, logger=None):
-        """Fetches and executes all checks configured for the given stage.
+        """
+        Fetch and executes all checks configured for the given stage.
 
         Checks are retrieved from the remote deploy host and cached within
         tmp.
@@ -338,7 +346,7 @@ class DeployLocal(cli.Application):
             return 1 if len(failed) else 2
 
     def _valid_chk(self, chk, stage, group):
-        """Make sure a check is valid for our current group"""
+        """Make sure a check is valid for our current group."""
         if group is not None:
             return chk.stage == stage and (chk.group == group or
                                            chk.group is None)
@@ -346,7 +354,7 @@ class DeployLocal(cli.Application):
             return chk.stage == stage
 
     def _get_remote_overrides(self):
-        """Grab remote config from git_server"""
+        """Grab remote config from git_server."""
         cfg_url = os.path.join(self.config['git_server'],
                                self.arguments.repo,
                                '.git', 'DEPLOY_HEAD')
@@ -358,7 +366,8 @@ class DeployLocal(cli.Application):
         return yaml.load(r.text)
 
     def _finalize(self, rollback=False):
-        """Performs the final deploy actions.
+        """
+        Perform the final deploy actions.
 
         Moves the .done flag to the rev directory and removes the .in-progress
         flag.
@@ -377,7 +386,8 @@ class DeployLocal(cli.Application):
 
 @cli.command('deploy', help='[SCAP 3] Sync new service code across cluster')
 class Deploy(cli.Application):
-    """Sync new service code across cluster
+    """
+    Sync new service code across cluster.
 
     Uses local .scaprc as config for each host in cluster
     """
@@ -525,7 +535,8 @@ class Deploy(cli.Application):
         return group == next(reversed(self.deploy_groups))
 
     def config_deploy_setup(self, commit):
-        """Generate environment-specific config file and variable template list
+        """
+        Generate environment-specific config file and variable template list.
 
         Builds a yaml file that contains:
         #. A list of file objects containing template files to be deployed
@@ -650,7 +661,7 @@ class Deploy(cli.Application):
         return 0
 
     def _get_stage_name(self, stage):
-        """Maps a stage name to a stage display name"""
+        """Map a stage name to a stage display name."""
         return self.STAGE_NAMES_OVERRIDES.get(stage, stage)
 
     def _get_batch_size(self, stage):
@@ -659,7 +670,7 @@ class Deploy(cli.Application):
         return min(size, self.MAX_BATCH_SIZE)
 
     def _load_config(self):
-        """Sets the host directory after the config has been loaded."""
+        """Set the host directory after the config has been loaded."""
 
         super(Deploy, self)._load_config()
         env = self.arguments.environment
@@ -667,7 +678,7 @@ class Deploy(cli.Application):
         self.context.setup()
 
     def _setup_loggers(self):
-        """Sets up additional logging to `scap/deploy.log`."""
+        """Set up additional logging to `scap/deploy.log`."""
 
         basename = git.describe(self.context.root).replace('/', '-')
         log_file = self.context.log_path('{}.log'.format(basename))
@@ -679,7 +690,8 @@ class Deploy(cli.Application):
 @cli.command('deploy-log', help='[SCAP 3] Tail/filter/output events from the '
                                 'deploy logs')
 class DeployLog(cli.Application):
-    """Tail/filter/output events from the deploy logs
+    """
+    Tail/filter/output events from the deploy logs.
 
     examples::
 

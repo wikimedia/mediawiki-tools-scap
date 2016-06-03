@@ -18,7 +18,8 @@ class Context(object):
     """Base context for either the deployment host or target."""
 
     def __init__(self, root, environment=None, user=utils.get_username()):
-        """Instantiates a new context at the given root path.
+        """
+        Instantiate a new context at the given root path.
 
         :param root: Root directory
         :param environment: Environment name used when resolving config files.
@@ -30,12 +31,12 @@ class Context(object):
         self.user = user
 
     def lock_path(self):
-        """Get the path to scap.lock for this context"""
+        """Get the path to scap.lock for this context."""
 
         return self.path('scap', 'deploy.lock')
 
     def path(self, *relpaths):
-        """Qualifies path relative to the root path."""
+        """Qualify path relative to the root path."""
 
         return os.path.join(self.root, *relpaths)
 
@@ -57,17 +58,19 @@ class Context(object):
 
 
 class HostContext(Context):
-    """Manages deployment host paths and execution context."""
+    """Manage deployment host paths and execution context."""
 
     def __init__(self, root, environment=None, user=utils.get_real_username()):
-        """Instantiates a new host context.
+        """
+        Instantiate a new host context.
 
         :meth:`Context.__init__`
         """
         super(HostContext, self).__init__(root, environment, user)
 
     def env_specific_path(self, *relpaths):
-        """Returns path to default or environment specific file/directory.
+        """
+        Return path to default or environment specific file/directory.
 
         Both the environment specific path at ``scap/environments/{name}`` and
         the default path at ``scap`` is searched in respective order. The
@@ -82,7 +85,8 @@ class HostContext(Context):
             return None
 
     def env_specific_paths(self, *relpaths):
-        """Returns paths to default and environment specific files/directories.
+        """
+        Return paths to default and environment specific files/directories.
 
         Both the environment specific path at ``scap/environments/{name}`` and
         the default path at ``scap`` is searched. Paths are included in the
@@ -100,12 +104,13 @@ class HostContext(Context):
         return [real_path for p in paths for real_path in glob.glob(p)]
 
     def log_path(self, *relpaths):
-        """Qualifies the given log path."""
+        """Qualify the given log path."""
 
         return self.scap_path('log', *relpaths)
 
     def setup(self):
-        """Creates the scap and log directories as necessary.
+        """
+        Create the scap and log directories as necessary.
 
         See :class:``Context.setup`` for its additional operations.
         """
@@ -117,7 +122,7 @@ class HostContext(Context):
                 os.mkdir(d)
 
     def scap_path(self, *relpaths):
-        """Qualifies path relative to the ``scap`` directory."""
+        """Qualify path relative to the ``scap`` directory."""
 
         return self.path('scap', *relpaths)
 
@@ -126,7 +131,7 @@ class HostContext(Context):
 
 
 class TargetContext(Context):
-    """Manages target host paths and execution context."""
+    """Manage target host paths and execution context."""
 
     @property
     def cache_dir(self):
@@ -159,7 +164,8 @@ class TargetContext(Context):
             return None
 
     def find_old_rev_dirs(self):
-        """Generates revision directories that are candidates for deletion.
+        """
+        Generate revision directories that are candidates for deletion.
 
         The :py:const:`REVS_TO_KEEP` most recent revision directories and any
         revision directory that is current or in progress is not considered.
@@ -190,7 +196,8 @@ class TargetContext(Context):
         utils.move_symlink(self.rev_path(rev), path, user=self.user)
 
     def mark_rev_current(self, rev):
-        """Change the current rev to the given one.
+        """
+        Change the current rev to the given one.
 
         This state is maintained as a ``current`` symlink in the directory
         root that points to the relevant ``revs/{rev}`` directory.
@@ -199,7 +206,8 @@ class TargetContext(Context):
         self.link_path_to_rev(self.current_link, rev)
 
     def mark_rev_done(self, rev):
-        """Change the state to done for the given rev.
+        """
+        Change the state to done for the given rev.
 
         This state is maintained as a ``.done`` symlink in the directory root
         that points to the relevant ``revs/{rev}`` directory.
@@ -212,7 +220,8 @@ class TargetContext(Context):
             utils.remove_symlink(self._progress_link, user=self.user)
 
     def mark_rev_in_progress(self, rev):
-        """Change the state to in-progress for the given rev.
+        """
+        Change the state to in-progress for the given rev.
 
         This state is maintained as a ``.in-progress`` symlink in the
         directory root that points to the relevant ``revs/{rev}`` directory.
@@ -233,7 +242,7 @@ class TargetContext(Context):
         return self._rev_from_path(self._progress_link)
 
     def rev_path(self, rev, *paths):
-        """Returns the path to the given repo revision."""
+        """Return the path to the given repo revision."""
 
         return os.path.join(self.revs_dir, rev, *paths)
 
@@ -244,7 +253,8 @@ class TargetContext(Context):
         return self.path('revs')
 
     def setup(self):
-        """Creates the cache and revs directory.
+        """
+        Create the cache and revs directory.
 
         See :class:``Context.setup`` for its additional operations.
         """

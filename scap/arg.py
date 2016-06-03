@@ -15,14 +15,15 @@ ATTR_ARGUMENTS = '_app_arguments'
 
 
 class ScapHelpFormatter(argparse.HelpFormatter):
-    """Formatter that respects argparse.SUPPRESS for subparser actions"""
+    """Formatter that respects argparse.SUPPRESS for subparser actions."""
+
     def _format_action(self, action):
         if not action.help == argparse.SUPPRESS:
             return super(ScapHelpFormatter, self)._format_action(action)
 
 
 def build_parser(script=None):
-    """Builds an argument parser for all ``cli.Application``'s"""
+    """Build an argument parser for all ``cli.Application``'s."""
     parser = argparse.ArgumentParser(formatter_class=ScapHelpFormatter)
 
     desc = 'If you\'re attempting a full scap, try: `scap sync \'message\'`'
@@ -50,7 +51,8 @@ def build_parser(script=None):
 
 
 def add_base_arguments(parser):
-    """Add standard arguments to argparser.
+    """
+    Add standard arguments to argparser.
 
     These arguments should be present on all subparsers.
 
@@ -87,7 +89,7 @@ def add_base_arguments(parser):
 
 
 def build_subparser(cls, subparser):
-    """Appends subparsers to ``cli.Application``'s agparser using decorators"""
+    """Append subparsers to ``cli.Application``'s agparser using decorators."""
     local_subparser = getattr(cls, ATTR_SUBPARSER)
 
     doc = cls.__doc__.splitlines() if cls.__doc__ else [None]
@@ -118,7 +120,7 @@ def build_subparser(cls, subparser):
 
 
 def build_subargparser(app, parser):
-    """Add arguments for subparsers"""
+    """Add arguments for subparsers."""
     main_func = getattr(app, 'main')
     local_args = getattr(main_func, ATTR_ARGUMENTS, [])
 

@@ -38,7 +38,8 @@ RESET_ALL = 0
 
 
 def esc(*args):
-    """Get an ANSI escape code.
+    """
+    Get an ANSI escape code.
 
     >>> esc(BG_WHITE, FG_RED, BLINK) == r'\x1b[5;31;47m'
     True
@@ -50,7 +51,8 @@ def esc(*args):
 
 
 def reset():
-    """Get the ANSI reset code.
+    """
+    Get the ANSI reset code.
 
     >>> reset() == r'\x1b[0m'
     True

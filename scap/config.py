@@ -50,7 +50,8 @@ DEFAULT_CONFIG = {
 
 
 def load(cfg_file=None, environment=None, overrides=None):
-    """Load configuration.
+    """
+    Load configuration.
 
     A configuration file consists of sections, led by a ``[section]`` header
     and followed by ``name: value`` entries. Lines beginning with ``'#'`` are
@@ -124,7 +125,7 @@ def load(cfg_file=None, environment=None, overrides=None):
 
 
 def override_config(config, overrides=None):
-    """Override values in a config with type-coerced values"""
+    """Override values in a config with type-coerced values."""
     if overrides:
         for key, value in overrides.iteritems():
             config[key] = coerce_value(key, value)

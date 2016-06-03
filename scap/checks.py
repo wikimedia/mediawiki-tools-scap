@@ -40,7 +40,6 @@ def checktype(type):
 
     :param type: type name
     """
-
     def decorator(klass):
         register_type(type, klass)
         return klass
@@ -50,7 +49,7 @@ def checktype(type):
 
 def execute(checks, logger, concurrency=2):
     """
-    Executes the given checks in parallel.
+    Execute the given checks in parallel.
 
     :param checks: iterable of `checks.Check` objects
     :param logger: `logging.Logger` to send messages to
@@ -163,7 +162,7 @@ def register_type(type, factory):
 @checktype('command')
 class Check(object):
     """
-    Represents a loaded 'command' check.
+    Represent a loaded 'command' check.
 
     :param name: check name
     :param stage: stage after which to run the check

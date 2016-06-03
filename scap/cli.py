@@ -18,6 +18,7 @@ from . import utils
 
 class Application(object):
     """Base class for creating command line applications."""
+
     program_name = None
     _logger = None
     _announce_logger = None
@@ -56,7 +57,8 @@ class Application(object):
         return os.path.join(self.config['bin_dir'], script_name)
 
     def announce(self, *args):
-        """Announce a message to broadcast listeners.
+        """
+        Announce a message to broadcast listeners.
 
         Emits a logging event to the 'scap.announce' logger which can be
         configured to broadcast messages via irc or another real-time
@@ -78,7 +80,8 @@ class Application(object):
             self._announce_logger.info(*args)
 
     def active_wikiversions(self, source_tree='deploy'):
-        """Get an ordered collection of active MediaWiki versions.
+        """
+        Get an ordered collection of active MediaWiki versions.
 
         :param source_tree: Source tree to read file from: 'deploy' or 'stage'
         :returns: collections.OrderedDict of {version:wikidb} values sorted by
@@ -89,7 +92,8 @@ class Application(object):
             self.config['wmf_realm'], self.config['datacenter'])
 
     def _process_arguments(self, args, extra_args):
-        """Validate and process command line arguments.
+        """
+        Validate and process command line arguments.
 
         Default behavior is to abort the application with an error if any
         unparsed arguments were found.
@@ -123,7 +127,8 @@ class Application(object):
             os.environ['SSH_AUTH_SOCK'] = auth_sock
 
     def main(self, *extra_args):
-        """Main business logic of the application.
+        """
+        Main business logic of the application.
 
         Parsed command line arguments are available in self.arguments. Global
         configuration is available in self.config. Unparsed command line
@@ -134,14 +139,16 @@ class Application(object):
         raise NotImplementedError()
 
     def _handle_system_exit(self, ex):
-        """Handle a SystemExit error.
+        """
+        Handle a SystemExit error.
 
         :returns: exit status
         """
         raise
 
     def _handle_keyboard_interrupt(self, ex):
-        """Handle ctrl-c from interactive user.
+        """
+        Handle ctrl-c from interactive user.
 
         :returns: exit status
         """
@@ -149,7 +156,8 @@ class Application(object):
         return 130
 
     def _handle_exception(self, ex):
-        """Handle unhandled exceptions and errors.
+        """
+        Handle unhandled exceptions and errors.
 
         :returns: exit status
         """
@@ -159,7 +167,8 @@ class Application(object):
         return 70
 
     def _before_exit(self, exit_status):
-        """Do any final cleanup or processing before the application exits.
+        """
+        Do any final cleanup or processing before the application exits.
 
         Called after :meth:`main` and before `sys.exit` even when an exception
         occurs.
@@ -204,7 +213,8 @@ class Application(object):
 
     @classmethod
     def run(cls, argv=sys.argv, script=None):
-        """Construct and run an application.
+        """
+        Construct and run an application.
 
         Calls ``sys.exit`` with exit status returned by application by
         default. Setting ``exit`` to ``False`` will instead return the class
@@ -283,7 +293,8 @@ def argument(*args, **kwargs):
 
 
 def command(*args, **kwargs):
-    """Decorator used to map a subcommand to a particular class
+    """
+    Decorator used to map a subcommand to a particular class.
 
     Use with the same signature as ``SubparsersAction.add_parser``
     """

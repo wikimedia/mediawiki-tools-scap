@@ -37,6 +37,7 @@ class Command(object):
          'some',
          'args']
     """
+
     def __init__(self, *cmds):
         self.cmds = cmds
 
@@ -57,8 +58,7 @@ class Command(object):
 
 class arg(object):
     """
-    an `arg` represents a named parameter which will be passed to an instance
-    of Command.
+    Represent a named parameter that will be passed to an instance of Command.
 
     For example, ``arg('user', '-u {}')`` creates an arg called 'user' which
     will evaluate to ``"-u luser"`` when the command is evaluated with
@@ -68,6 +68,7 @@ class arg(object):
                  when the command is evaluated.
     :param cmd: string, the argument text format string.
     """
+
     def __init__(self, name, cmd):
         self.name = name
         self.cmd = cmd

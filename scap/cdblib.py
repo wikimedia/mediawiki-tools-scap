@@ -185,7 +185,6 @@ class Reader(object):
 
 
 class Writer(object):
-
     """Object for building new Constant Databases, and writing them to a
     seekable file-like object."""
 
