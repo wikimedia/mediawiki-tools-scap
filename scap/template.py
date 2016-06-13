@@ -10,7 +10,7 @@ import yaml
 
 
 class Template(object):
-    """Adapter class that wraps jinja2 templates"""
+    """Adapter class that wraps jinja2 templates."""
     def __init__(self, name, loader, erb_syntax=False, var_file=None,
                  overrides=None):
         env_args = self._make_env_args(loader, erb_syntax)
@@ -20,7 +20,7 @@ class Template(object):
         self.var_file = var_file
 
     def _make_env_args(self, loader, erb_syntax):
-        """Generates properties to pass to the jinja template"""
+        """Generate properties to pass to the jinja template."""
         loader = jinja2.DictLoader(loader)
         env_args = {'loader': loader}
         if erb_syntax:
@@ -36,7 +36,8 @@ class Template(object):
         return env_args
 
     def _get_file_vars(self):
-        """Loads yaml var file if it exists
+        """
+        Load yaml var file if it exists.
 
         :return: dict variables for template use
         """
@@ -47,9 +48,11 @@ class Template(object):
             return yaml.load(variables.read())
 
     def render(self):
-        """Renders the templates specified by `self.name` using the
-        variables sourced from the import yaml file specified by
-        `self.var_file`
+        """
+        Renders the templates specified by `self.name`.
+
+        It uses the variables sourced from the import yaml
+        file specified by `self.var_file`
         """
         template_vars = self._get_file_vars()
         if self._overrides:

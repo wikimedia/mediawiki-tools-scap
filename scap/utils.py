@@ -32,7 +32,8 @@ from functools import wraps
 
 
 def isclose(a, b, rel_tol=1e-9, abs_tol=0.0):
-    """ returns True if a is close in value to b. False otherwise
+    """
+    Return True if a is close in value to b. False otherwise.
 
     :param a: one of the values to be tested
     :param b: the other value to be tested
@@ -66,7 +67,8 @@ def isclose(a, b, rel_tol=1e-9, abs_tol=0.0):
 
 
 def eintr_retry(func, *args):
-    """Retry a system call if it is interrupted by EINTR.
+    """
+    Retry a system call if it is interrupted by EINTR.
 
     Extracted from stdlib's subprocess (where it is called `_eintr_retry_call`
     -- the leading underscore indicating it is not part of the module's API).
@@ -88,7 +90,8 @@ class LockFailedError(Exception):
 
 
 def ask(question, default):
-    """Provides a y/n prompt if the controlling terminal is interactive.
+    """
+    Provide a y/n prompt if the controlling terminal is interactive.
 
     :param question: Prompt message to display
     :param default: Default answer to use in the case of a non-interactive
@@ -104,7 +107,8 @@ def ask(question, default):
 
 
 def find_nearest_host(hosts, port=22, timeout=1):
-    """Given a collection of hosts, find the one that is the fewest
+    """
+    Given a collection of hosts, find the one that is the fewest
     number of hops away.
 
     >>> # Begin test fixture
@@ -165,7 +169,7 @@ def get_real_username():
 
 
 def get_env_specific_filename(path, env=None):
-    """Find a file specific to the environment in which scap is running"""
+    """Find a file specific to the environment in which scap is running."""
     if env is None:
         return path
 
@@ -185,7 +189,8 @@ def get_env_specific_filename(path, env=None):
 
 
 def get_realm_specific_filename(filename, realm, datacenter):
-    """Find the most specific file for the given realm and datacenter.
+    """
+    Find the most specific file for the given realm and datacenter.
 
     The extension is separated from the filename and then recombined with the
     realm and datacenter:
@@ -225,7 +230,8 @@ def get_username():
 
 
 def human_duration(elapsed):
-    """Format an elapsed seconds count as human readable duration.
+    """
+    Format an elapsed seconds count as human readable duration.
 
     >>> human_duration(1)
     '00m 01s'
@@ -251,8 +257,9 @@ logger_stack = []
 @contextlib.contextmanager
 def context_logger(context_name, *args):
     """
-    context_logger is a context manager that maintains nested logger
-    contexts. Each time you enter a with block using this context manager,
+    Context manager that maintains nested logger contexts.
+
+    Each time you enter a with block using this context manager,
     a named logger is set up as a child of the current logger.
     When exiting the with block, the logger gets popped off the stack and
     the parent logger takes it's place as the 'current' logging context.
@@ -279,8 +286,11 @@ def context_logger(context_name, *args):
 
 
 def log_context(context_name):
-    """Decorator to wrap the a function in a new context_logger,
-       the logger is passed to the function via a kwarg named 'logger'"""
+    """
+    Decorator to wrap the a function in a new context_logger.
+
+    The logger is passed to the function via a kwarg named 'logger'.
+    """
     def arg_wrapper(func):
         @wraps(func)
         def context_wrapper(*args, **kwargs):
@@ -315,7 +325,8 @@ def get_logger():
 
 @contextlib.contextmanager
 def lock(filename):
-    """Context manager. Acquires a file lock on entry, releases on exit.
+    """
+    Context manager. Acquires a file lock on entry, releases on exit.
 
     :param filename: File to lock
     :raises: LockFailedError on failure
@@ -338,8 +349,10 @@ def lock(filename):
 
 @contextlib.contextmanager
 def cd(dirname):
-    """Context manager. Cds to dirname, moves back to previous dir on context exit
+    """
+    Context manager. Cds to dirname.
 
+    It moves back to previous dir on context exit.
     :param dirname: directory into which it should change
     """
     old_path = os.getcwd()
@@ -351,7 +364,8 @@ def cd(dirname):
 
 
 def md5_file(path):
-    """Compute the md5 checksum of a file's contents.
+    """
+    Compute the md5 checksum of a file's contents.
 
     :param path: Path to file
     :returns: hexdigest of md5 checksum
@@ -366,8 +380,10 @@ def md5_file(path):
 
 @log_context('sudo_check_call')
 def sudo_check_call(user, cmd, logger=None):
-    """Run a command as a specific user. Reports stdout/stderr of process
-    to logger during execution.
+    """
+    Run a command as a specific user.
+
+    Reports stdout/stderr of process to logger during execution.
 
     :param user: User to run command as
     :param cmd: Command to execute
@@ -433,8 +449,10 @@ def check_dir_exists(path, message=False):
 
 
 def check_php_opening_tag(path):
-    """Checks a PHP file to make sure nothing is before the opening <?php
-    except for shebangs.
+    """
+    Check a PHP file to make sure nothing is before the opening <?php.
+
+    Except for shebangs.
 
     :param path: Location of file
     :raises: ValueError on invalid file
@@ -476,7 +494,8 @@ def check_php_opening_tag(path):
 
 
 def logo(color=True, **colors):
-    """Get the scap logo::
+    """
+    Get the scap logo.
 
                ___ ____
              ⎛   ⎛ ,----
@@ -542,7 +561,7 @@ def logo(color=True, **colors):
 
 
 def scap_say(words=None, width=None):
-    """Make the scap pig say stuff"""
+    """Make the scap pig say stuff."""
     if not words:
         words = fortune()
 
@@ -570,7 +589,7 @@ def scap_say(words=None, width=None):
 
 
 def fortune():
-    """Get a random fortune"""
+    """Get a random fortune."""
     return random.choice([
         'S.C.A.P.: silencing communist american perpetrators',
         'S.C.A.P.: someone can always pontificate',
@@ -584,7 +603,8 @@ def fortune():
 
 @contextlib.contextmanager
 def sudo_temp_dir(owner, prefix):
-    """Create a temporary directory and delete it after the block.
+    """
+    Create a temporary directory and delete it after the block.
 
     :param owner: Directory owner
     :param prefix: Temp directory prefix
@@ -608,7 +628,7 @@ def sudo_temp_dir(owner, prefix):
 
 
 def read_pid(path):
-    """Read a PID from a file"""
+    """Read a PID from a file."""
     try:
         return int(open(path).read().strip())
     except IOError as e:
@@ -639,7 +659,8 @@ def remove_symlink(path, user=get_real_username()):
 
 
 def get_active_wikiversions(directory, realm, datacenter):
-    """Get an ordered collection of active MediaWiki versions.
+    """
+    Get an ordered collection of active MediaWiki versions.
 
     :returns: collections.OrderedDict of {version:wikidb} values sorted by
                 version number in ascending order
@@ -667,7 +688,9 @@ def get_active_wikiversions(directory, realm, datacenter):
 
 def uniqify(seq, idfun=None):
     '''
-    return a copy of list with duplicate values removed, preserving order
+    Return a copy of list with duplicate values removed.
+
+    It preserves order.
     :param seq: a list of items with possible duplicate values
     :returns: list of values from seq, minus any duplicates
     '''
@@ -715,13 +738,13 @@ def find_upwards(name, starting_point=os.getcwd()):
 
 def find_in_path(name, paths=[os.getcwd()], match_func=os.path.exists):
     """
-     Search a list of directories for a given file
+    Search a list of directories for a given file.
 
-     :param name: the relative path name to search for
-     :param paths: a list of paths to be searched
-     :param match_func: a function which is called to test each candidate
-                        defaults to testing for path existence only.
-     """
+    :param name: the relative path name to search for
+    :param paths: a list of paths to be searched
+    :param match_func: a function which is called to test each candidate
+                       defaults to testing for path existence only.
+    """
     for path in paths:
         candidate = join_path(path, name)
         if match_func(candidate):
@@ -731,7 +754,7 @@ def find_in_path(name, paths=[os.getcwd()], match_func=os.path.exists):
 
 def find_dir(name, paths=[os.getcwd()]):
     """
-    like find_in_path for directories only
+    Like find_in_path for directories only.
 
     :param name: the relative path name to search for
     :param paths: a list of paths to be searched
@@ -741,7 +764,7 @@ def find_dir(name, paths=[os.getcwd()]):
 
 def find_file(name, paths=[os.getcwd()]):
     """
-    like find_in_path for files only
+    Like find_in_path for files only.
 
     :param name: the relative path name to search for
     :param paths: a list of paths to be searched
@@ -752,6 +775,7 @@ def find_file(name, paths=[os.getcwd()]):
 def join_path(*fragments):
     """
     Join several path fragments into a complete, normalized path string.
+
     Strips leading and trailing slashes from path fragments to avoid an
     unfortunate feature of `os.path.join()` which is described in the
     python documentation for `os.path` as follows:

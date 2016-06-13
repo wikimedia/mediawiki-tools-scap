@@ -57,7 +57,8 @@ class AnsiColorFormatter(logging.Formatter):
 
 
 class IRCSocketHandler(logging.Handler):
-    """Log handler for logmsgbot on #wikimedia-operation.
+    """
+    Log handler for logmsgbot on #wikimedia-operation.
 
     Sends log events to a tcpircbot server for relay to an IRC channel.
     """
@@ -92,7 +93,8 @@ class IRCSocketHandler(logging.Handler):
 
 
 class JSONFormatter(logging.Formatter):
-    """Serialize logging output as JSON.
+    """
+    Serialize logging output as JSON.
 
     Can be used to maintain logged event structure between the deployment host
     and remote targets.
@@ -220,7 +222,7 @@ class LogstashFormatter(logging.Formatter):
         return json.dumps(logstash_record, default=str)
 
     def formatException(self, exc_info):
-        """Formats the given exception as a dict."""
+        """Format the given exception as a dict."""
         ex_type, ex_value, ex_traceback = exc_info
         return {
             'class': ex_type.__name__,
@@ -236,7 +238,8 @@ class LogstashFormatter(logging.Formatter):
 
 
 class ProgressReporter(object):
-    """Track and display progress of a process.
+    """
+    Track and display progress of a process.
 
     Report on the status of a multi-step process by displaying the completion
     percentage and succes, failure and remaining task counts on a single
@@ -311,7 +314,7 @@ class ProgressReporter(object):
 
 
 class DeployLogFormatter(JSONFormatter):
-    """Ensures that all `deploy.log` records contain a host attribute."""
+    """Ensure that all `deploy.log` records contain a host attribute."""
 
     def format(self, record):
         if not hasattr(record, 'host'):
@@ -330,7 +333,8 @@ class DeployLogHandler(logging.FileHandler):
 
 
 class Filter(object):
-    """Generic log filter that matches record attributes against criteria.
+    """
+    Generic log filter that matches record attributes against criteria.
 
     You can provide either a glob pattern, regular expression, or lambda as
     each attribute criterion, and invert the logic by passing filter=False.
@@ -356,7 +360,8 @@ class Filter(object):
 
     @staticmethod
     def loads(expression, filter=True):
-        """Constructs a `Filter` from the given free-form expression.
+        """
+        Construct a `Filter` from the given free-form expression.
 
         See :class:`Filter` for examples.
         """
@@ -385,7 +390,8 @@ class Filter(object):
 
     @staticmethod
     def parse(expression):
-        """Parses the given filter expression and generates its parts.
+        """
+        Parse the given filter expression and generates its parts.
 
         :param expression: Filter expression.
         :type expression: str
@@ -413,7 +419,8 @@ class Filter(object):
         self.append(criteria)
 
     def append(self, criteria):
-        """Appends the filter with the given criteria.
+        """
+        Append the filter with the given criteria.
 
         :param criteria: Filter criteria
         :type criteria: iter
@@ -433,7 +440,8 @@ class Filter(object):
             self.criteria.append((attr, criterion))
 
     def filter(self, record):
-        """Performs filtering on a given log record.
+        """
+        Perform filtering on a given log record.
 
         :param record: Log record.
         :type record: LogRecord
@@ -476,9 +484,10 @@ class MuteReporter(ProgressReporter):
 
 
 class Stats(object):
-    """A simple StatsD metric client that can log measurements and counts to
-    a remote StatsD host.
+    """
+    A simple StatsD metric client.
 
+    It can log measurements and counts to a remote StatsD host.
     See <https://github.com/etsy/statsd/wiki/Protocol> for details.
     """
 
@@ -506,7 +515,8 @@ class Stats(object):
 
 
 class Timer(object):
-    """Context manager to track and record the time taken to execute a block.
+    """
+    Context manager to track and record the time taken to execute a block.
 
     Elapsed time will be recorded to a logger and optionally a StatsD server.
 
@@ -550,7 +560,9 @@ class Timer(object):
         self.mark_start = now
 
     def __enter__(self):
-        """Enter the runtime context.
+        """
+        Enter the runtime context.
+
         :returns: self
         """
         self.start = time.time()
@@ -563,7 +575,8 @@ class Timer(object):
         self._record_elapsed(self.label, time.time() - self.start)
 
     def _record_elapsed(self, label, elapsed):
-        """Log the elapsed duration.
+        """
+        Log the elapsed duration.
 
         :param label: Label for elapsed time
         :type label: str
@@ -590,7 +603,8 @@ class Udp2LogHandler(logging.handlers.DatagramHandler):
         self.prefix = prefix
 
     def makePickle(self, record):
-        """Format record as a udp2log packet.
+        """
+        Format record as a udp2log packet.
 
         >>> Udp2LogHandler('127.0.0.1', 12345).makePickle(
         ...     logging.makeLogRecord({'msg':'line1\\nline2'}))
@@ -611,7 +625,8 @@ class Udp2LogHandler(logging.handlers.DatagramHandler):
 
 
 def setup_loggers(cfg, console_level=logging.INFO, handlers=[]):
-    """Setup the logging system.
+    """
+    Setup the logging system.
 
     * Configure the root logger to use :class:`AnsiColorFormatter`
     * Optionally add a :class:`Udp2LogHandler` to send logs to a udp2log server

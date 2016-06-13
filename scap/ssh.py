@@ -25,7 +25,8 @@ SSH = cmd.Command('/usr/bin/ssh', '-oBatchMode=yes',
 
 
 class OutputHandler:
-    """Standard handler for SSH command output from hosts.
+    """
+    Standard handler for SSH command output from hosts.
 
     Simply stores output as a string for future handling.
     """
@@ -41,7 +42,8 @@ class OutputHandler:
 
 
 class JSONOutputHandler(OutputHandler):
-    """Deserializes and logs structured JSON output from hosts.
+    """
+    Deserialize and log structured JSON output from hosts.
 
     Any non-structured output is stored for future handling.
     """
@@ -52,7 +54,8 @@ class JSONOutputHandler(OutputHandler):
         self._partial = ''
 
     def accept(self, output):
-        """Extracts and deserializes line-wise JSON from the given output.
+        """
+        Extract and deserializes line-wise JSON from the given output.
 
         Any non-JSON is stored in self.output.
         """
@@ -77,7 +80,8 @@ class JSONOutputHandler(OutputHandler):
                 self.output += line + "\n"
 
     def lines(self, output):
-        """Generate each line of the given output.
+        """
+        Generate each line of the given output.
 
         Reconstructs partial lines using the leftovers from previous calls.
         """
@@ -129,7 +133,8 @@ class Job(object):
         return self
 
     def progress(self, label):
-        """Monitor job progress with a :class:`log.ProgressReporter`.
+        """
+        Monitor job progress with a :class:`log.ProgressReporter`.
 
         Use of this method changes the runtime behavior of :meth:`run` to
         return counts of successes and failures instead of a list of results.
@@ -138,7 +143,8 @@ class Job(object):
         return self
 
     def run(self, batch_size=80):
-        """Run the job.
+        """
+        Run the job.
 
         :returns: List of (host, status, ohandler) tuples or
                   tuple of (success, fail) counts

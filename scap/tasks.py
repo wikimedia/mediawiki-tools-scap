@@ -41,7 +41,8 @@ DEFAULT_RSYNC_ARGS = [
 
 
 def cache_git_info(version, cfg):
-    """Create JSON cache files of git branch information.
+    """
+    Create JSON cache files of git branch information.
 
     :param version: MediaWiki version (eg '1.23wmf15')
     :param cfg: Dict of global configuration values
@@ -103,7 +104,8 @@ def check_valid_syntax(*paths):
 
 @utils.log_context('compile_wikiversions')
 def compile_wikiversions(source_tree, cfg, logger=None):
-    """Validate and compile the wikiversions.json file.
+    """
+    Validate and compile the wikiversions.json file.
 
     1. Find the realm specific filename for wikiversions.json in staging area
     2. Validate that all versions mentioned in the json exist as directories
@@ -180,7 +182,8 @@ def compile_wikiversions(source_tree, cfg, logger=None):
 @utils.log_context('merge_cdb_updates')
 def merge_cdb_updates(directory, pool_size, trust_mtime=False, mute=False,
                       logger=None):
-    """Update l10n CDB files using JSON data.
+    """
+    Update l10n CDB files using JSON data.
 
     :param directory: L10n cache directory
     :param pool_size: Number of parallel processes to use
@@ -221,7 +224,8 @@ def merge_cdb_updates(directory, pool_size, trust_mtime=False, mute=False,
 
 
 def purge_l10n_cache(version, cfg):
-    """Purge the localization cache for a given version.
+    """
+    Purge the localization cache for a given version.
 
     :param version: MediaWiki version (eg '1.23wmf15')
     :param cfg: Dict of global configuration values
@@ -256,7 +260,8 @@ def purge_l10n_cache(version, cfg):
 
 @utils.log_context('sync_master')
 def sync_master(cfg, master, verbose=False, logger=None):
-    """Sync local staging dir with upstream rsync server's copy
+    """
+    Sync local staging dir with upstream rsync server's copy.
 
     Rsync from ``server::common`` to the local staging directory.
 
@@ -290,7 +295,8 @@ def sync_master(cfg, master, verbose=False, logger=None):
 
 @utils.log_context('sync_common')
 def sync_common(cfg, include=None, sync_from=None, verbose=False, logger=None):
-    """Sync local deploy dir with upstream rsync server's copy
+    """
+    Sync local deploy dir with upstream rsync server's copy.
 
     Rsync from ``server::common`` to the local deploy directory.
     If a list of servers is given in ``sync_from`` we will attempt to select
@@ -350,7 +356,8 @@ def sync_common(cfg, include=None, sync_from=None, verbose=False, logger=None):
 
 
 def sync_wikiversions(hosts, cfg):
-    """Rebuild and sync wikiversions.php to the cluster.
+    """
+    Rebuild and sync wikiversions.php to the cluster.
 
     :param hosts: List of hosts to sync to
     :param cfg: Dict of global configuration values
@@ -368,7 +375,8 @@ def sync_wikiversions(hosts, cfg):
 
 @utils.log_context('update_l10n_cdb')
 def update_l10n_cdb(cache_dir, cdb_file, trust_mtime=False, logger=None):
-    """Update a localization CDB database.
+    """
+    Update a localization CDB database.
 
     :param cache_dir: L10n cache directory
     :param cdb_file: L10n CDB database
@@ -443,7 +451,8 @@ def update_l10n_cdb_wrapper(args, logger=None):
 
 def _call_rebuildLocalisationCache(wikidb, out_dir, use_cores=1,
                                    lang=None, force=False, quiet=False):
-    """Helper for update_localization_cache
+    """
+    Helper for update_localization_cache.
 
     :param wikidb: Wiki running given version
     :param out_dir: The output directory
@@ -488,7 +497,8 @@ def _call_rebuildLocalisationCache(wikidb, out_dir, use_cores=1,
 
 @utils.log_context('update_localization_cache')
 def update_localization_cache(version, wikidb, verbose, cfg, logger=None):
-    """Update the localization cache for a given MW version.
+    """
+    Update the localization cache for a given MW version.
 
     :param version: MediaWiki version
     :param wikidb: Wiki running given version
@@ -578,7 +588,8 @@ def update_localization_cache(version, wikidb, verbose, cfg, logger=None):
 
 
 def refresh_cdb_json_files(in_dir, pool_size, verbose):
-    """Update json files from corresponding cdb file in parallel
+    """
+    Update json files from corresponding cdb file in parallel.
 
     :param in_dir: directory containing cdb files
     :param pool_size: number of "threads" to use
@@ -607,7 +618,8 @@ def refresh_cdb_json_files(in_dir, pool_size, verbose):
 
 
 def refresh_cdb_json_file(file_path):
-    """Rebuild json file from cdb file
+    """
+    Rebuild json file from cdb file.
 
     #. Check md5 file saved in upstream against md5 of cdb file
     #. Read cdb file to dict

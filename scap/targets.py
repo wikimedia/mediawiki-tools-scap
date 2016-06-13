@@ -13,9 +13,10 @@ from . import utils
 
 
 def get(cfg, limit_hosts=None, extra_paths=[]):
-    """Factory function to get an appropriate TargetList object to fetch a list
-    of targets from. Right now this is only flat files, mostly from dsh
+    """
+    Factory function to get a TargetList object to fetch a list of targets.
 
+    Right now this is only flat files, mostly from dsh.
     :param cfg: dict Ordered dictionary of configuration
     :param limit_hosts: str A pattern to limit host names by. See
         limit_target_hosts for further information on the format
@@ -25,11 +26,12 @@ def get(cfg, limit_hosts=None, extra_paths=[]):
 
 
 def limit_target_hosts(pattern, hosts):
-    """Returns a subset of hosts based on wildcards
+    """
+    Return a subset of hosts based on wildcards.
 
-    if the pattern can specify a range of the format '[start:end]'
+    If the pattern can specify a range of the format '[start:end]'.
 
-    if the supplied pattern begins with ``~`` then it is treated as a
+    If the supplied pattern begins with ``~`` then it is treated as a
     regular expression.
 
     If the pattern begins with ``!`` then it is negated.
@@ -99,10 +101,11 @@ def limit_target_hosts(pattern, hosts):
 
 
 class TargetList():
-    """An abstract list of targets (lists of hosts)"""
+    """An abstract list of targets (lists of hosts)."""
 
     def __init__(self, cfg, limit_hosts=None, extra_paths=[]):
-        """Constructor for target lists!
+        """
+        Constructor for target lists.
 
         :param cfg: dict Ordered dictionary of configuration
         :param limit_hosts: str A pattern to limit host names by. See
@@ -114,7 +117,7 @@ class TargetList():
         self.extra_paths = extra_paths
 
     def _get_server_groups(self):
-        """Get the server_groups from configuration"""
+        """Get the server_groups from configuration."""
         server_groups = self.config.get('server_groups', None)
 
         if server_groups is None:
@@ -125,7 +128,8 @@ class TargetList():
         return server_groups
 
     def _get_targets_for_key(self, key):
-        """Get a list of hosts for a given configuration key
+        """
+        Get a list of hosts for a given configuration key.
 
         All child classes must implement this!
 
@@ -134,7 +138,8 @@ class TargetList():
         raise NotImplementedError
 
     def get_deploy_groups(self, primary_key):
-        """Get the list of targets and groups to deploy to
+        """
+        Get the list of targets and groups to deploy to.
 
         :param primary_key: str the primary configuration key to look for,
             combined with the server_groups config
@@ -170,10 +175,11 @@ class TargetList():
 
 
 class DshTargetList(TargetList):
-    """Fetch from list of hostnames. Historically kept in /etc/dsh/group"""
+    """Fetch from list of hostnames. Historically kept in /etc/dsh/group."""
 
     def _get_targets_for_key(self, filename):
-        """Get a list of hosts for a given filename
+        """
+        Get a list of hosts for a given filename.
 
         :param filename: str Combined filename key generated from a
             group + primary key

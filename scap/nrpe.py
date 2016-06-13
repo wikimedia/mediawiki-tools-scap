@@ -24,7 +24,8 @@ _commands = {}
 
 
 def load(config):
-    """Loads NRPE command definitions from the given configuration.
+    """
+    Load NRPE command definitions from the given configuration.
 
     :param config: NRPE configuration string
 
@@ -44,7 +45,8 @@ def load(config):
 
 
 def load_directory(config_dir):
-    """Loads available local NRPE check commands from the given directory.
+    """
+    Load available local NRPE check commands from the given directory.
 
     :param config_dir: directory in which to look for NRPE configuration
 
@@ -67,14 +69,14 @@ def load_directory(config_dir):
 
 
 def register(commands):
-    """Registers global NRPE commands for use in check configuration."""
+    """Register global NRPE commands for use in check configuration."""
 
     _commands.update(commands)
 
 
 @checks.checktype('nrpe')
 class NRPECheck(checks.Check):
-    """Represents a loaded 'nrpe' check."""
+    """Represent a loaded 'nrpe' check."""
 
     def validate(self):
         """Validates that the configured NRPE check is available."""

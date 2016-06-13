@@ -145,7 +145,8 @@ class AbstractSync(cli.Application):
         return cmd
 
     def _apache_sync_command(self, proxies):
-        """Synchronization command to run on the apache hosts.
+        """
+        Synchronization command to run on the apache hosts.
 
         :param proxies: List of proxy hostnames
         """
@@ -160,7 +161,8 @@ class AbstractSync(cli.Application):
 
 @cli.command('security-check')
 class SecurityPatchCheck(cli.Application):
-    """Check if security patches are applied
+    """
+    Check if security patches are applied.
 
     class to check if patches in ``/srv/patches`` have been applied to the
     active wikiversions
@@ -186,7 +188,7 @@ class CompileWikiversions(cli.Application):
 
 @cli.command('wikiversions-inuse')
 class MWVersionsInUse(cli.Application):
-    """Get a list of the active MediaWiki versions"""
+    """Get a list of the active MediaWiki versions."""
 
     @cli.argument('--withdb', action='store_true',
                   help='Add `=wikidb` with some wiki using the version.')
@@ -213,7 +215,7 @@ class MWVersionsInUse(cli.Application):
 
 @cli.command('l10n-purge')
 class PurgeL10nCache(cli.Application):
-    """Purge the localization cache for an inactive MediaWiki version"""
+    """Purge the localization cache for an inactive MediaWiki version."""
 
     @cli.argument('--version', required=True,
                   help='MediaWiki version (eg 1.23wmf16)')
@@ -281,7 +283,8 @@ class RebuildCdbs(cli.Application):
 
 @cli.command('sync', help='Deploy MediaWiki to the cluser (formerly scap)')
 class Scap(AbstractSync):
-    """Deploy MediaWiki to the cluster.
+    """
+    Deploy MediaWiki to the cluster.
 
     #. Validate php syntax of wmf-config and multiversion
     #. Sync deploy directory on localhost with staging area
@@ -435,7 +438,7 @@ class SyncCommon(cli.Application):
 
 @cli.command('sync-dir')
 class SyncDir(AbstractSync):
-    """Sync a directory to the cluster"""
+    """Sync a directory to the cluster."""
 
     @cli.argument('dir', help='Directory to sync')
     @cli.argument('message', nargs='*', help='Log message for SAL')
@@ -479,7 +482,7 @@ class SyncDir(AbstractSync):
 
 @cli.command('sync-file')
 class SyncFile(AbstractSync):
-    """Sync a specific file to the cluster"""
+    """Sync a specific file to the cluster."""
 
     @cli.argument('file', help='File to sync')
     @cli.argument('message', nargs='*', help='Log message for SAL')
@@ -530,7 +533,7 @@ class SyncFile(AbstractSync):
 
 @cli.command('sync-l10n')
 class SyncL10n(AbstractSync):
-    """Sync l10n files for a given branch and rebuild cache files"""
+    """Sync l10n files for a given branch and rebuild cache files."""
 
     @cli.argument('version', help='MediaWiki version (eg 1.27.0-wmf.7)')
     def main(self, *extra_args):
@@ -596,7 +599,7 @@ class SyncL10n(AbstractSync):
 
 @cli.command('sync-wikiversions')
 class SyncWikiversions(AbstractSync):
-    """Rebuild and sync wikiversions.php to the cluster"""
+    """Rebuild and sync wikiversions.php to the cluster."""
 
     def _process_arguments(self, args, extra_args):
         args.message = ' '.join(args.message) or '(no message)'
@@ -636,7 +639,7 @@ class SyncWikiversions(AbstractSync):
 
 @cli.command('l10n-update')
 class UpdateL10n(cli.Application):
-    """Update localization files"""
+    """Update localization files."""
 
     def main(self, *extra_args):
         for version, wikidb in self.active_wikiversions().items():
@@ -646,7 +649,8 @@ class UpdateL10n(cli.Application):
 
 @cli.command('hhvm-restart')
 class RestartHHVM(cli.Application):
-    """Restart the HHVM fcgi process on the local server
+    """
+    Restart the HHVM fcgi process on the local server.
 
     #. Depool the server if registered with pybal
     #. Wait for pending requests to complete
@@ -701,7 +705,7 @@ class RestartHHVM(cli.Application):
 
 @cli.command('hhvm-graceful')
 class HHVMGracefulAll(cli.Application):
-    """Perform a rolling restart of HHVM across the cluster"""
+    """Perform a rolling restart of HHVM across the cluster."""
 
     def _process_arguments(self, args, extra_args):
         if hasattr(args, 'message'):
@@ -734,7 +738,8 @@ class HHVMGracefulAll(cli.Application):
 
 @cli.command('cdb-json-refresh', help=argparse.SUPPRESS)
 class RefreshCdbJsonFiles(cli.Application):
-    """Create JSON/MD5 files for all CDB files in a directory
+    """
+    Create JSON/MD5 files for all CDB files in a directory.
 
     This will put a JSON and MD5 file in /upstream for each CDB file.
 
@@ -772,7 +777,7 @@ class RefreshCdbJsonFiles(cli.Application):
 
 @cli.command('say')
 class Say(cli.Application):
-    """Scap propogranda of the lowest order"""
+    """Scap propogranda of the lowest order."""
 
     @cli.argument('-w', '--width', type=int,
                   help='Column width for message box')
