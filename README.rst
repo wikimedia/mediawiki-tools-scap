@@ -25,7 +25,7 @@ project on phabricator.wikimedia.org
 Credits
 =======
 
-Ascii art derived from original work by Joan Stark [#pig]_ and the `speed`
+ASCII art derived from original work by Joan Stark [#pig]_ and the `speed`
 figlet font [#speedfont]_.
 
 .. [#pig] http://www.oocities.com/spunk1111/farm.htm#pig
