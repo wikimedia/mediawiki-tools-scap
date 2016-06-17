@@ -1,6 +1,9 @@
 #!/usr/bin/env python2
 
+import os
+
 import unittest
+
 from scap import targets
 
 
@@ -13,6 +16,54 @@ class TargetsTest(unittest.TestCase):
         'test01.staging.eqiad.wmflabs',
         'test02.staging.eqiad.wmflabs'
     ]
+
+    def test_dsh_target_refactor(self):
+        dsh_file = 'test-targets'
+        dsh_path = os.path.join(os.path.dirname(__file__), 'targets-test')
+        target_obj = targets.get(dsh_file,
+                                 {dsh_file: dsh_file},
+                                 extra_paths=[dsh_path])
+        self.assertEqual(sorted(self.hosts),
+                         sorted(target_obj.get_deploy_groups()['all_targets']))
+
+    def test_dsh_targets(self):
+        dsh_file = 'test-targets'
+        dsh_path = os.path.join(os.path.dirname(__file__), 'targets-test')
+        deploy_groups = targets.get(dsh_file,
+                                    {dsh_file: dsh_file},
+                                    extra_paths=[dsh_path])
+        self.assertEqual(sorted(self.hosts),
+                         sorted(deploy_groups.all))
+
+    def test_dsh_target_default_groups(self):
+        dsh_file = 'test-targets'
+        dsh_path = os.path.join(os.path.dirname(__file__), 'targets-test')
+        target_obj = targets.get(dsh_file,
+                                 {dsh_file: dsh_file},
+                                 extra_paths=[dsh_path])
+        deploy_groups = target_obj.groups
+
+        # Without a group in the config, the only group should be "default"
+        self.assertEqual(1, len(deploy_groups.keys()))
+        self.assertEqual('default', deploy_groups.keys()[0])
+
+    def test_dsh_target_other_groups(self):
+        dsh_file = 'test-targets'
+        canary_test_targets = 'canary_test-targets'
+
+        dsh_path = os.path.join(os.path.dirname(__file__), 'targets-test')
+
+        cfg = {'server_groups': 'canary,default',
+               dsh_file: dsh_file,
+               canary_test_targets: canary_test_targets}
+
+        target_obj = targets.get(dsh_file, cfg, extra_paths=[dsh_path])
+        deploy_groups = target_obj.groups
+
+        # Since server_groups is set, there should be 2 groups:
+        # canary and default
+        self.assertEqual(2, len(deploy_groups.keys()))
+        self.assertEqual('canary', deploy_groups.keys()[0])
 
     def test_limit_target_hosts(self):
         tests = [(self._gth('*'), sorted(self.hosts)),

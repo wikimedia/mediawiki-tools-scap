@@ -111,22 +111,19 @@ class AbstractSync(cli.Application):
     def _get_master_list(self):
         """Get list of deploy master hostnames that should be updated before
         the rest of the cluster."""
-        target_obj = targets.get(self.config)
-        return target_obj.get_deploy_groups('dsh_masters')['all_targets']
+        return targets.get('dsh_masters', self.config).all
 
     def _get_proxy_list(self):
         """Get list of sync proxy hostnames that should be updated before the
         rest of the cluster."""
-        target_obj = targets.get(self.config)
-        return target_obj.get_deploy_groups('dsh_proxies')['all_targets']
+        return targets.get('dsh_proxies', self.config).all
 
     def _get_target_list(self):
         """Get list of hostnames that should be updated from the proxies."""
-        target_obj = targets.get(self.config)
         return list(
             set(self._get_master_list()) |
             set(self._get_proxy_list()) |
-            set(target_obj.get_deploy_groups('dsh_targets')['all_targets'])
+            set(targets.get('dsh_targets', self.config).all)
         )
 
     def _master_sync_command(self):

@@ -12,17 +12,20 @@ import string
 from . import utils
 
 
-def get(cfg, limit_hosts=None, extra_paths=[]):
+def get(key, cfg, limit_hosts=None, extra_paths=[]):
     """
     Factory function to get a TargetList object to fetch a list of targets.
 
     Right now this is only flat files, mostly from dsh.
+
+    :param key: str The primary configuration key to look for,
+                    combined with the server_groups config
     :param cfg: dict Ordered dictionary of configuration
     :param limit_hosts: str A pattern to limit host names by. See
         limit_target_hosts for further information on the format
     :param extra_paths: list of extra paths to search for list files in
     """
-    return DshTargetList(cfg, limit_hosts, extra_paths)
+    return DshTargetList(key, cfg, limit_hosts, extra_paths)
 
 
 def limit_target_hosts(pattern, hosts):
@@ -103,18 +106,22 @@ def limit_target_hosts(pattern, hosts):
 class TargetList():
     """An abstract list of targets (lists of hosts)."""
 
-    def __init__(self, cfg, limit_hosts=None, extra_paths=[]):
+    def __init__(self, key, cfg, limit_hosts=None, extra_paths=[]):
         """
         Constructor for target lists.
 
+        :param key: str The primary configuration key to look for,
+                        combined with the server_groups config
         :param cfg: dict Ordered dictionary of configuration
         :param limit_hosts: str A pattern to limit host names by. See
             limit_target_hosts for further information on the format
         :param extra_paths: list of extra paths to search for list files in
         """
+        self.primary_key = key
         self.config = cfg
         self.limit_hosts = limit_hosts
         self.extra_paths = extra_paths
+        self.deploy_groups = {}
 
     def _get_server_groups(self):
         """Get the server_groups from configuration."""
@@ -137,24 +144,22 @@ class TargetList():
         """
         raise NotImplementedError
 
-    def get_deploy_groups(self, primary_key):
-        """
-        Get the list of targets and groups to deploy to.
+    def get_deploy_groups(self):
+        """Get the list of targets and groups to deploy to."""
+        if self.deploy_groups:
+            return self.deploy_groups
 
-        :param primary_key: str the primary configuration key to look for,
-            combined with the server_groups config
-        """
         groups = collections.OrderedDict()
         all_hosts = []
         server_groups = self._get_server_groups()
 
         for group in server_groups:
             group = group.strip()
-            cfg_key = group + '_' + primary_key
+            cfg_key = group + '_' + self.primary_key
             limit = False
             if group == 'default':
                 limit = True
-                cfg_key = primary_key
+                cfg_key = self.primary_key
 
             key = self.config.get(cfg_key, None)
 
@@ -171,7 +176,17 @@ class TargetList():
             all_hosts += targets
             groups[group] = targets
 
-        return {'all_targets': all_hosts, 'deploy_groups': groups}
+        self.deploy_groups = {'all_targets': all_hosts,
+                              'deploy_groups': groups}
+        return self.deploy_groups
+
+    @property
+    def groups(self):
+        return self.get_deploy_groups()['deploy_groups']
+
+    @property
+    def all(self):
+        return self.get_deploy_groups()['all_targets']
 
 
 class DshTargetList(TargetList):

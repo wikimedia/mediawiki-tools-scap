@@ -617,14 +617,14 @@ class Deploy(cli.Application):
         """Build server groups based on configuration `server_groups` variable
         """
         target_obj = targets.get(
+            'dsh_targets',
             self.config,
             self.arguments.limit_hosts,
             self.context.env_specific_paths()
         )
-        deploy_group_info = target_obj.get_deploy_groups('dsh_targets')
 
-        self.all_targets = deploy_group_info['all_targets']
-        self.deploy_groups = deploy_group_info['deploy_groups']
+        self.all_targets = target_obj.all
+        self.deploy_groups = target_obj.groups
 
     def execute_rollback(self, stage, group, targets):
         prompt = "Stage '{}' failed on group '{}'. Perform rollback?".format(
