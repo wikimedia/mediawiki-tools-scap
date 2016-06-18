@@ -497,6 +497,8 @@ def logo(color=True, **colors):
     """
     Get the scap logo.
 
+    Scappy the scap pig::
+
                ___ ____
              ⎛   ⎛ ,----
               \  //==--'
