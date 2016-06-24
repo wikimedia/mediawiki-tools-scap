@@ -7,11 +7,46 @@
 """
 import argparse
 import logging
+import sys
 
 import scap
 
 ATTR_SUBPARSER = '_app_subparser'
 ATTR_ARGUMENTS = '_app_arguments'
+
+
+class _ScapAutoCompleteAction(argparse.Action):
+    def __call__(self, parser, namespace, values, option_string=None):
+        print parser.completions
+
+        # Autocompletion is all we want, exit here
+        sys.exit(0)
+
+
+class ScapArgParser(argparse.ArgumentParser):
+    """Scap argparse subclass
+
+    Created to allow for easier, scripted, autocompletion
+    """
+    def __init__(self, *args, **kwargs):
+        self._autocomplete_options = []
+        return super(ScapArgParser, self).__init__(*args, **kwargs)
+
+    def add_argument(self, *args, **kwargs):
+        for arg in args:
+            if not arg.startswith('-') or arg == '--_autocomplete':
+                # skip positional arguments
+                continue
+            self.add_completion(arg)
+
+        super(ScapArgParser, self).add_argument(*args, **kwargs)
+
+    def add_completion(self, arg):
+        self._autocomplete_options.append(arg)
+
+    @property
+    def completions(self):
+        return '\n'.join(self._autocomplete_options)
 
 
 class ScapHelpFormatter(argparse.HelpFormatter):
@@ -24,7 +59,7 @@ class ScapHelpFormatter(argparse.HelpFormatter):
 
 def build_parser(script=None):
     """Build an argument parser for all ``cli.Application``'s."""
-    parser = argparse.ArgumentParser(formatter_class=ScapHelpFormatter)
+    parser = ScapArgParser(formatter_class=ScapHelpFormatter)
 
     desc = 'If you\'re attempting a full scap, try: `scap sync \'message\'`'
 
@@ -34,8 +69,13 @@ def build_parser(script=None):
         parser.set_defaults(which=script)
         return parser
 
+    # Add a hidden --list-options arg for completion purposes
+    parser.add_argument('--_autocomplete', action=_ScapAutoCompleteAction,
+                        nargs=0, help=argparse.SUPPRESS)
+
     subparsers = parser.add_subparsers(title='command',
                                        metavar='<command>',
+                                       parser_class=ScapArgParser,
                                        description=desc)
 
     parsers = []
@@ -43,6 +83,7 @@ def build_parser(script=None):
         app_cls = getattr(scap, app)
         name = getattr(app_cls, ATTR_SUBPARSER)['_flags'][0]
         parsers.append({'name': name, 'cls': app_cls})
+        parser.add_completion(name)
 
     for cmd in sorted(parsers, key=lambda x: x['name']):
         build_subparser(cmd['cls'], subparsers)
@@ -129,6 +170,10 @@ def build_subargparser(app, parser):
     for argspec in reversed(local_args):
         flags = argspec.pop('_flags')
         parser.add_argument(*flags, **argspec)
+
+    # Add a hidden --list-options arg for completion purposes
+    parser.add_argument('--_autocomplete', action=_ScapAutoCompleteAction,
+                        nargs=0, help=argparse.SUPPRESS)
 
     parser = add_base_arguments(parser)
     return parser

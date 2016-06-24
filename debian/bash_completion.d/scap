@@ -1,0 +1,19 @@
+_scap() {
+    local cur cmd=() rep
+
+    cur=${COMP_WORDS[$COMP_CWORD]}
+    cmd=( "${COMP_WORDS[@]}" )
+
+    # limit the command to autocomplete to the first 3 words
+    if (( COMP_CWORD > 2 )); then
+        cmd=( "${COMP_WORDS[@]:0:3}" )
+    fi
+
+    # replace the last word in the command with '--_autocomplete'
+    cmd[ $(( ${#cmd[@]} - 1 )) ]='--_autocomplete'
+
+    rep=$( compgen -W "$( "${cmd[@]}" )" -- "$cur" )
+    COMPREPLY=( $rep $( compgen -f -- "$cur" ) )
+}
+
+complete -F _scap scap
