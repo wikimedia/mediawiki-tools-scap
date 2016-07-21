@@ -9,7 +9,7 @@ Standards-Version: 3.9.6
 Package: scap
 Architecture: all
 Depends: ${misc:Depends}, ${python:Depends}, python-jinja2, python-psutil,
-         python-yaml, python-netifaces, python-requests, git, bash-completion
+         python-yaml, python-requests, git, bash-completion
 Suggests: php5-cli
 X-Python-Version: >= 2.7
 Description: Deployment toolchain for Wikimedia projects

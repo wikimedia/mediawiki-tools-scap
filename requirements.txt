@@ -1,5 +1,4 @@
 jinja2
 psutil
 pyaml
-netifaces
 requests

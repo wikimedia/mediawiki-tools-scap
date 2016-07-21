@@ -8,7 +8,6 @@
 import argparse
 import errno
 import multiprocessing
-import netifaces
 import os
 import psutil
 import pwd
@@ -669,33 +668,24 @@ class RestartHHVM(cli.Application):
                 self.get_logger().debug('HHVM not running')
                 return 0
 
+        # Depool by gracefully shutting down apache (SIGWINCH)
         try:
-            # Check for pybal interface
-            have_pybal = netifaces.ifaddresses(self.config['pybal_interface'])
-        except ValueError:
-            self.get_logger().debug('Pybal interface not found', exc_info=True)
-            have_pybal = False
-
-        if have_pybal:
-            # Depool by gracefully shutting down apache (SIGWINCH)
-            try:
-                apache_pid = utils.read_pid(self.config['apache_pid_file'])
-            except IOError:
-                self.get_logger().debug('Apache pid not found', exc_info=True)
-                pass
-            else:
-                utils.sudo_check_call('root',
-                                      '/usr/sbin/apache2ctl graceful-stop')
-                # Wait for Apache to stop hard after GracefulShutdownTimeout
-                # seconds or when requests actually complete
-                psutil.Process(apache_pid).wait()
+            apache_pid = utils.read_pid(self.config['apache_pid_file'])
+        except IOError:
+            self.get_logger().debug('Apache pid not found', exc_info=True)
+            pass
+        else:
+            utils.sudo_check_call('root',
+                                  '/usr/sbin/apache2ctl graceful-stop')
+            # Wait for Apache to stop hard after GracefulShutdownTimeout
+            # seconds or when requests actually complete
+            psutil.Process(apache_pid).wait()
 
         # Restart HHVM
         utils.sudo_check_call('root', '/sbin/restart hhvm')
 
-        if have_pybal:
-            utils.sudo_check_call('root',
-                                  '/usr/sbin/service apache2 start')
+        # And now apache
+        utils.sudo_check_call('root', '/usr/sbin/service apache2 start')
 
         return 0
 

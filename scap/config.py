@@ -31,7 +31,6 @@ DEFAULT_CONFIG = {
     'datacenter': (str, 'eqiad'),
     'hhvm_pid_file': (str, '/run/hhvm/hhvm.pid'),
     'apache_pid_file': (str, '/var/run/apache2/apache2.pid'),
-    'pybal_interface': (str, 'lo:LVS'),
     'dsh_targets': (str, 'mediawiki-installation'),
     'dsh_masters': (str, 'scap-masters'),
     'dsh_proxies': (str, 'scap-proxies'),
