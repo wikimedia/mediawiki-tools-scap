@@ -1,3 +1,37 @@
+scap (3.2.1-1) unstable; urgency=low
+
+  [ Tyler Cipriani ]
+  * Update docs to use subcommands rather than scripts
+  * Checks and config-file-deploy in DEPLOY_HEAD
+  * Checks.py load expects config dict
+
+  [ Amir Sarabadani ]
+  * load and run checks with keeping order in the yaml file
+  * The second pass on PEP257
+
+  [ Tyler Cipriani ]
+  * Better deploy-log messages
+
+  [ Amir Sarabadani ]
+  * Third pass on PEP257
+
+  [ Sébastien Santoro ]
+  * Improve README case
+
+  [ Tyler Cipriani ]
+  * Fix doc generation
+  * Refactor target object properties
+  * Add autocompletion
+
+  [ Chad Horohoe ]
+  * scap2: Remove useless check for pybal_interface
+
+  [ Tyler Cipriani ]
+  * Add canary checks in AbstractSync
+  * Bump upstream version to 3.2.1
+
+ -- Tyler Cipriani <tcipriani@wikimedia.org>  Fri, 29 Jul 2016 12:11:14 -0700
+
 scap (3.2.0-1) unstable; urgency=low
 
   [ Filippo Giunchedi ]
