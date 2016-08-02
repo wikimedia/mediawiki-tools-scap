@@ -1,3 +1,10 @@
+scap (3.2.2-1) unstable; urgency=low
+
+  * Don't explode when no checks.yml is found
+  * Bump upstream version to 3.2.2
+
+ -- Tyler Cipriani <tcipriani@wikimedia.org>  Tue, 02 Aug 2016 08:24:50 -0700
+
 scap (3.2.1-1) unstable; urgency=low
 
   [ Tyler Cipriani ]
