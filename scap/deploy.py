@@ -605,7 +605,7 @@ class Deploy(cli.Application):
         """Build info to run checks."""
         checks_path = self.context.env_specific_path('checks.y*ml')
 
-        if not os.path.exists(checks_path):
+        if not checks_path or not os.path.exists(checks_path):
             self.deploy_info['perform_checks'] = False
             return
 
