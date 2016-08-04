@@ -21,7 +21,7 @@ DEFAULT_CONFIG = {
     'stage_dir': (str, '/srv/mediawiki-staging'),
     'lock_file': (str, '/var/lock/scap'),
     'log_json': (bool, False),
-    'logstash_host': (str, 'http://logstash1001.eqiad.wmnet;9200'),
+    'logstash_host': (str, 'logstash1001.eqiad.wmnet:9200'),
     'master_rsync': (str, 'localhost'),
     'statsd_host': (str, '127.0.0.1'),
     'statsd_port': (str, '2003'),
