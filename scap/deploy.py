@@ -479,7 +479,6 @@ class Deploy(cli.Application):
 
                 self.config_deploy_setup(commit)
                 self.checks_setup()
-                self.get_logger().debug(self.config)
                 self.config['git_rev'] = commit
 
                 self.deploy_info.update({
