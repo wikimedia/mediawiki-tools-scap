@@ -15,8 +15,25 @@ added to Scap to allow it to deploy any git-based repositories on `tin
 What does "Scap" mean?
 ----------------------
 
-It used to mean, “Sync Common All PHP.” Now, it doesn’t make sense.
+In about 2004, in the course of moving the wiki document roots from
+NFS to the local hard drives of the Apache servers, a number of shell
+scripts were introduced, probably written by Brion, notably:
 
+- sync-common, which pulled the shared code into the local server
+- sync-common-all, which ran sync-common on all servers
+
+Tim added a script which would push the MW source code in common/php
+out to all servers, in addition to running a pre-deployment lint
+check, in order to reduce the (then frequent) incidents of site
+downtime due to PHP fatal errors. The natural name for this script,
+following the previous convention, would have sync-common-php-all,
+but this had two problems:
+
+- It was too long
+- Its acronym was not pronounceable
+
+Tim noticed that if the last two components of the name were swapped,
+a short and catchy acronym could be contrived. Thus, scap was born.
 
 Topic Index
 -----------
