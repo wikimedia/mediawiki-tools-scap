@@ -9,6 +9,7 @@ import logging
 import os
 import sys
 import time
+import scap.plugins
 
 from . import arg
 from . import config
@@ -294,6 +295,17 @@ def argument(*args, **kwargs):
         return func
     return wrapper
 
+command_registry = {}
+
+
+def all_commands():
+    """
+    return a list of all commands that have been registered with the
+    command() decorator.
+    """
+    scap.plugins.load_plugins()
+    return command_registry
+
 
 def command(*args, **kwargs):
     """
@@ -302,6 +314,12 @@ def command(*args, **kwargs):
     Use with the same signature as ``SubparsersAction.add_parser``
     """
     def wrapper(cls):
+        name = args[0]
+        if name in command_registry:
+            err = 'Duplicate: A command named "%s" already exists.' % name
+            raise ValueError(err)
+        cmd = dict(name=name, cls=cls, args=args, kwargs=kwargs)
+        command_registry[name] = cmd
         setattr(cls, arg.ATTR_SUBPARSER, dict(_flags=args, **kwargs))
         return cls
     return wrapper

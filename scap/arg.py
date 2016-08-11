@@ -10,6 +10,7 @@ import logging
 import sys
 
 import scap
+import scap.plugins
 
 ATTR_SUBPARSER = '_app_subparser'
 ATTR_ARGUMENTS = '_app_arguments'
@@ -78,14 +79,10 @@ def build_parser(script=None):
         title='command', metavar='<command>',
         parser_class=ScapArgParser, description=desc)
 
-    parsers = []
-    for app in scap.__all__:
-        app_cls = getattr(scap, app)
-        name = getattr(app_cls, ATTR_SUBPARSER)['_flags'][0]
-        parsers.append({'name': name, 'cls': app_cls})
-        parser.add_completion(name)
+    cmds = scap.cli.all_commands()
 
-    for cmd in sorted(parsers, key=lambda x: x['name']):
+    for cmd in sorted(cmds.values(), key=lambda x: x['name']):
+        parser.add_completion(cmd['name'])
         build_subparser(cmd['cls'], subparsers)
 
     return parser

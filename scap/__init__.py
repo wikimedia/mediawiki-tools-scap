@@ -6,6 +6,8 @@
     configuration to a group of servers via SSH and rsync.
 
 """
+import scap.plugins
+
 from .main import (
     CompileWikiversions,
     HHVMGracefulAll,
@@ -32,7 +34,7 @@ from .deploy import (
     DeployLog,
 )
 
-__all__ = (
+__all__ = [
     'CompileWikiversions',
     'Deploy',
     'DeployLocal',
@@ -53,7 +55,16 @@ __all__ = (
     'SyncMaster',
     'SyncWikiversions',
     'UpdateL10n',
-)
+]
+
+
+def all_applications():
+    scap.plugins.load_plugins()
+    apps = []
+    apps.extend(__all__)
+    apps.extend(scap.plugins.__all__)
+    return apps
+
 
 any((
     CompileWikiversions,
