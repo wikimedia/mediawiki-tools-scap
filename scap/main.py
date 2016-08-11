@@ -42,21 +42,8 @@ class AbstractSync(cli.Application):
 
         with utils.lock(self.config['lock_file']):
             self._check_sync_flag()
-
             self._before_cluster_sync()
-
-            # Update masters
-            masters = self._get_master_list()
-            with log.Timer('sync-masters', self.get_stats()):
-                update_masters = ssh.Job(masters, user=self.config['ssh_user'])
-                update_masters.exclude_hosts([socket.getfqdn()])
-                update_masters.command(self._master_sync_command())
-                update_masters.progress('sync-masters')
-                succeeded, failed = update_masters.run()
-                if failed:
-                    self.get_logger().warning(
-                        '%d masters had sync errors', failed)
-                    self.soft_errors = True
+            self._sync_masters()
 
             # Run canary checks
             if not self.arguments.force:
@@ -174,6 +161,20 @@ class AbstractSync(cli.Application):
             set(self._get_api_canary_list()) |
             set(self._get_app_canary_list())
         )
+
+    def _sync_masters(self):
+        """Sync the staging directory across all deploy master servers."""
+        masters = self._get_master_list()
+        with log.Timer('sync-masters', self.get_stats()):
+            update_masters = ssh.Job(masters, user=self.config['ssh_user'])
+            update_masters.exclude_hosts([socket.getfqdn()])
+            update_masters.command(self._master_sync_command())
+            update_masters.progress('sync-masters')
+            succeeded, failed = update_masters.run()
+            if failed:
+                self.get_logger().warning(
+                    '%d masters had sync errors', failed)
+                self.soft_errors = True
 
     def _master_sync_command(self):
         """Synchronization command to run on the master hosts."""
@@ -678,8 +679,11 @@ class SyncWikiversions(AbstractSync):
             err_msg = 'l10n cache missing for %s' % version
             utils.check_file_exists(cache_file, err_msg)
 
-        mw_install_hosts = self._get_target_list()
-        tasks.sync_wikiversions(mw_install_hosts, self.config)
+        with utils.lock(self.config['lock_file']):
+            self._check_sync_flag()
+            self._sync_masters()
+            mw_install_hosts = self._get_target_list()
+            tasks.sync_wikiversions(mw_install_hosts, self.config)
 
         self.announce(
             'rebuilt wikiversions.php and synchronized wikiversions files: %s',
