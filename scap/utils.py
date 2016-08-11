@@ -61,9 +61,9 @@ def isclose(a, b, rel_tol=1e-9, abs_tol=0.0):
         return False
     diff = abs(b - a)
 
-    return (((diff <= abs(rel_tol * b)) or
-             (diff <= abs(rel_tol * a))) or
-            (diff <= abs_tol))
+    return (
+        ((diff <= abs(rel_tol * b)) or (diff <= abs(rel_tol * a))) or
+        (diff <= abs_tol))
 
 
 def eintr_retry(func, *args):
@@ -138,8 +138,8 @@ def find_nearest_host(hosts, port=22, timeout=1):
         for host, info in random.sample(host_map.items(), len(host_map)):
             family, type, proto, _, addr = info
             s = socket.socket(family, type, proto)
-            s.setsockopt(socket.IPPROTO_IP, socket.IP_TTL,
-                         struct.pack('I', ttl))
+            s.setsockopt(
+                socket.IPPROTO_IP, socket.IP_TTL, struct.pack('I', ttl))
             s.settimeout(timeout)
             try:
                 s.connect(addr)
@@ -397,9 +397,8 @@ def sudo_check_call(user, cmd, logger=None):
     else:
         fullCmd = 'sudo -u %s -n -- %s' % (user, cmd)
 
-    proc = subprocess.Popen(fullCmd,
-                            stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-                            shell=True)
+    proc = subprocess.Popen(
+        fullCmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, shell=True)
 
     fullOut = []
     while proc.poll() is None:
@@ -424,10 +423,7 @@ def check_valid_json_file(path):
         try:
             json.load(f)
         except ValueError:
-            raise ValueError(
-                '%s is an invalid JSON file'
-                % path
-            )
+            raise ValueError('%s is an invalid JSON file' % path)
 
 
 def check_file_exists(path, message=False):
@@ -488,9 +484,7 @@ def check_php_opening_tag(path):
         # None of the return conditions matched, the file must contain <?php
         # but with some content preceeding it.
         raise ValueError(
-            '%s has content before opening <?php tag'
-            % path
-        )
+            '%s has content before opening <?php tag' % path)
 
 
 def logo(color=True, **colors):
@@ -809,8 +803,9 @@ def get_patches(sub_dirs, root_dir):
     patches = {}
     for sub_dir in sub_dirs:
         for patch_file in sorted(
-                glob.glob(os.path.join(root_dir, sub_dir, '*.patch')),
-                reverse=True):
+            glob.glob(os.path.join(root_dir, sub_dir, '*.patch')),
+            reverse=True
+        ):
 
             with open(patch_file, 'r') as f:
                 patches.setdefault(sub_dir, []).append(f.read())

@@ -153,10 +153,11 @@ def is_dir(path):
         os.path.abspath(os.path.expandvars(os.path.expanduser(path))),
         '.git'
     )
-    return (os.path.isdir(git_path) and
-            os.path.isdir(os.path.join(git_path, 'objects')) and
-            os.path.isdir(os.path.join(git_path, 'refs')) and
-            os.path.isfile(os.path.join(git_path, 'HEAD')))
+    return (
+        os.path.isdir(git_path) and
+        os.path.isdir(os.path.join(git_path, 'objects')) and
+        os.path.isdir(os.path.join(git_path, 'refs')) and
+        os.path.isfile(os.path.join(git_path, 'HEAD')))
 
 
 def remote_exists(location, remote):
@@ -300,8 +301,8 @@ def remap_submodules(location, server):
         subprocess.check_call(['/usr/bin/git', 'checkout', '.gitmodules'])
 
         # get .gitmodule info
-        modules = subprocess.check_output(['/usr/bin/git', 'config', '--list',
-                                           '--file', '.gitmodules'])
+        modules = subprocess.check_output([
+            '/usr/bin/git', 'config', '--list', '--file', '.gitmodules'])
 
         submodules = {}
         for line in modules.split('\n'):

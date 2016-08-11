@@ -100,14 +100,15 @@ class JSONFormatter(logging.Formatter):
     and remote targets.
     """
 
-    DEFAULTS = [('name', ''),
-                ('levelno', logging.INFO),
-                ('filename', None),
-                ('lineno', None),
-                ('msg', ''),
-                ('args', ()),
-                ('exc_info', None),
-                ('funcName', None)]
+    DEFAULTS = [
+        ('name', ''),
+        ('levelno', logging.INFO),
+        ('filename', None),
+        ('lineno', None),
+        ('msg', ''),
+        ('args', ()),
+        ('exc_info', None),
+        ('funcName', None)]
 
     # LogRecord fields that we omit because we can't reliably serialize them
     UNSERIALIZABLE = {'exc_info'}

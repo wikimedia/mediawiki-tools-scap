@@ -51,8 +51,8 @@ class AbstractSync(cli.Application):
                 with log.Timer('sync-check-canaries', self.get_stats()):
                     sync_cmd = self._proxy_sync_command()
                     sync_cmd.append(socket.getfqdn())
-                    update_canaries = ssh.Job(canaries,
-                                              user=self.config['ssh_user'])
+                    update_canaries = ssh.Job(
+                        canaries, user=self.config['ssh_user'])
                     update_canaries.command(sync_cmd)
                     update_canaries.progress('check-canaries')
                     succeeded, failed = update_canaries.run()
@@ -72,12 +72,12 @@ class AbstractSync(cli.Application):
                     'cores': max(multiprocessing.cpu_count() - 2, 1),
                 }
 
-                succeeded, failed = tasks.check_canaries(canaries,
-                                                         **canary_checks)
+                succeeded, failed = tasks.check_canaries(
+                    canaries, **canary_checks)
 
                 if failed:
-                    raise RuntimeError('%d test canaries had check failures',
-                                       failed)
+                    raise RuntimeError(
+                        '%d test canaries had check failures', failed)
 
             # Update proxies
             proxies = self._get_proxy_list()
@@ -97,8 +97,8 @@ class AbstractSync(cli.Application):
 
             # Update apaches
             with log.Timer('sync-apaches', self.get_stats()):
-                update_apaches = ssh.Job(self._get_target_list(),
-                                         user=self.config['ssh_user'])
+                update_apaches = ssh.Job(
+                    self._get_target_list(), user=self.config['ssh_user'])
                 update_apaches.exclude_hosts(proxies)
                 update_apaches.shuffle()
                 update_apaches.command(self._apache_sync_command(proxies))
@@ -125,8 +125,8 @@ class AbstractSync(cli.Application):
         if os.path.exists(sync_flag):
             stat = os.stat(sync_flag)
             owner = pwd.getpwuid(stat.st_uid).pw_name
-            utils.get_logger().error("%s's sync.flag is blocking deployments",
-                                     owner)
+            utils.get_logger().error(
+                "%s's sync.flag is blocking deployments", owner)
             raise IOError(errno.EPERM, 'Blocked by sync.flag', sync_flag)
 
     def _get_master_list(self):
@@ -322,8 +322,8 @@ class RebuildCdbs(cli.Application):
 
         # Rebuild the CDB files from the JSON versions
         for version, wikidb in self.versions.items():
-            cache_dir = os.path.join(root_dir,
-                                     'php-%s' % version, 'cache', 'l10n')
+            cache_dir = os.path.join(
+                root_dir, 'php-%s' % version, 'cache', 'l10n')
             tasks.merge_cdb_updates(
                 cache_dir, use_cores, True, self.arguments.mute)
 
@@ -387,8 +387,9 @@ class Scap(AbstractSync):
         with log.Timer('scap-cdb-rebuild', self.get_stats()):
             rebuild_cdbs = ssh.Job(target_hosts, user=self.config['ssh_user'])
             rebuild_cdbs.shuffle()
-            rebuild_cdbs.command('sudo -u mwdeploy -n -- %s cdb-rebuild' %
-                                 self.get_script_path())
+            rebuild_cdbs.command(
+                'sudo -u mwdeploy -n -- %s cdb-rebuild' %
+                self.get_script_path())
             rebuild_cdbs.progress('scap-cdb-rebuild')
             succeeded, failed = rebuild_cdbs.run()
             if failed:
@@ -416,24 +417,23 @@ class Scap(AbstractSync):
             self.get_stats().increment('deploy.restart')
 
     def _after_lock_release(self):
-        self.announce('Finished scap: %s (duration: %s)',
-                      self.arguments.message,
-                      utils.human_duration(self.get_duration()))
+        self.announce(
+            'Finished scap: %s (duration: %s)',
+            self.arguments.message, utils.human_duration(self.get_duration()))
         self.get_stats().increment('deploy.scap')
         self.get_stats().increment('deploy.all')
 
     def _handle_keyboard_interrupt(self, ex):
-        self.announce('scap aborted: %s (duration: %s)',
-                      self.arguments.message,
-                      utils.human_duration(self.get_duration()))
+        self.announce(
+            'scap aborted: %s (duration: %s)',
+            self.arguments.message, utils.human_duration(self.get_duration()))
         return 1
 
     def _handle_exception(self, ex):
         self.get_logger().warn('Unhandled error:', exc_info=True)
-        self.announce('scap failed: %s %s (duration: %s)',
-                      type(ex).__name__,
-                      ex,
-                      utils.human_duration(self.get_duration()))
+        self.announce(
+            'scap failed: %s %s (duration: %s)',
+            type(ex).__name__, ex, utils.human_duration(self.get_duration()))
         return 1
 
     def _before_exit(self, exit_status):
@@ -523,9 +523,10 @@ class SyncDir(AbstractSync):
         return cmd
 
     def _after_lock_release(self):
-        self.announce('Synchronized %s: %s (duration: %s)',
-                      self.arguments.dir, self.arguments.message,
-                      utils.human_duration(self.get_duration()))
+        self.announce(
+            'Synchronized %s: %s (duration: %s)',
+            self.arguments.dir, self.arguments.message,
+            utils.human_duration(self.get_duration()))
         self.get_stats().increment('deploy.sync-dir')
         self.get_stats().increment('deploy.all')
 
@@ -575,9 +576,10 @@ class SyncFile(AbstractSync):
         return cmd
 
     def _after_lock_release(self):
-        self.announce('Synchronized %s: %s (duration: %s)',
-                      self.arguments.file, self.arguments.message,
-                      utils.human_duration(self.get_duration()))
+        self.announce(
+            'Synchronized %s: %s (duration: %s)',
+            self.arguments.file, self.arguments.message,
+            utils.human_duration(self.get_duration()))
         self.get_stats().increment('deploy.sync-file')
         self.get_stats().increment('deploy.all')
 
@@ -643,9 +645,9 @@ class SyncL10n(AbstractSync):
                 self.soft_errors = True
 
     def _after_lock_release(self):
-        self.announce('scap sync-l10n completed (%s) (duration: %s)',
-                      self.arguments.version,
-                      utils.human_duration(self.get_duration()))
+        self.announce(
+            'scap sync-l10n completed (%s) (duration: %s)',
+            self.arguments.version, utils.human_duration(self.get_duration()))
         self.get_stats().increment('l10nupdate-sync')
 
 
@@ -666,16 +668,15 @@ class SyncWikiversions(AbstractSync):
         # for every branch of mediawiki that is referenced in wikiversions.json
         # to avoid syncing a branch that is lacking these critical files.
         for version, wikidb in self.active_wikiversions().items():
-            ext_msg = os.path.join(self.config['stage_dir'],
-                                   'wmf-config',
-                                   'ExtensionMessages-%s.php' % version)
+            ext_msg = os.path.join(
+                self.config['stage_dir'],
+                'wmf-config', 'ExtensionMessages-%s.php' % version)
             err_msg = 'ExtensionMessages not found in %s' % ext_msg
             utils.check_file_exists(ext_msg, err_msg)
 
-            cache_file = os.path.join(self.config['stage_dir'],
-                                      'php-%s' % version,
-                                      'cache', 'l10n',
-                                      'l10n_cache-en.cdb')
+            cache_file = os.path.join(
+                self.config['stage_dir'],
+                'php-%s' % version, 'cache', 'l10n', 'l10n_cache-en.cdb')
             err_msg = 'l10n cache missing for %s' % version
             utils.check_file_exists(cache_file, err_msg)
 
@@ -735,8 +736,8 @@ class RestartHHVM(cli.Application):
             self.get_logger().debug('Apache pid not found', exc_info=True)
             pass
         else:
-            utils.sudo_check_call('root',
-                                  '/usr/sbin/apache2ctl graceful-stop')
+            utils.sudo_check_call(
+                'root', '/usr/sbin/apache2ctl graceful-stop')
             # Wait for Apache to stop hard after GracefulShutdownTimeout
             # seconds or when requests actually complete
             psutil.Process(apache_pid).wait()
@@ -775,9 +776,9 @@ class HHVMGracefulAll(cli.Application):
             self.get_stats().increment('deploy.fail')
             exit_code = 1
 
-        self.announce('Finished HHVM restart: %s (duration: %s)',
-                      self.arguments.message,
-                      utils.human_duration(self.get_duration()))
+        self.announce(
+            'Finished HHVM restart: %s (duration: %s)',
+            self.arguments.message, utils.human_duration(self.get_duration()))
         self.get_stats().increment('deploy.restart')
 
         return exit_code
@@ -830,6 +831,6 @@ class Say(cli.Application):
                   help='Column width for message box')
     @cli.argument('message', nargs='*', help='message to print')
     def main(self, *extra_args):
-        print utils.scap_say(' '.join(self.arguments.message),
-                             width=self.arguments.width)
+        print utils.scap_say(
+            ' '.join(self.arguments.message), width=self.arguments.width)
         return 0

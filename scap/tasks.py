@@ -214,8 +214,8 @@ def compile_wikiversions(source_tree, cfg, logger=None):
 
 
 @utils.log_context('merge_cdb_updates')
-def merge_cdb_updates(directory, pool_size, trust_mtime=False, mute=False,
-                      logger=None):
+def merge_cdb_updates(
+        directory, pool_size, trust_mtime=False, mute=False, logger=None):
     """
     Update l10n CDB files using JSON data.
 
@@ -287,8 +287,9 @@ def purge_l10n_cache(version, cfg):
     target_obj = targets.get(cfg)
     target_list = target_obj.get_deploy_groups('dsh_targets')['all_targets']
     purge = ssh.Job(user=cfg['ssh_user']).hosts(target_list)
-    purge.command('sudo -u mwdeploy -n -- /bin/rm '
-                  '--recursive --force %s/*' % deployed_l10n)
+    purge.command(
+        'sudo -u mwdeploy -n -- /bin/rm '
+        '--recursive --force %s/*' % deployed_l10n)
     purge.progress('l10n purge').run()
 
 
@@ -322,9 +323,10 @@ def sync_master(cfg, master, verbose=False, logger=None):
 
     # Rebuild the CDB files from the JSON versions
     with log.Timer('rebuild CDB staging files', stats):
-        subprocess.check_call(['sudo', '-u', 'l10nupdate', '-n', '--',
-                              scap_cmd, 'cdb-rebuild', '--no-progress',
-                              '--staging', '--verbose'])
+        subprocess.check_call([
+            'sudo', '-u', 'l10nupdate', '-n', '--',
+            scap_cmd, 'cdb-rebuild', '--no-progress',
+            '--staging', '--verbose'])
 
 
 @utils.log_context('sync_common')
@@ -385,8 +387,8 @@ def sync_common(cfg, include=None, sync_from=None, verbose=False, logger=None):
     settings_path = os.path.join(
         cfg['deploy_dir'], 'wmf-config', 'InitialiseSettings.php')
     logger.debug('Touching %s', settings_path)
-    subprocess.check_call(('sudo', '-u', 'mwdeploy', '-n', '--',
-                          '/usr/bin/touch', settings_path))
+    subprocess.check_call((
+        'sudo', '-u', 'mwdeploy', '-n', '--', '/usr/bin/touch', settings_path))
 
 
 def sync_wikiversions(hosts, cfg):
@@ -401,9 +403,10 @@ def sync_wikiversions(hosts, cfg):
         compile_wikiversions('stage', cfg)
 
         rsync = ssh.Job(hosts, user=cfg['ssh_user']).shuffle()
-        rsync.command('sudo -u mwdeploy -n -- /usr/bin/rsync -l '
-                      '%(master_rsync)s::common/wikiversions*.{json,php} '
-                      '%(deploy_dir)s' % cfg)
+        rsync.command(
+            'sudo -u mwdeploy -n -- /usr/bin/rsync -l '
+            '%(master_rsync)s::common/wikiversions*.{json,php} '
+            '%(deploy_dir)s' % cfg)
         return rsync.progress('sync_wikiversions').run()
 
 
@@ -483,8 +486,8 @@ def update_l10n_cdb_wrapper(args, logger=None):
         raise
 
 
-def _call_rebuildLocalisationCache(wikidb, out_dir, use_cores=1,
-                                   lang=None, force=False, quiet=False):
+def _call_rebuildLocalisationCache(
+        wikidb, out_dir, use_cores=1, lang=None, force=False, quiet=False):
     """
     Helper for update_localization_cache.
 
@@ -565,8 +568,8 @@ def update_localization_cache(version, wikidb, verbose, cfg, logger=None):
     if not os.path.exists(os.path.join(cache_dir, 'l10n_cache-en.cdb')):
         # mergeMessageFileList.php needs a l10n file
         logger.info('Bootstrapping l10n cache for %s', version)
-        _call_rebuildLocalisationCache(wikidb, cache_dir, use_cores,
-                                       lang='en', quiet=True)
+        _call_rebuildLocalisationCache(
+            wikidb, cache_dir, use_cores, lang='en', quiet=True)
         # Force subsequent cache rebuild to overwrite bootstrap version
         force_rebuild = True
 
@@ -575,8 +578,8 @@ def update_localization_cache(version, wikidb, verbose, cfg, logger=None):
         'sudo -u www-data -n -- /bin/mktemp', shell=True).strip()
 
     # attempt to read extension-list from the branch instead of wmf-config
-    ext_list = os.path.join(cfg['stage_dir'], "php-%s" % version,
-                            "extension-list")
+    ext_list = os.path.join(
+        cfg['stage_dir'], "php-%s" % version, "extension-list")
 
     if not os.path.isfile(ext_list):
         # fall back to the old location in wmf-config
@@ -607,10 +610,11 @@ def update_localization_cache(version, wikidb, verbose, cfg, logger=None):
                 extension_messages, cfg['deploy_dir']))
 
     # Rebuild all the CDB files for each language
-    logger.info('Updating LocalisationCache for %s '
-                'using %s thread(s)' % (version, use_cores))
-    _call_rebuildLocalisationCache(wikidb, cache_dir, use_cores,
-                                   force=force_rebuild, quiet=quiet_rebuild)
+    logger.info(
+        'Updating LocalisationCache for %s '
+        'using %s thread(s)' % (version, use_cores))
+    _call_rebuildLocalisationCache(
+        wikidb, cache_dir, use_cores, force=force_rebuild, quiet=quiet_rebuild)
 
     # Include JSON versions of the CDB files and add MD5 files
     logger.info('Generating JSON versions and md5 files')
@@ -780,9 +784,8 @@ def check_patch_files(version, cfg):
             apply_dir = os.path.join(apply_dir, 'extensions', extension)
 
         with utils.cd(apply_dir):
-            p = subprocess.Popen(git_patch_check,
-                                 stdin=subprocess.PIPE,
-                                 stdout=subprocess.PIPE)
+            p = subprocess.Popen(
+                git_patch_check, stdin=subprocess.PIPE, stdout=subprocess.PIPE)
 
             p.communicate(diff)
 

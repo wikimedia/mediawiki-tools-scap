@@ -70,13 +70,13 @@ def build_parser(script=None):
         return parser
 
     # Add a hidden --list-options arg for completion purposes
-    parser.add_argument('--_autocomplete', action=_ScapAutoCompleteAction,
-                        nargs=0, help=argparse.SUPPRESS)
+    parser.add_argument(
+        '--_autocomplete', action=_ScapAutoCompleteAction,
+        nargs=0, help=argparse.SUPPRESS)
 
-    subparsers = parser.add_subparsers(title='command',
-                                       metavar='<command>',
-                                       parser_class=ScapArgParser,
-                                       description=desc)
+    subparsers = parser.add_subparsers(
+        title='command', metavar='<command>',
+        parser_class=ScapArgParser, description=desc)
 
     parsers = []
     for app in scap.__all__:
@@ -109,22 +109,27 @@ def add_base_arguments(parser):
             scap -e beta deploy --repo mockbase/deploy
 
     """
-    parser.add_argument('-c', '--conf', dest='conf_file',
-                        type=argparse.FileType('r'),
-                        help='Path to configuration file')
-    parser.add_argument('--no-shared-authsock', dest='shared_authsock',
-                        action='store_false',
-                        help='Ignore any shared ssh-auth configuration')
-    parser.add_argument('-D', '--define', dest='defines',
-                        action='append',
-                        type=lambda v: tuple(v.split(':')),
-                        help='Set a configuration value',
-                        metavar='<name>:<value>')
-    parser.add_argument('-v', '--verbose', action='store_const',
-                        const=logging.DEBUG, default=logging.INFO,
-                        dest='loglevel', help='Verbose output')
-    parser.add_argument('-e', '--environment', default=None,
-                        help='environment in which to execute scap')
+    parser.add_argument(
+        '-c', '--conf', dest='conf_file',
+        type=argparse.FileType('r'),
+        help='Path to configuration file')
+    parser.add_argument(
+        '--no-shared-authsock', dest='shared_authsock',
+        action='store_false',
+        help='Ignore any shared ssh-auth configuration')
+    parser.add_argument(
+        '-D', '--define', dest='defines',
+        action='append',
+        type=lambda v: tuple(v.split(':')),
+        help='Set a configuration value',
+        metavar='<name>:<value>')
+    parser.add_argument(
+        '-v', '--verbose', action='store_const',
+        const=logging.DEBUG, default=logging.INFO,
+        dest='loglevel', help='Verbose output')
+    parser.add_argument(
+        '-e', '--environment', default=None,
+        help='environment in which to execute scap')
 
     return parser
 
@@ -148,10 +153,11 @@ def build_subparser(cls, subparser):
         formatter = argparse.HelpFormatter
 
     flags = local_subparser.pop('_flags')
-    kwargs = dict(help=default_help,
-                  description=desc,
-                  epilog=epilog,
-                  formatter_class=formatter)
+    kwargs = dict(
+        help=default_help,
+        description=desc,
+        epilog=epilog,
+        formatter_class=formatter)
 
     kwargs.update(local_subparser)
     sub = subparser.add_parser(*flags, **kwargs)
@@ -172,8 +178,9 @@ def build_subargparser(app, parser):
         parser.add_argument(*flags, **argspec)
 
     # Add a hidden --list-options arg for completion purposes
-    parser.add_argument('--_autocomplete', action=_ScapAutoCompleteAction,
-                        nargs=0, help=argparse.SUPPRESS)
+    parser.add_argument(
+        '--_autocomplete', action=_ScapAutoCompleteAction,
+        nargs=0, help=argparse.SUPPRESS)
 
     parser = add_base_arguments(parser)
     return parser

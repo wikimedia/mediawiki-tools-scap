@@ -207,9 +207,9 @@ class CheckJob(object):
         """Inititalizes a new CheckJob and begins execution."""
 
         self.check = check
-        self.proc = subprocess.Popen(shlex.split(check.command),
-                                     stdout=subprocess.PIPE,
-                                     stderr=subprocess.STDOUT)
+        self.proc = subprocess.Popen(
+            shlex.split(check.command),
+            stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
         self.fd = self.proc.stdout.fileno()
         self.stream = self.proc.stdout
         self.output = ''

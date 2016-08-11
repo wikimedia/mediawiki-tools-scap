@@ -162,8 +162,8 @@ class Application(object):
         :returns: exit status
         """
         self.get_logger().warn('Unhandled error:', exc_info=True)
-        self.get_logger().error('%s failed: <%s> %s',
-                                self.program_name, type(ex).__name__, ex)
+        self.get_logger().error(
+            '%s failed: <%s> %s', self.program_name, type(ex).__name__, ex)
         return 70
 
     def _before_exit(self, exit_status):

@@ -96,8 +96,8 @@ class HostContext(Context):
         paths = []
 
         if self.environment:
-            paths.append(self.scap_path('environments', self.environment,
-                                        *relpaths))
+            paths.append(
+                self.scap_path('environments', self.environment, *relpaths))
 
         paths.append(self.scap_path(*relpaths))
 
@@ -171,11 +171,11 @@ class TargetContext(Context):
         revision directory that is current or in progress is not considered.
         """
 
-        rev_dirs = map(lambda d: os.path.join(self.revs_dir, d),
-                       os.walk(self.revs_dir).next()[1])
-        rev_dirs_by_ctime = sorted(rev_dirs,
-                                   key=os.path.getctime,
-                                   reverse=True)
+        rev_dirs = map(
+            lambda d: os.path.join(self.revs_dir, d),
+            os.walk(self.revs_dir).next()[1])
+        rev_dirs_by_ctime = sorted(
+            rev_dirs, key=os.path.getctime, reverse=True)
 
         off_limits = [self.current_rev_dir, self.done_rev_dir]
 

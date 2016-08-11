@@ -164,8 +164,8 @@ class TargetList():
             key = self.config.get(cfg_key, None)
 
             if key is None:
-                raise RuntimeError('Reading `{0}` file "{1}" failed'.format(
-                                   cfg_key, key))
+                raise RuntimeError(
+                    'Reading `{0}` file "{1}" failed'.format(cfg_key, key))
 
             targets = self._get_targets_for_key(key)
 

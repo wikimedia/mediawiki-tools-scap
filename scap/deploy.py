@@ -117,9 +117,8 @@ class DeployLocal(cli.Application):
 
         overrides = config_files.get('override_vars', {})
 
-        source_basepath = self.context.rev_path(self.rev,
-                                                '.git',
-                                                'config-files')
+        source_basepath = self.context.rev_path(
+            self.rev, '.git', 'config-files')
         logger.debug('Source basepath: {}'.format(source_basepath))
         utils.mkdir_p(source_basepath)
 
@@ -138,8 +137,9 @@ class DeployLocal(cli.Application):
                 self.noop = True
 
             if self.noop and not self.arguments.force:
-                logger.info('{} is already linked to current rev'
-                            '(use --force to override)'.format(filename))
+                logger.info(
+                    '{} is already linked to current rev'
+                    '(use --force to override)'.format(filename))
                 return 0
 
             # Checks should run if the --force argument is used
@@ -190,8 +190,9 @@ class DeployLocal(cli.Application):
         if os.path.isdir(rev_dir) and not self.arguments.force:
             rev = git.sha(rev_dir, 'HEAD')
             if rev == self.rev:
-                logger.info('Revision directory already exists '
-                            '(use --force to override)')
+                logger.info(
+                    'Revision directory already exists '
+                    '(use --force to override)')
                 self.noop = True
                 return
 
@@ -206,8 +207,8 @@ class DeployLocal(cli.Application):
         if has_submodules:
             upstream_submodules = self.config['git_upstream_submodules']
             logger.info('Update submodules')
-            git.update_submodules(rev_dir, git_remote,
-                                  use_upstream=upstream_submodules)
+            git.update_submodules(
+                rev_dir, git_remote, use_upstream=upstream_submodules)
 
         if has_gitfat:
             if not git.fat_isinitialized(rev_dir):
@@ -243,8 +244,8 @@ class DeployLocal(cli.Application):
         if (self.context.current_rev_dir == rev_dir and
                 not self.arguments.force):
 
-            logger.info('{} is already live '
-                        '(use --force to override)'.format(rev_dir))
+            logger.info(
+                '{} is already live (use --force to override)'.format(rev_dir))
             self.noop = True
             return
 
@@ -262,9 +263,8 @@ class DeployLocal(cli.Application):
 
                     rel_path = os.path.relpath(full_path, config_dest)
                     final_path = os.path.join('/', rel_path)
-                    utils.move_symlink(full_path,
-                                       final_path,
-                                       user=self.context.user)
+                    utils.move_symlink(
+                        full_path, final_path, user=self.context.user)
 
         self.context.mark_rev_current(rev)
         self.context.link_path_to_rev(self.final_path, rev, backup=True)
@@ -312,8 +312,9 @@ class DeployLocal(cli.Application):
         if not rollback_to:
             raise RuntimeError('there is no previous revision to rollback to')
 
-        logger.info('Rolling back from revision {} to {}'.format(rollback_from,
-                                                                 rollback_to))
+        logger.info(
+            'Rolling back from revision {} to {}'.format(
+                rollback_from, rollback_to))
 
         rev_dir = self.context.done_rev_dir
 
@@ -362,9 +363,9 @@ class DeployLocal(cli.Application):
 
     def _get_remote_overrides(self):
         """Grab remote config from git_server."""
-        cfg_url = os.path.join(self.config['git_server'],
-                               self.arguments.repo,
-                               '.git', 'DEPLOY_HEAD')
+        cfg_url = os.path.join(
+            self.config['git_server'], self.arguments.repo,
+            '.git', 'DEPLOY_HEAD')
 
         r = requests.get('{}://{}'.format(self.config['git_scheme'], cfg_url))
         if r.status_code != requests.codes.ok:
@@ -577,8 +578,8 @@ class Deploy(cli.Application):
             f['name'] = config_file
             template_attrs = config_files[config_file]
             template_name = template_attrs['template']
-            template = self.context.env_specific_path('templates',
-                                                      template_name)
+            template = self.context.env_specific_path(
+                'templates', template_name)
 
             with open(template, 'r') as tmp:
                 f['template'] = tmp.read()
@@ -656,8 +657,8 @@ class Deploy(cli.Application):
         deploy_stage.max_failure = self.MAX_FAILURES
         deploy_stage.command(deploy_local_cmd)
         display_name = self._get_stage_name(stage)
-        deploy_stage.progress('{}: {} stage(s)'.format(self.repo,
-                                                       display_name))
+        deploy_stage.progress(
+            '{}: {} stage(s)'.format(self.repo, display_name))
 
         succeeded, failed = deploy_stage.run(batch_size=batch_size)
 
@@ -689,13 +690,14 @@ class Deploy(cli.Application):
 
         basename = git.describe(self.context.root).replace('/', '-')
         log_file = self.context.log_path('{}.log'.format(basename))
-        log.setup_loggers(self.config,
-                          self.arguments.loglevel,
-                          handlers=[log.DeployLogHandler(log_file)])
+        log.setup_loggers(
+            self.config, self.arguments.loglevel,
+            handlers=[log.DeployLogHandler(log_file)])
 
 
-@cli.command('deploy-log', help='[SCAP 3] Tail/filter/output events from the '
-                                'deploy logs')
+@cli.command(
+    'deploy-log',
+    help='[SCAP 3] Tail/filter/output events from the deploy logs')
 class DeployLog(cli.Application):
     """
     Tail/filter/output events from the deploy logs.
@@ -762,7 +764,6 @@ class DeployLog(cli.Application):
                     record = log.JSONFormatter.make_record(line)
                     if filter.filter(record):
                         print formatter.format(record)
-
                 except (ValueError, TypeError):
                     pass
             else:
