@@ -28,8 +28,9 @@ from . import tasks
 from . import utils
 from . import git
 
+RESTART = 'restart_service'
 STAGES = ['fetch', 'config_deploy', 'promote']
-EX_STAGES = ['restart_service', 'rollback']
+EX_STAGES = [RESTART, 'rollback']
 
 
 @cli.command('deploy-local', help=argparse.SUPPRESS)
@@ -94,7 +95,7 @@ class DeployLocal(cli.Application):
                 break
 
             # Perform final tasks after the last stage
-            if STAGES[-1] == stage:
+            if RESTART == stage:
                 self._finalize()
 
         return status
@@ -268,7 +269,7 @@ class DeployLocal(cli.Application):
 
         self.context.mark_rev_current(rev)
         self.context.link_path_to_rev(self.final_path, rev, backup=True)
-        self.stages.append('restart_service')
+        self.stages.append(RESTART)
 
     def restart_service(self):
         service = self.config.get('service_name', None)
@@ -452,7 +453,7 @@ class Deploy(cli.Application):
             stages = STAGES
 
         if self.arguments.service_restart:
-            stages = ['restart_service']
+            stages = [RESTART]
 
         if not git.is_dir(self.context.root):
             raise RuntimeError(errno.EPERM, 'Script must be run from git repo')
