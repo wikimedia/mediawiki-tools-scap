@@ -1,3 +1,27 @@
+scap (3.2.3-1) unstable; urgency=low
+
+  [ Chad Horohoe ]
+  * Fix up default logstash host
+
+  [ Tim Starling ]
+  * Better origin story
+
+  [ Bryan Davis ]
+  * sync-wikiversions: Add missing sync steps
+  * Remove hanging indents
+
+  [ Tyler Cipriani ]
+  * Remove debug config logging
+
+  [ Mukunda Modell ]
+  * load scap cli.Applications from $PWD/scap/plugins/*.py
+
+  [ Tyler Cipriani ]
+  * Fix rollback
+  * Bump upstream version to 3.2.3
+
+ -- Tyler Cipriani <tcipriani@wikimedia.org>  Mon, 15 Aug 2016 14:47:02 -0700
+
 scap (3.2.2-1) unstable; urgency=low
 
   * Don't explode when no checks.yml is found
