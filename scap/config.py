@@ -37,6 +37,7 @@ DEFAULT_CONFIG = {
     'dsh_targets': (str, 'mediawiki-installation'),
     'dsh_masters': (str, 'scap-masters'),
     'dsh_proxies': (str, 'scap-proxies'),
+    'group_size': (int, None),
     'git_deploy_dir': (str, '/srv/deployment'),
     'git_fat': (bool, False),
     'git_server': (str, 'tin.eqiad.wmnet'),

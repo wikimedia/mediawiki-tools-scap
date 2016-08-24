@@ -123,6 +123,12 @@ class TargetList():
         self.extra_paths = extra_paths
         self.deploy_groups = {}
 
+    def _get_group_size(self, group):
+        key = '{}_group_size'.format(group)
+        size = self.config.get(key, self.config.get('group_size', None))
+
+        return int(size) if size is not None else None
+
     def _get_server_groups(self):
         """Get the server_groups from configuration."""
         server_groups = self.config.get('server_groups', None)
@@ -174,7 +180,15 @@ class TargetList():
 
             targets = list(set(targets) - set(all_hosts))
             all_hosts += targets
-            groups[group] = targets
+
+            group_size = self._get_group_size(group)
+
+            if group_size is None or group_size >= len(targets):
+                groups[group] = targets
+            else:
+                for i in xrange(0, len(targets), group_size):
+                    group_key = group + str((i / group_size) + 1)
+                    groups[group_key] = targets[i:i + group_size]
 
         self.deploy_groups = {'all_targets': all_hosts,
                               'deploy_groups': groups}

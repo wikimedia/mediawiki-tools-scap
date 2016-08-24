@@ -66,7 +66,7 @@ Available configuration variables
 |                            |                           | these *groups* of servers       |
 |                            |                           | in order.                       |
 |                            |                           |                                 |
-|                            |                           | For Example:                    |
+|                            |                           | For example:                    |
 |                            |                           | ``server_groups: 'one, default``|
 |                            |                           | will cause Scap to look in      |
 |                            |                           | the ``scap.cfg`` file for       |
@@ -81,6 +81,19 @@ Available configuration variables
 |                            |                           | will be deployed with the       |
 |                            |                           | first group--``can``            |
 |                            |                           | in this example)                |
++----------------------------+---------------------------+---------------------------------+
+| ``group_size``             | **NONE**                  | (*Int*) (*Optional*)            |
+| ``[group]_group_size``     |                           | If defined, Scap will split     |
+|                            |                           | each server group into smaller  |
+|                            |                           | subgroups containing no more    |
+|                            |                           | than the given number of hosts. |
+|                            |                           | A global and/or group specific  |
+|                            |                           | configuration may be provided.  |
+|                            |                           |                                 |
+|                            |                           | This configuration can be used  |
+|                            |                           | to achieve a more serial        |
+|                            |                           | deployment within each server   |
+|                            |                           | group.                          |
 +----------------------------+---------------------------+---------------------------------+
 | ``git_submodules``         | False                     | (*Boolean*) (*Optional*)        |
 |                            |                           | Whether submodules need         |
