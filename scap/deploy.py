@@ -516,6 +516,7 @@ class Deploy(cli.Application):
 
     def _execute_for_groups(self, stages):
         logger = self.get_logger()
+        continue_all = False
 
         for group, targets in self.deploy_groups.iteritems():
             if not len(targets):
@@ -532,10 +533,15 @@ class Deploy(cli.Application):
                     self.execute_rollback(stage, group, targets)
                     return ret
 
-            prompt = '{} deploy successful. Continue?'.format(group)
+            if not self._last_group(group) and not continue_all:
+                prompt = '{} deploy successful. Continue?'.format(group)
+                choices = '[y]es/[n]o/[c]ontinue all groups'
+                answer = utils.ask(prompt, 'y', choices)
 
-            if not self._last_group(group) and utils.ask(prompt, 'y') != 'y':
-                break
+                if answer == 'c':
+                    continue_all = True
+                elif answer != 'y':
+                    break
 
         return 0
 

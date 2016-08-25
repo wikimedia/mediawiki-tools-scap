@@ -89,20 +89,25 @@ class LockFailedError(Exception):
     pass
 
 
-def ask(question, default):
+def ask(question, default, choices=None):
     """
     Provide a y/n prompt if the controlling terminal is interactive.
 
     :param question: Prompt message to display
     :param default: Default answer to use in the case of a non-interactive
                     terminal
+    :param choices: Optional choices to present after the question. Defaults
+                    to the default answer
     :returns: str User input or default value
     """
 
     if not sys.stdout.isatty():
         return default
 
-    ans = raw_input('{} [{}]: '.format(question, default)).strip()
+    if choices is None:
+        choices = '[{}]'.format(default)
+
+    ans = raw_input('{} {}: '.format(question, choices)).strip()
     return ans.lower() if ans else default
 
 
