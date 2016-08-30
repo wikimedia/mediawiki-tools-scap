@@ -1,11 +1,44 @@
+__scap_cwd=
+__scap_subcommands=
+__scap_get_subcommands() {
+    local force_update
+    force_update=${1:=0}
+    if [[ "$force_update" -eq 0 && -n "$__scap_subcommands" ]]; then
+        return
+    fi
+
+    __scap_subcommands=$(scap --_autocomplete)
+}
+
 _scap() {
-    local cur cmd=() rep
+    local cur cmd=() rep force_update
 
     cur=${COMP_WORDS[$COMP_CWORD]}
     cmd=( "${COMP_WORDS[@]}" )
 
+    if (( COMP_CWORD == 1 )); then
+        force_update=0
+
+        # If we're tab completing in a different directory,
+        # we have to update the list of available subcommands
+        if [[ "$PWD" != "$__scap_cwd" ]]; then
+            __scap_cwd="$PWD"
+            force_update=1
+        fi
+
+        __scap_get_subcommands $force_update
+        rep=$( compgen -W "$__scap_subcommands" -- "$cur" )
+        COMPREPLY=( $rep )
+        return
+    fi
+
     # limit the command to autocomplete to the first 3 words
-    if (( COMP_CWORD > 2 )); then
+    if (( COMP_CWORD >= 2 )); then
+        # don't complete any sub-subcommands, only options
+        if [[ -n "$cur" && "${cur:0:1}" != '-' ]]; then
+            COMPREPLY=()
+            return
+        fi
         cmd=( "${COMP_WORDS[@]:0:3}" )
     fi
 
@@ -13,7 +46,9 @@ _scap() {
     cmd[ $(( ${#cmd[@]} - 1 )) ]='--_autocomplete'
 
     rep=$( compgen -W "$( "${cmd[@]}" )" -- "$cur" )
-    COMPREPLY=( $rep $( compgen -f -- "$cur" ) )
+
+    COMPREPLY=( $rep )
 }
 
-complete -F _scap scap
+# By default append nospace except when completion comes from _scap
+complete -S' ' -o bashdefault -o default -o nospace -F _scap scap
