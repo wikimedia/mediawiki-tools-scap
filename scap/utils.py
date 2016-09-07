@@ -111,6 +111,63 @@ def ask(question, default, choices=None):
     return ans.lower() if ans else default
 
 
+def confirm(question='Continue?', default=False, on_fulfilled=None,
+            on_rejected=None):
+    """
+    Ask for confirmation from the user if possible, otherwise return default
+    when stdin is not attached to a terminal.
+
+    The confirmation is fullfilled when the user types an affirming response
+    which can be either 'y' or 'yes', otherwise the default choice is assumed
+
+    The confirmation is rejected when default=False and the user types anything
+    other than affirmative.
+
+    :param question: prompt text to show to the user
+    :param default: boolean default choice, True [Y/n] or False [y/N]. This is
+                    the value that is returned when a tty is not attached to
+                    stdin or the user presses enter without typing a response.
+    :param on_fullfilled: optional callback function which is called before
+                          returning True
+    :param on_rejected: optional, either a callback function or an exception
+                        to be raised when we fail to get confirmation. This
+                        can be used to let the user bail out of a workflow or
+                        to bail when execution is not attached to a terminal.
+
+    """
+    yes = ['y', 'yes']
+    no = ['n', 'no']
+
+    if default:
+        choices = '[Y/n]'
+    else:
+        choices = '[y/N]'
+
+    # in case stdin is not a tty or the user accepts the default answer, then
+    # the result will be default.
+    result = default
+
+    if sys.stdout.isatty():
+        ans = raw_input('{} {}: '.format(question, choices)).strip().lower()
+        if ans in yes:
+            result = True
+        elif ans in no:
+            result = False
+
+    if result:
+        # yes
+        if callable(on_fulfilled):
+            on_fulfilled()
+    else:
+        # no
+        if isinstance(on_rejected, Exception):
+            raise on_rejected
+        elif callable(on_rejected):
+            on_rejected()
+
+    return result
+
+
 def find_nearest_host(hosts, port=22, timeout=1):
     """
     Given a collection of hosts, find the one that is the fewest
