@@ -330,6 +330,11 @@ file::
     /etc/mockbase/config.yaml:
       template: config.yaml.j2
 
+Additionally, we have to tell Scap that configuration deployment is enabled for
+this service by adding the following directive to ``scap/scap.cfg``::
+
+    config_deploy: True
+
 During the next ``scap deploy`` run, in the ``config_deploy`` phase, this template
 will be fetched from tin (the ``git_server``) and symlinked to its final
 location at ``/etc/mockbase/config.yaml``.
@@ -364,6 +369,14 @@ before it is symlinked into place. For example, let's add the variables
 
     deployer: {{ last_deployer }}
     foo: {{ bar }}
+
+Alternatively, you may also use the ERB-style delimiters in your config templates
+by specifying a directive for the given template in ``scap/config-file.yaml``::
+
+    ---
+    /etc/mockbase/config.yaml:
+      template: config.yaml.j2
+      erb_syntax: True
 
 And we'll add the corresponding values to the ``scap/vars.yaml`` file::
 
