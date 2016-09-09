@@ -46,8 +46,8 @@ class AbstractSync(cli.Application):
             self._sync_masters()
 
             # Run canary checks
+            canaries = self._get_canary_list()
             if not self.arguments.force:
-                canaries = self._get_canary_list()
                 with log.Timer('sync-check-canaries', self.get_stats()):
                     sync_cmd = self._proxy_sync_command()
                     sync_cmd.append(socket.getfqdn())
@@ -100,6 +100,9 @@ class AbstractSync(cli.Application):
                 update_apaches = ssh.Job(
                     self._get_target_list(), user=self.config['ssh_user'])
                 update_apaches.exclude_hosts(proxies)
+                update_apaches.exclude_hosts([socket.getfqdn()])
+                if not self.arguments.force:
+                    update_apaches.exclude_hosts(canaries)
                 update_apaches.shuffle()
                 update_apaches.command(self._apache_sync_command(proxies))
                 update_apaches.progress('sync-apaches')
