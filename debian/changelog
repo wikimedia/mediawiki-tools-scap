@@ -1,3 +1,35 @@
+scap (3.2.5-1) unstable; urgency=low
+
+  [ Tyler Cipriani ]
+  * Fix tab completion
+    Tab completeion now works like git, i.e., it puts a space after the
+    command but not after a completed directory name. Tab completion was
+    slowing down deployers as it put an extra space after EVERYTHING.
+    (Closes: T144244)
+  * Make directories as euid
+    Previously directories were being made as ruid. This was causing breakage
+    as we move towards using config deployment (\o/) for Mathoid
+    (Closes: T145194)
+
+  [ Mukunda Modell ]
+  * Add a better user prompting functionscap.utils.confirm
+    needed as utils.ask proved to be a bit inflexible.
+  * Look for plugins in user home directory.
+    Find and load plugins from both ./scap/plugins and ~/.scap/plugins.
+
+  [ Marko Obrovac ]
+  * Docs: Introduce config_deploy and erb_syntax
+    When doing config deploys, one needs to specify config_deploy in
+    scap.cfg. Likewise, Scap3 has the neat feature where one can use the ERB
+    syntax in templates, which eases the transition from Puppet.
+
+  [ Chad Horohoe ]
+  * Improve rsync behavior between masters/proxies/targets
+    This should save like 8-9 useless rsync's during the sync-apaches stage
+    and moves the co-master rsync (currently 1) to a more appropriate place
+
+ -- Tyler Cipriani <tcipriani@wikimedia.org>  Fri, 09 Sep 2016 13:19:29 -0700
+
 scap (3.2.4-1) unstable; urgency=low
 
   [ Dan Duvall ]
