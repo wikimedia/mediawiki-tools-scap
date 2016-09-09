@@ -693,7 +693,14 @@ def read_pid(path):
         raise IOError(e.errno, e.strerror, path)
 
 
-def mkdir_p(path, user=get_real_username(), logger=None):
+def mkdir_p(path, user=get_username()):
+    """
+    Create directory path.
+
+    :param path: The directory path to be created.
+    :param user: The user that should create the directory. Defaults to the
+                 effective user id.
+    """
     sudo_check_call(user, "mkdir -p '{}'".format(path))
 
 
