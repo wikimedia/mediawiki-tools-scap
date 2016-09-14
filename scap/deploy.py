@@ -425,6 +425,7 @@ class Deploy(cli.Application):
         'config_deploy',
         'config_files',
         'perform_checks',
+        'environment',
     ]
 
     repo = None
@@ -687,7 +688,7 @@ class Deploy(cli.Application):
         """Set the host directory after the config has been loaded."""
 
         super(Deploy, self)._load_config()
-        env = self.arguments.environment
+        env = self.config['environment']
         self.context = context.HostContext(os.getcwd(), environment=env)
         self.context.setup()
 

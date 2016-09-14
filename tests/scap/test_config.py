@@ -45,7 +45,12 @@ class ConfigTest(unittest.TestCase):
             bar: 1
         """)
 
-        expected_config = {'foo': 'blah', 'bar': 1, 'baz': True}
+        expected_config = {
+            'environment': None,
+            'foo': 'blah',
+            'bar': 1,
+            'baz': True
+        }
 
         with self.default_config(default_config):
             with self.config_file(config_file_content) as cfg_file:
@@ -66,7 +71,7 @@ class ConfigTest(unittest.TestCase):
 
         overrides = {'bar': '2'}
 
-        expected_config = {'foo': 'blah', 'bar': 2}
+        expected_config = {'environment': None, 'foo': 'blah', 'bar': 2}
 
         with self.default_config(default_config):
             with self.config_file(config_file_content) as cfg_file:

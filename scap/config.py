@@ -124,6 +124,10 @@ def load(cfg_file=None, environment=None, overrides=None):
 
     config = override_config(config, overrides)
 
+    if not environment and config.get('environment', None):
+            return load(cfg_file, config.get('environment'), overrides)
+
+    config['environment'] = environment
     return config
 
 
