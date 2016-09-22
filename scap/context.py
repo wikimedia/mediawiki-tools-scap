@@ -163,6 +163,11 @@ class TargetContext(Context):
         else:
             return None
 
+    @property
+    def local_config(self):
+        """Local target file that has a copy of the last-deployed config."""
+        return self.path('.config')
+
     def find_old_rev_dirs(self):
         """
         Generate revision directories that are candidates for deletion.

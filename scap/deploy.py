@@ -46,7 +46,27 @@ class DeployLocal(cli.Application):
 
         super(DeployLocal, self)._load_config()
 
-        overrides = self._get_remote_overrides()
+        # FIXME: this makes the assumption that the git_deploy_dir specified on
+        # the target machines in /etc/scap.cfg is correct. Currently, we have
+        # no deployments that don't use /srv/deployment as the deployment
+        # directory; however, this may not always be the case.
+        #
+        # I think in order to work around this issue `scap deploy-local` will
+        # need to be passed more information about the state of the world it's
+        # intended to create, i.e.:
+        #
+        #     scap deploy-local http://deployment.eqiad.wmnet/[repo] \
+        #         /srv/deployment/[repo]
+        #
+        # Might prove to be a better way to do this.
+        self.final_path = os.path.join(self.config['git_deploy_dir'],
+                                       self.arguments.repo)
+
+        root = '{}-cache'.format(self.final_path)
+        self.context = context.TargetContext(root)
+        self.context.setup()
+
+        overrides = self._get_config_overrides()
         if self.arguments.defines:
             overrides.update(dict(self.arguments.defines))
 
@@ -60,16 +80,12 @@ class DeployLocal(cli.Application):
                   help='force stage even when noop detected')
     @cli.argument('-r', '--repo',
                   help='repo that you are deploying')
+    @cli.argument('--refresh-config', action='store_true',
+                  help='fetch a new version of a config from the deploy '
+                       'server rather than using the locally cached config')
     def main(self, *extra_args):
         self.rev = self.config['git_rev']
         self.noop = False
-        self.final_path = os.path.join(self.config['git_deploy_dir'],
-                                       self.config['git_repo'])
-
-        root = '{}-cache'.format(self.final_path)
-        self.context = context.TargetContext(root)
-        self.context.setup()
-
         # only supports http from tin for the moment
         url = os.path.normpath('{git_server}/{git_repo}'.format(**self.config))
         self.server_url = 'http://{0}'.format(url)
@@ -361,6 +377,29 @@ class DeployLocal(cli.Application):
                                            chk.group is None)
         else:
             return chk.stage == stage
+
+    def _get_config_overrides(self):
+        """
+        Get config information locally or from the deployment host.
+
+        If the local [repo]-cache/.config file does not exist, or
+        --refresh-config has been passed explicitly on the command line, then
+        the config is fetched from the deployment server. Otherwise the local
+        config cache is used.
+
+        This is useful for things like locally rebuilding config files when a
+        remote var file has changed, and the version deployed from the
+        deployment server has changed, but a particular target has not yet been
+        updated.
+        """
+        if (self.arguments.refresh_config or
+                not os.path.exists(self.context.local_config)):
+            config = self._get_remote_overrides()
+            with open(self.context.local_config, 'w') as cfg:
+                cfg.write(yaml.dump(config, default_flow_style=False))
+
+        with open(self.context.local_config) as cfg:
+            return yaml.load(cfg.read())
 
     def _get_remote_overrides(self):
         """Grab remote config from git_server."""
@@ -656,6 +695,7 @@ class Deploy(cli.Application):
                 deploy_local_cmd.append('--force')
 
         deploy_local_cmd += ['-g', group, stage]
+        deploy_local_cmd.append('--refresh-config')
 
         logger.debug('Running remote deploy cmd {}'.format(deploy_local_cmd))
 
