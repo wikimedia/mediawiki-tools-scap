@@ -1,3 +1,24 @@
+scap (3.3.0-1) unstable; urgency=low
+
+  * "scap deploy" can use an environment-specific config by adding an
+    'environment' key under a domain in the scap.cfg ini file. Now
+    environment-specific settings can apply to specific domains without the
+    need to use the "--environment" flag (Closes: T134156).
+
+  * "scap deploy-local" caches the last fetched .git/DEPLOY_HEAD locally at
+    [repo]-cache/.config. As a result, deploy-local will no longer necessarily
+    fetch .git/DEPLOY_HEAD at every stage of a deploy. This allows for the use
+    of "scap deploy-local config_deploy" when a target is out-of-sync with the
+    deployment server (Closes: T145373).
+
+  * "scap deploy-local" got a new flag "--refresh-config" that will make
+    deploy-local fetch .git/DEPLOY_HEAD from the deployment server. "scap
+    deploy", internally, will use "scap deploy-local --refresh-config" at
+    every stage of deployment to retain the old behavior of fetching a fresh
+    copy of the config for each stage of deployment.
+
+ -- Tyler Cipriani <tcipriani@wikimedia.org>  Thu, 22 Sep 2016 15:54:26 -0700
+
 scap (3.2.5-1) unstable; urgency=low
 
   [ Tyler Cipriani ]
