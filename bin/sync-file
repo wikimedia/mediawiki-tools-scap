@@ -17,5 +17,4 @@ import scap
 
 out = scap.utils.deprecated_script('Try `scap sync-file`')
 sys.stderr.write(out)
-
-scap.cli.Application.run(script=scap.SyncFile)
+sys.exit(1)

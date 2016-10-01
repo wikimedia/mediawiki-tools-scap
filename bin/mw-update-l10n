@@ -17,5 +17,4 @@ import scap
 
 out = scap.utils.deprecated_script('Try `scap l10n-update`')
 sys.stderr.write(out)
-
-scap.cli.Application.run(script=scap.UpdateL10n)
+sys.exit(1)

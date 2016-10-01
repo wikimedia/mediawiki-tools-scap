@@ -73,6 +73,10 @@ syncs both the JSON and CDB versions to the rest of the cluster.
    * :func:`scap.tasks.sync_wikiversions`
 
 
+##############
+Misc. Commands
+##############
+
 scap wikiversions-inuse
 -----------------------
 :command:`scap wikiversions-inuse` examines wikiversions.json to find the current active
@@ -124,13 +128,11 @@ scap l10n-update
    * :func:`scap.tasks.update_localization_cache`
 
 
-refreshCdbJsonFiles
--------------------
+scap cdb-json-refresh
+---------------------
 :command:`refreshCdbJsonFiles` Create JSON/MD5 files for all CDB files in a directory.
 
-.. program-output:: ../bin/refreshCdbJsonFiles --help
+.. program-output:: ../bin/scap cdb-json-refresh --help
 .. seealso::
    * :func:`scap.refreshCdbJsonFiles`
    * :func:`scap.tasks.refresh_cdb_json_files`
-
-

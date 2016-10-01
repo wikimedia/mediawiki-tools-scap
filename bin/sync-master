@@ -17,5 +17,4 @@ import scap
 
 out = scap.utils.deprecated_script('Try `scap pull-master`')
 sys.stderr.write(out)
-
-scap.cli.Application.run(script=scap.SyncMaster)
+sys.exit(1)

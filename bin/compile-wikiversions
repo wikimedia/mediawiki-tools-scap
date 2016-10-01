@@ -17,5 +17,4 @@ import scap
 
 out = scap.utils.deprecated_script('Try `scap wikiversions-compile`')
 sys.stderr.write(out)
-
-scap.cli.Application.run(script=scap.CompileWikiversions)
+sys.exit(1)

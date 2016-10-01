@@ -17,5 +17,4 @@ import scap
 
 out = scap.utils.deprecated_script('Try `scap deploy-local`')
 sys.stderr.write(out)
-
-scap.cli.Application.run(script=scap.DeployLocal)
+sys.exit(1)

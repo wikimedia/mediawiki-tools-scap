@@ -17,5 +17,4 @@ import scap
 
 out = scap.utils.deprecated_script('Try `scap cdb-rebuild`')
 sys.stderr.write(out)
-
-scap.cli.Application.run(script=scap.RebuildCdbs)
+sys.exit(1)

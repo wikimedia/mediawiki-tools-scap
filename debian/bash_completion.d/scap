@@ -1,54 +1,60 @@
-__scap_cwd=
-__scap_subcommands=
-__scap_get_subcommands() {
-    local force_update
-    force_update=${1:=0}
-    if [[ "$force_update" -eq 0 && -n "$__scap_subcommands" ]]; then
-        return
+#!/usr/bin/bash
+
+_scap()
+{
+    local _COMP_OUTPUTSTR COMP_RET
+    local cur=${COMP_WORDS[COMP_CWORD]}
+    local prev=$3
+    local compgen_args=''
+    local environments=''
+    _init_completion || return
+
+    # if already typing a file path, bypass running scap to load completions
+    if [[ "$cur" == */ || "$cur" == .* ]]; then
+        COMPREPLY=( $( compgen -o default -o bashdefault -o nospace -f -- "$cur" ) )
+        return 0
     fi
 
-    __scap_subcommands=$(scap --_autocomplete)
+    if [ "$prev" == "--environment" ] && [ -d ./scap/environments/ ]; then
+        environments=$(ls ./scap/environments/ -C)
+        COMPREPLY=( $( compgen -W "$environments" -- "$cur" ) )
+        return 0
+    fi
+
+    _COMP_OUTPUTSTR="$( _COMPLETION=1 scap --_completion "${COMP_WORDS[*]}" 2>/dev/null )"
+    COMP_RET=$?
+    if (( COMP_RET == 2 )); then
+        compopt -o default
+        COMPREPLY=( )
+        return 0
+    fi
+
+    if (( COMP_RET != 0 )); then
+        compopt -o default
+        COMPREPLY=( )
+        return 1
+    fi
+
+
+    # special '__dirs__' and '__files_' tokens are returned by scap to trigger
+    # adding files or directories to the list of completions.
+    if [[ "$_COMP_OUTPUTSTR" == *__dirs__* ]]; then
+        compgen_args="$compgen_args -A directory -o plusdirs -o nospace -o dirnames -o filenames"
+    fi
+
+    if [[ "$_COMP_OUTPUTSTR" == *__files__* ]]; then
+        compgen_args="$compgen_args -f"
+    fi
+
+    if [[ "$_COMP_OUTPUTSTR" == *__versions__* ]]; then
+        compgen_args="-A directory -X !php-*-wmf.*"
+    fi
+
+    _COMP_OUTPUTSTR=$(echo "$_COMP_OUTPUTSTR"|grep -v '__.*__')
+    COMPREPLY=( $( compgen $compgen_args -W "$_COMP_OUTPUTSTR" -- "$cur" ) )
+
+    #COMPREPLY=( $( compgen -f -W "$_COMP_OUTPUTSTR" -- "$cur" ) )
+    #readarray -t COMPREPLY < <( echo -n "$_COMP_OUTPUTSTR"|grep -v '__.*__' )
 }
 
-_scap() {
-    local cur cmd=() rep force_update
-
-    cur=${COMP_WORDS[$COMP_CWORD]}
-    cmd=( "${COMP_WORDS[@]}" )
-
-    if (( COMP_CWORD == 1 )); then
-        force_update=0
-
-        # If we're tab completing in a different directory,
-        # we have to update the list of available subcommands
-        if [[ "$PWD" != "$__scap_cwd" ]]; then
-            __scap_cwd="$PWD"
-            force_update=1
-        fi
-
-        __scap_get_subcommands $force_update
-        rep=$( compgen -W "$__scap_subcommands" -- "$cur" )
-        COMPREPLY=( $rep )
-        return
-    fi
-
-    # limit the command to autocomplete to the first 3 words
-    if (( COMP_CWORD >= 2 )); then
-        # don't complete any sub-subcommands, only options
-        if [[ -n "$cur" && "${cur:0:1}" != '-' ]]; then
-            COMPREPLY=()
-            return
-        fi
-        cmd=( "${COMP_WORDS[@]:0:3}" )
-    fi
-
-    # replace the last word in the command with '--_autocomplete'
-    cmd[ $(( ${#cmd[@]} - 1 )) ]='--_autocomplete'
-
-    rep=$( compgen -W "$( "${cmd[@]}" )" -- "$cur" )
-
-    COMPREPLY=( $rep )
-}
-
-# By default append nospace except when completion comes from _scap
-complete -S' ' -o bashdefault -o default -o nospace -F _scap scap
+complete -F _scap scap

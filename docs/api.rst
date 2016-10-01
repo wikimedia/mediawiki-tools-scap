@@ -13,6 +13,9 @@ Core Application Infrastructure
 .. automodule:: scap.cli
    :exclude-members: __dict__,__weakref__
 
+.. automodule:: scap.arg
+  :exclude-members: __dict__,__weakref__
+
 Command Execution
 =================
 

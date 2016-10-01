@@ -15,6 +15,7 @@ import socket
 import subprocess
 import time
 
+from . import arg
 from . import cli
 from . import log
 from . import ssh
@@ -267,8 +268,8 @@ class MWVersionsInUse(cli.Application):
 class PurgeL10nCache(cli.Application):
     """Purge the localization cache for an inactive MediaWiki version."""
 
-    @cli.argument('--version', required=True,
-                  help='MediaWiki version (eg 1.23wmf16)')
+    @cli.argument('--version', type=arg.is_version,
+                  help='MediaWiki version (eg 1.27.0-wmf.16)')
     def main(self, *extra_args):
         if self.arguments.version.startswith('php-'):
             self.arguments.version = self.arguments.version[4:]
@@ -287,7 +288,8 @@ class PurgeL10nCache(cli.Application):
 class RebuildCdbs(cli.Application):
     """Rebuild localization cache CDB files from the JSON versions."""
 
-    @cli.argument('--version', help='MediaWiki version (eg 1.27.0-wmf.7)')
+    @cli.argument('--version', type=arg.is_version,
+                  help='MediaWiki version (eg 1.27.0-wmf.7)')
     @cli.argument('--no-progress', action='store_true', dest='mute',
                   help='Do not show progress indicator.')
     @cli.argument('--staging', action='store_true',
@@ -493,7 +495,7 @@ class SyncDir(AbstractSync):
     """Sync a directory to the cluster."""
 
     @cli.argument('--force', action='store_true', help='Skip canary checks')
-    @cli.argument('dir', help='Directory to sync')
+    @cli.argument('dir', help='Directory to sync', type=arg.is_dir)
     @cli.argument('message', nargs='*', help='Log message for SAL')
     def main(self, *extra_args):
         return super(SyncDir, self).main(*extra_args)
@@ -539,7 +541,7 @@ class SyncFile(AbstractSync):
     """Sync a specific file to the cluster."""
 
     @cli.argument('--force', action='store_true', help='Skip canary checks')
-    @cli.argument('file', help='File to sync')
+    @cli.argument('file', help='File to sync', type=file)
     @cli.argument('message', nargs='*', help='Log message for SAL')
     def main(self, *extra_args):
         return super(SyncFile, self).main(*extra_args)
@@ -592,7 +594,8 @@ class SyncL10n(AbstractSync):
     """Sync l10n files for a given branch and rebuild cache files."""
 
     @cli.argument('--force', action='store_true', help='Skip canary checks')
-    @cli.argument('version', help='MediaWiki version (eg 1.27.0-wmf.7)')
+    @cli.argument('version', type=arg.is_version,
+                  help='MediaWiki version (eg 1.27.0-wmf.7)')
     def main(self, *extra_args):
         return super(SyncL10n, self).main(*extra_args)
 
@@ -806,6 +809,7 @@ class RefreshCdbJsonFiles(cli.Application):
     """
 
     @cli.argument('-d', '--directory', required=True,
+                  type=arg.is_dir,
                   help='Directory containing cdb files')
     @cli.argument('-t', '--threads', default=1, type=int,
                   help='Number of threads to use to build json/md5 files')

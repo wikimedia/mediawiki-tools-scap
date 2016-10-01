@@ -50,6 +50,29 @@ def esc(*args):
     return '\x1b[%sm' % ';'.join(str(arg) for arg in sorted(args))
 
 
+def format(*args):
+    """
+    create an ansi color string from a list of color codes and plain strings.
+
+    >>> format((FG_BLUE,BG_WHITE),'blue on white') \
+            == '\x1b[34;47mblue on white\x1b[0m'
+    True
+
+    :param *args: ANSI color codes and strings of text
+    :returns: str
+    """
+    result = ""
+    for arg in args:
+        argtype = type(arg)
+        if argtype is int:
+            result += esc(arg)
+        elif argtype is tuple:
+            result += esc(*arg)
+        else:
+            result += arg
+    return result + esc(RESET_ALL)
+
+
 def reset():
     """
     Get the ANSI reset code.

@@ -23,6 +23,9 @@ pygments_style = 'sphinx'
 
 html_theme = 'nature'
 
+extensions += ['sphinx.ext.intersphinx']
+intersphinx_mapping = {'python': ('https://docs.python.org/2.7', None)}
+
 # html_static_path = ['_static']
 htmlhelp_basename = 'scapdoc'
 html_favicon = 'favicon.ico'

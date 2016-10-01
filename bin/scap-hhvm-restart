@@ -17,5 +17,4 @@ import scap
 
 out = scap.utils.deprecated_script('Try `scap hhvm-restart`')
 sys.stderr.write(out)
-
-scap.cli.Application.run(script=scap.RestartHHVM)
+sys.exit(1)

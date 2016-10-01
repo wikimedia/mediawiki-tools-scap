@@ -17,5 +17,4 @@ import scap
 
 out = scap.utils.deprecated_script('Try `scap deploy-log`')
 sys.stderr.write(out)
-
-scap.cli.Application.run(script=scap.DeployLog)
+sys.exit(1)

@@ -199,13 +199,10 @@ class Application(object):
                 '%s requires SSH agent forwarding' % self.program_name)
 
     @staticmethod
-    def factory(argv, script=None):
-        parser = arg.build_parser(script)
+    def factory(argv):
+        parser = arg.build_parser()
         args, extra_args = parser.parse_known_args()
-
-        command_name = getattr(args.which, arg.ATTR_SUBPARSER)['_flags'][0]
-
-        app = args.which(command_name)
+        app = args.which(args.command)
         app._argparser = parser
         app.arguments = args
         app.extra_arguments = extra_args
@@ -213,7 +210,7 @@ class Application(object):
         return app
 
     @classmethod
-    def run(cls, argv=sys.argv, script=None):
+    def run(cls, argv=sys.argv):
         """
         Construct and run an application.
 
@@ -243,7 +240,7 @@ class Application(object):
             if os.geteuid() == 0:
                 raise SystemExit('Scap should not be run as root')
 
-            app = Application.factory(argv, script=script)
+            app = Application.factory(argv)
 
             # Let each application handle `extra_args`
             app.arguments, app.extra_arguments = app._process_arguments(
@@ -253,7 +250,11 @@ class Application(object):
             app._load_config()
             app._setup_loggers()
             app._setup_environ()
-            exit_status = app.main(app.extra_arguments)
+            if "subcommand" in app.arguments and app.arguments.subcommand:
+                method = app.arguments.subcommand
+                exit_status = method(app, app.extra_arguments)
+            else:
+                exit_status = app.main(app.extra_arguments)
 
         except SystemExit as ex:
             # Triggered by sys.exit() calls
@@ -283,10 +284,31 @@ class Application(object):
 
 
 def argument(*args, **kwargs):
-    """Decorator used to declare a command line argument on a
+    """Decorator used to declare a command line argument on an
     :class:`Application`
 
-    Use with the same signature as ``ArgumentParser.add_argument``.
+    .. decorator:: argument(option_flags..[,action='store'][,nargs=1]\
+       [,const=None][,default][,type=str][,choices][,required=False][,help]\
+       [,dest])
+
+       Maps a command line argument to the decorated class or method.
+
+    :param str option_flags: One or more option flags associated with this
+                             argument, e.g. '-a', '--arg'
+    :param action: the action associated with this argument. e.g. 'store_true'
+    :param default: The default value for this argument if not specified by the
+                    user.
+    :param str help: Short description of this argument, displayed in
+                    ``--help`` text.
+    :param list choices: List possible values for this argument. If specified,
+                        argument values will be validated for you and
+                        ``--help`` will list the possible choices for the user.
+    :param bool required: True if your argument is required.
+    :param type type: The type of value accepted by your argument, e.g. int or
+                      file.
+    :type type: type
+    :param nargs: The number of values accepted by this argument.
+    :type nargs: int, str
     """
     def wrapper(func):
         arguments = getattr(func, arg.ATTR_ARGUMENTS, [])
@@ -294,6 +316,7 @@ def argument(*args, **kwargs):
         setattr(func, arg.ATTR_ARGUMENTS, arguments)
         return func
     return wrapper
+
 
 command_registry = {}
 
@@ -303,23 +326,80 @@ def all_commands():
     return a list of all commands that have been registered with the
     command() decorator.
     """
+    global command_registry
     scap.plugins.load_plugins()
     return command_registry
 
 
 def command(*args, **kwargs):
     """
-    Decorator used to map a subcommand to a particular class.
+    .. decorator:: command(command_name, help="help text",[subcommands=False])
 
-    Use with the same signature as ``SubparsersAction.add_parser``
+    Map a `scap` sub-command to the decorated class.
+
+    :param str command_name: The name of the sub-command
+    :param str help: A summary of your command to be displayed in `--help` text
+    :type help: str or None
+    :raises ValueError: if there is already a command named `command_name`
+
+    **Usage Example**::
+
+        import scap.cli
+
+        @cli.command('hello', help='prints "hello world" and exits')
+        class HelloCommand(cli.Application):
+            @cli.argument('--goodbye', action='store_true',
+                          help='Say goodbye instead.')
+            def main(extra_args):
+                if self.arguments.goodbye:
+                    print('Goodbye, cruel world.')
+                else:
+                    print('Hello, world.')
+
     """
     def wrapper(cls):
         name = args[0]
         if name in command_registry:
             err = 'Duplicate: A command named "%s" already exists.' % name
             raise ValueError(err)
+        has_subcommands = kwargs.pop('subcommands', False)
+        if has_subcommands:
+            setattr(cls, arg.ATTR_SUBPARSER, True)
+
         cmd = dict(name=name, cls=cls, args=args, kwargs=kwargs)
         command_registry[name] = cmd
-        setattr(cls, arg.ATTR_SUBPARSER, dict(_flags=args, **kwargs))
         return cls
+    return wrapper
+
+
+def subcommand(name=None):
+    """
+    .. decorator:: subcommand(command_name)
+
+    Define an argparse subcommand by decorating a method on your
+    cli.Application subclass.
+
+    Use this decorator when you want to have a subcommand on a method other
+    than 'main'
+
+    In order for this to have any affect, your cli.Application must be
+    decorated with subcommands=True (see example below).
+
+    **Usage Example**::
+
+        import scap.cli
+
+        @cli.command('hello', subcommands=True,
+                     help='prints "hello world" and exits',)
+        class HelloCommand(cli.Application):
+            @cli.subcommand('world')
+            def world_subcommand(extra_args):
+                print('hello world')
+
+    """
+    def wrapper(func):
+        subcommand_name = func.__name__ if name is None else name
+        setattr(func, arg.ATTR_SUBCOMMAND, subcommand_name)
+        setattr(func, arg.ATTR_ARGUMENTS, [])
+        return func
     return wrapper
