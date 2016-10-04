@@ -541,7 +541,7 @@ class SyncFile(AbstractSync):
     """Sync a specific file to the cluster."""
 
     @cli.argument('--force', action='store_true', help='Skip canary checks')
-    @cli.argument('file', help='File to sync', type=file)
+    @cli.argument('file', help='File to sync')
     @cli.argument('message', nargs='*', help='Log message for SAL')
     def main(self, *extra_args):
         return super(SyncFile, self).main(*extra_args)
