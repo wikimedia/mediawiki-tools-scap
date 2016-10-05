@@ -806,16 +806,3 @@ class RefreshCdbJsonFiles(cli.Application):
             os.mkdir(upstream_dir)
 
         tasks.refresh_cdb_json_files(cdb_dir, use_cores, self.verbose)
-
-
-@cli.command('say')
-class Say(cli.Application):
-    """Scap propogranda of the lowest order."""
-
-    @cli.argument('-w', '--width', type=int,
-                  help='Column width for message box')
-    @cli.argument('message', nargs='*', help='message to print')
-    def main(self, *extra_args):
-        print utils.scap_say(
-            ' '.join(self.arguments.message), width=self.arguments.width)
-        return 0

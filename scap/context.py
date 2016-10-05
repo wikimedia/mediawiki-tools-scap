@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """
     scap.context
-    ~~~~~~~~~~~
+    ~~~~~~~~~~~~
     Management of deployment host/target directories and execution context.
 
 """

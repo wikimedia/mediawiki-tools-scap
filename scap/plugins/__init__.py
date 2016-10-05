@@ -1,20 +1,39 @@
+# -*- coding: utf-8 -*-
+"""
+    scap.plugins
+    ~~~~~~~~~~~~
+    Scap plugin architecture
+
+    .. function:: find_plugins(plugin_dirs)
+
+        Get a list of all plugins found in in plugin_dirs
+
+        :param list plugin_dirs: directories to search for plugins
+        :return: list of all plugin commands found in plugin_dirs
+    .. function:: load_plugins([plugin_dir])
+
+        load scap plugin modules.
+
+        :type plugin_dir: str or None
+        :param str plugin_dir: an additional location to search
+"""
+
 import importlib
 import logging
 import os
 import sys
 from ..cli import Application
+from .say import Say
 
 this_module = sys.modules[__name__]
 
 loaded_plugins = {}
-__all__ = []
+__all__ = ['Say']
 
 
 def find_plugins(plugin_dirs):
     """
-    Returns a list of all plugin commands found in plugin_dir
-
-    Returns an empty list if no commands are defined.
+    returns a list of all plugin commands found in plugin_dirs
     """
     plugins = []
 
@@ -65,17 +84,22 @@ def load_plugins(plugin_dir=None):
     for plugin in plugins:
         # module path relative to scap.plugins:
         plugin_module = ".%s" % plugin
-        mod = importlib.import_module(plugin_module, "scap.plugins")
-        # find classes in mod which extend scap.cli.Application
-        for objname in dir(mod):
-            obj = getattr(mod, objname)
-            if type(obj) is type and issubclass(obj, Application):
-                if objname in loaded_plugins:
-                    # duplicate: another plugin already used the same name
-                    msg = 'Duplicate plugin named %s, skipping.' % objname
-                    logging.getLogger().warning(msg)
-                    continue
-                # copy the class into the scap.plugins namespace
-                setattr(this_module, objname, obj)
-                loaded_plugins[objname] = obj
-                __all__.append(objname)
+        try:
+            mod = importlib.import_module(plugin_module, "scap.plugins")
+            # find classes in mod which extend scap.cli.Application
+            for objname in dir(mod):
+                obj = getattr(mod, objname)
+                if type(obj) is type and issubclass(obj, Application):
+                    if objname in loaded_plugins:
+                        # duplicate: another plugin already used the same name
+                        msg = 'Duplicate plugin named %s, skipping.'
+                        logging.getLogger().warning(msg, objname)
+                        continue
+                    # copy the class into the scap.plugins namespace
+                    setattr(this_module, objname, obj)
+                    loaded_plugins[objname] = obj
+                    __all__.append(objname)
+        except Exception:
+            msg = 'Problem loading plugins from module: scap.plugins.%s '
+            logger = logging.getLogger()
+            logger.warning(msg % plugin, exc_info=sys.exc_info())

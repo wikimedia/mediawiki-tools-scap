@@ -4,7 +4,7 @@
     ~~~~~~~~~
     ANSI escape codes
 
-    .. seealso: http://en.wikipedia.org/wiki/ANSI_escape_code
+    ..seealso:: `https://en.wikipedia.org/wiki/ANSI_escape_code`
 """
 
 FG_BLACK = 30
@@ -44,7 +44,7 @@ def esc(*args):
     >>> esc(BG_WHITE, FG_RED, BLINK) == r'\x1b[5;31;47m'
     True
 
-    :param *args: ANSI attributes
+    :param args: ANSI attributes
     :returns: str
     """
     return '\x1b[%sm' % ';'.join(str(arg) for arg in sorted(args))
@@ -58,7 +58,7 @@ def format(*args):
             == '\x1b[34;47mblue on white\x1b[0m'
     True
 
-    :param *args: ANSI color codes and strings of text
+    :param args: ANSI color codes and strings of text
     :returns: str
     """
     result = ""

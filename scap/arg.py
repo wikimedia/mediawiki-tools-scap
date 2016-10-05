@@ -257,6 +257,8 @@ def get_global_parser():
          \nnot all commands are affected by every global argument."
     group = parser.add_argument_group(title, desc)
 
+    default_loglevel = os.getenv('SCAP_LOG_LEVEL', logging.INFO)
+
     group.add_argument(
         '-c', '--conf', dest='conf_file',
         type=argparse.FileType('r'),
@@ -273,7 +275,7 @@ def get_global_parser():
         metavar='<name>:<value>')
     group.add_argument(
         '-v', '--verbose', action='store_const',
-        const=logging.DEBUG, default=logging.INFO,
+        const=logging.DEBUG, default=default_loglevel,
         dest='loglevel', help='Verbose output')
     group.add_argument(
         '-e', '--environment', default=None,

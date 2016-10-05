@@ -1,5 +1,4 @@
-Development
-===========
+
 
 Get the code
 ------------
@@ -44,7 +43,7 @@ the documentation.
 To run unit tests, lint, coverage and update documentation, simply run
 :command:`tox` without any arguments.
 
-Git Pre-Commit hook
+Git pre-commit hook
 -------------------
 
 There is an example pre-commit hook<pre-commit.sh>`_ that can

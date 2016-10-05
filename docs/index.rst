@@ -35,20 +35,22 @@ but this had two problems:
 Tim noticed that if the last two components of the name were swapped,
 a short and catchy acronym could be contrived. Thus, scap was born.
 
-Topic Index
------------
+Indices and tables
+==================
+
+Table of contents
+-----------------
 
 .. toctree::
    :maxdepth: 3
 
    scap3/index
    scap2/index
-   development
+   dev/index
    api
    glossary
 
-
-Indices and tables
-==================
+Topic Index
+-----------
 * :ref:`genindex`
 * :ref:`search`

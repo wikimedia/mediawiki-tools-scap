@@ -20,6 +20,15 @@ version = '3.0'
 release = version
 exclude_patterns = ['_build']
 pygments_style = 'sphinx'
+man_pages = [
+    (
+        'scap2/commands',
+        'scap',
+        'Wikimedia deployment tool - scap: scatter crap around production',
+        [],
+        '1'
+    )
+]
 
 html_theme = 'nature'
 

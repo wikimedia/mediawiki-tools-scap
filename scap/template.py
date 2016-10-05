@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """
     scap.template
-    ~~~~~~~~~~
+    ~~~~~~~~~~~~~
     Module for working with file templates
 """
 
