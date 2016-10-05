@@ -624,6 +624,22 @@ def update_localization_cache(version, wikidb, verbose, cfg, logger=None):
             cfg['bin_dir'], cache_dir, use_cores, verbose_messagelist))
 
 
+def restart_hhvm(hosts, cfg, batch_size=1):
+    """Restart HHVM on the given hosts.
+
+    :param hosts: List of hosts to sync to
+    :param cfg: Dict of global configuration values
+    :param batch_size: Number of hosts to restart in parallel
+    """
+    stats = log.Stats(cfg['statsd_host'], int(cfg['statsd_port']))
+    with log.Timer('restart_hhvm', stats):
+        restart = ssh.Job(hosts, user=cfg['ssh_user']).shuffle()
+        restart.command(
+            'sudo -u mwdeploy -n -- %s hhvm-restart' %
+            os.path.join(cfg['bin_dir'], 'scap'))
+        return restart.progress('restart_hhvm').run(batch_size=batch_size)
+
+
 def refresh_cdb_json_files(in_dir, pool_size, verbose):
     """
     Update json files from corresponding cdb file in parallel.
