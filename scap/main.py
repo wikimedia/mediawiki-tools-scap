@@ -30,11 +30,6 @@ class AbstractSync(cli.Application):
 
     soft_errors = False
 
-    def _process_arguments(self, args, extra_args):
-        if hasattr(args, 'message'):
-            args.message = ' '.join(args.message) or '(no message)'
-        return args, extra_args
-
     @cli.argument('message', nargs='*', help='Log message for SAL')
     def main(self, *extra_args):
         """Perform a sync operation to the cluster."""
@@ -254,14 +249,6 @@ class MWVersionsInUse(cli.Application):
 
         print ' '.join(output)
         return 0
-
-    def _process_arguments(self, args, extra_args):
-        """Log warnings about unexpected arguments but don't exit."""
-        if extra_args:
-            self.get_logger().warning(
-                'Unexpected argument(s) ignored: %s', extra_args)
-
-        return args, extra_args
 
 
 @cli.command('l10n-purge')
@@ -661,10 +648,6 @@ class SyncL10n(AbstractSync):
 class SyncWikiversions(AbstractSync):
     """Rebuild and sync wikiversions.php to the cluster."""
 
-    def _process_arguments(self, args, extra_args):
-        args.message = ' '.join(args.message) or '(no message)'
-        return args, extra_args
-
     @cli.argument('--force', action='store_true', help='Skip canary checks')
     @cli.argument('message', nargs='*', help='Log message for SAL')
     def main(self, *extra_args):
@@ -760,11 +743,6 @@ class RestartHHVM(cli.Application):
 @cli.command('hhvm-graceful')
 class HHVMGracefulAll(cli.Application):
     """Perform a rolling restart of HHVM across the cluster."""
-
-    def _process_arguments(self, args, extra_args):
-        if hasattr(args, 'message'):
-            args.message = ' '.join(args.message) or '(no message)'
-        return args, extra_args
 
     @cli.argument('message', nargs='*', help='Log message for SAL')
     def main(self, *extra_args):

@@ -104,6 +104,10 @@ class Application(object):
         if extra_args:
             self._argparser.error('extra arguments found: %s' %
                                   ' '.join(extra_args))
+
+        if hasattr(args, 'message'):
+            args.message = ' '.join(args.message) or '(no message)'
+
         return args, extra_args
 
     def _load_config(self):

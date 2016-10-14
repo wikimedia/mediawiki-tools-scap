@@ -481,6 +481,7 @@ class Deploy(cli.Application):
                   help='Restart service')
     @cli.argument('-i', '--init', action='store_true',
                   help='Setup a repo for initial deployment')
+    @cli.argument('message', nargs='*', help='Log message for SAL')
     def main(self, *extra_args):
         logger = self.get_logger()
 
@@ -551,7 +552,13 @@ class Deploy(cli.Application):
                 if self.arguments.init:
                     return 0
 
-                return self._execute_for_groups(stages)
+                self.announce('Starting deploy of [%s]: %s',
+                              self.repo, self.arguments.message)
+                exec_result = self._execute_for_groups(stages)
+                self.announce('Finished deploy of [%s]: %s (duration: %s)',
+                              self.repo, self.arguments.message,
+                              utils.human_duration(self.get_duration()))
+                return exec_result
         return 0
 
     def _execute_for_groups(self, stages):
