@@ -1,6 +1,7 @@
 #!/usr/bin/env python2
 
 import os
+import re
 import shutil
 import sys
 import tempfile
@@ -145,7 +146,6 @@ class TargetContextTest(unittest.TestCase):
         self.assertEqual(self.context.current_link,
                          os.path.join(self.root, 'current'))
 
-    @unittest.skipIf(sys.platform == 'darwin', 'Tests of `ln` fail on OS X')
     def test_current_rev_dir(self):
         self.context.setup()
         os.mkdir(os.path.join(self.context.revs_dir, 'foo123'))
@@ -159,7 +159,6 @@ class TargetContextTest(unittest.TestCase):
 
         self.assertIsNone(self.context.current_rev_dir)
 
-    @unittest.skipIf(sys.platform == 'darwin', 'Tests of `ln` fail on OS X')
     def test_done_rev_dir(self):
         self.context.setup()
         os.mkdir(os.path.join(self.context.revs_dir, 'foo123'))
@@ -174,7 +173,7 @@ class TargetContextTest(unittest.TestCase):
 
         self.assertIsNone(self.context.done_rev_dir)
 
-    @unittest.skipIf(sys.platform == 'darwin', 'Tests of `ln` fail on OS X')
+    @unittest.skipIf(sys.platform == 'darwin', 'Insufficient ctime precision')
     def test_find_old_rev_dirs(self):
         self.context.setup()
         rev_dirs = self.create_rev_dirs([
@@ -197,43 +196,34 @@ class TargetContextTest(unittest.TestCase):
         self.assertEqual(len(old_rev_dirs), 2)
         self.assertEqual(old_rev_dirs, [rev_dirs[2], rev_dirs[0]])
 
-    @unittest.skipIf(sys.platform == 'darwin', 'Tests of `ln` fail on OS X')
     def test_link_path_to_rev(self):
         self.context.setup()
         rev_dir = self.create_rev_dir('foo123')
-        temp_dir = tempfile.mkdtemp()
-        final_path = os.path.join(temp_dir, 'bar')
+        final_path = os.path.join(self.root, 'bar')
 
-        try:
-            self.context.link_path_to_rev(final_path, 'foo123')
-            self.assertTrue(os.path.exists(final_path))
-            self.assertTrue(os.path.islink(final_path))
-            self.assertEqual(os.path.realpath(final_path), rev_dir)
-        finally:
-            shutil.rmtree(temp_dir)
+        self.context.link_path_to_rev(final_path, 'foo123')
+        self.assertTrue(os.path.exists(final_path))
+        self.assertTrue(os.path.islink(final_path))
+        self.assertEqual(os.path.realpath(final_path), rev_dir)
 
-    @unittest.skipIf(sys.platform == 'darwin', 'Tests of `ln` fail on OS X')
     def test_link_path_to_rev_with_backup(self):
         self.context.setup()
         rev_dir = self.create_rev_dir('foo123')
-        temp_dir = tempfile.mkdtemp()
-        final_path = os.path.join(temp_dir, 'bar')
+        final_path = os.path.join(self.root, 'bar')
 
         os.mkdir(final_path)
 
-        try:
-            self.context.link_path_to_rev(final_path, 'foo123', backup=True)
-            self.assertTrue(os.path.exists(final_path))
-            self.assertTrue(os.path.islink(final_path))
-            self.assertEqual(os.path.realpath(final_path), rev_dir)
+        self.context.link_path_to_rev(final_path, 'foo123', backup=True)
+        self.assertTrue(os.path.exists(final_path))
+        self.assertTrue(os.path.islink(final_path))
+        self.assertEqual(os.path.realpath(final_path), rev_dir)
 
-            # Test that the path was backed up but don't bother trying to mock
-            # the timestamp
-            self.assertEqual(len(os.listdir(temp_dir)), 2)
-        finally:
-            shutil.rmtree(temp_dir)
+        # Test that the path was backed up but don't bother trying to mock
+        # the timestamp
+        backups = [path for path in os.listdir(self.root)
+                   if re.match('bar\.', os.path.basename(path))]
+        self.assertEqual(len(backups), 1)
 
-    @unittest.skipIf(sys.platform == 'darwin', 'Tests of `ln` fail on OS X')
     def test_mark_rev_current(self):
         self.context.setup()
         rev_dir = self.create_rev_dir('foo1')
@@ -244,7 +234,6 @@ class TargetContextTest(unittest.TestCase):
         self.assertEqual(os.path.realpath(self.context.current_link),
                          rev_dir)
 
-    @unittest.skipIf(sys.platform == 'darwin', 'Tests of `ln` fail on OS X')
     def test_mark_rev_current_overwrites_existing(self):
         self.context.setup()
 
@@ -258,7 +247,6 @@ class TargetContextTest(unittest.TestCase):
         self.assertEqual(os.path.realpath(self.context.current_link),
                          rev_dir)
 
-    @unittest.skipIf(sys.platform == 'darwin', 'Tests of `ln` fail on OS X')
     def test_mark_rev_done(self):
         self.context.setup()
         self.create_rev_dir('foo1')
@@ -267,7 +255,6 @@ class TargetContextTest(unittest.TestCase):
 
         self.assertEqual(self.context.rev_done, 'foo1')
 
-    @unittest.skipIf(sys.platform == 'darwin', 'Tests of `ln` fail on OS X')
     def test_mark_rev_in_progress(self):
         self.context.setup()
         self.create_rev_dir('foo1')

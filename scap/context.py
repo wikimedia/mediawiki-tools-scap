@@ -17,18 +17,16 @@ REVS_TO_KEEP = 5
 class Context(object):
     """Base context for either the deployment host or target."""
 
-    def __init__(self, root, environment=None, user=utils.get_username()):
+    def __init__(self, root, environment=None):
         """
         Instantiate a new context at the given root path.
 
         :param root: Root directory
         :param environment: Environment name used when resolving config files.
-        :param user: User the context will execute commands as.
         """
 
         self.root = root
         self.environment = environment
-        self.user = user
 
     def lock_path(self):
         """Get the path to scap.lock for this context."""
@@ -42,7 +40,7 @@ class Context(object):
 
     def setup(self):
         """Create the root directory, use it as the root context."""
-        utils.mkdir_p(self.root, user=self.user)
+        utils.mkdir_p(self.root)
 
         # Needed for deploy-local.
         #
@@ -59,14 +57,6 @@ class Context(object):
 
 class HostContext(Context):
     """Manage deployment host paths and execution context."""
-
-    def __init__(self, root, environment=None, user=utils.get_real_username()):
-        """
-        Instantiate a new host context.
-
-        :meth:`Context.__init__`
-        """
-        super(HostContext, self).__init__(root, environment, user)
 
     def env_specific_path(self, *relpaths):
         """
@@ -198,7 +188,7 @@ class TargetContext(Context):
             date = datetime.utcnow().isoformat()
             os.rename(path, '{}.{}'.format(path, date))
 
-        utils.move_symlink(self.rev_path(rev), path, user=self.user)
+        utils.move_symlink(self.rev_path(rev), path)
 
     def mark_rev_current(self, rev):
         """
@@ -222,7 +212,7 @@ class TargetContext(Context):
 
     def rm_in_progress(self):
         if os.path.exists(self._progress_link):
-            utils.remove_symlink(self._progress_link, user=self.user)
+            os.unlink(self._progress_link)
 
     def mark_rev_in_progress(self, rev):
         """
@@ -267,7 +257,7 @@ class TargetContext(Context):
         super(TargetContext, self).setup()
 
         for d in [self.cache_dir, self.revs_dir]:
-            utils.mkdir_p(d, user=self.user)
+            utils.mkdir_p(d)
 
     @property
     def _done_link(self):

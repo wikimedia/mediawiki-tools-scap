@@ -280,8 +280,7 @@ class DeployLocal(cli.Application):
 
                     rel_path = os.path.relpath(full_path, config_dest)
                     final_path = os.path.join('/', rel_path)
-                    utils.move_symlink(
-                        full_path, final_path, user=self.context.user)
+                    utils.move_symlink(full_path, final_path)
 
         self.context.mark_rev_current(rev)
         self.context.link_path_to_rev(self.final_path, rev, backup=True)
@@ -292,7 +291,7 @@ class DeployLocal(cli.Application):
         if not service:
             return
 
-        tasks.restart_service(service, user=self.context.user)
+        tasks.restart_service(service)
 
         port = self.config.get('service_port', None)
         if not port:
@@ -526,7 +525,7 @@ class Deploy(cli.Application):
                 self.deploy_info.update({
                     'tag': tag,
                     'commit': commit,
-                    'user': self.context.user,
+                    'user': utils.get_username(),
                     'timestamp': timestamp.isoformat(),
                 })
 

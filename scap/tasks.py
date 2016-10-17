@@ -735,10 +735,9 @@ def refresh_cdb_json_file(file_path):
 
 
 @utils.log_context('service_restart')
-def restart_service(service, user='mwdeploy', logger=None):
+def restart_service(service, logger=None):
     logger.info("Restarting service '{}'".format(service))
-    cmd_format = 'sudo /usr/sbin/service {} {}'
-    utils.sudo_check_call(user, cmd_format.format(service, 'restart'))
+    subprocess.check_call('sudo /usr/sbin/service {} restart'.format(service))
 
 
 @utils.log_context('port_check')

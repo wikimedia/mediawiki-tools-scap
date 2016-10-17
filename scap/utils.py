@@ -693,18 +693,17 @@ def read_pid(path):
         raise IOError(e.errno, e.strerror, path)
 
 
-def mkdir_p(path, user=get_username()):
+def mkdir_p(path):
     """
     Create directory path.
 
     :param path: The directory path to be created.
-    :param user: The user that should create the directory. Defaults to the
-                 effective user id.
     """
-    sudo_check_call(user, "mkdir -p '{}'".format(path))
+    if not os.path.exists(path):
+        os.makedirs(path)
 
 
-def move_symlink(source, dest, user=get_real_username()):
+def move_symlink(source, dest):
     if os.path.realpath(dest) == source:
         return
 
@@ -712,15 +711,14 @@ def move_symlink(source, dest, user=get_real_username()):
     rsource = os.path.relpath(source, dest_dir)
     rdest = os.path.relpath(dest, dest_dir)
 
-    # Make link target's parent directory if it doesn't exist
-    mkdir_p(dest_dir, user=user)
+    # Make link's parent directory if it doesn't exist
+    mkdir_p(dest_dir)
 
     with cd(dest_dir):
-        sudo_check_call(user, "ln -sfT '{}' '{}'".format(rsource, rdest))
+        if os.path.exists(rdest):
+            os.unlink(rdest)
 
-
-def remove_symlink(path, user=get_real_username()):
-    sudo_check_call(user, "rm '{}'".format(path))
+        os.symlink(rsource, rdest)
 
 
 def get_active_wikiversions(directory, realm, datacenter):
