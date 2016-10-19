@@ -393,6 +393,9 @@ def lock(filename):
     :param filename: File to lock
     :raises: LockFailedError on failure
     """
+    if os.path.exists('/var/lock/scap-global-lock'):
+        raise LockFailedError('Failed to lock scap, global lock in place')
+
     lock_fd = None
     try:
         lock_fd = open(filename, 'w+')
