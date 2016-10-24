@@ -737,7 +737,8 @@ def refresh_cdb_json_file(file_path):
 @utils.log_context('service_restart')
 def restart_service(service, logger=None):
     logger.info("Restarting service '{}'".format(service))
-    subprocess.check_call('sudo /usr/sbin/service {} restart'.format(service))
+    cmd = 'sudo -n /usr/sbin/service {} restart'.format(service).split()
+    subprocess.check_call(cmd)
 
 
 @utils.log_context('port_check')
