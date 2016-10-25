@@ -207,8 +207,12 @@ def checkout(location, rev):
         subprocess.check_call(cmd, shell=True)
 
 
-def update_submodules(location, git_remote, use_upstream=False):
+def update_submodules(location, git_remote=None, use_upstream=False):
     """Update git submodules on target machines"""
+
+    if not use_upstream and git_remote is None:
+        raise ValueError("Must set git_remote if not using upstream")
+
     ensure_dir(location)
 
     logger = utils.get_logger()
