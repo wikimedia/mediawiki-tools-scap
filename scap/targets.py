@@ -162,9 +162,7 @@ class TargetList():
         for group in server_groups:
             group = group.strip()
             cfg_key = group + '_' + self.primary_key
-            limit = False
             if group == 'default':
-                limit = True
                 cfg_key = self.primary_key
 
             key = self.config.get(cfg_key, None)
@@ -175,7 +173,7 @@ class TargetList():
 
             targets = self._get_targets_for_key(key)
 
-            if limit and self.limit_hosts is not None:
+            if self.limit_hosts is not None:
                 targets = limit_target_hosts(self.limit_hosts, targets)
 
             targets = list(set(targets) - set(all_hosts))
