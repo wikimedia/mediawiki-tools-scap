@@ -329,7 +329,9 @@ def sync_master(cfg, master, verbose=False, logger=None):
 
 
 @utils.log_context('sync_common')
-def sync_common(cfg, include=None, sync_from=None, verbose=False, logger=None):
+def sync_common(
+        cfg, include=None, sync_from=None, touch_config=True,
+        verbose=False, logger=None):
     """
     Sync local deploy dir with upstream rsync server's copy.
 
@@ -381,13 +383,15 @@ def sync_common(cfg, include=None, sync_from=None, verbose=False, logger=None):
     with log.Timer('rsync common', stats):
         subprocess.check_call(rsync)
 
-    # Bug 58618: Invalidate local configuration cache by updating the
-    # timestamp of wmf-config/InitialiseSettings.php
-    settings_path = os.path.join(
-        cfg['deploy_dir'], 'wmf-config', 'InitialiseSettings.php')
-    logger.debug('Touching %s', settings_path)
-    subprocess.check_call((
-        'sudo', '-u', 'mwdeploy', '-n', '--', '/usr/bin/touch', settings_path))
+    if touch_config:
+        # Bug 58618: Invalidate local configuration cache by updating the
+        # timestamp of wmf-config/InitialiseSettings.php
+        settings_path = os.path.join(
+            cfg['deploy_dir'], 'wmf-config', 'InitialiseSettings.php')
+        logger.debug('Touching %s', settings_path)
+        subprocess.check_call((
+            'sudo', '-u', 'mwdeploy', '-n', '--',
+            '/usr/bin/touch', settings_path))
 
 
 def sync_wikiversions(hosts, cfg):

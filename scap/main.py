@@ -453,6 +453,8 @@ class SyncMaster(cli.Application):
 class SyncCommon(cli.Application):
     """Sync local MediaWiki deployment directory with deploy server state."""
 
+    @cli.argument('--no-touch', action='store_false', dest='touch_config',
+                  help='Do not touch InitialiseSettings.php after sync.')
     @cli.argument('--no-update-l10n', action='store_false', dest='update_l10n',
                   help='Do not update l10n cache files.')
     @cli.argument('-i', '--include', default=None, action='append',
@@ -466,7 +468,8 @@ class SyncCommon(cli.Application):
             self.config,
             include=self.arguments.include,
             sync_from=self.arguments.servers,
-            verbose=self.verbose
+            verbose=self.verbose,
+            touch_config=self.arguments.touch_config
         )
         if self.arguments.update_l10n:
             utils.sudo_check_call(
@@ -528,6 +531,8 @@ class SyncFile(AbstractSync):
     """Sync a specific file to the cluster."""
 
     @cli.argument('--force', action='store_true', help='Skip canary checks')
+    @cli.argument('--beta-only-change', action='store_true', dest='beta_only',
+                  help='Sync a config file that only affects beta cluster')
     @cli.argument('file', help='File to sync')
     @cli.argument('message', nargs='*', help='Log message for SAL')
     def main(self, *extra_args):
@@ -544,6 +549,15 @@ class SyncFile(AbstractSync):
             self.get_logger().warning(
                 '%s: syncing symlink, not target file contents', abspath)
 
+        if self.arguments.beta_only:
+            confroot = os.path.join(
+                self.config['stage_dir'], 'wmf-config')
+            if (abspath.endswith('.php') and
+                    os.path.commonprefix([confroot, abspath]) != confroot):
+                raise IOError(
+                    errno.EPERM,
+                    '--beta-only-change not allowed for PHP files', abspath)
+
         self.include = os.path.relpath(abspath, self.config['stage_dir'])
         if abspath.endswith(('.php', '.inc', '.phtml', '.php5')):
             subprocess.check_call('/usr/bin/php -l %s' % abspath, shell=True)
@@ -553,6 +567,8 @@ class SyncFile(AbstractSync):
 
     def _proxy_sync_command(self):
         cmd = [self.get_script_path(), 'pull', '--no-update-l10n']
+        if self.arguments.beta_only:
+            cmd.append('--no-touch')
 
         if '/' in self.include:
             parts = self.include.split('/')
@@ -606,7 +622,8 @@ class SyncL10n(AbstractSync):
         self.include = '%s/***' % relpath
 
     def _proxy_sync_command(self):
-        cmd = [self.get_script_path(), 'pull', '--no-update-l10n']
+        cmd = [
+            self.get_script_path(), 'pull', '--no-update-l10n', '--no-touch']
 
         parts = self.include.split('/')
         for i in range(1, len(parts)):
