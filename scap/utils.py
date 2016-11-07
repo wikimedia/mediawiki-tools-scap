@@ -20,6 +20,7 @@ import os
 import pwd
 import random
 import socket
+import stat
 import struct
 import subprocess
 import sys
@@ -286,9 +287,11 @@ def get_realm_specific_filename(filename, realm, datacenter):
     return filename
 
 
-def get_username():
+def get_username(user=None):
     """Get the username of the effective user."""
-    return pwd.getpwuid(os.getuid())[0]
+    if user is None:
+        user = os.getuid()
+    return pwd.getpwuid(user)[0]
 
 
 def human_duration(elapsed):
@@ -397,19 +400,38 @@ def lock(filename):
         raise LockFailedError('Failed to lock scap, global lock in place')
 
     lock_fd = None
+    # Steal the umask for a bit, can't rely on system
+    orig_umask = os.umask(0)
     try:
-        lock_fd = open(filename, 'w+')
+        lock_fd = os.open(filename,
+                          os.O_WRONLY | os.O_CREAT | os.O_EXCL,
+                          stat.S_IRUSR | stat.S_IWUSR)
         fcntl.lockf(lock_fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
     except IOError as e:
-        raise LockFailedError('Failed to lock %s: %s' % (filename, e))
+        if e.errno is 13 and os.path.exists(filename):
+            bad_user = get_username(os.stat(filename).st_uid)
+            details = 'current owner is "%s"' % bad_user
+        else:
+            details = e
+        raise LockFailedError('Failed to lock %s: %s' % (filename, details))
     else:
         yield
     finally:
+        # Return the umask
+        os.umask(orig_umask)
         if lock_fd:
             fcntl.lockf(lock_fd, fcntl.LOCK_UN)
             lock_fd.close()
             if os.path.exists(filename):
-                os.unlink(filename)
+                try:
+                    os.unlink(filename)
+                except IOError as e:
+                    # Someone else deleted the lock. Freaky, but we already
+                    # did our stuff so there's no point in halting execution
+                    get_logger.warning(
+                        'Huh, lock file disappeared before deletion. ' +
+                        'This is probably fine-ish :)'
+                    )
 
 
 @contextlib.contextmanager
