@@ -50,6 +50,7 @@ finished code:
     deploy_mockbase/deploy_config_deploy: 100% (ok: 10; fail: 0; left: 0)
     deploy_mockbase/deploy_fetch: 100% (ok: 10; fail: 0; left: 0)
     deploy_mockbase/deploy_promote: 100% (ok: 10; fail: 0; left: 0)
+    deploy_mockbase/deploy_finalize: 100% (ok: 10; fail: 0; left: 0)
     20:46:42 Finished deploy_mockbase/deploy (duration: 00m 29s)
 
 The default output has several sections:
@@ -78,11 +79,12 @@ The default output has several sections:
 
 #. **Deployment stages reporters**
 
-   There are three stages to a deployment:
+   There are four stages to a deployment:
 
    #. ``config_deploy`` Where your configration files are deployed.
    #. ``fetch`` Where the code from your repository is fetched to targets.
    #. ``promote`` Where your currently running code is swapped for newly fetched code.
+   #. ``finalize`` Where deploy state is recorded and old deployments are cleaned up.
 
    Each of these stages is run sequentially and you can see the progress of
    these stages via the reporters:
@@ -92,6 +94,7 @@ The default output has several sections:
      deploy_mockbase/deploy_config_deploy: 100% (ok: 10; fail: 0; left: 0)
      deploy_mockbase/deploy_fetch: 100% (ok: 10; fail: 0; left: 0)
      deploy_mockbase/deploy_promote: 100% (ok: 10; fail: 0; left: 0)
+     deploy_mockbase/deploy_finalize: 100% (ok: 10; fail: 0; left: 0)
 
 The ``scap deploy`` command also accepts the ``--verbose`` argument which may be
 useful in troubleshooting. The full options of the ``scap deploy`` command can

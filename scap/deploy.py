@@ -29,7 +29,7 @@ from . import utils
 from . import git
 
 RESTART = 'restart_service'
-STAGES = ['fetch', 'config_deploy', 'promote']
+STAGES = ['fetch', 'config_deploy', 'promote', 'finalize']
 EX_STAGES = [RESTART, 'rollback']
 
 
@@ -109,10 +109,6 @@ class DeployLocal(cli.Application):
 
             if not status == 0:
                 break
-
-            # Perform final tasks after the last stage
-            if RESTART == stage:
-                self._finalize()
 
         return status
 
@@ -286,6 +282,27 @@ class DeployLocal(cli.Application):
         self.context.link_path_to_rev(self.final_path, rev, backup=True)
         self.stages.append(RESTART)
 
+    def finalize(self, rollback=False, rev=None):
+        """
+        Perform the final deploy actions.
+
+        Moves the .done flag to the rev directory, removes the .in-progress
+        flag, and cleans up old revision directories.
+        """
+        logger = self.get_logger()
+
+        if rev is None:
+            rev = self.rev
+
+        if not rollback:
+            self.context.mark_rev_done(rev)
+
+        self.context.rm_in_progress()
+
+        for rev_dir in self.context.find_old_rev_dirs():
+            logger.info('Removing old revision {}'.format(rev_dir))
+            shutil.rmtree(rev_dir)
+
     def restart_service(self):
         service = self.config.get('service_name', None)
         if not service:
@@ -341,7 +358,7 @@ class DeployLocal(cli.Application):
         # Promote the previous rev and skip config re-evaluation as it's no
         # longer necessary or desirable at this point
         self.promote(rollback_to, rev_dir, config_deploy=False)
-        self._finalize(rollback=True)
+        self.finalize(rollback=True, rev=rollback_to)
 
     @utils.log_context('checks')
     def _execute_checks(self, stage, group=None, logger=None):
@@ -411,24 +428,6 @@ class DeployLocal(cli.Application):
             raise IOError(errno.ENOENT, 'Config file not found', cfg_url)
 
         return yaml.load(r.text)
-
-    def _finalize(self, rollback=False):
-        """
-        Perform the final deploy actions.
-
-        Moves the .done flag to the rev directory and removes the .in-progress
-        flag.
-        """
-        logger = self.get_logger()
-
-        if not rollback:
-            self.context.mark_rev_done(self.rev)
-
-        self.context.rm_in_progress()
-
-        for rev_dir in self.context.find_old_rev_dirs():
-            logger.info('Removing old revision {}'.format(rev_dir))
-            shutil.rmtree(rev_dir)
 
 
 @cli.command('deploy', help='[SCAP 3] Sync new service code across cluster')

@@ -122,9 +122,10 @@ with a detailed explanation below.
 
     deploy -> resolve_targets -> prepare_config -> prepare_repo ->
       next_group ->
-      deploy_local_config -> deploy_local_fetch -> deploy_local_promote
+      deploy_local_config -> deploy_local_fetch -> deploy_local_promote ->
+      deploy_local_finalize
 
-    deploy_local_promote -> group_deployed -> deploy_complete
+    deploy_local_finalize -> group_deployed -> deploy_complete
     group_deployed -> next_group [style = dashed]
 
     deploy_local_config -> config_deploy_fetch -> config_deploy_vars ->
@@ -133,6 +134,8 @@ with a detailed explanation below.
       fetch_checks
     deploy_local_promote -> promote_link -> promote_config ->
       promote_restart -> promote_checks
+    deploy_local_finalize -> finalize_state -> finalize_rm_old_revs ->
+      finalize_checks
 
     puppet -> provide_secrets -> config_deploy_vars
 
@@ -151,6 +154,7 @@ with a detailed explanation below.
       deploy_local_config [class = progress, label = "Stage: config"]
       deploy_local_fetch [class = progress, label = "Stage: fetch"]
       deploy_local_promote [class = progress, label = "Stage: promote"]
+      deploy_local_finalize [class = progress, label = "Stage: finalize"]
 
       group_deployed [class = control, shape = flowchart.loopout, label = "Group deployed"]
       deploy_complete [class = terminus, label = "Deploy complete"]
@@ -178,13 +182,17 @@ with a detailed explanation below.
       promote_config [class = step, label = "Link config"]
       promote_restart [class = step, label = "Restart service"]
       promote_checks [class = check, label = "Perform checks"]
+
+      finalize_state [class = step, label = "Update state"]
+      finalize_rm_old_revs [class = step, label = "Delete old revs"]
+      finalize_checks [class = check, label = "Perform checks"]
     }
   }
 
 After some preparation of the local repo and configuration, the main
 deployment process is run for each of the configured target groups. This
-process is composed of three distinct stages, *config*, *fetch*, and
-*promote*, run across the group targets in that order. Concurrency for each
+process is composed of four distinct stages, *config*, *fetch*, *promote*, and
+*finalize*, run across the group targets in that order. Concurrency for each
 stage can be either completely serial or highly parallel, again depending on
 configuration.  For fine tuning of the groups and stage concurrency, see
 ``server_groups`` and ``batch_size`` under :ref:`available-configuration`.
