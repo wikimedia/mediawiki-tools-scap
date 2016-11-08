@@ -6,6 +6,8 @@
 
 """
 import argparse
+import collections
+import errno
 import glob
 import os
 import requests
@@ -660,15 +662,21 @@ class Deploy(cli.Application):
 
     def checks_setup(self):
         """Build info to run checks."""
-        checks_path = self.context.env_specific_path('checks.y*ml')
+        checks_dict = collections.OrderedDict()
+        checks_paths = self.context.env_specific_paths('checks.y*ml')
 
-        if not checks_path or not os.path.exists(checks_path):
+        # Reverse checks_paths so that paths are overwritten with more
+        # environment-specific checks
+        for check_path in reversed(checks_paths):
+            with open(check_path) as f:
+                checks = utils.ordered_load(f, yaml.SafeLoader)['checks']
+                checks_dict.update(checks)
+
+        if len(checks_dict.keys()) == 0:
             self.deploy_info['perform_checks'] = False
             return
 
-        with open(checks_path, 'r') as f:
-            checks_dict = utils.ordered_load(f, yaml.SafeLoader)
-            self.deploy_info.update(checks_dict)
+        self.deploy_info['checks'] = checks_dict
 
     def _build_deploy_groups(self):
         """Build server groups based on configuration `server_groups` variable
