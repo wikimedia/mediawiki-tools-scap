@@ -732,10 +732,12 @@ def is_service_running(service):
     :param service: Service name
     """
     if is_initsystem('systemd'):
-        pid = subprocess.check_output(
-            ['/bin/systemctl', 'is-active', '{}.service'.format(service)]
-        ).rstrip()
-        return (pid != 'active')
+        service_name = '{}.service'.format(service)
+        systemctl_exit_code = subprocess.call(
+            ['/bin/systemctl', '--quiet', 'is-active', service_name]
+        )
+
+        return systemctl_exit_code == 0
     elif is_initsystem('upstart'):
         status = subprocess.check_output(
             ['/sbin/status', service]).rstrip().split(' ')
