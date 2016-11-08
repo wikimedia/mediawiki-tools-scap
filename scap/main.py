@@ -9,7 +9,6 @@ import argparse
 import errno
 import multiprocessing
 import os
-import psutil
 import pwd
 import socket
 import subprocess
@@ -398,10 +397,16 @@ class Scap(AbstractSync):
 
         if self.arguments.restart:
             # Restart HHVM across the cluster
-            succeeded, failed = tasks.restart_hhvm(
-                target_hosts, self.config,
-                # Use a batch size of 5% of the total target list
-                len(target_hosts) // 20)
+            try:
+                succeeded, failed = tasks.restart_hhvm(
+                    target_hosts, self.config,
+                    # Use a batch size of 5% of the total target list
+                    len(target_hosts) // 20)
+            except NotImplementedError:
+                self.get_logger().warning(
+                    "Not restarting HHVM, feature is not implemented")
+                return
+
             if failed:
                 self.get_logger().warning(
                     '%d hosts failed to restart HHVM', failed)
@@ -716,7 +721,6 @@ class RestartHHVM(cli.Application):
     Restart the HHVM fcgi process on the local server.
 
     #. Depool the server if registered with pybal
-    #. Wait for pending requests to complete
     #. Restart HHVM process
     #. Re-pool the server if needed
     """
@@ -725,40 +729,21 @@ class RestartHHVM(cli.Application):
         self._run_as('mwdeploy')
         self._assert_current_user('mwdeploy')
 
-        try:
-            hhvm_pid = utils.read_pid(self.config['hhvm_pid_file'])
-        except IOError:
-            self.get_logger().debug('HHVM pid not found', exc_info=True)
+        if not utils.is_service_running('hhvm'):
+            self.get_logger().debug('HHVM not running')
             return 0
-        else:
-            if not psutil.pid_exists(hhvm_pid):
-                self.get_logger().debug('HHVM not running')
-                return 0
-
-        # Depool by gracefully shutting down apache (SIGWINCH)
-        try:
-            apache_pid = utils.read_pid(self.config['apache_pid_file'])
-        except IOError:
-            self.get_logger().debug('Apache pid not found', exc_info=True)
-            pass
-        else:
-            utils.sudo_check_call(
-                'root', '/usr/sbin/apache2ctl graceful-stop')
-            # Wait for Apache to stop hard after GracefulShutdownTimeout
-            # seconds or when requests actually complete
-            psutil.Process(apache_pid).wait()
 
         # Restart HHVM
-        utils.sudo_check_call('root', '/sbin/restart hhvm')
-
-        # And now apache
-        utils.sudo_check_call('root', '/usr/sbin/service apache2 start')
-
-        return 0
+        try:
+            subprocess.check_call('/usr/local/bin/restart-hhvm')
+        except subprocess.CalledProcessError:
+            self.get_logger().warning(
+                'Could not correctly restart the service')
+            return 1
 
 
 @cli.command('hhvm-graceful')
-class HHVMGracefulAll(cli.Application):
+class HHVMGracefulAll(AbstractSync):
     """Perform a rolling restart of HHVM across the cluster."""
 
     @cli.argument('message', nargs='*', help='Log message for SAL')
@@ -767,19 +752,25 @@ class HHVMGracefulAll(cli.Application):
         self.announce('Restarting HHVM: %s', self.arguments.message)
 
         target_hosts = self._get_target_list()
-        succeeded, failed = tasks.restart_hhvm(
-            target_hosts, self.config,
-            # Use a batch size of 5% of the total target list
-            len(target_hosts) // 20)
-        if failed:
+        try:
+            succeeded, failed = tasks.restart_hhvm(
+                target_hosts, self.config,
+                # Use a batch size of 5% of the total target list
+                len(target_hosts) // 20)
+        except NotImplementedError:
             self.get_logger().warning(
-                '%d hosts failed to restart HHVM', failed)
-            self.get_stats().increment('deploy.fail')
+                "Not restarting HHVM, feature is not implemented")
             exit_code = 1
-
+        else:
+            if failed:
+                self.get_logger().warning(
+                    '%d hosts failed to restart HHVM', failed)
+                self.get_stats().increment('deploy.fail')
+                exit_code = 1
         self.announce(
             'Finished HHVM restart: %s (duration: %s)',
-            self.arguments.message, utils.human_duration(self.get_duration()))
+            self.arguments.message,
+            utils.human_duration(self.get_duration()))
         self.get_stats().increment('deploy.restart')
 
         return exit_code

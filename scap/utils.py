@@ -710,12 +710,40 @@ def sudo_temp_dir(owner, prefix):
         sudo_check_call(owner, 'find "%s" -maxdepth 1 -delete' % dirname)
 
 
-def read_pid(path):
-    """Read a PID from a file."""
-    try:
-        return int(open(path).read().strip())
-    except IOError as e:
-        raise IOError(e.errno, e.strerror, path)
+def is_initsystem(to_test):
+    """
+    Check if the init system on is the one to test.
+
+    :param to_test: init system to test
+    :returns: boolean
+    """
+    if to_test == 'systemd':
+        return os.path.isdir('/run/systemd/system')
+    elif to_test == 'upstart':
+        return os.path.isfile('/sbin/initctl')
+    else:
+        raise NotImplementedError("Only systemd and upstart are supported")
+
+
+def is_service_running(service):
+    """
+    Check if a service is running.
+
+    :param service: Service name
+    """
+    if is_initsystem('systemd'):
+        pid = subprocess.check_output(
+            ['/bin/systemctl', 'is-active', '{}.service'.format(service)]
+        ).rstrip()
+        return (pid != 'active')
+    elif is_initsystem('upstart'):
+        status = subprocess.check_output(
+            ['/sbin/status', service]).rstrip().split(' ')
+        if not status[1].startswith('start/running'):
+            return False
+        return True
+    else:
+        raise NotImplementedError('Only  upstart or systemd are supported')
 
 
 def mkdir_p(path):
