@@ -421,7 +421,7 @@ def lock(filename):
         os.umask(orig_umask)
         if lock_fd:
             fcntl.lockf(lock_fd, fcntl.LOCK_UN)
-            lock_fd.close()
+            os.close(lock_fd)
             if os.path.exists(filename):
                 try:
                     os.unlink(filename)
