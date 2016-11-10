@@ -1,3 +1,52 @@
+scap (3.3.1-1) unstable; urgency=low
+
+  * Scap learned how to lock all deployments at the server level. Previously
+    it only knew how to lock deployments at the repo level.
+
+  * Scap now tells users who holds the lock file (when deploys are locked).
+    Permissions on the lockfile have changed to 600, making it harder to
+    overwrite (Fixes T140914).
+
+  * "scap sync-file" and "scap pull" got new flags, "--beta-only-change" and
+    "--no-touch", respectively. When used, this prevents the normal action
+    taken by "scap pull" to touch the wmf-config/InitialiseSettings.php file
+    which invalidate local caches.  This allows some syncs to avoid a
+    potential problem with HHVM servers exhausting local cache when reading
+    new files from disk. The option is now also always passed to `scap pull`
+    by `scap sync-l10n` (fixes T149872 -- thank you Bryan Davis).
+
+  * Scap learned to announce scap3 deployments in IRC. This should mean that
+    deployers will no longer have to announce a deployment manually in
+    *-operations -- scap will do it for them.
+
+  * Scap3 updated the way it limits hosts and can now limit hosts from all
+    groups, not just the default group (Fixes T149128).
+
+  * HHVM restarts now happen via the /usr/local/bin/restart-hhvm script. This
+    means that an individual server is now depooled via confctl before being
+    restarted (thank you Giuseppe Lavagetto).
+
+  * Scap3 learned about empty checks in the checks.yml file. This allows you
+    to overwrite global checks in an environment specific checks.yml. These
+    checks will be logged, but nothing will run (fixes T149668).
+
+  * Scap3 added a "finalize" stage of deployment. This will allow for "promote"
+    checks to execute before the final state is recorded and clean up of old
+    rev directories is performed, and overall result in more consistent
+    rollback behavior (Fixes T150267)
+
+  * Scap learned how to use sub-sub commands, i.e., scap subcommand
+    subsubcommand. None are yet implemented.
+
+  * scap l10n-purge works once again, and restart_hhvm was restored (Fixes
+    T146656).
+
+  * Internally, scap simplified its usage of sudo calls. This means the
+    internals are a bit more sane, unnecessary sudo calls, i.e., sudoing as
+    yourself is less common throughout the code.
+
+ -- Tyler Cipriani <tcipriani@wikimedia.org>  Thu, 10 Nov 2016 13:41:28 -0800
+
 scap (3.3.0-1) unstable; urgency=low
 
   * "scap deploy" can use an environment-specific config by adding an
