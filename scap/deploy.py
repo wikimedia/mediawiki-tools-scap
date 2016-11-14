@@ -550,11 +550,12 @@ class Deploy(cli.Application):
                 if self.arguments.init:
                     return 0
 
-                self.announce('Starting deploy of [%s]: %s',
-                              self.repo, self.arguments.message)
+                short_sha1 = commit[:7]
+                self.announce('Starting deploy [%s@%s]: %s',
+                              self.repo, short_sha1, self.arguments.message)
                 exec_result = self._execute_for_groups(stages)
-                self.announce('Finished deploy of [%s]: %s (duration: %s)',
-                              self.repo, self.arguments.message,
+                self.announce('Finished deploy [%s@%s]: %s (duration: %s)',
+                              self.repo, short_sha1, self.arguments.message,
                               utils.human_duration(self.get_duration()))
                 return exec_result
         return 0
