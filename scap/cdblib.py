@@ -37,6 +37,7 @@ def py_djb_hash(s):
         h = (((h << 5) + h) ^ ord(c)) & 0xffffffff
     return h
 
+
 # 2014-03-04 bd808: removed try block for importing C hash implementation
 djb_hash = py_djb_hash
 

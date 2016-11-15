@@ -8,6 +8,7 @@ from StringIO import StringIO
 
 
 class JSONOutputHandlerTest(unittest.TestCase):
+
     def setUp(self):
         self.host = 'host1'
         self.output_handler = ssh.JSONOutputHandler(self.host)
@@ -43,6 +44,7 @@ class JSONOutputHandlerTest(unittest.TestCase):
     def tearDown(self):
         self.logger.removeHandler(self.log_handler)
         self.log_handler.close()
+
 
 if __name__ == '__main__':
     unittest.main()

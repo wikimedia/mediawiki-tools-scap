@@ -331,8 +331,26 @@ def all_commands():
     command() decorator.
     """
     global command_registry
+    # prevent plugins from overwriting built-in commands by first copying the
+    # command_registry and then verifying that none of the registered plugins
+    # write to any of the keys used by built-in commands.
+    builtin_commands = command_registry.copy()
+    command_registry.clear()
+    all_commands = builtin_commands.copy()
+
     scap.plugins.load_plugins()
-    return command_registry
+
+    for key in command_registry.keys():
+        if key in builtin_commands:
+            logger = logging.getLogger()
+            msg = 'Plugin (%s) attempted to overwrite builtin command: %s' % (
+                command_registry[key], key)
+            logger.warning(msg)
+        else:
+            all_commands[key] = command_registry[key]
+
+    command_registry = builtin_commands
+    return all_commands
 
 
 def command(*args, **kwargs):
@@ -362,6 +380,7 @@ def command(*args, **kwargs):
 
     """
     def wrapper(cls):
+        global command_registry
         name = args[0]
         if name in command_registry:
             err = 'Duplicate: A command named "%s" already exists.' % name
