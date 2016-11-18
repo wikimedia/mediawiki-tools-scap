@@ -80,6 +80,11 @@ def load_plugins(plugin_dir=None):
     plugins = find_plugins(plugin_dirs)
     if len(plugins) < 1:
         return
+
+    # Turn off those obnoxious *.pyc files for plugins so we don't litter
+    maybe_write_bytecode = sys.dont_write_bytecode
+    sys.dont_write_bytecode = True
+
     # import each of the plugin modules
     for plugin in plugins:
         # module path relative to scap.plugins:
@@ -103,3 +108,6 @@ def load_plugins(plugin_dir=None):
             msg = 'Problem loading plugins from module: scap.plugins.%s '
             logger = logging.getLogger()
             logger.warning(msg % plugin, exc_info=sys.exc_info())
+
+    # Restore the original setting
+    sys.dont_write_bytecode = maybe_write_bytecode
