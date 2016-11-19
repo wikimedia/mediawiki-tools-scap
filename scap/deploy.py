@@ -648,7 +648,7 @@ class Deploy(cli.Application):
 
         # Build vars to override remote
         search = self.context.env_specific_paths('vars.yaml')
-        for vars_file in search:
+        for vars_file in reversed(search):
             with open(vars_file, 'r') as vf:
                 tmp_cfg['override_vars'].update(yaml.load(vf.read()))
 
