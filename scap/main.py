@@ -35,7 +35,7 @@ class AbstractSync(cli.Application):
         print utils.logo()
         self._assert_auth_sock()
 
-        with utils.lock(self.config['lock_file']):
+        with utils.lock(self.config['lock_file'], self.arguments.message):
             self._check_sync_flag()
             self._before_cluster_sync()
             self._sync_masters()
@@ -691,7 +691,7 @@ class SyncWikiversions(AbstractSync):
             err_msg = 'l10n cache missing for %s' % version
             utils.check_file_exists(cache_file, err_msg)
 
-        with utils.lock(self.config['lock_file']):
+        with utils.lock(self.config['lock_file'], self.arguments.message):
             self._check_sync_flag()
             self._sync_masters()
             mw_install_hosts = self._get_target_list()
