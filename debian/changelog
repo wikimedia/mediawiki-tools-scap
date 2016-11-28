@@ -1,3 +1,25 @@
+scap (3.4.0-1) unstable; urgency=low
+
+  * BREAKING CHANGE: Old scap bin stubs (e.g., sync-file, sync-dir,
+    mwversionsinuse, etc) will now exit 1, subcommands are now the only way to
+    interact with scap, i.e., sync-file is now scap sync-file.
+
+  * Scap linter now ignores auto autoload_static.php which was known to fail
+    lint checks (Fixes T136009 - thank you Paladox)
+
+  * Scap adds the sha1 of the commit being deployed to the announce log --
+    this change affects scap3 repos.
+
+  * This release fixes a bug where variables specified in vars.yaml were being
+    overwritten in the opposite order (Fixes T150897)
+
+  * Scap lockfiles now contain the message passed in the deployment, i.e. scap
+    sync-dir wmf-config 'Update config' will create a lockfile with the
+    message 'Update config'. If anyone else attempts to deploy while that
+    lockfile is in place, they will be shown the lockfile message.
+
+ -- Tyler Cipriani <tcipriani@wikimedia.org>  Mon, 28 Nov 2016 09:03:50 -0700
+
 scap (3.3.1-1) unstable; urgency=low
 
   * Scap learned how to lock all deployments at the server level. Previously
