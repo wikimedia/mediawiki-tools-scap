@@ -1,6 +1,5 @@
 #!/usr/bin/env python2
 
-from glob import glob
 from distutils.core import setup
 
 authors = [('Antoine Musso', 'hashar@free.fr'),
@@ -22,7 +21,7 @@ setup(name='Scap',
       url='https://phabricator.wikimedia.org/diffusion/MSCA/',
       packages=['scap', 'scap.plugins'],
       package_dir={'scap': 'scap'},
-      scripts=[s for s in glob('bin/*')],
+      scripts=['bin/scap'],
       requires=[line.strip() for line in open('requirements.txt')],
       classifiers=['Operating System :: POSIX :: Linux',
                    'Programming Language :: Python',
