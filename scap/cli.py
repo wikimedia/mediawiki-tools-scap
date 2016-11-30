@@ -11,6 +11,7 @@ import sys
 import time
 import scap.plugins
 
+from scap.terminal import term
 from . import arg
 from . import config
 from . import log
@@ -123,6 +124,8 @@ class Application(object):
 
     def _setup_loggers(self):
         """Setup logging."""
+        term.scroll_region(0, term.height - 2) \
+            .scroll_forward(min((term.height, 10)))
         log.setup_loggers(self.config, self.arguments.loglevel)
 
     def _setup_environ(self):
@@ -180,6 +183,8 @@ class Application(object):
 
         :returns: exit status
         """
+        term.scroll_region(0, term.height) \
+            .move(term.height, 0).nl().flush()
         return exit_status
 
     def _run_as(self, user):

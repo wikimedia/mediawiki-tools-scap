@@ -19,6 +19,7 @@ import sys
 import time
 import traceback
 
+from scap.terminal import term
 from . import utils
 
 # Format string for log messages. Interpolates LogRecord attributes.
@@ -302,16 +303,46 @@ class ProgressReporter(object):
         self._progress()
 
     def _progress(self):
-        if sys.stdout.isatty():
-            fmt = '%-80s\r'
-        else:
-            fmt = '%-80s\n'
-        self._fd.write(fmt % self._output())
+        width = term.width
+        bottom = term.height
+        scale = max((int(width/4), 10))
+
+        bar = '=' * int(scale * (self.percent_complete/100))
+        fill = '-' * int(scale - len(bar))
+
+        term.save() \
+            .move(bottom, 0) \
+            .fg(2).write('ok: ', self.ok) \
+            .move(bottom, 8).fg(15).write("| ") \
+            .fg(1).write('fail: ', self.failed) \
+            .move(bottom, 16).fg(15).write("| ") \
+            .fg(7).write('left: ', self.remaining, ' | ') \
+            .move(bottom, 32).fg(15).write(" | ") \
+            .fg(7).bold().write(self._name, ' | ') \
+            .move(bottom, width - scale - 10) \
+            .fg(4).write('| ', bar) \
+            .fg(5).write(fill) \
+            .fg(15).write(' (', self.percent_complete, '%)') \
+            .clear_eol()
+        term.restore().flush()
 
     def _output(self):
         return '%s: %3.0f%% (ok: %d; fail: %d; left: %d)' % (
             self._name, self.percent_complete,
             self.ok, self.failed, self.remaining)
+
+
+class MuteReporter(ProgressReporter):
+    """A report that declines to report anything."""
+
+    def __init__(self, name='', expect=0, fd=sys.stderr):
+        super(self.__class__, self).__init__(name)
+
+    def _progress(self):
+        pass
+
+    def finish(self):
+        pass
 
 
 class DeployLogFormatter(JSONFormatter):
@@ -469,19 +500,6 @@ class Filter(object):
                 return True
 
         return False
-
-
-class MuteReporter(ProgressReporter):
-    """A report that declines to report anything."""
-
-    def __init__(self, name='', expect=0, fd=sys.stderr):
-        super(self.__class__, self).__init__(name)
-
-    def _progress(self):
-        pass
-
-    def finish(self):
-        pass
 
 
 class Stats(object):
