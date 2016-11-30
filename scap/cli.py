@@ -262,13 +262,13 @@ class Application(object):
 
         exit_status = 0
         try:
+            app = Application.factory(argv)
+
             if os.geteuid() == 0:
                 raise SystemExit('Scap should not be run as root')
 
             if len(argv) == 2 and (argv[1] == '--version' or argv[1] == '-V'):
                 show_version()
-
-            app = Application.factory(argv)
 
             # Let each application handle `extra_args`
             app.arguments, app.extra_arguments = app._process_arguments(

@@ -1,0 +1,62 @@
+# Docker/CI environment and test entry point
+#
+# This container is run by Jenkins against every revision submitted to
+# Differential. To run it locally, assuming you have docker installed, do:
+#
+#   docker run --rm -it $(docker build -qf Dockerfile.ci .)
+#
+FROM debian:jessie
+MAINTAINER Wikimedia Foundation Release Engineering <releng@wikimedia.org>
+
+# Base Debian image
+ENV DEBIAN_FRONTEND noninteractive
+
+RUN apt-get update && \
+    apt-get -y --no-install-recommends upgrade
+
+# Base CI image
+RUN mkdir -p /srv/workspace
+WORKDIR /srv/workspace
+
+# Base Python image
+ENV PYTHON python2.7
+
+RUN apt-get update && \
+    apt-get -y --no-install-recommends install \
+        build-essential \
+        ca-certificates \
+        openssl \
+        $PYTHON \
+        $PYTHON-dev \
+        python-openssl \
+        python-setuptools
+
+RUN $PYTHON -m easy_install pip
+RUN $PYTHON -m pip install tox
+
+# Start of Scap specifics
+RUN apt-get update && \
+    apt-get -y --no-install-recommends install \
+        git \
+        zlib1g-dev \
+        libjpeg-dev
+
+# Precache dependencies (alternative to the above installation from debs)
+RUN mkdir -p /tmp/deps
+
+COPY requirements.txt /tmp/deps/requirements.txt
+RUN $PYTHON -m pip install -U -r /tmp/deps/requirements.txt
+
+COPY test-requirements.txt /tmp/deps/test-requirements.txt
+RUN $PYTHON -m pip install -U -r /tmp/deps/test-requirements.txt
+
+RUN mkdir -p /tmp/deps/docs
+COPY docs/requirements.txt /tmp/deps/docs/requirements.txt
+RUN $PYTHON -m pip install -U -r /tmp/deps/docs/requirements.txt
+
+RUN rm -rf /tmp/deps
+
+ENV LANG C.UTF-8
+ENV TOXENV py27,flake8,doc
+COPY . .
+ENTRYPOINT $PYTHON -m tox --sitepackages
