@@ -2,7 +2,6 @@
 
 import os.path
 
-from glob import glob
 from distutils.core import setup
 
 authors = [('Antoine Musso', 'hashar@free.fr'),
