@@ -48,7 +48,7 @@ class AnsiColorFormatter(logging.Formatter):
         """
         super(self.__class__, self).__init__(fmt, datefmt)
         if colors:
-            self.colors.extend(colors)
+            self.colors.update(colors)
 
     def format(self, record):
         msg = super(self.__class__, self).format(record)
