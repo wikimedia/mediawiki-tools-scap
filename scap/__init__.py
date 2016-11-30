@@ -27,6 +27,8 @@ from .main import (
     UpdateL10n,
 )
 
+from .version import __version__
+
 from .deploy import (
     Deploy,
     DeployLocal,
@@ -53,6 +55,7 @@ __all__ = [
     'SyncMaster',
     'SyncWikiversions',
     'UpdateL10n',
+    '__version__',
 ]
 
 
@@ -83,4 +86,5 @@ any((
     SyncMaster,
     SyncL10n,
     SyncWikiversions,
-    UpdateL10n))  # Ignore unused import warning
+    UpdateL10n,
+    __version__))  # Ignore unused import warning

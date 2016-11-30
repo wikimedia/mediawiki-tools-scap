@@ -1,5 +1,8 @@
 #!/usr/bin/env python2
 
+import os.path
+
+from glob import glob
 from distutils.core import setup
 
 authors = [('Antoine Musso', 'hashar@free.fr'),
@@ -10,8 +13,15 @@ authors = [('Antoine Musso', 'hashar@free.fr'),
            ('Ori Livneh', 'ori@wikimedia.org'),
            ('Tyler Cipriani', 'tcipriani@wikimedia.org')]
 
+
+# Read version from file shared with the module using technique from
+# https://python-packaging-user-guide.readthedocs.io/en/latest/single_source_version/
+base_dir = os.path.dirname(__file__)
+version = {}
+execfile(os.path.join(base_dir, 'scap', 'version.py'), version)
+
 setup(name='Scap',
-      version='3.4.0',
+      version=version['__version__'],
       description='Deployment toolchain for Wikimedia projects',
       author=', '.join([name for name, _ in authors]),
       author_email=', '.join([email for _, email in authors]),
