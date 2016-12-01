@@ -105,20 +105,29 @@ def info(directory):
     if head.startswith('ref: '):
         head = head[5:]
 
-    head_sha1 = get_disclosable_head(directory)
-    commit_date = subprocess.check_output(
-        ('/usr/bin/git', 'show', '-s', '--format=%ct', head_sha1),
-        cwd=git_dir).strip()
-
     if head.startswith('refs/heads/'):
         branch = head[11:]
+    elif head.startswith('refs/tags/'):
+        branch = head[10:]
     else:
         branch = head
 
+    head_sha1 = get_disclosable_head(directory, branch)
+    if head_sha1:
+        commit_date = subprocess.check_output(
+            ('/usr/bin/git', 'show', '-s', '--format=%ct', head_sha1),
+            cwd=git_dir).strip()
+    else:
+        commit_date = ''
+
     # Requires git v1.7.5+
-    remote_url = subprocess.check_output(
-        ('/usr/bin/git', 'ls-remote', '--get-url'),
-        cwd=git_dir).strip()
+    try:
+        remote_url = subprocess.check_output(
+            ('/usr/bin/git', 'ls-remote', '--get-url'),
+            cwd=git_dir).strip()
+    except subprocess.CalledProcessError:
+        remote_url = ''
+        utils.get_logger().info("Unable to find remote URL for %s", git_dir)
 
     return {
         '@directory': directory,
@@ -331,20 +340,39 @@ def remap_submodules(location, server):
                 module.write('\turl = {}\n'.format(remote_path))
 
 
-def get_disclosable_head(repo_directory):
-    """Get the SHA1 of the most recent commit that can be publicly disclosed.
+def get_disclosable_head(repo_directory, remote_branch):
+    """
+    Get the SHA1 of the most recent commit that can be publicly disclosed.
     If a commit only exists locally, it is considered private. This function
     will try to get the tip of the remote tracking branch, and fall back to
-    the common ancestor of HEAD and origin."""
+    the common ancestor of HEAD and the remote version of the local branch
+    we're ostensibly tracking.
+
+    :param repo_directory: Directory to look into
+    :param remote_branch: If you're not actively tracking a remote branch, you
+                          need to provide something remote for this function to
+                          look for a common ancestor with. Otherwise, this
+                          function has no way of knowing what common tree
+                          you could possibly care about.
+    :returns: str
+    """
+    """ """
     with open(os.devnull, 'wb') as dev_null:
         try:
             return subprocess.check_output(
                 ('/usr/bin/git', 'rev-list', '-1', '@{upstream}'),
                 cwd=repo_directory, stderr=dev_null).strip()
         except subprocess.CalledProcessError:
-            remote = subprocess.check_output(
-                ('/usr/bin/git', 'remote'),
-                cwd=repo_directory, stderr=dev_null).strip()
-            return subprocess.check_output(
-                ('/usr/bin/git', 'merge-base', 'HEAD', remote),
-                cwd=repo_directory, stderr=dev_null).strip()
+            try:
+                remote = subprocess.check_output(
+                    ('/usr/bin/git', 'remote'),
+                    cwd=repo_directory, stderr=dev_null).strip()
+                return subprocess.check_output(
+                    ('/usr/bin/git', 'merge-base', 'HEAD',
+                     '%s/%s' % (remote, remote_branch)),
+                    cwd=repo_directory, stderr=dev_null).strip()
+            except subprocess.CalledProcessError:
+                utils.get_logger().info(
+                    'Unable to find remote tracking branch/tag for %s' %
+                    repo_directory)
+                return ''

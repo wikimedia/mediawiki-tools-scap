@@ -550,7 +550,9 @@ class Deploy(cli.Application):
                 if self.arguments.init:
                     return 0
 
-                short_sha1 = commit[:7]
+                short_sha1 = git.info(self.context.root)['headSHA1'][:7]
+                if not short_sha1:
+                    short_sha1 = 'UNKNOWN'
                 self.announce('Starting deploy [%s@%s]: %s',
                               self.repo, short_sha1, self.arguments.message)
                 exec_result = self._execute_for_groups(stages)
