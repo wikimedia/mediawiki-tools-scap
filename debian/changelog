@@ -1,3 +1,10 @@
+scap (3.4.1-1) unstable; urgency=low
+  * "scap deploy" no longer reports local commits when logging, now relies on
+    last common ancestor with upstream. Prevents leaking security patches and
+    instead reports public info.
+
+ -- Chad Horohoe <chad@wikimedia.org>  Thu, 1 Dec 2016 21:03:19 -0000
+
 scap (3.4.0-1) unstable; urgency=low
 
   * BREAKING CHANGE: Old scap bin stubs (e.g., sync-file, sync-dir,
