@@ -1,2 +1,4 @@
 scap source: newer-standards-version
 scap source: binary-nmu-debian-revision-in-source
+scap source: source-nmu-has-incorrect-version-number
+scap source: changelog-should-mention-nmu
