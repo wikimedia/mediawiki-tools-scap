@@ -513,60 +513,15 @@ class SyncCommon(cli.Application):
         return 0
 
 
-@cli.command('sync-dir')
-class SyncDir(AbstractSync):
-    """Sync a directory to the cluster."""
-
-    @cli.argument('--force', action='store_true', help='Skip canary checks')
-    @cli.argument('dir', help='Directory to sync', type=arg.is_dir)
-    @cli.argument('message', nargs='*', help='Log message for SAL')
-    def main(self, *extra_args):
-        return super(SyncDir, self).main(*extra_args)
-
-    def _before_cluster_sync(self):
-        # assert file exists
-        abspath = os.path.join(
-            self.config['stage_dir'], self.arguments.dir)
-        if not os.path.isdir(abspath):
-            raise IOError(errno.ENOENT, 'Directory not found', abspath)
-
-        relpath = os.path.relpath(abspath, self.config['stage_dir'])
-        self.include = '%s/***' % relpath
-        tasks.check_valid_syntax(abspath)
-
-    def _proxy_sync_command(self):
-        cmd = [self.get_script_path(), 'pull', '--no-update-l10n']
-
-        if '/' in self.include:
-            parts = self.include.split('/')
-            for i in range(1, len(parts)):
-                # Include parent directories in sync command or the default
-                # exclude will block them and by extension block the target
-                # file.
-                cmd.extend(['--include', '/'.join(parts[:i])])
-
-        cmd.extend(['--include', self.include])
-        if self.verbose:
-            cmd.append('--verbose')
-        return cmd
-
-    def _after_lock_release(self):
-        self.announce(
-            'Synchronized %s: %s (duration: %s)',
-            self.arguments.dir, self.arguments.message,
-            utils.human_duration(self.get_duration()))
-        self.get_stats().increment('deploy.sync-dir')
-        self.get_stats().increment('deploy.all')
-
-
+@cli.command('sync-dir', help=argparse.SUPPRESS)
 @cli.command('sync-file')
 class SyncFile(AbstractSync):
-    """Sync a specific file to the cluster."""
+    """Sync a specific file/directory to the cluster."""
 
     @cli.argument('--force', action='store_true', help='Skip canary checks')
     @cli.argument('--beta-only-change', action='store_true', dest='beta_only',
                   help='Sync a config file that only affects beta cluster')
-    @cli.argument('file', help='File to sync')
+    @cli.argument('file', help='File/directory to sync')
     @cli.argument('message', nargs='*', help='Log message for SAL')
     def main(self, *extra_args):
         return super(SyncFile, self).main(*extra_args)
@@ -575,8 +530,8 @@ class SyncFile(AbstractSync):
         # assert file exists
         abspath = os.path.join(
             self.config['stage_dir'], self.arguments.file)
-        if not os.path.isfile(abspath):
-            raise IOError(errno.ENOENT, 'File not found', abspath)
+        if not os.path.exists(abspath):
+            raise IOError(errno.ENOENT, 'File/directory not found', abspath)
         # Warn when syncing a symlink.
         if os.path.islink(abspath):
             self.get_logger().warning(
@@ -591,12 +546,11 @@ class SyncFile(AbstractSync):
                     errno.EPERM,
                     '--beta-only-change not allowed for PHP files', abspath)
 
-        self.include = os.path.relpath(abspath, self.config['stage_dir'])
-        if abspath.endswith(('.php', '.inc', '.phtml', '.php5')):
-            subprocess.check_call('/usr/bin/php -l %s' % abspath, shell=True)
-            utils.check_php_opening_tag(abspath)
-        elif abspath.endswith('.json'):
-            utils.check_valid_json_file(abspath)
+        relpath = os.path.relpath(abspath, self.config['stage_dir'])
+        if os.path.isdir(relpath):
+            relpath = '%s/***' % relpath
+        self.include = relpath
+        tasks.check_valid_syntax(abspath)
 
     def _proxy_sync_command(self):
         cmd = [self.get_script_path(), 'pull', '--no-update-l10n']

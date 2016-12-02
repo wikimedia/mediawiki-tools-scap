@@ -33,19 +33,10 @@ local host. It is typically called automatically on hosts during the execution o
    * :func:`scap.tasks.sync_common`
 
 
-scap sync-dir
--------------
-:command:`scap sync-dir` synchronizes a directory from the staging directory to the
-cluster.
-
-.. program-output:: ../bin/scap sync-dir --help
-.. seealso::
-   * :func:`scap.SyncDir`
-
-
 scap sync-file
 --------------
-:command:`scap sync-file` synchronizes a file from the staging directory to the cluster.
+:command:`scap sync-file` synchronizes a file or directory from the staging
+directory to the cluster.
 
 .. program-output:: ../bin/scap sync-file --help
 .. seealso::
