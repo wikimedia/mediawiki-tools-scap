@@ -1,3 +1,23 @@
+scap (3.5.0-1) UNRELEASED; urgency=low
+
+  [ Chad Horohoe ]
+  * Remove old stub entry points for scap
+
+  [ Mukunda Modell ]
+  * dict.update not .extend, dict doesn't have an extend method.
+  * Generate scap version from changelog, add --version arg
+  * Don't import glob.glob
+  * silence lintian NMU warnings.
+
+  [ Chad Horohoe ]
+  * Do not disclose hidden deployment commits
+
+  [ Tyler Cipriani ]
+  * Flatten MedaWiki deploy into a single git repo
+  * Bump version to 3.5.0
+
+ -- Chad Horohoe <chadh@wikimedia.org>  Fri, 02 Dec 2016 11:59:29 -0700
+
 scap (3.4.0-1) unstable; urgency=low
 
   * BREAKING CHANGE: Old scap bin stubs (e.g., sync-file, sync-dir,
