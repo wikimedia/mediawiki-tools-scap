@@ -13,6 +13,8 @@ import shutil
 import time
 import yaml
 import errno
+import subprocess
+
 from datetime import datetime
 
 from . import checks
@@ -850,3 +852,37 @@ class DeployLog(cli.Application):
 
     def _setup_loggers(self):
         pass
+
+
+@cli.command('deploy-mediawiki', help=argparse.SUPPRESS)
+class DeployMediaWiki(cli.Application):
+    """
+    Deploy mediawiki via scap3.
+
+    Ideally, this class and command will be fully merged with
+    the `scap deploy` command by the end of the transition; however, there
+    may also be unique reasons, particularly on the deployment masters, to
+    keep this command
+    """
+
+    @cli.argument('message', nargs='*', help='Log message for git')
+    def main(self, *extra_args):
+        """Run deploy-mediawiki."""
+        # Flatten local into git repo
+        self.get_logger().info('scap deploy-mediawiki')
+        git.default_ignore(self.config['deploy_dir'])
+
+        git.add_all(self.config['deploy_dir'], message=self.arguments.message)
+
+        scap = self.get_script_path()
+        options = {
+            'git_repo': self.config['deploy_dir'],
+        }
+
+        option_list = ['-D{}:{}'.format(x, y) for x, y in options.iteritems()]
+        cmd = [scap, 'deploy', '-v']
+        cmd += option_list
+        cmd += ['--init']
+
+        with utils.cd(self.config['deploy_dir']):
+            subprocess.check_call(cmd)

@@ -231,6 +231,19 @@ def get_real_username():
         return get_username()
 
 
+def get_real_user_fullname():
+    """Return the first entry in GECOS field for real user."""
+    return get_user_fullname(get_real_username())
+
+
+def get_user_fullname(name=None):
+    """Return the first entry in GECOS field for name."""
+    if name is None:
+        name = get_username()
+
+    return pwd.getpwnam(name).pw_gecos.split(',')[0]
+
+
 def get_env_specific_filename(path, env=None):
     """Find a file specific to the environment in which scap is running."""
     if env is None:

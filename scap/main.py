@@ -35,9 +35,12 @@ class AbstractSync(cli.Application):
         print utils.logo()
         self._assert_auth_sock()
 
+        self.include = None
+
         with utils.lock(self.config['lock_file'], self.arguments.message):
             self._check_sync_flag()
             self._before_cluster_sync()
+            self._git_repo()
             self._sync_masters()
 
             # Run canary checks
@@ -197,6 +200,33 @@ class AbstractSync(cli.Application):
         """
         return self._proxy_sync_command() + proxies
 
+    def _git_repo(self):
+        """Flatten deploy directory into shared git repo."""
+        includes = None
+
+        if self.include is not None:
+            includes = []
+
+            parts = self.include.split('/')
+            for i in range(1, len(parts)):
+                # Include parent directories in sync command or the default
+                # exclude will block them and by extension block the target
+                # file.
+                includes.append('/'.join(parts[:i]))
+
+            includes.append(self.include)
+
+        tasks.sync_common(
+            self.config,
+            include=includes,
+            verbose=self.verbose
+        )
+
+        self.get_logger().info('Setting up deploy git directory')
+        cmd = '{} deploy-mediawiki -v "{}"'.format(
+            self.get_script_path(), self.arguments.message)
+        utils.sudo_check_call('mwdeploy', cmd)
+
     def _after_cluster_sync(self):
         pass
 
@@ -329,6 +359,7 @@ class Scap(AbstractSync):
     #. Compile wikiversions.json to php in deploy directory
     #. Update l10n files in staging area
     #. Compute git version information
+    #. Commit all changes to local git repo in deploy directory
     #. Ask scap masters to sync with current master
     #. Ask scap proxies to sync with master server
     #. Ask apaches to sync with fastest rsync server
@@ -352,9 +383,6 @@ class Scap(AbstractSync):
         tasks.check_valid_syntax(
             '%(stage_dir)s/wmf-config' % self.config,
             '%(stage_dir)s/multiversion' % self.config)
-
-        # Sync deploy directory on localhost with staging area
-        tasks.sync_common(self.config)
 
         # Bug 63659: Compile deploy_dir/wikiversions.json to cdb
         cmd = '{} wikiversions-compile'.format(self.get_script_path())
@@ -691,8 +719,11 @@ class SyncWikiversions(AbstractSync):
             err_msg = 'l10n cache missing for %s' % version
             utils.check_file_exists(cache_file, err_msg)
 
+        # this is here for git_repo
+        self.include = '/wikiversions*.{json,php}'
         with utils.lock(self.config['lock_file'], self.arguments.message):
             self._check_sync_flag()
+            self._git_repo()
             self._sync_masters()
             mw_install_hosts = self._get_target_list()
             tasks.sync_wikiversions(mw_install_hosts, self.config)

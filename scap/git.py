@@ -9,11 +9,21 @@
 from datetime import datetime
 import errno
 import os
+import socket
 import subprocess
 
 from . import utils
 
 import yaml
+
+
+# Key is the pattern for .gitignore, value is a test for that pattern.
+DEFAULT_IGNORE = {
+    '*~',
+    '*.swp',
+    '*/cache/l10n/*.cdb',
+    'scap/log/*',
+}
 
 
 def info_filename(directory, install_path, cache_path):
@@ -137,6 +147,44 @@ def info(directory):
         'branch': branch,
         'remoteURL': remote_url,
     }
+
+
+def default_ignore(location):
+    """Create a default .gitignore file."""
+    ignore = '\n'.join(DEFAULT_IGNORE)
+    with utils.cd(location):
+        with open('.gitignore', 'w+') as f:
+            f.write(ignore)
+
+
+def add_all(location, message='Update'):
+    """Add everything to repo at location as user."""
+    git = '/usr/bin/git'
+    with utils.cd(location):
+        # Initialize repo if it isn't already
+        if not is_dir(location):
+            cmd = [git, 'init']
+            subprocess.check_call(cmd)
+
+        cmd = [git, 'add', '--all']
+        subprocess.check_call(cmd)
+
+        host = socket.getfqdn()
+        euid = utils.get_username()
+        ruid = utils.get_real_username()
+        ename = utils.get_user_fullname()
+        rname = utils.get_real_user_fullname()
+
+        os.environ['GIT_COMMITTER_EMAIL'] = '{}@{}'.format(euid, host)
+        os.environ['GIT_AUTHOR_EMAIL'] = '{}@{}'.format(ruid, host)
+
+        os.environ['GIT_COMMITTER_NAME'] = ename
+        os.environ['GIT_AUTHOR_NAME'] = rname
+
+        cmd = [git, 'commit', '-m', message]
+
+        # Soft errors if nothing new to commit
+        subprocess.call(cmd)
 
 
 def next_deploy_tag(location):
