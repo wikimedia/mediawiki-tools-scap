@@ -14,7 +14,6 @@ import requests
 import shutil
 import time
 import yaml
-import errno
 import subprocess
 
 from datetime import datetime
