@@ -566,6 +566,7 @@ class SyncL10n(AbstractSync):
     @cli.argument('--force', action='store_true', help='Skip canary checks')
     @cli.argument('version', type=arg.is_version,
                   help='MediaWiki version (eg 1.27.0-wmf.7)')
+    @cli.argument('message', nargs='*', help='Log message for SAL')
     def main(self, *extra_args):
         return super(SyncL10n, self).main(*extra_args)
 
