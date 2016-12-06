@@ -418,7 +418,7 @@ def get_disclosable_head(repo_directory, remote_thing):
                     remote = subprocess.check_output(
                         ('/usr/bin/git', 'remote'),
                         cwd=repo_directory, stderr=dev_null).strip()
-                    remote_thing = '%s/%s' (remote, remote_thing)
+                    remote_thing = '%s/%s' % (remote, remote_thing)
                 return subprocess.check_output(
                     ('/usr/bin/git', 'merge-base', 'HEAD', remote_thing),
                     cwd=repo_directory, stderr=dev_null).strip()
