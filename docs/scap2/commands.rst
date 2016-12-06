@@ -78,17 +78,6 @@ MediaWiki versions.
    * :func:`scap.MWVersionsInUse`
 
 
-scap l10n-purge
----------------
-:command:`scap l10n-purge` deletes localization files (CDB and JSON) across the
-cluster.
-
-.. program-output:: ../bin/scap l10n-purge --help
-.. seealso::
-   * :func:`scap.PurgeL10nCache`
-   * :func:`scap.tasks.purge_l10n_cache`
-
-
 scap wikiversions-compile
 -------------------------
 :command:`wikiversions-compile` compiles wikiversions.json into wikiversions.php.

@@ -280,26 +280,6 @@ class MWVersionsInUse(cli.Application):
         return 0
 
 
-@cli.command('l10n-purge')
-class PurgeL10nCache(cli.Application):
-    """Purge the localization cache for an inactive MediaWiki version."""
-
-    @cli.argument('--version', type=arg.is_version,
-                  help='MediaWiki version (eg 1.27.0-wmf.16)')
-    def main(self, *extra_args):
-        if self.arguments.version.startswith('php-'):
-            self.arguments.version = self.arguments.version[4:]
-
-        if self.arguments.version in self.active_wikiversions():
-            self.get_logger().error(
-                'Version %s is in use' % self.arguments.version)
-            return 1
-
-        tasks.purge_l10n_cache(self.arguments.version, self.config)
-        self.announce('Purged l10n cache for %s' % self.arguments.version)
-        return 0
-
-
 @cli.command('cdb-rebuild', help=argparse.SUPPRESS)
 class RebuildCdbs(cli.Application):
     """Rebuild localization cache CDB files from the JSON versions."""
