@@ -124,8 +124,8 @@ class Application(object):
 
     def _setup_loggers(self):
         """Setup logging."""
-        term.scroll_region(0, term.height - 2) \
-            .scroll_forward(min((term.height, 10)))
+        term.scroll_region(0, term.height - 3) \
+            .scroll_forward(min((term.height, 4)))
         log.setup_loggers(self.config, self.arguments.loglevel)
 
     def _setup_environ(self):
@@ -169,9 +169,19 @@ class Application(object):
 
         :returns: exit status
         """
-        self.get_logger().warn('Unhandled error:', exc_info=True)
-        self.get_logger().error(
-            '%s failed: <%s> %s', self.program_name, type(ex).__name__, ex)
+        logger = self.get_logger()
+        exception_type = type(ex).__name__
+        backtrace = True
+        message = '%s failed: <%s> %s'
+
+        if isinstance(ex, utils.LockFailedError):
+            backtrace = False
+            message = ex.message
+
+        if backtrace:
+            logger.warn('Unhandled error:', exc_info=True)
+
+        logger.error(message, self.program_name, exception_type, ex)
         return 70
 
     def _before_exit(self, exit_status):
@@ -183,8 +193,14 @@ class Application(object):
 
         :returns: exit status
         """
-        term.scroll_region(0, term.height) \
-            .move(term.height, 0).nl().flush()
+        try:
+            term.reset_colors()
+            term.scroll_region(0, term.height)
+            term.move(term.height, 0).clear_eol()
+            term.nl().flush()
+        except Exception:
+            pass
+
         return exit_status
 
     def _run_as(self, user):

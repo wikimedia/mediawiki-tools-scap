@@ -288,7 +288,9 @@ class ProgressReporter(object):
     def finish(self):
         """Finish tracking progress."""
         self._progress()
-        self._fd.write('\n')
+        term.move(term.height - 2, 0) \
+            .clear_eol() \
+            .fg(15).write('scap: ')
 
     def add_success(self):
         """Record a sucessful task completion."""
@@ -305,25 +307,40 @@ class ProgressReporter(object):
     def _progress(self):
         width = term.width
         bottom = term.height
-        scale = max((int(width/4), 10))
+        label_width = len(self._name) + 12
+        scale = int(width/2)
+        scale = min(width - label_width, scale)
+        scale = max(scale, 15)
+        partial_bar = (' ', '▎', '▎', '▍', '▌', '▋', '▊', '▉', '▉', '█')
+        pct = float(self.percent_complete) / 100
+        progress = scale * pct
+        filled_bars = int(progress)
+        remain = 0
+        if filled_bars > 0 and progress > filled_bars:
+            remain = int((progress % filled_bars)*10)
 
-        bar = '=' * int(scale * (self.percent_complete/100))
-        fill = '-' * int(scale - len(bar))
+        bar = '█' * int(filled_bars)
+        bar = bar + partial_bar[remain]
+        fill = ' ' * int(scale - len(bar))
 
         term.save() \
             .move(bottom, 0) \
-            .fg(2).write('ok: ', self.ok) \
-            .move(bottom, 8).fg(15).write("| ") \
-            .fg(1).write('fail: ', self.failed) \
-            .move(bottom, 16).fg(15).write("| ") \
-            .fg(7).write('left: ', self.remaining, ' | ') \
-            .move(bottom, 32).fg(15).write(" | ") \
-            .fg(7).bold().write(self._name, ' | ') \
-            .move(bottom, width - scale - 10) \
-            .fg(4).write('| ', bar) \
+            .fg(15).write("| ") \
+            .fg(2).write('ok: ', str(self.ok)) \
+            .fg(15).write(" | ") \
+            .fg(1).write('fail: ', str(self.failed)) \
+            .fg(15).write(" | ") \
+            .fg(7).write('remain: ', str(self.remaining), ' | ')
+
+        term.move(bottom-1, 0) \
+            .fg(15).write('| ') \
+            .fg(7).write(self._name) \
+            .fg(15).write(" | ") \
+            .fg(4).write(bar) \
             .fg(5).write(fill) \
             .fg(15).write(' (', self.percent_complete, '%)') \
             .clear_eol()
+
         term.restore().flush()
 
     def _output(self):
