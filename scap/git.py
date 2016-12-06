@@ -8,6 +8,7 @@
 
 from datetime import datetime
 import errno
+import re
 import os
 import socket
 import subprocess
@@ -388,7 +389,7 @@ def remap_submodules(location, server):
                 module.write('\turl = {}\n'.format(remote_path))
 
 
-def get_disclosable_head(repo_directory, remote_branch):
+def get_disclosable_head(repo_directory, remote_thing):
     """
     Get the SHA1 of the most recent commit that can be publicly disclosed.
     If a commit only exists locally, it is considered private. This function
@@ -397,11 +398,12 @@ def get_disclosable_head(repo_directory, remote_branch):
     we're ostensibly tracking.
 
     :param repo_directory: Directory to look into
-    :param remote_branch: If you're not actively tracking a remote branch, you
-                          need to provide something remote for this function to
-                          look for a common ancestor with. Otherwise, this
-                          function has no way of knowing what common tree
-                          you could possibly care about.
+    :param remote_thing: If you're not actively tracking a remote branch, you
+                         need to provide something remote for this function to
+                         look for a common ancestor with. Otherwise, this
+                         function has no way of knowing what common tree
+                         you could possibly care about. This could be a branch,
+                         a tag, or a plain sha1
     :returns: str
     """
     """ """
@@ -412,12 +414,13 @@ def get_disclosable_head(repo_directory, remote_branch):
                 cwd=repo_directory, stderr=dev_null).strip()
         except subprocess.CalledProcessError:
             try:
-                remote = subprocess.check_output(
-                    ('/usr/bin/git', 'remote'),
-                    cwd=repo_directory, stderr=dev_null).strip()
+                if not re.match('/[a-f0-9]{40}/', remote_thing):
+                    remote = subprocess.check_output(
+                        ('/usr/bin/git', 'remote'),
+                        cwd=repo_directory, stderr=dev_null).strip()
+                    remote_thing = '%s/%s' (remote, remote_thing)
                 return subprocess.check_output(
-                    ('/usr/bin/git', 'merge-base', 'HEAD',
-                     '%s/%s' % (remote, remote_branch)),
+                    ('/usr/bin/git', 'merge-base', 'HEAD', remote_thing),
                     cwd=repo_directory, stderr=dev_null).strip()
             except subprocess.CalledProcessError:
                 utils.get_logger().info(
