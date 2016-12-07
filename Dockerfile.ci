@@ -59,4 +59,4 @@ RUN rm -rf /tmp/deps
 ENV LANG C.UTF-8
 ENV TOXENV py27,flake8,doc
 COPY . .
-ENTRYPOINT $PYTHON -m tox --sitepackages
+ENTRYPOINT $PYTHON -m tox
