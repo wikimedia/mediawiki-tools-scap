@@ -236,7 +236,9 @@ class ProgressReporterTest(unittest.TestCase):
         for i in range(0, 100):
             reporter.add_success()
         reporter.finish()
+
         self.assertEqual(reporter.percent_complete, 100)
+        self.assertEqual(reporter.ok + reporter.failed, reporter.done)
 
 
 if __name__ == '__main__':

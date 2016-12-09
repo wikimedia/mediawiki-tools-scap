@@ -148,6 +148,7 @@ SOFTWARE.
         if out is None:
             out = sys.__stdout__
 
+        self.cleanup_callbacks = []
         self.autoflush = autoflush
 
         try:
@@ -172,7 +173,13 @@ SOFTWARE.
         self.region_bottom = self.height
         self.region_top = 0
 
+    def register_cleanup_callback(self, callback):
+        self.cleanup_callbacks.append(callback)
+
     def write(self, *args):
+        if not self._out:
+            raise IOError('Cannot write to closed terminal stream.')
+
         for i in args:
             if not isinstance(i, basestring):
                 i = str(i)
@@ -192,8 +199,16 @@ SOFTWARE.
         if not self._out:
             raise IOError('Already closed')
 
+        self.cleanup()
         self._out.flush()
         self._out = None
+
+    def cleanup(self):
+        ''' call cleanup callbacks registered by other modules '''
+        for cb in self.cleanup_callbacks:
+            cb(self)
+
+        self.cleanup_callbacks.clear()
 
     def flush(self):
         self._out.flush()
@@ -371,21 +386,29 @@ class Region(object):
         self.stream = stream
         self.bottom = self.top + self.height
         self.cursorpos = stream.move(self.bottom, 0)
-        self.save = stream.save
-        self.restore = stream.restore
 
     def __enter__(self):
-        self.stream.write(self.save(), self.stream.move(self.top, 0))
+        self.stream.save().move(self.top, 0)
         return self.stream
 
     def __exit__(self, type, value, traceback):
-        self.stream.write(self.restore())
+        self.stream.restore()
 
-    def write(self, *args):
-        self.stream.write(*args)
+    def __getattr__(self, name):
+        return getattr(self.stream, name, None)
+
+    def clear(self):
+        stream = self.stream
+        stream.save()
+
+        for i in range(self.top, self.bottom):
+            stream.move(i, 0).clear_eol()
+
+        stream.restore()
+        return self
 
 
 # We really only need a single global instance of TerminalIO. The class is
 # (mostly) stateless and there should be exactly one instance per tty,
 # of which there is usually only one.
-term = TerminalIO()
+term = TerminalIO(sys.stderr)
