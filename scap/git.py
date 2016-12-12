@@ -427,3 +427,13 @@ def get_disclosable_head(repo_directory, remote_thing):
                     'Unable to find remote tracking branch/tag for %s' %
                     repo_directory)
                 return ''
+
+
+def list_submodules(repo):
+    ensure_dir(repo)
+    submodules = []
+    res = subprocess.check_output(
+        ('/usr/bin/git', 'submodule', 'status'), cwd=repo)
+    for line in res.splitlines():
+        submodules.append(re.sub(r'-[a-f0-9]{40} ', '', line))
+    return submodules
