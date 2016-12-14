@@ -1,3 +1,9 @@
+scap (3.4.2-1) unstable; urgency=low
+
+  * "scap sync-l10n" now has the message argument (fixes T152390)
+
+ -- Tyler Cipriani <tcipriani@wikimedia.org>  Wed, 14 Dec 2016 11:16:42 -0700
+
 scap (3.4.1-1) unstable; urgency=low
   * "scap deploy" no longer reports local commits when logging, now relies on
     last common ancestor with upstream. Prevents leaking security patches and
