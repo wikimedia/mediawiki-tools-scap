@@ -827,7 +827,7 @@ class DeployLog(cli.Application):
                 try:
                     record = log.JSONFormatter.make_record(line)
                     if filter.filter(record):
-                        print formatter.format(record)
+                        print(formatter.format(record))
                 except (ValueError, TypeError):
                     pass
             else:
@@ -842,7 +842,7 @@ class DeployLog(cli.Application):
                     log_path = latest_log_file()
 
                     if log_path and log_path != cur_log_path:
-                        print "-- Opening log file: '{}'".format(log_path)
+                        print("-- Opening log file: '{}'".format(log_path))
                         cur_log_path = log_path
 
                         if cur_log_file:

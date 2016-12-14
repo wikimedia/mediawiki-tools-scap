@@ -32,7 +32,7 @@ class AbstractSync(cli.Application):
     @cli.argument('message', nargs='*', help='Log message for SAL')
     def main(self, *extra_args):
         """Perform a sync operation to the cluster."""
-        print utils.logo()
+        print(utils.logo())
         self._assert_auth_sock()
 
         self.include = None
@@ -276,7 +276,7 @@ class MWVersionsInUse(cli.Application):
         else:
             output = [str(version) for version in versions.keys()]
 
-        print ' '.join(output)
+        print(' '.join(output))
         return 0
 
 
