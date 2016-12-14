@@ -12,7 +12,7 @@ authors = [('Antoine Musso', 'hashar@free.fr'),
            ('Tyler Cipriani', 'tcipriani@wikimedia.org')]
 
 setup(name='Scap',
-      version='3.4.1',
+      version='3.4.2',
       description='Deployment toolchain for Wikimedia projects',
       author=', '.join([name for name, _ in authors]),
       author_email=', '.join([email for _, email in authors]),
