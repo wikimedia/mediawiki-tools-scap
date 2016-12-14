@@ -414,7 +414,7 @@ def get_disclosable_head(repo_directory, remote_thing):
                 cwd=repo_directory, stderr=dev_null).strip()
         except subprocess.CalledProcessError:
             try:
-                if not re.match('/[a-f0-9]{40}/', remote_thing):
+                if not re.match('[a-f0-9]{40}', remote_thing):
                     remote = subprocess.check_output(
                         ('/usr/bin/git', 'remote'),
                         cwd=repo_directory, stderr=dev_null).strip()
