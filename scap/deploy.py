@@ -37,7 +37,7 @@ EX_STAGES = [RESTART, 'rollback']
 
 
 @cli.command('deploy-local', help=argparse.SUPPRESS)
-class DeployLocal(cli.Application):
+class DeployLocal(cli.TargetApplication):
     """
     Command that runs on target hosts.
 
@@ -740,14 +740,6 @@ class Deploy(cli.Application):
         default = self.config.get('batch_size', self.MAX_BATCH_SIZE)
         size = int(self.config.get('{}_batch_size'.format(stage), default))
         return min(size, self.MAX_BATCH_SIZE)
-
-    def _load_config(self):
-        """Set the host directory after the config has been loaded."""
-
-        super(Deploy, self)._load_config()
-        env = self.config['environment']
-        self.context = context.HostContext(os.getcwd(), environment=env)
-        self.context.setup()
 
     def _setup_loggers(self):
         """Set up additional logging to `scap/deploy.log`."""

@@ -14,6 +14,7 @@ import scap.plugins
 from scap.terminal import term
 from . import arg
 from . import config
+from . import context
 from . import log
 from . import utils
 
@@ -33,6 +34,10 @@ class Application(object):
             self.program_name = os.path.basename(exe_name)
         self.exe_name = exe_name
         self.start = time.time()
+
+    def is_target_app(self):
+        """Is this application being run on a master or a target host?"""
+        return False
 
     def get_logger(self):
         """Lazy getter for a logger instance."""
@@ -121,6 +126,12 @@ class Application(object):
             environment=self.arguments.environment,
             overrides=defines
         )
+        env = self.config['environment']
+        if self.is_target_app():
+            self.context = context.TargetContext(os.getcwd(), environment=env)
+        else:
+            self.context = context.HostContext(os.getcwd(), environment=env)
+        self.context.setup()
 
     def _setup_loggers(self):
         """Setup logging."""
@@ -312,6 +323,14 @@ class Application(object):
 
         # Exit
         sys.exit(exit_status)
+
+
+class TargetApplication(Application):
+    """Class for specifying this command is run on a taget not a master."""
+
+    def is_target_app(self):
+        """This is not being run on a master"""
+        return True
 
 
 def show_version():
