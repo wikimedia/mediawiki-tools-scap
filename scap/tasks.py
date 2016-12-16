@@ -210,7 +210,7 @@ def compile_wikiversions(source_tree, cfg, logger=None):
             errno.ENOENT, 'Failed to create php wikiversions', tmp_php_file)
 
     os.rename(tmp_php_file, php_file)
-    os.chmod(php_file, 0664)
+    os.chmod(php_file, 0o664)
     logger.info('Compiled %s to %s', json_file, php_file)
 
 
@@ -467,7 +467,7 @@ def update_l10n_cdb(cache_dir, cdb_file, trust_mtime=False, logger=None):
             raise IOError(errno.ENOENT, 'Failed to create CDB', tmp_cdb_path)
 
         # Move temp file over old file
-        os.chmod(tmp_cdb_path, 0664)
+        os.chmod(tmp_cdb_path, 0o664)
         os.rename(tmp_cdb_path, cdb_path)
         # Set timestamp to match upstream json
         os.utime(cdb_path, (json_mtime, json_mtime))
@@ -729,7 +729,7 @@ def refresh_cdb_json_file(file_path):
 
     tmp_json.write(json_data)
     tmp_json.close()
-    os.chmod(tmp_json.name, 0644)
+    os.chmod(tmp_json.name, 0o644)
     shutil.move(tmp_json.name, upstream_json)
     logger.debug('Updated: {}'.format(upstream_json))
 
