@@ -448,7 +448,7 @@ class Scap(AbstractSync):
 
 
 @cli.command('pull-master', help=argparse.SUPPRESS)
-class SyncMaster(cli.TargetApplication):
+class SyncMaster(cli.Application):
     """Sync local MediaWiki staging directory with deploy server state."""
 
     @cli.argument('master', help='Master rsync server to copy from')
@@ -463,7 +463,7 @@ class SyncMaster(cli.TargetApplication):
 
 @cli.command('pull', help='Sync local MediaWiki deployment directory with '
                           'deploy server state (formerly sync-common)')
-class SyncCommon(cli.TargetApplication):
+class SyncCommon(cli.Application):
     """Sync local MediaWiki deployment directory with deploy server state."""
 
     @cli.argument('--no-touch', action='store_false', dest='touch_config',
@@ -682,7 +682,7 @@ class UpdateL10n(cli.Application):
 
 
 @cli.command('hhvm-restart')
-class RestartHHVM(cli.TargetApplication):
+class RestartHHVM(cli.Application):
     """
     Restart the HHVM fcgi process on the local server.
 
