@@ -497,6 +497,10 @@ class Deploy(cli.Application):
         if self.arguments.service_restart:
             stages = [RESTART]
 
+        restart_only = False
+        if len(stages) is 1 and stages[0] is RESTART:
+            restart_only = True
+
         if not git.is_dir(self.context.root):
             raise RuntimeError(errno.EPERM, 'Script must be run from git repo')
 
@@ -506,8 +510,16 @@ class Deploy(cli.Application):
             logger.warn('No targets selected, check limits and dsh_targets')
             return 1
 
-        deploy_name = 'Deploy' if not self.arguments.init else 'Setup'
-        display_name = '{}: {}'.format(deploy_name, self.repo)
+        short_sha1 = git.info(self.context.root)['headSHA1'][:7]
+        if not short_sha1:
+            short_sha1 = 'UNKNOWN'
+
+        deploy_name = 'deploy'
+        if self.arguments.init:
+            deploy_name = 'setup'
+        elif restart_only:
+            deploy_name = 'restart'
+        display_name = '{} [{}@{}]'.format(deploy_name, self.repo, short_sha1)
 
         rev = self.arguments.rev
         if not rev:
@@ -553,15 +565,13 @@ class Deploy(cli.Application):
                 if self.arguments.init:
                     return 0
 
-                short_sha1 = git.info(self.context.root)['headSHA1'][:7]
-                if not short_sha1:
-                    short_sha1 = 'UNKNOWN'
-                self.announce('Starting deploy [%s@%s]: %s',
-                              self.repo, short_sha1, self.arguments.message)
+                self.announce('Started %s: %s', display_name,
+                              self.arguments.message)
                 exec_result = self._execute_for_groups(stages)
-                self.announce('Finished deploy [%s@%s]: %s (duration: %s)',
-                              self.repo, short_sha1, self.arguments.message,
-                              utils.human_duration(self.get_duration()))
+                if not restart_only:
+                    self.announce('Finished %s: %s (duration: %s)',
+                                  display_name, self.arguments.message,
+                                  utils.human_duration(self.get_duration()))
                 return exec_result
         return 0
 
