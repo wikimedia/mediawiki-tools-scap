@@ -31,9 +31,16 @@ from . import tasks
 from . import utils
 from . import git
 
+FINALIZE = 'finalize'
 RESTART = 'restart_service'
-STAGES = ['fetch', 'config_deploy', 'promote', 'finalize']
-EX_STAGES = [RESTART, 'rollback']
+ROLLBACK = 'rollback'
+
+STAGES = ['fetch', 'config_deploy', 'promote']
+EX_STAGES = [RESTART, ROLLBACK, FINALIZE]
+
+
+class DeployGroupFailure(Exception):
+    pass
 
 
 @cli.command('deploy-local', help=argparse.SUPPRESS)
@@ -210,6 +217,7 @@ class DeployLocal(cli.Application):
                     'Revision directory already exists '
                     '(use --force to override)')
                 self.noop = True
+                self.context.mark_rev_in_progress(self.rev)
                 return
 
         # clone/fetch from the local cache directory to the revision directory
@@ -324,26 +332,17 @@ class DeployLocal(cli.Application):
         """
         Performs a rollback to the last deployed revision.
 
-        The rollback stage expects an .in-progress symlink to points to the
-        revision directory for the currently running deployment. If the link
-        doesn't exist, it's assumed that the current deployment errored at an
-        early enough stage where a rollback isn't necessary.
-
-        It also looks for a .done symlink that points to the revision
+        Rollback looks for a .done symlink that points to the revision
         directory for the last successful deployment. If this link doesn't
         exist, a rollback isn't possible. If it does exist, the current
         revision directory is replaced with the target of the link and the
-        promote stage is re-run.
+        promote and finalize stages are re-run.
         """
 
         logger = self.get_logger()
 
         rollback_from = self.context.rev_in_progress
         rollback_to = self.context.rev_done
-
-        if not rollback_from:
-            logger.info('No rollback necessary. Skipping')
-            return 0
 
         if not rollback_to:
             raise RuntimeError('there is no previous revision to rollback to')
@@ -575,36 +574,107 @@ class Deploy(cli.Application):
                 return exec_result
         return 0
 
+    def _display_group_info(self, group, targets):
+        self.get_logger().info('\n== {0} ==\n:* {1}'.format(
+            group.upper(),
+            '\n:* '.join(targets)
+        ))
+
     def _execute_for_groups(self, stages):
         logger = self.get_logger()
         continue_all = False
+        attempted_groups = []
 
-        for group, targets in self.deploy_groups.iteritems():
-            if not len(targets):
-                continue
+        try:
+            for name, group in self.deploy_groups.iteritems():
+                attempted_groups.append(group)
+                self._execute_for_group(stages, group)
 
-            logger.info('\n== {0} ==\n:* {1}'.format(
-                group.upper(),
-                '\n:* '.join(targets)
-            ))
+                if not self._last_group(name) and not continue_all:
+                    prompt = '%s deploy successful. Continue?' % name
+                    choices = '[y]es/[n]o/[c]ontinue all groups'
+                    answer = utils.ask(prompt, 'y', choices)
 
-            for stage in stages:
-                ret = self.execute_stage_on_group(stage, group, targets)
-                if ret > 0:
-                    self.execute_rollback(stage, group, targets)
-                    return ret
+                    if answer == 'c':
+                        continue_all = True
+                    elif answer != 'y':
+                        raise DeployGroupFailure('deployment aborted')
 
-            if not self._last_group(group) and not continue_all:
-                prompt = '{} deploy successful. Continue?'.format(group)
-                choices = '[y]es/[n]o/[c]ontinue all groups'
-                answer = utils.ask(prompt, 'y', choices)
+        except DeployGroupFailure as failure:
+            logger.error(failure.message)
 
-                if answer == 'c':
-                    continue_all = True
-                elif answer != 'y':
-                    break
+            if utils.confirm('Rollback all deployed groups?', default=True):
+                # Rollback groups in reverse order
+                for group in attempted_groups[::-1]:
+                    self._execute_for_group([ROLLBACK], group,
+                                            ignore_failure=True)
+
+            return 1
+
+        for group in attempted_groups:
+            self._execute_for_group([FINALIZE], group, ignore_failure=True)
 
         return 0
+
+    def _execute_for_group(self, stages, group, ignore_failure=False):
+        """
+        Executes the given stages across targets of the given group's
+        subgroups.
+
+        :param stages: List of stages to execute
+        :param group: The `targets.DeployGroup` for which to execute the
+                      stages. Any target host that is unreachable via SSH will
+                      be added to the group's list of excluded hosts.
+        :param ignore_failure: Whether to keep on rolling past the
+                               `failure_limit` threshold. Note that even with
+                               this argument, SSH failure result in the target
+                               being excluded from future stage execution.
+        """
+
+        logger = self.get_logger()
+
+        failed = 0
+
+        for label, targets in group.subgroups():
+            self._display_group_info(label, targets)
+
+            # Copy target list so we can dequeue targets without mutating
+            # self.deploy_groups
+            targets = list(targets)
+
+            subgroup_failed = 0
+
+            for stage in stages:
+                executor = self.execute_stage_on_group(stage,
+                                                       group.name,
+                                                       targets)
+                for host, status in executor:
+                    if status > 0:
+                        # Record failed host and remove it from targets
+                        # for the remaining stages
+                        subgroup_failed += 1
+                        targets.remove(host)
+
+                        if status == ssh.CONNECTION_FAILURE:
+                            msg = (('connection to %s failed and future '
+                                    'stages will not be attempted for this '
+                                    'target') % host)
+                            logger.warning(msg)
+                            group.exclude(host)
+
+                # Stop executing stages if all targets have failed
+                if not len(targets):
+                    break
+
+            failed += subgroup_failed
+
+            if subgroup_failed > 0:
+                logger.warning('%d targets failed' % subgroup_failed)
+
+                if not ignore_failure and failed > group.failure_limit:
+                    msg = ('%d of %d %s targets failed, exceeding limit'
+                           % (failed, group.original_size, label))
+                    raise DeployGroupFailure(msg)
 
     def _last_group(self, group):
         return group == next(reversed(self.deploy_groups))
@@ -688,7 +758,8 @@ class Deploy(cli.Application):
         self.deploy_info['checks'] = checks_dict
 
     def _build_deploy_groups(self):
-        """Build server groups based on configuration `server_groups` variable
+        """
+        Build server groups based on configuration `server_groups` variable
         """
         target_obj = targets.get(
             'dsh_targets',
@@ -700,16 +771,16 @@ class Deploy(cli.Application):
         self.all_targets = target_obj.all
         self.deploy_groups = target_obj.groups
 
-    def execute_rollback(self, stage, group, targets):
-        prompt = "Stage '{}' failed on group '{}'. Perform rollback?".format(
-            stage, group)
-
-        if utils.ask(prompt, 'y') == 'y':
-            return self.execute_stage_on_group('rollback', group, targets)
-
-        return 0
-
     def execute_stage_on_group(self, stage, group, targets):
+        """
+        Execute a deploy stage for the given group targets.
+
+        :param stage: deploy stage.
+        :param group: deploy group.
+        :param targets: group targets.
+        :yields: (host, status)
+        """
+
         logger = self.get_logger()
         deploy_local_cmd = [self.get_script_path(), 'deploy-local']
         batch_size = self._get_batch_size(stage)
@@ -734,13 +805,14 @@ class Deploy(cli.Application):
         deploy_stage.progress(
             '{}: {} stage(s)'.format(self.repo, display_name))
 
-        succeeded, failed = deploy_stage.run(batch_size=batch_size)
+        failed = 0
+        for host, status in deploy_stage.run_with_status(batch_size):
+            if status != 0:
+                failed += 1
+            yield host, status
 
         if failed:
             logger.warning('%d targets had deploy errors', failed)
-            return 1
-
-        return 0
 
     def _get_stage_name(self, stage):
         """Map a stage name to a stage display name."""

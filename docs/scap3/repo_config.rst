@@ -95,6 +95,16 @@ Available configuration variables
 |                            |                           | deployment within each server   |
 |                            |                           | group.                          |
 +----------------------------+---------------------------+---------------------------------+
+| ``failure_limit``          | 1                         | (*Int* or *String*) (*Optional*)|
+| ``[group]_failure_limit``  |                           | Number or percentage of group   |
+|                            |                           | targets that are allowed to     |
+|                            |                           | fail without triggering a       |
+|                            |                           | rollback. Percentages should be |
+|                            |                           | suffixed with '%' (e.g. 10%).   |
+|                            |                           |                                 |
+|                            |                           | A global and/or group specific  |
+|                            |                           | configuration may be provided.  |
++----------------------------+---------------------------+---------------------------------+
 | ``git_submodules``         | False                     | (*Boolean*) (*Optional*)        |
 |                            |                           | Whether submodules need         |
 |                            |                           | to be fetched and               |

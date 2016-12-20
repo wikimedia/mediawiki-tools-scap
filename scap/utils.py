@@ -773,7 +773,7 @@ def move_symlink(source, dest):
     mkdir_p(dest_dir)
 
     with cd(dest_dir):
-        if os.path.exists(rdest):
+        if os.path.lexists(rdest):
             os.unlink(rdest)
 
         os.symlink(rsource, rdest)

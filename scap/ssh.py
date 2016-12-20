@@ -19,6 +19,8 @@ import scap.utils as utils
 import scap.cmd as cmd
 
 
+CONNECTION_FAILURE = 255
+DEFAULT_BATCH_SIZE = 80
 SSH = cmd.Command(
     '/usr/bin/ssh', '-oBatchMode=yes',
     '-oSetupTimeout=10',
@@ -103,7 +105,7 @@ class Job(object):
     def __init__(self, hosts=None, command=None, user=None, logger=None):
         self.hosts(hosts or [])
         self._command = command
-        self._reporter = None
+        self._progress = command
         self._user = user
         self.max_failure = len(self._hosts)
         self._logger = logger
@@ -134,67 +136,73 @@ class Job(object):
         return self
 
     def progress(self, label):
+        """Set the label used when reporting progress. Defaults to the
+        command string.
         """
-        Monitor job progress with a :class:`log.ProgressReporter`.
-
-        Use of this method changes the runtime behavior of :meth:`run` to
-        return counts of successes and failures instead of a list of results.
-        """
-        self._reporter = log.ProgressReporter(label)
+        self._progress = label
         return self
 
-    def run(self, batch_size=80):
+    def run(self, batch_size=DEFAULT_BATCH_SIZE):
         """
-        Run the job.
+        Run the job, report progress, and return success/failed counts.
 
-        :returns: List of (host, status, ohandler) tuples or
-                  tuple of (success, fail) counts
+        :returns: (ok, failed) counts of successful/failed hosts
+        :raises: RuntimeError if command has not been set
+        """
+        ok = 0
+        failed = 0
+
+        for host, status in self.run_with_status(batch_size):
+            if status == 0:
+                ok += 1
+            else:
+                failed += 1
+
+        return ok, failed
+
+    def run_with_status(self, batch_size=DEFAULT_BATCH_SIZE):
+        """
+        Run the job, report progress, and yield host/status as execution
+        completes.
+
+        :yields: (host, status)
         :raises: RuntimeError if command has not been set
         """
         if not self._command:
             raise RuntimeError('Command must be provided')
 
-        if not self._hosts:
+        reporter = log.ProgressReporter(self._progress)
+
+        if self._hosts:
+            reporter = log.ProgressReporter(self._progress)
+
+            reporter.expect(len(self._hosts))
+            reporter.start()
+
+            for host, status, ohandler in cluster_ssh(
+                    self._hosts, self._command,
+                    self._user, batch_size,
+                    self.max_failure,
+                    self.output_handler):
+
+                if status == 0:
+                    reporter.add_success()
+                else:
+                    self.get_logger().warning(
+                        '%s on %s returned [%d]: %s',
+                        self._command, host, status, ohandler.output)
+                    reporter.add_failure()
+
+                yield host, status
+
+            reporter.finish()
+        else:
             self.get_logger().warning(
                 'Job %s called with an empty host list.', self._command)
-            if self._reporter:
-                return (0, 0)
-            else:
-                return []
-
-        if self._reporter:
-            return self._run_with_reporter(batch_size)
-        else:
-            return list(
-                cluster_ssh(
-                    self._hosts, self._command, self._user,
-                    batch_size, self.max_failure,
-                    self.output_handler))
-
-    def _run_with_reporter(self, batch_size):
-        """Run job and feed results to a :class:`log.ProgressReporter` as they
-        come in."""
-        self._reporter.expect(len(self._hosts))
-        self._reporter.start()
-
-        for host, status, ohandler in cluster_ssh(
-                self._hosts, self._command,
-                self._user, batch_size,
-                self.max_failure,
-                self.output_handler):
-            if status == 0:
-                self._reporter.add_success()
-            else:
-                self.get_logger().warning(
-                    '%s on %s returned [%d]: %s',
-                    self._command, host, status, ohandler.output)
-                self._reporter.add_failure()
-        self._reporter.finish()
-        return self._reporter.ok, self._reporter.failed
 
 
 def cluster_ssh(
-        hosts, command, user=None, limit=80,
+        hosts, command, user=None, limit=DEFAULT_BATCH_SIZE,
         max_fail=None, output_handler=None):
     """Run a command via SSH on multiple hosts concurrently."""
     hosts = set(hosts)

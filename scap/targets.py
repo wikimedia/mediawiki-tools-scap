@@ -123,6 +123,10 @@ class TargetList():
         self.extra_paths = extra_paths
         self.deploy_groups = {}
 
+    def _get_failure_limit(self, group):
+        key = '{}_failure_limit'.format(group)
+        return self.config.get(key, self.config.get('failure_limit', None))
+
     def _get_group_size(self, group):
         key = '{}_group_size'.format(group)
         size = self.config.get(key, self.config.get('group_size', None))
@@ -179,14 +183,12 @@ class TargetList():
             targets = list(set(targets) - set(all_hosts))
             all_hosts += targets
 
-            group_size = self._get_group_size(group)
+            size = self._get_group_size(group)
+            failure_limit = self._get_failure_limit(group)
 
-            if group_size is None or group_size >= len(targets):
-                groups[group] = targets
-            else:
-                for i in xrange(0, len(targets), group_size):
-                    group_key = group + str((i / group_size) + 1)
-                    groups[group_key] = targets[i:i + group_size]
+            groups[group] = DeployGroup(group, targets,
+                                        size=size,
+                                        failure_limit=failure_limit)
 
         self.deploy_groups = {'all_targets': all_hosts,
                               'deploy_groups': groups}
@@ -232,3 +234,58 @@ class DshTargetList(TargetList):
                 return re.findall(r'^[\w\.\-]+', f.read(), re.MULTILINE)
         except IOError as e:
             raise IOError(e.errno, e.strerror, hosts_file)
+
+
+class DeployGroup():
+    def __init__(self, name, targets, size=None, failure_limit=None):
+        """
+        :param str name: Name of group
+        :param list targets: Group target hosts
+        :param int size: Size of deploy subgroups
+        :param int|str failure_limit: String percentage or int number of
+            acceptable failures (e.g. '30%' or 3). Defaults to 1
+        """
+        self.name = name
+        self.targets = targets
+        self.size = size or len(targets)
+
+        if failure_limit is None:
+            failure_limit = 1
+        elif type(failure_limit) is str:
+            # Convert percentage strings (e.g. '30%') to number of targets
+            if failure_limit.endswith('%'):
+                failure_limit = float(failure_limit[:-1]) * self.size / 100
+
+            failure_limit = int(failure_limit)
+
+        self.failure_limit = failure_limit
+        self.excludes = []
+
+    def __iter__(self):
+        return iter(self.targets)
+
+    def exclude(self, target):
+        """
+        Excludes the given target from future iterations of `subgroups`.
+        """
+        self.excludes.append(target)
+
+    def subgroups(self):
+        """
+        Generates each deployable subgroup and label according to size.
+
+        :yields (str, list): Each subgroup label and list of targets
+        """
+
+        label = self.name
+        targets = [host for host in self.targets if host not in self.excludes]
+
+        for i in xrange(0, len(targets), self.size):
+            if len(targets) > self.size:
+                label = self.name + str((i / self.size) + 1)
+
+            yield label, targets[i:i + self.size]
+
+    @property
+    def original_size(self):
+        return len(self.targets)
