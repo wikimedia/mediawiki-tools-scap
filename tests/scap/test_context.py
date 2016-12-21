@@ -13,6 +13,7 @@ from scap import context
 
 class ContextTest(unittest.TestCase):
     def setUp(self):
+        self.origcwd = os.getcwd()
         self.root = tempfile.mkdtemp(suffix='-scap-test-dir')
         self.context = context.Context(self.root)
 
@@ -29,11 +30,13 @@ class ContextTest(unittest.TestCase):
         self.assertTrue(os.path.exists(self.root))
 
     def tearDown(self):
+        os.chdir(self.origcwd)
         shutil.rmtree(self.root)
 
 
 class HostContextTest(unittest.TestCase):
     def setUp(self):
+        self.origcwd = os.getcwd()
         self.root = tempfile.mkdtemp(suffix='-scap-test-dir')
         self.context = context.HostContext(self.root, environment='env1')
         os.mkdir(os.path.join(self.root, '.git'))
@@ -115,11 +118,13 @@ class HostContextTest(unittest.TestCase):
         self.context.setup()
 
     def tearDown(self):
+        os.chdir(self.origcwd)
         shutil.rmtree(self.root)
 
 
 class TargetContextTest(unittest.TestCase):
     def setUp(self):
+        self.origcwd = os.getcwd()
         self.root = os.path.realpath(tempfile.mkdtemp(suffix='-scap-test-dir'))
         self.context = context.TargetContext(self.root)
 
@@ -270,6 +275,7 @@ class TargetContextTest(unittest.TestCase):
                          os.path.join(self.context.revs_dir, 'foo1'))
 
     def tearDown(self):
+        os.chdir(self.origcwd)
         shutil.rmtree(self.root)
 
 
