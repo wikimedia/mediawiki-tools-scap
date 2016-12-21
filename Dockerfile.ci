@@ -32,31 +32,27 @@ RUN apt-get update && \
         python-setuptools
 
 RUN $PYTHON -m easy_install pip
-RUN $PYTHON -m pip install tox
+RUN $PYTHON -m pip install wheel tox
 
 # Start of Scap specifics
 RUN apt-get update && \
     apt-get -y --no-install-recommends install \
         git \
         zlib1g-dev \
-        libjpeg-dev
+        libjpeg-dev \
+        php5-cli
 
-# Precache dependencies (alternative to the above installation from debs)
-RUN mkdir -p /tmp/deps
+# Precache dependencies
+ENV PIP_WHEEL_DIR /tmp/pip-cache
+ENV PIP_FIND_LINKS file://$PIP_WHEEL_DIR
+RUN mkdir -p $PIP_WHEEL_DIR
 
-COPY requirements.txt /tmp/deps/requirements.txt
-RUN $PYTHON -m pip install -U -r /tmp/deps/requirements.txt
+COPY requirements.txt test-requirements.txt ./
+COPY docs/requirements.txt docs/
+RUN $PYTHON -m pip wheel -r requirements.txt -r test-requirements.txt -r docs/requirements.txt
 
-COPY test-requirements.txt /tmp/deps/test-requirements.txt
-RUN $PYTHON -m pip install -U -r /tmp/deps/test-requirements.txt
-
-RUN mkdir -p /tmp/deps/docs
-COPY docs/requirements.txt /tmp/deps/docs/requirements.txt
-RUN $PYTHON -m pip install -U -r /tmp/deps/docs/requirements.txt
-
-RUN rm -rf /tmp/deps
-
+ENV PIP_NO_INDEX 1
 ENV LANG C.UTF-8
-ENV TOXENV py27,flake8,doc
+
 COPY . .
 ENTRYPOINT $PYTHON -m tox
