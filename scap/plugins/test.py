@@ -1,22 +1,31 @@
 import logging
 import time
+import random
 
 from scap import cli, log
 
 
-@cli.command('test')
+@cli.command('test-progress')
 class Test(cli.Application):
-
-    @cli.argument('--steps', default='150', nargs='?')
+    """ Display a mock progress bar """
+    @cli.argument('--steps', default='25', nargs='?')
     def main(self, *extra_args):
         steps = int(self.arguments.steps)
-        reporter = log.ProgressReporter(name='TestProgress',
-                                        expect=steps)
-        logger = logging.getLogger()
-        reporter.start()
-        for i in range(0, steps):
-            reporter.add_success()
-            logger.info('success: %s of %s' % (i, steps))
-            time.sleep(0.2)
+        stages = ['Testing Stage Number 1', 'This is Stage 2', 'Just Stage 3']
+        for stage in stages:
+            reporter = log.ProgressReporter(name=stage,
+                                            expect=steps)
+            logger = logging.getLogger()
+            reporter.start()
+            for i in range(0, steps):
+                rand = random.randrange(0, 30, 2)
+                if rand == 0:
+                    reporter.add_failure()
+                    logger.warn('Fail: %s of %s' % (i, steps))
+                else:
+                    reporter.add_success()
+                    logger.info('Success: %s of %s' % (i, steps))
 
-        reporter.finish()
+                time.sleep(0.2)
+
+            reporter.finish()

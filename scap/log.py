@@ -261,9 +261,8 @@ class ProgressReporter(object):
         self._failed = 0
         self._fd = fd
 
-        term.scroll_forward(3)
         term.scroll_region(0, term.height - 3)
-
+        term.scroll_forward(1)
         term.register_cleanup_callback(self.cleanup)
 
     @property
@@ -297,14 +296,26 @@ class ProgressReporter(object):
     def finish(self):
         """Finish tracking progress."""
         self._progress()
+
+        message = "Finished: %s (%s failed) " % \
+            (self._name, self._failed)
+        width = min((term.width, 80)) - len(message)
+        bars = width - 4
+        bar = '=' * bars
+        term.move(term.height - 3, 0) \
+            .fg(7).write(message) \
+            .fg(4).write(bar)
+
         self.cleanup()
 
     def cleanup(self, term=term):
         height = term.height
+
         term.scroll_region(0, height+1)
         term.move(height-2, 0).clear_eol() \
             .move(height-1, 0).clear_eol() \
             .move(height, 0).clear_eol()
+        term.reset_colors()
 
     def add_success(self):
         """Record a sucessful task completion."""
@@ -350,7 +361,7 @@ class ProgressReporter(object):
             .fg(15).write('| ') \
             .fg(7).write(self._name) \
             .fg(15).write(" | ") \
-            .write(self.percent_complete, '%', ' | ') \
+            .write(self.percent_complete, '% ') \
             .fg(4).write(bar) \
             .clear_eol()
 
