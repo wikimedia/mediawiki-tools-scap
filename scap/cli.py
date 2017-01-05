@@ -107,7 +107,8 @@ class Application(object):
                                   ' '.join(extra_args))
 
         if hasattr(args, 'message'):
-            args.message = ' '.join(args.message) or '(no message)'
+            args.message = (' '.join(args.message) or
+                            '(no justification provided)')
 
         return args, extra_args
 
