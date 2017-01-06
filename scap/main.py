@@ -43,8 +43,11 @@ class AbstractSync(cli.Application):
             self._git_repo()
             self._sync_masters()
 
+            full_target_list = self._get_target_list()
+
             # Run canary checks
-            canaries = self._get_canary_list()
+            canaries = [node for node in self._get_canary_list()
+                        if node in full_target_list]
             if not self.arguments.force:
                 with log.Timer('sync-check-canaries', self.get_stats()):
                     sync_cmd = self._proxy_sync_command()
@@ -78,7 +81,8 @@ class AbstractSync(cli.Application):
                         '%d test canaries had check failures', failed)
 
             # Update proxies
-            proxies = self._get_proxy_list()
+            proxies = [node for node in self._get_proxy_list()
+                       if node in full_target_list]
             with log.Timer('sync-proxies', self.get_stats()):
                 sync_cmd = self._proxy_sync_command()
                 # Proxies should always use the current host as their sync
@@ -96,7 +100,7 @@ class AbstractSync(cli.Application):
             # Update apaches
             with log.Timer('sync-apaches', self.get_stats()):
                 update_apaches = ssh.Job(
-                    self._get_target_list(), user=self.config['ssh_user'])
+                    full_target_list, user=self.config['ssh_user'])
                 update_apaches.exclude_hosts(proxies)
                 update_apaches.exclude_hosts([socket.getfqdn()])
                 if not self.arguments.force:
