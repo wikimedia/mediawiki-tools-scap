@@ -1,5 +1,10 @@
 Source: scap
 Maintainer: Wikimedia Foundation Release Engineering <releng@wikimedia.org>
+Uploaders: Tyler Cipriani <tcipriani@wikimedia.org>,
+           Dan Duvall <dduvall@wikimedia.org>,
+           Chad Horohoe <chadh@wikimedia.org>,
+           Mukunda Modell <mmodell@wikimedia.org>,
+           Antoine Musso <hashar@free.fr>,
 Section: python
 Priority: optional
 Build-Depends: python-all (>= 2.6.6-3), debhelper (>= 9), dh-python (>= 1.2014),
