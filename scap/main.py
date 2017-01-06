@@ -67,6 +67,7 @@ class AbstractSync(cli.Application):
                 self.get_logger().info('Waiting for canary traffic...')
                 time.sleep(wait_time)
                 canary_checks = {
+                    'service': self.config['canary_service'],
                     'threshold': self.config['canary_threshold'],
                     'logstash': self.config['logstash_host'],
                     'delay': wait_time,
@@ -78,7 +79,8 @@ class AbstractSync(cli.Application):
 
                 if failed:
                     raise RuntimeError(
-                        '%d test canaries had check failures', failed)
+                        '%d test canaries had check failures '
+                        '(rerun with --force to override this check)' % failed)
 
             # Update proxies
             proxies = [node for node in self._get_proxy_list()

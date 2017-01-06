@@ -41,13 +41,14 @@ DEFAULT_RSYNC_ARGS = [
 ]
 
 
-def check_canaries(canaries, threshold, logstash, delay, cores=2):
+def check_canaries(canaries, service, threshold, logstash, delay, cores=2):
     """
     Run canary checks on test application servers.
 
     :param canaries: list, canaries to check
     :param threshold: float, average log multiple at which to fail
-    :param logstash: str, logstash server
+    :param service: string, name of the service to check
+    :param logstash: string, logstash server
     :param verbose: bool, verbose output
     :param delay: float, time between deploy and now
     """
@@ -58,7 +59,12 @@ def check_canaries(canaries, threshold, logstash, delay, cores=2):
     # Build Check command list
     for canary in canaries:
         check_name = 'Logstash Error rate for {}'.format(canary)
+
+        # Split canary name at first "." since domain isn't in logs
+        canary = canary.split('.')[0]
+
         cmd = ['/usr/local/bin/logstash_checker.py',
+               '--service-name', service,
                '--host', canary,
                '--fail-threshold', threshold,
                '--delay', delay,

@@ -16,6 +16,7 @@ from . import utils
 DEFAULT_CONFIG = {
     'bin_dir': (str, '/srv/deployment/scap/scap/bin'),
     'canary_threshold': (float, 10.0),
+    'canary_service': (str, 'mediawiki'),
     'canary_wait_time': (int, 20),
     'deploy_dir': (str, '/srv/mediawiki'),
     'failure_limit': (str, '0%'),
