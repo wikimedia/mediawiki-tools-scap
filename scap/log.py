@@ -302,20 +302,19 @@ class ProgressReporter(object):
         width = min((term.width, 80)) - len(message)
         bars = width - 4
         bar = '=' * bars
-        term.move(term.height - 3, 0) \
-            .fg(7).write(message) \
-            .fg(4).write(bar)
-
         self.cleanup()
+        term.fg(7).write(message) \
+            .fg(4).write(bar).nl()
 
     def cleanup(self, term=term):
         height = term.height
-
-        term.scroll_region(0, height+1)
+        term.save()
         term.move(height-2, 0).clear_eol() \
             .move(height-1, 0).clear_eol() \
             .move(height, 0).clear_eol()
+        term.scroll_region(0, height)
         term.reset_colors()
+        term.restore()
 
     def add_success(self):
         """Record a sucessful task completion."""
