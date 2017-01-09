@@ -17,6 +17,8 @@ from . import utils
 
 import yaml
 
+# All tags created by scap use this prefix
+TAG_PREFIX = 'scap/sync'
 
 # Key is the pattern for .gitignore, value is a test for that pattern.
 DEFAULT_IGNORE = {
@@ -158,6 +160,50 @@ def default_ignore(location):
             f.write(ignore)
 
 
+def clean_tags(location, max_tags):
+    """Make sure there aren't more than max_tags."""
+    git = '/usr/bin/git'
+    ensure_dir(location)
+    with utils.cd(location):
+        cmd = [
+            git,
+            'for-each-ref',
+            '--sort=taggerdate',
+            '--format=%(refname)',
+            'refs/tags'
+        ]
+
+        tags = subprocess.check_output(cmd).splitlines()
+        old_tags = []
+        while len(tags) > max_tags:
+            tag = tags.pop(0)
+            if tag.startswith('refs/tags/'):
+                tag = tag[10:]
+
+            # Don't delete tags that aren't ours
+            if not tag.startswith(TAG_PREFIX):
+                continue
+
+            old_tags.append(tag)
+
+        # if there aren't any old tags, bail early
+        if len(old_tags) == 0:
+            return
+
+        cmd = [git, 'tag', '-d']
+        cmd += old_tags
+        subprocess.check_call(cmd)
+
+
+def gc(location):
+    """Clean up a repo."""
+    git = '/usr/bin/git'
+    ensure_dir(location)
+    with utils.cd(location):
+        cmd = [git, 'gc', '--quiet', '--auto']
+        subprocess.check_call(cmd)
+
+
 def add_all(location, message='Update'):
     """Add everything to repo at location as user."""
     git = '/usr/bin/git'
@@ -195,9 +241,11 @@ def next_deploy_tag(location):
         timestamp = datetime.utcnow()
         date = timestamp.strftime('%F')
         cmd = ['/usr/bin/git', 'tag', '--list']
-        cmd.append('scap/sync/{}/*'.format(date))
+        tag_fmt = os.path.join(TAG_PREFIX, '{}', '*')
+        cmd.append(tag_fmt.format(date))
         seq = len(subprocess.check_output(cmd).splitlines()) + 1
-        return 'scap/sync/{0}/{1:04d}'.format(date, seq)
+        tag_fmt = os.path.join(TAG_PREFIX, '{0}', '{1:04d}')
+        return tag_fmt.format(date, seq)
 
 
 def ensure_dir(location):

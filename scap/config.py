@@ -48,6 +48,7 @@ DEFAULT_CONFIG = {
     'config_deploy': (bool, False),
     'nrpe_dir': (str, '/etc/nagios/nrpe.d'),
     'service_timeout': (float, 120.0),
+    'tags_to_keep': (int, 20),
     'perform_checks': (bool, True),
     'patch_path': (str, None),
 }

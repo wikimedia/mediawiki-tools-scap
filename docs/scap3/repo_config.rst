@@ -141,9 +141,17 @@ Available configuration variables
 |                            |                           | for accepting TCP               |
 |                            |                           | connections.                    |
 +----------------------------+---------------------------+---------------------------------+
-| ``batch_size``             | 80                        | (*String*) Parallelism          |
-| ``[stage]_batch_size``     |                           | of a stage of deployment.       |
-|                            |                           | Number of hosts to              |
+| ``tags_to_keep``           | 20                        | (*Int*) (*Optional*)            |
+|                            |                           | Number of tags to keep in the   |
+|                            |                           | deployment server repo. Git     |
+|                            |                           | appears to max-out at 999.      |
+|                            |                           | Scap thinks 20 tags on the      |
+|                            |                           | deployment server is quite      |
+|                            |                           | enough.                         |
++----------------------------+---------------------------+---------------------------------+
+| ``batch_size``             | 80                        | (*Int*) (*Optional*)            |
+| ``[stage]_batch_size``     |                           | Parallelism  of a stage of      |
+|                            |                           | deployment Number of hosts to   |
 |                            |                           | execute a particular            |
 |                            |                           | deployment stage on             |
 |                            |                           | simultaniously. This            |

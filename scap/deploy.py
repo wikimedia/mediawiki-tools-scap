@@ -557,6 +557,9 @@ class Deploy(cli.Application):
 
                 git.tag_repo(self.deploy_info, location=self.context.root)
 
+                # Remove old tags
+                git.clean_tags(self.context.root, self.config['tags_to_keep'])
+
                 # Run git update-server-info because git repo is a dumb
                 # apache server
                 git.update_server_info(self.config['git_submodules'])
@@ -962,6 +965,8 @@ class DeployMediaWiki(cli.Application):
         git.default_ignore(self.config['deploy_dir'])
 
         git.add_all(self.config['deploy_dir'], message=self.arguments.message)
+
+        git.gc(self.config['deploy_dir'])
 
         scap = self.get_script_path()
         options = {
