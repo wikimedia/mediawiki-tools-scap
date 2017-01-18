@@ -20,6 +20,7 @@ DEFAULT_CONFIG = {
     'canary_wait_time': (int, 20),
     'deploy_dir': (str, '/srv/mediawiki'),
     'failure_limit': (str, '0%'),
+    'fancy_progress': (bool, False),
     'stage_dir': (str, '/srv/mediawiki-staging'),
     'lock_file': (str, '/var/lock/scap'),
     'log_json': (bool, False),

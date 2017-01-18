@@ -239,6 +239,19 @@ class LogstashFormatter(logging.Formatter):
         }
 
 
+def reporter(message, fancy=False):
+    """
+    Instantiate progress reporter
+
+    :message: - string that will be displayed to user
+    :fancy: - boolean that determines the progress bar type
+    """
+    if fancy:
+        return FancyProgressReporter(message)
+
+    return ProgressReporter(message)
+
+
 class ProgressReporter(object):
     """
     Track and display progress of a process.
@@ -260,10 +273,6 @@ class ProgressReporter(object):
         self._ok = 0
         self._failed = 0
         self._fd = fd
-
-        term.scroll_region(0, term.height - 3)
-        term.scroll_forward(1)
-        term.register_cleanup_callback(self.cleanup)
 
     @property
     def ok(self):
@@ -296,6 +305,44 @@ class ProgressReporter(object):
     def finish(self):
         """Finish tracking progress."""
         self._progress()
+        self._fd.write('\n')
+
+    def add_success(self):
+        """Record a sucessful task completion."""
+        self._done += 1
+        self._ok += 1
+        self._progress()
+
+    def add_failure(self):
+        """Record a failed task completion."""
+        self._done += 1
+        self._failed += 1
+        self._progress()
+
+    def _progress(self):
+        if sys.stdout.isatty():
+            fmt = '%-80s\r'
+        else:
+            fmt = '%-80s\n'
+        self._fd.write(fmt % self._output())
+
+    def _output(self):
+        return '%s: %3.0f%% (ok: %d; fail: %d; left: %d)' % (
+            self._name, self.percent_complete,
+            self.ok, self.failed, self.remaining)
+
+
+class FancyProgressReporter(ProgressReporter):
+
+    def __init__(self, name='', expect=0, fd=sys.stderr):
+        return super(FancyProgressReporter, self).__init__(name)
+        term.scroll_region(0, term.height - 3)
+        term.scroll_forward(1)
+        term.register_cleanup_callback(self.cleanup)
+
+    def finish(self):
+        """Finish tracking progress."""
+        self._progress()
 
         message = "Finished: %s (%s failed) " % \
             (self._name, self._failed)
@@ -315,18 +362,6 @@ class ProgressReporter(object):
         term.scroll_region(0, height)
         term.reset_colors()
         term.restore()
-
-    def add_success(self):
-        """Record a sucessful task completion."""
-        self._done += 1
-        self._ok += 1
-        self._progress()
-
-    def add_failure(self):
-        """Record a failed task completion."""
-        self._done += 1
-        self._failed += 1
-        self._progress()
 
     def _progress(self):
         width = term.width

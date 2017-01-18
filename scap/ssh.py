@@ -105,7 +105,7 @@ class Job(object):
     def __init__(self, hosts=None, command=None, user=None, logger=None):
         self.hosts(hosts or [])
         self._command = command
-        self._progress = command
+        self._reporter = None
         self._user = user
         self.max_failure = len(self._hosts)
         self._logger = logger
@@ -135,11 +135,9 @@ class Job(object):
         self._command = command
         return self
 
-    def progress(self, label):
-        """Set the label used when reporting progress. Defaults to the
-        command string.
-        """
-        self._progress = label
+    def progress(self, reporter):
+        """Set the reporter used when reporting progress."""
+        self._reporter = reporter
         return self
 
     def run(self, batch_size=DEFAULT_BATCH_SIZE):
@@ -171,13 +169,12 @@ class Job(object):
         if not self._command:
             raise RuntimeError('Command must be provided')
 
-        reporter = log.ProgressReporter(self._progress)
+        if not self._reporter:
+            self._reporter = log.reporter(self._command)
 
         if self._hosts:
-            reporter = log.ProgressReporter(self._progress)
-
-            reporter.expect(len(self._hosts))
-            reporter.start()
+            self._reporter.expect(len(self._hosts))
+            self._reporter.start()
 
             for host, status, ohandler in cluster_ssh(
                     self._hosts, self._command,
@@ -186,16 +183,16 @@ class Job(object):
                     self.output_handler):
 
                 if status == 0:
-                    reporter.add_success()
+                    self._reporter.add_success()
                 else:
                     self.get_logger().warning(
                         '%s on %s returned [%d]: %s',
                         self._command, host, status, ohandler.output)
-                    reporter.add_failure()
+                    self._reporter.add_failure()
 
                 yield host, status
 
-            reporter.finish()
+            self._reporter.finish()
         else:
             self.get_logger().warning(
                 'Job %s called with an empty host list.', self._command)

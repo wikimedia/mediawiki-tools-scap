@@ -805,8 +805,9 @@ class Deploy(cli.Application):
         deploy_stage.max_failure = self.MAX_FAILURES
         deploy_stage.command(deploy_local_cmd)
         display_name = self._get_stage_name(stage)
+        progress_message = '{}: {} stage(s)'.format(self.repo, display_name)
         deploy_stage.progress(
-            '{}: {} stage(s)'.format(self.repo, display_name))
+            log.reporter(progress_message, self.config['fancy_progress']))
 
         failed = 0
         for host, status in deploy_stage.run_with_status(batch_size):

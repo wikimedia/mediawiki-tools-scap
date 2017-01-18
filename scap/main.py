@@ -55,7 +55,10 @@ class AbstractSync(cli.Application):
                     update_canaries = ssh.Job(
                         canaries, user=self.config['ssh_user'])
                     update_canaries.command(sync_cmd)
-                    update_canaries.progress('check-canaries')
+                    update_canaries.progress(
+                        log.reporter(
+                            'check-canaries',
+                            self.config['fancy_progress']))
                     succeeded, failed = update_canaries.run()
                     if failed:
                         self.get_logger().warning(
@@ -92,7 +95,10 @@ class AbstractSync(cli.Application):
                 sync_cmd.append(socket.getfqdn())
                 update_proxies = ssh.Job(proxies, user=self.config['ssh_user'])
                 update_proxies.command(sync_cmd)
-                update_proxies.progress('sync-proxies')
+                update_proxies.progress(
+                    log.reporter(
+                        'sync-proxies',
+                        self.config['fancy_progress']))
                 succeeded, failed = update_proxies.run()
                 if failed:
                     self.get_logger().warning(
@@ -109,7 +115,10 @@ class AbstractSync(cli.Application):
                     update_apaches.exclude_hosts(canaries)
                 update_apaches.shuffle()
                 update_apaches.command(self._apache_sync_command(proxies))
-                update_apaches.progress('sync-apaches')
+                update_apaches.progress(
+                    log.reporter(
+                        'sync-apaches',
+                        self.config['fancy_progress']))
                 succeeded, failed = update_apaches.run()
                 if failed:
                     self.get_logger().warning(
@@ -176,7 +185,8 @@ class AbstractSync(cli.Application):
             update_masters = ssh.Job(masters, user=self.config['ssh_user'])
             update_masters.exclude_hosts([socket.getfqdn()])
             update_masters.command(self._master_sync_command())
-            update_masters.progress('sync-masters')
+            update_masters.progress(
+                log.reporter('sync-masters', self.config['fancy_progress']))
             succeeded, failed = update_masters.run()
             if failed:
                 self.get_logger().warning(
@@ -395,7 +405,10 @@ class Scap(AbstractSync):
             rebuild_cdbs.command(
                 'sudo -u mwdeploy -n -- %s cdb-rebuild' %
                 self.get_script_path())
-            rebuild_cdbs.progress('scap-cdb-rebuild')
+            rebuild_cdbs.progress(
+                log.reporter(
+                    'scap-cdb-rebuild',
+                    self.config['fancy_progress']))
             succeeded, failed = rebuild_cdbs.run()
             if failed:
                 self.get_logger().warning(
@@ -621,7 +634,10 @@ class SyncL10n(AbstractSync):
                       self.get_script_path(),
                       self.arguments.version)
             rebuild_cdbs.command(cdb_cmd)
-            rebuild_cdbs.progress('scap-cdb-rebuild')
+            rebuild_cdbs.progress(
+                log.reporter(
+                    'scap-cdb-rebuild',
+                    self.config['fancy_progress']))
             succeeded, failed = rebuild_cdbs.run()
             if failed:
                 self.get_logger().warning(

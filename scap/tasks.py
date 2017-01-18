@@ -296,7 +296,7 @@ def purge_l10n_cache(version, cfg):
     purge.command(
         'sudo -u mwdeploy -n -- /bin/rm '
         '--recursive --force %s/*' % deployed_l10n)
-    purge.progress('l10n purge').run()
+    purge.progress(log.reporter('l10n purge', cfg['fancy_progress'])).run()
 
 
 @utils.log_context('sync_master')
@@ -417,7 +417,8 @@ def sync_wikiversions(hosts, cfg):
             'sudo -u mwdeploy -n -- /usr/bin/rsync -l '
             '%(master_rsync)s::common/wikiversions*.{json,php} '
             '%(deploy_dir)s' % cfg)
-        return rsync.progress('sync_wikiversions').run()
+        return rsync.progress(
+            log.reporter('sync_wikiversions', cfg['fancy_progress'])).run()
 
 
 @utils.log_context('update_l10n_cdb')
@@ -648,7 +649,8 @@ def restart_hhvm(hosts, cfg, batch_size=1):
         restart.command(
             'sudo -u mwdeploy -n -- %s hhvm-restart' %
             os.path.join(cfg['bin_dir'], 'scap'))
-        return restart.progress('restart_hhvm').run(batch_size=batch_size)
+        reporter = log.reporter('restart_hhvm', cfg['fancy_progress'])
+        return restart.progress(reporter).run(batch_size=batch_size)
 
 
 def refresh_cdb_json_files(in_dir, pool_size, verbose):
