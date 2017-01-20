@@ -9,5 +9,5 @@ Author: Wikimedia Release Engineering <releng@wikimedia.org>
 -    'bin_dir': (str, '/srv/deployment/scap/scap/bin'),
 +    'bin_dir': (str, '/usr/bin'),
      'canary_threshold': (float, 10.0),
+     'canary_service': (str, 'mediawiki'),
      'canary_wait_time': (int, 20),
-     'deploy_dir': (str, '/srv/mediawiki'),
