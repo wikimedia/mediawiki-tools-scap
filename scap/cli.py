@@ -175,7 +175,6 @@ class Application(object):
 
         if isinstance(ex, utils.LockFailedError):
             backtrace = False
-            message = ex.message
 
         if backtrace:
             logger.warn('Unhandled error:', exc_info=True)
