@@ -19,6 +19,7 @@ import sys
 import time
 import traceback
 
+from scap.terminal import term
 from . import utils
 
 # Format string for log messages. Interpolates LogRecord attributes.
@@ -48,7 +49,7 @@ class AnsiColorFormatter(logging.Formatter):
         """
         super(self.__class__, self).__init__(fmt, datefmt)
         if colors:
-            self.colors.extend(colors)
+            self.colors.update(colors)
 
     def format(self, record):
         msg = super(self.__class__, self).format(record)
@@ -238,6 +239,19 @@ class LogstashFormatter(logging.Formatter):
         }
 
 
+def reporter(message, fancy=False):
+    """
+    Instantiate progress reporter
+
+    :message: - string that will be displayed to user
+    :fancy: - boolean that determines the progress bar type
+    """
+    if fancy:
+        return FancyProgressReporter(message)
+
+    return ProgressReporter(message)
+
+
 class ProgressReporter(object):
     """
     Track and display progress of a process.
@@ -271,6 +285,10 @@ class ProgressReporter(object):
     @property
     def remaining(self):
         return self._expect - self._done
+
+    @property
+    def done(self):
+        return self._done
 
     @property
     def percent_complete(self):
@@ -312,6 +330,94 @@ class ProgressReporter(object):
         return '%s: %3.0f%% (ok: %d; fail: %d; left: %d)' % (
             self._name, self.percent_complete,
             self.ok, self.failed, self.remaining)
+
+
+class FancyProgressReporter(ProgressReporter):
+
+    def __init__(self, name='', expect=0, fd=sys.stderr):
+        return super(FancyProgressReporter, self).__init__(name)
+        term.scroll_region(0, term.height - 3)
+        term.scroll_forward(1)
+        term.register_cleanup_callback(self.cleanup)
+
+    def finish(self):
+        """Finish tracking progress."""
+        self._progress()
+
+        message = "Finished: %s (%s failed) " % \
+            (self._name, self._failed)
+        width = min((term.width, 80)) - len(message)
+        bars = width - 4
+        bar = '=' * bars
+        self.cleanup()
+        term.fg(7).write(message) \
+            .fg(4).write(bar).nl()
+
+    def cleanup(self, term=term):
+        height = term.height
+        term.save()
+        term.move(height-2, 0).clear_eol() \
+            .move(height-1, 0).clear_eol() \
+            .move(height, 0).clear_eol()
+        term.scroll_region(0, height)
+        term.reset_colors()
+        term.restore()
+
+    def _progress(self):
+        width = term.width
+        bottom = term.height
+        label_width = len(self._name) + 12
+        scale = int(width/2)
+        scale = min(width - label_width, scale)
+        scale = max(scale, 15)
+        partial_bar = (' ', '▎', '▎', '▍', '▌', '▋', '▊', '▉', '▉', '█')
+        pct = float(self.percent_complete) / 100
+        progress = scale * pct
+        filled_bars = int(progress)
+        remain = 0
+        if filled_bars > 0 and progress > filled_bars:
+            remain = int((progress % filled_bars)*10)
+
+        bar = '█' * int(filled_bars)
+        bar = bar + partial_bar[remain]
+
+        term.save() \
+            .move(bottom - 1, 0) \
+            .fg(15).write("| ok: ") \
+            .fg(2).write(str(self.ok)) \
+            .fg(15).write(" | fail: ") \
+            .fg(1).write(str(self.failed)) \
+            .fg(15).write(" | remain: ") \
+            .fg(7).write(str(self.remaining), ' | ') \
+            .clear_eol()
+
+        term.move(bottom - 2, 0) \
+            .fg(15).write('| ') \
+            .fg(7).write(self._name) \
+            .fg(15).write(" | ") \
+            .write(self.percent_complete, '% ') \
+            .fg(4).write(bar) \
+            .clear_eol()
+
+        term.restore().flush()
+
+    def _output(self):
+        return '%s: %3.0f%% (ok: %d; fail: %d; left: %d)' % (
+            self._name, self.percent_complete,
+            self.ok, self.failed, self.remaining)
+
+
+class MuteReporter(ProgressReporter):
+    """A report that declines to report anything."""
+
+    def __init__(self, name='', expect=0, fd=sys.stderr):
+        super(self.__class__, self).__init__(name)
+
+    def _progress(self):
+        pass
+
+    def finish(self):
+        pass
 
 
 class DeployLogFormatter(JSONFormatter):
@@ -469,19 +575,6 @@ class Filter(object):
                 return True
 
         return False
-
-
-class MuteReporter(ProgressReporter):
-    """A report that declines to report anything."""
-
-    def __init__(self, name='', expect=0, fd=sys.stderr):
-        super(self.__class__, self).__init__(name)
-
-    def _progress(self):
-        pass
-
-    def finish(self):
-        pass
 
 
 class Stats(object):

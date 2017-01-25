@@ -8,12 +8,25 @@
 
 from datetime import datetime
 import errno
+import re
 import os
+import socket
 import subprocess
 
 from . import utils
 
 import yaml
+
+# All tags created by scap use this prefix
+TAG_PREFIX = 'scap/sync'
+
+# Key is the pattern for .gitignore, value is a test for that pattern.
+DEFAULT_IGNORE = {
+    '*~',
+    '*.swp',
+    '*/cache/l10n/*.cdb',
+    'scap/log/*',
+}
 
 
 def info_filename(directory, install_path, cache_path):
@@ -139,6 +152,88 @@ def info(directory):
     }
 
 
+def default_ignore(location):
+    """Create a default .gitignore file."""
+    ignore = '\n'.join(DEFAULT_IGNORE)
+    with utils.cd(location):
+        with open('.gitignore', 'w+') as f:
+            f.write(ignore)
+
+
+def clean_tags(location, max_tags):
+    """Make sure there aren't more than max_tags."""
+    git = '/usr/bin/git'
+    ensure_dir(location)
+    with utils.cd(location):
+        cmd = [
+            git,
+            'for-each-ref',
+            '--sort=taggerdate',
+            '--format=%(refname)',
+            'refs/tags'
+        ]
+
+        tags = subprocess.check_output(cmd).splitlines()
+        old_tags = []
+        while len(tags) > max_tags:
+            tag = tags.pop(0)
+            if tag.startswith('refs/tags/'):
+                tag = tag[10:]
+
+            # Don't delete tags that aren't ours
+            if not tag.startswith(TAG_PREFIX):
+                continue
+
+            old_tags.append(tag)
+
+        # if there aren't any old tags, bail early
+        if len(old_tags) == 0:
+            return
+
+        cmd = [git, 'tag', '-d']
+        cmd += old_tags
+        subprocess.check_call(cmd)
+
+
+def gc(location):
+    """Clean up a repo."""
+    git = '/usr/bin/git'
+    ensure_dir(location)
+    with utils.cd(location):
+        cmd = [git, 'gc', '--quiet', '--auto']
+        subprocess.check_call(cmd)
+
+
+def add_all(location, message='Update'):
+    """Add everything to repo at location as user."""
+    git = '/usr/bin/git'
+    with utils.cd(location):
+        # Initialize repo if it isn't already
+        if not is_dir(location):
+            cmd = [git, 'init']
+            subprocess.check_call(cmd)
+
+        cmd = [git, 'add', '--all']
+        subprocess.check_call(cmd)
+
+        host = socket.getfqdn()
+        euid = utils.get_username()
+        ruid = utils.get_real_username()
+        ename = utils.get_user_fullname()
+        rname = utils.get_real_user_fullname()
+
+        os.environ['GIT_COMMITTER_EMAIL'] = '{}@{}'.format(euid, host)
+        os.environ['GIT_AUTHOR_EMAIL'] = '{}@{}'.format(ruid, host)
+
+        os.environ['GIT_COMMITTER_NAME'] = ename
+        os.environ['GIT_AUTHOR_NAME'] = rname
+
+        cmd = [git, 'commit', '-m', message]
+
+        # Soft errors if nothing new to commit
+        subprocess.call(cmd)
+
+
 def next_deploy_tag(location):
     """Calculates the scap/sync/{date}/{n} tag to use for this deployment"""
     ensure_dir(location)
@@ -146,9 +241,11 @@ def next_deploy_tag(location):
         timestamp = datetime.utcnow()
         date = timestamp.strftime('%F')
         cmd = ['/usr/bin/git', 'tag', '--list']
-        cmd.append('scap/sync/{}/*'.format(date))
+        tag_fmt = os.path.join(TAG_PREFIX, '{}', '*')
+        cmd.append(tag_fmt.format(date))
         seq = len(subprocess.check_output(cmd).splitlines()) + 1
-        return 'scap/sync/{0}/{1:04d}'.format(date, seq)
+        tag_fmt = os.path.join(TAG_PREFIX, '{0}', '{1:04d}')
+        return tag_fmt.format(date, seq)
 
 
 def ensure_dir(location):
@@ -340,7 +437,7 @@ def remap_submodules(location, server):
                 module.write('\turl = {}\n'.format(remote_path))
 
 
-def get_disclosable_head(repo_directory, remote_branch):
+def get_disclosable_head(repo_directory, remote_thing):
     """
     Get the SHA1 of the most recent commit that can be publicly disclosed.
     If a commit only exists locally, it is considered private. This function
@@ -349,11 +446,12 @@ def get_disclosable_head(repo_directory, remote_branch):
     we're ostensibly tracking.
 
     :param repo_directory: Directory to look into
-    :param remote_branch: If you're not actively tracking a remote branch, you
-                          need to provide something remote for this function to
-                          look for a common ancestor with. Otherwise, this
-                          function has no way of knowing what common tree
-                          you could possibly care about.
+    :param remote_thing: If you're not actively tracking a remote branch, you
+                         need to provide something remote for this function to
+                         look for a common ancestor with. Otherwise, this
+                         function has no way of knowing what common tree
+                         you could possibly care about. This could be a branch,
+                         a tag, or a plain sha1
     :returns: str
     """
     """ """
@@ -364,15 +462,26 @@ def get_disclosable_head(repo_directory, remote_branch):
                 cwd=repo_directory, stderr=dev_null).strip()
         except subprocess.CalledProcessError:
             try:
-                remote = subprocess.check_output(
-                    ('/usr/bin/git', 'remote'),
-                    cwd=repo_directory, stderr=dev_null).strip()
+                if not re.match('[a-f0-9]{40}', remote_thing):
+                    remote = subprocess.check_output(
+                        ('/usr/bin/git', 'remote'),
+                        cwd=repo_directory, stderr=dev_null).strip()
+                    remote_thing = '%s/%s' % (remote, remote_thing)
                 return subprocess.check_output(
-                    ('/usr/bin/git', 'merge-base', 'HEAD',
-                     '%s/%s' % (remote, remote_branch)),
+                    ('/usr/bin/git', 'merge-base', 'HEAD', remote_thing),
                     cwd=repo_directory, stderr=dev_null).strip()
             except subprocess.CalledProcessError:
                 utils.get_logger().info(
                     'Unable to find remote tracking branch/tag for %s' %
                     repo_directory)
                 return ''
+
+
+def list_submodules(repo):
+    ensure_dir(repo)
+    submodules = []
+    res = subprocess.check_output(
+        ('/usr/bin/git', 'submodule', 'status'), cwd=repo)
+    for line in res.splitlines():
+        submodules.append(re.sub(r'-[a-f0-9]{40} ', '', line))
+    return submodules

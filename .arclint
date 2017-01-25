@@ -16,11 +16,15 @@
     },
     "pyflakes": {
       "type": "pyflakes",
-      "include": "(\\.py$|^bin/.+$)"
+      "include": "(\\.py$|^bin/.+$)",
+      "exclude": "(^setup.py$|^scap/__init__.py$)"
     },
     "php": {
       "type": "php",
       "include": "(\\.php$)"
+    },
+    "merges": {
+      "type": "merge-conflict"
     }
   }
 }

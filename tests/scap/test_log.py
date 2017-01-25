@@ -12,6 +12,7 @@ from scap import log
 
 
 class FilterTest(unittest.TestCase):
+
     def setUp(self):
         self.root_logger = logging.getLogger('A')
         self.root_logger.setLevel(logging.INFO)
@@ -122,6 +123,7 @@ class FilterTest(unittest.TestCase):
 
 
 class JSONFormatterTest(unittest.TestCase):
+
     def test_make_record(self):
         data = dedent("""
             {
@@ -224,6 +226,19 @@ class JSONFormatterTest(unittest.TestCase):
         self.assertNotIn('exc_info', parsed)
         self.assertIn('exc_text', parsed)
         self.assertIn('RuntimeError: fail fail fail', parsed['exc_text'])
+
+
+class ProgressReporterTest(unittest.TestCase):
+
+    def test_progress(self):
+        reporter = log.ProgressReporter(name='TestProgress', expect=100)
+        reporter.start()
+        for i in range(0, 100):
+            reporter.add_success()
+        reporter.finish()
+
+        self.assertEqual(reporter.percent_complete, 100)
+        self.assertEqual(reporter.ok + reporter.failed, reporter.done)
 
 
 if __name__ == '__main__':

@@ -95,6 +95,16 @@ Available configuration variables
 |                            |                           | deployment within each server   |
 |                            |                           | group.                          |
 +----------------------------+---------------------------+---------------------------------+
+| ``failure_limit``          | 1                         | (*Int* or *String*) (*Optional*)|
+| ``[group]_failure_limit``  |                           | Number or percentage of group   |
+|                            |                           | targets that are allowed to     |
+|                            |                           | fail without triggering a       |
+|                            |                           | rollback. Percentages should be |
+|                            |                           | suffixed with '%' (e.g. 10%).   |
+|                            |                           |                                 |
+|                            |                           | A global and/or group specific  |
+|                            |                           | configuration may be provided.  |
++----------------------------+---------------------------+---------------------------------+
 | ``git_submodules``         | False                     | (*Boolean*) (*Optional*)        |
 |                            |                           | Whether submodules need         |
 |                            |                           | to be fetched and               |
@@ -131,9 +141,17 @@ Available configuration variables
 |                            |                           | for accepting TCP               |
 |                            |                           | connections.                    |
 +----------------------------+---------------------------+---------------------------------+
-| ``batch_size``             | 80                        | (*String*) Parallelism          |
-| ``[stage]_batch_size``     |                           | of a stage of deployment.       |
-|                            |                           | Number of hosts to              |
+| ``tags_to_keep``           | 20                        | (*Int*) (*Optional*)            |
+|                            |                           | Number of tags to keep in the   |
+|                            |                           | deployment server repo. Git     |
+|                            |                           | appears to max-out at 999.      |
+|                            |                           | Scap thinks 20 tags on the      |
+|                            |                           | deployment server is quite      |
+|                            |                           | enough.                         |
++----------------------------+---------------------------+---------------------------------+
+| ``batch_size``             | 80                        | (*Int*) (*Optional*)            |
+| ``[stage]_batch_size``     |                           | Parallelism  of a stage of      |
+|                            |                           | deployment Number of hosts to   |
 |                            |                           | execute a particular            |
 |                            |                           | deployment stage on             |
 |                            |                           | simultaniously. This            |

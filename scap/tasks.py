@@ -41,13 +41,14 @@ DEFAULT_RSYNC_ARGS = [
 ]
 
 
-def check_canaries(canaries, threshold, logstash, delay, cores=2):
+def check_canaries(canaries, service, threshold, logstash, delay, cores=2):
     """
     Run canary checks on test application servers.
 
     :param canaries: list, canaries to check
     :param threshold: float, average log multiple at which to fail
-    :param logstash: str, logstash server
+    :param service: string, name of the service to check
+    :param logstash: string, logstash server
     :param verbose: bool, verbose output
     :param delay: float, time between deploy and now
     """
@@ -58,7 +59,12 @@ def check_canaries(canaries, threshold, logstash, delay, cores=2):
     # Build Check command list
     for canary in canaries:
         check_name = 'Logstash Error rate for {}'.format(canary)
+
+        # Split canary name at first "." since domain isn't in logs
+        canary = canary.split('.')[0]
+
         cmd = ['/usr/local/bin/logstash_checker.py',
+               '--service-name', service,
                '--host', canary,
                '--fail-threshold', threshold,
                '--delay', delay,
@@ -210,7 +216,7 @@ def compile_wikiversions(source_tree, cfg, logger=None):
             errno.ENOENT, 'Failed to create php wikiversions', tmp_php_file)
 
     os.rename(tmp_php_file, php_file)
-    os.chmod(php_file, 0664)
+    os.chmod(php_file, 0o664)
     logger.info('Compiled %s to %s', json_file, php_file)
 
 
@@ -290,7 +296,7 @@ def purge_l10n_cache(version, cfg):
     purge.command(
         'sudo -u mwdeploy -n -- /bin/rm '
         '--recursive --force %s/*' % deployed_l10n)
-    purge.progress('l10n purge').run()
+    purge.progress(log.reporter('l10n purge', cfg['fancy_progress'])).run()
 
 
 @utils.log_context('sync_master')
@@ -411,7 +417,8 @@ def sync_wikiversions(hosts, cfg):
             'sudo -u mwdeploy -n -- /usr/bin/rsync -l '
             '%(master_rsync)s::common/wikiversions*.{json,php} '
             '%(deploy_dir)s' % cfg)
-        return rsync.progress('sync_wikiversions').run()
+        return rsync.progress(
+            log.reporter('sync_wikiversions', cfg['fancy_progress'])).run()
 
 
 @utils.log_context('update_l10n_cdb')
@@ -467,7 +474,7 @@ def update_l10n_cdb(cache_dir, cdb_file, trust_mtime=False, logger=None):
             raise IOError(errno.ENOENT, 'Failed to create CDB', tmp_cdb_path)
 
         # Move temp file over old file
-        os.chmod(tmp_cdb_path, 0664)
+        os.chmod(tmp_cdb_path, 0o664)
         os.rename(tmp_cdb_path, cdb_path)
         # Set timestamp to match upstream json
         os.utime(cdb_path, (json_mtime, json_mtime))
@@ -642,7 +649,8 @@ def restart_hhvm(hosts, cfg, batch_size=1):
         restart.command(
             'sudo -u mwdeploy -n -- %s hhvm-restart' %
             os.path.join(cfg['bin_dir'], 'scap'))
-        return restart.progress('restart_hhvm').run(batch_size=batch_size)
+        reporter = log.reporter('restart_hhvm', cfg['fancy_progress'])
+        return restart.progress(reporter).run(batch_size=batch_size)
 
 
 def refresh_cdb_json_files(in_dir, pool_size, verbose):
@@ -729,7 +737,7 @@ def refresh_cdb_json_file(file_path):
 
     tmp_json.write(json_data)
     tmp_json.close()
-    os.chmod(tmp_json.name, 0644)
+    os.chmod(tmp_json.name, 0o644)
     shutil.move(tmp_json.name, upstream_json)
     logger.debug('Updated: {}'.format(upstream_json))
 

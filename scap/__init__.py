@@ -12,20 +12,20 @@ from .main import (
     CompileWikiversions,
     HHVMGracefulAll,
     MWVersionsInUse,
-    PurgeL10nCache,
     RebuildCdbs,
     RefreshCdbJsonFiles,
     RestartHHVM,
     Scap,
     SecurityPatchCheck,
     SyncCommon,
-    SyncDir,
     SyncFile,
     SyncL10n,
     SyncMaster,
     SyncWikiversions,
     UpdateL10n,
 )
+
+from .version import __version__
 
 from .deploy import (
     Deploy,
@@ -40,19 +40,18 @@ __all__ = [
     'DeployLog',
     'HHVMGracefulAll',
     'MWVersionsInUse',
-    'PurgeL10nCache',
     'RebuildCdbs',
     'RefreshCdbJsonFiles',
     'RestartHHVM',
     'Scap',
     'SecurityPatchCheck',
     'SyncCommon',
-    'SyncDir',
     'SyncFile',
     'SyncL10n',
     'SyncMaster',
     'SyncWikiversions',
     'UpdateL10n',
+    '__version__',
 ]
 
 
@@ -71,16 +70,15 @@ any((
     DeployLog,
     HHVMGracefulAll,
     MWVersionsInUse,
-    PurgeL10nCache,
     RebuildCdbs,
     RefreshCdbJsonFiles,
     RestartHHVM,
     Scap,
     SecurityPatchCheck,
     SyncCommon,
-    SyncDir,
     SyncFile,
     SyncMaster,
     SyncL10n,
     SyncWikiversions,
-    UpdateL10n))  # Ignore unused import warning
+    UpdateL10n,
+    __version__))  # Ignore unused import warning

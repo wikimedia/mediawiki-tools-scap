@@ -80,9 +80,13 @@ class TargetsTest(unittest.TestCase):
         target_obj = targets.get(dsh_file, cfg, extra_paths=[dsh_path])
         deploy_groups = target_obj.groups
 
-        self.assertEqual(4, len(deploy_groups.keys()))
-        self.assertEqual(['canary1', 'canary2', 'default1', 'default2'],
-                         deploy_groups.keys())
+        self.assertEqual(2, len(deploy_groups))
+        self.assertIn('default', deploy_groups)
+        self.assertIn('canary', deploy_groups)
+        self.assertIsInstance(deploy_groups['default'], targets.DeployGroup)
+        self.assertIsInstance(deploy_groups['canary'], targets.DeployGroup)
+        self.assertEqual(deploy_groups['default'].size, 2)
+        self.assertEqual(deploy_groups['canary'].size, 2)
 
     def test_dsh_target_group_size(self):
         dsh_file = 'test-targets'
@@ -98,35 +102,13 @@ class TargetsTest(unittest.TestCase):
         target_obj = targets.get(dsh_file, cfg, extra_paths=[dsh_path])
         deploy_groups = target_obj.groups
 
-        # The canary group, containing 3 hosts in this case, should have been
-        # split into 2 distinct groups according to the group_size of 2
-        self.assertEqual(3, len(deploy_groups.keys()))
-        self.assertEqual(['canary1', 'canary2', 'default'],
-                         deploy_groups.keys())
-        self.assertEqual(2, len(deploy_groups['canary1']))
-        self.assertEqual(1, len(deploy_groups['canary2']))
-        self.assertEqual(0, len(set(deploy_groups['canary1']) &
-                                set(deploy_groups['canary2'])))
-
-    def test_dsh_target_group_size_ignored(self):
-        dsh_file = 'test-targets'
-        canary_test_targets = 'canary_test-targets'
-
-        dsh_path = os.path.join(os.path.dirname(__file__), 'targets-test')
-
-        cfg = {'server_groups': 'canary,default',
-               'canary_group_size': 4,
-               dsh_file: dsh_file,
-               canary_test_targets: canary_test_targets}
-
-        target_obj = targets.get(dsh_file, cfg, extra_paths=[dsh_path])
-        deploy_groups = target_obj.groups
-
-        # The group_size is ignored when greater than the total number of
-        # hosts in the group
-        self.assertEqual(2, len(deploy_groups.keys()))
-        self.assertEqual('canary', deploy_groups.keys()[0])
-        self.assertEqual(3, len(deploy_groups['canary']))
+        self.assertEqual(2, len(deploy_groups))
+        self.assertIn('default', deploy_groups)
+        self.assertIn('canary', deploy_groups)
+        self.assertIsInstance(deploy_groups['default'], targets.DeployGroup)
+        self.assertIsInstance(deploy_groups['canary'], targets.DeployGroup)
+        self.assertEqual(deploy_groups['canary'].size, 2)
+        self.assertNotEqual(deploy_groups['default'].size, 2)
 
     def test_limit_target_hosts(self):
         tests = [(self._gth('*'), sorted(self.hosts)),
@@ -171,6 +153,46 @@ class TargetsTest(unittest.TestCase):
 
     def _gth(self, x):
         return sorted(targets.limit_target_hosts(x, self.hosts))
+
+
+class DeployGroupTest(unittest.TestCase):
+    targets = ['target1', 'target2', 'target3']
+
+    def test_size__defaults_to_length_of_targets(self):
+        group = targets.DeployGroup('foo', self.targets)
+        self.assertEqual(group.size, len(self.targets))
+
+    def test_failure_limit__defaults_to_one(self):
+        group = targets.DeployGroup('foo', self.targets)
+        self.assertEqual(group.failure_limit, 1)
+
+    def test_failure_limit__accepts_int(self):
+        group = targets.DeployGroup('foo', self.targets, failure_limit=2)
+        self.assertEqual(group.failure_limit, 2)
+
+    def test_failure_limit__converts_and_floors_percentage(self):
+        group = targets.DeployGroup('foo', self.targets, failure_limit='75%')
+        self.assertEqual(group.failure_limit, 2)
+
+        group = targets.DeployGroup('foo', self.targets, failure_limit='33.4%')
+        self.assertEqual(group.failure_limit, 1)
+
+    def test_subgroups__splits_and_labels_targets_according_to_size(self):
+        group = targets.DeployGroup('foo', self.targets, 2)
+        subgroups = list(group.subgroups())
+        self.assertEqual(subgroups, [('foo1', ['target1', 'target2']),
+                                     ('foo2', ['target3'])])
+
+    def test_subgroups__with_no_size_maintains_original_group(self):
+        group = targets.DeployGroup('foo', self.targets)
+        subgroups = list(group.subgroups())
+        self.assertEqual(subgroups, [('foo', self.targets)])
+
+    def test_subgroups__with_excluded_target(self):
+        group = targets.DeployGroup('foo', self.targets, 2)
+        group.exclude('target2')
+        subgroups = list(group.subgroups())
+        self.assertEqual(subgroups, [('foo', ['target1', 'target3'])])
 
 
 if __name__ == '__main__':

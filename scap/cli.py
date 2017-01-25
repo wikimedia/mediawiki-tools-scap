@@ -11,6 +11,7 @@ import sys
 import time
 import scap.plugins
 
+from scap.terminal import term
 from . import arg
 from . import config
 from . import log
@@ -106,7 +107,8 @@ class Application(object):
                                   ' '.join(extra_args))
 
         if hasattr(args, 'message'):
-            args.message = ' '.join(args.message) or '(no message)'
+            args.message = (' '.join(args.message) or
+                            '(no justification provided)')
 
         return args, extra_args
 
@@ -166,9 +168,18 @@ class Application(object):
 
         :returns: exit status
         """
-        self.get_logger().warn('Unhandled error:', exc_info=True)
-        self.get_logger().error(
-            '%s failed: <%s> %s', self.program_name, type(ex).__name__, ex)
+        logger = self.get_logger()
+        exception_type = type(ex).__name__
+        backtrace = True
+        message = '%s failed: <%s> %s'
+
+        if isinstance(ex, utils.LockFailedError):
+            backtrace = False
+
+        if backtrace:
+            logger.warn('Unhandled error:', exc_info=True)
+
+        logger.error(message, self.program_name, exception_type, ex)
         return 70
 
     def _before_exit(self, exit_status):
@@ -180,6 +191,12 @@ class Application(object):
 
         :returns: exit status
         """
+        try:
+            term.reset_colors()
+            term.close()
+        except Exception:
+            pass
+
         return exit_status
 
     def _run_as(self, user):
@@ -231,7 +248,8 @@ class Application(object):
         logging.basicConfig(
             level=logging.INFO,
             format=log.CONSOLE_LOG_FORMAT,
-            datefmt='%H:%M:%S')
+            datefmt='%H:%M:%S',
+            stream=sys.stdout)
 
         # Silence this noisy logger early
         logging.getLogger('urllib3').setLevel(logging.WARNING)
@@ -241,15 +259,21 @@ class Application(object):
 
         exit_status = 0
         try:
+            app = Application.factory(argv)
+
             if os.geteuid() == 0:
                 raise SystemExit('Scap should not be run as root')
 
-            app = Application.factory(argv)
+            if len(argv) == 2 and (argv[1] == '--version' or argv[1] == '-V'):
+                show_version()
 
             # Let each application handle `extra_args`
             app.arguments, app.extra_arguments = app._process_arguments(
                 app.arguments,
                 app.extra_arguments)
+
+            if app.arguments.show_version is True:
+                show_version()
 
             app._load_config()
             app._setup_loggers()
@@ -285,6 +309,11 @@ class Application(object):
 
         # Exit
         sys.exit(exit_status)
+
+
+def show_version():
+    print(scap.__version__)
+    sys.exit(0)
 
 
 def argument(*args, **kwargs):

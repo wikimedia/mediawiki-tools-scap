@@ -16,8 +16,11 @@ from . import utils
 DEFAULT_CONFIG = {
     'bin_dir': (str, '/srv/deployment/scap/scap/bin'),
     'canary_threshold': (float, 10.0),
+    'canary_service': (str, 'mediawiki'),
     'canary_wait_time': (int, 20),
     'deploy_dir': (str, '/srv/mediawiki'),
+    'failure_limit': (str, '0%'),
+    'fancy_progress': (bool, False),
     'stage_dir': (str, '/srv/mediawiki-staging'),
     'lock_file': (str, '/var/lock/scap'),
     'log_json': (bool, False),
@@ -47,6 +50,7 @@ DEFAULT_CONFIG = {
     'config_deploy': (bool, False),
     'nrpe_dir': (str, '/etc/nagios/nrpe.d'),
     'service_timeout': (float, 120.0),
+    'tags_to_keep': (int, 20),
     'perform_checks': (bool, True),
     'patch_path': (str, None),
 }

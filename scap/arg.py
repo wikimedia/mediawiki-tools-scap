@@ -39,6 +39,7 @@ ATTR_SUBCOMMAND = '_app_subcmd_name'
 
 
 class _ScapAutoCompleteAction(argparse.Action):
+
     def __init__(self,
                  option_strings,
                  dest='_completion',
@@ -87,6 +88,7 @@ class ScapArgParser(argparse.ArgumentParser):
 
     Created to allow for easier, scripted, autocompletion
     """
+
     def __init__(self, *args, **kwargs):
         self._autocomplete_options = []
         if 'conflict_handler' not in kwargs:
@@ -121,8 +123,8 @@ class ScapArgParser(argparse.ArgumentParser):
                 action_nargs = (1 if action.nargs is None else action.nargs)
                 if action_nargs == 1 and action.choices:
                     valid_words = set()
-                    valid_words.update([c+' ' for c in action.choices])
-                if action_nargs == i+1:
+                    valid_words.update([c + ' ' for c in action.choices])
+                if action_nargs == i + 1:
                     word_is_optarg = True
                     types.append(action.type)
                     break
@@ -130,12 +132,12 @@ class ScapArgParser(argparse.ArgumentParser):
                     positionals_valid = False
                     types.append(action.type)
                     if action.choices:
-                        valid_words.update([c+' ' for c in action.choices])
+                        valid_words.update([c + ' ' for c in action.choices])
                     break
         if not word_is_optarg:
             if '--' not in words[:-1]:
                 for a in self._actions:
-                    valid_words.update([o+' ' for o in a.option_strings])
+                    valid_words.update([o + ' ' for o in a.option_strings])
             if positionals_valid:
                 positionals = self._get_positional_actions()
                 for action in positionals:
@@ -165,7 +167,7 @@ class ScapArgParser(argparse.ArgumentParser):
                     if action.type is not None:
                         types.append(action.type)
                     if choices:
-                        valid_words.update([c+' ' for c in choices])
+                        valid_words.update([c + ' ' for c in choices])
                     elif type(action.default) is str:
                         valid_words.add("'%s'" % action.default)
                     elif type(action.default) is list:
@@ -177,7 +179,7 @@ class ScapArgParser(argparse.ArgumentParser):
         if int in types:
             if re.match(r'\d*$', words[-1]):
                 valid_words.update(['%s%d' % (words[-1], j)
-                                   for j in xrange(10)])
+                                    for j in xrange(10)])
 
         for word in words:
             valid_words.discard(word.strip())
@@ -273,6 +275,8 @@ def get_global_parser():
         type=lambda v: tuple(v.split(':')),
         help='Set a configuration value',
         metavar='<name>:<value>')
+    group.add_argument('-V', action='store_true', dest='show_version',
+                       help='Print scap version.')
     group.add_argument(
         '-v', '--verbose', action='store_const',
         const=logging.DEBUG, default=default_loglevel,

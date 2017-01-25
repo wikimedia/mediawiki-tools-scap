@@ -32,16 +32,22 @@ class AbstractSync(cli.Application):
     @cli.argument('message', nargs='*', help='Log message for SAL')
     def main(self, *extra_args):
         """Perform a sync operation to the cluster."""
-        print utils.logo()
+        print(utils.logo())
         self._assert_auth_sock()
+
+        self.include = None
 
         with utils.lock(self.config['lock_file'], self.arguments.message):
             self._check_sync_flag()
             self._before_cluster_sync()
+            self._git_repo()
             self._sync_masters()
 
+            full_target_list = self._get_target_list()
+
             # Run canary checks
-            canaries = self._get_canary_list()
+            canaries = [node for node in self._get_canary_list()
+                        if node in full_target_list]
             if not self.arguments.force:
                 with log.Timer('sync-check-canaries', self.get_stats()):
                     sync_cmd = self._proxy_sync_command()
@@ -49,7 +55,10 @@ class AbstractSync(cli.Application):
                     update_canaries = ssh.Job(
                         canaries, user=self.config['ssh_user'])
                     update_canaries.command(sync_cmd)
-                    update_canaries.progress('check-canaries')
+                    update_canaries.progress(
+                        log.reporter(
+                            'check-canaries',
+                            self.config['fancy_progress']))
                     succeeded, failed = update_canaries.run()
                     if failed:
                         self.get_logger().warning(
@@ -61,6 +70,7 @@ class AbstractSync(cli.Application):
                 self.get_logger().info('Waiting for canary traffic...')
                 time.sleep(wait_time)
                 canary_checks = {
+                    'service': self.config['canary_service'],
                     'threshold': self.config['canary_threshold'],
                     'logstash': self.config['logstash_host'],
                     'delay': wait_time,
@@ -72,10 +82,12 @@ class AbstractSync(cli.Application):
 
                 if failed:
                     raise RuntimeError(
-                        '%d test canaries had check failures', failed)
+                        '%d test canaries had check failures '
+                        '(rerun with --force to override this check)' % failed)
 
             # Update proxies
-            proxies = self._get_proxy_list()
+            proxies = [node for node in self._get_proxy_list()
+                       if node in full_target_list]
             with log.Timer('sync-proxies', self.get_stats()):
                 sync_cmd = self._proxy_sync_command()
                 # Proxies should always use the current host as their sync
@@ -83,7 +95,10 @@ class AbstractSync(cli.Application):
                 sync_cmd.append(socket.getfqdn())
                 update_proxies = ssh.Job(proxies, user=self.config['ssh_user'])
                 update_proxies.command(sync_cmd)
-                update_proxies.progress('sync-proxies')
+                update_proxies.progress(
+                    log.reporter(
+                        'sync-proxies',
+                        self.config['fancy_progress']))
                 succeeded, failed = update_proxies.run()
                 if failed:
                     self.get_logger().warning(
@@ -93,14 +108,17 @@ class AbstractSync(cli.Application):
             # Update apaches
             with log.Timer('sync-apaches', self.get_stats()):
                 update_apaches = ssh.Job(
-                    self._get_target_list(), user=self.config['ssh_user'])
+                    full_target_list, user=self.config['ssh_user'])
                 update_apaches.exclude_hosts(proxies)
                 update_apaches.exclude_hosts([socket.getfqdn()])
                 if not self.arguments.force:
                     update_apaches.exclude_hosts(canaries)
                 update_apaches.shuffle()
                 update_apaches.command(self._apache_sync_command(proxies))
-                update_apaches.progress('sync-apaches')
+                update_apaches.progress(
+                    log.reporter(
+                        'sync-apaches',
+                        self.config['fancy_progress']))
                 succeeded, failed = update_apaches.run()
                 if failed:
                     self.get_logger().warning(
@@ -167,7 +185,8 @@ class AbstractSync(cli.Application):
             update_masters = ssh.Job(masters, user=self.config['ssh_user'])
             update_masters.exclude_hosts([socket.getfqdn()])
             update_masters.command(self._master_sync_command())
-            update_masters.progress('sync-masters')
+            update_masters.progress(
+                log.reporter('sync-masters', self.config['fancy_progress']))
             succeeded, failed = update_masters.run()
             if failed:
                 self.get_logger().warning(
@@ -196,6 +215,33 @@ class AbstractSync(cli.Application):
         :param proxies: List of proxy hostnames
         """
         return self._proxy_sync_command() + proxies
+
+    def _git_repo(self):
+        """Flatten deploy directory into shared git repo."""
+        includes = None
+
+        if self.include is not None:
+            includes = []
+
+            parts = self.include.split('/')
+            for i in range(1, len(parts)):
+                # Include parent directories in sync command or the default
+                # exclude will block them and by extension block the target
+                # file.
+                includes.append('/'.join(parts[:i]))
+
+            includes.append(self.include)
+
+        tasks.sync_common(
+            self.config,
+            include=includes,
+            verbose=self.verbose
+        )
+
+        self.get_logger().info('Setting up deploy git directory')
+        cmd = '{} deploy-mediawiki -v "{}"'.format(
+            self.get_script_path(), self.arguments.message)
+        utils.sudo_check_call('mwdeploy', cmd)
 
     def _after_cluster_sync(self):
         pass
@@ -246,27 +292,7 @@ class MWVersionsInUse(cli.Application):
         else:
             output = [str(version) for version in versions.keys()]
 
-        print ' '.join(output)
-        return 0
-
-
-@cli.command('l10n-purge')
-class PurgeL10nCache(cli.Application):
-    """Purge the localization cache for an inactive MediaWiki version."""
-
-    @cli.argument('--version', type=arg.is_version,
-                  help='MediaWiki version (eg 1.27.0-wmf.16)')
-    def main(self, *extra_args):
-        if self.arguments.version.startswith('php-'):
-            self.arguments.version = self.arguments.version[4:]
-
-        if self.arguments.version in self.active_wikiversions():
-            self.get_logger().error(
-                'Version %s is in use' % self.arguments.version)
-            return 1
-
-        tasks.purge_l10n_cache(self.arguments.version, self.config)
-        self.announce('Purged l10n cache for %s' % self.arguments.version)
+        print(' '.join(output))
         return 0
 
 
@@ -329,6 +355,7 @@ class Scap(AbstractSync):
     #. Compile wikiversions.json to php in deploy directory
     #. Update l10n files in staging area
     #. Compute git version information
+    #. Commit all changes to local git repo in deploy directory
     #. Ask scap masters to sync with current master
     #. Ask scap proxies to sync with master server
     #. Ask apaches to sync with fastest rsync server
@@ -352,9 +379,6 @@ class Scap(AbstractSync):
         tasks.check_valid_syntax(
             '%(stage_dir)s/wmf-config' % self.config,
             '%(stage_dir)s/multiversion' % self.config)
-
-        # Sync deploy directory on localhost with staging area
-        tasks.sync_common(self.config)
 
         # Bug 63659: Compile deploy_dir/wikiversions.json to cdb
         cmd = '{} wikiversions-compile'.format(self.get_script_path())
@@ -381,7 +405,10 @@ class Scap(AbstractSync):
             rebuild_cdbs.command(
                 'sudo -u mwdeploy -n -- %s cdb-rebuild' %
                 self.get_script_path())
-            rebuild_cdbs.progress('scap-cdb-rebuild')
+            rebuild_cdbs.progress(
+                log.reporter(
+                    'scap-cdb-rebuild',
+                    self.config['fancy_progress']))
             succeeded, failed = rebuild_cdbs.run()
             if failed:
                 self.get_logger().warning(
@@ -485,60 +512,15 @@ class SyncCommon(cli.Application):
         return 0
 
 
-@cli.command('sync-dir')
-class SyncDir(AbstractSync):
-    """Sync a directory to the cluster."""
-
-    @cli.argument('--force', action='store_true', help='Skip canary checks')
-    @cli.argument('dir', help='Directory to sync', type=arg.is_dir)
-    @cli.argument('message', nargs='*', help='Log message for SAL')
-    def main(self, *extra_args):
-        return super(SyncDir, self).main(*extra_args)
-
-    def _before_cluster_sync(self):
-        # assert file exists
-        abspath = os.path.join(
-            self.config['stage_dir'], self.arguments.dir)
-        if not os.path.isdir(abspath):
-            raise IOError(errno.ENOENT, 'Directory not found', abspath)
-
-        relpath = os.path.relpath(abspath, self.config['stage_dir'])
-        self.include = '%s/***' % relpath
-        tasks.check_valid_syntax(abspath)
-
-    def _proxy_sync_command(self):
-        cmd = [self.get_script_path(), 'pull', '--no-update-l10n']
-
-        if '/' in self.include:
-            parts = self.include.split('/')
-            for i in range(1, len(parts)):
-                # Include parent directories in sync command or the default
-                # exclude will block them and by extension block the target
-                # file.
-                cmd.extend(['--include', '/'.join(parts[:i])])
-
-        cmd.extend(['--include', self.include])
-        if self.verbose:
-            cmd.append('--verbose')
-        return cmd
-
-    def _after_lock_release(self):
-        self.announce(
-            'Synchronized %s: %s (duration: %s)',
-            self.arguments.dir, self.arguments.message,
-            utils.human_duration(self.get_duration()))
-        self.get_stats().increment('deploy.sync-dir')
-        self.get_stats().increment('deploy.all')
-
-
+@cli.command('sync-dir', help=argparse.SUPPRESS)
 @cli.command('sync-file')
 class SyncFile(AbstractSync):
-    """Sync a specific file to the cluster."""
+    """Sync a specific file/directory to the cluster."""
 
     @cli.argument('--force', action='store_true', help='Skip canary checks')
     @cli.argument('--beta-only-change', action='store_true', dest='beta_only',
                   help='Sync a config file that only affects beta cluster')
-    @cli.argument('file', help='File to sync')
+    @cli.argument('file', help='File/directory to sync')
     @cli.argument('message', nargs='*', help='Log message for SAL')
     def main(self, *extra_args):
         return super(SyncFile, self).main(*extra_args)
@@ -547,8 +529,8 @@ class SyncFile(AbstractSync):
         # assert file exists
         abspath = os.path.join(
             self.config['stage_dir'], self.arguments.file)
-        if not os.path.isfile(abspath):
-            raise IOError(errno.ENOENT, 'File not found', abspath)
+        if not os.path.exists(abspath):
+            raise IOError(errno.ENOENT, 'File/directory not found', abspath)
         # Warn when syncing a symlink.
         if os.path.islink(abspath):
             self.get_logger().warning(
@@ -563,12 +545,11 @@ class SyncFile(AbstractSync):
                     errno.EPERM,
                     '--beta-only-change not allowed for PHP files', abspath)
 
-        self.include = os.path.relpath(abspath, self.config['stage_dir'])
-        if abspath.endswith(('.php', '.inc', '.phtml', '.php5')):
-            subprocess.check_call('/usr/bin/php -l %s' % abspath, shell=True)
-            utils.check_php_opening_tag(abspath)
-        elif abspath.endswith('.json'):
-            utils.check_valid_json_file(abspath)
+        relpath = os.path.relpath(abspath, self.config['stage_dir'])
+        if os.path.isdir(relpath):
+            relpath = '%s/***' % relpath
+        self.include = relpath
+        tasks.check_valid_syntax(abspath)
 
     def _proxy_sync_command(self):
         cmd = [self.get_script_path(), 'pull', '--no-update-l10n']
@@ -653,7 +634,10 @@ class SyncL10n(AbstractSync):
                       self.get_script_path(),
                       self.arguments.version)
             rebuild_cdbs.command(cdb_cmd)
-            rebuild_cdbs.progress('scap-cdb-rebuild')
+            rebuild_cdbs.progress(
+                log.reporter(
+                    'scap-cdb-rebuild',
+                    self.config['fancy_progress']))
             succeeded, failed = rebuild_cdbs.run()
             if failed:
                 self.get_logger().warning(
@@ -692,8 +676,11 @@ class SyncWikiversions(AbstractSync):
             err_msg = 'l10n cache missing for %s' % version
             utils.check_file_exists(cache_file, err_msg)
 
+        # this is here for git_repo
+        self.include = '/wikiversions*.{json,php}'
         with utils.lock(self.config['lock_file'], self.arguments.message):
             self._check_sync_flag()
+            self._git_repo()
             self._sync_masters()
             mw_install_hosts = self._get_target_list()
             tasks.sync_wikiversions(mw_install_hosts, self.config)

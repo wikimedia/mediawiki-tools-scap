@@ -25,7 +25,6 @@ import struct
 import subprocess
 import sys
 import tempfile
-import textwrap
 import yaml
 
 from . import ansi
@@ -229,6 +228,19 @@ def get_real_username():
         # blows up. Use the username matching the effective user id
         # instead.
         return get_username()
+
+
+def get_real_user_fullname():
+    """Return the first entry in GECOS field for real user."""
+    return get_user_fullname(get_real_username())
+
+
+def get_user_fullname(name=None):
+    """Return the first entry in GECOS field for name."""
+    if name is None:
+        name = get_username()
+
+    return pwd.getpwnam(name).pw_gecos.split(',')[0]
 
 
 def get_env_specific_filename(path, env=None):
@@ -599,7 +611,7 @@ def check_php_opening_tag(path):
             '%s has content before opening <?php tag' % path)
 
 
-def logo(color=True, **colors):
+def logo(eyes=None, color=True, **colors):
     """
     Get the scap logo.
 
@@ -624,11 +636,18 @@ def logo(color=True, **colors):
     .. [#] http://www.oocities.org/spunk1111/farm.htm#pig
     .. [#] http://www.jave.de/figlet/fonts/details/speed.html
     """
+
+    if not eyes:
+        eyes = 'OO'
+
+    eyes = eyes[:2]
+
     pallet = {
         'pig': ansi.reset() + ansi.esc(ansi.FG_MAGENTA, ansi.BRIGHT),
         'nose': ansi.reset() + ansi.esc(ansi.FG_MAGENTA, ansi.BRIGHT),
         'mouth': ansi.reset() + ansi.esc(ansi.FG_MAGENTA, ansi.BRIGHT),
         'goggles': ansi.reset() + ansi.esc(ansi.FG_YELLOW),
+        'eyes': eyes.encode('utf-8'),
         'brand': ansi.reset(),
         'hoof': ansi.reset() + ansi.esc(ansi.FG_BLUE),
         'wing': ansi.reset() + ansi.esc(ansi.FG_CYAN),
@@ -653,7 +672,7 @@ def logo(color=True, **colors):
         '''%(speed)s___%(text)s____''',
         '''%(speed)s__%(text)s____%(reset)s\n''',
 
-        '''    %(pig)s_%(goggles)sOO≣=-%(pig)s ''',
+        '''    %(pig)s_%(goggles)s%(eyes)s≣=-%(pig)s ''',
         ''' %(wing)s︶%(pig)s %(brand)sᴹw%(pig)s ⎞_§%(reset)s ''',
         '''%(speed)s______%(text)s  ___\ ___\ ,\__ \/ __ \%(reset)s\n''',
         '''   %(pig)s(%(nose)s∞%(pig)s)%(mouth)s_,''',
@@ -665,47 +684,6 @@ def logo(color=True, **colors):
         '''  %(hoof)s«%(pig)s_/%(reset)s''',
         ''' %(signature)sjgs/bd808%(reset)s''',
         '''                %(text)s/_/%(reset)s\n''',
-    ])
-
-
-def scap_say(words=None, width=None):
-    """Make the scap pig say stuff."""
-    if not words:
-        words = fortune()
-
-    if not width:
-        width = min([50, os.environ.get('COLUMNS', 50)])
-
-    txt_width = width - 5
-    box_width = width - 2
-
-    if len(words) > txt_width:
-        words = textwrap.wrap(words, txt_width)
-    else:
-        words = [words]
-
-    lines = [' {:-^{width}}\n/{:^{width}}\\'.format('', '', width=box_width)]
-    lines += ['|{:^{width}}|'.format(word, width=box_width) for word in words]
-
-    lines.append('\{:^{width}}/\n {:-^{width}}'.format('', '',
-                                                       width=box_width))
-    lines.append('{:^10}'.format('\\'))
-    lines.append('{:^11}'.format('\\'))
-    lines.append('{:^13}'.format('\\'))
-    lines.append(logo())
-    return '\n'.join(lines)
-
-
-def fortune():
-    """Get a random fortune."""
-    return random.choice([
-        'S.C.A.P.: silencing communist american perpetrators',
-        'S.C.A.P.: someone can always pontificate',
-        'S.C.A.P.: scap can absolutely pollute',
-        'S.C.A.P.: sync cars and planes',
-        'S.C.A.P.: scatter crap around production',
-        'S.C.A.P.: succulent cacti are plentiful',
-        'S.C.A.P.: sorcerer\'s cats are powerful',
     ])
 
 
@@ -795,7 +773,7 @@ def move_symlink(source, dest):
     mkdir_p(dest_dir)
 
     with cd(dest_dir):
-        if os.path.exists(rdest):
+        if os.path.lexists(rdest):
             os.unlink(rdest)
 
         os.symlink(rsource, rdest)
