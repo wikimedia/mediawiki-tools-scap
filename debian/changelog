@@ -1,3 +1,66 @@
+scap (3.5.0-1) unstable; urgency=low
+
+  * MediaWiki: Old stub entry points for scap (e.g., sync-file, sync-dir,
+    mwversionsinuse, etc) are gone. Formerly old binstubs simply exited with a
+    non-zero exit code. Subcommands are now the only way to scap.
+
+  * MediaWiki: the canary logstash check for MediaWiki deploys now supports an
+    explicit service name (via the `canary_service` configuration variable).
+    This will allow us to monitor HHVM errors as well as MediaWiki errors on
+    the canary hosts before a deployment. (Fixes T154646, T142784)
+
+  * Scap3: Scap's rollback behavior has been greatly improved. Scap supports a
+    global `failure_limit` and a per-group `failure_limit` -- if a deployment
+    exceeds the number or percentage of failures specified by this limit a
+    deploy will fail and you will be prompted to rollback. Also, if you opt to
+    *not* continue a deployment on remaining deploy groups, you will receive
+    the option to rollback. (Fixes T149008)
+
+  * Scap3: This scap release has some rollback logic fixes. First, if there is
+    initial ssh failure for a host, scap will no longer attempt a rollback on
+    that host (since the same ssh failure will likely cause a rollback
+    failure). Next, all previously deployed groups of servers will now be
+    rolled-back -- not just the group of servers that had failures. (Fixes
+    T150267 T145460)
+
+  * MediaWiki: /srv/mediawiki is now a flattened git directory. This is the
+    first step towards moving MediaWiki deployments to Scap3. This is not a
+    change for deployers, but is a needed internal change.
+
+  * MediaWiki: `scap sync-file` and `scap sync-dir` are the same command
+    internally. `scap sync-dir` is deprecated.
+
+  * MediaWiki: scap now checks if proxies and canaries are listed among the
+    pooled servers (in mediawiki-installation) before attempting to deploy to
+    those hosts.
+
+  * MediaWiki/Scap3: A fancier progress bar is available. Simply set
+    `fancy_progress: True` in your config file to use it.
+
+  * MediaWiki: The `scap l10n-purge` subcommand is no more. Removed as it was
+    largely unused and was broken without notice for quite some time.
+
+  * Scap3: Old scap-created tags will now be removed from the deployment host
+    as part of the deployment. The number of tags to keep is controlled by the
+    `tags_to_keep` configuration variable. By default, scap keeps 20 tags.
+
+  * Scap3: in a shameless attempt to promote the use of messages for the
+    Server Admin Log for non-MediaWiki deployments the default Server Admin
+    Log message has been changed from "(no message)" to "(no justification
+    provided)"
+
+  * Internally, scap now uses wildly experimental Docker tests for CI and
+    local testing. All tests are now being run by CI (which was not true in
+    the past).
+
+  * Scap is moving closer to supporting python3, small changes in this release
+    bigger changes are yet to come.
+
+  * Scap's scap say command is now more compatible with cowsay(6). It now
+    supports passing messages on stdin as well as the `--eyes` flag.
+
+ -- Tyler Cipriani <tcipriani@wikimedia.org>  Wed, 25 Jan 2017 15:21:06 -0700
+
 scap (3.4.2-1) unstable; urgency=low
 
   * "scap sync-l10n" now has the message argument (fixes T152390)
