@@ -1,3 +1,11 @@
+scap (3.5.1-1) unstable; urgency=low
+
+  * MediaWiki scap3 feature flag
+
+  [ Tyler Cipriani ]
+
+ -- Tyler Cipriani <tcipriani@wikimedia.org>  Mon, 30 Jan 2017 13:36:15 -0700
+
 scap (3.5.0-1) unstable; urgency=low
 
   * MediaWiki: Old stub entry points for scap (e.g., sync-file, sync-dir,
