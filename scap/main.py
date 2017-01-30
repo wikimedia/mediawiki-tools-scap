@@ -297,10 +297,11 @@ class AbstractSync(cli.Application):
 
     def _git_repo(self):
         """Flatten deploy directory into shared git repo."""
-        self.get_logger().info('Setting up deploy git directory')
-        cmd = '{} deploy-mediawiki -v "{}"'.format(
-            self.get_script_path(), self.arguments.message)
-        utils.sudo_check_call('mwdeploy', cmd)
+        if self.config['scap3_mediawiki']:
+            self.get_logger().info('Setting up deploy git directory')
+            cmd = '{} deploy-mediawiki -v "{}"'.format(
+                self.get_script_path(), self.arguments.message)
+            utils.sudo_check_call('mwdeploy', cmd)
 
     def _after_cluster_sync(self):
         pass

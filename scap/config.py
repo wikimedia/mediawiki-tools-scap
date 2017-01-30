@@ -72,6 +72,7 @@ DEFAULT_CONFIG = {
     'mediawiki_canary_swagger_spec_path': (str, '/spec.yaml'),
     'nrpe_dir': (str, '/etc/nagios/nrpe.d'),
     'require_valid_service': (bool, False),
+    'scap3_mediawiki': (bool, False),
     'service_timeout': (float, 120.0),
     'tags_to_keep': (int, 20),
     'perform_checks': (bool, True),
