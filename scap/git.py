@@ -216,11 +216,14 @@ def add_all(location, message='Update'):
         cmd = [git, 'add', '--all']
         subprocess.check_call(cmd)
 
-        host = socket.getfqdn()
-        euid = utils.get_username()
-        ruid = utils.get_real_username()
-        ename = utils.get_user_fullname()
-        rname = utils.get_real_user_fullname()
+        # None of these values can be unset or empty strings because we use
+        # them as git envvars below. Unset values and empty strings will
+        # cause git to shout about ident errors.
+        host = socket.getfqdn() or 'localhost'
+        euid = utils.get_username() or 'unknown'
+        ruid = utils.get_real_username() or 'unknown'
+        ename = utils.get_user_fullname() or 'Unknown User'
+        rname = utils.get_real_user_fullname() or 'Unknown User'
 
         os.environ['GIT_COMMITTER_EMAIL'] = '{}@{}'.format(euid, host)
         os.environ['GIT_AUTHOR_EMAIL'] = '{}@{}'.format(ruid, host)
