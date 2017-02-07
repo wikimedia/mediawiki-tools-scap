@@ -467,6 +467,7 @@ class Deploy(cli.Application):
         'environment',
     ]
 
+    continue_all = False
     repo = None
     targets = []
 
@@ -585,23 +586,13 @@ class Deploy(cli.Application):
 
     def _execute_for_groups(self, stages):
         logger = self.get_logger()
-        continue_all = False
+        self.continue_all = False
         attempted_groups = []
 
         try:
             for name, group in self.deploy_groups.iteritems():
                 attempted_groups.append(group)
-                self._execute_for_group(stages, group)
-
-                if not self._last_group(name) and not continue_all:
-                    prompt = '%s deploy successful. Continue?' % name
-                    choices = '[y]es/[n]o/[c]ontinue all groups'
-                    answer = utils.ask(prompt, 'y', choices)
-
-                    if answer == 'c':
-                        continue_all = True
-                    elif answer != 'y':
-                        raise DeployGroupFailure('deployment aborted')
+                self._execute_for_group(stages, group, prompt_user=True)
 
         except DeployGroupFailure as failure:
             logger.error(failure.message)
@@ -619,7 +610,8 @@ class Deploy(cli.Application):
 
         return 0
 
-    def _execute_for_group(self, stages, group, ignore_failure=False):
+    def _execute_for_group(self, stages, group, ignore_failure=False,
+                           prompt_user=False):
         """
         Executes the given stages across targets of the given group's
         subgroups.
@@ -632,6 +624,7 @@ class Deploy(cli.Application):
                                `failure_limit` threshold. Note that even with
                                this argument, SSH failure result in the target
                                being excluded from future stage execution.
+        :param prompt_user: Whether to prompt the user after each subgroup.
         """
 
         logger = self.get_logger()
@@ -679,8 +672,27 @@ class Deploy(cli.Application):
                            % (failed, group.original_size, label))
                     raise DeployGroupFailure(msg)
 
-    def _last_group(self, group):
-        return group == next(reversed(self.deploy_groups))
+            if prompt_user and not self.continue_all \
+                    and not self._last_subgroup(group, label):
+
+                prompt = '%s deploy successful. Continue?' % label
+                choices = '[y]es/[n]o/[c]ontinue all groups'
+
+                while True:
+                    answer = utils.ask(prompt, 'y', choices)
+                    if answer in ['y', 'n', 'c']:
+                        break
+
+                if answer == 'c':
+                    self.continue_all = True
+                elif answer == 'n':
+                    raise DeployGroupFailure('deployment aborted')
+
+    def _last_subgroup(self, group, subgroup):
+        last_group = next(reversed(self.deploy_groups))
+        last_subgroup = list(self.deploy_groups[last_group].subgroups())[-1][0]
+
+        return group.name == last_group and subgroup == last_subgroup
 
     def config_deploy_setup(self, commit):
         """
