@@ -259,7 +259,8 @@ class DeployGroup():
         elif type(failure_limit) is str:
             # Convert percentage strings (e.g. '30%') to number of targets
             if failure_limit.endswith('%'):
-                failure_limit = float(failure_limit[:-1]) * self.size / 100
+                failure_limit = float(failure_limit[:-1]) / 100
+                failure_limit *= self.original_size
 
             failure_limit = int(failure_limit)
 

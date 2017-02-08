@@ -194,6 +194,11 @@ class DeployGroupTest(unittest.TestCase):
         group = targets.DeployGroup('foo', self.targets, failure_limit='33.4%')
         self.assertEqual(group.failure_limit, 1)
 
+    def test_failure_limit__percentage_is_based_on_original_size(self):
+        group = targets.DeployGroup('foo', self.targets,
+                                    size=2, failure_limit='75%')
+        self.assertEqual(group.failure_limit, 2)
+
     def test_subgroups__splits_and_labels_targets_according_to_size(self):
         group = targets.DeployGroup('foo', self.targets, 2)
         subgroups = list(group.subgroups())
