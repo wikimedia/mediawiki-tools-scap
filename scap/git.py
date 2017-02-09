@@ -5,7 +5,6 @@
     Helpers for git operations and interacting with .git directories
 
 """
-
 from datetime import datetime
 import errno
 import re
@@ -313,6 +312,19 @@ def checkout(location, rev):
         logger.debug(
             'Checking out rev: {} at location: {}'.format(rev, location))
         cmd = '/usr/bin/git checkout --force --quiet {}'.format(rev)
+        subprocess.check_call(cmd, shell=True)
+
+
+def sync_submodules(location):
+    """Sync git submodules on target machines"""
+
+    ensure_dir(location)
+
+    logger = utils.get_logger()
+
+    with utils.cd(location):
+        logger.debug('Syncing out submodules')
+        cmd = '/usr/bin/git submodule sync --recursive'
         subprocess.check_call(cmd, shell=True)
 
 

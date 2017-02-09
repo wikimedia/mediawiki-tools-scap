@@ -230,6 +230,8 @@ class DeployLocal(cli.Application):
 
         if has_submodules:
             upstream_submodules = self.config['git_upstream_submodules']
+            logger.info('Sync submodules')
+            git.sync_submodules(rev_dir)
             logger.info('Update submodules')
             git.update_submodules(
                 rev_dir, git_remote, use_upstream=upstream_submodules)
