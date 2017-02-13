@@ -181,14 +181,16 @@ class TargetList():
                 targets = limit_target_hosts(self.limit_hosts, targets)
 
             targets = list(set(targets) - set(all_hosts))
-            all_hosts += targets
 
-            size = self._get_group_size(group)
-            failure_limit = self._get_failure_limit(group)
+            if len(targets) > 0:
+                all_hosts += targets
 
-            groups[group] = DeployGroup(group, targets,
-                                        size=size,
-                                        failure_limit=failure_limit)
+                size = self._get_group_size(group)
+                failure_limit = self._get_failure_limit(group)
+
+                groups[group] = DeployGroup(group, targets,
+                                            size=size,
+                                            failure_limit=failure_limit)
 
         self.deploy_groups = {'all_targets': all_hosts,
                               'deploy_groups': groups}
@@ -247,7 +249,10 @@ class DeployGroup():
         """
         self.name = name
         self.targets = targets
-        self.size = size or len(targets)
+        self.size = len(targets) if size is None else size
+
+        if len(self.targets) < 1 or self.size < 1:
+            raise ValueError('a deploy group must have at least one target')
 
         if failure_limit is None:
             failure_limit = 1
