@@ -47,7 +47,7 @@ def checktype(type):
     return decorator
 
 
-def execute(checks, logger, concurrency=2):
+def execute(checks, logger, concurrency=1):
     """
     Execute the given checks in parallel.
 
