@@ -151,6 +151,14 @@ class TargetsTest(unittest.TestCase):
             self._gth('test[10:01]')
             self._gth('test[z:a]')
 
+    def test_get_deploy_groups__excludes_empty_groups(self):
+        dsh_file = 'empty-targets'
+        dsh_path = os.path.join(os.path.dirname(__file__), 'targets-test')
+        target_obj = targets.get(dsh_file,
+                                 {dsh_file: dsh_file},
+                                 extra_paths=[dsh_path])
+        self.assertEqual(len(target_obj.groups), 0)
+
     def _gth(self, x):
         return sorted(targets.limit_target_hosts(x, self.hosts))
 
@@ -161,6 +169,15 @@ class DeployGroupTest(unittest.TestCase):
     def test_size__defaults_to_length_of_targets(self):
         group = targets.DeployGroup('foo', self.targets)
         self.assertEqual(group.size, len(self.targets))
+
+    def test_size__must_be_greater_than_zero(self):
+        with self.assertRaises(ValueError):
+            targets.DeployGroup('foo', self.targets, size=0)
+            targets.DeployGroup('foo', self.targets, size=-1)
+
+    def test_targets__must_not_be_empty(self):
+        with self.assertRaises(ValueError):
+            targets.DeployGroup('foo', [])
 
     def test_failure_limit__defaults_to_one(self):
         group = targets.DeployGroup('foo', self.targets)
@@ -176,6 +193,11 @@ class DeployGroupTest(unittest.TestCase):
 
         group = targets.DeployGroup('foo', self.targets, failure_limit='33.4%')
         self.assertEqual(group.failure_limit, 1)
+
+    def test_failure_limit__percentage_is_based_on_original_size(self):
+        group = targets.DeployGroup('foo', self.targets,
+                                    size=2, failure_limit='75%')
+        self.assertEqual(group.failure_limit, 2)
 
     def test_subgroups__splits_and_labels_targets_according_to_size(self):
         group = targets.DeployGroup('foo', self.targets, 2)

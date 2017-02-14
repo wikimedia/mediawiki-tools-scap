@@ -5,7 +5,6 @@
     Helpers for git operations and interacting with .git directories
 
 """
-
 from datetime import datetime
 import errno
 import re
@@ -216,11 +215,14 @@ def add_all(location, message='Update'):
         cmd = [git, 'add', '--all']
         subprocess.check_call(cmd)
 
-        host = socket.getfqdn()
-        euid = utils.get_username()
-        ruid = utils.get_real_username()
-        ename = utils.get_user_fullname()
-        rname = utils.get_real_user_fullname()
+        # None of these values can be unset or empty strings because we use
+        # them as git envvars below. Unset values and empty strings will
+        # cause git to shout about ident errors.
+        host = socket.getfqdn() or 'localhost'
+        euid = utils.get_username() or 'unknown'
+        ruid = utils.get_real_username() or 'unknown'
+        ename = utils.get_user_fullname() or 'Unknown User'
+        rname = utils.get_real_user_fullname() or 'Unknown User'
 
         os.environ['GIT_COMMITTER_EMAIL'] = '{}@{}'.format(euid, host)
         os.environ['GIT_AUTHOR_EMAIL'] = '{}@{}'.format(ruid, host)
@@ -310,6 +312,19 @@ def checkout(location, rev):
         logger.debug(
             'Checking out rev: {} at location: {}'.format(rev, location))
         cmd = '/usr/bin/git checkout --force --quiet {}'.format(rev)
+        subprocess.check_call(cmd, shell=True)
+
+
+def sync_submodules(location):
+    """Sync git submodules on target machines"""
+
+    ensure_dir(location)
+
+    logger = utils.get_logger()
+
+    with utils.cd(location):
+        logger.debug('Syncing out submodules')
+        cmd = '/usr/bin/git submodule sync --recursive'
         subprocess.check_call(cmd, shell=True)
 
 
