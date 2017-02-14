@@ -1,3 +1,45 @@
+scap (3.5.2-1) unstable; urgency=low
+
+  * Add simple subcommand for logging to server admin log
+    Sometimes it's annoying to context switch back to IRC. Also, there's been
+    some talk about removing the IRC dependency for logging, so this would
+    provide a useful fallback
+
+  * Fix `failure_rate` percentages
+    Configuring a `failure_rate` as a string percentage (e.g. '10%') now
+    correctly calculates an integer (number of targets) based on the
+    original size of the deploy group, not the `group_size` which splits
+    groups into smaller subgroups.
+
+  * Exclude empty deploy groups
+    Avoid zero-size related bugs by validating `targets.DeployGroup` input,
+    disallowing an empty targets list and/or a size of less than 1, and by
+    refactoring `TargetList.get_deploy_groups` to skip inclusion of empty
+    groups.
+
+  * Make checks serial by default
+    This is an update so that checks better fit deployer's (and my) mental
+    model of checks. This also enables the workaround of having a check
+    using the command `sleep 30` delay the execution of a subsequent check
+    proposed in T156687.
+
+  * Add sync_submodule() and use it in deploy().
+
+  * Fix regression of deploy group continue prompt
+    With D490 came a regression in the behavior of the continue prompt
+    whereby the prompt was only given after each originally configured
+    deploy group and not the smaller subgroups resulting from the configured
+    `group_size`. The original behavior has been restored.
+
+  * Fix MediaWiki git ident errors
+    Because we use GIT_* environmental variables to indicate the deployer as
+    the git commit author and the ssh_user as the git commiter those values
+    will override anything in any git configuration files. As a result, an
+    empty string for any one of those values will result in an ident (or
+    similar) error in git.
+
+ -- Mukunda Modell <mmodell@wikimedia.org>  Tue, 14 Feb 2017 08:34:36 -0600
+
 scap (3.5.1-1) unstable; urgency=low
 
   * MediaWiki scap3 feature flag
