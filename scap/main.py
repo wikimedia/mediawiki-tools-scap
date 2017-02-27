@@ -541,10 +541,6 @@ class SyncFile(AbstractSync):
             self.config['stage_dir'], self.arguments.file)
         if not os.path.exists(abspath):
             raise IOError(errno.ENOENT, 'File/directory not found', abspath)
-        # Warn when syncing a symlink.
-        if os.path.islink(abspath):
-            self.get_logger().warning(
-                '%s: syncing symlink, not target file contents', abspath)
 
         if self.arguments.beta_only:
             confroot = os.path.join(
@@ -559,7 +555,13 @@ class SyncFile(AbstractSync):
         if os.path.isdir(relpath):
             relpath = '%s/***' % relpath
         self.include = relpath
-        tasks.check_valid_syntax(abspath)
+
+        # Notify when syncing a symlink.
+        if os.path.islink(abspath):
+            self.get_logger().info(
+                '%s: syncing symlink, not target file contents', abspath)
+        else:
+            tasks.check_valid_syntax(abspath)
 
     def _proxy_sync_command(self):
         cmd = [self.get_script_path(), 'pull', '--no-update-l10n']
