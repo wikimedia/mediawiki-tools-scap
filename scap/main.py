@@ -40,7 +40,8 @@ class AbstractSync(cli.Application):
         with utils.lock(self.config['lock_file'], self.arguments.message):
             self._check_sync_flag()
             self._before_cluster_sync()
-            self._git_repo()
+            self._sync_common()
+            self._after_sync_common()
             self._sync_masters()
 
             full_target_list = self._get_target_list()
@@ -136,6 +137,9 @@ class AbstractSync(cli.Application):
     def _before_cluster_sync(self):
         pass
 
+    def _after_sync_common(self):
+        self._git_repo()
+
     def _check_sync_flag(self):
         sync_flag = os.path.join(self.config['stage_dir'], 'sync.flag')
         if os.path.exists(sync_flag):
@@ -216,8 +220,8 @@ class AbstractSync(cli.Application):
         """
         return self._proxy_sync_command() + proxies
 
-    def _git_repo(self):
-        """Flatten deploy directory into shared git repo."""
+    def _sync_common(self):
+        """Sync stage_dir to deploy_dir on the deployment host."""
         includes = None
 
         if self.include is not None:
@@ -238,6 +242,8 @@ class AbstractSync(cli.Application):
             verbose=self.verbose
         )
 
+    def _git_repo(self):
+        """Flatten deploy directory into shared git repo."""
         if self.config['scap3_mediawiki']:
             self.get_logger().info('Setting up deploy git directory')
             cmd = '{} deploy-mediawiki -v "{}"'.format(
@@ -353,6 +359,7 @@ class Scap(AbstractSync):
 
     #. Validate php syntax of wmf-config and multiversion
     #. Sync deploy directory on localhost with staging area
+    #. Create/update git repo in staging area
     #. Compile wikiversions.json to php in deploy directory
     #. Update l10n files in staging area
     #. Compute git version information
@@ -380,6 +387,9 @@ class Scap(AbstractSync):
         tasks.check_valid_syntax(
             '%(stage_dir)s/wmf-config' % self.config,
             '%(stage_dir)s/multiversion' % self.config)
+
+    def _after_sync_common(self):
+        super(Scap, self)._after_sync_common()
 
         # Bug 63659: Compile deploy_dir/wikiversions.json to cdb
         cmd = '{} wikiversions-compile'.format(self.get_script_path())
@@ -532,10 +542,6 @@ class SyncFile(AbstractSync):
             self.config['stage_dir'], self.arguments.file)
         if not os.path.exists(abspath):
             raise IOError(errno.ENOENT, 'File/directory not found', abspath)
-        # Warn when syncing a symlink.
-        if os.path.islink(abspath):
-            self.get_logger().warning(
-                '%s: syncing symlink, not target file contents', abspath)
 
         if self.arguments.beta_only:
             confroot = os.path.join(
@@ -550,7 +556,13 @@ class SyncFile(AbstractSync):
         if os.path.isdir(relpath):
             relpath = '%s/***' % relpath
         self.include = relpath
-        tasks.check_valid_syntax(abspath)
+
+        # Notify when syncing a symlink.
+        if os.path.islink(abspath):
+            self.get_logger().info(
+                '%s: syncing symlink, not target file contents', abspath)
+        else:
+            tasks.check_valid_syntax(abspath)
 
     def _proxy_sync_command(self):
         cmd = [self.get_script_path(), 'pull', '--no-update-l10n']
@@ -681,7 +693,8 @@ class SyncWikiversions(AbstractSync):
         self.include = '/wikiversions*.{json,php}'
         with utils.lock(self.config['lock_file'], self.arguments.message):
             self._check_sync_flag()
-            self._git_repo()
+            self._sync_common()
+            self._after_sync_common()
             self._sync_masters()
             mw_install_hosts = self._get_target_list()
             tasks.sync_wikiversions(mw_install_hosts, self.config)
