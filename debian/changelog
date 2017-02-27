@@ -1,3 +1,12 @@
+scap (3.5.3-1) unstable; urgency=low
+
+  * Deduplicate git authors via .mailmap
+  * Scap for MediaWiki now will do sync-common before rebuilding l10n files
+    (fixes T156851)
+  * Don't bother doing syntax checks for symlink syncs
+
+ -- Tyler Cipriani <tcipriani@wikimedia.org>  Mon, 27 Feb 2017 11:53:24 -0700
+
 scap (3.5.2-1) unstable; urgency=low
 
   * Add simple subcommand for logging to server admin log
