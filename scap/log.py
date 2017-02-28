@@ -204,7 +204,23 @@ class LogstashFormatter(logging.Formatter):
 
         # Ensure message is populated
         if 'message' not in fields:
-            fields['message'] = fields['msg'] % fields['args']
+            try:
+                fields['message'] = fields['msg'] % fields['args']
+            except TypeError as e:
+                # This sometimes happens if the fields['msg'] has a
+                # '%<something>' in it some place.
+                #
+                # Re-raising and dumping the message and fields seems like it
+                # may be more helpful in tracking down the root cause of an
+                # error than the output, "not enough arguments for format
+                # string"
+                raise TypeError(
+                    'error: ({}); '
+                    'format string: ({}); '
+                    'arguments: ({})'.format(
+                        e.message,
+                        fields['msg'],
+                        fields['args']))
 
         # Format exception
         if 'exc_info' in fields and fields['exc_info']:
