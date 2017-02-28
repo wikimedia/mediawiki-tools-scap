@@ -2,11 +2,10 @@ Format: http://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
 
 Files: *
 Copyright: Copyright © 2015 Wikimedia Foundation and contributors
-License: GPL-3+
+License: GPL-3
  This package is free software; you can redistribute it and/or modify it under
  the terms of the GNU General Public License as published by The Free Software
- Foundation; either version 3 of the License, or (at your option) any later
- version.
+ Foundation; version 3.
  .
  This package is distributed in the hope that it will be useful,
  But WITHOUT ANY WARRANTY; without even the implied warranty of

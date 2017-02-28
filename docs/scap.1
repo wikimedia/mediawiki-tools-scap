@@ -1,6 +1,6 @@
 .\" Man page generated from reStructuredText.
 .
-.TH "SCAP" "1" "Oct 05, 2016" "3.0" "scap"
+.TH "SCAP" "1" "Feb 27, 2017" "3.0" "scap"
 .SH NAME
 scap \- Wikimedia deployment tool - scap: scatter crap around production
 .
@@ -46,7 +46,8 @@ cluster.
 .nf
 .ft C
 usage: scap sync [\-h] [\-c CONF_FILE] [\-\-no\-shared\-authsock]
-                 [\-D <name>:<value>] [\-v] [\-e ENVIRONMENT] [\-r] [\-\-force]
+                 [\-D <name>:<value>] [\-V] [\-v] [\-\-environment ENVIRONMENT]
+                 [\-r] [\-\-force]
                  [message [message ...]]
 
 Deploy MediaWiki to the cluster.
@@ -68,15 +69,18 @@ global arguments:
   \-\-no\-shared\-authsock  Ignore any shared ssh\-auth configuration
   \-D <name>:<value>, \-\-define <name>:<value>
                         Set a configuration value
+  \-V                    Print scap version.
   \-v, \-\-verbose         Verbose output
-  \-e ENVIRONMENT, \-\-environment ENVIRONMENT
+  \-\-environment ENVIRONMENT
                         environment in which to execute scap
 
 #. Validate php syntax of wmf\-config and multiversion
 #. Sync deploy directory on localhost with staging area
+#. Create/update git repo in staging area
 #. Compile wikiversions.json to php in deploy directory
 #. Update l10n files in staging area
 #. Compute git version information
+#. Commit all changes to local git repo in deploy directory
 #. Ask scap masters to sync with current master
 #. Ask scap proxies to sync with master server
 #. Ask apaches to sync with fastest rsync server
@@ -116,8 +120,8 @@ local host. It is typically called automatically on hosts during the execution o
 .nf
 .ft C
 usage: scap pull [\-h] [\-c CONF_FILE] [\-\-no\-shared\-authsock]
-                 [\-D <name>:<value>] [\-v] [\-e ENVIRONMENT] [\-\-no\-update\-l10n]
-                 [\-i INCLUDE]
+                 [\-D <name>:<value>] [\-V] [\-v] [\-\-environment ENVIRONMENT]
+                 [\-\-no\-touch] [\-\-no\-update\-l10n] [\-i INCLUDE]
                  ...
 
 Sync local MediaWiki deployment directory with deploy server state.
@@ -127,6 +131,7 @@ positional arguments:
 
 optional arguments:
   \-h, \-\-help            show this help message and exit
+  \-\-no\-touch            Do not touch InitialiseSettings.php after sync.
   \-\-no\-update\-l10n      Do not update l10n cache files.
   \-i INCLUDE, \-\-include INCLUDE
                         Rsync include pattern to limit transfer to. End
@@ -142,8 +147,9 @@ global arguments:
   \-\-no\-shared\-authsock  Ignore any shared ssh\-auth configuration
   \-D <name>:<value>, \-\-define <name>:<value>
                         Set a configuration value
+  \-V                    Print scap version.
   \-v, \-\-verbose         Verbose output
-  \-e ENVIRONMENT, \-\-environment ENVIRONMENT
+  \-\-environment ENVIRONMENT
                         environment in which to execute scap
 .ft P
 .fi
@@ -161,76 +167,31 @@ global arguments:
 .UNINDENT
 .UNINDENT
 .UNINDENT
-.SH SCAP SYNC-DIR
-.sp
-\fBscap sync\-dir\fP synchronizes a directory from the staging directory to the
-cluster.
-.INDENT 0.0
-.INDENT 3.5
-.sp
-.nf
-.ft C
-usage: scap sync\-dir [\-h] [\-c CONF_FILE] [\-\-no\-shared\-authsock]
-                     [\-D <name>:<value>] [\-v] [\-e ENVIRONMENT] [\-\-force]
-                     dir [message [message ...]]
-
-Sync a directory to the cluster.
-
-positional arguments:
-  dir                   Directory to sync
-  message               Log message for SAL
-
-optional arguments:
-  \-h, \-\-help            show this help message and exit
-  \-\-force               Skip canary checks
-
-global arguments:
-  Although these arguments can be passed to all scap (sub\-)commands, not all
-  commands are affected by every global argument.
-
-  \-c CONF_FILE, \-\-conf CONF_FILE
-                        Path to configuration file
-  \-\-no\-shared\-authsock  Ignore any shared ssh\-auth configuration
-  \-D <name>:<value>, \-\-define <name>:<value>
-                        Set a configuration value
-  \-v, \-\-verbose         Verbose output
-  \-e ENVIRONMENT, \-\-environment ENVIRONMENT
-                        environment in which to execute scap
-.ft P
-.fi
-.UNINDENT
-.UNINDENT
-.sp
-\fBSEE ALSO:\fP
-.INDENT 0.0
-.INDENT 3.5
-.INDENT 0.0
-.IP \(bu 2
-\fBscap.SyncDir()\fP
-.UNINDENT
-.UNINDENT
-.UNINDENT
 .SH SCAP SYNC-FILE
 .sp
-\fBscap sync\-file\fP synchronizes a file from the staging directory to the cluster.
+\fBscap sync\-file\fP synchronizes a file or directory from the staging
+directory to the cluster.
 .INDENT 0.0
 .INDENT 3.5
 .sp
 .nf
 .ft C
 usage: scap sync\-file [\-h] [\-c CONF_FILE] [\-\-no\-shared\-authsock]
-                      [\-D <name>:<value>] [\-v] [\-e ENVIRONMENT] [\-\-force]
+                      [\-D <name>:<value>] [\-V] [\-v]
+                      [\-\-environment ENVIRONMENT] [\-\-force]
+                      [\-\-beta\-only\-change]
                       file [message [message ...]]
 
-Sync a specific file to the cluster.
+Sync a specific file/directory to the cluster.
 
 positional arguments:
-  file                  File to sync
+  file                  File/directory to sync
   message               Log message for SAL
 
 optional arguments:
   \-h, \-\-help            show this help message and exit
   \-\-force               Skip canary checks
+  \-\-beta\-only\-change    Sync a config file that only affects beta cluster
 
 global arguments:
   Although these arguments can be passed to all scap (sub\-)commands, not all
@@ -241,8 +202,9 @@ global arguments:
   \-\-no\-shared\-authsock  Ignore any shared ssh\-auth configuration
   \-D <name>:<value>, \-\-define <name>:<value>
                         Set a configuration value
+  \-V                    Print scap version.
   \-v, \-\-verbose         Verbose output
-  \-e ENVIRONMENT, \-\-environment ENVIRONMENT
+  \-\-environment ENVIRONMENT
                         environment in which to execute scap
 .ft P
 .fi
@@ -268,13 +230,15 @@ MediaWiki version to the cluster and rebuilds the associated cache files.
 .nf
 .ft C
 usage: scap sync\-l10n [\-h] [\-c CONF_FILE] [\-\-no\-shared\-authsock]
-                      [\-D <name>:<value>] [\-v] [\-e ENVIRONMENT] [\-\-force]
-                      version
+                      [\-D <name>:<value>] [\-V] [\-v]
+                      [\-\-environment ENVIRONMENT] [\-\-force]
+                      version [message [message ...]]
 
 Sync l10n files for a given branch and rebuild cache files.
 
 positional arguments:
   version               MediaWiki version (eg 1.27.0\-wmf.7)
+  message               Log message for SAL
 
 optional arguments:
   \-h, \-\-help            show this help message and exit
@@ -289,8 +253,9 @@ global arguments:
   \-\-no\-shared\-authsock  Ignore any shared ssh\-auth configuration
   \-D <name>:<value>, \-\-define <name>:<value>
                         Set a configuration value
+  \-V                    Print scap version.
   \-v, \-\-verbose         Verbose output
-  \-e ENVIRONMENT, \-\-environment ENVIRONMENT
+  \-\-environment ENVIRONMENT
                         environment in which to execute scap
 .ft P
 .fi
@@ -316,8 +281,8 @@ syncs both the JSON and CDB versions to the rest of the cluster.
 .nf
 .ft C
 usage: scap sync\-wikiversions [\-h] [\-c CONF_FILE] [\-\-no\-shared\-authsock]
-                              [\-D <name>:<value>] [\-v] [\-e ENVIRONMENT]
-                              [\-\-force]
+                              [\-D <name>:<value>] [\-V] [\-v]
+                              [\-\-environment ENVIRONMENT] [\-\-force]
                               [message [message ...]]
 
 Rebuild and sync wikiversions.php to the cluster.
@@ -338,8 +303,9 @@ global arguments:
   \-\-no\-shared\-authsock  Ignore any shared ssh\-auth configuration
   \-D <name>:<value>, \-\-define <name>:<value>
                         Set a configuration value
+  \-V                    Print scap version.
   \-v, \-\-verbose         Verbose output
-  \-e ENVIRONMENT, \-\-environment ENVIRONMENT
+  \-\-environment ENVIRONMENT
                         environment in which to execute scap
 .ft P
 .fi
@@ -369,8 +335,8 @@ MediaWiki versions.
 .nf
 .ft C
 usage: scap wikiversions\-inuse [\-h] [\-c CONF_FILE] [\-\-no\-shared\-authsock]
-                               [\-D <name>:<value>] [\-v] [\-e ENVIRONMENT]
-                               [\-\-withdb]
+                               [\-D <name>:<value>] [\-V] [\-v]
+                               [\-\-environment ENVIRONMENT] [\-\-withdb]
 
 Get a list of the active MediaWiki versions.
 
@@ -387,8 +353,9 @@ global arguments:
   \-\-no\-shared\-authsock  Ignore any shared ssh\-auth configuration
   \-D <name>:<value>, \-\-define <name>:<value>
                         Set a configuration value
+  \-V                    Print scap version.
   \-v, \-\-verbose         Verbose output
-  \-e ENVIRONMENT, \-\-environment ENVIRONMENT
+  \-\-environment ENVIRONMENT
                         environment in which to execute scap
 .ft P
 .fi
@@ -404,53 +371,6 @@ global arguments:
 .UNINDENT
 .UNINDENT
 .UNINDENT
-.SH SCAP L10N-PURGE
-.sp
-\fBscap l10n\-purge\fP deletes localization files (CDB and JSON) across the
-cluster.
-.INDENT 0.0
-.INDENT 3.5
-.sp
-.nf
-.ft C
-usage: scap l10n\-purge [\-h] [\-c CONF_FILE] [\-\-no\-shared\-authsock]
-                       [\-D <name>:<value>] [\-v] [\-e ENVIRONMENT]
-                       [\-\-version VERSION]
-
-Purge the localization cache for an inactive MediaWiki version.
-
-optional arguments:
-  \-h, \-\-help            show this help message and exit
-  \-\-version VERSION     MediaWiki version (eg 1.27.0\-wmf.16)
-
-global arguments:
-  Although these arguments can be passed to all scap (sub\-)commands, not all
-  commands are affected by every global argument.
-
-  \-c CONF_FILE, \-\-conf CONF_FILE
-                        Path to configuration file
-  \-\-no\-shared\-authsock  Ignore any shared ssh\-auth configuration
-  \-D <name>:<value>, \-\-define <name>:<value>
-                        Set a configuration value
-  \-v, \-\-verbose         Verbose output
-  \-e ENVIRONMENT, \-\-environment ENVIRONMENT
-                        environment in which to execute scap
-.ft P
-.fi
-.UNINDENT
-.UNINDENT
-.sp
-\fBSEE ALSO:\fP
-.INDENT 0.0
-.INDENT 3.5
-.INDENT 0.0
-.IP \(bu 2
-\fBscap.PurgeL10nCache()\fP
-.IP \(bu 2
-\fBscap.tasks.purge_l10n_cache()\fP
-.UNINDENT
-.UNINDENT
-.UNINDENT
 .SH SCAP WIKIVERSIONS-COMPILE
 .sp
 \fBwikiversions\-compile\fP compiles wikiversions.json into wikiversions.php.
@@ -460,7 +380,8 @@ global arguments:
 .nf
 .ft C
 usage: scap wikiversions\-compile [\-h] [\-c CONF_FILE] [\-\-no\-shared\-authsock]
-                                 [\-D <name>:<value>] [\-v] [\-e ENVIRONMENT]
+                                 [\-D <name>:<value>] [\-V] [\-v]
+                                 [\-\-environment ENVIRONMENT]
 
 Compile wikiversions.json to wikiversions.php.
 
@@ -476,8 +397,9 @@ global arguments:
   \-\-no\-shared\-authsock  Ignore any shared ssh\-auth configuration
   \-D <name>:<value>, \-\-define <name>:<value>
                         Set a configuration value
+  \-V                    Print scap version.
   \-v, \-\-verbose         Verbose output
-  \-e ENVIRONMENT, \-\-environment ENVIRONMENT
+  \-\-environment ENVIRONMENT
                         environment in which to execute scap
 .ft P
 .fi
@@ -504,8 +426,9 @@ global arguments:
 .nf
 .ft C
 usage: scap cdb\-rebuild [\-h] [\-c CONF_FILE] [\-\-no\-shared\-authsock]
-                        [\-D <name>:<value>] [\-v] [\-e ENVIRONMENT]
-                        [\-\-version VERSION] [\-\-no\-progress] [\-\-staging]
+                        [\-D <name>:<value>] [\-V] [\-v]
+                        [\-\-environment ENVIRONMENT] [\-\-version VERSION]
+                        [\-\-no\-progress] [\-\-staging]
 
 Rebuild localization cache CDB files from the JSON versions.
 
@@ -524,8 +447,9 @@ global arguments:
   \-\-no\-shared\-authsock  Ignore any shared ssh\-auth configuration
   \-D <name>:<value>, \-\-define <name>:<value>
                         Set a configuration value
+  \-V                    Print scap version.
   \-v, \-\-verbose         Verbose output
-  \-e ENVIRONMENT, \-\-environment ENVIRONMENT
+  \-\-environment ENVIRONMENT
                         environment in which to execute scap
 .ft P
 .fi
@@ -552,7 +476,8 @@ global arguments:
 .nf
 .ft C
 usage: scap l10n\-update [\-h] [\-c CONF_FILE] [\-\-no\-shared\-authsock]
-                        [\-D <name>:<value>] [\-v] [\-e ENVIRONMENT]
+                        [\-D <name>:<value>] [\-V] [\-v]
+                        [\-\-environment ENVIRONMENT]
 
 Update localization files.
 
@@ -568,8 +493,9 @@ global arguments:
   \-\-no\-shared\-authsock  Ignore any shared ssh\-auth configuration
   \-D <name>:<value>, \-\-define <name>:<value>
                         Set a configuration value
+  \-V                    Print scap version.
   \-v, \-\-verbose         Verbose output
-  \-e ENVIRONMENT, \-\-environment ENVIRONMENT
+  \-\-environment ENVIRONMENT
                         environment in which to execute scap
 .ft P
 .fi
@@ -596,8 +522,9 @@ global arguments:
 .nf
 .ft C
 usage: scap cdb\-json\-refresh [\-h] [\-c CONF_FILE] [\-\-no\-shared\-authsock]
-                             [\-D <name>:<value>] [\-v] [\-e ENVIRONMENT] \-d
-                             DIRECTORY [\-t THREADS]
+                             [\-D <name>:<value>] [\-V] [\-v]
+                             [\-\-environment ENVIRONMENT] \-d DIRECTORY
+                             [\-t THREADS]
 
 Create JSON/MD5 files for all CDB files in a directory.
 
@@ -617,8 +544,9 @@ global arguments:
   \-\-no\-shared\-authsock  Ignore any shared ssh\-auth configuration
   \-D <name>:<value>, \-\-define <name>:<value>
                         Set a configuration value
+  \-V                    Print scap version.
   \-v, \-\-verbose         Verbose output
-  \-e ENVIRONMENT, \-\-environment ENVIRONMENT
+  \-\-environment ENVIRONMENT
                         environment in which to execute scap
 
 This will put a JSON and MD5 file in /upstream for each CDB file.
@@ -649,6 +577,7 @@ run on each server to apply the updates to the CDB files.
 .UNINDENT
 .UNINDENT
 .SH COPYRIGHT
-2016, Wikimedia Foundation & contributors
+2014-2017, Wikimedia Foundation & Contributors.
+Released under the terms of the GNU General Public License, version 3 <https://www.gnu.org/licenses/gpl-3.0.txt>.
 .\" Generated by docutils manpage writer.
 .
