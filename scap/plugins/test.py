@@ -2,7 +2,7 @@ import logging
 import time
 import random
 
-from scap import cli, log
+from scap import cli, log, utils
 
 
 @cli.command('test-progress')
@@ -15,6 +15,8 @@ class Test(cli.Application):
         for stage in stages:
             reporter = log.FancyProgressReporter(name=stage,
                                                  expect=steps)
+
+            utils.var_dump(reporter)
             logger = logging.getLogger()
             reporter.start()
             for i in range(0, steps):

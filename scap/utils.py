@@ -27,8 +27,13 @@ import sys
 import tempfile
 import yaml
 
+import pygments
+import pygments.lexers
+import pygments.formatters
+
 from . import ansi
 from functools import wraps
+from json import JSONEncoder
 
 
 def isclose(a, b, rel_tol=1e-9, abs_tol=0.0):
@@ -967,3 +972,38 @@ def ordered_load(stream, Loader=yaml.Loader,
         yaml.resolver.BaseResolver.DEFAULT_MAPPING_TAG,
         construct_mapping)
     return yaml.load(stream, OrderedLoader)
+
+
+class VarDumpJSONEncoder(JSONEncoder):
+    ''' encode python objects to json '''
+    def default(self, o):
+        if (hasattr(o, '__dump__')):
+            return o.__dump__()
+        if (hasattr(o, '__dict__')):
+            return o.__dict__
+        try:
+            return JSONEncoder.default(self, o)
+        except:
+            return "Unserializable"
+
+
+def var_dump(*args, **kwargs):
+    ''' dump an object to the console as pretty-printed json'''
+
+    lexer = pygments.lexers.JsonLexer()
+    formatter = pygments.formatters.TerminalFormatter()
+    encoder = VarDumpJSONEncoder(indent=2)
+
+    def dump(obj):
+        try:
+            json_str = encoder.encode(obj)
+            output = pygments.highlight(json_str, lexer, formatter)
+            print(output)
+        except Exception as e:
+            print(e)
+            print(obj)
+
+    for arg in args:
+        dump(arg)
+    if len(kwargs):
+        dump(kwargs.items())
