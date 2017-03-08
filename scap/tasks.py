@@ -769,6 +769,13 @@ def restart_service(service, logger=None):
     subprocess.check_call(cmd)
 
 
+@utils.log_context('service_reload')
+def reload_service(service, logger=None):
+    logger.info("Reloading service '{}'".format(service))
+    cmd = 'sudo -n /usr/sbin/service {} reload'.format(service).split()
+    subprocess.check_call(cmd)
+
+
 @utils.log_context('port_check')
 def check_port(port, timeout, interval=3, logger=None):
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)

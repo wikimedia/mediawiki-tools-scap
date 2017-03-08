@@ -336,7 +336,10 @@ class DeployLocal(cli.Application):
         if not service:
             return
 
-        tasks.restart_service(service)
+        if self.config.get('service_reload'):
+            tasks.reload_service(service)
+        else:
+            tasks.restart_service(service)
 
         port = self.config.get('service_port', None)
         if not port:
@@ -477,6 +480,7 @@ class Deploy(cli.Application):
         'git_upstream_submodules',
         'service_name',
         'service_port',
+        'service_reload',
         'service_timeout',
         'config_deploy',
         'config_files',
