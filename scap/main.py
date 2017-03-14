@@ -31,6 +31,7 @@ import time
 
 from . import arg
 from . import cli
+from . import lock
 from . import log
 from . import ssh
 from . import targets
@@ -52,7 +53,7 @@ class AbstractSync(cli.Application):
 
         self.include = None
 
-        with utils.lock(self.config['lock_file'], self.arguments.message):
+        with lock.Lock(self.config['lock_file'], self.arguments.message):
             self._check_sync_flag()
             self._before_cluster_sync()
             self._sync_common()
@@ -705,7 +706,7 @@ class SyncWikiversions(AbstractSync):
 
         # this is here for git_repo
         self.include = '/wikiversions*.{json,php}'
-        with utils.lock(self.config['lock_file'], self.arguments.message):
+        with lock.Lock(self.config['lock_file'], self.arguments.message):
             self._check_sync_flag()
             self._sync_common()
             self._after_sync_common()

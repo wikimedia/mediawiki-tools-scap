@@ -39,6 +39,7 @@ from . import context
 from . import nrpe
 from . import template
 from . import cli
+from . import lock
 from . import log
 from . import ssh
 from . import targets
@@ -546,7 +547,7 @@ class Deploy(cli.Application):
         if not rev:
             rev = self.config.get('git_rev', 'HEAD')
 
-        with utils.lock(self.context.lock_path(), self.arguments.message):
+        with lock.Lock(self.context.lock_path(), self.arguments.message):
             with log.Timer(display_name):
                 timestamp = datetime.utcnow()
                 tag = git.next_deploy_tag(location=self.context.root)

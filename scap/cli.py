@@ -29,6 +29,7 @@ import scap.plugins
 from scap.terminal import term
 from . import arg
 from . import config
+from . import lock
 from . import log
 from . import utils
 
@@ -188,7 +189,7 @@ class Application(object):
         backtrace = True
         message = '%s failed: <%s> %s'
 
-        if isinstance(ex, utils.LockFailedError):
+        if isinstance(ex, lock.LockFailedError):
             backtrace = False
 
         if backtrace:
