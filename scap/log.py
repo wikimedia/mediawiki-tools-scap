@@ -366,10 +366,11 @@ class ProgressReporter(object):
 class FancyProgressReporter(ProgressReporter):
 
     def __init__(self, name='', expect=0, fd=sys.stderr):
-        return super(FancyProgressReporter, self).__init__(name)
         term.scroll_region(0, term.height - 3)
         term.scroll_forward(1)
         term.register_cleanup_callback(self.cleanup)
+        return super(FancyProgressReporter, self).__init__(
+            name, expect=expect, fd=fd)
 
     def finish(self):
         """Finish tracking progress."""
@@ -387,8 +388,8 @@ class FancyProgressReporter(ProgressReporter):
     def cleanup(self, term=term):
         height = term.height
         term.save()
-        term.move(height-2, 0).clear_eol() \
-            .move(height-1, 0).clear_eol() \
+        term.move(height - 2, 0).clear_eol() \
+            .move(height - 1, 0).clear_eol() \
             .move(height, 0).clear_eol()
         term.scroll_region(0, height)
         term.reset_colors()
@@ -398,7 +399,7 @@ class FancyProgressReporter(ProgressReporter):
         width = term.width
         bottom = term.height
         label_width = len(self._name) + 12
-        scale = int(width/2)
+        scale = int(width / 2)
         scale = min(width - label_width, scale)
         scale = max(scale, 15)
         partial_bar = (' ', '▎', '▎', '▍', '▌', '▋', '▊', '▉', '▉', '█')
@@ -407,7 +408,7 @@ class FancyProgressReporter(ProgressReporter):
         filled_bars = int(progress)
         remain = 0
         if filled_bars > 0 and progress > filled_bars:
-            remain = int((progress % filled_bars)*10)
+            remain = int((progress % filled_bars) * 10)
 
         bar = '█' * int(filled_bars)
         bar = bar + partial_bar[remain]
