@@ -156,6 +156,11 @@ class AbstractSync(cli.Application):
     def _after_sync_common(self):
         self._git_repo()
 
+        # Compute git version information
+        with log.Timer('cache_git_info', self.get_stats()):
+            for version, wikidb in self.active_wikiversions().items():
+                tasks.cache_git_info(version, self.config)
+
     def _check_sync_flag(self):
         sync_flag = os.path.join(self.config['stage_dir'], 'sync.flag')
         if os.path.exists(sync_flag):
@@ -251,6 +256,7 @@ class AbstractSync(cli.Application):
                 includes.append('/'.join(parts[:i]))
 
             includes.append(self.include)
+            includes.append('php-*/cache/gitinfo')
 
         tasks.sync_common(
             self.config,
@@ -416,11 +422,6 @@ class Scap(AbstractSync):
             for version, wikidb in self.active_wikiversions().items():
                 tasks.update_localization_cache(
                     version, wikidb, self.verbose, self.config)
-
-        # Compute git version information
-        with log.Timer('cache_git_info', self.get_stats()):
-            for version, wikidb in self.active_wikiversions().items():
-                tasks.cache_git_info(version, self.config)
 
     def _after_cluster_sync(self):
         target_hosts = self._get_target_list()
