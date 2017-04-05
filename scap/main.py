@@ -569,7 +569,7 @@ class SyncFile(AbstractSync):
                     '--beta-only-change not allowed for PHP files', abspath)
 
         relpath = os.path.relpath(abspath, self.config['stage_dir'])
-        if os.path.isdir(relpath):
+        if os.path.isdir(abspath):
             relpath = '%s/***' % relpath
         self.include = relpath
 
