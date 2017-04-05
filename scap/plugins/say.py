@@ -4,6 +4,22 @@
     ~~~~~~~~~~~~~~~~
 
     Infinitely superior to cowsay.
+
+    Copyright © 2014-2017 Wikimedia Foundation and Contributors.
+
+    This file is part of Scap.
+
+    Scap is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, version 3.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """
 from __future__ import print_function
 
@@ -30,6 +46,15 @@ def fortune():
         'S.C.A.P.: sorcerer\'s cats are powerful',
         'S.C.A.P.: synthesizing carbs and protein',
         'S.C.A.P.: spiritually crippling, although pragmatic',
+        'S.C.A.P.: smart container abstraction package',
+        'S.C.A.P.: say command as a plugin',
+        'S.C.A.P.: staunch conservatives are pissed',
+        'S.C.A.P.: still crashes after patching',
+        'S.C.A.P.: say command == ascii pig',
+        'S.C.A.P.: shell commands are perplexing',
+        'S.C.A.P.: salt, cfengine, ansible & puppet',
+        'S.C.A.P.: someone called about a party?',
+        'S.C.A.P.: sync commits, all python',
     ])
 
 

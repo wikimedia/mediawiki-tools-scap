@@ -22,9 +22,6 @@
     "php": {
       "type": "php",
       "include": "(\\.php$)"
-    },
-    "merges": {
-      "type": "merge-conflict"
     }
   }
 }

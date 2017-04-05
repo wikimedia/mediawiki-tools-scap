@@ -9,7 +9,6 @@ import collections
 import contextlib
 import distutils.version
 import errno
-import fcntl
 import glob
 import hashlib
 import inspect
@@ -20,15 +19,19 @@ import os
 import pwd
 import random
 import socket
-import stat
 import struct
 import subprocess
 import sys
 import tempfile
 import yaml
 
+import pygments
+import pygments.lexers
+import pygments.formatters
+
 from . import ansi
 from functools import wraps
+from json import JSONEncoder
 
 
 def isclose(a, b, rel_tol=1e-9, abs_tol=0.0):
@@ -82,11 +85,6 @@ def eintr_retry(func, *args):
             if e.errno == errno.EINTR:
                 continue
             raise
-
-
-class LockFailedError(Exception):
-    """Signal that a locking attempt failed."""
-    pass
 
 
 def ask(question, default, choices=None):
@@ -398,77 +396,6 @@ def get_logger():
         return logger_stack[-1]
     else:
         return logging.getLogger()
-
-
-@contextlib.contextmanager
-def lock(filename, reason='No reason given'):
-    """
-    Context manager. Acquires a file lock on entry, releases on exit.
-
-    :param filename: File to lock
-    :raises: LockFailedError on failure
-    """
-    if os.path.exists('/var/lock/scap-global-lock'):
-        raise LockFailedError(_get_lock_excuse('/var/lock/scap-global-lock'))
-
-    lock_fd = None
-    # Steal the umask for a bit, can't rely on system
-    orig_umask = os.umask(0)
-    try:
-        lock_fd = os.open(
-            filename,
-            os.O_WRONLY | os.O_CREAT | os.O_EXCL,
-            stat.S_IRUSR | stat.S_IWUSR | stat.S_IRGRP | stat.S_IROTH
-        )
-        fcntl.lockf(lock_fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
-        os.write(lock_fd, reason)
-    except OSError as e:
-        if e.errno is errno.EEXIST:
-            details = _get_lock_excuse(filename)
-        else:
-            details = 'Failed to acquire lock "%s"; shady reasons "%s"' % (
-                       filename, e)
-        raise LockFailedError(details)
-    else:
-        yield
-    finally:
-        # Return the umask
-        os.umask(orig_umask)
-        if lock_fd:
-            fcntl.lockf(lock_fd, fcntl.LOCK_UN)
-            os.close(lock_fd)
-            if os.path.exists(filename):
-                try:
-                    os.unlink(filename)
-                except OSError as e:
-                    # Someone else deleted the lock. Freaky, but we already
-                    # did our stuff so there's no point in halting execution
-                    get_logger().warning(
-                        'Huh, lock file disappeared before deletion. ' +
-                        'This is probably fine-ish :)'
-                    )
-
-
-def _get_lock_excuse(file):
-    """
-    Get an excuse for why we couldn't lock the file.
-
-    Read the file and its owner, if we can. Fail gracefully with something
-    if we can't read it (most likely permissions)
-
-    :param file: Lock file to look for information in
-    """
-
-    bad_user = 'a server gremlin'
-    excuses = 'no excuse given'
-    try:
-        bad_user = get_username(os.stat(file).st_uid) or bad_user
-        excuses = open(file, 'r').readline().strip() or excuses
-    except (IOError, OSError) as e:
-        # Before we raise, let's at least warn what failed
-        get_logger().warning(e)
-    return 'Failed to acquire lock "%s"; owner is "%s"; reason is "%s"' % (
-            file, bad_user, excuses)
 
 
 @contextlib.contextmanager
@@ -967,3 +894,38 @@ def ordered_load(stream, Loader=yaml.Loader,
         yaml.resolver.BaseResolver.DEFAULT_MAPPING_TAG,
         construct_mapping)
     return yaml.load(stream, OrderedLoader)
+
+
+class VarDumpJSONEncoder(JSONEncoder):
+    ''' encode python objects to json '''
+    def default(self, o):
+        if (hasattr(o, '__dump__')):
+            return o.__dump__()
+        if (hasattr(o, '__dict__')):
+            return o.__dict__
+        try:
+            return JSONEncoder.default(self, o)
+        except:
+            return "Unserializable"
+
+
+def var_dump(*args, **kwargs):
+    ''' dump an object to the console as pretty-printed json'''
+
+    lexer = pygments.lexers.JsonLexer()
+    formatter = pygments.formatters.TerminalFormatter()
+    encoder = VarDumpJSONEncoder(indent=2)
+
+    def dump(obj):
+        try:
+            json_str = encoder.encode(obj)
+            output = pygments.highlight(json_str, lexer, formatter)
+            print(output)
+        except Exception as e:
+            print(e)
+            print(obj)
+
+    for arg in args:
+        dump(arg)
+    if len(kwargs):
+        dump(kwargs.items())

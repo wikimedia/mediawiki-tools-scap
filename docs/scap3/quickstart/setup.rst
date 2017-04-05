@@ -209,7 +209,8 @@ Service Restarts and Checks
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 When you specify a ``service_name``, the service specified will be restarted
-as part of the ``promote`` stage of deployment. The ``ssh_user`` must have
+as part of the ``promote`` stage of deployment (if ``service_reload`` is
+enabled, it will reload instead of restart). The ``ssh_user`` must have
 appropriate sudoers permissions to restart the service.
 
 When you specify a ``service_port``, the port specified will be checked to

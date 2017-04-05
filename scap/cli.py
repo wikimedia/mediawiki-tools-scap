@@ -4,6 +4,21 @@
     ~~~~~~~~
     Classes and helpers for creating command line interfaces
 
+    Copyright © 2014-2017 Wikimedia Foundation and Contributors.
+
+    This file is part of Scap.
+
+    Scap is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, version 3.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """
 import logging
 import os
@@ -14,6 +29,7 @@ import scap.plugins
 from scap.terminal import term
 from . import arg
 from . import config
+from . import lock
 from . import log
 from . import utils
 
@@ -173,7 +189,7 @@ class Application(object):
         backtrace = True
         message = '%s failed: <%s> %s'
 
-        if isinstance(ex, utils.LockFailedError):
+        if isinstance(ex, lock.LockFailedError):
             backtrace = False
 
         if backtrace:

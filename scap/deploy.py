@@ -4,6 +4,21 @@
     ~~~~~~~~~~~
     Command wrappers for deploy tasks
 
+    Copyright © 2014-2017 Wikimedia Foundation and Contributors.
+
+    This file is part of Scap.
+
+    Scap is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, version 3.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """
 import argparse
 import collections
@@ -24,6 +39,7 @@ from . import context
 from . import nrpe
 from . import template
 from . import cli
+from . import lock
 from . import log
 from . import ssh
 from . import targets
@@ -321,7 +337,10 @@ class DeployLocal(cli.Application):
         if not service:
             return
 
-        tasks.restart_service(service)
+        if self.config.get('service_reload'):
+            tasks.reload_service(service)
+        else:
+            tasks.restart_service(service)
 
         port = self.config.get('service_port', None)
         if not port:
@@ -462,6 +481,7 @@ class Deploy(cli.Application):
         'git_upstream_submodules',
         'service_name',
         'service_port',
+        'service_reload',
         'service_timeout',
         'config_deploy',
         'config_files',
@@ -527,7 +547,7 @@ class Deploy(cli.Application):
         if not rev:
             rev = self.config.get('git_rev', 'HEAD')
 
-        with utils.lock(self.context.lock_path(), self.arguments.message):
+        with lock.Lock(self.context.lock_path(), self.arguments.message):
             with log.Timer(display_name):
                 timestamp = datetime.utcnow()
                 tag = git.next_deploy_tag(location=self.context.root)

@@ -151,8 +151,23 @@ def info(directory):
     }
 
 
+def remove_all_ignores(location):
+    """
+    Remove .gitignore files under a location.
+    """
+    cmd = (
+        '/usr/bin/find',
+        '.',
+        '-name',
+        '.gitignore',
+        '-delete')
+
+    subprocess.check_call(cmd, cwd=location)
+
+
 def default_ignore(location):
     """Create a default .gitignore file."""
+    remove_all_ignores(location)
     ignore = '\n'.join(DEFAULT_IGNORE)
     with utils.cd(location):
         with open('.gitignore', 'w+') as f:

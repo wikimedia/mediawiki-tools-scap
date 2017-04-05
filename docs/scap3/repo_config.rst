@@ -185,3 +185,8 @@ Available configuration variables
 |                            |                           | will be performed after         |
 |                            |                           | each-stage of checkout.         |
 +----------------------------+---------------------------+---------------------------------+
+| ``service_reload``         | False                     | (*Boolean*) If ``True``,        |
+|                            |                           | the service specified in        |
+|                            |                           | ``service_name`` is reloaded    |
+|                            |                           | instead of being restarted      |
++----------------------------+---------------------------+---------------------------------+

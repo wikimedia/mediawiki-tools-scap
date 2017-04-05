@@ -228,6 +228,26 @@ class JSONFormatterTest(unittest.TestCase):
         self.assertIn('RuntimeError: fail fail fail', parsed['exc_text'])
 
 
+class LogstashFormatterTest(unittest.TestCase):
+
+    def test_helpful_typeerror(self):
+        """
+        Ensure TypeError message is helpful.
+
+        This test ensures that even if the LogstashFormatter fails to format a
+        message, we still see the information it was trying to format.
+        """
+        args = ['10']
+        msg = 'I think this \%s is escaped! Favorite Number: %d'
+        record = logging.makeLogRecord({'msg': msg, 'args': args})
+        formatter = log.LogstashFormatter()
+        with self.assertRaises(TypeError) as e:
+            formatter.format(record)
+
+        self.assertIn(args[0], e.exception.message)
+        self.assertIn(msg, e.exception.message)
+
+
 class ProgressReporterTest(unittest.TestCase):
 
     def test_progress(self):

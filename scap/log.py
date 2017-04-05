@@ -4,6 +4,21 @@
     ~~~~~~~~
     Helpers for routing and formatting log data.
 
+    Copyright © 2014-2017 Wikimedia Foundation and Contributors.
+
+    This file is part of Scap.
+
+    Scap is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, version 3.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """
 import fnmatch
 from functools import partial
@@ -189,7 +204,23 @@ class LogstashFormatter(logging.Formatter):
 
         # Ensure message is populated
         if 'message' not in fields:
-            fields['message'] = fields['msg'] % fields['args']
+            try:
+                fields['message'] = fields['msg'] % fields['args']
+            except TypeError as e:
+                # This sometimes happens if the fields['msg'] has a
+                # '%<something>' in it some place.
+                #
+                # Re-raising and dumping the message and fields seems like it
+                # may be more helpful in tracking down the root cause of an
+                # error than the output, "not enough arguments for format
+                # string"
+                raise TypeError(
+                    'error: ({}); '
+                    'format string: ({}); '
+                    'arguments: ({})'.format(
+                        e.message,
+                        fields['msg'],
+                        fields['args']))
 
         # Format exception
         if 'exc_info' in fields and fields['exc_info']:
@@ -335,10 +366,11 @@ class ProgressReporter(object):
 class FancyProgressReporter(ProgressReporter):
 
     def __init__(self, name='', expect=0, fd=sys.stderr):
-        return super(FancyProgressReporter, self).__init__(name)
         term.scroll_region(0, term.height - 3)
         term.scroll_forward(1)
         term.register_cleanup_callback(self.cleanup)
+        return super(FancyProgressReporter, self).__init__(
+            name, expect=expect, fd=fd)
 
     def finish(self):
         """Finish tracking progress."""
@@ -356,8 +388,8 @@ class FancyProgressReporter(ProgressReporter):
     def cleanup(self, term=term):
         height = term.height
         term.save()
-        term.move(height-2, 0).clear_eol() \
-            .move(height-1, 0).clear_eol() \
+        term.move(height - 2, 0).clear_eol() \
+            .move(height - 1, 0).clear_eol() \
             .move(height, 0).clear_eol()
         term.scroll_region(0, height)
         term.reset_colors()
@@ -367,7 +399,7 @@ class FancyProgressReporter(ProgressReporter):
         width = term.width
         bottom = term.height
         label_width = len(self._name) + 12
-        scale = int(width/2)
+        scale = int(width / 2)
         scale = min(width - label_width, scale)
         scale = max(scale, 15)
         partial_bar = (' ', '▎', '▎', '▍', '▌', '▋', '▊', '▉', '▉', '█')
@@ -376,7 +408,7 @@ class FancyProgressReporter(ProgressReporter):
         filled_bars = int(progress)
         remain = 0
         if filled_bars > 0 and progress > filled_bars:
-            remain = int((progress % filled_bars)*10)
+            remain = int((progress % filled_bars) * 10)
 
         bar = '█' * int(filled_bars)
         bar = bar + partial_bar[remain]

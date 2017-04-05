@@ -9,7 +9,7 @@
     :Author: Mukunda Modell <mmodell@wikimedia.org>
 
     :Copyright: Wikimedia Foundation, Inc.
-    :License: GPL v2.0
+    :License: GPL v3.0
 
     Parts of the shell argument completion code in this file is derived from
     `python-selfcompletion`_.
@@ -23,6 +23,21 @@
        * :func:`scap.cli.command`
        * :func:`scap.cli.argument`
 
+    Copyright © 2014-2017 Wikimedia Foundation and Contributors.
+
+    This file is part of Scap.
+
+    Scap is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, version 3.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """
 import argparse
 import inspect

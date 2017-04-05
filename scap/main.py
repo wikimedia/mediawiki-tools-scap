@@ -4,6 +4,21 @@
     ~~~~~~~~~~
     Command wrappers for scap tasks
 
+    Copyright © 2014-2017 Wikimedia Foundation and Contributors.
+
+    This file is part of Scap.
+
+    Scap is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, version 3.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """
 import argparse
 import errno
@@ -16,6 +31,7 @@ import time
 
 from . import arg
 from . import cli
+from . import lock
 from . import log
 from . import ssh
 from . import targets
@@ -37,7 +53,7 @@ class AbstractSync(cli.Application):
 
         self.include = None
 
-        with utils.lock(self.config['lock_file'], self.arguments.message):
+        with lock.Lock(self.config['lock_file'], self.arguments.message):
             self._check_sync_flag()
             self._before_cluster_sync()
             self._sync_common()
@@ -140,6 +156,11 @@ class AbstractSync(cli.Application):
     def _after_sync_common(self):
         self._git_repo()
 
+        # Compute git version information
+        with log.Timer('cache_git_info', self.get_stats()):
+            for version, wikidb in self.active_wikiversions().items():
+                tasks.cache_git_info(version, self.config)
+
     def _check_sync_flag(self):
         sync_flag = os.path.join(self.config['stage_dir'], 'sync.flag')
         if os.path.exists(sync_flag):
@@ -235,6 +256,7 @@ class AbstractSync(cli.Application):
                 includes.append('/'.join(parts[:i]))
 
             includes.append(self.include)
+            includes.append('php-*/cache/gitinfo')
 
         tasks.sync_common(
             self.config,
@@ -402,11 +424,6 @@ class Scap(AbstractSync):
                 tasks.update_localization_cache(
                     version, wikidb, self.verbose, self.config)
 
-        # Compute git version information
-        with log.Timer('cache_git_info', self.get_stats()):
-            for version, wikidb in self.active_wikiversions().items():
-                tasks.cache_git_info(version, self.config)
-
     def _after_cluster_sync(self):
         target_hosts = self._get_target_list()
         # Ask apaches to rebuild l10n CDB files
@@ -553,7 +570,7 @@ class SyncFile(AbstractSync):
                     '--beta-only-change not allowed for PHP files', abspath)
 
         relpath = os.path.relpath(abspath, self.config['stage_dir'])
-        if os.path.isdir(relpath):
+        if os.path.isdir(abspath):
             relpath = '%s/***' % relpath
         self.include = relpath
 
@@ -691,7 +708,7 @@ class SyncWikiversions(AbstractSync):
 
         # this is here for git_repo
         self.include = '/wikiversions*.{json,php}'
-        with utils.lock(self.config['lock_file'], self.arguments.message):
+        with lock.Lock(self.config['lock_file'], self.arguments.message):
             self._check_sync_flag()
             self._sync_common()
             self._after_sync_common()
