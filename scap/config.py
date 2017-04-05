@@ -123,6 +123,7 @@ def load(cfg_file=None, environment=None, overrides=None):
             os.path.join(os.path.dirname(__file__), '..', 'scap.cfg'),
             '/srv/scap/scap.cfg',
             '/etc/scap.cfg',
+            os.path.join(local_cfg, 'scap.cfg'),
             utils.get_env_specific_filename(
                 os.path.join(local_cfg, 'scap.cfg'),
                 environment
