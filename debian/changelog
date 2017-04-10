@@ -1,3 +1,13 @@
+scap (3.5.5-1) unstable; urgency=low
+
+  * Scap now only looks in /etc/scap.cfg and at individual repos to find its
+    configuration.
+
+  * Scap3: The configuration merges from global to environment-specific for
+    vars.yaml, checks.yaml, and scap.cfg
+
+ -- Tyler Cipriani <tcipriani@wikimedia.org>  Mon, 10 Apr 2017 15:54:12 -0600
+
 scap (3.5.4-1) unstable; urgency=low
 
   * Scap is now licensed under GPLv3 thanks to mmodell for spearheading this
