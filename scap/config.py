@@ -95,12 +95,11 @@ def load(cfg_file=None, environment=None, overrides=None):
     #. ``$(pwd)/scap/environments/<environment>/scap.cfg`` or
        ``$(pwd)/scap/scap.cfg`` (if no environment was specified)
     #. ``/etc/scap.cfg``
-    #. ``/srv/scap/scap.cfg``
-    #. ``<path to scap python package>/../scap.cfg``
 
-    For example, if a configuration parameter is set in ``/srv/scap/scap.cfg``
-    and that same parameter is set in ``/etc/scap.cfg`` the value for that
-    parameter set in ``/etc/scap.cfg`` will be used during execution.
+    For example, if a configuration parameter is set in
+    ``$(pwd)/scap/scap.cfg`` and that same parameter is set in
+    ``/etc/scap.cfg`` the value for that parameter set in
+    ``$(pwd)/scap/scap.cfg`` will be used during execution.
 
     :param cfg_file: Alternate configuration file
     :param environment: the string path under which scap.cfg is found
@@ -120,8 +119,6 @@ def load(cfg_file=None, environment=None, overrides=None):
         parser.readfp(cfg_file)
     else:
         parser.read([
-            os.path.join(os.path.dirname(__file__), '..', 'scap.cfg'),
-            '/srv/scap/scap.cfg',
             '/etc/scap.cfg',
             os.path.join(local_cfg, 'scap.cfg'),
             utils.get_env_specific_filename(
