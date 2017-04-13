@@ -537,11 +537,18 @@ class Deploy(cli.Application):
             short_sha1 = 'UNKNOWN'
 
         deploy_name = 'deploy'
+
         if self.arguments.init:
             deploy_name = 'setup'
         elif restart_only:
             deploy_name = 'restart'
+
         display_name = '{} [{}@{}]'.format(deploy_name, self.repo, short_sha1)
+
+        environment_name = self.config['environment']
+
+        if environment_name is not None:
+            display_name = '{} ({})'.format(display_name, environment_name)
 
         rev = self.arguments.rev
         if not rev:
