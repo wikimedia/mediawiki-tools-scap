@@ -144,8 +144,7 @@ def check_valid_syntax(*paths):
         "%s "
         "-not -type d "  # makes no sense to lint a dir named 'less.php'
         "-name '*.php' -not -name 'autoload_static.php' "
-        " -or -name '*.inc' -or -name '*.phtml' "
-        " -or -name '*.php5' | xargs -n1 -P%d -exec php -l >/dev/null"
+        " -or -name '*.inc' | xargs -n1 -P%d -exec php -l >/dev/null"
     ) % (' '.join(quoted_paths), multiprocessing.cpu_count())
     logger.debug('Running command: `%s`', cmd)
     subprocess.check_call(cmd, shell=True)

@@ -504,7 +504,7 @@ def check_php_opening_tag(path):
     :param path: Location of file
     :raises: ValueError on invalid file
     """
-    if not path.endswith(('.php', '.inc', '.phtml', '.php5')):
+    if not path.endswith(('.php', '.inc')):
         return
     with open(path) as f:
         text = f.read()
