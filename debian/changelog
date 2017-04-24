@@ -1,3 +1,21 @@
+scap (3.5.6-1) unstable; urgency=low
+
+  * Scap global lock file fix
+
+  * MediaWiki: scap no longer looks for php5 or phtml files to lint
+
+  * Scap3: scap deploy now has a new --dry-run option. This option causes the
+    config_diff stage to run on the target. This option renders the
+    configuration files being deployed by a repo in a temprorary file and
+    diffs them against the live version of the files. The diff is sent to scap
+    deploy-log for review by the deployer. Nothing is deployed as part of a
+    deploy --dry-run.
+
+  * Scap3: scap deploy will now announce the environment along with commit if
+    the environment to which a repo is being deployed is not the default.
+
+ -- Tyler Cipriani <tcipriani@wikimedia.org>  Mon, 24 Apr 2017 17:17:36 -0600
+
 scap (3.5.5-1) unstable; urgency=low
 
   * Scap now only looks in /etc/scap.cfg and at individual repos to find its
