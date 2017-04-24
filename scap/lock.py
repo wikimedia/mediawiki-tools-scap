@@ -31,17 +31,17 @@ class Lock():
     :raises: LockFailedError on failure
     """
     def __init__(self, filename, reason='No reason given', group_write=False):
-            self.filename = filename
-            self.reason = reason
-            self.lock_fd = None
+        self.filename = filename
+        self.reason = reason
+        self.lock_fd = None
 
-            # Setup permissions. Start with 0444, everyone can read
-            self.lock_perms = stat.S_IRUSR | stat.S_IRGRP | stat.S_IROTH
-            # Owner can always write
-            self.lock_perms |= stat.S_IWUSR
-            # If allowed, let group write too
-            if group_write:
-                self.lock_perms |= stat.S_IWGRP
+        # Setup permissions. Start with 0444, everyone can read
+        self.lock_perms = stat.S_IRUSR | stat.S_IRGRP | stat.S_IROTH
+        # Owner can always write
+        self.lock_perms |= stat.S_IWUSR
+        # If allowed, let group write too
+        if group_write:
+            self.lock_perms |= stat.S_IWGRP
 
     def __enter__(self):
         if os.path.exists(GLOBAL_LOCK_FILE):
@@ -64,8 +64,6 @@ class Lock():
                 details = 'Failed to acquire lock "%s"; shady reasons "%s"' % (
                            self.filename, e)
             raise LockFailedError(details)
-        else:
-            yield
         finally:
             # Return the umask
             os.umask(orig_umask)
