@@ -303,17 +303,23 @@ def remote_set(location, repo, remote='origin'):
         subprocess.check_call(cmd, shell=True)
 
 
-def fetch(location, repo):
+def fetch(location, repo, reference=None, dissociate=True):
     """Fetch a git repo to a location
     """
     if is_dir(location):
         remote_set(location, repo)
         with utils.cd(location):
-            cmd = '/usr/bin/git fetch'
-            subprocess.check_call(cmd, shell=True)
+            cmd = ['/usr/bin/git', 'fetch']
+            subprocess.check_call(cmd)
     else:
-        cmd = '/usr/bin/git clone {0} {1}'.format(repo, location)
-        subprocess.check_call(cmd, shell=True)
+        cmd = ['/usr/bin/git', 'clone', repo, location]
+        if reference is not None:
+            ensure_dir(reference)
+            cmd.append('--reference')
+            cmd.append(reference)
+            if dissociate:
+                cmd.append('--dissociate')
+        subprocess.check_call(cmd)
 
 
 def checkout(location, rev):

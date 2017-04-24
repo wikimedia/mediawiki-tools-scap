@@ -27,6 +27,7 @@ import glob
 import os
 import requests
 import shutil
+import tempfile
 import time
 import yaml
 import subprocess
@@ -50,9 +51,10 @@ from . import git
 FINALIZE = 'finalize'
 RESTART = 'restart_service'
 ROLLBACK = 'rollback'
+CONFIG_DIFF = 'config_diff'
 
 STAGES = ['fetch', 'config_deploy', 'promote']
-EX_STAGES = [RESTART, ROLLBACK, FINALIZE]
+EX_STAGES = [RESTART, ROLLBACK, CONFIG_DIFF, FINALIZE]
 
 
 class DeployGroupFailure(Exception):
@@ -147,7 +149,7 @@ class DeployLocal(cli.Application):
         """
         logger = self.get_logger()
         if not self.config['config_deploy']:
-            logger.info('No config files to deploy, skipping...')
+            logger.info('config_deploy is not enabled in scap.cfg, skipping.')
             return
 
         config_files = self.config.get('config_files')
@@ -196,6 +198,50 @@ class DeployLocal(cli.Application):
             with open(source, 'w+') as f:
                 output_file = tmpl.render()
                 f.write(output_file)
+
+    def config_diff(self):
+        '''
+        Render config files from DEPLOY_HEAD and compare each file to the
+        deployed version. This is called by scap deploy --dry-run
+        '''
+        logger = self.get_logger()
+        if not self.config['config_deploy']:
+            logger.info('config_deploy is not enabled in scap.cfg, skipping.')
+            return
+
+        config_files = self.config.get('config_files')
+        if not config_files:
+            raise IOError(errno.ENOENT, 'No config_files found!')
+
+        overrides = config_files.get('override_vars', {})
+
+        for config_file in config_files['files']:
+            filename = config_file['name']
+
+            tmpl = template.Template(
+                name=filename,
+                loader={filename: config_file['template']},
+                erb_syntax=config_file.get('erb_syntax', False),
+                var_file=config_file.get('remote_vars', None),
+                overrides=overrides
+            )
+
+            with tempfile.NamedTemporaryFile() as cfg:
+                cfg.write(tmpl.render())
+                cfg.delete = False
+
+            logger.info('Diff for %s:', filename)
+
+            try:
+                diff_cmd = ['/usr/bin/diff', '-u', filename, cfg.name]
+                subprocess.check_output(diff_cmd)
+            except subprocess.CalledProcessError as result:
+                logger.info('{type}: {output}', extra={
+                    'type': 'config_diff',
+                    'output': result.output})
+            else:
+                logger.info('no differences')
+            os.unlink(cfg.name)
 
     def fetch(self):
         """
@@ -500,6 +546,10 @@ class Deploy(cli.Application):
                   help='Limit deploy to hosts matching expression')
     @cli.argument('-f', '--force', action='store_true',
                   help='force re-fetch and checkout')
+    @cli.argument('--dry-run', action='store_true', dest='dry_run',
+                  help='Compile and deploy config files to a temp location '
+                       'and output a diff against the previously deployed '
+                       'config files.')
     @cli.argument('--service-restart', action='store_true',
                   help='Restart service')
     @cli.argument('-i', '--init', action='store_true',
@@ -519,6 +569,9 @@ class Deploy(cli.Application):
         if self.arguments.service_restart:
             stages = [RESTART]
 
+        if self.arguments.dry_run:
+            stages = ['config_diff']
+
         restart_only = False
         if len(stages) is 1 and stages[0] is RESTART:
             restart_only = True
@@ -537,11 +590,18 @@ class Deploy(cli.Application):
             short_sha1 = 'UNKNOWN'
 
         deploy_name = 'deploy'
+
         if self.arguments.init:
             deploy_name = 'setup'
         elif restart_only:
             deploy_name = 'restart'
+
         display_name = '{} [{}@{}]'.format(deploy_name, self.repo, short_sha1)
+
+        environment_name = self.config['environment']
+
+        if environment_name is not None:
+            display_name = '{} ({})'.format(display_name, environment_name)
 
         rev = self.arguments.rev
         if not rev:
@@ -626,6 +686,10 @@ class Deploy(cli.Application):
                                             ignore_failure=True)
 
             return 1
+
+        if self.arguments.dry_run:
+            # don't finalize a dry-run
+            return 0
 
         for group in attempted_groups:
             self._execute_for_group([FINALIZE], group, ignore_failure=True)
@@ -721,8 +785,8 @@ class Deploy(cli.Application):
         Generate environment-specific config file and variable template list.
 
         Builds a yaml file that contains:
-        #. A list of file objects containing template files to be deployed
-        #. An object containing variables specified in the
+        1. A list of file objects containing template files to be deployed
+        2. An object containing variables specified in the
         environment-specific `vars.yaml` file and inheriting from the
         `vars.yaml` file
         """
@@ -731,7 +795,7 @@ class Deploy(cli.Application):
         if not self.config['config_deploy']:
             return
 
-        logger.debug('Deploy config: True')
+        logger.debug('Prepare config deploy')
 
         cfg_file = self.context.env_specific_path('config-files.y*ml')
 
@@ -827,7 +891,7 @@ class Deploy(cli.Application):
         deploy_local_cmd += ['--repo', self.config['git_repo']]
 
         if self.arguments.force:
-                deploy_local_cmd.append('--force')
+            deploy_local_cmd.append('--force')
 
         deploy_local_cmd += ['-g', group, stage]
         deploy_local_cmd.append('--refresh-config')
@@ -926,7 +990,7 @@ class DeployLog(cli.Application):
         if not filter.isfiltering('levelno'):
             filter.append({'levelno': lambda v: v >= self.arguments.loglevel})
 
-        formatter = log.AnsiColorFormatter(self.FORMAT, self.DATE_FORMAT)
+        formatter = log.DiffLogFormatter(self.FORMAT, self.DATE_FORMAT)
 
         cur_log_path = given_log
         cur_log_file = open(given_log, 'r') if given_log else None

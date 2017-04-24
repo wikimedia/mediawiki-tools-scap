@@ -27,12 +27,19 @@ import logging
 import math
 import operator
 import logging.handlers
+import pygments
 import re
 import shlex
 import socket
 import sys
 import time
 import traceback
+
+try:
+    from pygments.formatters import TerminalFormatter
+    from pygments.lexers.diff import DiffLexer
+except ImportError:
+    DiffLexer = None
 
 from scap.terminal import term
 from . import utils
@@ -62,14 +69,35 @@ class AnsiColorFormatter(logging.Formatter):
 
         .. seealso:: https://en.wikipedia.org/wiki/ANSI_escape_code
         """
-        super(self.__class__, self).__init__(fmt, datefmt)
+        super(AnsiColorFormatter, self).__init__(fmt, datefmt)
         if colors:
             self.colors.update(colors)
 
     def format(self, record):
-        msg = super(self.__class__, self).format(record)
+        msg = super(AnsiColorFormatter, self).format(record)
         color = self.colors.get(record.levelname, '0')
         return '\x1b[%sm%s\x1b[0m' % (color, msg)
+
+
+class DiffLogFormatter(AnsiColorFormatter):
+    lex = None
+    formatter = None
+
+    def __init__(self, fmt=None, datefmt=None, colors=None):
+        if DiffLexer:
+            self.lex = DiffLexer()
+            self.formatter = TerminalFormatter()
+        super(DiffLogFormatter, self).__init__(fmt, datefmt, colors)
+
+    def format(self, record):
+
+        if getattr(record, 'type', None) == 'config_diff':
+            if self.lex:
+                return pygments.highlight(record.output, self.lex,
+                                          self.formatter)
+            else:
+                return record.output
+        return super(DiffLogFormatter, self).format(record)
 
 
 class IRCSocketHandler(logging.Handler):
@@ -774,7 +802,7 @@ def setup_loggers(cfg, console_level=logging.INFO, handlers=[]):
         logging.root.handlers[0].setFormatter(JSONFormatter())
     else:
         # Colorize log messages sent to stderr
-        logging.root.handlers[0].setFormatter(AnsiColorFormatter(
+        logging.root.handlers[0].setFormatter(DiffLogFormatter(
             '%(asctime)s %(message)s', '%H:%M:%S'))
 
     if cfg['udp2log_host']:
