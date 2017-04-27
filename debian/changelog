@@ -1,3 +1,12 @@
+scap (3.5.7-1) unstable; urgency=low
+
+  * Fix _get_lock_excuse
+
+  * MediaWiki: Don't recache git info on sync-l10n since this is run by
+    l10nupdate (fixes T163671)
+
+ -- Tyler Cipriani <tcipriani@wikimedia.org>  Thu, 27 Apr 2017 16:21:34 -0600
+
 scap (3.5.6-1) unstable; urgency=low
 
   * Scap global lock file fix
