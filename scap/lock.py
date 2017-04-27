@@ -84,7 +84,7 @@ class Lock():
                         'This is probably fine-ish :)'
                     )
 
-    def get_lock_excuse(file):
+    def _get_lock_excuse(self, file):
         """
         Get an excuse for why we couldn't lock the file.
 
@@ -98,7 +98,7 @@ class Lock():
         excuses = 'no excuse given'
         try:
             bad_user = utils.get_username(os.stat(file).st_uid) or bad_user
-            excuses = open(file, 'r').readline().strip() or excuses
+            excuses = open(file, 'r').read() or excuses
         except (IOError, OSError) as e:
             # Before we raise, let's at least warn what failed
             utils.get_logger().warning(e)
