@@ -679,6 +679,9 @@ class SyncL10n(AbstractSync):
             self.arguments.version, utils.human_duration(self.get_duration()))
         self.get_stats().increment('l10nupdate-sync')
 
+    def _after_sync_common(self):
+        self._git_repo()
+
 
 @cli.command('sync-wikiversions')
 class SyncWikiversions(AbstractSync):
