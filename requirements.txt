@@ -2,4 +2,5 @@ jinja2
 psutil
 pyaml
 requests
+semver
 pygments
