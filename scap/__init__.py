@@ -39,6 +39,7 @@ from .main import (
     SyncMaster,
     SyncWikiversions,
     UpdateL10n,
+    Version,
 )
 
 from .version import __version__
@@ -68,6 +69,7 @@ __all__ = [
     'SyncMaster',
     'SyncWikiversions',
     'UpdateL10n',
+    'Version',
     '__version__',
 ]
 
@@ -99,4 +101,5 @@ any((
     SyncL10n,
     SyncWikiversions,
     UpdateL10n,
+    Version,
     __version__))  # Ignore unused import warning

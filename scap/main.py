@@ -37,6 +37,7 @@ from . import ssh
 from . import targets
 from . import tasks
 from . import utils
+from . import version as scapversion
 
 
 class AbstractSync(cli.Application):
@@ -847,3 +848,9 @@ class ServerAdminLog(cli.Application):
     @cli.argument('message', nargs='*', help='Log message for SAL')
     def main(self, *extra_args):
         self.announce(self.arguments.message)
+
+
+@cli.command('version', help='Show the version number and exit')
+class Version(cli.Application):
+    def main(self, *extra_args):
+        print(scapversion.__version__)

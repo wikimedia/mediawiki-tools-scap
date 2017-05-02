@@ -280,16 +280,10 @@ class Application(object):
             if os.geteuid() == 0:
                 raise SystemExit('Scap should not be run as root')
 
-            if len(argv) == 2 and (argv[1] == '--version' or argv[1] == '-V'):
-                show_version()
-
             # Let each application handle `extra_args`
             app.arguments, app.extra_arguments = app._process_arguments(
                 app.arguments,
                 app.extra_arguments)
-
-            if app.arguments.show_version is True:
-                show_version()
 
             app._load_config()
             app._setup_loggers()
@@ -325,11 +319,6 @@ class Application(object):
 
         # Exit
         sys.exit(exit_status)
-
-
-def show_version():
-    print(scap.__version__)
-    sys.exit(0)
 
 
 def argument(*args, **kwargs):

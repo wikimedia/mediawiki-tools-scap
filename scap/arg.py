@@ -290,8 +290,6 @@ def get_global_parser():
         type=lambda v: tuple(v.split(':')),
         help='Set a configuration value',
         metavar='<name>:<value>')
-    group.add_argument('-V', action='store_true', dest='show_version',
-                       help='Print scap version.')
     group.add_argument(
         '-v', '--verbose', action='store_const',
         const=logging.DEBUG, default=default_loglevel,
