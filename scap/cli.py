@@ -62,6 +62,14 @@ class Application(object):
                 self.config['statsd_host'], int(self.config['statsd_port']))
         return self._stats
 
+    def get_lock_file(self):
+        """Get the path to scap.lock"""
+        if self.config['lock_file'] is not None:
+            return self.config['lock_file']
+        else:
+            return '/var/lock/scap.%s.lock' % (
+                self.config['git_repo'].replace('/', '_'))
+
     @property
     def verbose(self):
         return self.arguments.loglevel < logging.INFO

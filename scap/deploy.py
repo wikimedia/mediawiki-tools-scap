@@ -607,7 +607,7 @@ class Deploy(cli.Application):
         if not rev:
             rev = self.config.get('git_rev', 'HEAD')
 
-        with lock.Lock(self.context.lock_path(), self.arguments.message):
+        with lock.Lock(self.get_lock_file(), self.arguments.message):
             with log.Timer(display_name):
                 timestamp = datetime.utcnow()
                 tag = git.next_deploy_tag(location=self.context.root)

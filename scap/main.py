@@ -54,7 +54,7 @@ class AbstractSync(cli.Application):
 
         self.include = None
 
-        with lock.Lock(self.config['lock_file'], self.arguments.message):
+        with lock.Lock(self.get_lock_file(), self.arguments.message):
             self._check_sync_flag()
             self._before_cluster_sync()
             self._sync_common()
@@ -711,7 +711,7 @@ class SyncWikiversions(AbstractSync):
 
         # this is here for git_repo
         self.include = '/wikiversions*.{json,php}'
-        with lock.Lock(self.config['lock_file'], self.arguments.message):
+        with lock.Lock(self.get_lock_file(), self.arguments.message):
             self._check_sync_flag()
             self._sync_common()
             self._after_sync_common()

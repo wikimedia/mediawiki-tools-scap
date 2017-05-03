@@ -37,7 +37,7 @@ DEFAULT_CONFIG = {
     'failure_limit': (str, '0%'),
     'fancy_progress': (bool, False),
     'stage_dir': (str, '/srv/mediawiki-staging'),
-    'lock_file': (str, '/var/lock/scap'),
+    'lock_file': (str, None),
     'log_json': (bool, False),
     'logstash_host': (str, 'logstash1001.eqiad.wmnet:9200'),
     'master_rsync': (str, 'localhost'),

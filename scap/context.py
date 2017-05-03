@@ -43,11 +43,6 @@ class Context(object):
         self.root = root
         self.environment = environment
 
-    def lock_path(self):
-        """Get the path to scap.lock for this context."""
-
-        return self.path('scap', 'deploy.lock')
-
     def path(self, *relpaths):
         """Qualify path relative to the root path."""
 
