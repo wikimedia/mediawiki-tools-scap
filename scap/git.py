@@ -245,7 +245,7 @@ def add_all(location, message='Update'):
         os.environ['GIT_COMMITTER_NAME'] = ename
         os.environ['GIT_AUTHOR_NAME'] = rname
 
-        cmd = [git, 'commit', '-m', message]
+        cmd = [git, 'commit', '--quiet', '-m', message]
 
         # Soft errors if nothing new to commit
         subprocess.call(cmd)
