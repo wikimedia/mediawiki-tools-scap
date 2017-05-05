@@ -67,8 +67,11 @@ class Application(object):
         if self.config['lock_file'] is not None:
             return self.config['lock_file']
         else:
-            return '/var/lock/scap.%s.lock' % (
-                self.config['git_repo'].replace('/', '_'))
+            try:
+                return '/var/lock/scap.%s.lock' % (
+                    self.config['git_repo'].replace('/', '_'))
+            except KeyError:
+                return '/var/lock/scap.unknown-but-probably-mediawiki.lock'
 
     @property
     def verbose(self):
