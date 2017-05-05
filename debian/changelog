@@ -1,4 +1,4 @@
-scap (3.5.0-1) UNRELEASED; urgency=low
+scap (3.6.0-1) UNRELEASED; urgency=low
 
   [ Chad Horohoe ]
   * Remove old stub entry points for scap
@@ -15,8 +15,91 @@ scap (3.5.0-1) UNRELEASED; urgency=low
   [ Tyler Cipriani ]
   * Flatten MedaWiki deploy into a single git repo
   * Bump version to 3.5.0
+  * Fix MediaWiki git ident errors
 
- -- Chad Horohoe <chadh@wikimedia.org>  Fri, 02 Dec 2016 11:59:29 -0700
+  [ Dan Duvall ]
+  * Fix regression of deploy group continue prompt
+
+  [ halfak ]
+  * Adds sync_submodule() and uses it in deploy().
+
+  [ Tyler Cipriani ]
+  * Make checks serial by default
+
+  [ Dan Duvall ]
+  * Exclude empty deploy groups
+  * Fix `failure_rate` percentages
+
+  [ Chad Horohoe ]
+  * Add simple subcommand for logging to server admin log
+
+  [ Antoine Musso ]
+  * Deduplicate git authors via .mailmap
+
+  [ Tyler Cipriani ]
+  * Explicit sync-common step in mediawiki deploy
+
+  [ Chad Horohoe ]
+  * Don't bother doing syntax checks for symlink syncs
+
+  [ Mukunda Modell ]
+  * Add license: GPLv3
+
+  [ Tyler Cipriani ]
+  * Improve TypeError message for LogstashFormatter
+
+  [ Chad Horohoe ]
+  * Allow reloading service instead of restarting service
+
+  [ Mukunda Modell ]
+  * scap.utils.var_dump()
+  * New scap sayings...
+
+  [ Chad Horohoe ]
+  * Move utils.lock() and related code to its own module
+
+  [ Mukunda Modell ]
+  * Fix FancyProgressReporter
+
+  [ Chad Horohoe ]
+  * Always compute new git info for all syncs, not just full scap
+
+  [ Tyler Cipriani ]
+  * Default .gitignore contra subdirectory .gitignore
+
+  [ Chad Horohoe ]
+  * Use absolute path to determine if relative path is a directory
+
+  [ Tyler Cipriani ]
+  * Merge environment-specific scap.cfg
+
+  [ Chad Horohoe ]
+  * Remove sourcing config from /srv/scap/*
+  * Stop looking for php5 or phtml files for linting
+
+  [ Tyler Cipriani ]
+  * Announce environment along with commit
+
+  [ Mukunda Modell ]
+  * Scap config diff
+
+  [ Chad Horohoe ]
+  * Allow for cloning repos while referencing other local copies
+
+  [ Tyler Cipriani ]
+  * Remove yield from Lock.lock __enter__
+  * Fix _get_lock_excuse
+
+  [ Chad Horohoe ]
+  * Don't recache git info on sync-l10n
+  * Create version subcommand, cleans up weird argparse voodoo
+  * Add semver package to our depenencies
+  * Unify lock file handling between `deploy` and `sync`
+
+  [ Tyler Cipriani ]
+  * Bump master version to 3.6.0-dev
+
+ -- Tyler Cipriani <tcipriani@wikimedia.org>  Fri, 05 May 2017 12:24:03 -0600
 
 scap (3.4.0-1) unstable; urgency=low
 
