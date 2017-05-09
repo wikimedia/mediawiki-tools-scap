@@ -128,7 +128,7 @@ class AbstractSync(cli.Application):
                 update_apaches = ssh.Job(
                     full_target_list, user=self.config['ssh_user'])
                 update_apaches.exclude_hosts(proxies)
-                update_apaches.exclude_hosts([socket.getfqdn()])
+                update_apaches.exclude_hosts(self._get_master_list())
                 if not self.arguments.force:
                     update_apaches.exclude_hosts(canaries)
                 update_apaches.shuffle()
@@ -206,13 +206,25 @@ class AbstractSync(cli.Application):
 
     def _sync_masters(self):
         """Sync the staging directory across all deploy master servers."""
+        self.master_only_command('sync-masters', self._master_sync_command())
+        self.master_only_command('sync-pull-masters',
+                                 self._proxy_sync_command())
+
+    def master_only_cmd(self, timer, cmd):
+        """
+        Run a command on all other master servers than the one we're on
+
+        :param timer: String name to use in timer/logging
+        :param cmd: List of command/parameters to be executed
+        """
+
         masters = self._get_master_list()
-        with log.Timer('sync-masters', self.get_stats()):
+        with log.Timer(timer, self.get_stats()):
             update_masters = ssh.Job(masters, user=self.config['ssh_user'])
             update_masters.exclude_hosts([socket.getfqdn()])
-            update_masters.command(self._master_sync_command())
+            update_masters.command(cmd)
             update_masters.progress(
-                log.reporter('sync-masters', self.config['fancy_progress']))
+                log.reporter(timer, self.config['fancy_progress']))
             succeeded, failed = update_masters.run()
             if failed:
                 self.get_logger().warning(
