@@ -30,6 +30,10 @@ from . import utils
 
 DEFAULT_CONFIG = {
     'bin_dir': (str, '/srv/deployment/scap/scap/bin'),
+    'canary_dashboard_url': (
+        str,
+        'https://logstash.wikimedia.org/goto/3888cca979647b9381a7739b0bdbc88e'
+    ),
     'canary_threshold': (float, 10.0),
     'canary_service': (str, 'mediawiki'),
     'canary_wait_time': (int, 20),

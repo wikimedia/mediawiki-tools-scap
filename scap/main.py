@@ -99,9 +99,17 @@ class AbstractSync(cli.Application):
                     canaries, **canary_checks)
 
                 if failed:
-                    raise RuntimeError(
-                        '%d test canaries had check failures '
-                        '(rerun with --force to override this check)' % failed)
+                    canary_fail_msg = (
+                        'scap failed: average error rate on {}/{} '
+                        'canaries increased by 10x '
+                        '(rerun with --force to override this check, '
+                        'see {} for details)'.format(
+                            failed,
+                            len(canaries),
+                            self.config['canary_dashboard_url']))
+
+                    self.announce(canary_fail_msg)
+                    raise RuntimeError(canary_fail_msg)
 
             # Update proxies
             proxies = [node for node in self._get_proxy_list()
