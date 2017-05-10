@@ -28,8 +28,8 @@ import yaml
 import pygments
 import pygments.lexers
 import pygments.formatters
+import scap.ansi as ansi
 
-from . import ansi
 from functools import wraps
 from json import JSONEncoder
 

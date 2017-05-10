@@ -35,7 +35,7 @@
 import os
 import re
 
-from . import checks
+import scap.checks as checks
 
 _commands = {}
 

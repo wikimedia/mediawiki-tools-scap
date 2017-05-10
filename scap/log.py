@@ -42,7 +42,7 @@ except ImportError:
     DiffLexer = None
 
 from scap.terminal import term
-from . import utils
+import scap.utils as utils
 
 # Format string for log messages. Interpolates LogRecord attributes.
 # See <http://docs.python.org/2/library/logging.html#logrecord-attributes>

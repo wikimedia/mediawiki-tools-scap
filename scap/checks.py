@@ -40,7 +40,7 @@ import shlex
 import subprocess
 import time
 
-from . import utils
+import scap.utils as utils
 
 
 _types = {}

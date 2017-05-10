@@ -25,7 +25,7 @@ import os
 import re
 import string
 
-from . import utils
+import scap.utils as utils
 
 
 def get(key, cfg, limit_hosts=None, extra_paths=[]):

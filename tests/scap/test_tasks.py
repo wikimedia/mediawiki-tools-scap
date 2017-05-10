@@ -6,7 +6,7 @@ import tempfile
 import unittest
 from subprocess import CalledProcessError
 
-from scap import tasks
+import scap.tasks as tasks
 
 
 class TasksTest(unittest.TestCase):

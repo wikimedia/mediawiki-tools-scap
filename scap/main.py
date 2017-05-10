@@ -31,15 +31,15 @@ import subprocess
 import sys
 import time
 
-from . import arg
-from . import cli
-from . import lock
-from . import log
-from . import ssh
-from . import targets
-from . import tasks
-from . import utils
-from . import version as scapversion
+import scap.arg as arg
+import scap.cli as cli
+import scap.lock as lock
+import scap.log as log
+import scap.ssh as ssh
+import scap.targets as targets
+import scap.tasks as tasks
+import scap.utils as utils
+import version as scapversion
 
 
 class AbstractSync(cli.Application):

@@ -34,12 +34,12 @@ import subprocess
 import time
 import tempfile
 
-from . import cdblib
-from . import checks
-from . import git
-from . import log
-from . import ssh
-from . import utils
+import scap.cdblib as cdblib
+import scap.checks as checks
+import scap.git as git
+import scap.log as log
+import scap.ssh as ssh
+import scap.utils as utils
 
 
 DEFAULT_RSYNC_ARGS = [

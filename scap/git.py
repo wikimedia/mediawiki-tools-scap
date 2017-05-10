@@ -11,10 +11,10 @@ import re
 import os
 import socket
 import subprocess
-
-from . import utils
-
 import yaml
+
+import scap.utils as utils
+
 
 # All tags created by scap use this prefix
 TAG_PREFIX = 'scap/sync'

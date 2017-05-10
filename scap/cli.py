@@ -27,11 +27,11 @@ import time
 import scap.plugins
 
 from scap.terminal import term
-from . import arg
-from . import config
-from . import lock
-from . import log
-from . import utils
+import scap.arg as arg
+import scap.config as config
+import scap.lock as lock
+import scap.log as log
+import scap.utils as utils
 
 
 class Application(object):

@@ -11,7 +11,7 @@ import fcntl
 import os
 import stat
 
-from . import utils
+import scap.utils as utils
 
 
 GLOBAL_LOCK_FILE = '/var/lock/scap-global-lock'

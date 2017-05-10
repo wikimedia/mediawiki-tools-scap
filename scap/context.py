@@ -24,7 +24,7 @@ from datetime import datetime
 import glob
 import os
 
-from . import utils
+import scap.utils as utils
 
 REVS_TO_KEEP = 5
 

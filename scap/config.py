@@ -25,7 +25,7 @@ import getpass
 import os
 import socket
 
-from . import utils
+import scap.utils as utils
 
 
 DEFAULT_CONFIG = {

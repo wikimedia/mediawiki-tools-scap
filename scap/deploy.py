@@ -34,19 +34,19 @@ import subprocess
 
 from datetime import datetime
 
-from . import checks
-from . import config
-from . import context
-from . import nrpe
-from . import template
-from . import cli
-from . import lock
-from . import log
-from . import ssh
-from . import targets
-from . import tasks
-from . import utils
-from . import git
+import scap.checks as checks
+import scap.config as config
+import scap.context as context
+import scap.nrpe as nrpe
+import scap.template as template
+import scap.cli as cli
+import scap.lock as lock
+import scap.log as log
+import scap.ssh as ssh
+import scap.targets as targets
+import scap.tasks as tasks
+import scap.utils as utils
+import scap.git as git
 
 FINALIZE = 'finalize'
 RESTART = 'restart_service'

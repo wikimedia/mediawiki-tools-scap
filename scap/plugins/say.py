@@ -29,8 +29,8 @@ import random
 import sys
 import textwrap
 
-from scap import cli
-from scap import utils
+import scap.cli as cli
+import scap.utils as utils
 
 
 def fortune():

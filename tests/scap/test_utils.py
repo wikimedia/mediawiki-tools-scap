@@ -2,7 +2,8 @@
 
 import os
 import unittest
-from scap import utils
+
+import scap.utils as utils
 
 
 class UtilsTest(unittest.TestCase):
