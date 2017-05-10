@@ -206,9 +206,8 @@ class AbstractSync(cli.Application):
 
     def _sync_masters(self):
         """Sync the staging directory across all deploy master servers."""
-        self.master_only_command('sync-masters', self._master_sync_command())
-        self.master_only_command('sync-pull-masters',
-                                 self._proxy_sync_command())
+        self.master_only_cmd('sync-masters', self._master_sync_command())
+        self.master_only_cmd('sync-pull-masters', self._proxy_sync_command())
 
     def master_only_cmd(self, timer, cmd):
         """
