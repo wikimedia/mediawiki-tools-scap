@@ -59,7 +59,7 @@ class Lock():
             os.write(self.lock_fd, self.reason)
         except OSError as e:
             if e.errno is errno.EEXIST:
-                details = self.get_lock_excuse(self.filename)
+                details = self._get_lock_excuse(self.filename)
             else:
                 details = 'Failed to acquire lock "%s"; shady reasons "%s"' % (
                            self.filename, e)
