@@ -25,8 +25,10 @@ import errno
 import multiprocessing
 import os
 import pwd
+import select
 import socket
 import subprocess
+import sys
 import time
 
 from . import arg
@@ -873,3 +875,59 @@ class ServerAdminLog(cli.Application):
 class Version(cli.Application):
     def main(self, *extra_args):
         print(scapversion.__version__)
+
+
+@cli.command('lock', help='Tempoarily lock deployment of this repository')
+class LockManager(cli.Application):
+    """
+    Holds a lock open for a given repository.
+
+    examples::
+
+        lock 'Testing something, do not deploy'
+    """
+
+    @cli.argument('--all', action='store_true',
+                  help='Lock ALL repositories from deployment. ' +
+                       'With great power comes great responsibility')
+    @cli.argument('--time', type=int, default=3600,
+                  help='How long to lock deployments, in seconds')
+    @cli.argument('message', nargs='*', help='Log message for SAL/lock file')
+    def main(self, *extra_args):
+        logger = self.get_logger()
+
+        if self.arguments.message == '(no justification provided)':
+            logger.fatal('Cannot lock repositories without a reason')
+            return
+
+        if self.arguments.all:
+            lock_path = lock.GLOBAL_LOCK_FILE
+            repo = 'ALL REPOSITORIES'
+        else:
+            lock_path = self.get_lock_file()
+            repo = self.config['git_repo']
+
+        got_lock = False
+        with lock.Lock(lock_path, self.arguments.message, group_write=True):
+            got_lock = True
+            self.announce(
+                'Locking from deployment [%s]: %s (planned duration: %s)',
+                repo, self.arguments.message,
+                utils.human_duration(self.arguments.time))
+
+            logger.info('Press enter to abort early...')
+            try:
+                rlist, _, _ = select.select([sys.stdin], [], [],
+                                            self.arguments.time)
+                if rlist:
+                    sys.stdin.readline()
+            except KeyboardInterrupt:
+                pass  # We don't care here
+
+        if got_lock:
+            self.announce(
+                'Unlocked for deployment [%s]: %s (duration: %s)', repo,
+                self.arguments.message,
+                utils.human_duration(self.get_duration()))
+
+        return 0

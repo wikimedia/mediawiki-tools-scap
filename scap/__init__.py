@@ -26,6 +26,7 @@ import scap.plugins
 from .main import (
     CompileWikiversions,
     HHVMGracefulAll,
+    LockManager,
     MWVersionsInUse,
     RebuildCdbs,
     RefreshCdbJsonFiles,
@@ -56,6 +57,7 @@ __all__ = [
     'DeployLocal',
     'DeployLog',
     'HHVMGracefulAll',
+    'LockManager',
     'MWVersionsInUse',
     'RebuildCdbs',
     'RefreshCdbJsonFiles',
@@ -88,6 +90,7 @@ any((
     DeployLocal,
     DeployLog,
     HHVMGracefulAll,
+    LockManager,
     MWVersionsInUse,
     RebuildCdbs,
     RefreshCdbJsonFiles,
