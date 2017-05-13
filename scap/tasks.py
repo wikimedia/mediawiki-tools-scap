@@ -39,7 +39,6 @@ from . import checks
 from . import git
 from . import log
 from . import ssh
-from . import targets
 from . import utils
 
 
@@ -276,41 +275,6 @@ def merge_cdb_updates(
 
     reporter.finish()
     logger.info('Updated %d CDB files(s) in %s', updated, cache_dir)
-
-
-def purge_l10n_cache(version, cfg):
-    """
-    Purge the localization cache for a given version.
-
-    :param version: MediaWiki version (eg '1.23wmf15')
-    :param cfg: Dict of global configuration values
-    :raises: :class:`IOError` if l10n cache dirs for the given version are
-             not found
-    """
-    branch_dir = 'php-%s' % version
-    staged_l10n = os.path.join(cfg['stage_dir'], branch_dir, 'cache/l10n')
-    deployed_l10n = os.path.join(cfg['deploy_dir'], branch_dir, 'cache/l10n')
-
-    if not os.path.isdir(staged_l10n):
-        raise IOError(errno.ENOENT, 'Invalid l10n dir', staged_l10n)
-
-    if not os.path.isdir(deployed_l10n):
-        raise IOError(errno.ENOENT, 'Invalid l10n dir', deployed_l10n)
-
-    # Purge from staging directory locally
-    # Shell is needed on subprocess to allow wildcard expansion
-    # --force option given to rm to ignore missing files
-    utils.sudo_check_call(
-        'l10nupdate', '/bin/rm --recursive --force %s/*' % staged_l10n)
-
-    # Purge from deploy directroy across cluster
-    # --force option given to rm to ignore missing files as before
-    target_list = targets.get('dsh_targets', cfg).all
-    purge = ssh.Job(user=cfg['ssh_user']).hosts(target_list)
-    purge.command(
-        'sudo -u mwdeploy -n -- /bin/rm '
-        '--recursive --force %s/*' % deployed_l10n)
-    purge.progress(log.reporter('l10n purge', cfg['fancy_progress'])).run()
 
 
 @utils.log_context('sync_master')
