@@ -77,6 +77,7 @@ __all__ = [
 
 
 def all_applications():
+    """Load all the plugins and add them to the list of applications"""
     scap.plugins.load_plugins()
     apps = []
     apps.extend(__all__)
