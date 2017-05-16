@@ -147,7 +147,7 @@ def load(cfg_file=None, environment=None, overrides=None):
     config = override_config(config, overrides)
 
     if not environment and config.get('environment', None):
-            return load(cfg_file, config.get('environment'), overrides)
+        return load(cfg_file, config.get('environment'), overrides)
 
     config['environment'] = environment
     return config
@@ -168,7 +168,7 @@ def coerce_value(key, value):
     if key in DEFAULT_CONFIG:
         default_type, _ = DEFAULT_CONFIG[key]
 
-        if (isinstance(value, default_type)):
+        if isinstance(value, default_type):
             return value
 
         if default_type == bool:
