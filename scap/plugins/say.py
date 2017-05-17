@@ -55,6 +55,7 @@ def fortune():
         'S.C.A.P.: salt, cfengine, ansible & puppet',
         'S.C.A.P.: someone called about a party?',
         'S.C.A.P.: sync commits, all python',
+        'S.C.A.P.: small containers ate production',
     ])
 
 
