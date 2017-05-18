@@ -75,10 +75,10 @@ def fat_isinitialized(location):
                 cmd = '/usr/bin/git config --local --get filter.fat.smudge'
                 subprocess.check_call(cmd, stdout=devnull, shell=True)
                 return True
-            except subprocess.CalledProcessError as e:
-                if e.returncode == 1:
+            except subprocess.CalledProcessError as cpe:
+                if cpe.returncode == 1:
                     return False
-                raise e
+                raise cpe
 
 
 def fat_pull(location):
@@ -101,8 +101,8 @@ def info(directory):
 
     if os.path.isfile(git_dir):
         # submodules
-        with open(git_dir, 'r') as f:
-            git_ref = f.read().strip()
+        with open(git_dir, 'r') as gitdir:
+            git_ref = gitdir.read().strip()
 
         if not git_ref.startswith('gitdir: '):
             raise IOError(errno.EINVAL, 'Unexpected .git contents', git_dir)
@@ -112,8 +112,8 @@ def info(directory):
         git_dir = git_ref
 
     head_file = os.path.join(git_dir, 'HEAD')
-    with open(head_file, 'r') as f:
-        head = f.read().strip()
+    with open(head_file, 'r') as headfile:
+        head = headfile.read().strip()
     if head.startswith('ref: '):
         head = head[5:]
 
@@ -170,8 +170,8 @@ def default_ignore(location):
     remove_all_ignores(location)
     ignore = '\n'.join(DEFAULT_IGNORE)
     with utils.cd(location):
-        with open('.gitignore', 'w+') as f:
-            f.write(ignore)
+        with open('.gitignore', 'w+') as gitignore:
+            gitignore.write(ignore)
 
 
 def clean_tags(location, max_tags):
@@ -209,7 +209,7 @@ def clean_tags(location, max_tags):
         subprocess.check_call(cmd)
 
 
-def gc(location):
+def garbage_collect(location):
     """Clean up a repo."""
     git = '/usr/bin/git'
     ensure_dir(location)
@@ -266,6 +266,7 @@ def next_deploy_tag(location):
 
 
 def ensure_dir(location):
+    """Ensure that we're in a git directory. If not, explode"""
     if location is None or not is_dir(location):
         raise IOError(errno.ENOENT, 'Location is not a git repo', location)
 
@@ -330,8 +331,7 @@ def checkout(location, rev):
     logger = utils.get_logger()
 
     with utils.cd(location):
-        logger.debug(
-            'Checking out rev: {} at location: {}'.format(rev, location))
+        logger.debug('Checking out rev: %s at location: %s', rev, location)
         cmd = '/usr/bin/git checkout --force --quiet {}'.format(rev)
         subprocess.check_call(cmd, shell=True)
 
@@ -393,10 +393,10 @@ def update_deploy_head(deploy_info, location):
 
     with utils.cd(location):
         deploy_file = os.path.join(location, '.git', 'DEPLOY_HEAD')
-        logger.debug('Creating {}'.format(deploy_file))
-        with open(deploy_file, 'w+') as f:
-            f.write(yaml.dump(deploy_info, default_flow_style=False))
-            f.close()
+        logger.debug('Creating %s', deploy_file)
+        with open(deploy_file, 'w+') as deployfile:
+            deployfile.write(yaml.dump(deploy_info, default_flow_style=False))
+            deployfile.close()
 
 
 def tag_repo(deploy_info, location=os.getcwd()):
@@ -440,8 +440,7 @@ def remap_submodules(location, server):
         if not os.path.isfile(gitmodule):
             return
 
-        logger.info('Updating .gitmodule: {}'.format(
-            os.path.dirname(gitmodule)))
+        logger.info('Updating .gitmodule: %s', os.path.dirname(gitmodule))
 
         # ensure we're working with a non-modified .gitmodules file
         subprocess.check_call(['/usr/bin/git', 'checkout', '.gitmodules'])
@@ -490,7 +489,6 @@ def get_disclosable_head(repo_directory, remote_thing):
                          a tag, or a plain sha1
     :returns: str
     """
-    """ """
     with open(os.devnull, 'wb') as dev_null:
         try:
             return subprocess.check_output(
@@ -508,12 +506,13 @@ def get_disclosable_head(repo_directory, remote_thing):
                     cwd=repo_directory, stderr=dev_null).strip()
             except subprocess.CalledProcessError:
                 utils.get_logger().info(
-                    'Unable to find remote tracking branch/tag for %s' %
+                    'Unable to find remote tracking branch/tag for %s',
                     repo_directory)
                 return ''
 
 
 def list_submodules(repo):
+    """List all of the submodules of a given respository"""
     ensure_dir(repo)
     submodules = []
     res = subprocess.check_output(

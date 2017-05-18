@@ -1065,7 +1065,7 @@ class DeployMediaWiki(cli.Application):
 
         git.add_all(self.config['deploy_dir'], message=self.arguments.message)
 
-        git.gc(self.config['deploy_dir'])
+        git.garbage_collect(self.config['deploy_dir'])
 
         scap = self.get_script_path()
         options = {
