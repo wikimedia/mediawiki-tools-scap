@@ -119,7 +119,7 @@ def limit_target_hosts(pattern, hosts):
     return targets
 
 
-class TargetList():
+class TargetList(object):
     """An abstract list of targets (lists of hosts)."""
 
     def __init__(self, key, cfg, limit_hosts=None, extra_paths=[]):
@@ -254,7 +254,7 @@ class DshTargetList(TargetList):
             raise IOError(e.errno, e.strerror, hosts_file)
 
 
-class DeployGroup():
+class DeployGroup(object):
     def __init__(self, name, targets, size=None, failure_limit=None):
         """
         :param str name: Name of group

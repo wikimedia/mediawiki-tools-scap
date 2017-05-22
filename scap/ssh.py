@@ -42,7 +42,7 @@ SSH = cmd.Command(
     '-F/dev/null', cmd.arg('user', '-oUser={}'))
 
 
-class OutputHandler:
+class OutputHandler(object):
     """
     Standard handler for SSH command output from hosts.
 
