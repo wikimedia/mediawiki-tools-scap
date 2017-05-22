@@ -899,13 +899,13 @@ def ordered_load(stream, Loader=yaml.Loader,
 class VarDumpJSONEncoder(JSONEncoder):
     ''' encode python objects to json '''
     def default(self, o):
-        if (hasattr(o, '__dump__')):
+        if hasattr(o, '__dump__'):
             return o.__dump__()
-        if (hasattr(o, '__dict__')):
+        if hasattr(o, '__dict__'):
             return o.__dict__
         try:
             return JSONEncoder.default(self, o)
-        except:
+        except (TypeError, ValueError):
             return "Unserializable"
 
 
