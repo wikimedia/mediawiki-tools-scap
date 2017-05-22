@@ -39,7 +39,7 @@ import scap.ssh as ssh
 import scap.targets as targets
 import scap.tasks as tasks
 import scap.utils as utils
-import version as scapversion
+import scap.version as scapversion
 
 
 class AbstractSync(cli.Application):
