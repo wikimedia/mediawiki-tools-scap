@@ -5,6 +5,8 @@
     Helpers for git operations and interacting with .git directories
 
 """
+from __future__ import absolute_import
+
 from datetime import datetime
 import errno
 import re
