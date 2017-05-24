@@ -290,7 +290,7 @@ def sync_master(cfg, master, verbose=False, logger=None):
     """
 
     if not os.path.isdir(cfg['stage_dir']):
-        raise Exception((
+        raise IOError((
             'rsync target directory %s not found. Ask root to create it '
             '(should belong to root:wikidev).') % cfg['stage_dir'])
 
@@ -335,7 +335,7 @@ def sync_common(
     """
 
     if not os.path.isdir(cfg['deploy_dir']):
-        raise Exception((
+        raise IOError((
             'rsync target directory %s not found. Ask root to create it '
             '(should belong to mwdeploy:mwdeploy).') % cfg['deploy_dir'])
 
