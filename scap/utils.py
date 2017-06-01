@@ -21,6 +21,7 @@ import math
 import os
 import pwd
 import random
+import re
 import socket
 import struct
 import subprocess
@@ -35,6 +36,14 @@ import scap.ansi as ansi
 
 from functools import wraps
 from json import JSONEncoder
+
+
+branch_re = re.compile(
+    r'(?P<major>\d{1}).'
+    r'(?P<minor>\d{1,2}).'
+    r'(?P<patch>\d{1,2})'
+    r'-wmf.(?P<prerelease>\d{1,2})'
+)
 
 
 def isclose(a, b, rel_tol=1e-9, abs_tol=0.0):

@@ -39,6 +39,32 @@ class UtilsTest(unittest.TestCase):
                     path
                 )
 
+    def test_version_re(self):
+        match = utils.branch_re.match('1.29.0-wmf.12')
+
+        self.assertTrue(match is not None)
+
+        version = match.groupdict()
+        self.assertTrue(version['major'] == '1')
+        self.assertTrue(version['minor'] == '29')
+        self.assertTrue(version['patch'] == '0')
+        self.assertTrue(version['prerelease'] == '12')
+
+        match = utils.branch_re.match('1.290.0-wmf.12')
+        self.assertTrue(match is None)
+
+        match = utils.branch_re.match('1.29.0wmf.12')
+        self.assertTrue(match is None)
+
+        match = utils.branch_re.match('1.28.0-wmf.6')
+        self.assertTrue(match is not None)
+
+        match = utils.branch_re.match('1.28.15-wmf.6')
+        self.assertTrue(match is not None)
+
+        version = match.groupdict()
+        self.assertTrue(version['prerelease'] == '6')
+
     def test_get_env_specific_filename(self):
         base_dir = os.path.join(os.path.dirname(__file__), 'env-test')
 

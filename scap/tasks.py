@@ -23,6 +23,7 @@
 from __future__ import absolute_import
 
 import collections
+import distutils.version
 import errno
 import glob
 import itertools
@@ -35,6 +36,8 @@ import socket
 import subprocess
 import time
 import tempfile
+
+from datetime import datetime, timedelta
 
 import scap.cdblib as cdblib
 import scap.checks as checks
@@ -807,3 +810,73 @@ def check_patch_files(version, cfg):
             if p.returncode > 0:
                 logger.warn(
                     'Patch(s) for {} have not been applied.'.format(apply_dir))
+
+
+def get_wikiversions_ondisk(directory):
+    """
+    Get checked-out wikiversions in a directory.
+
+    Finds wikiversions in a directory and does its best to determine the date
+    of the oldest reflog for that branch (non recursive)
+
+    :returns: list of tuples like::
+        [(/path/to/php-1.29.0-wmf.17, <DateCreated>)]`
+    """
+    versions_with_date = []
+
+    versions_on_disk = [
+        d for d in os.listdir(directory)
+        if d.startswith('php-') and
+        utils.branch_re.match(d[len('php-'):])]
+
+    for dirname in versions_on_disk:
+        abspath = os.path.join(directory, dirname)
+
+        git_reflog = git.reflog(abspath, fmt='%at')
+
+        if len(git_reflog) == 0:
+            continue
+
+        # Oldest reflog date assumed to be the branch date
+        date_branched = datetime.utcfromtimestamp(float(git_reflog[::-1][0]))
+
+        versions_with_date.append((abspath, date_branched))
+
+    return versions_with_date
+
+
+def get_old_wikiversions(versions, keep=2, keep_static=5):
+    """
+    Get lists of old MediaWiki versions to be removed
+
+    :param keep=2: Number of branches for which we want to keep everything
+    :param keep_static=5: Number of weeks to keep static assets
+
+    :returns: tuple of lists of old wikiversions
+    """
+    if len(versions) <= keep:
+        return ([], [])
+
+    def sort_versions(v):
+        ver = os.path.basename(v[0])
+        return distutils.version.LooseVersion(ver[len('php-'):])
+
+    sorted_versions = sorted(versions, key=sort_versions, reverse=True)
+
+    # Don't remove a certain number of revisions
+    sorted_versions = sorted_versions[keep:]
+
+    keep_static_weeks = timedelta(weeks=keep_static)
+    remove_static_cutoff = datetime.utcnow() - keep_static_weeks
+
+    # If it's older than N weeks old, remove it
+    remove = [
+        os.path.basename(x[0]) for x in sorted_versions
+        if x[1] < remove_static_cutoff]
+
+    # If it's newer than N weeks old, remove its static assets
+    remove_static = [
+        os.path.basename(x[0]) for x in sorted_versions
+        if x[1] > remove_static_cutoff]
+
+    return (remove, remove_static)

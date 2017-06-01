@@ -522,3 +522,19 @@ def list_submodules(repo):
     for line in res.splitlines():
         submodules.append(re.sub(r'-[a-f0-9]{40} ', '', line))
     return submodules
+
+
+def reflog(repo, fmt='oneline', branch=None):
+    """
+    Fetch reflog as list
+    """
+    cmd = [
+        '/usr/bin/git',
+        '-C', repo,
+        'log', '--walk-reflogs',
+        '--format={}'.format(fmt)]
+
+    if branch is not None:
+        cmd.append(branch)
+
+    return subprocess.check_output(cmd).splitlines()
