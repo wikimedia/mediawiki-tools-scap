@@ -2,12 +2,12 @@ Description: Use the FHS compliant path for scap's bin_dir when packaging
 Author: Wikimedia Release Engineering <releng@wikimedia.org>
 --- a/scap/config.py
 +++ b/scap/config.py
-@@ -14,7 +14,7 @@ from . import utils
+@@ -31,7 +31,7 @@ import scap.utils as utils
 
 
  DEFAULT_CONFIG = {
 -    'bin_dir': (str, '/srv/deployment/scap/scap/bin'),
 +    'bin_dir': (str, '/usr/bin'),
-     'canary_threshold': (float, 10.0),
-     'canary_service': (str, 'mediawiki'),
-     'canary_wait_time': (int, 20),
+     'canary_dashboard_url': (
+         str,
+         'https://logstash.wikimedia.org/goto/3888cca979647b9381a7739b0bdbc88e'
