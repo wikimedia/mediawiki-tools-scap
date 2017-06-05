@@ -1,3 +1,33 @@
+scap (3.5.8-1) unstable; urgency=low
+
+  * In which Chad cleans up our messes: Lots of pylint, and python3
+    compatibility work in this release.
+
+  * MediaWiki: Scap learned to yell in IRC when canary deploys of MediaWiki
+    fail. It also provides a link to a logstash dashboard so we find out what
+    went wrong.
+
+  * MediaWiki: Scap will run scap pull on all co-masters after syncing the
+    staging directory to ensure that even out-of-sync targets get the correct
+    code.
+
+  * MediaWiki: Remove unused tasks.purge_l10n_cache()
+
+  * MediaWiki and Scap3: Unify lock file handling between `deploy` and `sync`
+
+  * Scap3: bugfix for lock excuses
+
+  * Add semver package to our dependencies
+
+  * Scap learned the `scap lock` command for locking deployments
+
+  * There is a `scap version` command now \o/
+
+  * `scap say/fortune` learned some additional propaganda added at our
+    offsite. You're welcome.
+
+ -- Tyler Cipriani <tcipriani@wikimedia.org>  Mon, 05 Jun 2017 12:11:35 -0600
+
 scap (3.5.7-1) unstable; urgency=low
 
   * Fix _get_lock_excuse
