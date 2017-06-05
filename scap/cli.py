@@ -20,6 +20,8 @@
     You should have received a copy of the GNU General Public License
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """
+from __future__ import absolute_import
+
 import logging
 import os
 import sys
@@ -27,11 +29,11 @@ import time
 import scap.plugins
 
 from scap.terminal import term
-from . import arg
-from . import config
-from . import lock
-from . import log
-from . import utils
+import scap.arg as arg
+import scap.config as config
+import scap.lock as lock
+import scap.log as log
+import scap.utils as utils
 
 
 class Application(object):
@@ -61,6 +63,17 @@ class Application(object):
             self._stats = log.Stats(
                 self.config['statsd_host'], int(self.config['statsd_port']))
         return self._stats
+
+    def get_lock_file(self):
+        """Get the path to scap.lock"""
+        if self.config['lock_file'] is not None:
+            return self.config['lock_file']
+        else:
+            try:
+                return '/var/lock/scap.%s.lock' % (
+                    self.config['git_repo'].replace('/', '_'))
+            except KeyError:
+                return '/var/lock/scap.unknown-but-probably-mediawiki.lock'
 
     @property
     def verbose(self):
@@ -280,16 +293,10 @@ class Application(object):
             if os.geteuid() == 0:
                 raise SystemExit('Scap should not be run as root')
 
-            if len(argv) == 2 and (argv[1] == '--version' or argv[1] == '-V'):
-                show_version()
-
             # Let each application handle `extra_args`
             app.arguments, app.extra_arguments = app._process_arguments(
                 app.arguments,
                 app.extra_arguments)
-
-            if app.arguments.show_version is True:
-                show_version()
 
             app._load_config()
             app._setup_loggers()
@@ -325,11 +332,6 @@ class Application(object):
 
         # Exit
         sys.exit(exit_status)
-
-
-def show_version():
-    print(scap.__version__)
-    sys.exit(0)
 
 
 def argument(*args, **kwargs):

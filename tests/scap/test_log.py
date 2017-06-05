@@ -8,7 +8,7 @@ import sys
 from textwrap import dedent
 import unittest
 
-from scap import log
+import scap.log as log
 
 
 class FilterTest(unittest.TestCase):

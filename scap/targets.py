@@ -20,12 +20,14 @@
     You should have received a copy of the GNU General Public License
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """
+from __future__ import absolute_import
+
 import collections
 import os
 import re
 import string
 
-from . import utils
+import scap.utils as utils
 
 
 def get(key, cfg, limit_hosts=None, extra_paths=[]):
@@ -119,7 +121,7 @@ def limit_target_hosts(pattern, hosts):
     return targets
 
 
-class TargetList():
+class TargetList(object):
     """An abstract list of targets (lists of hosts)."""
 
     def __init__(self, key, cfg, limit_hosts=None, extra_paths=[]):
@@ -254,7 +256,7 @@ class DshTargetList(TargetList):
             raise IOError(e.errno, e.strerror, hosts_file)
 
 
-class DeployGroup():
+class DeployGroup(object):
     def __init__(self, name, targets, size=None, failure_limit=None):
         """
         :param str name: Name of group

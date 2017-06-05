@@ -20,23 +20,29 @@
     You should have received a copy of the GNU General Public License
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """
+from __future__ import absolute_import
+from __future__ import print_function
+
 import argparse
 import errno
 import multiprocessing
 import os
 import pwd
+import select
 import socket
 import subprocess
+import sys
 import time
 
-from . import arg
-from . import cli
-from . import lock
-from . import log
-from . import ssh
-from . import targets
-from . import tasks
-from . import utils
+import scap.arg as arg
+import scap.cli as cli
+import scap.lock as lock
+import scap.log as log
+import scap.ssh as ssh
+import scap.targets as targets
+import scap.tasks as tasks
+import scap.utils as utils
+import scap.version as scapversion
 
 
 class AbstractSync(cli.Application):
@@ -53,7 +59,7 @@ class AbstractSync(cli.Application):
 
         self.include = None
 
-        with lock.Lock(self.config['lock_file'], self.arguments.message):
+        with lock.Lock(self.get_lock_file(), self.arguments.message):
             self._check_sync_flag()
             self._before_cluster_sync()
             self._sync_common()
@@ -98,9 +104,17 @@ class AbstractSync(cli.Application):
                     canaries, **canary_checks)
 
                 if failed:
-                    raise RuntimeError(
-                        '%d test canaries had check failures '
-                        '(rerun with --force to override this check)' % failed)
+                    canary_fail_msg = (
+                        'scap failed: average error rate on {}/{} '
+                        'canaries increased by 10x '
+                        '(rerun with --force to override this check, '
+                        'see {} for details)'.format(
+                            failed,
+                            len(canaries),
+                            self.config['canary_dashboard_url']))
+
+                    self.announce(canary_fail_msg)
+                    raise RuntimeError(canary_fail_msg)
 
             # Update proxies
             proxies = [node for node in self._get_proxy_list()
@@ -127,7 +141,7 @@ class AbstractSync(cli.Application):
                 update_apaches = ssh.Job(
                     full_target_list, user=self.config['ssh_user'])
                 update_apaches.exclude_hosts(proxies)
-                update_apaches.exclude_hosts([socket.getfqdn()])
+                update_apaches.exclude_hosts(self._get_master_list())
                 if not self.arguments.force:
                     update_apaches.exclude_hosts(canaries)
                 update_apaches.shuffle()
@@ -205,13 +219,24 @@ class AbstractSync(cli.Application):
 
     def _sync_masters(self):
         """Sync the staging directory across all deploy master servers."""
+        self.master_only_cmd('sync-masters', self._master_sync_command())
+        self.master_only_cmd('sync-pull-masters', self._proxy_sync_command())
+
+    def master_only_cmd(self, timer, cmd):
+        """
+        Run a command on all other master servers than the one we're on
+
+        :param timer: String name to use in timer/logging
+        :param cmd: List of command/parameters to be executed
+        """
+
         masters = self._get_master_list()
-        with log.Timer('sync-masters', self.get_stats()):
+        with log.Timer(timer, self.get_stats()):
             update_masters = ssh.Job(masters, user=self.config['ssh_user'])
             update_masters.exclude_hosts([socket.getfqdn()])
-            update_masters.command(self._master_sync_command())
+            update_masters.command(cmd)
             update_masters.progress(
-                log.reporter('sync-masters', self.config['fancy_progress']))
+                log.reporter(timer, self.config['fancy_progress']))
             succeeded, failed = update_masters.run()
             if failed:
                 self.get_logger().warning(
@@ -711,7 +736,7 @@ class SyncWikiversions(AbstractSync):
 
         # this is here for git_repo
         self.include = '/wikiversions*.{json,php}'
-        with lock.Lock(self.config['lock_file'], self.arguments.message):
+        with lock.Lock(self.get_lock_file(), self.arguments.message):
             self._check_sync_flag()
             self._sync_common()
             self._after_sync_common()
@@ -848,3 +873,65 @@ class ServerAdminLog(cli.Application):
     @cli.argument('message', nargs='*', help='Log message for SAL')
     def main(self, *extra_args):
         self.announce(self.arguments.message)
+
+
+@cli.command('version', help='Show the version number and exit')
+class Version(cli.Application):
+    def main(self, *extra_args):
+        print(scapversion.__version__)
+
+
+@cli.command('lock', help='Tempoarily lock deployment of this repository')
+class LockManager(cli.Application):
+    """
+    Holds a lock open for a given repository.
+
+    examples::
+
+        lock 'Testing something, do not deploy'
+    """
+
+    @cli.argument('--all', action='store_true',
+                  help='Lock ALL repositories from deployment. ' +
+                       'With great power comes great responsibility')
+    @cli.argument('--time', type=int, default=3600,
+                  help='How long to lock deployments, in seconds')
+    @cli.argument('message', nargs='*', help='Log message for SAL/lock file')
+    def main(self, *extra_args):
+        logger = self.get_logger()
+
+        if self.arguments.message == '(no justification provided)':
+            logger.fatal('Cannot lock repositories without a reason')
+            return
+
+        if self.arguments.all:
+            lock_path = lock.GLOBAL_LOCK_FILE
+            repo = 'ALL REPOSITORIES'
+        else:
+            lock_path = self.get_lock_file()
+            repo = self.config['git_repo']
+
+        got_lock = False
+        with lock.Lock(lock_path, self.arguments.message, group_write=True):
+            got_lock = True
+            self.announce(
+                'Locking from deployment [%s]: %s (planned duration: %s)',
+                repo, self.arguments.message,
+                utils.human_duration(self.arguments.time))
+
+            logger.info('Press enter to abort early...')
+            try:
+                rlist, _, _ = select.select([sys.stdin], [], [],
+                                            self.arguments.time)
+                if rlist:
+                    sys.stdin.readline()
+            except KeyboardInterrupt:
+                pass  # We don't care here
+
+        if got_lock:
+            self.announce(
+                'Unlocked for deployment [%s]: %s (duration: %s)', repo,
+                self.arguments.message,
+                utils.human_duration(self.get_duration()))
+
+        return 0

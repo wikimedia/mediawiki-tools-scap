@@ -16,6 +16,7 @@ rather than djb_hash() for a tidy speedup.
     Minor alterations made to comply with PEP8 style check and to remove
     attempt to import C implementation of djb_hash. -- bd808, 2014-03-04
 """
+from __future__ import absolute_import
 
 from _struct import Struct
 from itertools import chain

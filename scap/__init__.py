@@ -21,11 +21,14 @@
     You should have received a copy of the GNU General Public License
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """
+from __future__ import absolute_import
+
 import scap.plugins
 
 from .main import (
     CompileWikiversions,
     HHVMGracefulAll,
+    LockManager,
     MWVersionsInUse,
     RebuildCdbs,
     RefreshCdbJsonFiles,
@@ -39,6 +42,7 @@ from .main import (
     SyncMaster,
     SyncWikiversions,
     UpdateL10n,
+    Version,
 )
 
 from .version import __version__
@@ -55,6 +59,7 @@ __all__ = [
     'DeployLocal',
     'DeployLog',
     'HHVMGracefulAll',
+    'LockManager',
     'MWVersionsInUse',
     'RebuildCdbs',
     'RefreshCdbJsonFiles',
@@ -68,11 +73,13 @@ __all__ = [
     'SyncMaster',
     'SyncWikiversions',
     'UpdateL10n',
+    'Version',
     '__version__',
 ]
 
 
 def all_applications():
+    """Load all the plugins and add them to the list of applications"""
     scap.plugins.load_plugins()
     apps = []
     apps.extend(__all__)
@@ -86,6 +93,7 @@ any((
     DeployLocal,
     DeployLog,
     HHVMGracefulAll,
+    LockManager,
     MWVersionsInUse,
     RebuildCdbs,
     RefreshCdbJsonFiles,
@@ -99,4 +107,5 @@ any((
     SyncL10n,
     SyncWikiversions,
     UpdateL10n,
+    Version,
     __version__))  # Ignore unused import warning

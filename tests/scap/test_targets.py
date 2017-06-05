@@ -4,7 +4,7 @@ import os
 
 import unittest
 
-from scap import targets
+import scap.targets as targets
 
 
 class TargetsTest(unittest.TestCase):

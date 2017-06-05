@@ -21,6 +21,7 @@
     You should have received a copy of the GNU General Public License
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """
+from __future__ import absolute_import
 from __future__ import print_function
 
 import argparse
@@ -29,8 +30,8 @@ import random
 import sys
 import textwrap
 
-from scap import cli
-from scap import utils
+import scap.cli as cli
+import scap.utils as utils
 
 
 def fortune():
@@ -55,6 +56,8 @@ def fortune():
         'S.C.A.P.: salt, cfengine, ansible & puppet',
         'S.C.A.P.: someone called about a party?',
         'S.C.A.P.: sync commits, all python',
+        'S.C.A.P.: small containers ate production',
+        'S.C.A.P.: sheep comandeering a powerboat',
     ])
 
 

@@ -20,11 +20,13 @@
     You should have received a copy of the GNU General Public License
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """
+from __future__ import absolute_import
+
 from datetime import datetime
 import glob
 import os
 
-from . import utils
+import scap.utils as utils
 
 REVS_TO_KEEP = 5
 
@@ -42,11 +44,6 @@ class Context(object):
 
         self.root = root
         self.environment = environment
-
-    def lock_path(self):
-        """Get the path to scap.lock for this context."""
-
-        return self.path('scap', 'deploy.lock')
 
     def path(self, *relpaths):
         """Qualify path relative to the root path."""

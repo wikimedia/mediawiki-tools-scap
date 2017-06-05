@@ -5,13 +5,14 @@
     Manages lock/unlock operations for scap
 
 """
+from __future__ import absolute_import
 
 import errno
 import fcntl
 import os
 import stat
 
-from . import utils
+import scap.utils as utils
 
 
 GLOBAL_LOCK_FILE = '/var/lock/scap-global-lock'
@@ -22,7 +23,7 @@ class LockFailedError(Exception):
     pass
 
 
-class Lock():
+class Lock(object):  # pylint: disable=too-few-public-methods
     """
     Context manager. Acquires a file lock on entry, releases on exit.
 
@@ -45,7 +46,7 @@ class Lock():
 
     def __enter__(self):
         if os.path.exists(GLOBAL_LOCK_FILE):
-            raise LockFailedError(self._get_lock_excuse(GLOBAL_LOCK_FILE))
+            raise LockFailedError(get_lock_excuse(GLOBAL_LOCK_FILE))
 
         # Steal the umask for a bit, can't rely on system
         orig_umask = os.umask(0)
@@ -57,12 +58,12 @@ class Lock():
             )
             fcntl.lockf(self.lock_fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
             os.write(self.lock_fd, self.reason)
-        except OSError as e:
-            if e.errno is errno.EEXIST:
-                details = self.get_lock_excuse(self.filename)
+        except OSError as ose:
+            if ose.errno is errno.EEXIST:
+                details = get_lock_excuse(self.filename)
             else:
                 details = 'Failed to acquire lock "%s"; shady reasons "%s"' % (
-                           self.filename, e)
+                    self.filename, ose)
             raise LockFailedError(details)
         finally:
             # Return the umask
@@ -84,23 +85,24 @@ class Lock():
                         'This is probably fine-ish :)'
                     )
 
-    def _get_lock_excuse(self, file):
-        """
-        Get an excuse for why we couldn't lock the file.
 
-        Read the file and its owner, if we can. Fail gracefully with something
-        if we can't read it (most likely permissions)
+def get_lock_excuse(lockfile):
+    """
+    Get an excuse for why we couldn't lock the file.
 
-        :param file: Lock file to look for information in
-        """
+    Read the file and its owner, if we can. Fail gracefully with something
+    if we can't read it (most likely permissions)
 
-        bad_user = 'a server gremlin'
-        excuses = 'no excuse given'
-        try:
-            bad_user = utils.get_username(os.stat(file).st_uid) or bad_user
-            excuses = open(file, 'r').read() or excuses
-        except (IOError, OSError) as e:
-            # Before we raise, let's at least warn what failed
-            utils.get_logger().warning(e)
-        return 'Failed to acquire lock "%s"; owner is "%s"; reason is "%s"' % (
-                file, bad_user, excuses)
+    :param lockfile: Lock file to look for information in
+    """
+
+    bad_user = 'a server gremlin'
+    excuses = 'no excuse given'
+    try:
+        bad_user = utils.get_username(os.stat(lockfile).st_uid) or bad_user
+        excuses = open(lockfile, 'r').read() or excuses
+    except (IOError, OSError) as failure:
+        # Before we raise, let's at least warn what failed
+        utils.get_logger().warning(failure)
+    return 'Failed to acquire lock "%s"; owner is "%s"; reason is "%s"' % (
+        lockfile, bad_user, excuses)

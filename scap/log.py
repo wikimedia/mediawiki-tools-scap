@@ -20,6 +20,8 @@
     You should have received a copy of the GNU General Public License
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """
+from __future__ import absolute_import
+
 import fnmatch
 from functools import partial
 import json
@@ -42,7 +44,7 @@ except ImportError:
     DiffLexer = None
 
 from scap.terminal import term
-from . import utils
+import scap.utils as utils
 
 # Format string for log messages. Interpolates LogRecord attributes.
 # See <http://docs.python.org/2/library/logging.html#logrecord-attributes>

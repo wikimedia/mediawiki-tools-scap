@@ -20,16 +20,22 @@
     You should have received a copy of the GNU General Public License
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """
+from __future__ import absolute_import
+
 import ConfigParser
 import getpass
 import os
 import socket
 
-from . import utils
+import scap.utils as utils
 
 
 DEFAULT_CONFIG = {
     'bin_dir': (str, '/srv/deployment/scap/scap/bin'),
+    'canary_dashboard_url': (
+        str,
+        'https://logstash.wikimedia.org/goto/3888cca979647b9381a7739b0bdbc88e'
+    ),
     'canary_threshold': (float, 10.0),
     'canary_service': (str, 'mediawiki'),
     'canary_wait_time': (int, 20),
@@ -37,7 +43,7 @@ DEFAULT_CONFIG = {
     'failure_limit': (str, '0%'),
     'fancy_progress': (bool, False),
     'stage_dir': (str, '/srv/mediawiki-staging'),
-    'lock_file': (str, '/var/lock/scap'),
+    'lock_file': (str, None),
     'log_json': (bool, False),
     'logstash_host': (str, 'logstash1001.eqiad.wmnet:9200'),
     'master_rsync': (str, 'localhost'),
@@ -144,7 +150,7 @@ def load(cfg_file=None, environment=None, overrides=None):
     config = override_config(config, overrides)
 
     if not environment and config.get('environment', None):
-            return load(cfg_file, config.get('environment'), overrides)
+        return load(cfg_file, config.get('environment'), overrides)
 
     config['environment'] = environment
     return config
@@ -165,7 +171,7 @@ def coerce_value(key, value):
     if key in DEFAULT_CONFIG:
         default_type, _ = DEFAULT_CONFIG[key]
 
-        if (isinstance(value, default_type)):
+        if isinstance(value, default_type):
             return value
 
         if default_type == bool:

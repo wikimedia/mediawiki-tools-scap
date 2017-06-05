@@ -20,6 +20,9 @@
     You should have received a copy of the GNU General Public License
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """
+from __future__ import absolute_import
+from __future__ import print_function
+
 import argparse
 import collections
 import errno
@@ -34,19 +37,19 @@ import subprocess
 
 from datetime import datetime
 
-from . import checks
-from . import config
-from . import context
-from . import nrpe
-from . import template
-from . import cli
-from . import lock
-from . import log
-from . import ssh
-from . import targets
-from . import tasks
-from . import utils
-from . import git
+import scap.checks as checks
+import scap.config as config
+import scap.context as context
+import scap.nrpe as nrpe
+import scap.template as template
+import scap.cli as cli
+import scap.lock as lock
+import scap.log as log
+import scap.ssh as ssh
+import scap.targets as targets
+import scap.tasks as tasks
+import scap.utils as utils
+import scap.git as git
 
 FINALIZE = 'finalize'
 RESTART = 'restart_service'
@@ -607,7 +610,7 @@ class Deploy(cli.Application):
         if not rev:
             rev = self.config.get('git_rev', 'HEAD')
 
-        with lock.Lock(self.context.lock_path(), self.arguments.message):
+        with lock.Lock(self.get_lock_file(), self.arguments.message):
             with log.Timer(display_name):
                 timestamp = datetime.utcnow()
                 tag = git.next_deploy_tag(location=self.context.root)
@@ -1065,7 +1068,7 @@ class DeployMediaWiki(cli.Application):
 
         git.add_all(self.config['deploy_dir'], message=self.arguments.message)
 
-        git.gc(self.config['deploy_dir'])
+        git.garbage_collect(self.config['deploy_dir'])
 
         scap = self.get_script_path()
         options = {

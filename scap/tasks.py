@@ -20,7 +20,10 @@
     You should have received a copy of the GNU General Public License
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """
+from __future__ import absolute_import
+
 import collections
+import distutils.version
 import errno
 import glob
 import itertools
@@ -34,13 +37,14 @@ import subprocess
 import time
 import tempfile
 
-from . import cdblib
-from . import checks
-from . import git
-from . import log
-from . import ssh
-from . import targets
-from . import utils
+from datetime import datetime, timedelta
+
+import scap.cdblib as cdblib
+import scap.checks as checks
+import scap.git as git
+import scap.log as log
+import scap.ssh as ssh
+import scap.utils as utils
 
 
 DEFAULT_RSYNC_ARGS = [
@@ -278,41 +282,6 @@ def merge_cdb_updates(
     logger.info('Updated %d CDB files(s) in %s', updated, cache_dir)
 
 
-def purge_l10n_cache(version, cfg):
-    """
-    Purge the localization cache for a given version.
-
-    :param version: MediaWiki version (eg '1.23wmf15')
-    :param cfg: Dict of global configuration values
-    :raises: :class:`IOError` if l10n cache dirs for the given version are
-             not found
-    """
-    branch_dir = 'php-%s' % version
-    staged_l10n = os.path.join(cfg['stage_dir'], branch_dir, 'cache/l10n')
-    deployed_l10n = os.path.join(cfg['deploy_dir'], branch_dir, 'cache/l10n')
-
-    if not os.path.isdir(staged_l10n):
-        raise IOError(errno.ENOENT, 'Invalid l10n dir', staged_l10n)
-
-    if not os.path.isdir(deployed_l10n):
-        raise IOError(errno.ENOENT, 'Invalid l10n dir', deployed_l10n)
-
-    # Purge from staging directory locally
-    # Shell is needed on subprocess to allow wildcard expansion
-    # --force option given to rm to ignore missing files
-    utils.sudo_check_call(
-        'l10nupdate', '/bin/rm --recursive --force %s/*' % staged_l10n)
-
-    # Purge from deploy directroy across cluster
-    # --force option given to rm to ignore missing files as before
-    target_list = targets.get('dsh_targets', cfg).all
-    purge = ssh.Job(user=cfg['ssh_user']).hosts(target_list)
-    purge.command(
-        'sudo -u mwdeploy -n -- /bin/rm '
-        '--recursive --force %s/*' % deployed_l10n)
-    purge.progress(log.reporter('l10n purge', cfg['fancy_progress'])).run()
-
-
 @utils.log_context('sync_master')
 def sync_master(cfg, master, verbose=False, logger=None):
     """
@@ -326,7 +295,7 @@ def sync_master(cfg, master, verbose=False, logger=None):
     """
 
     if not os.path.isdir(cfg['stage_dir']):
-        raise Exception((
+        raise IOError((
             'rsync target directory %s not found. Ask root to create it '
             '(should belong to root:wikidev).') % cfg['stage_dir'])
 
@@ -371,7 +340,7 @@ def sync_common(
     """
 
     if not os.path.isdir(cfg['deploy_dir']):
-        raise Exception((
+        raise IOError((
             'rsync target directory %s not found. Ask root to create it '
             '(should belong to mwdeploy:mwdeploy).') % cfg['deploy_dir'])
 
@@ -841,3 +810,73 @@ def check_patch_files(version, cfg):
             if p.returncode > 0:
                 logger.warn(
                     'Patch(s) for {} have not been applied.'.format(apply_dir))
+
+
+def get_wikiversions_ondisk(directory):
+    """
+    Get checked-out wikiversions in a directory.
+
+    Finds wikiversions in a directory and does its best to determine the date
+    of the oldest reflog for that branch (non recursive)
+
+    :returns: list of tuples like::
+        [(/path/to/php-1.29.0-wmf.17, <DateCreated>)]`
+    """
+    versions_with_date = []
+
+    versions_on_disk = [
+        d for d in os.listdir(directory)
+        if d.startswith('php-') and
+        utils.branch_re.match(d[len('php-'):])]
+
+    for dirname in versions_on_disk:
+        abspath = os.path.join(directory, dirname)
+
+        git_reflog = git.reflog(abspath, fmt='%at')
+
+        if len(git_reflog) == 0:
+            continue
+
+        # Oldest reflog date assumed to be the branch date
+        date_branched = datetime.utcfromtimestamp(float(git_reflog[::-1][0]))
+
+        versions_with_date.append((abspath, date_branched))
+
+    return versions_with_date
+
+
+def get_old_wikiversions(versions, keep=2, keep_static=5):
+    """
+    Get lists of old MediaWiki versions to be removed
+
+    :param keep=2: Number of branches for which we want to keep everything
+    :param keep_static=5: Number of weeks to keep static assets
+
+    :returns: tuple of lists of old wikiversions
+    """
+    if len(versions) <= keep:
+        return ([], [])
+
+    def sort_versions(v):
+        ver = os.path.basename(v[0])
+        return distutils.version.LooseVersion(ver[len('php-'):])
+
+    sorted_versions = sorted(versions, key=sort_versions, reverse=True)
+
+    # Don't remove a certain number of revisions
+    sorted_versions = sorted_versions[keep:]
+
+    keep_static_weeks = timedelta(weeks=keep_static)
+    remove_static_cutoff = datetime.utcnow() - keep_static_weeks
+
+    # If it's older than N weeks old, remove it
+    remove = [
+        os.path.basename(x[0]) for x in sorted_versions
+        if x[1] < remove_static_cutoff]
+
+    # If it's newer than N weeks old, remove its static assets
+    remove_static = [
+        os.path.basename(x[0]) for x in sorted_versions
+        if x[1] > remove_static_cutoff]
+
+    return (remove, remove_static)

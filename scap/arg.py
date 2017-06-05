@@ -39,6 +39,9 @@
     You should have received a copy of the GNU General Public License
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """
+from __future__ import absolute_import
+from __future__ import print_function
+
 import argparse
 import inspect
 import logging
@@ -290,8 +293,6 @@ def get_global_parser():
         type=lambda v: tuple(v.split(':')),
         help='Set a configuration value',
         metavar='<name>:<value>')
-    group.add_argument('-V', action='store_true', dest='show_version',
-                       help='Print scap version.')
     group.add_argument(
         '-v', '--verbose', action='store_const',
         const=logging.DEBUG, default=default_loglevel,

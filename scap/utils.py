@@ -5,6 +5,9 @@
     Contains misc utility functions.
 
 """
+from __future__ import absolute_import
+from __future__ import print_function
+
 import collections
 import contextlib
 import distutils.version
@@ -18,6 +21,7 @@ import math
 import os
 import pwd
 import random
+import re
 import socket
 import struct
 import subprocess
@@ -28,10 +32,18 @@ import yaml
 import pygments
 import pygments.lexers
 import pygments.formatters
+import scap.ansi as ansi
 
-from . import ansi
 from functools import wraps
 from json import JSONEncoder
+
+
+branch_re = re.compile(
+    r'(?P<major>\d{1}).'
+    r'(?P<minor>\d{1,2}).'
+    r'(?P<patch>\d{1,2})'
+    r'-wmf.(?P<prerelease>\d{1,2})'
+)
 
 
 def isclose(a, b, rel_tol=1e-9, abs_tol=0.0):
@@ -899,13 +911,13 @@ def ordered_load(stream, Loader=yaml.Loader,
 class VarDumpJSONEncoder(JSONEncoder):
     ''' encode python objects to json '''
     def default(self, o):
-        if (hasattr(o, '__dump__')):
+        if hasattr(o, '__dump__'):
             return o.__dump__()
-        if (hasattr(o, '__dict__')):
+        if hasattr(o, '__dict__'):
             return o.__dict__
         try:
             return JSONEncoder.default(self, o)
-        except:
+        except (TypeError, ValueError):
             return "Unserializable"
 
 

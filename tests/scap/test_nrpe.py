@@ -3,8 +3,8 @@
 from textwrap import dedent
 import unittest
 
-from scap import checks
-from scap import nrpe
+import scap.checks as checks
+import scap.nrpe as nrpe
 
 
 class NRPETest(unittest.TestCase):
