@@ -60,6 +60,10 @@ DEFAULT_RSYNC_ARGS = [
 ]
 
 
+RESTART = 'restart'
+RELOAD = 'reload'
+
+
 def check_canaries(canaries, service, threshold, logstash, delay, cores=2):
     """
     Run canary checks on test application servers.
@@ -728,6 +732,41 @@ def refresh_cdb_json_file(file_path):
         md5.write(cdb_md5)
 
     return True
+
+
+def handle_services(services):
+    """
+    Take a comma-separated list of services, and restart each of them.
+
+    The idea is to take a string directly from the scap.cfg file that looks
+    like:
+
+        jobrunner, jobchron = reload
+
+    and be able to determine what to do with that list.
+    """
+    servicehandles = [
+        (job.replace(' ', ''), RESTART)
+        for job in services.split(',')
+    ]
+
+    for service, handle in servicehandles:
+        if '=' in service:
+            service, handle = service.split('=')
+
+        if handle == RELOAD:
+            reload_service(service)
+            continue
+
+        if handle == RESTART:
+            restart_service(service)
+            continue
+
+        raise RuntimeError(
+            'Unknown action {} for service {}'.format(
+                handle,
+                service
+            ))
 
 
 @utils.log_context('service_restart')

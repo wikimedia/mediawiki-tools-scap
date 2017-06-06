@@ -382,14 +382,14 @@ class DeployLocal(cli.Application):
             shutil.rmtree(rev_dir)
 
     def restart_service(self):
+        """
+        Restart or reload service and check port based on configuration.
+        """
         service = self.config.get('service_name', None)
         if not service:
             return
 
-        if self.config.get('service_reload'):
-            tasks.reload_service(service)
-        else:
-            tasks.restart_service(service)
+        tasks.handle_services(service)
 
         port = self.config.get('service_port', None)
         if not port:
@@ -530,7 +530,6 @@ class Deploy(cli.Application):
         'git_upstream_submodules',
         'service_name',
         'service_port',
-        'service_reload',
         'service_timeout',
         'config_deploy',
         'config_files',

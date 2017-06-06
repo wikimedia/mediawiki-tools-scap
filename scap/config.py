@@ -74,7 +74,6 @@ DEFAULT_CONFIG = {
     'tags_to_keep': (int, 20),
     'perform_checks': (bool, True),
     'patch_path': (str, None),
-    'service_reload': (bool, False),
 }
 
 
