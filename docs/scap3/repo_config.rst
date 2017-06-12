@@ -18,7 +18,7 @@ function in the :mod:`scap.config` module.
 
 
 Simple initial setup
-~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~
 
 For a new repo setup, the main file that needs to be created is in the root of
 the repository at ``scap/scap.cfg``. This new file should be made in
