@@ -55,8 +55,11 @@ FINALIZE = 'finalize'
 RESTART = 'restart_service'
 ROLLBACK = 'rollback'
 CONFIG_DIFF = 'config_diff'
+PROMOTE = 'promote'
+CONFIG_DEPLOY = 'config_deploy'
+FETCH = 'fetch'
 
-STAGES = ['fetch', 'config_deploy', 'promote']
+STAGES = [FETCH, CONFIG_DEPLOY, PROMOTE]
 EX_STAGES = [RESTART, ROLLBACK, CONFIG_DIFF, FINALIZE]
 
 
@@ -511,7 +514,7 @@ class Deploy(cli.Application):
     """
 
     STAGE_NAMES_OVERRIDES = {
-        'promote': 'promote and restart_service',
+        PROMOTE: 'promote and restart_service',
     }
 
     MAX_BATCH_SIZE = 80
@@ -606,8 +609,23 @@ class Deploy(cli.Application):
             display_name = '{} ({})'.format(display_name, environment_name)
 
         rev = self.arguments.rev
+
+        # No revision passed on the command line, let's check the config
         if not rev:
-            rev = self.config.get('git_rev', 'HEAD')
+            rev = self.config.get('git_rev')
+
+        # No revision from the config or cli
+        # AND we're not running a stage that we want to deploy new code
+        if not rev and not self._needs_latest_sha1(stages):
+            last_deploy_tag = git.last_deploy_tag(self.context.root)
+            if last_deploy_tag is not None:
+                # This is what we want to pass to rev-parse to get the sha1 of
+                # the annotated commit, rather than the sha1 of the annotation.
+                rev = '%s^{}' % last_deploy_tag
+
+        # We must be trying to deploy the latest and greatest
+        if not rev:
+            rev = 'HEAD'
 
         with lock.Lock(self.get_lock_file(), self.arguments.message):
             with log.Timer(display_name):
@@ -661,6 +679,20 @@ class Deploy(cli.Application):
                                   utils.human_duration(self.get_duration()))
                 return exec_result
         return 0
+
+    def _needs_latest_sha1(self, stages):
+        """
+        Determine whether we expect a new SHA1 to be tagged and deployed
+
+        :stages: list of stages being run
+        """
+
+        # If we're only running a quick --dry-run or a --restart, we don't
+        # want to update the SHA1
+        return not (
+            len(stages) == 1 and
+            stages[0] in [CONFIG_DIFF, RESTART]
+        )
 
     def _display_group_info(self, group, targets):
         self.get_logger().info('\n== {0} ==\n:* {1}'.format(

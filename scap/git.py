@@ -253,6 +253,18 @@ def add_all(location, message='Update'):
         subprocess.call(cmd)
 
 
+def last_deploy_tag(location):
+    """Finds the last tag to use for this deployment"""
+    ensure_dir(location)
+    with utils.cd(location):
+        cmd = ['/usr/bin/git', 'tag', '--list', os.path.join(TAG_PREFIX, '*')]
+        tags = sorted(subprocess.check_output(cmd).splitlines(), reverse=True)
+        if tags:
+            return tags[0]
+
+    return None
+
+
 def next_deploy_tag(location):
     """Calculates the scap/sync/{date}/{n} tag to use for this deployment"""
     ensure_dir(location)
