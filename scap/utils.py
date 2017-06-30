@@ -877,13 +877,6 @@ def get_patches(sub_dirs, root_dir):
     return patches
 
 
-def deprecated_script(additional):
-    """Generic error message about binstub removal."""
-    msg = '{}[WARNING] The script you have used is deprecated. {}{}\n\n'
-    return msg.format(ansi.esc(ansi.BG_RED, ansi.BRIGHT),
-                      additional, ansi.reset())
-
-
 def ordered_load(stream, Loader=yaml.Loader,
                  object_pairs_hook=collections.OrderedDict):
     """
