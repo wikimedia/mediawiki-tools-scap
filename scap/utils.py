@@ -746,29 +746,6 @@ def get_active_wikiversions(directory, realm, datacenter):
     return sorted_versions
 
 
-def uniqify(seq, idfun=None):
-    '''
-    Return a copy of list with duplicate values removed.
-
-    It preserves order.
-    :param seq: a list of items with possible duplicate values
-    :returns: list of values from seq, minus any duplicates
-    '''
-    # order preserving
-    if idfun is None:
-        def idfun(x):
-            return x
-    seen = {}
-    result = []
-    for item in seq:
-        marker = idfun(item)
-        if marker in seen:
-            continue
-        seen[marker] = 1
-        result.append(item)
-    return result
-
-
 def find_upwards(name, starting_point=os.getcwd()):
     """
     Search the specified directory, and all parent directories, for a given
@@ -794,42 +771,6 @@ def find_upwards(name, starting_point=os.getcwd()):
         if parent == current or parent == "/":
             return None
         current = parent
-
-
-def find_in_path(name, paths=[os.getcwd()], match_func=os.path.exists):
-    """
-    Search a list of directories for a given file.
-
-    :param name: the relative path name to search for
-    :param paths: a list of paths to be searched
-    :param match_func: a function which is called to test each candidate
-                       defaults to testing for path existence only.
-    """
-    for path in paths:
-        candidate = join_path(path, name)
-        if match_func(candidate):
-            return candidate
-    return None
-
-
-def find_dir(name, paths=[os.getcwd()]):
-    """
-    Like find_in_path for directories only.
-
-    :param name: the relative path name to search for
-    :param paths: a list of paths to be searched
-    """
-    return find_in_path(name, match_func=os.path.isdir)
-
-
-def find_file(name, paths=[os.getcwd()]):
-    """
-    Like find_in_path for files only.
-
-    :param name: the relative path name to search for
-    :param paths: a list of paths to be searched
-    """
-    return find_in_path(name, paths=paths, match_func=os.path.isfile)
 
 
 def join_path(*fragments):
