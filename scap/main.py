@@ -104,7 +104,8 @@ class AbstractSync(cli.Application):
                 succeeded, failed = tasks.check_canaries(
                     canaries, **canary_checks)
 
-                if failed:
+                # If more than 1/4 of the canaries failed, stop deployment
+                if failed > max(len(canaries)/4, 1):
                     canary_fail_msg = (
                         'scap failed: average error rate on {}/{} '
                         'canaries increased by 10x '
