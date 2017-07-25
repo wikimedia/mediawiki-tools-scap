@@ -58,6 +58,9 @@ def fortune():
         'S.C.A.P.: sync commits, all python',
         'S.C.A.P.: small containers ate production',
         'S.C.A.P.: sheep comandeering a powerboat',
+        'S.C.A.P.: synchronize, corrupt and push',
+        'S.C.A.P.: ship, crash, apply patch',
+        'S.C.A.P.: ship code and pray',
     ])
 
 

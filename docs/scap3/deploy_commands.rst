@@ -16,8 +16,10 @@ the deployment server to a staging or production environment.
 * Runs git fetch in the `/srv/deployment/{repo}` directory of each target
   (running checkout if it does not exist)
 * Checks out the tag created in step 1 on each of the target machines
-* If a `service_name` is specified, the service is restarted
-* If `service_reload` is enabled, reload the service instead of restarting
+* If a `service_name` is specified, the service is restarted. Multiple services
+  may be specified by separating them with commas, e.g., ``service1,
+  service2``. A service can be reloaded by appending ``=reload`` to the
+  service's name, e.g., ``service1, service2 = reload``.
 * If a `service_port` is specified, make sure that it is accepting
   connections, waiting up to `service_timeout` (120 seconds by default)
 

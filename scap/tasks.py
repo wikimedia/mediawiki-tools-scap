@@ -60,6 +60,10 @@ DEFAULT_RSYNC_ARGS = [
 ]
 
 
+RESTART = 'restart'
+RELOAD = 'reload'
+
+
 def check_canaries(canaries, service, threshold, logstash, delay, cores=2):
     """
     Run canary checks on test application servers.
@@ -319,9 +323,7 @@ def sync_master(cfg, master, verbose=False, logger=None):
 
 
 @utils.log_context('sync_common')
-def sync_common(
-        cfg, include=None, sync_from=None, touch_config=True,
-        verbose=False, logger=None):
+def sync_common(cfg, include=None, sync_from=None, verbose=False, logger=None):
     """
     Sync local deploy dir with upstream rsync server's copy.
 
@@ -373,15 +375,14 @@ def sync_common(
     with log.Timer('rsync common', stats):
         subprocess.check_call(rsync)
 
-    if touch_config:
-        # Bug 58618: Invalidate local configuration cache by updating the
-        # timestamp of wmf-config/InitialiseSettings.php
-        settings_path = os.path.join(
-            cfg['deploy_dir'], 'wmf-config', 'InitialiseSettings.php')
-        logger.debug('Touching %s', settings_path)
-        subprocess.check_call((
-            'sudo', '-u', 'mwdeploy', '-n', '--',
-            '/usr/bin/touch', settings_path))
+    # Bug 58618: Invalidate local configuration cache by updating the
+    # timestamp of wmf-config/InitialiseSettings.php
+    settings_path = os.path.join(
+        cfg['deploy_dir'], 'wmf-config', 'InitialiseSettings.php')
+    logger.debug('Touching %s', settings_path)
+    subprocess.check_call((
+        'sudo', '-u', 'mwdeploy', '-n', '--',
+        '/usr/bin/touch', settings_path))
 
 
 def sync_wikiversions(hosts, cfg):
@@ -728,6 +729,41 @@ def refresh_cdb_json_file(file_path):
         md5.write(cdb_md5)
 
     return True
+
+
+def handle_services(services):
+    """
+    Take a comma-separated list of services, and restart each of them.
+
+    The idea is to take a string directly from the scap.cfg file that looks
+    like:
+
+        jobrunner, jobchron = reload
+
+    and be able to determine what to do with that list.
+    """
+    servicehandles = [
+        (job.replace(' ', ''), RESTART)
+        for job in services.split(',')
+    ]
+
+    for service, handle in servicehandles:
+        if '=' in service:
+            service, handle = service.split('=')
+
+        if handle == RELOAD:
+            reload_service(service)
+            continue
+
+        if handle == RESTART:
+            restart_service(service)
+            continue
+
+        raise RuntimeError(
+            'Unknown action {} for service {}'.format(
+                handle,
+                service
+            ))
 
 
 @utils.log_context('service_restart')

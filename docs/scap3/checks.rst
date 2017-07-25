@@ -70,7 +70,7 @@ Example checks.yml:
     * :class:`scap.nrpe.NRPECheck`
 
 Command Checks
-===================
+==============
 
 The ``command`` check type allows users to define shell commands to run after
 each stage of deployment.

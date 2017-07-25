@@ -18,7 +18,7 @@ function in the :mod:`scap.config` module.
 
 
 Simple initial setup
-~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~
 
 For a new repo setup, the main file that needs to be created is in the root of
 the repository at ``scap/scap.cfg``. This new file should be made in
@@ -124,6 +124,16 @@ Available configuration variables
 |                            |                           | each target as part             |
 |                            |                           | of the ``promote``              |
 |                            |                           | stage.                          |
+|                            |                           |                                 |
+|                            |                           | May also be a comma-separated   |
+|                            |                           | list of services to restart     |
+|                            |                           | (e.g. ``service1, service2``).  |
+|                            |                           |                                 |
+|                            |                           | Each service may be reloaded    |
+|                            |                           | instead of restarted by         |
+|                            |                           | appending ``=reload`` to the    |
+|                            |                           | service name (e.g.,             |
+|                            |                           | ``service1, service2=reload``)  |
 +----------------------------+---------------------------+---------------------------------+
 | ``service_port``           | **NONE**                  | (*Int*) (*Optional*)            |
 |                            |                           | If a port is defined,           |
@@ -184,9 +194,4 @@ Available configuration variables
 |                            |                           | ``./scap/checks.yaml``          |
 |                            |                           | will be performed after         |
 |                            |                           | each-stage of checkout.         |
-+----------------------------+---------------------------+---------------------------------+
-| ``service_reload``         | False                     | (*Boolean*) If ``True``,        |
-|                            |                           | the service specified in        |
-|                            |                           | ``service_name`` is reloaded    |
-|                            |                           | instead of being restarted      |
 +----------------------------+---------------------------+---------------------------------+

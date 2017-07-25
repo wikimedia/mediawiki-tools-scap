@@ -38,6 +38,7 @@ import scap.arg as arg
 import scap.cli as cli
 import scap.lock as lock
 import scap.log as log
+import scap.pooler as pooler
 import scap.ssh as ssh
 import scap.targets as targets
 import scap.tasks as tasks
@@ -103,7 +104,8 @@ class AbstractSync(cli.Application):
                 succeeded, failed = tasks.check_canaries(
                     canaries, **canary_checks)
 
-                if failed:
+                # If more than 1/4 of the canaries failed, stop deployment
+                if failed > max(len(canaries)/4, 1):
                     canary_fail_msg = (
                         'scap failed: average error rate on {}/{} '
                         'canaries increased by 10x '
@@ -119,12 +121,21 @@ class AbstractSync(cli.Application):
             # Update proxies
             proxies = [node for node in self._get_proxy_list()
                        if node in full_target_list]
+
+            conftool_conf = self.config['conftool_config']
+            if len(proxies) > 0 and conftool_conf:
+                # Before we hammer the proxies, depool them
+                self.get_logger().info('Depooling proxies')
+                proxy_pooler = pooler.Pooler(conftool_conf, proxies)
+                proxy_pooler.depool()
+
             with log.Timer('sync-proxies', self.get_stats()):
                 sync_cmd = self._proxy_sync_command()
                 # Proxies should always use the current host as their sync
                 # origin server.
                 sync_cmd.append(socket.getfqdn())
-                update_proxies = ssh.Job(proxies, user=self.config['ssh_user'])
+                update_proxies = ssh.Job(proxies,
+                                         user=self.config['ssh_user'])
                 update_proxies.command(sync_cmd)
                 update_proxies.progress(
                     log.reporter(
@@ -155,6 +166,11 @@ class AbstractSync(cli.Application):
                     self.get_logger().warning(
                         '%d apaches had sync errors', failed)
                     self.soft_errors = True
+
+            if len(proxies) > 0 and conftool_conf:
+                # Ok all done
+                self.get_logger().info('Repooling proxies')
+                proxy_pooler.pool()
 
             self._after_cluster_sync()
 
@@ -538,8 +554,6 @@ class SyncMaster(cli.Application):
 class SyncCommon(cli.Application):
     """Sync local MediaWiki deployment directory with deploy server state."""
 
-    @cli.argument('--no-touch', action='store_false', dest='touch_config',
-                  help='Do not touch InitialiseSettings.php after sync.')
     @cli.argument('--no-update-l10n', action='store_false', dest='update_l10n',
                   help='Do not update l10n cache files.')
     @cli.argument('-i', '--include', default=None, action='append',
@@ -553,8 +567,7 @@ class SyncCommon(cli.Application):
             self.config,
             include=self.arguments.include,
             sync_from=self.arguments.servers,
-            verbose=self.verbose,
-            touch_config=self.arguments.touch_config
+            verbose=self.verbose
         )
         if self.arguments.update_l10n:
             utils.sudo_check_call(
@@ -571,8 +584,6 @@ class SyncFile(AbstractSync):
     """Sync a specific file/directory to the cluster."""
 
     @cli.argument('--force', action='store_true', help='Skip canary checks')
-    @cli.argument('--beta-only-change', action='store_true', dest='beta_only',
-                  help='Sync a config file that only affects beta cluster')
     @cli.argument('file', help='File/directory to sync')
     @cli.argument('message', nargs='*', help='Log message for SAL')
     def main(self, *extra_args):
@@ -584,15 +595,6 @@ class SyncFile(AbstractSync):
             self.config['stage_dir'], self.arguments.file)
         if not os.path.exists(abspath):
             raise IOError(errno.ENOENT, 'File/directory not found', abspath)
-
-        if self.arguments.beta_only:
-            confroot = os.path.join(
-                self.config['stage_dir'], 'wmf-config')
-            if (abspath.endswith('.php') and
-                    os.path.commonprefix([confroot, abspath]) != confroot):
-                raise IOError(
-                    errno.EPERM,
-                    '--beta-only-change not allowed for PHP files', abspath)
 
         relpath = os.path.relpath(abspath, self.config['stage_dir'])
         if os.path.isdir(abspath):
@@ -608,8 +610,6 @@ class SyncFile(AbstractSync):
 
     def _proxy_sync_command(self):
         cmd = [self.get_script_path(), 'pull', '--no-update-l10n']
-        if self.arguments.beta_only:
-            cmd.append('--no-touch')
 
         if '/' in self.include:
             parts = self.include.split('/')
@@ -665,7 +665,7 @@ class SyncL10n(AbstractSync):
 
     def _proxy_sync_command(self):
         cmd = [
-            self.get_script_path(), 'pull', '--no-update-l10n', '--no-touch']
+            self.get_script_path(), 'pull', '--no-update-l10n']
 
         parts = self.include.split('/')
         for i in range(1, len(parts)):
