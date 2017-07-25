@@ -1,3 +1,25 @@
+scap (3.6.0-1) unstable; urgency=low
+
+  * MediaWiki: no longer has --no-touch / --beta-only-change
+
+  * MediaWiki: Create a wrapper around conftool for our pooling/depooling needs
+
+  * MediaWiki: canaries: only fail deployment if 1/4 canaries fail
+
+  * Scap3: learned how to handle multiple service restart/reload
+
+  * Scap3: Don't update SHA1 for --service-restart or --dry-run
+
+  * Docs: got some minor doc fixups
+
+  * Packaging cleanup: Move PHP to required packages, also allow
+    HHVM to satisfy the dependency, move python-semver from Depends to
+    Suggests
+
+  * Remove unused code: utils.deprecated_script(), functions introduced in D72
+
+ -- Tyler Cipriani <tcipriani@wikimedia.org>  Tue, 25 Jul 2017 13:58:14 -0600
+
 scap (3.5.8-1) unstable; urgency=low
 
   * In which Chad cleans up our messes: Lots of pylint, and python3
