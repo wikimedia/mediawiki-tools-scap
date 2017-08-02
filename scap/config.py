@@ -42,6 +42,7 @@ DEFAULT_CONFIG = {
     'deploy_dir': (str, '/srv/mediawiki'),
     'failure_limit': (str, '0%'),
     'fancy_progress': (bool, False),
+    'keyholder_key': (str, None),
     'stage_dir': (str, '/srv/mediawiki-staging'),
     'lock_file': (str, None),
     'log_json': (bool, False),

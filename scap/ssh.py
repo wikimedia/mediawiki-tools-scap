@@ -42,6 +42,14 @@ SSH = cmd.Command(
     '/usr/bin/ssh', '-oBatchMode=yes',
     '-oSetupTimeout=10',
     '-F/dev/null', cmd.arg('user', '-oUser={}'))
+SSH_WITH_KEY = cmd.Command(
+    '/usr/bin/ssh',
+    '-oBatchMode=yes',
+    '-oSetupTimeout=10',
+    '-oIdentitiesOnly=yes',
+    '-F/dev/null',
+    cmd.arg('user', '-oUser={}'),
+    cmd.arg('key', '-oIdentityFile={}'))
 
 
 class OutputHandler(object):
@@ -119,11 +127,13 @@ class JSONOutputHandler(OutputHandler):
 class Job(object):
     """Execute a job on a group of remote hosts via ssh."""
     @utils.log_context('ssh.job')
-    def __init__(self, hosts=None, command=None, user=None, logger=None):
+    def __init__(self, hosts=None, command=None, user=None,
+                 logger=None, key=None):
         self.hosts(hosts or [])
         self._command = command
         self._reporter = None
         self._user = user
+        self._key = key
         self.max_failure = len(self._hosts)
         self._logger = logger
         self.output_handler = OutputHandler
@@ -194,8 +204,11 @@ class Job(object):
             self._reporter.start()
 
             for host, status, ohandler in cluster_ssh(
-                    self._hosts, self._command,
-                    self._user, batch_size,
+                    self._hosts,
+                    self._command,
+                    self._user,
+                    self._key,
+                    batch_size,
                     self.max_failure,
                     self.output_handler):
 
@@ -216,7 +229,7 @@ class Job(object):
 
 
 def cluster_ssh(
-        hosts, command, user=None, limit=DEFAULT_BATCH_SIZE,
+        hosts, command, user=None, key=None, limit=DEFAULT_BATCH_SIZE,
         max_fail=None, output_handler=None):
     """Run a command via SSH on multiple hosts concurrently."""
     hosts = set(hosts)
@@ -239,6 +252,11 @@ def cluster_ssh(
             if hosts and len(procs) < limit:
                 host = hosts.pop()
                 ssh_command = SSH(host, command, user=user)
+                if key:
+                    ssh_command = SSH_WITH_KEY(
+                        host, command, user=user, key=key
+                    )
+
                 proc = subprocess.Popen(
                     ssh_command,
                     stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
