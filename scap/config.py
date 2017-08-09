@@ -71,6 +71,7 @@ DEFAULT_CONFIG = {
     'git_upstream_submodules': (bool, False),
     'config_deploy': (bool, False),
     'nrpe_dir': (str, '/etc/nagios/nrpe.d'),
+    'require_valid_service': (bool, False),
     'service_timeout': (float, 120.0),
     'tags_to_keep': (int, 20),
     'perform_checks': (bool, True),

@@ -394,6 +394,12 @@ class DeployLocal(cli.Application):
         if not service:
             return
 
+        # Can be used to check if service is masked, require_valid_service
+        # is False by default to preserve existing behavior
+        if (self.config.get('require_valid_service', False) and
+                not utils.service_exists(service)):
+            return
+
         tasks.handle_services(service)
 
         port = self.config.get('service_port', None)
