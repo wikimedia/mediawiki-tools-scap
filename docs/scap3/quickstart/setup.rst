@@ -314,8 +314,8 @@ create a ``scap/config-files.yaml`` file to control rendered config templates::
     └── scap.cfg
 
 ``scap/config-files.yaml`` is a list of configuration files keyed by
-their final location and supporting two properties: ``template`` and
-``remote_vars``.
+their final location and supporting three properties: ``template``,
+``remote_vars``, and ``output_format``.
 
 As an example, let's add mockbase's configuration file to the
 ``scap/templates/config.yaml.j2`` file::
@@ -439,6 +439,39 @@ would read::
     deployer: Scappy, the scap pig
     foo: bar
     localhost_public_ip: 10.10.10.1
+
+Output formats
+--------------
+
+An output format for each rendered configuration file may be specified in the
+``scap/config-files.yaml`` file using the ``output_format`` template property.
+The ``output_format`` property controls how python primitives such as ``True``,
+``False``, and ``None`` will be rendered in the generated configuration file.
+Currently ``output_format`` only supports ``yaml``. For example, if I had a
+``scap/config-files.yaml`` file with the contents::
+
+    ---
+    /etc/mockbase/config.yaml:
+      template: config.yaml.j2
+      output_format: yaml
+
+A ``scap/templates/config.yaml.j2`` file that looked like::
+
+    ---
+    foo: {{foo}}
+
+And a ``scap/vars.yaml`` that read::
+
+    foo: null
+
+The final rendered config at ``/etc/mockbase/config.yaml`` would look like::
+
+    ---
+    foo: null
+
+Without the use of ``output_format: yaml`` in ``scap/config-files.yaml`` the
+final rendered config would use the python primative value for ``null`` which
+is ``None``.
 
 Environments
 ~~~~~~~~~~~~

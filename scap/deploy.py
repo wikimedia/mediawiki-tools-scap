@@ -177,6 +177,7 @@ class DeployLocal(cli.Application):
                 loader={filename: config_file['template']},
                 erb_syntax=config_file.get('erb_syntax', False),
                 var_file=config_file.get('remote_vars', None),
+                output_format=config_file.get('output_format', None),
                 overrides=overrides
             )
 
@@ -229,6 +230,7 @@ class DeployLocal(cli.Application):
                 loader={filename: config_file['template']},
                 erb_syntax=config_file.get('erb_syntax', False),
                 var_file=config_file.get('remote_vars', None),
+                output_format=config_file.get('output_format', None),
                 overrides=overrides
             )
 
@@ -853,10 +855,25 @@ class Deploy(cli.Application):
             f['name'] = config_file
             template_attrs = config_files[config_file]
             template_name = template_attrs['template']
-            template = self.context.env_specific_path(
+
+            template_output_format = template_attrs.get(
+                'output_format', template.guess_format(config_file))
+
+            if template_output_format is not None \
+                    and template_output_format not in \
+                    template.VALID_OUTPUT_FORMATS:
+                raise RuntimeError(
+                    "Invalid output_format: '{}' for template '{}'".format(
+                        template_output_format,
+                        template_name
+                    ))
+
+            f['output_format'] = template_output_format
+
+            template_path = self.context.env_specific_path(
                 'templates', template_name)
 
-            with open(template, 'r') as tmp:
+            with open(template_path, 'r') as tmp:
                 f['template'] = tmp.read()
 
             # Remote var file is optional
