@@ -513,10 +513,6 @@ class Deploy(cli.Application):
     Uses local .scaprc as config for each host in cluster
     """
 
-    STAGE_NAMES_OVERRIDES = {
-        PROMOTE: 'promote and restart_service',
-    }
-
     MAX_BATCH_SIZE = 80
     # Stop executing on new hosts after failure
     MAX_FAILURES = 0
@@ -962,7 +958,10 @@ class Deploy(cli.Application):
 
     def _get_stage_name(self, stage):
         """Map a stage name to a stage display name."""
-        return self.STAGE_NAMES_OVERRIDES.get(stage, stage)
+        if stage == PROMOTE and self.config.get('service_name') is not None:
+            return 'promote and restart_service'
+
+        return stage
 
     def _get_batch_size(self, stage):
         default = self.config.get('batch_size', self.MAX_BATCH_SIZE)
