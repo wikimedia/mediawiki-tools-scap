@@ -394,13 +394,8 @@ class DeployLocal(cli.Application):
         if not service:
             return
 
-        # Can be used to check if service is masked, require_valid_service
-        # is False by default to preserve existing behavior
-        if (self.config.get('require_valid_service', False) and
-                not utils.service_exists(service)):
-            return
-
-        tasks.handle_services(service)
+        tasks.handle_services(
+            service, self.config.get('require_valid_service', False))
 
         port = self.config.get('service_port', None)
         if not port:
@@ -535,6 +530,7 @@ class Deploy(cli.Application):
         'git_submodules',
         'nrpe_dir',
         'git_upstream_submodules',
+        'require_valid_service',
         'service_name',
         'service_port',
         'service_timeout',
