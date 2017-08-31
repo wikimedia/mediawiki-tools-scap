@@ -74,7 +74,8 @@ class AbstractSync(cli.Application):
                         if node in full_target_list]
             if not self.arguments.force:
                 with log.Timer('sync-check-canaries', self.get_stats()):
-                    sync_cmd = self._proxy_sync_command()
+                    sync_cmd = self._apache_sync_command(
+                        self._get_master_list())
                     sync_cmd.append(socket.getfqdn())
                     update_canaries = ssh.Job(
                         canaries, user=self.config['ssh_user'])
@@ -130,7 +131,7 @@ class AbstractSync(cli.Application):
                 proxy_pooler.depool()
 
             with log.Timer('sync-proxies', self.get_stats()):
-                sync_cmd = self._proxy_sync_command()
+                sync_cmd = self._apache_sync_command(self._get_master_list())
                 # Proxies should always use the current host as their sync
                 # origin server.
                 sync_cmd.append(socket.getfqdn())

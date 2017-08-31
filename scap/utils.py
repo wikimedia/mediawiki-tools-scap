@@ -690,6 +690,67 @@ def is_service_running(service):
         raise NotImplementedError('Only  upstart or systemd are supported')
 
 
+def systemd_service_exists(service):
+    """
+    Systemd service unit exists
+    """
+    try:
+        loaded_state = subprocess.check_output([
+           '/bin/systemctl', 'show',
+           '--property', 'LoadState', service]).strip()
+    except subprocess.CalledProcessError:
+        return False
+
+    # Newer versions of systemctl have the --value flag, which means you don't
+    # have to split output on '='. That'd sure be nice, but this throws an
+    # error on older systemctl versions.
+    if '=' not in loaded_state:
+        return False
+
+    # Should contain something like LoadState=loaded
+    state = loaded_state.split('=')[1]
+
+    # not-found does not, in fact, exit non-zero as one might expect
+    # - <3 systemd
+    return state not in ['masked', 'not-found']
+
+
+def upstart_service_exists(service):
+    """
+    Upstart service exists
+    """
+
+    return os.path.exists(
+            os.path.join('/etc/init/', '{}.conf'.format(service)))
+
+
+def sysv_service_exists(service):
+    """
+    Determine if a sysvinit script exists for a service.
+    """
+    return os.path.exists(
+            os.path.join('/etc/init.d', service))
+
+
+def service_exists(service):
+    """
+    Determine if service exists.
+    """
+    sysv_exists = sysv_service_exists(service)
+
+    if is_initsystem('upstart'):
+        upstart_exists = upstart_service_exists(service)
+
+    if is_initsystem('systemd'):
+        systemd_exists = systemd_service_exists(service)
+        # Return early for systemd systems because we want to obey the "masked"
+        # property of systemd which isn't taken into account in sysv_exists or
+        # upstart_exists
+        return systemd_exists
+
+    return sysv_exists or upstart_exists
+
+
 def mkdir_p(path):
     """
     Create directory path.

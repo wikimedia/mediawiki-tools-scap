@@ -61,6 +61,7 @@ def fortune():
         'S.C.A.P.: synchronize, corrupt and push',
         'S.C.A.P.: ship, crash, apply patch',
         'S.C.A.P.: ship code and pray',
+        'S.C.A.P.: some chaos and pandemonium',
     ])
 
 

@@ -177,6 +177,7 @@ class DeployLocal(cli.Application):
                 loader={filename: config_file['template']},
                 erb_syntax=config_file.get('erb_syntax', False),
                 var_file=config_file.get('remote_vars', None),
+                output_format=config_file.get('output_format', None),
                 overrides=overrides
             )
 
@@ -229,6 +230,7 @@ class DeployLocal(cli.Application):
                 loader={filename: config_file['template']},
                 erb_syntax=config_file.get('erb_syntax', False),
                 var_file=config_file.get('remote_vars', None),
+                output_format=config_file.get('output_format', None),
                 overrides=overrides
             )
 
@@ -392,7 +394,8 @@ class DeployLocal(cli.Application):
         if not service:
             return
 
-        tasks.handle_services(service)
+        tasks.handle_services(
+            service, self.config.get('require_valid_service', False))
 
         port = self.config.get('service_port', None)
         if not port:
@@ -513,10 +516,6 @@ class Deploy(cli.Application):
     Uses local .scaprc as config for each host in cluster
     """
 
-    STAGE_NAMES_OVERRIDES = {
-        PROMOTE: 'promote and restart_service',
-    }
-
     MAX_BATCH_SIZE = 80
     # Stop executing on new hosts after failure
     MAX_FAILURES = 0
@@ -531,6 +530,7 @@ class Deploy(cli.Application):
         'git_submodules',
         'nrpe_dir',
         'git_upstream_submodules',
+        'require_valid_service',
         'service_name',
         'service_port',
         'service_timeout',
@@ -679,6 +679,13 @@ class Deploy(cli.Application):
                                   utils.human_duration(self.get_duration()))
                 return exec_result
         return 0
+
+    def _get_keyholder_key(self):
+        keyholder_key = self.config.get('keyholder_key')
+        if not keyholder_key:
+            return None
+
+        return os.path.join('/etc/keyholder.d', '{}.pub'.format(keyholder_key))
 
     def _needs_latest_sha1(self, stages):
         """
@@ -850,10 +857,25 @@ class Deploy(cli.Application):
             f['name'] = config_file
             template_attrs = config_files[config_file]
             template_name = template_attrs['template']
-            template = self.context.env_specific_path(
+
+            template_output_format = template_attrs.get(
+                'output_format', template.guess_format(config_file))
+
+            if template_output_format is not None \
+                    and template_output_format not in \
+                    template.VALID_OUTPUT_FORMATS:
+                raise RuntimeError(
+                    "Invalid output_format: '{}' for template '{}'".format(
+                        template_output_format,
+                        template_name
+                    ))
+
+            f['output_format'] = template_output_format
+
+            template_path = self.context.env_specific_path(
                 'templates', template_name)
 
-            with open(template, 'r') as tmp:
+            with open(template_path, 'r') as tmp:
                 f['template'] = tmp.read()
 
             # Remote var file is optional
@@ -932,7 +954,10 @@ class Deploy(cli.Application):
 
         logger.debug('Running remote deploy cmd {}'.format(deploy_local_cmd))
 
-        deploy_stage = ssh.Job(hosts=targets, user=self.config['ssh_user'])
+        deploy_stage = ssh.Job(
+            hosts=targets,
+            user=self.config['ssh_user'],
+            key=self._get_keyholder_key())
         deploy_stage.output_handler = ssh.JSONOutputHandler
         deploy_stage.max_failure = self.MAX_FAILURES
         deploy_stage.command(deploy_local_cmd)
@@ -952,7 +977,10 @@ class Deploy(cli.Application):
 
     def _get_stage_name(self, stage):
         """Map a stage name to a stage display name."""
-        return self.STAGE_NAMES_OVERRIDES.get(stage, stage)
+        if stage == PROMOTE and self.config.get('service_name') is not None:
+            return 'promote and restart_service'
+
+        return stage
 
     def _get_batch_size(self, stage):
         default = self.config.get('batch_size', self.MAX_BATCH_SIZE)

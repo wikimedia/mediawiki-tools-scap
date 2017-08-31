@@ -731,7 +731,7 @@ def refresh_cdb_json_file(file_path):
     return True
 
 
-def handle_services(services):
+def handle_services(services, require_valid_service=False):
     """
     Take a comma-separated list of services, and restart each of them.
 
@@ -750,6 +750,11 @@ def handle_services(services):
     for service, handle in servicehandles:
         if '=' in service:
             service, handle = service.split('=')
+
+        # Can be used to check if service is masked, require_valid_service
+        # is False by default to preserve existing behavior
+        if (require_valid_service and not utils.service_exists(service)):
+            return
 
         if handle == RELOAD:
             reload_service(service)
