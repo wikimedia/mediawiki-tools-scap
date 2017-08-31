@@ -1,3 +1,26 @@
+scap (3.7.0-1) unstable; urgency=low
+
+  * Added a code of conduct file
+
+  * MediaWiki: Use co-masters as proxies when doing sync to canaries and
+    proxies
+
+  * Scap3: Learned to use a specific keyholder key when specifying
+    keyholder_key in `scap.cfg`. This should limit the number of keys tried by
+    keyholder that have led to the `too many authentication failures` message
+    (fixes T172333)
+
+  * Scap3: Now only logs that it is running the "restart_service" phase when
+    it actually restarts a service
+
+  * Scap3: Uses the yaml values for yaml templates in `scap/config_files.yaml`
+    (fixes T145510)
+
+  * Scap3: Learned how to ensure a service is not masked and exists when you
+    specify `require_valid_service` in `scap.cfg`.
+
+ -- Tyler Cipriani <tcipriani@wikimedia.org>  Thu, 31 Aug 2017 10:48:38 -0600
+
 scap (3.6.0-2) unstable; urgency=medium
 
   * Add alternative dependency on php-cli for stretch compat
