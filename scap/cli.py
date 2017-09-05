@@ -73,7 +73,13 @@ class Application(object):
                 return '/var/lock/scap.%s.lock' % (
                     self.config['git_repo'].replace('/', '_'))
             except KeyError:
-                return '/var/lock/scap.unknown-but-probably-mediawiki.lock'
+                # `scap sync*` can run from anywhere on the file system and
+                # doesn't actually use the value of `git_repo`. In contrast,
+                # `scap deploy` will fail almost instantly without a `git_repo`
+                # set. If we're attempting to create a lock file, and there is
+                # no git_repo, then it's likely for a sync* command and the
+                # correct git_repo is operations/mediawiki-config.
+                return '/var/lock/scap.operations_mediawiki-config.lock'
 
     @property
     def verbose(self):
