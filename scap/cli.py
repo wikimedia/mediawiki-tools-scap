@@ -24,6 +24,7 @@ from __future__ import absolute_import
 
 import logging
 import os
+import re
 import sys
 import time
 import scap.plugins
@@ -92,6 +93,21 @@ class Application(object):
     def get_script_path(self, script_name='scap'):
         """Qualify the path to a scap script."""
         return os.path.join(self.config['bin_dir'], script_name)
+
+    def get_keyholder_key(self):
+        """Get the public key for IdentityFile use in ssh."""
+        key_dir = '/etc/keyholder.d'
+        key_safe_name = re.sub(r'\W', '_', self.config['ssh_user'])
+        key_name = self.config.get('keyholder_key', key_safe_name)
+        key_path = os.path.join(key_dir, '{}.pub'.format(key_name))
+
+        if os.path.exists(key_path):
+            self.get_logger().debug('Using key: {}'.format(key_path))
+            return key_path
+
+        self.get_logger().debug(
+            'Unable to find keyholder key for {}'.format(key_safe_name))
+        return None
 
     def announce(self, *args):
         """

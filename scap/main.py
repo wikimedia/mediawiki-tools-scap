@@ -78,7 +78,9 @@ class AbstractSync(cli.Application):
                         self._get_master_list())
                     sync_cmd.append(socket.getfqdn())
                     update_canaries = ssh.Job(
-                        canaries, user=self.config['ssh_user'])
+                        canaries,
+                        user=self.config['ssh_user'],
+                        key=self.get_keyholder_key())
                     update_canaries.command(sync_cmd)
                     update_canaries.progress(
                         log.reporter(
@@ -135,8 +137,10 @@ class AbstractSync(cli.Application):
                 # Proxies should always use the current host as their sync
                 # origin server.
                 sync_cmd.append(socket.getfqdn())
-                update_proxies = ssh.Job(proxies,
-                                         user=self.config['ssh_user'])
+                update_proxies = ssh.Job(
+                    proxies,
+                    user=self.config['ssh_user'],
+                    key=self.get_keyholder_key())
                 update_proxies.command(sync_cmd)
                 update_proxies.progress(
                     log.reporter(
@@ -151,7 +155,9 @@ class AbstractSync(cli.Application):
             # Update apaches
             with log.Timer('sync-apaches', self.get_stats()):
                 update_apaches = ssh.Job(
-                    full_target_list, user=self.config['ssh_user'])
+                    full_target_list,
+                    user=self.config['ssh_user'],
+                    key=self.get_keyholder_key())
                 update_apaches.exclude_hosts(proxies)
                 update_apaches.exclude_hosts(self._get_master_list())
                 if not self.arguments.force:
@@ -180,6 +186,19 @@ class AbstractSync(cli.Application):
             return 1
         else:
             return 0
+
+    def get_keyholder_key(self):
+        """
+        Returns scap2-specific deploy key
+
+        This way we can set a key in the default scap config without
+        having all non-scap2 repos inherit that configuration.
+        """
+        key = self.config.get('mediawiki_keyholder_key', None)
+        if key:
+            return key
+
+        return super(AbstractSync, self).get_keyholder_key()
 
     def _before_cluster_sync(self):
         pass
@@ -249,7 +268,10 @@ class AbstractSync(cli.Application):
 
         masters = self._get_master_list()
         with log.Timer(timer, self.get_stats()):
-            update_masters = ssh.Job(masters, user=self.config['ssh_user'])
+            update_masters = ssh.Job(
+                masters,
+                user=self.config['ssh_user'],
+                key=self.get_keyholder_key())
             update_masters.exclude_hosts([socket.getfqdn()])
             update_masters.command(cmd)
             update_masters.progress(
@@ -469,7 +491,10 @@ class Scap(AbstractSync):
         target_hosts = self._get_target_list()
         # Ask apaches to rebuild l10n CDB files
         with log.Timer('scap-cdb-rebuild', self.get_stats()):
-            rebuild_cdbs = ssh.Job(target_hosts, user=self.config['ssh_user'])
+            rebuild_cdbs = ssh.Job(
+                target_hosts,
+                user=self.config['ssh_user'],
+                key=self.get_keyholder_key())
             rebuild_cdbs.shuffle()
             rebuild_cdbs.command(
                 'sudo -u mwdeploy -n -- %s cdb-rebuild' %
@@ -485,7 +510,8 @@ class Scap(AbstractSync):
                 self.soft_errors = True
 
         # Update and sync wikiversions.php
-        succeeded, failed = tasks.sync_wikiversions(target_hosts, self.config)
+        succeeded, failed = tasks.sync_wikiversions(
+            target_hosts, self.config, key=self.get_keyholder_key())
         if failed:
             self.get_logger().warning(
                 '%d hosts had sync_wikiversions errors', failed)
@@ -495,9 +521,11 @@ class Scap(AbstractSync):
             # Restart HHVM across the cluster
             try:
                 succeeded, failed = tasks.restart_hhvm(
-                    target_hosts, self.config,
+                    target_hosts,
+                    self.config,
+                    key=self.get_keyholder_key(),
                     # Use a batch size of 5% of the total target list
-                    len(target_hosts) // 20)
+                    batch_size=len(target_hosts) // 20)
             except NotImplementedError:
                 self.get_logger().warning(
                     "Not restarting HHVM, feature is not implemented")
@@ -683,7 +711,10 @@ class SyncL10n(AbstractSync):
         # Rebuild l10n CDB files
         target_hosts = self._get_target_list()
         with log.Timer('scap-cdb-rebuild', self.get_stats()):
-            rebuild_cdbs = ssh.Job(target_hosts, user=self.config['ssh_user'])
+            rebuild_cdbs = ssh.Job(
+                target_hosts,
+                user=self.config['ssh_user'],
+                key=self.get_keyholder_key())
             rebuild_cdbs.shuffle()
             cdb_cmd = 'sudo -u mwdeploy -n -- %s cdb-rebuild --version %s' % (
                       self.get_script_path(),
@@ -742,7 +773,8 @@ class SyncWikiversions(AbstractSync):
             self._after_sync_common()
             self._sync_masters()
             mw_install_hosts = self._get_target_list()
-            tasks.sync_wikiversions(mw_install_hosts, self.config)
+            tasks.sync_wikiversions(
+                mw_install_hosts, self.config, key=self.get_keyholder_key())
 
         self.announce(
             'rebuilt wikiversions.php and synchronized wikiversions files: %s',
@@ -801,9 +833,11 @@ class HHVMGracefulAll(AbstractSync):
         target_hosts = self._get_target_list()
         try:
             succeeded, failed = tasks.restart_hhvm(
-                target_hosts, self.config,
+                target_hosts,
+                self.config,
+                key=self.get_keyholder_key(),
                 # Use a batch size of 5% of the total target list
-                len(target_hosts) // 20)
+                batch_size=len(target_hosts) // 20)
         except NotImplementedError:
             self.get_logger().warning(
                 "Not restarting HHVM, feature is not implemented")

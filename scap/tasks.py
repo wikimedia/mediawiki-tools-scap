@@ -385,7 +385,7 @@ def sync_common(cfg, include=None, sync_from=None, verbose=False, logger=None):
         '/usr/bin/touch', settings_path))
 
 
-def sync_wikiversions(hosts, cfg):
+def sync_wikiversions(hosts, cfg, key=None):
     """
     Rebuild and sync wikiversions.php to the cluster.
 
@@ -396,7 +396,7 @@ def sync_wikiversions(hosts, cfg):
     with log.Timer('sync_wikiversions', stats):
         compile_wikiversions('stage', cfg)
 
-        rsync = ssh.Job(hosts, user=cfg['ssh_user']).shuffle()
+        rsync = ssh.Job(hosts, user=cfg['ssh_user'], key=key).shuffle()
         rsync.command(
             'sudo -u mwdeploy -n -- /usr/bin/rsync -l '
             '%(master_rsync)s::common/wikiversions*.{json,php} '
@@ -620,7 +620,7 @@ def update_localization_cache(version, wikidb, verbose, cfg, logger=None):
             cfg['bin_dir'], cache_dir, use_cores, verbose_messagelist))
 
 
-def restart_hhvm(hosts, cfg, batch_size=1):
+def restart_hhvm(hosts, cfg, key=None, batch_size=1):
     """Restart HHVM on the given hosts.
 
     :param hosts: List of hosts to sync to
@@ -629,7 +629,7 @@ def restart_hhvm(hosts, cfg, batch_size=1):
     """
     stats = log.Stats(cfg['statsd_host'], int(cfg['statsd_port']))
     with log.Timer('restart_hhvm', stats):
-        restart = ssh.Job(hosts, user=cfg['ssh_user']).shuffle()
+        restart = ssh.Job(hosts, user=cfg['ssh_user'], key=key).shuffle()
         restart.command(
             'sudo -u mwdeploy -n -- %s hhvm-restart' %
             os.path.join(cfg['bin_dir'], 'scap'))

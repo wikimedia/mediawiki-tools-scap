@@ -680,13 +680,6 @@ class Deploy(cli.Application):
                 return exec_result
         return 0
 
-    def _get_keyholder_key(self):
-        keyholder_key = self.config.get('keyholder_key')
-        if not keyholder_key:
-            return None
-
-        return os.path.join('/etc/keyholder.d', '{}.pub'.format(keyholder_key))
-
     def _needs_latest_sha1(self, stages):
         """
         Determine whether we expect a new SHA1 to be tagged and deployed
@@ -957,7 +950,7 @@ class Deploy(cli.Application):
         deploy_stage = ssh.Job(
             hosts=targets,
             user=self.config['ssh_user'],
-            key=self._get_keyholder_key())
+            key=self.get_keyholder_key())
         deploy_stage.output_handler = ssh.JSONOutputHandler
         deploy_stage.max_failure = self.MAX_FAILURES
         deploy_stage.command(deploy_local_cmd)
