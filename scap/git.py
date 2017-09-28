@@ -45,27 +45,32 @@ def info_filename(directory, install_path, cache_path):
     return os.path.join(cache_path, 'info%s.json' % path.replace('/', '-'))
 
 
-def sha(location, rev):
-    """Returns SHA1 for things like HEAD or HEAD~~"""
+def git_check_output(location, command):
+    """
+    Wrapper for most of our functions here: execute a git command and
+
+    :param: command: list of parameters to /usr/bin/git
+    :returns: String of output from command, stripped
+    """
     ensure_dir(location)
     with utils.cd(location):
-        cmd = '/usr/bin/git rev-parse --verify {}'.format(rev)
-        return subprocess.check_output(cmd, shell=True).strip()
+        command.insert(0, '/usr/bin/git')
+        return subprocess.check_output(command).strip()
+
+
+def sha(location, rev):
+    """Returns SHA1 for things like HEAD or HEAD~~"""
+    return git_check_output(location, ['rev-parse', '--verify', rev])
 
 
 def describe(location):
     """Returns a convenient label for the current state of the git repo."""
-    ensure_dir(location)
-    with utils.cd(location):
-        cmd = '/usr/bin/git describe --always'
-        return subprocess.check_output(cmd, shell=True).strip()
+    return git_check_output(location, ['describe', '--always'])
 
 
 def fat_init(location):
     """Initializes the given directory for git-fat use."""
-
-    with utils.cd(location):
-        subprocess.check_call('/usr/bin/git fat init', shell=True)
+    git_check_output(location, ['fat', 'init'])
 
 
 def fat_isinitialized(location):
@@ -85,9 +90,7 @@ def fat_isinitialized(location):
 
 def fat_pull(location):
     """Syncs all git-fat objects for the given repo directory."""
-
-    with utils.cd(location):
-        subprocess.check_call('/usr/bin/git fat pull', shell=True)
+    git_check_output(location, ['fat', 'pull'])
 
 
 def info(directory):
@@ -178,46 +181,32 @@ def default_ignore(location):
 
 def clean_tags(location, max_tags):
     """Make sure there aren't more than max_tags."""
-    git = '/usr/bin/git'
-    ensure_dir(location)
-    with utils.cd(location):
-        cmd = [
-            git,
-            'for-each-ref',
-            '--sort=taggerdate',
-            '--format=%(refname)',
-            'refs/tags'
-        ]
+    tags = git_check_output(location,
+                            ['for-each-ref', '--sort=taggerdate',
+                             '--format=%(refname)', 'refs/tags']).splitlines()
 
-        tags = subprocess.check_output(cmd).splitlines()
-        old_tags = []
-        while len(tags) > max_tags:
-            tag = tags.pop(0)
-            if tag.startswith('refs/tags/'):
-                tag = tag[10:]
+    old_tags = []
+    while len(tags) > max_tags:
+        tag = tags.pop(0)
+        if tag.startswith('refs/tags/'):
+            tag = tag[10:]
 
-            # Don't delete tags that aren't ours
-            if not tag.startswith(TAG_PREFIX):
-                continue
+        # Don't delete tags that aren't ours
+        if not tag.startswith(TAG_PREFIX):
+            continue
 
-            old_tags.append(tag)
+        old_tags.append(tag)
 
-        # if there aren't any old tags, bail early
-        if len(old_tags) == 0:
-            return
+    # if there aren't any old tags, bail early
+    if len(old_tags) == 0:
+        return
 
-        cmd = [git, 'tag', '-d']
-        cmd += old_tags
-        subprocess.check_call(cmd)
+    git_check_output(location, ['tag', '-d'] + old_tags)
 
 
 def garbage_collect(location):
     """Clean up a repo."""
-    git = '/usr/bin/git'
-    ensure_dir(location)
-    with utils.cd(location):
-        cmd = [git, 'gc', '--quiet', '--auto']
-        subprocess.check_call(cmd)
+    git_check_output(location, ['gc', '--quiet', '--auto'])
 
 
 def add_all(location, message='Update'):
@@ -255,28 +244,29 @@ def add_all(location, message='Update'):
 
 def last_deploy_tag(location):
     """Finds the last tag to use for this deployment"""
-    ensure_dir(location)
-    with utils.cd(location):
-        cmd = ['/usr/bin/git', 'tag', '--list', os.path.join(TAG_PREFIX, '*')]
-        tags = sorted(subprocess.check_output(cmd).splitlines(), reverse=True)
-        if tags:
-            return tags[0]
+    tags = sorted(
+        git_check_output(
+            location,
+            ['tag', '--list', os.path.join(TAG_PREFIX, '*')]
+        ).splitlines(),
+        reverse=True)
+    if tags:
+        return tags[0]
 
     return None
 
 
 def next_deploy_tag(location):
     """Calculates the scap/sync/{date}/{n} tag to use for this deployment"""
-    ensure_dir(location)
-    with utils.cd(location):
-        timestamp = datetime.utcnow()
-        date = timestamp.strftime('%F')
-        cmd = ['/usr/bin/git', 'tag', '--list']
-        tag_fmt = os.path.join(TAG_PREFIX, '{}', '*')
-        cmd.append(tag_fmt.format(date))
-        seq = len(subprocess.check_output(cmd).splitlines()) + 1
-        tag_fmt = os.path.join(TAG_PREFIX, '{0}', '{1:04d}')
-        return tag_fmt.format(date, seq)
+    timestamp = datetime.utcnow()
+    date = timestamp.strftime('%F')
+    tag_fmt = os.path.join(TAG_PREFIX, '{}', '*')
+
+    seq = len(git_check_output(
+        location,
+        ['tag', '--list', tag_fmt.format(date)]).splitlines()) + 1
+
+    return os.path.join(TAG_PREFIX, '{0}', '{1:04d}').format(date, seq)
 
 
 def ensure_dir(location):
@@ -308,14 +298,10 @@ def remote_exists(location, remote):
 
 def remote_set(location, repo, remote='origin'):
     """set the remote at location to repo"""
-    ensure_dir(location)
-    with utils.cd(location):
-        if remote_exists(location, remote):
-            cmd = '/usr/bin/git remote rm {}'.format(remote)
-            subprocess.check_call(cmd, shell=True)
+    if remote_exists(location, remote):
+        git_check_output(location, ['remote', 'remove', remote])
 
-        cmd = '/usr/bin/git remote add {} {}'.format(remote, repo)
-        subprocess.check_call(cmd, shell=True)
+    git_check_output(location, ['remote', 'add', remote, repo])
 
 
 def fetch(location, repo, reference=None, dissociate=True):
@@ -323,44 +309,30 @@ def fetch(location, repo, reference=None, dissociate=True):
     """
     if is_dir(location):
         remote_set(location, repo)
-        with utils.cd(location):
-            cmd = ['/usr/bin/git', 'fetch']
-            subprocess.check_call(cmd)
+        git_check_output(location, ['fetch'])
     else:
-        cmd = ['/usr/bin/git', 'clone', repo, location]
+        cmd = ['clone', repo, location]
         if reference is not None:
             ensure_dir(reference)
             cmd.append('--reference')
             cmd.append(reference)
             if dissociate:
                 cmd.append('--dissociate')
-        subprocess.check_call(cmd)
+        git_check_output(location, cmd)
 
 
 def checkout(location, rev):
     """Checkout a git repo sha at a location
     """
-    ensure_dir(location)
-
     logger = utils.get_logger()
-
-    with utils.cd(location):
-        logger.debug('Checking out rev: %s at location: %s', rev, location)
-        cmd = '/usr/bin/git checkout --force --quiet {}'.format(rev)
-        subprocess.check_call(cmd, shell=True)
+    logger.debug('Checking out rev: %s at location: %s', rev, location)
+    git_check_output(location, ['checkout', '--force', '--quiet', rev])
 
 
 def sync_submodules(location):
     """Sync git submodules on target machines"""
-
-    ensure_dir(location)
-
-    logger = utils.get_logger()
-
-    with utils.cd(location):
-        logger.debug('Syncing out submodules')
-        cmd = '/usr/bin/git submodule sync --recursive'
-        subprocess.check_call(cmd, shell=True)
+    utils.get_logger().debug('Syncing out submodules')
+    git_check_output(location, ['submodule', 'sync', '--recursive'])
 
 
 def update_submodules(location, git_remote=None, use_upstream=False):
@@ -369,16 +341,11 @@ def update_submodules(location, git_remote=None, use_upstream=False):
     if not use_upstream and git_remote is None:
         raise ValueError("Must set git_remote if not using upstream")
 
-    ensure_dir(location)
-
-    logger = utils.get_logger()
-
-    with utils.cd(location):
-        logger.debug('Checking out submodules')
-        if not use_upstream:
-            remap_submodules(location, git_remote)
-        cmd = '/usr/bin/git submodule update --init --recursive'
-        subprocess.check_call(cmd, shell=True)
+    utils.get_logger().debug('Checking out submodules')
+    if not use_upstream:
+        remap_submodules(location, git_remote)
+    git_check_output(location,
+                     ['submodule', 'update', '--init', '--recursive'])
 
 
 @utils.log_context('git_update_server_info')
@@ -525,28 +492,23 @@ def get_disclosable_head(repo_directory, remote_thing):
                 return ''
 
 
-def list_submodules(repo):
-    """List all of the submodules of a given respository"""
-    ensure_dir(repo)
+def list_submodules(location):
+    """
+    List all of the submodules of a given respository
+    """
     submodules = []
-    res = subprocess.check_output(
-        ('/usr/bin/git', 'submodule', 'status'), cwd=repo)
+    res = git_check_output(location, ['submodule', 'status'])
     for line in res.splitlines():
         submodules.append(re.sub(r'-[a-f0-9]{40} ', '', line))
     return submodules
 
 
-def reflog(repo, fmt='oneline', branch=None):
+def reflog(location, fmt='oneline', branch=None):
     """
     Fetch reflog as list
     """
-    cmd = [
-        '/usr/bin/git',
-        '-C', repo,
-        'log', '--walk-reflogs',
-        '--format={}'.format(fmt)]
-
+    cmd = ['log', '--walk-reflogs', '--format={}'.format(fmt)]
     if branch is not None:
         cmd.append(branch)
 
-    return subprocess.check_output(cmd).splitlines()
+    return git_check_output(location, cmd).splitlines()
