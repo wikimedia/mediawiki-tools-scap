@@ -22,6 +22,7 @@
 """
 from __future__ import absolute_import
 
+import errno
 import logging
 import os
 import re
@@ -196,14 +197,6 @@ class Application(object):
         """
         raise NotImplementedError()
 
-    def _handle_system_exit(self, ex):
-        """
-        Handle a SystemExit error.
-
-        :returns: exit status
-        """
-        raise
-
     def _handle_keyboard_interrupt(self, ex):
         """
         Handle ctrl-c from interactive user.
@@ -313,7 +306,7 @@ class Application(object):
             app = Application.factory(argv)
 
             if os.geteuid() == 0:
-                raise SystemExit('Scap should not be run as root')
+                raise OSError(errno.EPERM, 'Scap should not be run as root')
 
             # Let each application handle `extra_args`
             app.arguments, app.extra_arguments = app._process_arguments(
@@ -328,10 +321,6 @@ class Application(object):
                 exit_status = method(app, app.extra_arguments)
             else:
                 exit_status = app.main(app.extra_arguments)
-
-        except SystemExit as ex:
-            # Triggered by sys.exit() calls
-            exit_status = app._handle_system_exit(ex)
 
         except KeyboardInterrupt as ex:
             # Handle ctrl-c from interactive user
