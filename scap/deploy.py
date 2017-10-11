@@ -544,19 +544,19 @@ class Deploy(cli.Application):
     repo = None
     targets = []
 
-    @cli.argument('-r', '--rev', help='Revision to deploy')
+    @cli.argument('-r', '--rev', help='Specify the revision to deploy')
     @cli.argument('-s', '--stages', choices=STAGES,
-                  help='Deployment stages to execute. Used only for testing.')
+                  help='Execute specific deployment stages (For testing)')
     @cli.argument('-l', '--limit-hosts', default='all',
-                  help='Limit deploy to hosts matching expression')
+                  help='Limit actions to hosts matching expression')
     @cli.argument('-f', '--force', action='store_true',
-                  help='force re-fetch and checkout')
+                  help='Force fetch and checkout even if nothing changed.')
     @cli.argument('--dry-run', action='store_true', dest='dry_run',
                   help='Compile and deploy config files to a temp location '
                        'and output a diff against the previously deployed '
                        'config files.')
     @cli.argument('--service-restart', action='store_true',
-                  help='Restart service')
+                  help='Skip deployment, just restart the service.')
     @cli.argument('-i', '--init', action='store_true',
                   help='Setup a repo for initial deployment')
     @cli.argument('message', nargs='*', help='Log message for SAL')
