@@ -233,6 +233,8 @@ class DshTargetList(TargetList):
         :param filename: str Combined filename key generated from a
             group + primary key
         """
+        search_path = []
+
         if self.extra_paths is not None:
             search_path = self.extra_paths
         # Historical reasons :p
