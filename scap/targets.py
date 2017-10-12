@@ -30,7 +30,7 @@ import string
 import scap.utils as utils
 
 
-def get(key, cfg, limit_hosts=None, extra_paths=[]):
+def get(key, cfg, limit_hosts=None, extra_paths=None):
     """
     Factory function to get a TargetList object to fetch a list of targets.
 
@@ -124,7 +124,7 @@ def limit_target_hosts(pattern, hosts):
 class TargetList(object):
     """An abstract list of targets (lists of hosts)."""
 
-    def __init__(self, key, cfg, limit_hosts=None, extra_paths=[]):
+    def __init__(self, key, cfg, limit_hosts=None, extra_paths=None):
         """
         Constructor for target lists.
 
@@ -233,7 +233,8 @@ class DshTargetList(TargetList):
         :param filename: str Combined filename key generated from a
             group + primary key
         """
-        search_path = self.extra_paths
+        if self.extra_paths is not None:
+            search_path = self.extra_paths
         # Historical reasons :p
         search_path.append('/etc/dsh/group')
         hosts_file = None

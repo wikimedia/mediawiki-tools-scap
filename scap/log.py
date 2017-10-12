@@ -780,7 +780,7 @@ class Udp2LogHandler(logging.handlers.DatagramHandler):
         return text
 
 
-def setup_loggers(cfg, console_level=logging.INFO, handlers=[]):
+def setup_loggers(cfg, console_level=logging.INFO, handlers=None):
     """
     Setup the logging system.
 
@@ -821,5 +821,6 @@ def setup_loggers(cfg, console_level=logging.INFO, handlers=[]):
         irc_logger.addHandler(IRCSocketHandler(
             cfg['tcpircbot_host'], int(cfg['tcpircbot_port'])))
 
-    for handler in handlers:
-        logging.root.addHandler(handler)
+    if handlers is not None:
+        for handler in handlers:
+            logging.root.addHandler(handler)
