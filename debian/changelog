@@ -1,3 +1,9 @@
+scap (3.7.1-1) unstable; urgency=low
+
+  * Move php5-cli | hhvm to Suggests
+
+ -- Tyler Cipriani <tcipriani@wikimedia.org>  Thu, 12 Oct 2017 09:47:36 -0600
+
 scap (3.7.0-1) unstable; urgency=low
 
   * Added a code of conduct file
