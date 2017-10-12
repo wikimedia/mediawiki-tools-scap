@@ -73,7 +73,7 @@ def limit_target_hosts(pattern, hosts):
     rpattern = pattern
 
     # Handle replacements of anything like [*:*] in pattern
-    while(0 <= rpattern.find('[') < rpattern.find(':') < rpattern.find(']')):
+    while 0 <= rpattern.find('[') < rpattern.find(':') < rpattern.find(']'):
         head, nrange, tail = rpattern.replace(
             '[', '|', 1).replace(']', '|', 1).split('|')
 

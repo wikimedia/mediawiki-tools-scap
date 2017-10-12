@@ -753,7 +753,7 @@ def handle_services(services, require_valid_service=False):
 
         # Can be used to check if service is masked, require_valid_service
         # is False by default to preserve existing behavior
-        if (require_valid_service and not utils.service_exists(service)):
+        if require_valid_service and not utils.service_exists(service):
             return
 
         if handle == RELOAD:
