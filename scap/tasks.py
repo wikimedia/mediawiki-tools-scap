@@ -664,7 +664,7 @@ def refresh_cdb_json_files(in_dir, pool_size, verbose):
         reporter.add_success()
 
     reporter.finish()
-    logger.info('Updated {} JSON file(s) in {}'.format(updated, in_dir))
+    logger.info('Updated %s JSON file(s) in %s', updated, in_dir)
 
 
 def refresh_cdb_json_file(file_path):
@@ -685,7 +685,7 @@ def refresh_cdb_json_file(file_path):
     upstream_json = os.path.join(upstream_dir, '{}.json'.format(file_name))
 
     logger = utils.get_logger()
-    logger.debug('Processing: {}'.format(file_name))
+    logger.debug('Processing: %s', file_name)
 
     cdb_md5 = utils.md5_file(file_path)
     try:
@@ -723,7 +723,7 @@ def refresh_cdb_json_file(file_path):
     tmp_json.close()
     os.chmod(tmp_json.name, 0o644)
     shutil.move(tmp_json.name, upstream_json)
-    logger.debug('Updated: {}'.format(upstream_json))
+    logger.debug('Updated: %s', upstream_json)
 
     with open(upstream_md5, 'w') as md5:
         md5.write(cdb_md5)
@@ -849,8 +849,8 @@ def check_patch_files(version, cfg):
             p.communicate(diff)
 
             if p.returncode > 0:
-                logger.warn(
-                    'Patch(s) for {} have not been applied.'.format(apply_dir))
+                logger.warn('Patch(s) for %s have not been applied.',
+                            apply_dir)
 
 
 def get_wikiversions_ondisk(directory):

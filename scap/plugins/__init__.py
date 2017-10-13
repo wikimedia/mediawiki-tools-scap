@@ -124,8 +124,7 @@ def load_plugins(plugin_dir=None):
         except Exception as e:
             msg = 'Problem loading plugins from module: scap.plugins.%s (%s)'
             err_msg = type(e).__name__ + ':' + str(e)
-            logger = logging.getLogger()
-            logger.warning(msg % (plugin, err_msg))
+            logging.getLogger().warning(msg, plugin, err_msg)
 
     # Restore the original setting
     sys.dont_write_bytecode = maybe_write_bytecode

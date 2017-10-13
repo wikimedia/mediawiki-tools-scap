@@ -103,11 +103,11 @@ class Application(object):
         key_path = os.path.join(key_dir, '{}.pub'.format(key_name))
 
         if os.path.exists(key_path):
-            self.get_logger().debug('Using key: {}'.format(key_path))
+            self.get_logger().debug('Using key: %s', key_path)
             return key_path
 
         self.get_logger().debug(
-            'Unable to find keyholder key for {}'.format(key_safe_name))
+            'Unable to find keyholder key for %s', key_safe_name)
         return None
 
     def announce(self, *args):
