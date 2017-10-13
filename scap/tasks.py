@@ -868,7 +868,7 @@ def get_wikiversions_ondisk(directory):
     versions_on_disk = [
         d for d in os.listdir(directory)
         if d.startswith('php-') and
-        utils.branch_re.match(d[len('php-'):])]
+        utils.BRANCH_RE.match(d[len('php-'):])]
 
     for dirname in versions_on_disk:
         abspath = os.path.join(directory, dirname)

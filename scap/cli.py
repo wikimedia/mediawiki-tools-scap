@@ -380,7 +380,7 @@ def argument(*args, **kwargs):
     return wrapper
 
 
-command_registry = {}
+COMMAND_REGISTRY = {}
 
 
 def all_commands():
@@ -388,26 +388,26 @@ def all_commands():
     return a list of all commands that have been registered with the
     command() decorator.
     """
-    global command_registry
+    global COMMAND_REGISTRY
     # prevent plugins from overwriting built-in commands by first copying the
-    # command_registry and then verifying that none of the registered plugins
+    # COMMAND_REGISTRY and then verifying that none of the registered plugins
     # write to any of the keys used by built-in commands.
-    builtin_commands = command_registry.copy()
-    command_registry.clear()
+    builtin_commands = COMMAND_REGISTRY.copy()
+    COMMAND_REGISTRY.clear()
     all_commands = builtin_commands.copy()
 
     scap.plugins.load_plugins()
 
-    for key in command_registry.keys():
+    for key in COMMAND_REGISTRY.keys():
         if key in builtin_commands:
             logger = logging.getLogger()
             msg = 'Plugin (%s) attempted to overwrite builtin command: %s' % (
-                command_registry[key], key)
+                COMMAND_REGISTRY[key], key)
             logger.warning(msg)
         else:
-            all_commands[key] = command_registry[key]
+            all_commands[key] = COMMAND_REGISTRY[key]
 
-    command_registry = builtin_commands
+    COMMAND_REGISTRY = builtin_commands
     return all_commands
 
 
@@ -438,9 +438,9 @@ def command(*args, **kwargs):
 
     """
     def wrapper(cls):
-        global command_registry
+        global COMMAND_REGISTRY
         name = args[0]
-        if name in command_registry:
+        if name in COMMAND_REGISTRY:
             err = 'Duplicate: A command named "%s" already exists.' % name
             raise ValueError(err)
         has_subcommands = kwargs.pop('subcommands', False)
@@ -448,7 +448,7 @@ def command(*args, **kwargs):
             setattr(cls, arg.ATTR_SUBPARSER, True)
 
         cmd = dict(name=name, cls=cls, args=args, kwargs=kwargs)
-        command_registry[name] = cmd
+        COMMAND_REGISTRY[name] = cmd
         return cls
     return wrapper
 

@@ -32,7 +32,7 @@ class NRPETest(unittest.TestCase):
             check = nrpe.NRPECheck('name', stage='promote', command='foo')
             self.assertIsInstance(check, nrpe.NRPECheck)
         finally:
-            nrpe._commands = {}
+            nrpe._COMMANDS = {}
 
     def test_unregistered_check(self):
         with self.assertRaises(checks.CheckInvalid):

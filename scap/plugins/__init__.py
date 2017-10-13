@@ -42,9 +42,8 @@ import sys
 from ..cli import Application
 from .say import Say
 
-this_module = sys.modules[__name__]
-
-loaded_plugins = {}
+THIS_MODULE = sys.modules[__name__]
+LOADED_PLUGINS = {}
 __all__ = ['Say']
 
 
@@ -84,7 +83,7 @@ def load_plugins(plugin_dir=None):
     module namespace.
     """
 
-    if len(loaded_plugins):
+    if len(LOADED_PLUGINS):
         # prevent loading plugins multiple times
         return
 
@@ -112,14 +111,14 @@ def load_plugins(plugin_dir=None):
             for objname in dir(mod):
                 obj = getattr(mod, objname)
                 if isinstance(obj, type) and issubclass(obj, Application):
-                    if objname in loaded_plugins:
+                    if objname in LOADED_PLUGINS:
                         # duplicate: another plugin already used the same name
                         msg = 'Duplicate plugin named %s, skipping.'
                         logging.getLogger().warning(msg, objname)
                         continue
                     # copy the class into the scap.plugins namespace
-                    setattr(this_module, objname, obj)
-                    loaded_plugins[objname] = obj
+                    setattr(THIS_MODULE, objname, obj)
+                    LOADED_PLUGINS[objname] = obj
                     __all__.append(objname)
         except Exception as e:
             msg = 'Problem loading plugins from module: scap.plugins.%s (%s)'

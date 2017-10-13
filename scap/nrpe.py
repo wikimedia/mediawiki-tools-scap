@@ -39,7 +39,7 @@ import re
 
 import scap.checks as checks
 
-_commands = {}
+_COMMANDS = {}
 
 
 def load(config):
@@ -90,7 +90,7 @@ def load_directory(config_dir):
 def register(commands):
     """Register global NRPE commands for use in check configuration."""
 
-    _commands.update(commands)
+    _COMMANDS.update(commands)
 
 
 @checks.checktype('nrpe')
@@ -102,8 +102,8 @@ class NRPECheck(checks.Check):
 
         checks.Check.validate(self)
 
-        if self.command in _commands:
-            self.command = _commands[self.command]
+        if self.command in _COMMANDS:
+            self.command = _COMMANDS[self.command]
         else:
             msg = "command '{}' is not a valid NRPE check".format(self.command)
             raise checks.CheckInvalid(msg)

@@ -37,7 +37,7 @@ import pygments.formatters
 import scap.ansi as ansi
 
 
-branch_re = re.compile(
+BRANCH_RE = re.compile(
     r'(?P<major>\d{1}).'
     r'(?P<minor>\d{1,2}).'
     r'(?P<patch>\d{1,2})'
@@ -337,7 +337,7 @@ def iterate_subdirectories(root):
             yield subdir
 
 
-logger_stack = []
+LOGGER_STACK = []
 
 
 @contextlib.contextmanager
@@ -358,17 +358,17 @@ def context_logger(context_name, *args):
             logger.debug('something')
 
     """
-    if len(logger_stack) < 1:
-        logger_stack.append(logging.getLogger())
+    if len(LOGGER_STACK) < 1:
+        LOGGER_STACK.append(logging.getLogger())
 
-    parent = logger_stack[-1]
+    parent = LOGGER_STACK[-1]
 
     logger = parent.getChild(context_name)
-    logger_stack.append(logger)
+    LOGGER_STACK.append(logger)
     try:
         yield logger
     finally:
-        logger_stack.pop()
+        LOGGER_STACK.pop()
 
 
 def log_context(context_name):
@@ -403,8 +403,8 @@ def log_context(context_name):
 
 
 def get_logger():
-    if len(logger_stack) > 0:
-        return logger_stack[-1]
+    if len(LOGGER_STACK) > 0:
+        return LOGGER_STACK[-1]
     return logging.getLogger()
 
 
