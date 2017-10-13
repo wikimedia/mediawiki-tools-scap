@@ -186,9 +186,9 @@ class ScapArgParser(argparse.ArgumentParser):
                         types.append(action.type)
                     if choices:
                         valid_words.update([c + ' ' for c in choices])
-                    elif type(action.default) is str:
+                    elif isinstance(action.default, str):
                         valid_words.add("'%s'" % action.default)
-                    elif type(action.default) is list:
+                    elif isinstance(action.default, list):
                         for item in action.default:
                             valid_words.add("'%s'" % item)
                     if action.nargs in (None, 1):

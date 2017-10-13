@@ -64,7 +64,7 @@ class Command(object):
             if callable(cmd):
                 rendered = cmd(**values)
             if rendered:
-                if type(rendered) is str:
+                if isinstance(rendered, str):
                     result.append(rendered)
                 else:
                     result.extend(rendered)

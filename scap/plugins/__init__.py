@@ -111,7 +111,7 @@ def load_plugins(plugin_dir=None):
             # find classes in mod which extend scap.cli.Application
             for objname in dir(mod):
                 obj = getattr(mod, objname)
-                if type(obj) is type and issubclass(obj, Application):
+                if isinstance(obj, type) and issubclass(obj, Application):
                     if objname in loaded_plugins:
                         # duplicate: another plugin already used the same name
                         msg = 'Duplicate plugin named %s, skipping.'

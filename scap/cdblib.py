@@ -209,7 +209,7 @@ class Writer(object):
 
     def put(self, key, value=''):
         """Write a string key/value pair to the output file."""
-        assert type(key) is str and type(value) is str
+        assert isinstance(key, str) and isinstance(value, str)
 
         pos = self.fp.tell()
         self.fp.write(write_2_le4(len(key), len(value)))

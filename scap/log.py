@@ -600,7 +600,7 @@ class Filter(object):
 
         # Normalize all globs into regexs into lambdas
         for attr, criterion in criteria:
-            if type(criterion) == str:
+            if isinstance(criterion, str):
                 criterion = re.compile(fnmatch.translate(criterion))
 
             if not hasattr(criterion, '__call__'):
