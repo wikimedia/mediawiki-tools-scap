@@ -96,5 +96,4 @@ class arg(object):
         if self.name in values and values[self.name]:
             val = values[self.name]
             return self.cmd.format(val)
-        else:
-            return ''
+        return ''

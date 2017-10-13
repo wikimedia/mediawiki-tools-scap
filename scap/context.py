@@ -83,8 +83,7 @@ class HostContext(Context):
 
         if paths:
             return paths[0]
-        else:
-            return None
+        return None
 
     def env_specific_paths(self, *relpaths):
         """
@@ -153,8 +152,7 @@ class TargetContext(Context):
 
         if os.path.exists(self.current_link):
             return os.path.realpath(self.current_link)
-        else:
-            return None
+        return None
 
     @property
     def done_rev_dir(self):
@@ -162,8 +160,7 @@ class TargetContext(Context):
 
         if os.path.exists(self._done_link):
             return os.path.realpath(self._done_link)
-        else:
-            return None
+        return None
 
     @property
     def local_config(self):
@@ -284,5 +281,4 @@ class TargetContext(Context):
 
         if os.path.exists(realpath):
             return os.path.basename(realpath)
-        else:
-            return None
+        return None

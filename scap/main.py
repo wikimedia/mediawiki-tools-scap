@@ -184,8 +184,7 @@ class AbstractSync(cli.Application):
         self._after_lock_release()
         if self.soft_errors:
             return 1
-        else:
-            return 0
+        return 0
 
     def get_keyholder_key(self):
         """

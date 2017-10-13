@@ -461,16 +461,14 @@ class DeployLocal(cli.Application):
 
         if success:
             return 0
-        else:
-            return 1 if len(failed) else 2
+        return 1 if len(failed) else 2
 
     def _valid_chk(self, chk, stage, group):
         """Make sure a check is valid for our current group."""
         if group is not None:
             return chk.stage == stage and (chk.group == group or
                                            chk.group is None)
-        else:
-            return chk.stage == stage
+        return chk.stage == stage
 
     def _get_config_overrides(self):
         """

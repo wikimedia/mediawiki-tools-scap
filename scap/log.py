@@ -97,8 +97,7 @@ class DiffLogFormatter(AnsiColorFormatter):
             if self.lex:
                 return pygments.highlight(record.output, self.lex,
                                           self.formatter)
-            else:
-                return record.output
+            return record.output
         return super(DiffLogFormatter, self).format(record)
 
 
@@ -626,8 +625,7 @@ class Filter(object):
 
         if self._filter:
             return not matches
-        else:
-            return matches
+        return matches
 
     def isfiltering(self, attribute):
         """Whether the filter has criteria for the given attribute."""

@@ -312,9 +312,8 @@ def extract_help_from_object(obj):
         return dict(help=lines[0], description=lines[0],
                     epilog="\n".join(lines[1::]).strip(),
                     formatter_class=argparse.RawDescriptionHelpFormatter)
-    else:
-        return dict(help=doc, description=doc, epilog=None,
-                    formatter_class=argparse.HelpFormatter)
+    return dict(help=doc, description=doc, epilog=None,
+                formatter_class=argparse.HelpFormatter)
 
 
 def build_subparser(cmd, parser, global_parser):
