@@ -12,10 +12,12 @@ import collections
 import contextlib
 import distutils.version
 import errno
+from functools import wraps
 import glob
 import hashlib
 import inspect
 import json
+from json import JSONEncoder
 import logging
 import math
 import os
@@ -33,9 +35,6 @@ import pygments
 import pygments.lexers
 import pygments.formatters
 import scap.ansi as ansi
-
-from functools import wraps
-from json import JSONEncoder
 
 
 branch_re = re.compile(

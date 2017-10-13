@@ -26,16 +26,17 @@ import fnmatch
 from functools import partial
 import json
 import logging
+import logging.handlers
 import math
 import operator
-import logging.handlers
-import pygments
 import re
 import shlex
 import socket
 import sys
 import time
 import traceback
+
+import pygments
 
 try:
     from pygments.formatters import TerminalFormatter

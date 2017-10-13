@@ -25,17 +25,17 @@ from __future__ import print_function
 
 import argparse
 import collections
+from datetime import datetime
 import errno
 import glob
 import os
-import requests
 import shutil
+import subprocess
 import tempfile
 import time
 import yaml
-import subprocess
 
-from datetime import datetime
+import requests
 
 import scap.checks as checks
 import scap.config as config

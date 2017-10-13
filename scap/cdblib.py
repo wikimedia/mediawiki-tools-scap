@@ -18,8 +18,8 @@ rather than djb_hash() for a tidy speedup.
 """
 from __future__ import absolute_import
 
-from _struct import Struct
 from itertools import chain
+from _struct import Struct
 
 
 def py_djb_hash(s):
