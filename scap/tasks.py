@@ -273,11 +273,12 @@ def merge_cdb_updates(
     reporter.expect(len(files))
     reporter.start()
 
-    for i, result in enumerate(pool.imap_unordered(
+    l10n_update_pool = pool.imap_unordered(
         update_l10n_cdb_wrapper, itertools.izip(
             itertools.repeat(cache_dir),
             files,
-            itertools.repeat(trust_mtime))), 1):
+            itertools.repeat(trust_mtime)))
+    for i, result in enumerate(l10n_update_pool, 1):
         if result:
             updated += 1
         reporter.add_success()

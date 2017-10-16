@@ -715,9 +715,9 @@ class SyncL10n(AbstractSync):
                 user=self.config['ssh_user'],
                 key=self.get_keyholder_key())
             rebuild_cdbs.shuffle()
-            cdb_cmd = 'sudo -u mwdeploy -n -- %s cdb-rebuild --version %s' % (
-                      self.get_script_path(),
-                      self.arguments.version)
+            cdb_cmd = 'sudo -u mwdeploy -n -- {} cdb-rebuild --version {}'
+            cdb_cmd.format(self.get_script_path(),
+                           self.arguments.version)
             rebuild_cdbs.command(cdb_cmd)
             rebuild_cdbs.progress(
                 log.reporter(
@@ -926,7 +926,7 @@ class LockManager(cli.Application):
 
     @cli.argument('--all', action='store_true',
                   help='Lock ALL repositories from deployment. ' +
-                       'With great power comes great responsibility')
+                  'With great power comes great responsibility')
     @cli.argument('--time', type=int, default=3600,
                   help='How long to lock deployments, in seconds')
     @cli.argument('message', nargs='*', help='Log message for SAL/lock file')

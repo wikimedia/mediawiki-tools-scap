@@ -535,11 +535,9 @@ def check_php_opening_tag(path):
         # second has <?php, that's ok
         lines = text.splitlines()
 
-        if (
-            len(lines) > 1 and
-            lines[0].startswith('#!') and
-            lines[1].lower().startswith('<?php')
-        ):
+        if (len(lines) > 1 and
+                lines[0].startswith('#!') and
+                lines[1].lower().startswith('<?php')):
             return
 
         # None of the return conditions matched, the file must contain <?php
@@ -692,10 +690,9 @@ def systemd_service_exists(service):
     """
     Systemd service unit exists
     """
+    state_cmd = ['/bin/systemctl', 'show', '--property', 'LoadState', service]
     try:
-        loaded_state = subprocess.check_output([
-           '/bin/systemctl', 'show',
-           '--property', 'LoadState', service]).strip()
+        loaded_state = subprocess.check_output(state_cmd).strip()
     except subprocess.CalledProcessError:
         return False
 
@@ -717,9 +714,8 @@ def upstart_service_exists(service):
     """
     Upstart service exists
     """
-
     return os.path.exists(
-            os.path.join('/etc/init/', '{}.conf'.format(service)))
+        os.path.join('/etc/init/', '{}.conf'.format(service)))
 
 
 def sysv_service_exists(service):
@@ -727,7 +723,7 @@ def sysv_service_exists(service):
     Determine if a sysvinit script exists for a service.
     """
     return os.path.exists(
-            os.path.join('/etc/init.d', service))
+        os.path.join('/etc/init.d', service))
 
 
 def service_exists(service):
@@ -866,11 +862,11 @@ def get_patches(sub_dirs, root_dir):
     """
     patches = {}
     for sub_dir in sub_dirs:
-        for patch_file in sorted(
+        sorted_patches = sorted(
             glob.glob(os.path.join(root_dir, sub_dir, '*.patch')),
             reverse=True
-        ):
-
+        )
+        for patch_file in sorted_patches:
             with open(patch_file, 'r') as f:
                 patches.setdefault(sub_dir, []).append(f.read())
 

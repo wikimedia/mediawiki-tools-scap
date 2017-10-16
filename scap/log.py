@@ -257,7 +257,7 @@ class LogstashFormatter(logging.Formatter):
             fields['exception'] = self.formatException(fields['exc_info'])
 
         # Remove fields
-        for field in (
+        remove_fields = [
             'args',
             'asctime',
             'created',
@@ -270,7 +270,8 @@ class LogstashFormatter(logging.Formatter):
             'relativeCreated',
             'thread',
             'threadName',
-        ):
+        ]
+        for field in remove_fields:
             fields.pop(field, None)
 
         logstash_record = {
@@ -295,8 +296,8 @@ class LogstashFormatter(logging.Formatter):
                 'line': line,
                 'function': func,
                 'text': text,
-            } for fname, line, func, text in
-                traceback.extract_tb(ex_traceback)]
+            } for fname, line, func, text in traceback.extract_tb(
+                ex_traceback)]
         }
 
 
