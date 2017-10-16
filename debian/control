@@ -16,7 +16,7 @@ Architecture: all
 Depends: ${misc:Depends}, ${python:Depends}, python-jinja2, python-psutil,
          python-pygments, python-yaml, python-requests, git, bash-completion,
          python-conftool
-Suggests: git-fat, python-semver, php5-cli | hhvm
+Suggests: git-fat, python-semver, php5-cli | php-cli | hhvm
 X-Python-Version: >= 2.7
 Description: Deployment toolchain for Wikimedia projects
  Scap is a tool that was originally designed to deploy MediaWiki code on
