@@ -411,10 +411,10 @@ class FancyProgressReporter(ProgressReporter):
             (self._name, self._failed)
         width = min((term.width, 80)) - len(message)
         bars = width - 4
-        bar = '=' * bars
+        prog_bar = '=' * bars
         self.cleanup()
         term.fg(7).write(message) \
-            .fg(4).write(bar).nl()
+            .fg(4).write(prog_bar).nl()
 
     def cleanup(self, term=term):
         height = term.height
@@ -441,8 +441,8 @@ class FancyProgressReporter(ProgressReporter):
         if filled_bars > 0 and progress > filled_bars:
             remain = int((progress % filled_bars) * 10)
 
-        bar = '█' * int(filled_bars)
-        bar = bar + partial_bar[remain]
+        prog_bar = '█' * int(filled_bars)
+        prog_bar = prog_bar + partial_bar[remain]
 
         term.save() \
             .move(bottom - 1, 0) \
@@ -459,7 +459,7 @@ class FancyProgressReporter(ProgressReporter):
             .fg(7).write(self._name) \
             .fg(15).write(" | ") \
             .write(self.percent_complete, '% ') \
-            .fg(4).write(bar) \
+            .fg(4).write(prog_bar) \
             .clear_eol()
 
         term.restore().flush()
