@@ -199,7 +199,7 @@ class Application(object):
         """
         raise NotImplementedError()
 
-    def _handle_keyboard_interrupt(self, ex):
+    def _handle_keyboard_interrupt(self):
         """
         Handle ctrl-c from interactive user.
 
@@ -324,9 +324,9 @@ class Application(object):
             else:
                 exit_status = app.main(app.extra_arguments)
 
-        except KeyboardInterrupt as ex:
+        except KeyboardInterrupt:
             # Handle ctrl-c from interactive user
-            exit_status = app._handle_keyboard_interrupt(ex)
+            exit_status = app._handle_keyboard_interrupt()
 
         except Exception as ex:
             # Handle all unhandled exceptions and errors
