@@ -273,6 +273,14 @@ class DeployLocal(cli.Application):
         # clone/fetch from the repo to the cache directory
         git.fetch(self.context.cache_dir, git_remote)
 
+        if has_submodules:
+            upstream_submodules = self.config['git_upstream_submodules']
+            logger.info('Update submodules')
+            git.update_submodules(
+                self.context.cache_dir,
+                git_remote,
+                use_upstream=upstream_submodules)
+
         # If the rev_dir already exists AND the currently checked-out HEAD is
         # already at the revision specified by ``self.rev`` then you can assume
         #
@@ -292,7 +300,10 @@ class DeployLocal(cli.Application):
                 return
 
         # clone/fetch from the local cache directory to the revision directory
-        git.fetch(rev_dir, self.context.cache_dir)
+        git.fetch(rev_dir, self.context.cache_dir,
+                  reference=self.context.cache_dir,
+                  dissociate=False,
+                  recurse_submodules=has_submodules)
 
         logger.info('Checkout rev: {}'.format(self.rev))
 
@@ -300,12 +311,7 @@ class DeployLocal(cli.Application):
         git.checkout(rev_dir, self.rev)
 
         if has_submodules:
-            upstream_submodules = self.config['git_upstream_submodules']
-            logger.info('Sync submodules')
-            git.sync_submodules(rev_dir)
-            logger.info('Update submodules')
-            git.update_submodules(
-                rev_dir, git_remote, use_upstream=upstream_submodules)
+            git.update_submodules(rev_dir, None, True)
 
         if has_gitfat:
             if not git.fat_isinitialized(rev_dir):

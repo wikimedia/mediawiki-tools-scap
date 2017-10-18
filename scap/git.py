@@ -97,21 +97,7 @@ def info(directory):
     :param directory: Directory to scan for git information
     :returns: Dict of information about current repository state
     """
-    git_dir = os.path.join(directory, '.git')
-    if not os.path.exists(git_dir):
-        raise IOError(errno.ENOENT, '.git not found', directory)
-
-    if os.path.isfile(git_dir):
-        # submodules
-        with open(git_dir, 'r') as gitdir:
-            git_ref = gitdir.read().strip()
-
-        if not git_ref.startswith('gitdir: '):
-            raise IOError(errno.EINVAL, 'Unexpected .git contents', git_dir)
-        git_ref = git_ref[8:]
-        if git_ref[0] != '/':
-            git_ref = os.path.abspath(os.path.join(directory, git_ref))
-        git_dir = git_ref
+    git_dir = resolve_gitdir(directory)
 
     head_file = os.path.join(git_dir, 'HEAD')
     with open(head_file, 'r') as headfile:
@@ -318,22 +304,26 @@ def remote_set(location, repo, remote='origin'):
         subprocess.check_call(cmd, shell=True)
 
 
-def fetch(location, repo, reference=None, dissociate=True):
-    """Fetch a git repo to a location
-    """
+def fetch(location, repo, reference=None, dissociate=True,
+          recurse_submodules=False):
+    """Fetch a git repo to a location"""
     if is_dir(location):
         remote_set(location, repo)
         with utils.cd(location):
-            cmd = ['/usr/bin/git', 'fetch']
+            cmd = ['/usr/bin/git', 'fetch', '--jobs', utils.cpus_for_jobs()]
             subprocess.check_call(cmd)
     else:
-        cmd = ['/usr/bin/git', 'clone', repo, location]
+        cmd = ['/usr/bin/git', 'clone', '--jobs', utils.cpus_for_jobs()]
         if reference is not None:
             ensure_dir(reference)
             cmd.append('--reference')
             cmd.append(reference)
             if dissociate:
                 cmd.append('--dissociate')
+        if recurse_submodules:
+            cmd.append('--recurse-submodules')
+        cmd.append(repo)
+        cmd.append(location)
         subprocess.check_call(cmd)
 
 
@@ -374,11 +364,12 @@ def update_submodules(location, git_remote=None, use_upstream=False):
     logger = utils.get_logger()
 
     with utils.cd(location):
-        logger.debug('Checking out submodules')
+        logger.debug('Fetch submodules')
         if not use_upstream:
             remap_submodules(location, git_remote)
-        cmd = '/usr/bin/git submodule update --init --recursive'
-        subprocess.check_call(cmd, shell=True)
+        cmd = ['/usr/bin/git', 'submodule', 'update', '--init', '--recursive',
+               '--jobs', utils.cpus_for_jobs()]
+        subprocess.check_call(cmd)
 
 
 @utils.log_context('git_update_server_info')
@@ -432,6 +423,38 @@ def tag_repo(deploy_info, location=os.getcwd()):
         subprocess.check_call(cmd, shell=True)
 
 
+def resolve_gitdir(directory):
+    """Find the .git directory for a given path.
+
+    This will resolve the gitlink
+    if path/.git is a gitlink to a bare repo e.g. a file with one line,
+    like this:
+
+    gitdir:/path/to/somewhere/else
+    """
+    if directory.endswith(".git"):
+        git_dir = directory
+        directory = directory[:-3]
+    else:
+        git_dir = os.path.join(directory, '.git')
+
+    if not os.path.exists(git_dir):
+        raise IOError(errno.ENOENT, '.git not found', directory)
+
+    if os.path.isfile(git_dir):
+        # submodules
+        with open(git_dir, 'r') as gitdir:
+            git_ref = gitdir.read().strip()
+        if not git_ref.startswith('gitdir: '):
+            raise IOError(errno.EINVAL, 'Unexpected .git contents', git_dir)
+        git_ref = git_ref[8:]
+        if git_ref[0] != '/':
+            git_ref = os.path.abspath(os.path.join(directory, git_ref))
+        git_dir = git_ref
+
+    return git_dir
+
+
 def remap_submodules(location, server):
     """Remap all submodules to new server (tin)
 
@@ -450,7 +473,7 @@ def remap_submodules(location, server):
     logger = utils.get_logger()
 
     with utils.cd(location):
-        gitmodule = os.path.join(os.getcwd(), '.gitmodules')
+        gitmodule = os.path.join(location, '.gitmodules')
         if not os.path.isfile(gitmodule):
             return
 
