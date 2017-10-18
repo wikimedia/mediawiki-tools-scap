@@ -403,7 +403,7 @@ def log_context(context_name):
 
 
 def get_logger():
-    if len(LOGGER_STACK) > 0:
+    if LOGGER_STACK:
         return LOGGER_STACK[-1]
     return logging.getLogger()
 
@@ -843,9 +843,9 @@ def join_path(*fragments):
     """
     path = []
     for p in fragments:
-        if len(path) > 0:
+        if path:
             p = p.strip('\t\r\n/')
-        if len(p) > 0:
+        if p:
             path.append(p)
 
     path_str = os.path.join(*path)
@@ -928,5 +928,5 @@ def var_dump(*args, **kwargs):
 
     for arg in args:
         dump(arg)
-    if len(kwargs):
+    if kwargs:
         dump(kwargs.items())

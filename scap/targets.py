@@ -78,7 +78,7 @@ def limit_target_hosts(pattern, hosts):
             '[', '|', 1).replace(']', '|', 1).split('|')
 
         beg, end = nrange.split(':')
-        zfill = len(end) if (len(beg) > 0 and beg.startswith('0')) else 0
+        zfill = len(end) if (beg and beg.startswith('0')) else 0
 
         if (zfill != 0 and len(beg) != len(end)) or beg > end:
             raise ValueError("Host range incorrectly specified")
@@ -93,7 +93,7 @@ def limit_target_hosts(pattern, hosts):
         rpattern = rpattern[rpattern.find(']') + 1:]
 
     # If there weren't range replacements, make pattern an array
-    if len(patterns) == 0:
+    if not patterns:
         patterns = [pattern]
 
     targets = []
@@ -200,7 +200,7 @@ class TargetList(object):
 
             targets = list(set(targets) - set(all_hosts))
 
-            if len(targets) > 0:
+            if targets:
                 all_hosts += targets
 
                 size = self._get_group_size(group)

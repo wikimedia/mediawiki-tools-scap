@@ -83,7 +83,7 @@ def load_plugins(plugin_dir=None):
     module namespace.
     """
 
-    if len(LOADED_PLUGINS):
+    if LOADED_PLUGINS:
         # prevent loading plugins multiple times
         return
 

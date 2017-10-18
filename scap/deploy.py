@@ -461,7 +461,7 @@ class DeployLocal(cli.Application):
 
         if success:
             return 0
-        return 1 if len(failed) else 2
+        return 1 if failed else 2
 
     def _valid_chk(self, chk, stage, group):
         """Make sure a check is valid for our current group."""
@@ -584,7 +584,7 @@ class Deploy(cli.Application):
 
         self._build_deploy_groups()
 
-        if not len(self.all_targets):
+        if not self.all_targets:
             logger.warn('No targets selected, check limits and dsh_targets')
             return 1
 
@@ -777,7 +777,7 @@ class Deploy(cli.Application):
                             group.exclude(host)
 
                 # Stop executing stages if all targets have failed
-                if not len(targets):
+                if not targets:
                     break
 
             failed += subgroup_failed
@@ -899,7 +899,7 @@ class Deploy(cli.Application):
                 checks = utils.ordered_load(f, yaml.SafeLoader)['checks']
                 checks_dict.update(checks)
 
-        if len(checks_dict.keys()) == 0:
+        if not checks_dict.keys():
             self.deploy_info['perform_checks'] = False
             return
 

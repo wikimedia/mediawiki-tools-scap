@@ -876,7 +876,7 @@ def get_wikiversions_ondisk(directory):
 
         git_reflog = git.reflog(abspath, fmt='%at')
 
-        if len(git_reflog) == 0:
+        if not git_reflog:
             continue
 
         # Oldest reflog date assumed to be the branch date

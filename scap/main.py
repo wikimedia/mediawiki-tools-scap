@@ -126,7 +126,7 @@ class AbstractSync(cli.Application):
                        if node in full_target_list]
 
             conftool_conf = self.config['conftool_config']
-            if len(proxies) > 0 and conftool_conf:
+            if proxies and conftool_conf:
                 # Before we hammer the proxies, depool them
                 self.get_logger().info('Depooling proxies')
                 proxy_pooler = pooler.Pooler(conftool_conf, proxies)
@@ -174,7 +174,7 @@ class AbstractSync(cli.Application):
                         '%d apaches had sync errors', failed)
                     self.soft_errors = True
 
-            if len(proxies) > 0 and conftool_conf:
+            if proxies and conftool_conf:
                 # Ok all done
                 self.get_logger().info('Repooling proxies')
                 proxy_pooler.pool()
