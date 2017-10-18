@@ -45,7 +45,7 @@ import time
 import scap.utils as utils
 
 
-_types = {}
+_TYPES = {}
 
 
 class CheckInvalid(AssertionError):
@@ -160,11 +160,11 @@ def load(cfg):
             if not options:
                 check_type = 'override'
 
-            if check_type not in _types:
+            if check_type not in _TYPES:
                 msg = "unknown check type '{}'".format(check_type)
                 raise CheckInvalid(msg)
 
-            checks[name] = _types[check_type](name=name, **options)
+            checks[name] = _TYPES[check_type](name=name, **options)
 
     return checks
 
@@ -177,7 +177,7 @@ def register_type(type, factory):
     :param factory: callable type factory
     """
 
-    _types[type] = factory
+    _TYPES[type] = factory
 
 
 @checktype('command')

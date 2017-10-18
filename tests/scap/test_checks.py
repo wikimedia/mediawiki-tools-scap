@@ -70,7 +70,7 @@ class ChecksConfigTest(unittest.TestCase):
             self.assertEqual(chks['foo'].command, '/bin/true')
 
         finally:
-            del checks._types['custom']
+            del checks._TYPES['custom']
 
 
 @unittest.skipUnless(hasattr(select, 'epoll'), 'Platforms with epoll only')
