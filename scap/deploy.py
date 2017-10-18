@@ -63,7 +63,8 @@ STAGES = [FETCH, CONFIG_DEPLOY, PROMOTE]
 EX_STAGES = [RESTART, ROLLBACK, CONFIG_DIFF, FINALIZE]
 
 
-class DeployGroupFailure(Exception):
+class DeployGroupFailure(RuntimeError):
+    """Signal that a particular deploy group failed"""
     pass
 
 
