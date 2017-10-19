@@ -120,13 +120,17 @@ class Application(object):
         configured to broadcast messages via irc or another real-time
         notification channel.
 
-        Announcements can be disabled by setting 'DOLOGMSGNOLOG' in the calling
-        shell environment (e.g. `DOLOGMSGNOLOG=1 scap sync-file foo.php`). In
+        Announcements can be disabled by using '--no-log-message' in the
+        command invocation (e.g. `scap sync-file --no-log-message foo.php`). In
         this case the log event will still be emitted to the normal logger as
         though `self.get_logger().info()` was used instead of
         `self.announce()`.
         """
-        if 'DOLOGMSGNOLOG' in os.environ:
+        env_check = True if 'DOLOGMSGNOLOG' in os.environ else False
+        if self.arguments.no_log_message or env_check:
+            if env_check:
+                self.get_logger().warning(
+                    'DOLOGMSGNOLOG has been deprecated, use --no-log-message')
             # Do not log to the announce logger, but do log the event for the
             # console and other non-broadcast log collectors.
             self.get_logger().info(*args)
