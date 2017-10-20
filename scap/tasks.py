@@ -153,7 +153,7 @@ def check_valid_syntax(*paths):
         "-not -type d "  # makes no sense to lint a dir named 'less.php'
         "-name '*.php' -not -name 'autoload_static.php' "
         " -or -name '*.inc' | xargs -n1 -P%d -exec php -l >/dev/null"
-    ) % (' '.join(quoted_paths), multiprocessing.cpu_count())
+    ) % (' '.join(quoted_paths), utils.cpus_for_jobs())
     logger.debug('Running command: `%s`', cmd)
     subprocess.check_call(cmd, shell=True)
     # Check for anything that isn't a shebang before <?php (T92534)
@@ -541,7 +541,7 @@ def update_localization_cache(version, wikidb, verbose, cfg, logger=None):
 
     # Calculate the number of parallel threads
     # Leave a couple of cores free for other stuff
-    use_cores = max(multiprocessing.cpu_count() - 2, 1)
+    use_cores = utils.cpus_for_jobs()
 
     verbose_messagelist = ''
     force_rebuild = False

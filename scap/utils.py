@@ -13,13 +13,14 @@ import contextlib
 import distutils.version
 import errno
 from functools import wraps
-import glob
 import hashlib
+import glob
 import inspect
 import json
 from json import JSONEncoder
 import logging
 import math
+import multiprocessing
 import os
 import pwd
 import random
@@ -930,3 +931,8 @@ def var_dump(*args, **kwargs):
         dump(arg)
     if kwargs:
         dump(kwargs.items())
+
+
+def cpus_for_jobs():
+    """Get how many CPUs we can use for farming jobs out"""
+    return max(multiprocessing.cpu_count() - 2, 1)

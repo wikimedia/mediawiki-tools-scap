@@ -25,7 +25,6 @@ from __future__ import print_function
 
 import argparse
 import errno
-import multiprocessing
 import os
 import pwd
 import select
@@ -101,7 +100,7 @@ class AbstractSync(cli.Application):
                     'threshold': self.config['canary_threshold'],
                     'logstash': self.config['logstash_host'],
                     'delay': wait_time,
-                    'cores': max(multiprocessing.cpu_count() - 2, 1),
+                    'cores': utils.cpus_for_jobs(),
                 }
 
                 succeeded, failed = tasks.check_canaries(
@@ -411,7 +410,7 @@ class RebuildCdbs(cli.Application):
         self._assert_current_user(user)
 
         # Leave some of the cores free for apache processes
-        use_cores = max(multiprocessing.cpu_count() / 2, 1)
+        use_cores = utils.cpus_for_jobs()
 
         self.versions = self.active_wikiversions(source_tree)
 
@@ -889,7 +888,7 @@ class RefreshCdbJsonFiles(cli.Application):
             raise IOError(errno.ENOENT, 'Directory does not exist', cdb_dir)
 
         if use_cores < 1:
-            use_cores = max(multiprocessing.cpu_count() - 2, 1)
+            use_cores = utils.cpus_for_jobs()
 
         if not os.path.isdir(upstream_dir):
             os.mkdir(upstream_dir)
