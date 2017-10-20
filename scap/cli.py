@@ -270,7 +270,7 @@ class Application(object):
                 '%s requires SSH agent forwarding' % self.program_name)
 
     @staticmethod
-    def factory(argv):
+    def factory():
         parser = arg.build_parser()
         args, extra_args = parser.parse_known_args()
         app = args.which(args.command)
@@ -281,7 +281,7 @@ class Application(object):
         return app
 
     @classmethod
-    def run(cls, argv=sys.argv):
+    def run(cls):
         """
         Construct and run an application.
 
@@ -309,7 +309,7 @@ class Application(object):
 
         exit_status = 0
         try:
-            app = Application.factory(argv)
+            app = Application.factory()
 
             if os.geteuid() == 0:
                 raise OSError(errno.EPERM, 'Scap should not be run as root')
