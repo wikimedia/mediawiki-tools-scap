@@ -631,7 +631,7 @@ class SyncFile(AbstractSync):
         # Notify when syncing a symlink.
         if os.path.islink(abspath):
             symlink_dest = os.path.realpath(abspath)
-            self.get_logger().info("%s: syncing symlink, not it's target [%s]",
+            self.get_logger().info("%s: syncing symlink, not its target [%s]",
                                    abspath, symlink_dest)
         else:
             tasks.check_valid_syntax(abspath)
