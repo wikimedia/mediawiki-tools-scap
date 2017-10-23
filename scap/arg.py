@@ -63,7 +63,7 @@ class _ScapAutoCompleteAction(argparse.Action):
                  dest='_completion',
                  metavar='CMD_LINE',
                  default=argparse.SUPPRESS,
-                 help=argparse.SUPPRESS):
+                 showhelp=argparse.SUPPRESS):
         super(_ScapAutoCompleteAction, self).__init__(
             option_strings=option_strings,
             dest=dest,
@@ -71,7 +71,7 @@ class _ScapAutoCompleteAction(argparse.Action):
             default=default,
             nargs=None,
             type=str,
-            help=help)
+            help=showhelp)
 
     def __call__(self, parser, namespace, values, option_string=None):
         comp_words = re.split(r'\s+', values.lstrip())

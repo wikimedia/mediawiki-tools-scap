@@ -411,7 +411,7 @@ class Region(object):
         self.stream.save().move(self.top, 0)
         return self.stream
 
-    def __exit__(self, type, value, traceback):
+    def __exit__(self, exc_type, value, traceback):
         self.stream.restore()
 
     def __getattr__(self, name):

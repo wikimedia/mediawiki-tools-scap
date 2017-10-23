@@ -52,14 +52,14 @@ class CheckInvalid(AssertionError):
     pass
 
 
-def checktype(type):
+def checktype(type_of_check):
     """
     Class decorator for registering a new check type.
 
-    :param type: type name
+    :param type_of_check: type name
     """
     def decorator(klass):
-        register_type(type, klass)
+        register_type(type_of_check, klass)
         return klass
 
     return decorator
@@ -169,15 +169,15 @@ def load(cfg):
     return checks
 
 
-def register_type(type, factory):
+def register_type(check_type, factory):
     """
     Register a new check type and factory.
 
-    :param type: type name
+    :param check_type: type name
     :param factory: callable type factory
     """
 
-    _TYPES[type] = factory
+    _TYPES[check_type] = factory
 
 
 @checktype('command')

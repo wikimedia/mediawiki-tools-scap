@@ -208,8 +208,8 @@ def find_nearest_host(hosts, port=22, timeout=1):
         if not host_map:
             break
         for host, info in random.sample(host_map.items(), len(host_map)):
-            family, type, proto, _, addr = info
-            s = socket.socket(family, type, proto)
+            family, sock_type, proto, _, addr = info
+            s = socket.socket(family, sock_type, proto)
             s.setsockopt(
                 socket.IPPROTO_IP, socket.IP_TTL, struct.pack('I', ttl))
             s.settimeout(timeout)

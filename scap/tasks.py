@@ -129,8 +129,8 @@ def cache_git_info(version, cfg):
 
     # Create cache for each extension and skin
     for dirname in ['extensions', 'skins']:
-        dir = os.path.join(branch_dir, dirname)
-        for subdir in utils.iterate_subdirectories(dir):
+        full_dir = os.path.join(branch_dir, dirname)
+        for subdir in utils.iterate_subdirectories(full_dir):
             try:
                 info = git.info(subdir)
             except IOError:

@@ -1045,10 +1045,11 @@ class DeployLog(cli.Application):
         else:
             given_log = self.arguments.file
 
-        filter = log.Filter.loads(self.arguments.expr, filter=False)
+        logfilter = log.Filter.loads(self.arguments.expr, invert=False)
 
-        if not filter.isfiltering('levelno'):
-            filter.append({'levelno': lambda v: v >= self.arguments.loglevel})
+        if not logfilter.isfiltering('levelno'):
+            logfilter.append(
+                {'levelno': lambda v: v >= self.arguments.loglevel})
 
         formatter = log.DiffLogFormatter(self.FORMAT, self.DATE_FORMAT)
 
@@ -1070,7 +1071,7 @@ class DeployLog(cli.Application):
             if line:
                 try:
                     record = log.JSONFormatter.make_record(line)
-                    if filter.filter(record):
+                    if logfilter.filter(record):
                         print(formatter.format(record))
                 except (ValueError, TypeError):
                     pass

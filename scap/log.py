@@ -212,14 +212,15 @@ class LogstashFormatter(logging.Formatter):
 
     converter = time.gmtime
 
-    def __init__(self, fmt=None, datefmt='%Y-%m-%dT%H:%M:%SZ', type='scap'):
+    def __init__(self, fmt=None, datefmt='%Y-%m-%dT%H:%M:%SZ',
+                 log_type='scap'):
         """
         :param fmt: Message format string (not used)
         :param datefmt: Time format string
         :param type: Logstash event type
         """
         super(self.__class__, self).__init__(fmt, datefmt)
-        self.type = type
+        self.type = log_type
         self.host = socket.gethostname()
         self.script = sys.argv[0]
         self.user = utils.get_real_username()
@@ -514,14 +515,14 @@ class Filter(object):
         Filter({'name': '*.target.*', 'host': 'scap-target-01'})
         Filter({'msg': re.compile('some annoying (message|msg)')})
         Filter({'levelno': lambda lvl: lvl < logging.WARNING})
-        Filter({'name': '*.target.*'}, filter=False)
+        Filter({'name': '*.target.*'}, invert=False)
 
     Equivalent DSL examples::
 
         Filter.loads('name == *.target.* host == scap-target-01')
         Filter.loads('msg ~ "some annoying (message|msg)"')
-        Filter.loads('levelno < WARNING')
-        Filter.loads('name == *.target.*', filter=False)
+        Filter.loads('levelno < WARNING')f
+        Filter.loads('name == *.target.*', invert=False)
     """
 
     OPERATORS = {'=', '==', '~', '>', '>=', '<', '<='}
@@ -529,7 +530,7 @@ class Filter(object):
     LOG_LEVELS = ['CRITICAL', 'ERROR', 'WARNING', 'INFO', 'DEBUG']
 
     @staticmethod
-    def loads(expression, filter=True):
+    def loads(expression, invert=True):
         """
         Construct a `Filter` from the given free-form expression.
 
@@ -556,7 +557,7 @@ class Filter(object):
 
             criteria.append((lhs, criterion))
 
-        return Filter(criteria, filter=filter)
+        return Filter(criteria, invert=invert)
 
     @staticmethod
     def parse(expression):
@@ -583,8 +584,8 @@ class Filter(object):
 
             yield lhs, op, rhs
 
-    def __init__(self, criteria, filter=True):
-        self._filter = filter
+    def __init__(self, criteria, invert=True):
+        self._invert = invert
         self.criteria = []
         self.append(criteria)
 
@@ -625,7 +626,7 @@ class Filter(object):
                 matches = False
                 break
 
-        if self._filter:
+        if self._invert:
             return not matches
         return matches
 
