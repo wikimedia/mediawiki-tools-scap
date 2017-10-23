@@ -11,7 +11,7 @@ class CommandTest(unittest.TestCase):
         ssh = cmd.Command('/usr/bin/ssh', cmd.arg('user', '-oUser={}'))
         sudo = cmd.Command('sudo', cmd.arg('user', '-u {}'), '-n', '--')
         cmdline = ssh('some.host', sudo('remote_cmd', 'some', 'args',
-                      user='sudo_user'),
+                                        user='sudo_user'),
                       user='ssh_user')
 
         self.assertEqual(cmdline, ['/usr/bin/ssh',
