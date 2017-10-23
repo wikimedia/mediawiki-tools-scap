@@ -476,7 +476,7 @@ def update_l10n_cdb_wrapper(args, logger=None):
     """
     try:
         return update_l10n_cdb(*args)
-    except:
+    except Exception:
         # Log detailed error; multiprocessing will truncate the stack trace
         logger.exception('Failure processing %s', args)
         raise

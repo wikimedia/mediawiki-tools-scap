@@ -385,15 +385,15 @@ def log_context(context_name):
 
             # Check if logger was passed as a positional argument
             try:
-                l = args[argspec.args.index('logger')]
+                logger = args[argspec.args.index('logger')]
             except IndexError:
-                l = None
+                logger = None
 
             # Check if logger was passed as a keyword argument
-            if l is None:
-                l = kwargs.get('logger', None)
+            if logger is None:
+                logger = kwargs.get('logger', None)
 
-            if l is not None:
+            if logger is not None:
                 return func(*args, **kwargs)
 
             with context_logger(context_name) as logger:
