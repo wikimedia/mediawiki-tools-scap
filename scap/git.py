@@ -310,10 +310,11 @@ def fetch(location, repo, reference=None, dissociate=True,
     if is_dir(location):
         remote_set(location, repo)
         with utils.cd(location):
-            cmd = ['/usr/bin/git', 'fetch', '--jobs', utils.cpus_for_jobs()]
+            cmd = ['/usr/bin/git', 'fetch',
+                   '--jobs', str(utils.cpus_for_jobs())]
             subprocess.check_call(cmd)
     else:
-        cmd = ['/usr/bin/git', 'clone', '--jobs', utils.cpus_for_jobs()]
+        cmd = ['/usr/bin/git', 'clone', '--jobs', str(utils.cpus_for_jobs())]
         if reference is not None:
             ensure_dir(reference)
             cmd.append('--reference')
