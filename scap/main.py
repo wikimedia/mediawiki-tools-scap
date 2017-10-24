@@ -766,18 +766,22 @@ class SyncWikiversions(AbstractSync):
 
         # this is here for git_repo
         self.include = '/wikiversions*.{json,php}'
+        success = failed = 0
         with lock.Lock(self.get_lock_file(), self.arguments.message):
             self._check_sync_flag()
             self._sync_common()
             self._after_sync_common()
             self._sync_masters()
             mw_install_hosts = self._get_target_list()
-            tasks.sync_wikiversions(
+            success, failed = tasks.sync_wikiversions(
                 mw_install_hosts, self.config, key=self.get_keyholder_key())
 
-        self.announce(
-            'rebuilt wikiversions.php and synchronized wikiversions files: %s',
-            self.arguments.message)
+        if failed:
+            self.get_logger().warning(
+                '%d hosts had sync_wikiversions errors', failed)
+        if success:
+            self.announce('rebuilt and synchronized wikiversions files: %s',
+                          self.arguments.message)
 
         self.get_stats().increment('deploy.sync-wikiversions')
         self.get_stats().increment('deploy.all')
