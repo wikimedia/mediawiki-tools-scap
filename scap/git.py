@@ -369,7 +369,7 @@ def update_submodules(location, git_remote=None, use_upstream=False):
         if not use_upstream:
             remap_submodules(location, git_remote)
         cmd = ['/usr/bin/git', 'submodule', 'update', '--init', '--recursive',
-               '--jobs', utils.cpus_for_jobs()]
+               '--jobs', str(utils.cpus_for_jobs())]
         subprocess.check_call(cmd)
 
 
