@@ -595,7 +595,7 @@ def logo(eyes=None, color=True, **colors):
     pallet.update(colors)
 
     if not color:
-        for key in pallet.keys():
+        for key, _ in pallet:
             pallet[key] = ''
 
     return ''.join(line % pallet for line in [
