@@ -1,11 +1,13 @@
 #!/usr/bin/env python2
 
+from __future__ import absolute_import
+
 import logging
 import select
 from StringIO import StringIO
 import unittest
 
-from scap import checks
+import scap.checks as checks
 
 
 class ChecksConfigTest(unittest.TestCase):

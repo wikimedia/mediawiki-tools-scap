@@ -1,5 +1,7 @@
 #!/usr/bin/env python2
 
+from __future__ import absolute_import
+
 import os
 import re
 import shutil
@@ -8,7 +10,7 @@ import tempfile
 import time
 import unittest
 
-from scap import context
+import scap.context as context
 
 
 class ContextTest(unittest.TestCase):

@@ -1,8 +1,10 @@
 #!/usr/bin/env python2
 
+from __future__ import absolute_import
+
 import unittest
 
-from scap import cmd
+import scap.cmd as cmd
 
 
 class CommandTest(unittest.TestCase):
