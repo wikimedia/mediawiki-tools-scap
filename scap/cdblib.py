@@ -156,7 +156,7 @@ class Reader(object):
     def get(self, key, default=None):
         """Get the first value for key, returning default if missing."""
         # Avoid exception catch when handling default case; much faster.
-        return chain(self.gets(key), (default,)).next()
+        return next(chain(self.gets(key), (default,)))
 
     def getint(self, key, default=None, base=0):
         """Get the first value for key converted it to an int.

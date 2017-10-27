@@ -828,7 +828,7 @@ def check_patch_files(version, cfg):
     version_base = os.path.join(patch_path, version)
 
     ext_dir = os.path.join(version_base, 'extensions')
-    _, extensions, _ = os.walk(ext_dir).next()
+    _, extensions, _ = next(os.walk(ext_dir))
 
     patches = utils.get_patches(['core'], version_base)
     patches.update(utils.get_patches(extensions, ext_dir))
