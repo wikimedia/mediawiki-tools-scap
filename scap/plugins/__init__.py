@@ -53,26 +53,26 @@ def find_plugins(plugin_dirs):
     """
     plugins = []
 
-    for plugin_dir in plugin_dirs:
+    for d in plugin_dirs:
 
-        if plugin_dir is None or not os.path.exists(plugin_dir):
+        if d is None or not os.path.exists(d):
             continue
 
-        file_list = os.listdir(os.path.realpath(plugin_dir))
+        file_list = os.listdir(os.path.realpath(d))
         if len(file_list) < 1:
             continue
 
         try:
-            for plugin in file_list:
-                if not plugin.startswith('_') and plugin.endswith('.py'):
-                    plugins.append(plugin[:-3])
+            for f in file_list:
+                if not f.startswith('_') and f.endswith('.py'):
+                    plugins.append(f[:-3])
 
         except OSError:
             continue
 
         # add plugin_dir to this module's search path
-        if plugin_dir not in __path__:
-            __path__.append(plugin_dir)
+        if d not in __path__:
+            __path__.append(d)
 
     return plugins
 
@@ -120,9 +120,9 @@ def load_plugins(plugin_dir=None):
                     setattr(THIS_MODULE, objname, obj)
                     LOADED_PLUGINS[objname] = obj
                     __all__.append(objname)
-        except StandardError as stderr:
+        except Exception as e:
             msg = 'Problem loading plugins from module: scap.plugins.%s (%s)'
-            err_msg = type(stderr).__name__ + ':' + str(stderr)
+            err_msg = type(e).__name__ + ':' + str(e)
             logging.getLogger().warning(msg, plugin, err_msg)
 
     # Restore the original setting

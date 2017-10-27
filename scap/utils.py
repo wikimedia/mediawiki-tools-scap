@@ -923,7 +923,7 @@ def var_dump(*args, **kwargs):
             json_str = encoder.encode(obj)
             output = pygments.highlight(json_str, lexer, formatter)
             print(output)
-        except StandardError as e:
+        except Exception as e:
             print(e)
             print(obj)
 
