@@ -22,7 +22,7 @@
 """
 from __future__ import absolute_import
 
-import ConfigParser
+from configparser import ConfigParser
 import getpass
 import os
 import socket
@@ -116,7 +116,7 @@ def load(cfg_file=None, environment=None, overrides=None):
     """
     local_cfg = os.path.join(os.getcwd(), 'scap')
 
-    parser = ConfigParser.SafeConfigParser()
+    parser = ConfigParser()
     if cfg_file:
         try:
             cfg_file = open(cfg_file)
