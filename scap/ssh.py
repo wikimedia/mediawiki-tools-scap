@@ -77,7 +77,7 @@ class JSONOutputHandler(OutputHandler):
     """
 
     def __init__(self, host):
-        self.host = host
+        super(JSONOutputHandler, self).__init__(host)
         self._logger = utils.get_logger().getChild('target').getChild(host)
         self._partial = ''
 

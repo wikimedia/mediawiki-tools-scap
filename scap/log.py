@@ -219,7 +219,7 @@ class LogstashFormatter(logging.Formatter):
         :param datefmt: Time format string
         :param type: Logstash event type
         """
-        super(self.__class__, self).__init__(fmt, datefmt)
+        super(LogstashFormatter, self).__init__(fmt, datefmt)
         self.type = log_type
         self.host = socket.gethostname()
         self.script = sys.argv[0]
@@ -401,8 +401,7 @@ class FancyProgressReporter(ProgressReporter):
         term.scroll_region(0, term.height - 3)
         term.scroll_forward(1)
         term.register_cleanup_callback(self.cleanup)
-        return super(FancyProgressReporter, self).__init__(
-            name, expect=expect, fd=fd)
+        super(FancyProgressReporter, self).__init__(name, expect=expect, fd=fd)
 
     def finish(self):
         """Finish tracking progress."""
@@ -475,7 +474,7 @@ class MuteReporter(ProgressReporter):
     """A report that declines to report anything."""
 
     def __init__(self, name='', expect=0, fd=sys.stderr):
-        super(self.__class__, self).__init__(name)
+        super(MuteReporter, self).__init__(name)
 
     def _progress(self):
         pass
@@ -756,7 +755,7 @@ class Udp2LogHandler(logging.handlers.DatagramHandler):
         :param port: Port
         :param prefix: Line prefix (udp2log destination)
         """
-        super(self.__class__, self).__init__(host, port)
+        super(Udp2LogHandler, self).__init__(host, port)
         self.prefix = prefix
 
     def makePickle(self, record):

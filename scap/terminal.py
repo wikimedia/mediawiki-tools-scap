@@ -165,6 +165,7 @@ SOFTWARE.
     )
 
     def __init__(self, out=None, autoflush=True):
+        super(TerminalIO, self).__init__()
         if out is None:
             out = sys.__stdout__
 
