@@ -229,7 +229,7 @@ SOFTWARE.
         for cb in self.cleanup_callbacks:
             cb(self)
 
-        self.cleanup_callbacks.clear()
+        del self.cleanup_callbacks[:]
 
     def flush(self):
         self._out.flush()
