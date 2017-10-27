@@ -5,6 +5,7 @@
     Wrapper for our pooling/depooling actions, handled via conftool
 
 """
+from __future__ import absolute_import
 
 import re
 
