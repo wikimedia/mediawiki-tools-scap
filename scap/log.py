@@ -666,7 +666,7 @@ class Stats(object):
     def _send_metric(self, metric):
         try:
             self.socket.sendto(metric, self.address)
-        except Exception:
+        except StandardError:
             self.logger.exception('Failed to send metric "%s"', metric)
 
 

@@ -223,7 +223,7 @@ class Application(object):
         backtrace = True
         message = '%s failed: <%s> %s'
 
-        if isinstance(ex, lock.LockFailedError):
+        if isinstance(ex, (lock.LockFailedError, Warning)):
             backtrace = False
 
         if backtrace:
@@ -244,7 +244,7 @@ class Application(object):
         try:
             term.reset_colors()
             term.close()
-        except Exception:
+        except StandardError:
             pass
 
         return exit_status
@@ -332,9 +332,9 @@ class Application(object):
             # Handle ctrl-c from interactive user
             exit_status = app._handle_keyboard_interrupt()
 
-        except Exception as ex:
+        except (StandardError, Warning) as exc:
             # Handle all unhandled exceptions and errors
-            exit_status = app._handle_exception(ex)
+            exit_status = app._handle_exception(exc)
 
         finally:
             exit_status = app._before_exit(exit_status)
