@@ -27,6 +27,8 @@ import os
 import re
 import string
 
+from six.moves import xrange as _xrange
+
 import scap.utils as utils
 
 
@@ -307,7 +309,7 @@ class DeployGroup(object):
         label = self.name
         targets = [host for host in self.targets if host not in self.excludes]
 
-        for i in xrange(0, len(targets), self.size):
+        for i in _xrange(0, len(targets), self.size):
             if len(targets) > self.size:
                 label = self.name + str((i / self.size) + 1)
 

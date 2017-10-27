@@ -19,6 +19,7 @@ rather than djb_hash() for a tidy speedup.
 from __future__ import absolute_import
 
 from itertools import chain
+from six.moves import range as _xrange
 from _struct import Struct
 
 
@@ -72,7 +73,7 @@ class Reader(object):
         self.data = data
         self.hashfn = hashfn
 
-        self.index = [READ_2_LE4(data[i:i + 8]) for i in xrange(0, 2048, 8)]
+        self.index = [READ_2_LE4(data[i:i + 8]) for i in _xrange(0, 2048, 8)]
         self.table_start = min(p[0] for p in self.index)
         # Assume load load factor is 0.5 like official CDB.
         self.length = sum(p[1] >> 1 for p in self.index)
@@ -139,8 +140,8 @@ class Reader(object):
             end = start + (nslots << 3)
             slot_off = start + (((h >> 8) % nslots) << 3)
 
-            for pos in chain(xrange(slot_off, end, 8),
-                             xrange(start, slot_off, 8)):
+            for pos in chain(_xrange(slot_off, end, 8),
+                             _xrange(start, slot_off, 8)):
                 rec_h, rec_pos = READ_2_LE4(self.data[pos:pos + 8])
 
                 if not rec_h:
@@ -205,7 +206,7 @@ class Writer(object):
         self.hashfn = hashfn
 
         fp.write('\x00' * 2048)
-        self._unordered = [[] for i in xrange(256)]
+        self._unordered = [[] for i in _xrange(256)]
 
     def put(self, key, value=''):
         """Write a string key/value pair to the output file."""
@@ -257,7 +258,7 @@ class Writer(object):
             ordered = [(0, 0)] * length
             for pair in tbl:
                 where = (pair[0] >> 8) % length
-                for i in chain(xrange(where, length), xrange(0, where)):
+                for i in chain(_xrange(where, length), _xrange(0, where)):
                     if not ordered[i][0]:
                         ordered[i] = pair
                         break

@@ -15,7 +15,7 @@ Package: scap
 Architecture: all
 Depends: ${misc:Depends}, ${python:Depends}, python-jinja2, python-psutil,
          python-pygments, python-yaml, python-requests, git, bash-completion,
-         python-conftool
+         python-conftool, python-six
 Suggests: git-fat, python-semver, php5-cli | php-cli | hhvm
 X-Python-Version: >= 2.7
 Description: Deployment toolchain for Wikimedia projects
