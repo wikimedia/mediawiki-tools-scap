@@ -32,6 +32,8 @@ import sys
 import tempfile
 import yaml
 
+from six.moves import input as _input
+
 import pygments
 import pygments.lexers
 import pygments.formatters
@@ -117,7 +119,7 @@ def ask(question, default, choices=None):
     if choices is None:
         choices = '[{}]'.format(default)
 
-    ans = raw_input('{} {}: '.format(question, choices)).strip()
+    ans = _input('{} {}: '.format(question, choices)).strip()
     return ans.lower() if ans else default
 
 
@@ -158,7 +160,7 @@ def confirm(question='Continue?', default=False, on_fulfilled=None,
     result = default
 
     if sys.stdout.isatty():
-        ans = raw_input('{} {}: '.format(question, choices)).strip().lower()
+        ans = _input('{} {}: '.format(question, choices)).strip().lower()
         if ans in yes:
             result = True
         elif ans in no:
