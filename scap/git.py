@@ -354,7 +354,8 @@ def sync_submodules(location):
         subprocess.check_call(cmd, shell=True)
 
 
-def update_submodules(location, git_remote=None, use_upstream=False):
+def update_submodules(location, git_remote=None, use_upstream=False,
+                      reference=None):
     """Update git submodules on target machines"""
 
     if not use_upstream and git_remote is None:
@@ -368,10 +369,15 @@ def update_submodules(location, git_remote=None, use_upstream=False):
         logger.debug('Fetch submodules')
         if not use_upstream:
             remap_submodules(location, git_remote)
-            sync_submodules(location)
 
         cmd = ['/usr/bin/git', 'submodule', 'update', '--init', '--recursive',
                '--jobs', str(utils.cpus_for_jobs())]
+
+        if reference is not None:
+            ensure_dir(reference)
+            cmd.append('--reference')
+            cmd.append(reference)
+
         subprocess.check_call(cmd)
 
 
@@ -510,6 +516,8 @@ def remap_submodules(location, server):
                 module.write('[submodule "{}"]\n'.format(submodule_name))
                 module.write('\tpath = {}\n'.format(submodule_path))
                 module.write('\turl = {}\n'.format(remote_path))
+
+        sync_submodules(location)
 
 
 def get_disclosable_head(repo_directory, remote_thing):
