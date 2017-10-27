@@ -61,6 +61,18 @@ def describe(location):
         return subprocess.check_output(cmd, shell=True).strip()
 
 
+def init(location):
+    if not os.path.exists(location):
+        utils.mkdir_p(location)
+
+    if not os.path.isdir(location):
+        raise IOError(errno.ENOENT, 'Location is not a directory', location)
+
+    with utils.cd(location):
+        cmd = '/usr/bin/git init'
+        return subprocess.check_output(cmd, shell=True).strip()
+
+
 def fat_init(location):
     """Initializes the given directory for git-fat use."""
 

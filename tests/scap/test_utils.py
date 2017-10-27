@@ -122,6 +122,10 @@ class UtilsTest(unittest.TestCase):
         for test in not_equals:
             self.assertNotEqual(test[0], test[1], test[2])
 
+    def test_cpus_for_jobs(self):
+        cpus = utils.cpus_for_jobs()
+        self.assertGreater(cpus, 0)
+
     def _env(self, path, env='test'):
         if env is None:
             return utils.get_env_specific_filename(path)
