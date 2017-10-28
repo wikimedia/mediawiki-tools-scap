@@ -10,7 +10,6 @@ from __future__ import absolute_import
 import errno
 import fcntl
 import os
-import stat
 
 import scap.utils as utils
 
@@ -36,13 +35,12 @@ class Lock(object):  # pylint: disable=too-few-public-methods
         self.reason = reason
         self.lock_fd = None
 
-        # Setup permissions. Start with 0444, everyone can read
-        self.lock_perms = stat.S_IRUSR | stat.S_IRGRP | stat.S_IROTH
-        # Owner can always write
-        self.lock_perms |= stat.S_IWUSR
-        # If allowed, let group write too
+        # If it's a global lock file, let the whole group write. Otherwise,
+        # just the original deployer
         if group_write:
-            self.lock_perms |= stat.S_IWGRP
+            self.lock_perms = 0o664
+        else:
+            self.lock_perms = 0o644
 
     def __enter__(self):
         if os.path.exists(GLOBAL_LOCK_FILE):
