@@ -705,7 +705,7 @@ def refresh_cdb_json_file(file_path):
         reader = cdblib.Reader(fp.read())
 
     out = collections.OrderedDict()
-    for k, v in reader.iteritems():
+    for k, v in reader.items():
         out[k] = v
 
     json_data = json.dumps(out, indent=0, separators=(',', ':'))
@@ -837,7 +837,7 @@ def check_patch_files(version, cfg):
     version_dir = 'php-{}'.format(version)
     apply_dir = os.path.join(cfg['stage_dir'], version_dir)
 
-    for extension, diffs in patches.iteritems():
+    for extension, diffs in patches.items():
         diff = '\n'.join(diffs)
 
         if extension != 'core':

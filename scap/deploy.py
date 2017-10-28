@@ -714,7 +714,7 @@ class Deploy(cli.Application):
         attempted_groups = []
 
         try:
-            for name, group in self.deploy_groups.iteritems():
+            for name, group in self.deploy_groups.items():
                 attempted_groups.append(group)
                 self._execute_for_group(stages, group, prompt_user=True)
 
@@ -1136,7 +1136,7 @@ class DeployMediaWiki(cli.Application):
             'git_repo': self.config['deploy_dir'],
         }
 
-        option_list = ['-D{}:{}'.format(x, y) for x, y in options.iteritems()]
+        option_list = ['-D{}:{}'.format(x, y) for x, y in options.items()]
         cmd = [scap, 'deploy', '-v']
         cmd += option_list
         cmd += ['--init']

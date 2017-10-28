@@ -798,7 +798,7 @@ def get_active_wikiversions(directory, realm, datacenter):
     # Convert to list of (version, db) tuples sorted by version number
     # and then convert that list to an OrderedDict
     sorted_versions = collections.OrderedDict(
-        sorted(versions.iteritems(),
+        sorted(versions.items(),
                key=lambda v: distutils.version.LooseVersion(v[0])))
 
     return sorted_versions

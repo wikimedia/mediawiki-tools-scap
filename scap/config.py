@@ -139,7 +139,7 @@ def load(cfg_file=None, environment=None, overrides=None):
     sections = ['global']
     sections += ['.'.join(fqdn[l:]) for l in range(0, len(fqdn))][::-1]
 
-    config = {key: value for key, (_, value) in DEFAULT_CONFIG.iteritems()}
+    config = {key: value for key, (_, value) in DEFAULT_CONFIG.items()}
 
     for section in sections:
         if parser.has_section(section):
@@ -160,7 +160,7 @@ def load(cfg_file=None, environment=None, overrides=None):
 def override_config(config, overrides=None):
     """Override values in a config with type-coerced values."""
     if overrides:
-        for key, value in overrides.iteritems():
+        for key, value in overrides.items():
             config[key] = coerce_value(key, value)
 
     return config

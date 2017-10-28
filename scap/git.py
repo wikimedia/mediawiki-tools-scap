@@ -520,7 +520,7 @@ def remap_submodules(location, server):
                 submodules[name] = module_conf[1].strip()
 
         with open(gitmodule, 'w') as module:
-            for submodule_name, submodule_path in submodules.iteritems():
+            for submodule_name, submodule_path in submodules.items():
                 # Since we're using a non-bare http remote, map the submodule
                 # to the submodule path under $GIT_DIR/modules subdirectory of
                 # the superproject (git documentation: https://git.io/v4W9F).
