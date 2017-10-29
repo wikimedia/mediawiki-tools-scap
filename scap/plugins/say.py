@@ -23,6 +23,7 @@
 """
 from __future__ import absolute_import
 from __future__ import print_function
+from six import text_type
 
 import argparse
 import os
@@ -62,6 +63,13 @@ def fortune():
         'S.C.A.P.: ship, crash, apply patch',
         'S.C.A.P.: ship code and pray',
         'S.C.A.P.: some chaos and pandemonium',
+        "S.C.A.P.: scaring children away promptly",
+        "S.C.A.P.: soilent contents are people",
+        "S.C.A.P.: say carl and pause",
+        "S.C.A.P.: stupid captions annotate pictures",
+        "S.C.A.P.: sh -c awk | perl",
+        "S.C.A.P.: sulphur, carbon, arsenic, phosphorus",
+        "S.C.A.P.: syntax: conjunction, article, pronoun",
     ])
 
 
@@ -106,7 +114,7 @@ class Say(cli.Application):
 
     @cli.argument('-W', '--width', type=int,
                   help='Column width for message box')
-    @cli.argument('-e', '--eyes', type=lambda s: unicode(s, 'utf8'),
+    @cli.argument('-e', '--eyes', type=lambda s: text_type(s, 'utf8'),
                   help='Eyes')
     @cli.argument('propaganda', nargs='*', help='Message to print')
     def main(self, *extra_args):
