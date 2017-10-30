@@ -48,8 +48,6 @@ import logging
 import os
 import re
 
-from six.moves import range as _xrange
-
 import scap
 import scap.plugins
 
@@ -199,7 +197,7 @@ class ScapArgParser(argparse.ArgumentParser):
         if int in types:
             if re.match(r'\d*$', words[-1]):
                 valid_words.update(['%s%d' % (words[-1], j)
-                                    for j in _xrange(10)])
+                                    for j in range(10)])
 
         for word in words:
             valid_words.discard(word.strip())
