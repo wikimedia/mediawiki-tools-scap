@@ -177,7 +177,7 @@ class TargetContext(Context):
 
         rev_dirs = map(
             lambda d: os.path.join(self.revs_dir, d),
-            os.walk(self.revs_dir).next()[1])
+            next(os.walk(self.revs_dir))[1])
         rev_dirs_by_ctime = sorted(
             rev_dirs, key=os.path.getctime, reverse=True)
 
