@@ -20,6 +20,10 @@ Core Application Infrastructure
   :exclude-members: __dict__,__weakref__
   :noindex:
 
+.. automodule:: scap.terminal
+  :exclude-members: __dict__,__weakref__
+
+
 Built-in scap command classes
 =============================
 
@@ -36,6 +40,7 @@ Plug-in scap sub-command classes
 .. seealso::
     :ref:`plugins`
 
+
 Command Execution
 =================
 
@@ -47,6 +52,7 @@ Command Execution
 
 .. automodule:: scap.tasks
    :exclude-members: __dict__,__weakref__
+
 
 Git Repository Deployment
 =========================
@@ -72,6 +78,7 @@ General Utilities
 
 .. automodule:: scap.template
   :exclude-members: __dict__,__weakref__
+
 
 Logging and Monitoring
 ======================

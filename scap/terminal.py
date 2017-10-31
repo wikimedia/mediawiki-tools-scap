@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """
     scap.terminal
-    ~~~~~~~~
+    ~~~~~~~~~~~~~
     Text terminal output utilities
 
     Copyright © 2014-2017 Wikimedia Foundation and Contributors.
@@ -54,52 +54,7 @@ methods for outputting terminal control sequences. Much of this code was
 derived from the blessed library <https://github.com/jquast/blessed>.
 The API for TerminalIO is different from the blessed Terminal API.
 
-TerminalIO methods write directly to the wrapped output stream, instead of
-returning control sequences as strings and leaving the string concatenation
-up to the caller. This allows for a cleaner, "fluent interface[1]" style.
-
-For example:
-
-
-```
-from scap.terminal import TERM
-TERM.move(term.height - 1, 0) \
-    .fg(4).write("some text") \
-    .fg(7).bold().write(' bold text') \
-    .clear_eol().flush().restore()
-```
-
-* [1] https://en.wikipedia.org/wiki/Fluent_interface
-
-Colors
-======
-
-```
-from scapext.terminal import TerminalIO
-
-term = TerminalIO()
-
-for idx in range(16):
-    term.fg(idx, 'Color {0}'.format(idx)).nl()
-```
-
-Scroll Region Example
-=====================
-
-```
-term = TerminalIO(sys.__stdout__)
-term.scroll_region(0, term.height - 1) \
-term.move(term.height, 0)
-    .write('Persistent Status Line below scroll region')
-    .clear_eol()
-term.move_x(term.height - 1) \
-    .writeln('inside scroll region')
-for i in range(1, 100)
-    term.writeln('Scrolling text %s' % i)
-```
-
-License
-=======
+License:
 
 Copyright (c) 2016 Mukunda Modell <mmodell@wikimedia.org>
 Copyright (c) 2014 Jeff Quast
@@ -341,10 +296,10 @@ SOFTWARE.
         WINSZ is a :class:`collections.namedtuple` instance, whose structure
         directly maps to the return value of the :const:`termios.TIOCGWINSZ`
         ioctl return value. The return parameters are:
-            - ``ws_row``: width of terminal by its number of character cells.
-            - ``ws_col``: height of terminal by its number of character cells.
-            - ``ws_xpixel``: width of terminal by pixels (not accurate).
-            - ``ws_ypixel``: height of terminal by pixels (not accurate).
+        * ``ws_row``: width of terminal by its number of character cells.
+        * ``ws_col``: height of terminal by its number of character cells.
+        * ``ws_xpixel``: width of terminal by pixels (not accurate).
+        * ``ws_ypixel``: height of terminal by pixels (not accurate).
         """
 
         if self._is_a_tty and self._init_descriptor is not None:
@@ -371,10 +326,10 @@ SOFTWARE.
         WINSZ is a :class:`collections.namedtuple` instance, whose structure
         directly maps to the return value of the :const:`termios.TIOCGWINSZ`
         ioctl return value. The return parameters are:
-            - ``ws_row``: width of terminal by its number of character cells.
-            - ``ws_col``: height of terminal by its number of character cells.
-            - ``ws_xpixel``: width of terminal by pixels (not accurate).
-            - ``ws_ypixel``: height of terminal by pixels (not accurate).
+        * ``ws_row``: width of terminal by its number of character cells.
+        * ``ws_col``: height of terminal by its number of character cells.
+        * ``ws_xpixel``: width of terminal by pixels (not accurate).
+        * ``ws_ypixel``: height of terminal by pixels (not accurate).
         """
         data = fcntl.ioctl(fd, termios.TIOCGWINSZ, WINSZ._BUF)
         return WINSZ(*struct.unpack(WINSZ._FMT, data))
@@ -384,14 +339,10 @@ class WINSZ(collections.namedtuple('WINSZ', (
         'ws_row', 'ws_col', 'ws_xpixel', 'ws_ypixel'))):
     """
     Structure represents return value of :const:`termios.TIOCGWINSZ`.
-    .. py:attribute:: ws_row
-        rows, in characters
-    .. py:attribute:: ws_col
-        columns, in characters
-    .. py:attribute:: ws_xpixel
-        horizontal size, pixels
-    .. py:attribute:: ws_ypixel
-        vertical size, pixels
+    .. py:attribute:: ws_row rows, in characters
+    .. py:attribute:: ws_col columns, in characters
+    .. py:attribute:: ws_xpixel horizontal size, pixels
+    .. py:attribute:: ws_ypixel vertical size, pixels
     """
     #: format of termios structure
     _FMT = 'hhhh'

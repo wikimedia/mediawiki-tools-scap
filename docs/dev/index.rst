@@ -6,3 +6,4 @@ Development
 
    development
    plugins
+   terminal_ui
