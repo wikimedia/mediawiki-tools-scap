@@ -44,7 +44,7 @@ try:
 except ImportError:
     DiffLexer = None
 
-from scap.terminal import term
+from scap.terminal import TERM
 import scap.utils as utils
 
 # Format string for log messages. Interpolates LogRecord attributes.
@@ -398,9 +398,9 @@ class ProgressReporter(object):
 class FancyProgressReporter(ProgressReporter):
 
     def __init__(self, name='', expect=0, fd=sys.stderr):
-        term.scroll_region(0, term.height - 3)
-        term.scroll_forward(1)
-        term.register_cleanup_callback(self.cleanup)
+        TERM.scroll_region(0, TERM.height - 3)
+        TERM.scroll_forward(1)
+        TERM.register_cleanup_callback(self.cleanup)
         super(FancyProgressReporter, self).__init__(name, expect=expect, fd=fd)
 
     def finish(self):
@@ -409,14 +409,14 @@ class FancyProgressReporter(ProgressReporter):
 
         message = "Finished: %s (%s failed) " % \
             (self._name, self._failed)
-        width = min((term.width, 80)) - len(message)
+        width = min((TERM.width, 80)) - len(message)
         bars = width - 4
         prog_bar = '=' * bars
         self.cleanup()
-        term.fg(7).write(message) \
+        TERM.fg(7).write(message) \
             .fg(4).write(prog_bar).nl()
 
-    def cleanup(self, term=term):
+    def cleanup(self, term=TERM):
         height = term.height
         term.save()
         term.move(height - 2, 0).clear_eol() \
@@ -427,8 +427,8 @@ class FancyProgressReporter(ProgressReporter):
         term.restore()
 
     def _progress(self):
-        width = term.width
-        bottom = term.height
+        width = TERM.width
+        bottom = TERM.height
         label_width = len(self._name) + 12
         scale = int(width / 2)
         scale = min(width - label_width, scale)
@@ -444,7 +444,7 @@ class FancyProgressReporter(ProgressReporter):
         prog_bar = '█' * int(filled_bars)
         prog_bar = prog_bar + partial_bar[remain]
 
-        term.save() \
+        TERM.save() \
             .move(bottom - 1, 0) \
             .fg(15).write("| ok: ") \
             .fg(2).write(str(self.ok)) \
@@ -454,7 +454,7 @@ class FancyProgressReporter(ProgressReporter):
             .fg(7).write(str(self.remaining), ' | ') \
             .clear_eol()
 
-        term.move(bottom - 2, 0) \
+        TERM.move(bottom - 2, 0) \
             .fg(15).write('| ') \
             .fg(7).write(self._name) \
             .fg(15).write(" | ") \
@@ -462,7 +462,7 @@ class FancyProgressReporter(ProgressReporter):
             .fg(4).write(prog_bar) \
             .clear_eol()
 
-        term.restore().flush()
+        TERM.restore().flush()
 
     def _output(self):
         return '%s: %3.0f%% (ok: %d; fail: %d; left: %d)' % (

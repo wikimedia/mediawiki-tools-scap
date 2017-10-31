@@ -62,8 +62,8 @@ For example:
 
 
 ```
-from scap.terminal import term
-term.move(term.height - 1, 0) \
+from scap.terminal import TERM
+TERM.move(term.height - 1, 0) \
     .fg(4).write("some text") \
     .fg(7).bold().write(' bold text') \
     .clear_eol().flush().restore()
@@ -432,4 +432,4 @@ class Region(object):
 # We really only need a single global instance of TerminalIO. The class is
 # (mostly) stateless and there should be exactly one instance per tty,
 # of which there is usually only one.
-term = TerminalIO(sys.stderr)
+TERM = TerminalIO(sys.stderr)
