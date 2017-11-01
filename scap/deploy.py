@@ -304,17 +304,15 @@ class DeployLocal(cli.Application):
                   dissociate=False,
                   recurse_submodules=False)
 
-        if has_submodules:
-            git.update_submodules(location=rev_dir, git_remote=git_remote,
-                                  use_upstream=upstream_submodules)
-
         logger.info('Checkout rev: {}'.format(self.rev))
 
         # checkout the given revision
         git.checkout(rev_dir, self.rev)
 
         if has_submodules:
-            git.update_submodules(rev_dir, None, True)
+            git.update_submodules(location=rev_dir, git_remote=git_remote,
+                                  use_upstream=upstream_submodules,
+                                  reference=self.context.cache_dir)
 
         if has_gitfat:
             if not git.fat_isinitialized(rev_dir):
