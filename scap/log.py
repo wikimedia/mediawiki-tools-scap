@@ -236,7 +236,10 @@ class LogstashFormatter(logging.Formatter):
         # Ensure message is populated
         if 'message' not in fields:
             try:
-                fields['message'] = fields['msg'] % fields['args']
+                if 'args' in fields and fields['args']:
+                    fields['message'] = fields['msg'] % fields['args']
+                else:
+                    fields['message'] = fields['msg']
             except TypeError as e:
                 # This sometimes happens if the fields['msg'] has a
                 # '%<something>' in it some place.

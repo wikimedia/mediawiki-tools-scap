@@ -22,7 +22,7 @@
 """
 from __future__ import absolute_import
 
-from configparser import ConfigParser
+from six.moves.configparser import ConfigParser
 import getpass
 import os
 import socket
