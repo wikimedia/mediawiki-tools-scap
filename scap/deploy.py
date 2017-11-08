@@ -25,17 +25,17 @@ from __future__ import print_function
 
 import argparse
 import collections
+from datetime import datetime
 import errno
 import glob
 import os
-import requests
 import shutil
+import subprocess
 import tempfile
 import time
 import yaml
-import subprocess
 
-from datetime import datetime
+import requests
 
 import scap.checks as checks
 import scap.config as config
@@ -63,7 +63,8 @@ STAGES = [FETCH, CONFIG_DEPLOY, PROMOTE]
 EX_STAGES = [RESTART, ROLLBACK, CONFIG_DIFF, FINALIZE]
 
 
-class DeployGroupFailure(Exception):
+class DeployGroupFailure(RuntimeError):
+    """Signal that a particular deploy group failed"""
     pass
 
 
@@ -461,16 +462,14 @@ class DeployLocal(cli.Application):
 
         if success:
             return 0
-        else:
-            return 1 if len(failed) else 2
+        return 1 if failed else 2
 
     def _valid_chk(self, chk, stage, group):
         """Make sure a check is valid for our current group."""
         if group is not None:
             return chk.stage == stage and (chk.group == group or
                                            chk.group is None)
-        else:
-            return chk.stage == stage
+        return chk.stage == stage
 
     def _get_config_overrides(self):
         """
@@ -544,19 +543,19 @@ class Deploy(cli.Application):
     repo = None
     targets = []
 
-    @cli.argument('-r', '--rev', help='Revision to deploy')
+    @cli.argument('-r', '--rev', help='Specify the revision to deploy')
     @cli.argument('-s', '--stages', choices=STAGES,
-                  help='Deployment stages to execute. Used only for testing.')
+                  help='Execute specific deployment stages (For testing)')
     @cli.argument('-l', '--limit-hosts', default='all',
-                  help='Limit deploy to hosts matching expression')
+                  help='Limit actions to hosts matching expression')
     @cli.argument('-f', '--force', action='store_true',
-                  help='force re-fetch and checkout')
+                  help='Force fetch and checkout even if nothing changed.')
     @cli.argument('--dry-run', action='store_true', dest='dry_run',
                   help='Compile and deploy config files to a temp location '
                        'and output a diff against the previously deployed '
                        'config files.')
     @cli.argument('--service-restart', action='store_true',
-                  help='Restart service')
+                  help='Skip deployment, just restart the service.')
     @cli.argument('-i', '--init', action='store_true',
                   help='Setup a repo for initial deployment')
     @cli.argument('message', nargs='*', help='Log message for SAL')
@@ -586,7 +585,7 @@ class Deploy(cli.Application):
 
         self._build_deploy_groups()
 
-        if not len(self.all_targets):
+        if not self.all_targets:
             logger.warn('No targets selected, check limits and dsh_targets')
             return 1
 
@@ -679,13 +678,6 @@ class Deploy(cli.Application):
                                   utils.human_duration(self.get_duration()))
                 return exec_result
         return 0
-
-    def _get_keyholder_key(self):
-        keyholder_key = self.config.get('keyholder_key')
-        if not keyholder_key:
-            return None
-
-        return os.path.join('/etc/keyholder.d', '{}.pub'.format(keyholder_key))
 
     def _needs_latest_sha1(self, stages):
         """
@@ -786,7 +778,7 @@ class Deploy(cli.Application):
                             group.exclude(host)
 
                 # Stop executing stages if all targets have failed
-                if not len(targets):
+                if not targets:
                     break
 
             failed += subgroup_failed
@@ -908,7 +900,7 @@ class Deploy(cli.Application):
                 checks = utils.ordered_load(f, yaml.SafeLoader)['checks']
                 checks_dict.update(checks)
 
-        if len(checks_dict.keys()) == 0:
+        if not checks_dict.keys():
             self.deploy_info['perform_checks'] = False
             return
 
@@ -957,7 +949,7 @@ class Deploy(cli.Application):
         deploy_stage = ssh.Job(
             hosts=targets,
             user=self.config['ssh_user'],
-            key=self._get_keyholder_key())
+            key=self.get_keyholder_key())
         deploy_stage.output_handler = ssh.JSONOutputHandler
         deploy_stage.max_failure = self.MAX_FAILURES
         deploy_stage.command(deploy_local_cmd)

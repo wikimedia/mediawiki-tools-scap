@@ -203,7 +203,7 @@ def clean_tags(location, max_tags):
             old_tags.append(tag)
 
         # if there aren't any old tags, bail early
-        if len(old_tags) == 0:
+        if not old_tags:
             return
 
         cmd = [git, 'tag', '-d']

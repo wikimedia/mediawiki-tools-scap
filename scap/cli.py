@@ -22,8 +22,10 @@
 """
 from __future__ import absolute_import
 
+import errno
 import logging
 import os
+import re
 import sys
 import time
 import scap.plugins
@@ -73,7 +75,13 @@ class Application(object):
                 return '/var/lock/scap.%s.lock' % (
                     self.config['git_repo'].replace('/', '_'))
             except KeyError:
-                return '/var/lock/scap.unknown-but-probably-mediawiki.lock'
+                # `scap sync*` can run from anywhere on the file system and
+                # doesn't actually use the value of `git_repo`. In contrast,
+                # `scap deploy` will fail almost instantly without a `git_repo`
+                # set. If we're attempting to create a lock file, and there is
+                # no git_repo, then it's likely for a sync* command and the
+                # correct git_repo is operations/mediawiki-config.
+                return '/var/lock/scap.operations_mediawiki-config.lock'
 
     @property
     def verbose(self):
@@ -87,6 +95,23 @@ class Application(object):
         """Qualify the path to a scap script."""
         return os.path.join(self.config['bin_dir'], script_name)
 
+    def get_keyholder_key(self):
+        """Get the public key for IdentityFile use in ssh."""
+        key_dir = '/etc/keyholder.d'
+        key_safe_name = re.sub(r'\W', '_', self.config['ssh_user'])
+        key_name = self.config.get('keyholder_key')
+        if key_name is None:
+            key_name = key_safe_name
+        key_path = os.path.join(key_dir, '{}.pub'.format(key_name))
+
+        if os.path.exists(key_path):
+            self.get_logger().debug('Using key: %s', key_path)
+            return key_path
+
+        self.get_logger().debug(
+            'Unable to find keyholder key for %s', key_safe_name)
+        return None
+
     def announce(self, *args):
         """
         Announce a message to broadcast listeners.
@@ -95,13 +120,17 @@ class Application(object):
         configured to broadcast messages via irc or another real-time
         notification channel.
 
-        Announcements can be disabled by setting 'DOLOGMSGNOLOG' in the calling
-        shell environment (e.g. `DOLOGMSGNOLOG=1 scap sync-file foo.php`). In
+        Announcements can be disabled by using '--no-log-message' in the
+        command invocation (e.g. `scap sync-file --no-log-message foo.php`). In
         this case the log event will still be emitted to the normal logger as
         though `self.get_logger().info()` was used instead of
         `self.announce()`.
         """
-        if 'DOLOGMSGNOLOG' in os.environ:
+        env_check = True if 'DOLOGMSGNOLOG' in os.environ else False
+        if self.arguments.no_log_message or env_check:
+            if env_check:
+                self.get_logger().warning(
+                    'DOLOGMSGNOLOG has been deprecated, use --no-log-message')
             # Do not log to the announce logger, but do log the event for the
             # console and other non-broadcast log collectors.
             self.get_logger().info(*args)
@@ -174,15 +203,7 @@ class Application(object):
         """
         raise NotImplementedError()
 
-    def _handle_system_exit(self, ex):
-        """
-        Handle a SystemExit error.
-
-        :returns: exit status
-        """
-        raise
-
-    def _handle_keyboard_interrupt(self, ex):
+    def _handle_keyboard_interrupt(self):
         """
         Handle ctrl-c from interactive user.
 
@@ -249,7 +270,7 @@ class Application(object):
                 '%s requires SSH agent forwarding' % self.program_name)
 
     @staticmethod
-    def factory(argv):
+    def factory():
         parser = arg.build_parser()
         args, extra_args = parser.parse_known_args()
         app = args.which(args.command)
@@ -260,7 +281,7 @@ class Application(object):
         return app
 
     @classmethod
-    def run(cls, argv=sys.argv):
+    def run(cls):
         """
         Construct and run an application.
 
@@ -288,10 +309,10 @@ class Application(object):
 
         exit_status = 0
         try:
-            app = Application.factory(argv)
+            app = Application.factory()
 
             if os.geteuid() == 0:
-                raise SystemExit('Scap should not be run as root')
+                raise OSError(errno.EPERM, 'Scap should not be run as root')
 
             # Let each application handle `extra_args`
             app.arguments, app.extra_arguments = app._process_arguments(
@@ -307,13 +328,9 @@ class Application(object):
             else:
                 exit_status = app.main(app.extra_arguments)
 
-        except SystemExit as ex:
-            # Triggered by sys.exit() calls
-            exit_status = app._handle_system_exit(ex)
-
-        except KeyboardInterrupt as ex:
+        except KeyboardInterrupt:
             # Handle ctrl-c from interactive user
-            exit_status = app._handle_keyboard_interrupt(ex)
+            exit_status = app._handle_keyboard_interrupt()
 
         except Exception as ex:
             # Handle all unhandled exceptions and errors
@@ -369,7 +386,7 @@ def argument(*args, **kwargs):
     return wrapper
 
 
-command_registry = {}
+COMMAND_REGISTRY = {}
 
 
 def all_commands():
@@ -377,26 +394,26 @@ def all_commands():
     return a list of all commands that have been registered with the
     command() decorator.
     """
-    global command_registry
+    global COMMAND_REGISTRY
     # prevent plugins from overwriting built-in commands by first copying the
-    # command_registry and then verifying that none of the registered plugins
+    # COMMAND_REGISTRY and then verifying that none of the registered plugins
     # write to any of the keys used by built-in commands.
-    builtin_commands = command_registry.copy()
-    command_registry.clear()
+    builtin_commands = COMMAND_REGISTRY.copy()
+    COMMAND_REGISTRY.clear()
     all_commands = builtin_commands.copy()
 
     scap.plugins.load_plugins()
 
-    for key in command_registry.keys():
+    for key in COMMAND_REGISTRY.keys():
         if key in builtin_commands:
             logger = logging.getLogger()
             msg = 'Plugin (%s) attempted to overwrite builtin command: %s' % (
-                command_registry[key], key)
+                COMMAND_REGISTRY[key], key)
             logger.warning(msg)
         else:
-            all_commands[key] = command_registry[key]
+            all_commands[key] = COMMAND_REGISTRY[key]
 
-    command_registry = builtin_commands
+    COMMAND_REGISTRY = builtin_commands
     return all_commands
 
 
@@ -427,9 +444,9 @@ def command(*args, **kwargs):
 
     """
     def wrapper(cls):
-        global command_registry
+        global COMMAND_REGISTRY
         name = args[0]
-        if name in command_registry:
+        if name in COMMAND_REGISTRY:
             err = 'Duplicate: A command named "%s" already exists.' % name
             raise ValueError(err)
         has_subcommands = kwargs.pop('subcommands', False)
@@ -437,7 +454,7 @@ def command(*args, **kwargs):
             setattr(cls, arg.ATTR_SUBPARSER, True)
 
         cmd = dict(name=name, cls=cls, args=args, kwargs=kwargs)
-        command_registry[name] = cmd
+        COMMAND_REGISTRY[name] = cmd
         return cls
     return wrapper
 

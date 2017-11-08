@@ -30,7 +30,7 @@ import string
 import scap.utils as utils
 
 
-def get(key, cfg, limit_hosts=None, extra_paths=[]):
+def get(key, cfg, limit_hosts=None, extra_paths=None):
     """
     Factory function to get a TargetList object to fetch a list of targets.
 
@@ -73,12 +73,12 @@ def limit_target_hosts(pattern, hosts):
     rpattern = pattern
 
     # Handle replacements of anything like [*:*] in pattern
-    while(0 <= rpattern.find('[') < rpattern.find(':') < rpattern.find(']')):
+    while 0 <= rpattern.find('[') < rpattern.find(':') < rpattern.find(']'):
         head, nrange, tail = rpattern.replace(
             '[', '|', 1).replace(']', '|', 1).split('|')
 
         beg, end = nrange.split(':')
-        zfill = len(end) if (len(beg) > 0 and beg.startswith('0')) else 0
+        zfill = len(end) if (beg and beg.startswith('0')) else 0
 
         if (zfill != 0 and len(beg) != len(end)) or beg > end:
             raise ValueError("Host range incorrectly specified")
@@ -93,7 +93,7 @@ def limit_target_hosts(pattern, hosts):
         rpattern = rpattern[rpattern.find(']') + 1:]
 
     # If there weren't range replacements, make pattern an array
-    if len(patterns) == 0:
+    if not patterns:
         patterns = [pattern]
 
     targets = []
@@ -124,7 +124,7 @@ def limit_target_hosts(pattern, hosts):
 class TargetList(object):
     """An abstract list of targets (lists of hosts)."""
 
-    def __init__(self, key, cfg, limit_hosts=None, extra_paths=[]):
+    def __init__(self, key, cfg, limit_hosts=None, extra_paths=None):
         """
         Constructor for target lists.
 
@@ -200,7 +200,7 @@ class TargetList(object):
 
             targets = list(set(targets) - set(all_hosts))
 
-            if len(targets) > 0:
+            if targets:
                 all_hosts += targets
 
                 size = self._get_group_size(group)
@@ -233,7 +233,10 @@ class DshTargetList(TargetList):
         :param filename: str Combined filename key generated from a
             group + primary key
         """
-        search_path = self.extra_paths
+        search_path = []
+
+        if self.extra_paths is not None:
+            search_path = self.extra_paths
         # Historical reasons :p
         search_path.append('/etc/dsh/group')
         hosts_file = None
@@ -274,7 +277,7 @@ class DeployGroup(object):
 
         if failure_limit is None:
             failure_limit = 1
-        elif type(failure_limit) is str:
+        elif isinstance(failure_limit, str):
             # Convert percentage strings (e.g. '30%') to number of targets
             if failure_limit.endswith('%'):
                 failure_limit = float(failure_limit[:-1]) / 100

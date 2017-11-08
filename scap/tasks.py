@@ -153,7 +153,7 @@ def check_valid_syntax(*paths):
         "-not -type d "  # makes no sense to lint a dir named 'less.php'
         "-name '*.php' -not -name 'autoload_static.php' "
         " -or -name '*.inc' | xargs -n1 -P%d -exec php -l >/dev/null"
-    ) % (' '.join(quoted_paths), multiprocessing.cpu_count())
+    ) % (' '.join(quoted_paths), utils.cpus_for_jobs())
     logger.debug('Running command: `%s`', cmd)
     subprocess.check_call(cmd, shell=True)
     # Check for anything that isn't a shebang before <?php (T92534)
@@ -273,11 +273,12 @@ def merge_cdb_updates(
     reporter.expect(len(files))
     reporter.start()
 
-    for i, result in enumerate(pool.imap_unordered(
+    l10n_update_pool = pool.imap_unordered(
         update_l10n_cdb_wrapper, itertools.izip(
             itertools.repeat(cache_dir),
             files,
-            itertools.repeat(trust_mtime))), 1):
+            itertools.repeat(trust_mtime)))
+    for i, result in enumerate(l10n_update_pool, 1):
         if result:
             updated += 1
         reporter.add_success()
@@ -385,7 +386,7 @@ def sync_common(cfg, include=None, sync_from=None, verbose=False, logger=None):
         '/usr/bin/touch', settings_path))
 
 
-def sync_wikiversions(hosts, cfg):
+def sync_wikiversions(hosts, cfg, key=None):
     """
     Rebuild and sync wikiversions.php to the cluster.
 
@@ -396,7 +397,7 @@ def sync_wikiversions(hosts, cfg):
     with log.Timer('sync_wikiversions', stats):
         compile_wikiversions('stage', cfg)
 
-        rsync = ssh.Job(hosts, user=cfg['ssh_user']).shuffle()
+        rsync = ssh.Job(hosts, user=cfg['ssh_user'], key=key).shuffle()
         rsync.command(
             'sudo -u mwdeploy -n -- /usr/bin/rsync -l '
             '%(master_rsync)s::common/wikiversions*.{json,php} '
@@ -540,7 +541,7 @@ def update_localization_cache(version, wikidb, verbose, cfg, logger=None):
 
     # Calculate the number of parallel threads
     # Leave a couple of cores free for other stuff
-    use_cores = max(multiprocessing.cpu_count() - 2, 1)
+    use_cores = utils.cpus_for_jobs()
 
     verbose_messagelist = ''
     force_rebuild = False
@@ -620,7 +621,7 @@ def update_localization_cache(version, wikidb, verbose, cfg, logger=None):
             cfg['bin_dir'], cache_dir, use_cores, verbose_messagelist))
 
 
-def restart_hhvm(hosts, cfg, batch_size=1):
+def restart_hhvm(hosts, cfg, key=None, batch_size=1):
     """Restart HHVM on the given hosts.
 
     :param hosts: List of hosts to sync to
@@ -629,7 +630,7 @@ def restart_hhvm(hosts, cfg, batch_size=1):
     """
     stats = log.Stats(cfg['statsd_host'], int(cfg['statsd_port']))
     with log.Timer('restart_hhvm', stats):
-        restart = ssh.Job(hosts, user=cfg['ssh_user']).shuffle()
+        restart = ssh.Job(hosts, user=cfg['ssh_user'], key=key).shuffle()
         restart.command(
             'sudo -u mwdeploy -n -- %s hhvm-restart' %
             os.path.join(cfg['bin_dir'], 'scap'))
@@ -664,7 +665,7 @@ def refresh_cdb_json_files(in_dir, pool_size, verbose):
         reporter.add_success()
 
     reporter.finish()
-    logger.info('Updated {} JSON file(s) in {}'.format(updated, in_dir))
+    logger.info('Updated %s JSON file(s) in %s', updated, in_dir)
 
 
 def refresh_cdb_json_file(file_path):
@@ -685,7 +686,7 @@ def refresh_cdb_json_file(file_path):
     upstream_json = os.path.join(upstream_dir, '{}.json'.format(file_name))
 
     logger = utils.get_logger()
-    logger.debug('Processing: {}'.format(file_name))
+    logger.debug('Processing: %s', file_name)
 
     cdb_md5 = utils.md5_file(file_path)
     try:
@@ -723,7 +724,7 @@ def refresh_cdb_json_file(file_path):
     tmp_json.close()
     os.chmod(tmp_json.name, 0o644)
     shutil.move(tmp_json.name, upstream_json)
-    logger.debug('Updated: {}'.format(upstream_json))
+    logger.debug('Updated: %s', upstream_json)
 
     with open(upstream_md5, 'w') as md5:
         md5.write(cdb_md5)
@@ -753,7 +754,7 @@ def handle_services(services, require_valid_service=False):
 
         # Can be used to check if service is masked, require_valid_service
         # is False by default to preserve existing behavior
-        if (require_valid_service and not utils.service_exists(service)):
+        if require_valid_service and not utils.service_exists(service):
             return
 
         if handle == RELOAD:
@@ -849,8 +850,8 @@ def check_patch_files(version, cfg):
             p.communicate(diff)
 
             if p.returncode > 0:
-                logger.warn(
-                    'Patch(s) for {} have not been applied.'.format(apply_dir))
+                logger.warn('Patch(s) for %s have not been applied.',
+                            apply_dir)
 
 
 def get_wikiversions_ondisk(directory):
@@ -868,14 +869,14 @@ def get_wikiversions_ondisk(directory):
     versions_on_disk = [
         d for d in os.listdir(directory)
         if d.startswith('php-') and
-        utils.branch_re.match(d[len('php-'):])]
+        utils.BRANCH_RE.match(d[len('php-'):])]
 
     for dirname in versions_on_disk:
         abspath = os.path.join(directory, dirname)
 
         git_reflog = git.reflog(abspath, fmt='%at')
 
-        if len(git_reflog) == 0:
+        if not git_reflog:
             continue
 
         # Oldest reflog date assumed to be the branch date

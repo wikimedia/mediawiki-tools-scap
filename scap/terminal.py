@@ -23,7 +23,7 @@
 from __future__ import absolute_import
 
 import collections
-import curses
+
 import fcntl
 import io
 import os
@@ -32,6 +32,8 @@ import sys
 import termios
 
 from contextlib import contextmanager
+
+import curses
 from curses import tigetstr, tparm
 
 

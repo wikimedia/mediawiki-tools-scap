@@ -26,16 +26,17 @@ import fnmatch
 from functools import partial
 import json
 import logging
+import logging.handlers
 import math
 import operator
-import logging.handlers
-import pygments
 import re
 import shlex
 import socket
 import sys
 import time
 import traceback
+
+import pygments
 
 try:
     from pygments.formatters import TerminalFormatter
@@ -97,8 +98,7 @@ class DiffLogFormatter(AnsiColorFormatter):
             if self.lex:
                 return pygments.highlight(record.output, self.lex,
                                           self.formatter)
-            else:
-                return record.output
+            return record.output
         return super(DiffLogFormatter, self).format(record)
 
 
@@ -257,7 +257,7 @@ class LogstashFormatter(logging.Formatter):
             fields['exception'] = self.formatException(fields['exc_info'])
 
         # Remove fields
-        for field in (
+        remove_fields = [
             'args',
             'asctime',
             'created',
@@ -270,7 +270,8 @@ class LogstashFormatter(logging.Formatter):
             'relativeCreated',
             'thread',
             'threadName',
-        ):
+        ]
+        for field in remove_fields:
             fields.pop(field, None)
 
         logstash_record = {
@@ -295,8 +296,8 @@ class LogstashFormatter(logging.Formatter):
                 'line': line,
                 'function': func,
                 'text': text,
-            } for fname, line, func, text in
-                traceback.extract_tb(ex_traceback)]
+            } for fname, line, func, text in traceback.extract_tb(
+                ex_traceback)]
         }
 
 
@@ -410,10 +411,10 @@ class FancyProgressReporter(ProgressReporter):
             (self._name, self._failed)
         width = min((term.width, 80)) - len(message)
         bars = width - 4
-        bar = '=' * bars
+        prog_bar = '=' * bars
         self.cleanup()
         term.fg(7).write(message) \
-            .fg(4).write(bar).nl()
+            .fg(4).write(prog_bar).nl()
 
     def cleanup(self, term=term):
         height = term.height
@@ -440,8 +441,8 @@ class FancyProgressReporter(ProgressReporter):
         if filled_bars > 0 and progress > filled_bars:
             remain = int((progress % filled_bars) * 10)
 
-        bar = '█' * int(filled_bars)
-        bar = bar + partial_bar[remain]
+        prog_bar = '█' * int(filled_bars)
+        prog_bar = prog_bar + partial_bar[remain]
 
         term.save() \
             .move(bottom - 1, 0) \
@@ -458,7 +459,7 @@ class FancyProgressReporter(ProgressReporter):
             .fg(7).write(self._name) \
             .fg(15).write(" | ") \
             .write(self.percent_complete, '% ') \
-            .fg(4).write(bar) \
+            .fg(4).write(prog_bar) \
             .clear_eol()
 
         term.restore().flush()
@@ -600,7 +601,7 @@ class Filter(object):
 
         # Normalize all globs into regexs into lambdas
         for attr, criterion in criteria:
-            if type(criterion) == str:
+            if isinstance(criterion, str):
                 criterion = re.compile(fnmatch.translate(criterion))
 
             if not hasattr(criterion, '__call__'):
@@ -626,8 +627,7 @@ class Filter(object):
 
         if self._filter:
             return not matches
-        else:
-            return matches
+        return matches
 
     def isfiltering(self, attribute):
         """Whether the filter has criteria for the given attribute."""
@@ -780,7 +780,7 @@ class Udp2LogHandler(logging.handlers.DatagramHandler):
         return text
 
 
-def setup_loggers(cfg, console_level=logging.INFO, handlers=[]):
+def setup_loggers(cfg, console_level=logging.INFO, handlers=None):
     """
     Setup the logging system.
 
@@ -821,5 +821,6 @@ def setup_loggers(cfg, console_level=logging.INFO, handlers=[]):
         irc_logger.addHandler(IRCSocketHandler(
             cfg['tcpircbot_host'], int(cfg['tcpircbot_port'])))
 
-    for handler in handlers:
-        logging.root.addHandler(handler)
+    if handlers is not None:
+        for handler in handlers:
+            logging.root.addHandler(handler)

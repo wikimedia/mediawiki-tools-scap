@@ -176,7 +176,7 @@ class ScapArgParser(argparse.ArgumentParser):
                                     subwords, valid_words)
                         last = None
                         for word in reversed(words):
-                            if len(word) and not word.startswith('-'):
+                            if word and not word.startswith('-'):
                                 last = word
                                 break
                         if last in choices:
@@ -186,9 +186,9 @@ class ScapArgParser(argparse.ArgumentParser):
                         types.append(action.type)
                     if choices:
                         valid_words.update([c + ' ' for c in choices])
-                    elif type(action.default) is str:
+                    elif isinstance(action.default, str):
                         valid_words.add("'%s'" % action.default)
-                    elif type(action.default) is list:
+                    elif isinstance(action.default, list):
                         for item in action.default:
                             valid_words.add("'%s'" % item)
                     if action.nargs in (None, 1):
@@ -215,7 +215,7 @@ class ScapArgParser(argparse.ArgumentParser):
                t is file or cls is file:
                 valid_words.add('__files__')
 
-        if len(words[-1].strip()) > 0:
+        if words[-1].strip():
             valid_words = {w for w in valid_words if w.startswith(words[-1])}
         valid_words.discard('--_completion ')
         valid_words.discard('-')
@@ -300,6 +300,9 @@ def get_global_parser():
     group.add_argument(
         '-e', '--environment', default=None,
         help='environment in which to execute scap')
+    group.add_argument(
+        '--no-log-message', default='no_log_message',
+        help='Do not log messages to the public (IRC)')
 
     return parser
 
@@ -312,9 +315,8 @@ def extract_help_from_object(obj):
         return dict(help=lines[0], description=lines[0],
                     epilog="\n".join(lines[1::]).strip(),
                     formatter_class=argparse.RawDescriptionHelpFormatter)
-    else:
-        return dict(help=doc, description=doc, epilog=None,
-                    formatter_class=argparse.HelpFormatter)
+    return dict(help=doc, description=doc, epilog=None,
+                formatter_class=argparse.HelpFormatter)
 
 
 def build_subparser(cmd, parser, global_parser):
@@ -332,7 +334,7 @@ def build_subparser(cmd, parser, global_parser):
     if has_subparsers:
         class_level_args = getattr(cls, ATTR_ARGUMENTS, [])
 
-        if len(class_level_args):
+        if class_level_args:
             class_parser = ScapArgParser(formatter_class=ScapHelpFormatter)
             class_parser.add_arguments(class_level_args)
             kwargs['parents'] = [class_parser, global_parser]
@@ -356,7 +358,7 @@ def build_subparser(cmd, parser, global_parser):
                 kwargs['add_help'] = False
                 subsubparser = subsubparsers.add_parser(subcmd_name, **kwargs)
                 subsubparser.set_defaults(subcommand=method)
-                if len(local_args):
+                if local_args:
                     subsubparser.add_arguments(local_args)
     else:
         method = getattr(cls, 'main')

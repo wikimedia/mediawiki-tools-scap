@@ -64,7 +64,7 @@ class Command(object):
             if callable(cmd):
                 rendered = cmd(**values)
             if rendered:
-                if type(rendered) is str:
+                if isinstance(rendered, str):
                     result.append(rendered)
                 else:
                     result.extend(rendered)
@@ -96,5 +96,4 @@ class arg(object):
         if self.name in values and values[self.name]:
             val = values[self.name]
             return self.cmd.format(val)
-        else:
-            return ''
+        return ''

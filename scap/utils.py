@@ -12,12 +12,15 @@ import collections
 import contextlib
 import distutils.version
 import errno
-import glob
+from functools import wraps
 import hashlib
+import glob
 import inspect
 import json
+from json import JSONEncoder
 import logging
 import math
+import multiprocessing
 import os
 import pwd
 import random
@@ -34,11 +37,8 @@ import pygments.lexers
 import pygments.formatters
 import scap.ansi as ansi
 
-from functools import wraps
-from json import JSONEncoder
 
-
-branch_re = re.compile(
+BRANCH_RE = re.compile(
     r'(?P<major>\d{1}).'
     r'(?P<minor>\d{1,2}).'
     r'(?P<patch>\d{1,2})'
@@ -338,7 +338,7 @@ def iterate_subdirectories(root):
             yield subdir
 
 
-logger_stack = []
+LOGGER_STACK = []
 
 
 @contextlib.contextmanager
@@ -359,17 +359,17 @@ def context_logger(context_name, *args):
             logger.debug('something')
 
     """
-    if len(logger_stack) < 1:
-        logger_stack.append(logging.getLogger())
+    if len(LOGGER_STACK) < 1:
+        LOGGER_STACK.append(logging.getLogger())
 
-    parent = logger_stack[-1]
+    parent = LOGGER_STACK[-1]
 
     logger = parent.getChild(context_name)
-    logger_stack.append(logger)
+    LOGGER_STACK.append(logger)
     try:
         yield logger
     finally:
-        logger_stack.pop()
+        LOGGER_STACK.pop()
 
 
 def log_context(context_name):
@@ -404,10 +404,9 @@ def log_context(context_name):
 
 
 def get_logger():
-    if len(logger_stack) > 0:
-        return logger_stack[-1]
-    else:
-        return logging.getLogger()
+    if LOGGER_STACK:
+        return LOGGER_STACK[-1]
+    return logging.getLogger()
 
 
 @contextlib.contextmanager
@@ -537,11 +536,9 @@ def check_php_opening_tag(path):
         # second has <?php, that's ok
         lines = text.splitlines()
 
-        if (
-            len(lines) > 1 and
-            lines[0].startswith('#!') and
-            lines[1].lower().startswith('<?php')
-        ):
+        if (len(lines) > 1 and
+                lines[0].startswith('#!') and
+                lines[1].lower().startswith('<?php')):
             return
 
         # None of the return conditions matched, the file must contain <?php
@@ -694,10 +691,9 @@ def systemd_service_exists(service):
     """
     Systemd service unit exists
     """
+    state_cmd = ['/bin/systemctl', 'show', '--property', 'LoadState', service]
     try:
-        loaded_state = subprocess.check_output([
-           '/bin/systemctl', 'show',
-           '--property', 'LoadState', service]).strip()
+        loaded_state = subprocess.check_output(state_cmd).strip()
     except subprocess.CalledProcessError:
         return False
 
@@ -719,9 +715,8 @@ def upstart_service_exists(service):
     """
     Upstart service exists
     """
-
     return os.path.exists(
-            os.path.join('/etc/init/', '{}.conf'.format(service)))
+        os.path.join('/etc/init/', '{}.conf'.format(service)))
 
 
 def sysv_service_exists(service):
@@ -729,7 +724,7 @@ def sysv_service_exists(service):
     Determine if a sysvinit script exists for a service.
     """
     return os.path.exists(
-            os.path.join('/etc/init.d', service))
+        os.path.join('/etc/init.d', service))
 
 
 def service_exists(service):
@@ -849,9 +844,9 @@ def join_path(*fragments):
     """
     path = []
     for p in fragments:
-        if len(path) > 0:
+        if path:
             p = p.strip('\t\r\n/')
-        if len(p) > 0:
+        if p:
             path.append(p)
 
     path_str = os.path.join(*path)
@@ -868,11 +863,11 @@ def get_patches(sub_dirs, root_dir):
     """
     patches = {}
     for sub_dir in sub_dirs:
-        for patch_file in sorted(
+        sorted_patches = sorted(
             glob.glob(os.path.join(root_dir, sub_dir, '*.patch')),
             reverse=True
-        ):
-
+        )
+        for patch_file in sorted_patches:
             with open(patch_file, 'r') as f:
                 patches.setdefault(sub_dir, []).append(f.read())
 
@@ -934,5 +929,10 @@ def var_dump(*args, **kwargs):
 
     for arg in args:
         dump(arg)
-    if len(kwargs):
+    if kwargs:
         dump(kwargs.items())
+
+
+def cpus_for_jobs():
+    """Get how many CPUs we can use for farming jobs out"""
+    return max(multiprocessing.cpu_count() - 2, 1)

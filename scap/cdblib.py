@@ -18,8 +18,8 @@ rather than djb_hash() for a tidy speedup.
 """
 from __future__ import absolute_import
 
-from _struct import Struct
 from itertools import chain
+from _struct import Struct
 
 
 def py_djb_hash(s):
@@ -40,10 +40,10 @@ def py_djb_hash(s):
 
 
 # 2014-03-04 bd808: removed try block for importing C hash implementation
-djb_hash = py_djb_hash
+DJB_HASH = py_djb_hash
 
-read_2_le4 = Struct('<LL').unpack
-write_2_le4 = Struct('<LL').pack
+READ_2_LE4 = Struct('<LL').unpack
+WRITE_2_LE4 = Struct('<LL').pack
 
 
 class Reader(object):
@@ -55,7 +55,7 @@ class Reader(object):
     such as mmap.mmap().
     """
 
-    def __init__(self, data, hashfn=djb_hash):
+    def __init__(self, data, hashfn=DJB_HASH):
         """
         Create an instance reading from a sequence and hash keys using hashfn.
 
@@ -72,7 +72,7 @@ class Reader(object):
         self.data = data
         self.hashfn = hashfn
 
-        self.index = [read_2_le4(data[i:i + 8]) for i in xrange(0, 2048, 8)]
+        self.index = [READ_2_LE4(data[i:i + 8]) for i in xrange(0, 2048, 8)]
         self.table_start = min(p[0] for p in self.index)
         # Assume load load factor is 0.5 like official CDB.
         self.length = sum(p[1] >> 1 for p in self.index)
@@ -81,7 +81,7 @@ class Reader(object):
         """Like dict.iteritems(). Items are returned in insertion order."""
         pos = 2048
         while pos < self.table_start:
-            klen, dlen = read_2_le4(self.data[pos:pos + 8])
+            klen, dlen = READ_2_LE4(self.data[pos:pos + 8])
             pos += 8
 
             key = self.data[pos:pos + klen]
@@ -141,12 +141,12 @@ class Reader(object):
 
             for pos in chain(xrange(slot_off, end, 8),
                              xrange(start, slot_off, 8)):
-                rec_h, rec_pos = read_2_le4(self.data[pos:pos + 8])
+                rec_h, rec_pos = READ_2_LE4(self.data[pos:pos + 8])
 
                 if not rec_h:
                     break
                 elif rec_h == h:
-                    klen, dlen = read_2_le4(self.data[rec_pos:rec_pos + 8])
+                    klen, dlen = READ_2_LE4(self.data[rec_pos:rec_pos + 8])
                     rec_pos += 8
 
                     if self.data[rec_pos:rec_pos + klen] == key:
@@ -190,7 +190,7 @@ class Writer(object):
     """Object for building new Constant Databases, and writing them to a
     seekable file-like object."""
 
-    def __init__(self, fp, hashfn=djb_hash):
+    def __init__(self, fp, hashfn=DJB_HASH):
         """
         Create an instance writing to a file-like object and hash keys.
 
@@ -209,10 +209,10 @@ class Writer(object):
 
     def put(self, key, value=''):
         """Write a string key/value pair to the output file."""
-        assert type(key) is str and type(value) is str
+        assert isinstance(key, str) and isinstance(value, str)
 
         pos = self.fp.tell()
-        self.fp.write(write_2_le4(len(key), len(value)))
+        self.fp.write(WRITE_2_LE4(len(key), len(value)))
         self.fp.write(key)
         self.fp.write(value)
 
@@ -264,9 +264,9 @@ class Writer(object):
 
             index.append((self.fp.tell(), length))
             for pair in ordered:
-                self.fp.write(write_2_le4(*pair))
+                self.fp.write(WRITE_2_LE4(*pair))
 
         self.fp.seek(0)
         for pair in index:
-            self.fp.write(write_2_le4(*pair))
+            self.fp.write(WRITE_2_LE4(*pair))
         self.fp = None  # prevent double finalize()
