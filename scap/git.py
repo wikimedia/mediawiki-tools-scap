@@ -22,7 +22,7 @@ import scap.utils as utils
 import scap.sh as sh
 
 
-def git_version():
+def version():
     try:
         version_numbers = git('version').split(' ')[2]
         return tuple(int(n)
@@ -34,7 +34,7 @@ def git_version():
 
 # All tags created by scap use this prefix
 TAG_PREFIX = 'scap/sync'
-GIT_VERSION = git_version()
+GIT_VERSION = version()
 
 # Key is the pattern for .gitignore, value is a test for that pattern.
 DEFAULT_IGNORE = {
