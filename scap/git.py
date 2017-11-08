@@ -20,11 +20,21 @@ from scap.sh.contrib import git
 from scap.sh import ErrorReturnCode, ErrorReturnCode_1
 import scap.utils as utils
 import scap.sh as sh
-import scap.version
+
+
+def git_version():
+    try:
+        version_numbers = git('version').split(' ')[2]
+        return tuple(int(n)
+                     for n in version_numbers.split('.')[:4]
+                     if n.isdigit())
+    except Exception:
+        return (1, 9, 0)
+
 
 # All tags created by scap use this prefix
 TAG_PREFIX = 'scap/sync'
-VERSION = ()
+GIT_VERSION = git_version()
 
 # Key is the pattern for .gitignore, value is a test for that pattern.
 DEFAULT_IGNORE = {
@@ -33,15 +43,6 @@ DEFAULT_IGNORE = {
     '*/cache/l10n/*.cdb',
     'scap/log/*',
 }
-
-
-def version():
-    if scap.version.git_version is None:
-        version_numbers = git('version').split(' ')[2]
-        scap.version.git_version = tuple(int(n) for n in
-                                         version_numbers.split('.')[:4]
-                                         if n.isdigit())
-    return scap.version.git_version
 
 
 def info_filename(directory, install_path, cache_path):
@@ -315,8 +316,8 @@ def fetch(location, repo, reference=None, dissociate=True,
             git.fetch(*cmd)
     else:
         cmd = append_jobs_arg([])
-        git_version = version()
-        if reference is not None and git_version[0] > 1:
+
+        if reference is not None and GIT_VERSION[0] > 1:
             ensure_dir(reference)
             cmd.append('--reference')
             cmd.append(reference)
@@ -330,8 +331,7 @@ def fetch(location, repo, reference=None, dissociate=True,
 
 
 def append_jobs_arg(cmd):
-    VERSION = version()
-    if VERSION[0] > 2 or (VERSION[0] == 2 and VERSION[1] > 9):
+    if GIT_VERSION[0] > 2 or (GIT_VERSION[0] == 2 and GIT_VERSION[1] > 9):
         cmd.append('--jobs')
         cmd.append(str(utils.cpus_for_jobs()))
     return cmd
@@ -379,8 +379,8 @@ def update_submodules(location, git_remote=None, use_upstream=False,
 
         cmd = ['update', '--init', '--recursive']
         cmd = append_jobs_arg(cmd)
-        git_version = version()
-        if reference is not None and git_version[0] > 1:
+
+        if reference is not None and GIT_VERSION[0] > 1:
             ensure_dir(reference)
             cmd.append('--reference')
             cmd.append(reference)
