@@ -1,3 +1,28 @@
+scap (3.7.2-1) UNRELEASED; urgency=medium
+
+  * Improve CLI help messages for the deploy command
+
+  * If git_repo isn't set, lock scap sync*
+
+  * All deploys use specific keyholder key
+
+  * Packaging: Add php-cli to Debian suggests options
+
+  * Fix local variable 'search_path' referenced before assignment
+
+  * Nicer logging syntax, less characters
+
+  * Consistently SHOUT AT PEOPLE FOR CONSTANTS
+
+  * Remove support for DOLOGMSGNOLOG environment variable
+
+  * When syncing a symbolic link, also note what the symlink points to
+
+  * Tech Debt: A bunch of internal code cleanup and preparation work for
+    python 3 compatibility.
+
+ -- Mukunda Modell <mmodell@wikimedia.org>  Thu, 09 Nov 2017 18:46:39 -0600
+
 scap (3.7.1-1) unstable; urgency=low
 
   * Move php5-cli | hhvm to Suggests
