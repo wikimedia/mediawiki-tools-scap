@@ -1,4 +1,10 @@
-scap (3.7.2-1) UNRELEASED; urgency=medium
+scap (3.7.3-1) unstable; urgency=low
+
+  * Announce fix: correct action for command line argument
+
+ -- Tyler Cipriani <tcipriani@wikimedia.org>  Tue, 14 Nov 2017 07:49:21 -0700
+
+scap (3.7.2-1) unstable; urgency=medium
 
   * Improve CLI help messages for the deploy command
 
