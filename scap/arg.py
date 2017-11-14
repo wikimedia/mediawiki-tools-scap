@@ -301,7 +301,7 @@ def get_global_parser():
         '-e', '--environment', default=None,
         help='environment in which to execute scap')
     group.add_argument(
-        '--no-log-message', default='no_log_message',
+        '--no-log-message', action='store_true',
         help='Do not log messages to the public (IRC)')
 
     return parser
