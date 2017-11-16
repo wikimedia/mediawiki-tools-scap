@@ -154,7 +154,7 @@ def load(cfg):
 
     checks = collections.OrderedDict()
     if cfg and cfg.get('checks', None):
-        for name, options in cfg['checks'].iteritems():
+        for name, options in cfg['checks'].items():
             check_type = options.get('type', 'command')
 
             if not options:
