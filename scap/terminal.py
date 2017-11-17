@@ -157,8 +157,7 @@ SOFTWARE.
             raise IOError('Cannot write to closed terminal stream.')
 
         for i in args:
-            if not isinstance(i, basestring):
-                i = str(i)
+            i = str(i)
             self._out.write(i)
 
         if self.autoflush:
