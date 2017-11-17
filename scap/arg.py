@@ -57,21 +57,15 @@ ATTR_SUBCOMMAND = '_app_subcmd_name'
 
 
 class _ScapAutoCompleteAction(argparse.Action):
-
-    def __init__(self,
-                 option_strings,
-                 dest='_completion',
-                 metavar='CMD_LINE',
-                 default=argparse.SUPPRESS,
-                 showhelp=argparse.SUPPRESS):
+    def __init__(self):
         super(_ScapAutoCompleteAction, self).__init__(
-            option_strings=option_strings,
-            dest=dest,
-            metavar=metavar,
-            default=default,
+            option_strings=['--_completion'],
+            dest='_completion',
+            metavar='CMD_LINE',
+            default=argparse.SUPPRESS,
             nargs=None,
             type=str,
-            help=showhelp)
+            help=argparse.SUPPRESS)
 
     def __call__(self, parser, namespace, values, option_string=None):
         comp_words = re.split(r'\s+', values.lstrip())
@@ -113,8 +107,7 @@ class ScapArgParser(argparse.ArgumentParser):
             kwargs['conflict_handler'] = 'resolve'
         super(ScapArgParser, self).__init__(*args, **kwargs)
         if '_COMPLETION' in os.environ:
-            completion_action = _ScapAutoCompleteAction(['--_completion'])
-            self._add_action(completion_action)
+            self._add_action(_ScapAutoCompleteAction())
 
     def add_arguments(self, local_args):
         for argspec in reversed(local_args):
@@ -133,11 +126,11 @@ class ScapArgParser(argparse.ArgumentParser):
         word_is_optarg = False
         positionals_valid = True
         i = -1
-        for w in words:
+        for word in words:
             i += 1
-            if w in self._option_string_actions:
+            if word in self._option_string_actions:
                 # handle args which come after an --option
-                action = self._option_string_actions[w]
+                action = self._option_string_actions[word]
                 action_nargs = (1 if action.nargs is None else action.nargs)
                 if action_nargs == 1 and action.choices:
                     valid_words = set()
@@ -154,8 +147,8 @@ class ScapArgParser(argparse.ArgumentParser):
                     break
         if not word_is_optarg:
             if '--' not in words[:-1]:
-                for a in self._actions:
-                    valid_words.update([o + ' ' for o in a.option_strings])
+                for act in self._actions:
+                    valid_words.update([o + ' ' for o in act.option_strings])
             if positionals_valid:
                 positionals = self._get_positional_actions()
                 for action in positionals:
@@ -208,11 +201,9 @@ class ScapArgParser(argparse.ArgumentParser):
         if is_version in types:
             valid_words.add('__versions__')
 
-        for t in types:
-            cls = type(t)
-            if t is argparse.FileType or \
-               cls is argparse.FileType or \
-               t is file or cls is file:
+        for arg_type in types:
+            cls = type(arg_type)
+            if arg_type is argparse.FileType or cls is argparse.FileType:
                 valid_words.add('__files__')
 
         if words[-1].strip():
@@ -226,7 +217,7 @@ class ScapHelpFormatter(argparse.HelpFormatter):
     """Formatter that respects argparse.SUPPRESS for subparser actions."""
 
     def _format_action(self, action):
-        if not action.help == argparse.SUPPRESS:
+        if action.help != argparse.SUPPRESS:
             return super(ScapHelpFormatter, self)._format_action(action)
 
 
@@ -308,6 +299,7 @@ def get_global_parser():
 
 
 def extract_help_from_object(obj):
+    """Extract help information from the object's docblock"""
     doc = inspect.getdoc(obj) or ""
 
     lines = doc.strip().splitlines()
@@ -320,7 +312,9 @@ def extract_help_from_object(obj):
 
 
 def build_subparser(cmd, parser, global_parser):
-    """Append subparsers to ``cli.Application``'s agparser using decorators."""
+    """
+    Append subparsers to ``cli.Application``'s argparser using decorators.
+    """
 
     cls = cmd['cls']
     kwargs = extract_help_from_object(cls)
