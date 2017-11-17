@@ -37,7 +37,7 @@ AUTHORS = [('Antoine Musso', 'hashar@free.fr'),
 # https://python-packaging-user-guide.readthedocs.io/en/latest/single_source_version/
 VERSION = {}
 FILENAME = os.path.join(os.path.dirname(__file__), 'scap', 'version.py')
-exec(compile(open(FILENAME, "rb").read(), FILENAME, 'single'), VERSION)
+exec(compile(open(FILENAME, "rb").read(), FILENAME, 'exec'), VERSION)
 
 setup(name='Scap',
       version=VERSION['__version__'],
