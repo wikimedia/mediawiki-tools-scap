@@ -1,105 +1,402 @@
-scap (3.6.0-1) UNRELEASED; urgency=low
-
-  [ Chad Horohoe ]
-  * Remove old stub entry points for scap
+scap (3.7.4-1) UNRELEASED; urgency=medium
 
   [ Mukunda Modell ]
-  * dict.update not .extend, dict doesn't have an extend method.
-  * Generate scap version from changelog, add --version arg
-  * Don't import glob.glob
-  * silence lintian NMU warnings.
+  * Cache submodules and use --reference to save space
 
   [ Chad Horohoe ]
-  * Do not disclose hidden deployment commits
-
-  [ Tyler Cipriani ]
-  * Flatten MedaWiki deploy into a single git repo
-  * Bump version to 3.5.0
-  * Fix MediaWiki git ident errors
-
-  [ Dan Duvall ]
-  * Fix regression of deploy group continue prompt
-
-  [ halfak ]
-  * Adds sync_submodule() and uses it in deploy().
-
-  [ Tyler Cipriani ]
-  * Make checks serial by default
-
-  [ Dan Duvall ]
-  * Exclude empty deploy groups
-  * Fix `failure_rate` percentages
-
-  [ Chad Horohoe ]
-  * Add simple subcommand for logging to server admin log
-
-  [ Antoine Musso ]
-  * Deduplicate git authors via .mailmap
-
-  [ Tyler Cipriani ]
-  * Explicit sync-common step in mediawiki deploy
-
-  [ Chad Horohoe ]
-  * Don't bother doing syntax checks for symlink syncs
+  * Get rid of some weird line continuation issues
+  * Fix up some super strict flake8 warnings that are preventing docker builds from completing
+  * Stop using predefined built-in functions and such in scap code
+  * Iterating directly instead of calling keys() on a dict
+  * Fix up import stuff in test modules
+  * Don't lie when sync-wikiversions actually failed
+  * Rewrite exec() call from execfile()
+  * Cast ints to strings for --jobs operations in git.fetch()
+  * One more string for good measure. Silly python
 
   [ Mukunda Modell ]
-  * Add license: GPLv3
-
-  [ Tyler Cipriani ]
-  * Improve TypeError message for LogstashFormatter
+  * sync submodules after git submodule update
 
   [ Chad Horohoe ]
-  * Allow reloading service instead of restarting service
+  * Clean up various bad super calls in __init__ functions
+  * Fix py2/3 compat with next()
+  * Scap bin: Provide a sane initial docblock with license and such
+  * Clean up broad exceptions: Exception -> StandardError
+  * list doesn't have a clear() method until python 3.3+
+  * Add future imports to pooler
+  * Revert "Clean up broad exceptions: Exception -> StandardError"
 
   [ Mukunda Modell ]
-  * scap.utils.var_dump()
-  * New scap sayings...
+  * Sync submodules for the cache AND the rev directory
+  * Improve test coverage
 
   [ Chad Horohoe ]
-  * Move utils.lock() and related code to its own module
+  * Stop using xrange() for python 3 compat
+  * Stop using raw_input for python3 compat
 
   [ Mukunda Modell ]
-  * Fix FancyProgressReporter
+  * Fix the change-shebangs.patch
 
   [ Chad Horohoe ]
-  * Always compute new git info for all syncs, not just full scap
-
-  [ Tyler Cipriani ]
-  * Default .gitignore contra subdirectory .gitignore
-
-  [ Chad Horohoe ]
-  * Use absolute path to determine if relative path is a directory
-
-  [ Tyler Cipriani ]
-  * Merge environment-specific scap.cfg
-
-  [ Chad Horohoe ]
-  * Remove sourcing config from /srv/scap/*
-  * Stop looking for php5 or phtml files for linting
-
-  [ Tyler Cipriani ]
-  * Announce environment along with commit
+  * Use backported ConfigParser from 3.2+
+  * Just use the direct octals for the mode on the lock file
+  * Swap iteritems() for items()
+  * Swap xrange fallback from six for plain ol' range
+  * Python 3 compat: swap next() as a method for next() as a builtin
+  * Properly capitalize TERM as a constant in terminal
+  * Basic documentation for terminal ui
 
   [ Mukunda Modell ]
-  * Scap config diff
-
-  [ Chad Horohoe ]
-  * Allow for cloning repos while referencing other local copies
+  * New scap sayings
+  * Remove extra call to git.submodule_update
+  * Use sh library to wrap git commands.
 
   [ Tyler Cipriani ]
-  * Remove yield from Lock.lock __enter__
+  * Revert "Use sh library to wrap git commands."
+
+  [ Mukunda Modell ]
+  * Logging: Don't treat % as format string unless there are format args
+  * Fix tag_release to deal with git_version :-/
+  * Cleaner `git --version` cache handling.
+
+  [ Tyler Cipriani ]
+  * Fix scap git test
+  * Correct action for no-log-message
+
+  [ Chad Horohoe ]
+  * iteritems() -> items() for Python 3 compat
+  * Drop basestring check for terminal arguments
+  * Fix compile() mode
+
+  [ Mukunda Modell ]
+  * Fix PEP8 E225 (missing whitespace around operator)
+
+  [ Chad Horohoe ]
+  * Various pylint fixes for arg.py
+
+ -- Tyler Cipriani <tcipriani@wikimedia.org>  Mon, 20 Nov 2017 08:49:40 -0700
+
+scap (3.7.3-1) unstable; urgency=low
+
+  * Announce fix: correct action for command line argument
+
+ -- Tyler Cipriani <tcipriani@wikimedia.org>  Tue, 14 Nov 2017 07:49:21 -0700
+
+scap (3.7.2-1) unstable; urgency=medium
+
+  * Improve CLI help messages for the deploy command
+
+  * If git_repo isn't set, lock scap sync*
+
+  * All deploys use specific keyholder key
+
+  * Packaging: Add php-cli to Debian suggests options
+
+  * Fix local variable 'search_path' referenced before assignment
+
+  * Nicer logging syntax, less characters
+
+  * Consistently SHOUT AT PEOPLE FOR CONSTANTS
+
+  * Remove support for DOLOGMSGNOLOG environment variable
+
+  * When syncing a symbolic link, also note what the symlink points to
+
+  * Tech Debt: A bunch of internal code cleanup and preparation work for
+    python 3 compatibility.
+
+ -- Mukunda Modell <mmodell@wikimedia.org>  Thu, 09 Nov 2017 18:46:39 -0600
+
+scap (3.7.1-1) unstable; urgency=low
+
+  * Move php5-cli | hhvm to Suggests
+
+ -- Tyler Cipriani <tcipriani@wikimedia.org>  Thu, 12 Oct 2017 09:47:36 -0600
+
+scap (3.7.0-1) unstable; urgency=low
+
+  * Added a code of conduct file
+
+  * MediaWiki: Use co-masters as proxies when doing sync to canaries and
+    proxies
+
+  * Scap3: Learned to use a specific keyholder key when specifying
+    keyholder_key in `scap.cfg`. This should limit the number of keys tried by
+    keyholder that have led to the `too many authentication failures` message
+    (fixes T172333)
+
+  * Scap3: Now only logs that it is running the "restart_service" phase when
+    it actually restarts a service
+
+  * Scap3: Uses the yaml values for yaml templates in `scap/config_files.yaml`
+    (fixes T145510)
+
+  * Scap3: Learned how to ensure a service is not masked and exists when you
+    specify `require_valid_service` in `scap.cfg`.
+
+ -- Tyler Cipriani <tcipriani@wikimedia.org>  Thu, 31 Aug 2017 10:48:38 -0600
+
+scap (3.6.0-2) unstable; urgency=medium
+
+  * Add alternative dependency on php-cli for stretch compat
+
+ -- Filippo Giunchedi <filippo@wikimedia.org>  Thu, 27 Jul 2017 11:06:17 +0200
+
+scap (3.6.0-1) unstable; urgency=low
+
+  * MediaWiki: no longer has --no-touch / --beta-only-change
+
+  * MediaWiki: Create a wrapper around conftool for our pooling/depooling needs
+
+  * MediaWiki: canaries: only fail deployment if 1/4 canaries fail
+
+  * Scap3: learned how to handle multiple service restart/reload
+
+  * Scap3: Don't update SHA1 for --service-restart or --dry-run
+
+  * Docs: got some minor doc fixups
+
+  * Packaging cleanup: Move PHP to required packages, also allow
+    HHVM to satisfy the dependency, move python-semver from Depends to
+    Suggests
+
+  * Remove unused code: utils.deprecated_script(), functions introduced in D72
+
+ -- Tyler Cipriani <tcipriani@wikimedia.org>  Tue, 25 Jul 2017 13:58:14 -0600
+
+scap (3.5.8-1) unstable; urgency=low
+
+  * In which Chad cleans up our messes: Lots of pylint, and python3
+    compatibility work in this release.
+
+  * MediaWiki: Scap learned to yell in IRC when canary deploys of MediaWiki
+    fail. It also provides a link to a logstash dashboard so we find out what
+    went wrong.
+
+  * MediaWiki: Scap will run scap pull on all co-masters after syncing the
+    staging directory to ensure that even out-of-sync targets get the correct
+    code.
+
+  * MediaWiki: Remove unused tasks.purge_l10n_cache()
+
+  * MediaWiki and Scap3: Unify lock file handling between `deploy` and `sync`
+
+  * Scap3: bugfix for lock excuses
+
+  * Add semver package to our dependencies
+
+  * Scap learned the `scap lock` command for locking deployments
+
+  * There is a `scap version` command now \o/
+
+  * `scap say/fortune` learned some additional propaganda added at our
+    offsite. You're welcome.
+
+ -- Tyler Cipriani <tcipriani@wikimedia.org>  Mon, 05 Jun 2017 12:11:35 -0600
+
+scap (3.5.7-1) unstable; urgency=low
+
   * Fix _get_lock_excuse
 
-  [ Chad Horohoe ]
-  * Don't recache git info on sync-l10n
-  * Create version subcommand, cleans up weird argparse voodoo
-  * Add semver package to our depenencies
-  * Unify lock file handling between `deploy` and `sync`
+  * MediaWiki: Don't recache git info on sync-l10n since this is run by
+    l10nupdate (fixes T163671)
+
+ -- Tyler Cipriani <tcipriani@wikimedia.org>  Thu, 27 Apr 2017 16:21:34 -0600
+
+scap (3.5.6-1) unstable; urgency=low
+
+  * Scap global lock file fix
+
+  * MediaWiki: scap no longer looks for php5 or phtml files to lint
+
+  * Scap3: scap deploy now has a new --dry-run option. This option causes the
+    config_diff stage to run on the target. This option renders the
+    configuration files being deployed by a repo in a temprorary file and
+    diffs them against the live version of the files. The diff is sent to scap
+    deploy-log for review by the deployer. Nothing is deployed as part of a
+    deploy --dry-run.
+
+  * Scap3: scap deploy will now announce the environment along with commit if
+    the environment to which a repo is being deployed is not the default.
+
+ -- Tyler Cipriani <tcipriani@wikimedia.org>  Mon, 24 Apr 2017 17:17:36 -0600
+
+scap (3.5.5-1) unstable; urgency=low
+
+  * Scap now only looks in /etc/scap.cfg and at individual repos to find its
+    configuration.
+
+  * Scap3: The configuration merges from global to environment-specific for
+    vars.yaml, checks.yaml, and scap.cfg
+
+ -- Tyler Cipriani <tcipriani@wikimedia.org>  Mon, 10 Apr 2017 15:54:12 -0600
+
+scap (3.5.4-1) unstable; urgency=low
+
+  * Scap is now licensed under GPLv3 thanks to mmodell for spearheading this
+    effort!
+
+  * Scap's logger learned to tolerate remote messages that contain a percent
+    sign that isn't being used as part of a format string.
+
+  * Scap lock code has been moved to its own module.
+
+  * MediaWiki: all syncs will now update git info for MediaWiki and
+    extensions.
+
+  * MediaWiki: scap learned to use the absolute path when running sync
+    commands. This means you can now run sync commands outside
+    /srv/mediawiki-staging and they should still work (Fixes: T162220 --
+    thanks TimStarling for your help tracking this down!).
+
+  * Scap3: scap learned to reloading services in addition to being able to
+    restart them (Fixes: T134001).
+
+  * Scap3: scap say learned some new things to say...
+
+  * Scap3: some FancyProgressReporter updates and improvements have been made.
+
+  * MediaWiki on Scap3: Scap now ensures that the git directory created in
+    /srv/mediawiki has all files including those that may be .gitignored in
+    /srv/mediawiki-staging. This is needed to move to git-based syncs of
+    MediaWiki.
+
+ -- Tyler Cipriani <tcipriani@wikimedia.org>  Wed, 05 Apr 2017 11:31:03 -0600
+
+scap (3.5.3-1) unstable; urgency=low
+
+  * Deduplicate git authors via .mailmap
+  * Scap for MediaWiki now will do sync-common before rebuilding l10n files
+    (fixes T156851)
+  * Don't bother doing syntax checks for symlink syncs
+
+ -- Tyler Cipriani <tcipriani@wikimedia.org>  Mon, 27 Feb 2017 11:53:24 -0700
+
+scap (3.5.2-1) unstable; urgency=low
+
+  * Add simple subcommand for logging to server admin log
+    Sometimes it's annoying to context switch back to IRC. Also, there's been
+    some talk about removing the IRC dependency for logging, so this would
+    provide a useful fallback
+
+  * Fix `failure_rate` percentages
+    Configuring a `failure_rate` as a string percentage (e.g. '10%') now
+    correctly calculates an integer (number of targets) based on the
+    original size of the deploy group, not the `group_size` which splits
+    groups into smaller subgroups.
+
+  * Exclude empty deploy groups
+    Avoid zero-size related bugs by validating `targets.DeployGroup` input,
+    disallowing an empty targets list and/or a size of less than 1, and by
+    refactoring `TargetList.get_deploy_groups` to skip inclusion of empty
+    groups.
+
+  * Make checks serial by default
+    This is an update so that checks better fit deployer's (and my) mental
+    model of checks. This also enables the workaround of having a check
+    using the command `sleep 30` delay the execution of a subsequent check
+    proposed in T156687.
+
+  * Add sync_submodule() and use it in deploy().
+
+  * Fix regression of deploy group continue prompt
+    With D490 came a regression in the behavior of the continue prompt
+    whereby the prompt was only given after each originally configured
+    deploy group and not the smaller subgroups resulting from the configured
+    `group_size`. The original behavior has been restored.
+
+  * Fix MediaWiki git ident errors
+    Because we use GIT_* environmental variables to indicate the deployer as
+    the git commit author and the ssh_user as the git commiter those values
+    will override anything in any git configuration files. As a result, an
+    empty string for any one of those values will result in an ident (or
+    similar) error in git.
+
+ -- Mukunda Modell <mmodell@wikimedia.org>  Tue, 14 Feb 2017 08:34:36 -0600
+
+scap (3.5.1-1) unstable; urgency=low
+
+  * MediaWiki scap3 feature flag
 
   [ Tyler Cipriani ]
-  * Bump master version to 3.6.0-dev
 
- -- Tyler Cipriani <tcipriani@wikimedia.org>  Fri, 05 May 2017 12:24:03 -0600
+ -- Tyler Cipriani <tcipriani@wikimedia.org>  Mon, 30 Jan 2017 13:36:15 -0700
+
+scap (3.5.0-1) unstable; urgency=low
+
+  * MediaWiki: Old stub entry points for scap (e.g., sync-file, sync-dir,
+    mwversionsinuse, etc) are gone. Formerly old binstubs simply exited with a
+    non-zero exit code. Subcommands are now the only way to scap.
+
+  * MediaWiki: the canary logstash check for MediaWiki deploys now supports an
+    explicit service name (via the `canary_service` configuration variable).
+    This will allow us to monitor HHVM errors as well as MediaWiki errors on
+    the canary hosts before a deployment. (Fixes T154646, T142784)
+
+  * Scap3: Scap's rollback behavior has been greatly improved. Scap supports a
+    global `failure_limit` and a per-group `failure_limit` -- if a deployment
+    exceeds the number or percentage of failures specified by this limit a
+    deploy will fail and you will be prompted to rollback. Also, if you opt to
+    *not* continue a deployment on remaining deploy groups, you will receive
+    the option to rollback. (Fixes T149008)
+
+  * Scap3: This scap release has some rollback logic fixes. First, if there is
+    initial ssh failure for a host, scap will no longer attempt a rollback on
+    that host (since the same ssh failure will likely cause a rollback
+    failure). Next, all previously deployed groups of servers will now be
+    rolled-back -- not just the group of servers that had failures. (Fixes
+    T150267 T145460)
+
+  * MediaWiki: /srv/mediawiki is now a flattened git directory. This is the
+    first step towards moving MediaWiki deployments to Scap3. This is not a
+    change for deployers, but is a needed internal change.
+
+  * MediaWiki: `scap sync-file` and `scap sync-dir` are the same command
+    internally. `scap sync-dir` is deprecated.
+
+  * MediaWiki: scap now checks if proxies and canaries are listed among the
+    pooled servers (in mediawiki-installation) before attempting to deploy to
+    those hosts.
+
+  * MediaWiki/Scap3: A fancier progress bar is available. Simply set
+    `fancy_progress: True` in your config file to use it.
+
+  * MediaWiki: The `scap l10n-purge` subcommand is no more. Removed as it was
+    largely unused and was broken without notice for quite some time.
+
+  * Scap3: Old scap-created tags will now be removed from the deployment host
+    as part of the deployment. The number of tags to keep is controlled by the
+    `tags_to_keep` configuration variable. By default, scap keeps 20 tags.
+
+  * Scap3: in a shameless attempt to promote the use of messages for the
+    Server Admin Log for non-MediaWiki deployments the default Server Admin
+    Log message has been changed from "(no message)" to "(no justification
+    provided)"
+
+  * Internally, scap now uses wildly experimental Docker tests for CI and
+    local testing. All tests are now being run by CI (which was not true in
+    the past).
+
+  * Scap is moving closer to supporting python3, small changes in this release
+    bigger changes are yet to come.
+
+  * Scap's scap say command is now more compatible with cowsay(6). It now
+    supports passing messages on stdin as well as the `--eyes` flag.
+
+ -- Tyler Cipriani <tcipriani@wikimedia.org>  Wed, 25 Jan 2017 15:21:06 -0700
+
+scap (3.4.2-1) unstable; urgency=low
+
+  * "scap sync-l10n" now has the message argument (fixes T152390)
+
+ -- Tyler Cipriani <tcipriani@wikimedia.org>  Wed, 14 Dec 2016 11:16:42 -0700
+
+scap (3.4.1-1) unstable; urgency=low
+  * "scap deploy" no longer reports local commits when logging, now relies on
+    last common ancestor with upstream. Prevents leaking security patches and
+    instead reports public info.
+
+ -- Chad Horohoe <chad@wikimedia.org>  Thu, 1 Dec 2016 21:03:19 -0000
 
 scap (3.4.0-1) unstable; urgency=low
 
