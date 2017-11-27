@@ -396,7 +396,9 @@ class DeployLocal(cli.Application):
 
         self.context.rm_in_progress()
 
-        for rev_dir in self.context.find_old_rev_dirs():
+        cache_revs = self.config.get('cache_revs', 5)
+
+        for rev_dir in self.context.find_old_rev_dirs(cache_revs):
             logger.info('Removing old revision {}'.format(rev_dir))
             shutil.rmtree(rev_dir)
 
@@ -533,6 +535,10 @@ class Deploy(cli.Application):
     MAX_FAILURES = 0
 
     DEPLOY_CONF = [
+        'cache_revs',
+        'config_deploy',
+        'config_files',
+        'environment',
         'git_deploy_dir',
         'git_fat',
         'git_server',
@@ -540,16 +546,13 @@ class Deploy(cli.Application):
         'git_repo',
         'git_rev',
         'git_submodules',
-        'nrpe_dir',
         'git_upstream_submodules',
+        'nrpe_dir',
+        'perform_checks',
         'require_valid_service',
         'service_name',
         'service_port',
         'service_timeout',
-        'config_deploy',
-        'config_files',
-        'perform_checks',
-        'environment',
     ]
 
     continue_all = False
@@ -1153,3 +1156,9 @@ class DeployMediaWiki(cli.Application):
 
         with utils.cd(self.config['deploy_dir']):
             subprocess.check_call(cmd)
+
+
+@cli.command('deploy-status', help='Display the status of deployed revisions \
+             on target hosts')
+class DeployStatus(cli.Application):
+    pass

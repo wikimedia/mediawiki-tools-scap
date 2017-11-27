@@ -77,6 +77,7 @@ DEFAULT_CONFIG = {
     'perform_checks': (bool, True),
     'patch_path': (str, None),
     'conftool_config': (str, None),
+    'cache_revs': (int, 5),
 }
 
 
