@@ -240,7 +240,7 @@ class LogstashFormatter(logging.Formatter):
                     fields['message'] = fields['msg'] % fields['args']
                 else:
                     fields['message'] = fields['msg']
-            except TypeError as e:
+            except TypeError as typee:
                 # This sometimes happens if the fields['msg'] has a
                 # '%<something>' in it some place.
                 #
@@ -252,7 +252,7 @@ class LogstashFormatter(logging.Formatter):
                     'error: ({}); '
                     'format string: ({}); '
                     'arguments: ({})'.format(
-                        e.message,
+                        str(typee),
                         fields['msg'],
                         fields['args']))
 

@@ -717,7 +717,7 @@ class Deploy(cli.Application):
                 self._execute_for_group(stages, group, prompt_user=True)
 
         except DeployGroupFailure as failure:
-            logger.error(failure.message)
+            logger.error(str(failure))
 
             if utils.confirm('Rollback all deployed groups?', default=True):
                 # Rollback groups in reverse order

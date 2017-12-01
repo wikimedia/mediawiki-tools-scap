@@ -246,8 +246,8 @@ class LogstashFormatterTest(unittest.TestCase):
         with self.assertRaises(TypeError) as e:
             formatter.format(record)
 
-        self.assertIn(args[0], e.exception.message)
-        self.assertIn(msg, e.exception.message)
+        self.assertIn(args[0], str(e.exception))
+        self.assertIn(msg, str(e.exception))
 
 
 class ProgressReporterTest(unittest.TestCase):
