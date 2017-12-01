@@ -51,13 +51,15 @@ class AbstractSync(cli.Application):
 
     soft_errors = False
 
+    def __init__(self, exe_name):
+        super(AbstractSync, self).__init__(exe_name)
+        self.include = None
+
     @cli.argument('message', nargs='*', help='Log message for SAL')
     def main(self, *extra_args):
         """Perform a sync operation to the cluster."""
         print(utils.logo())
         self._assert_auth_sock()
-
-        self.include = None
 
         with lock.Lock(self.get_lock_file(), self.arguments.message):
             self._check_sync_flag()
@@ -412,7 +414,7 @@ class RebuildCdbs(cli.Application):
         # Leave some of the cores free for apache processes
         use_cores = utils.cpus_for_jobs()
 
-        self.versions = self.active_wikiversions(source_tree)
+        versions = self.active_wikiversions(source_tree)
 
         if self.arguments.version:
             version = self.arguments.version
@@ -420,15 +422,15 @@ class RebuildCdbs(cli.Application):
                 version = version[4:]
 
             # Assert version is active
-            if version not in self.versions:
+            if version not in versions:
                 raise IOError(
                     errno.ENOENT, 'Version not active', version)
 
             # Replace dict of active versions with the single version selected
-            self.versions = {version: self.versions[version]}
+            versions = {version: versions[version]}
 
         # Rebuild the CDB files from the JSON versions
-        for version, wikidb in self.versions.items():
+        for version in versions.keys():
             cache_dir = os.path.join(
                 root_dir, 'php-%s' % version, 'cache', 'l10n')
             tasks.merge_cdb_updates(

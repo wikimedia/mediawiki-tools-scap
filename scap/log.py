@@ -706,6 +706,8 @@ class Timer(object):
         self.label = label
         self.stats = stats
         self.logger = logger
+        self.mark_start = None
+        self.start = None
 
     def mark(self, label):
         """

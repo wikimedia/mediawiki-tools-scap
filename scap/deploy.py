@@ -77,6 +77,15 @@ class DeployLocal(cli.Application):
     the appropriate revisions, restarting services and running checks.
     """
 
+    def __init__(self, exe_name):
+        super(DeployLocal, self).__init__(exe_name)
+        self.context = None
+        self.final_path = None
+        self.noop = False
+        self.rev = None
+        self.server_url = None
+        self.stages = STAGES
+
     def _load_config(self):
 
         super(DeployLocal, self)._load_config()
@@ -120,12 +129,9 @@ class DeployLocal(cli.Application):
                        'server rather than using the locally cached config')
     def main(self, *extra_args):
         self.rev = self.config['git_rev']
-        self.noop = False
         # only supports http from tin for the moment
         url = os.path.normpath('{git_server}/{git_repo}'.format(**self.config))
         self.server_url = 'http://{0}'.format(url)
-
-        self.stages = STAGES
 
         if self.arguments.stage:
             self.stages = [self.arguments.stage]
@@ -142,7 +148,7 @@ class DeployLocal(cli.Application):
             if not self.noop and self.config['perform_checks']:
                 status = self._execute_checks(stage, group)
 
-            if not status == 0:
+            if status != 0:
                 break
 
         return status
@@ -550,6 +556,13 @@ class Deploy(cli.Application):
     repo = None
     targets = []
 
+    def __init__(self, exe_name):
+        super(Deploy, self).__init__(exe_name)
+        self.all_targets = None
+        self.context = None
+        self.deploy_groups = None
+        self.deploy_info = {}
+
     @cli.argument('-r', '--rev', help='Specify the revision to deploy')
     @cli.argument('-s', '--stages', choices=STAGES,
                   help='Execute specific deployment stages (For testing)')
@@ -569,7 +582,6 @@ class Deploy(cli.Application):
     def main(self, *extra_args):
         logger = self.get_logger()
 
-        self.deploy_info = {}
         self.repo = self.config['git_repo']
 
         if self.arguments.stages:
