@@ -35,6 +35,7 @@ import time
 
 import scap.arg as arg
 import scap.cli as cli
+import scap.lint as lint
 import scap.lock as lock
 import scap.log as log
 import scap.pooler as pooler
@@ -469,9 +470,9 @@ class Scap(AbstractSync):
         self.announce('Started scap: %s', self.arguments.message)
 
         # Validate php syntax of wmf-config and multiversion
-        tasks.check_valid_syntax(
-            '%(stage_dir)s/wmf-config' % self.config,
-            '%(stage_dir)s/multiversion' % self.config)
+        lint.check_valid_syntax(
+            ['%(stage_dir)s/wmf-config' % self.config,
+             '%(stage_dir)s/multiversion' % self.config])
 
     def _after_sync_common(self):
         super(Scap, self)._after_sync_common()
@@ -635,7 +636,7 @@ class SyncFile(AbstractSync):
             self.get_logger().info("%s: syncing symlink, not its target [%s]",
                                    abspath, symlink_dest)
         else:
-            tasks.check_valid_syntax(abspath)
+            lint.check_valid_syntax(abspath)
 
     def _proxy_sync_command(self):
         cmd = [self.get_script_path(), 'pull', '--no-update-l10n']

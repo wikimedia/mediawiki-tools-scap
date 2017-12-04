@@ -141,30 +141,6 @@ def cache_git_info(version, cfg):
                     json.dump(info, f)
 
 
-def check_valid_syntax(*paths):
-    """Run php -l in parallel on `paths`; raise CalledProcessError if nonzero
-    exit."""
-    logger = logging.getLogger('check_php_syntax')
-    quoted_paths = ["'%s'" % x for x in paths]
-    cmd = (
-        "find "
-        "-O2 "  # -O2 get -type executed after
-        "%s "
-        "-not -type d "  # makes no sense to lint a dir named 'less.php'
-        "-name '*.php' -not -name 'autoload_static.php' "
-        " -or -name '*.inc' | xargs -n1 -P%d -exec php -l >/dev/null 2>&1"
-    ) % (' '.join(quoted_paths), utils.cpus_for_jobs())
-    logger.debug('Running command: `%s`', cmd)
-    subprocess.check_call(cmd, shell=True)
-    # Check for anything that isn't a shebang before <?php (T92534)
-    for path in paths:
-        for root, dirs, files in os.walk(path):
-            for filename in files:
-                abspath = os.path.join(root, filename)
-                utils.check_php_opening_tag(abspath)
-                utils.check_valid_json_file(abspath)
-
-
 @utils.log_context('compile_wikiversions')
 def compile_wikiversions(source_tree, cfg, logger=None):
     """

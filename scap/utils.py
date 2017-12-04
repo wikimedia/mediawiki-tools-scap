@@ -480,16 +480,6 @@ def sudo_check_call(user, cmd, logger=None):
         raise subprocess.CalledProcessError(proc.returncode, cmd)
 
 
-def check_valid_json_file(path):
-    if not path.endswith('.json'):
-        return
-    with open(path) as f:
-        try:
-            json.load(f)
-        except ValueError:
-            raise ValueError('%s is an invalid JSON file' % path)
-
-
 def check_file_exists(path, message=False):
     if path is None or not os.path.isfile(path):
         raise IOError(
@@ -506,47 +496,6 @@ def check_dir_exists(path, message=False):
             message or 'Error: %s is not a directory.' % path,
             path
         )
-
-
-def check_php_opening_tag(path):
-    """
-    Check a PHP file to make sure nothing is before the opening <?php.
-
-    Except for shebangs.
-
-    :param path: Location of file
-    :raises: ValueError on invalid file
-    """
-    if not path.endswith(('.php', '.inc')):
-        return
-    with open(path) as f:
-        text = f.read()
-
-        # Empty files are ok
-        if len(text) < 1:
-            return
-
-        # Best case scenario to begin with the php open tag
-        if text.lower().startswith('<?php'):
-            return
-
-        # Also reasonable to start with a doctype declaration
-        if text.startswith('<!DOCTYPE'):
-            return
-
-        # If the first line is a shebang and the
-        # second has <?php, that's ok
-        lines = text.splitlines()
-
-        if (len(lines) > 1 and
-                lines[0].startswith('#!') and
-                lines[1].lower().startswith('<?php')):
-            return
-
-        # None of the return conditions matched, the file must contain <?php
-        # but with some content preceeding it.
-        raise ValueError(
-            '%s has content before opening <?php tag' % path)
 
 
 def logo(eyes=None, color=True, **colors):
