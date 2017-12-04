@@ -23,6 +23,7 @@ http://amoffat.github.io/sh/
 # THE SOFTWARE.
 #===============================================================================
 
+from __future__ import absolute_import
 
 __version__ = "1.12.14"
 __project_url__ = "https://github.com/amoffat/sh"
@@ -3581,4 +3582,3 @@ else:
     self = sys.modules[__name__]
     sys.modules[__name__] = SelfWrapper(self)
     register_importer()
-
