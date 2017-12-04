@@ -13,3 +13,5 @@
 /.pybuild
 /html
 /docs/html
+/.cache
+/htmlcov
