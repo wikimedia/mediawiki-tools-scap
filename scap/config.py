@@ -31,7 +31,7 @@ import scap.utils as utils
 
 
 DEFAULT_CONFIG = {
-    'bin_dir': (str, '/usr/local/bin'),
+    'bin_dir': (str, '/srv/deployment/scap/scap/bin'),
     'canary_dashboard_url': (
         str,
         'https://logstash.wikimedia.org/goto/3888cca979647b9381a7739b0bdbc88e'
