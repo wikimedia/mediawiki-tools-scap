@@ -21,7 +21,6 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """
 import os.path
-
 from distutils.core import setup
 
 AUTHORS = [('Antoine Musso', 'hashar@free.fr'),
@@ -37,11 +36,14 @@ AUTHORS = [('Antoine Musso', 'hashar@free.fr'),
 # https://python-packaging-user-guide.readthedocs.io/en/latest/single_source_version/
 VERSION = {}
 FILENAME = os.path.join(os.path.dirname(__file__), 'scap', 'version.py')
+# pylint complains about exec, but that's exactly what we want here
+# pylint: disable=W0122
 exec(compile(open(FILENAME, "rb").read(), FILENAME, 'exec'), VERSION)
 
 setup(name='Scap',
       version=VERSION['__version__'],
       description='Deployment toolchain for Wikimedia projects',
+      long_description=open('README.rst').read(),
       author=', '.join([name for name, _ in AUTHORS]),
       author_email=', '.join([email for _, email in AUTHORS]),
       license='GNU GPLv3',
@@ -52,7 +54,10 @@ setup(name='Scap',
       package_dir={'scap': 'scap'},
       scripts=['bin/scap'],
       requires=[line.strip() for line in open('requirements.txt')],
-      classifiers=['Operating System :: POSIX :: Linux',
-                   'Programming Language :: Python',
-                   'Programming Language :: Python :: 2',
-                   'Programming Language :: Python :: 2.7'])
+      keywords=['deploy', 'deployment', 'scap', 'scap2', 'scap3'],
+      classifiers=[
+          'Operating System :: POSIX :: Linux',
+          'Programming Language :: Python',
+          'Programming Language :: Python :: 2',
+          'Programming Language :: Python :: 2.7',
+          'License :: OSI Approved :: GNU General Public License v3 (GPLv3)'])
