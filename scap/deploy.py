@@ -972,7 +972,7 @@ class Deploy(cli.Application):
             hosts=targets,
             user=self.config['ssh_user'],
             key=self.get_keyholder_key(),
-            verbose=self.verbose())
+            verbose=self.verbose)
         deploy_stage.output_handler = ssh.JSONOutputHandler
         deploy_stage.max_failure = self.MAX_FAILURES
         deploy_stage.command(deploy_local_cmd)
