@@ -66,12 +66,12 @@ def esc(*args):
     return '\x1b[%sm' % ';'.join(str(arg) for arg in sorted(args))
 
 
-def format(*args):
+def format_ansi(*args):
     """
     create an ansi color string from a list of color codes and plain strings.
 
-    >>> format((FG_BLUE,BG_WHITE),'blue on white') \
-            == '\x1b[34;47mblue on white\x1b[0m'
+    >>> format_ansi((FG_BLUE,BG_WHITE),'blue on white') \
+                 == '\x1b[34;47mblue on white\x1b[0m'
     True
 
     :param args: ANSI color codes and strings of text

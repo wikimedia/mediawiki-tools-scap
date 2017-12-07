@@ -1,8 +1,10 @@
 #!/usr/bin/env python2
 
+from __future__ import absolute_import
+
 import unittest
 
-from scap import cmd
+import scap.cmd as cmd
 
 
 class CommandTest(unittest.TestCase):
@@ -11,7 +13,7 @@ class CommandTest(unittest.TestCase):
         ssh = cmd.Command('/usr/bin/ssh', cmd.arg('user', '-oUser={}'))
         sudo = cmd.Command('sudo', cmd.arg('user', '-u {}'), '-n', '--')
         cmdline = ssh('some.host', sudo('remote_cmd', 'some', 'args',
-                      user='sudo_user'),
+                                        user='sudo_user'),
                       user='ssh_user')
 
         self.assertEqual(cmdline, ['/usr/bin/ssh',

@@ -87,8 +87,10 @@ class arg(object):
     def __init__(self, name, cmd):
         self.name = name
         self.cmd = cmd
+        self._required = False
 
     def required(self, required=True):
+        """Mark this argument as required"""
         self._required = required
         return self
 

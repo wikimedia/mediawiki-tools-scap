@@ -35,6 +35,7 @@ import time
 
 import scap.arg as arg
 import scap.cli as cli
+import scap.lint as lint
 import scap.lock as lock
 import scap.log as log
 import scap.pooler as pooler
@@ -51,13 +52,15 @@ class AbstractSync(cli.Application):
 
     soft_errors = False
 
+    def __init__(self, exe_name):
+        super(AbstractSync, self).__init__(exe_name)
+        self.include = None
+
     @cli.argument('message', nargs='*', help='Log message for SAL')
     def main(self, *extra_args):
         """Perform a sync operation to the cluster."""
         print(utils.logo())
         self._assert_auth_sock()
-
-        self.include = None
 
         with lock.Lock(self.get_lock_file(), self.arguments.message):
             self._check_sync_flag()
@@ -413,7 +416,7 @@ class RebuildCdbs(cli.Application):
         # Leave some of the cores free for apache processes
         use_cores = utils.cpus_for_jobs()
 
-        self.versions = self.active_wikiversions(source_tree)
+        versions = self.active_wikiversions(source_tree)
 
         if self.arguments.version:
             version = self.arguments.version
@@ -421,15 +424,15 @@ class RebuildCdbs(cli.Application):
                 version = version[4:]
 
             # Assert version is active
-            if version not in self.versions:
+            if version not in versions:
                 raise IOError(
                     errno.ENOENT, 'Version not active', version)
 
             # Replace dict of active versions with the single version selected
-            self.versions = {version: self.versions[version]}
+            versions = {version: versions[version]}
 
         # Rebuild the CDB files from the JSON versions
-        for version, wikidb in self.versions.items():
+        for version in versions.keys():
             cache_dir = os.path.join(
                 root_dir, 'php-%s' % version, 'cache', 'l10n')
             tasks.merge_cdb_updates(
@@ -468,9 +471,9 @@ class Scap(AbstractSync):
         self.announce('Started scap: %s', self.arguments.message)
 
         # Validate php syntax of wmf-config and multiversion
-        tasks.check_valid_syntax(
-            '%(stage_dir)s/wmf-config' % self.config,
-            '%(stage_dir)s/multiversion' % self.config)
+        lint.check_valid_syntax(
+            ['%(stage_dir)s/wmf-config' % self.config,
+             '%(stage_dir)s/multiversion' % self.config])
 
     def _after_sync_common(self):
         super(Scap, self)._after_sync_common()
@@ -634,7 +637,7 @@ class SyncFile(AbstractSync):
             self.get_logger().info("%s: syncing symlink, not its target [%s]",
                                    abspath, symlink_dest)
         else:
-            tasks.check_valid_syntax(abspath)
+            lint.check_valid_syntax(abspath)
 
     def _proxy_sync_command(self):
         cmd = [self.get_script_path(), 'pull', '--no-update-l10n']
@@ -767,18 +770,22 @@ class SyncWikiversions(AbstractSync):
 
         # this is here for git_repo
         self.include = '/wikiversions*.{json,php}'
+        success = failed = 0
         with lock.Lock(self.get_lock_file(), self.arguments.message):
             self._check_sync_flag()
             self._sync_common()
             self._after_sync_common()
             self._sync_masters()
             mw_install_hosts = self._get_target_list()
-            tasks.sync_wikiversions(
+            success, failed = tasks.sync_wikiversions(
                 mw_install_hosts, self.config, key=self.get_keyholder_key())
 
-        self.announce(
-            'rebuilt wikiversions.php and synchronized wikiversions files: %s',
-            self.arguments.message)
+        if failed:
+            self.get_logger().warning(
+                '%d hosts had sync_wikiversions errors', failed)
+        if success:
+            self.announce('rebuilt and synchronized wikiversions files: %s',
+                          self.arguments.message)
 
         self.get_stats().increment('deploy.sync-wikiversions')
         self.get_stats().increment('deploy.all')

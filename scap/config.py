@@ -22,7 +22,7 @@
 """
 from __future__ import absolute_import
 
-import ConfigParser
+from six.moves.configparser import ConfigParser
 import getpass
 import os
 import socket
@@ -78,6 +78,7 @@ DEFAULT_CONFIG = {
     'perform_checks': (bool, True),
     'patch_path': (str, None),
     'conftool_config': (str, None),
+    'cache_revs': (int, 5),
 }
 
 
@@ -117,7 +118,7 @@ def load(cfg_file=None, environment=None, overrides=None):
     """
     local_cfg = os.path.join(os.getcwd(), 'scap')
 
-    parser = ConfigParser.SafeConfigParser()
+    parser = ConfigParser()
     if cfg_file:
         try:
             cfg_file = open(cfg_file)
@@ -140,7 +141,7 @@ def load(cfg_file=None, environment=None, overrides=None):
     sections = ['global']
     sections += ['.'.join(fqdn[l:]) for l in range(0, len(fqdn))][::-1]
 
-    config = {key: value for key, (_, value) in DEFAULT_CONFIG.iteritems()}
+    config = {key: value for key, (_, value) in DEFAULT_CONFIG.items()}
 
     for section in sections:
         if parser.has_section(section):
@@ -161,7 +162,7 @@ def load(cfg_file=None, environment=None, overrides=None):
 def override_config(config, overrides=None):
     """Override values in a config with type-coerced values."""
     if overrides:
-        for key, value in overrides.iteritems():
+        for key, value in overrides.items():
             config[key] = coerce_value(key, value)
 
     return config

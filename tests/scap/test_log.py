@@ -1,5 +1,7 @@
 #!/usr/bin/env python2
 
+from __future__ import absolute_import
+
 import json
 import logging
 import re
@@ -33,9 +35,9 @@ class FilterTest(unittest.TestCase):
             blah = splat.*
         """
 
-        filter = log.Filter.loads(expression)
+        logfilter = log.Filter.loads(expression)
 
-        self.assertIsInstance(filter, log.Filter)
+        self.assertIsInstance(logfilter, log.Filter)
 
     def test_filter_loads_filters_correctly(self):
         expression = r"""
@@ -43,30 +45,30 @@ class FilterTest(unittest.TestCase):
             msg ~ 'log'
         """
 
-        filter = log.Filter.loads(expression, filter=False)
+        logfilter = log.Filter.loads(expression, invert=False)
 
         record = ['foo.bar.baz', logging.DEBUG, '', 0, 'bologna', [], None]
         record = logging.LogRecord(*record)
-        self.assertTrue(filter.filter(record))
+        self.assertTrue(logfilter.filter(record))
 
         record = ['bar.baz', logging.DEBUG, '', 0, 'bologna', [], None]
         record = logging.LogRecord(*record)
-        self.assertFalse(filter.filter(record))
+        self.assertFalse(logfilter.filter(record))
 
     def test_filter_loads_supports_numeric_comparisons(self):
         expression = r"""
             levelno > 10
         """
 
-        filter = log.Filter.loads(expression, filter=False)
+        logfilter = log.Filter.loads(expression, invert=False)
 
         record = ['', 10, '', 0, 'bologna', [], None]
         record = logging.LogRecord(*record)
-        self.assertFalse(filter.filter(record))
+        self.assertFalse(logfilter.filter(record))
 
         record = ['', 20, '', 0, '', [], None]
         record = logging.LogRecord(*record)
-        self.assertTrue(filter.filter(record))
+        self.assertTrue(logfilter.filter(record))
 
     def test_filter_parse(self):
         expression = r"""
@@ -82,9 +84,9 @@ class FilterTest(unittest.TestCase):
             ('blah', '=', 'splat.*')])
 
     def test_filter_filters_matching(self):
-        filter = log.Filter({'name': 'A.B.*'})
+        logfilter = log.Filter({'name': 'A.B.*'})
 
-        self.root_handler.addFilter(filter)
+        self.root_handler.addFilter(logfilter)
 
         self.b_logger.info('please log this')
         self.c_logger.info('do not log this')
@@ -92,9 +94,9 @@ class FilterTest(unittest.TestCase):
         self.assertEqual("please log this\n", self.stream.getvalue())
 
     def test_filter_filters_matching_regex(self):
-        filter = log.Filter({'name': re.compile(r'^A\.B\.')})
+        logfilter = log.Filter({'name': re.compile(r'^A\.B\.')})
 
-        self.root_handler.addFilter(filter)
+        self.root_handler.addFilter(logfilter)
 
         self.b_logger.info('please log this')
         self.c_logger.info('do not log this')
@@ -102,9 +104,9 @@ class FilterTest(unittest.TestCase):
         self.assertEqual("please log this\n", self.stream.getvalue())
 
     def test_filter_filters_matching_lambda(self):
-        filter = log.Filter({'levelno': lambda lvl: lvl < logging.WARNING})
+        logfilter = log.Filter({'levelno': lambda lvl: lvl < logging.WARNING})
 
-        self.root_handler.addFilter(filter)
+        self.root_handler.addFilter(logfilter)
 
         self.b_logger.warning('please log this')
         self.c_logger.info('do not log this')
@@ -112,9 +114,9 @@ class FilterTest(unittest.TestCase):
         self.assertEqual("please log this\n", self.stream.getvalue())
 
     def test_filter_can_invert_behavior(self):
-        filter = log.Filter({'name': 'A.B.*'}, filter=False)
+        logfilter = log.Filter({'name': 'A.B.*'}, invert=False)
 
-        self.root_handler.addFilter(filter)
+        self.root_handler.addFilter(logfilter)
 
         self.b_logger.info('please log this')
         self.c_logger.info('do not log this')
@@ -244,8 +246,8 @@ class LogstashFormatterTest(unittest.TestCase):
         with self.assertRaises(TypeError) as e:
             formatter.format(record)
 
-        self.assertIn(args[0], e.exception.message)
-        self.assertIn(msg, e.exception.message)
+        self.assertIn(args[0], str(e.exception))
+        self.assertIn(msg, str(e.exception))
 
 
 class ProgressReporterTest(unittest.TestCase):

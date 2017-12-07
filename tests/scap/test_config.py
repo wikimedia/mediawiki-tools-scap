@@ -1,12 +1,14 @@
 #!/usr/bin/env python2
 
+from __future__ import absolute_import
+
 from contextlib import contextmanager
 import os
 import unittest
 import tempfile
 from textwrap import dedent
 
-from scap import config
+import scap.config as config
 
 
 class ConfigTest(unittest.TestCase):

@@ -1,7 +1,9 @@
+configparser
 conftool
 jinja2
 psutil
 pyaml
 requests
 semver
+six
 pygments

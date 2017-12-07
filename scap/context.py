@@ -28,8 +28,6 @@ import os
 
 import scap.utils as utils
 
-REVS_TO_KEEP = 5
-
 
 class Context(object):
     """Base context for either the deployment host or target."""
@@ -167,23 +165,23 @@ class TargetContext(Context):
         """Local target file that has a copy of the last-deployed config."""
         return self.path('.config')
 
-    def find_old_rev_dirs(self):
+    def find_old_rev_dirs(self, cache_revs=5):
         """
         Generate revision directories that are candidates for deletion.
 
-        The :py:const:`REVS_TO_KEEP` most recent revision directories and any
+        The `cache_revs` most recent revision directories and any
         revision directory that is current or in progress is not considered.
         """
 
         rev_dirs = map(
             lambda d: os.path.join(self.revs_dir, d),
-            os.walk(self.revs_dir).next()[1])
+            next(os.walk(self.revs_dir))[1])
         rev_dirs_by_ctime = sorted(
             rev_dirs, key=os.path.getctime, reverse=True)
 
         off_limits = [self.current_rev_dir, self.done_rev_dir]
 
-        for rev_dir in rev_dirs_by_ctime[REVS_TO_KEEP::]:
+        for rev_dir in rev_dirs_by_ctime[cache_revs::]:
             full_rev_dir = os.path.join(self.revs_dir, rev_dir)
 
             if full_rev_dir not in off_limits:

@@ -30,7 +30,7 @@ import sys
 import time
 import scap.plugins
 
-from scap.terminal import term
+from scap.terminal import TERM
 import scap.arg as arg
 import scap.config as config
 import scap.lock as lock
@@ -242,8 +242,8 @@ class Application(object):
         :returns: exit status
         """
         try:
-            term.reset_colors()
-            term.close()
+            TERM.reset_colors()
+            TERM.close()
         except Exception:
             pass
 

@@ -35,12 +35,12 @@ import scap.log as log
 import scap.utils as utils
 import scap.cmd as cmd
 
-
 CONNECTION_FAILURE = 255
 DEFAULT_BATCH_SIZE = 80
 SSH = cmd.Command(
     '/usr/bin/ssh', '-oBatchMode=yes',
     '-oSetupTimeout=10',
+    cmd.arg('verbose', '-v'),
     '-F/dev/null', cmd.arg('user', '-oUser={}'))
 SSH_WITH_KEY = cmd.Command(
     '/usr/bin/ssh',
@@ -48,6 +48,7 @@ SSH_WITH_KEY = cmd.Command(
     '-oSetupTimeout=10',
     '-oIdentitiesOnly=yes',
     '-F/dev/null',
+    cmd.arg('verbose', '-v'),
     cmd.arg('user', '-oUser={}'),
     cmd.arg('key', '-oIdentityFile={}'))
 
@@ -77,7 +78,7 @@ class JSONOutputHandler(OutputHandler):
     """
 
     def __init__(self, host):
-        self.host = host
+        super(JSONOutputHandler, self).__init__(host)
         self._logger = utils.get_logger().getChild('target').getChild(host)
         self._partial = ''
 
@@ -128,7 +129,7 @@ class Job(object):
     """Execute a job on a group of remote hosts via ssh."""
     @utils.log_context('ssh.job')
     def __init__(self, hosts=None, command=None, user=None,
-                 logger=None, key=None):
+                 logger=None, key=None, verbose=False):
         self.hosts(hosts or [])
         self._command = command
         self._reporter = None
@@ -137,6 +138,7 @@ class Job(object):
         self.max_failure = len(self._hosts)
         self._logger = logger
         self.output_handler = OutputHandler
+        self.verbose = verbose
 
     def get_logger(self):
         """Lazy getter for a logger instance."""
@@ -210,7 +212,8 @@ class Job(object):
                     self._key,
                     batch_size,
                     self.max_failure,
-                    self.output_handler):
+                    self.output_handler,
+                    self.verbose):
 
                 if status == 0:
                     self._reporter.add_success()
@@ -230,7 +233,7 @@ class Job(object):
 
 def cluster_ssh(
         hosts, command, user=None, key=None, limit=DEFAULT_BATCH_SIZE,
-        max_fail=None, output_handler=None):
+        max_fail=None, output_handler=None, verbose=False):
     """Run a command via SSH on multiple hosts concurrently."""
     hosts = set(hosts)
     # Ensure a minimum batch size of 1
@@ -251,14 +254,16 @@ def cluster_ssh(
         while hosts or procs:
             if hosts and len(procs) < limit:
                 host = hosts.pop()
-                ssh_command = SSH(host, command, user=user)
+
                 if key:
-                    ssh_command = SSH_WITH_KEY(
-                        host, command, user=user, key=key
+                    ssh_cmd = SSH_WITH_KEY(
+                        host, command, user=user, key=key, verbose=verbose
                     )
+                else:
+                    ssh_cmd = SSH(host, command, user=user, verbose=verbose)
 
                 proc = subprocess.Popen(
-                    ssh_command,
+                    ssh_cmd,
                     stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
                     preexec_fn=os.setsid)
 

@@ -32,6 +32,8 @@ import sys
 import tempfile
 import yaml
 
+from six.moves import input as _input
+
 import pygments
 import pygments.lexers
 import pygments.formatters
@@ -117,7 +119,7 @@ def ask(question, default, choices=None):
     if choices is None:
         choices = '[{}]'.format(default)
 
-    ans = raw_input('{} {}: '.format(question, choices)).strip()
+    ans = _input('{} {}: '.format(question, choices)).strip()
     return ans.lower() if ans else default
 
 
@@ -158,7 +160,7 @@ def confirm(question='Continue?', default=False, on_fulfilled=None,
     result = default
 
     if sys.stdout.isatty():
-        ans = raw_input('{} {}: '.format(question, choices)).strip().lower()
+        ans = _input('{} {}: '.format(question, choices)).strip().lower()
         if ans in yes:
             result = True
         elif ans in no:
@@ -208,8 +210,8 @@ def find_nearest_host(hosts, port=22, timeout=1):
         if not host_map:
             break
         for host, info in random.sample(host_map.items(), len(host_map)):
-            family, type, proto, _, addr = info
-            s = socket.socket(family, type, proto)
+            family, sock_type, proto, _, addr = info
+            s = socket.socket(family, sock_type, proto)
             s.setsockopt(
                 socket.IPPROTO_IP, socket.IP_TTL, struct.pack('I', ttl))
             s.settimeout(timeout)
@@ -385,15 +387,15 @@ def log_context(context_name):
 
             # Check if logger was passed as a positional argument
             try:
-                l = args[argspec.args.index('logger')]
+                logger = args[argspec.args.index('logger')]
             except IndexError:
-                l = None
+                logger = None
 
             # Check if logger was passed as a keyword argument
-            if l is None:
-                l = kwargs.get('logger', None)
+            if logger is None:
+                logger = kwargs.get('logger', None)
 
-            if l is not None:
+            if logger is not None:
                 return func(*args, **kwargs)
 
             with context_logger(context_name) as logger:
@@ -478,16 +480,6 @@ def sudo_check_call(user, cmd, logger=None):
         raise subprocess.CalledProcessError(proc.returncode, cmd)
 
 
-def check_valid_json_file(path):
-    if not path.endswith('.json'):
-        return
-    with open(path) as f:
-        try:
-            json.load(f)
-        except ValueError:
-            raise ValueError('%s is an invalid JSON file' % path)
-
-
 def check_file_exists(path, message=False):
     if path is None or not os.path.isfile(path):
         raise IOError(
@@ -504,47 +496,6 @@ def check_dir_exists(path, message=False):
             message or 'Error: %s is not a directory.' % path,
             path
         )
-
-
-def check_php_opening_tag(path):
-    """
-    Check a PHP file to make sure nothing is before the opening <?php.
-
-    Except for shebangs.
-
-    :param path: Location of file
-    :raises: ValueError on invalid file
-    """
-    if not path.endswith(('.php', '.inc')):
-        return
-    with open(path) as f:
-        text = f.read()
-
-        # Empty files are ok
-        if len(text) < 1:
-            return
-
-        # Best case scenario to begin with the php open tag
-        if text.lower().startswith('<?php'):
-            return
-
-        # Also reasonable to start with a doctype declaration
-        if text.startswith('<!DOCTYPE'):
-            return
-
-        # If the first line is a shebang and the
-        # second has <?php, that's ok
-        lines = text.splitlines()
-
-        if (len(lines) > 1 and
-                lines[0].startswith('#!') and
-                lines[1].lower().startswith('<?php')):
-            return
-
-        # None of the return conditions matched, the file must contain <?php
-        # but with some content preceeding it.
-        raise ValueError(
-            '%s has content before opening <?php tag' % path)
 
 
 def logo(eyes=None, color=True, **colors):
@@ -595,7 +546,7 @@ def logo(eyes=None, color=True, **colors):
     pallet.update(colors)
 
     if not color:
-        for key in pallet.keys():
+        for key, _ in pallet:
             pallet[key] = ''
 
     return ''.join(line % pallet for line in [
@@ -796,7 +747,7 @@ def get_active_wikiversions(directory, realm, datacenter):
     # Convert to list of (version, db) tuples sorted by version number
     # and then convert that list to an OrderedDict
     sorted_versions = collections.OrderedDict(
-        sorted(versions.iteritems(),
+        sorted(versions.items(),
                key=lambda v: distutils.version.LooseVersion(v[0])))
 
     return sorted_versions

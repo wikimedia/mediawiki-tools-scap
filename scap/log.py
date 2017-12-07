@@ -44,7 +44,7 @@ try:
 except ImportError:
     DiffLexer = None
 
-from scap.terminal import term
+from scap.terminal import TERM
 import scap.utils as utils
 
 # Format string for log messages. Interpolates LogRecord attributes.
@@ -212,14 +212,15 @@ class LogstashFormatter(logging.Formatter):
 
     converter = time.gmtime
 
-    def __init__(self, fmt=None, datefmt='%Y-%m-%dT%H:%M:%SZ', type='scap'):
+    def __init__(self, fmt=None, datefmt='%Y-%m-%dT%H:%M:%SZ',
+                 log_type='scap'):
         """
         :param fmt: Message format string (not used)
         :param datefmt: Time format string
         :param type: Logstash event type
         """
-        super(self.__class__, self).__init__(fmt, datefmt)
-        self.type = type
+        super(LogstashFormatter, self).__init__(fmt, datefmt)
+        self.type = log_type
         self.host = socket.gethostname()
         self.script = sys.argv[0]
         self.user = utils.get_real_username()
@@ -235,8 +236,11 @@ class LogstashFormatter(logging.Formatter):
         # Ensure message is populated
         if 'message' not in fields:
             try:
-                fields['message'] = fields['msg'] % fields['args']
-            except TypeError as e:
+                if 'args' in fields and fields['args']:
+                    fields['message'] = fields['msg'] % fields['args']
+                else:
+                    fields['message'] = fields['msg']
+            except TypeError as typee:
                 # This sometimes happens if the fields['msg'] has a
                 # '%<something>' in it some place.
                 #
@@ -248,7 +252,7 @@ class LogstashFormatter(logging.Formatter):
                     'error: ({}); '
                     'format string: ({}); '
                     'arguments: ({})'.format(
-                        e.message,
+                        str(typee),
                         fields['msg'],
                         fields['args']))
 
@@ -397,11 +401,10 @@ class ProgressReporter(object):
 class FancyProgressReporter(ProgressReporter):
 
     def __init__(self, name='', expect=0, fd=sys.stderr):
-        term.scroll_region(0, term.height - 3)
-        term.scroll_forward(1)
-        term.register_cleanup_callback(self.cleanup)
-        return super(FancyProgressReporter, self).__init__(
-            name, expect=expect, fd=fd)
+        TERM.scroll_region(0, TERM.height - 3)
+        TERM.scroll_forward(1)
+        TERM.register_cleanup_callback(self.cleanup)
+        super(FancyProgressReporter, self).__init__(name, expect=expect, fd=fd)
 
     def finish(self):
         """Finish tracking progress."""
@@ -409,14 +412,14 @@ class FancyProgressReporter(ProgressReporter):
 
         message = "Finished: %s (%s failed) " % \
             (self._name, self._failed)
-        width = min((term.width, 80)) - len(message)
+        width = min((TERM.width, 80)) - len(message)
         bars = width - 4
         prog_bar = '=' * bars
         self.cleanup()
-        term.fg(7).write(message) \
+        TERM.fg(7).write(message) \
             .fg(4).write(prog_bar).nl()
 
-    def cleanup(self, term=term):
+    def cleanup(self, term=TERM):
         height = term.height
         term.save()
         term.move(height - 2, 0).clear_eol() \
@@ -427,8 +430,8 @@ class FancyProgressReporter(ProgressReporter):
         term.restore()
 
     def _progress(self):
-        width = term.width
-        bottom = term.height
+        width = TERM.width
+        bottom = TERM.height
         label_width = len(self._name) + 12
         scale = int(width / 2)
         scale = min(width - label_width, scale)
@@ -444,7 +447,7 @@ class FancyProgressReporter(ProgressReporter):
         prog_bar = '█' * int(filled_bars)
         prog_bar = prog_bar + partial_bar[remain]
 
-        term.save() \
+        TERM.save() \
             .move(bottom - 1, 0) \
             .fg(15).write("| ok: ") \
             .fg(2).write(str(self.ok)) \
@@ -454,7 +457,7 @@ class FancyProgressReporter(ProgressReporter):
             .fg(7).write(str(self.remaining), ' | ') \
             .clear_eol()
 
-        term.move(bottom - 2, 0) \
+        TERM.move(bottom - 2, 0) \
             .fg(15).write('| ') \
             .fg(7).write(self._name) \
             .fg(15).write(" | ") \
@@ -462,7 +465,7 @@ class FancyProgressReporter(ProgressReporter):
             .fg(4).write(prog_bar) \
             .clear_eol()
 
-        term.restore().flush()
+        TERM.restore().flush()
 
     def _output(self):
         return '%s: %3.0f%% (ok: %d; fail: %d; left: %d)' % (
@@ -474,7 +477,7 @@ class MuteReporter(ProgressReporter):
     """A report that declines to report anything."""
 
     def __init__(self, name='', expect=0, fd=sys.stderr):
-        super(self.__class__, self).__init__(name)
+        super(MuteReporter, self).__init__(name)
 
     def _progress(self):
         pass
@@ -514,14 +517,14 @@ class Filter(object):
         Filter({'name': '*.target.*', 'host': 'scap-target-01'})
         Filter({'msg': re.compile('some annoying (message|msg)')})
         Filter({'levelno': lambda lvl: lvl < logging.WARNING})
-        Filter({'name': '*.target.*'}, filter=False)
+        Filter({'name': '*.target.*'}, invert=False)
 
     Equivalent DSL examples::
 
         Filter.loads('name == *.target.* host == scap-target-01')
         Filter.loads('msg ~ "some annoying (message|msg)"')
-        Filter.loads('levelno < WARNING')
-        Filter.loads('name == *.target.*', filter=False)
+        Filter.loads('levelno < WARNING')f
+        Filter.loads('name == *.target.*', invert=False)
     """
 
     OPERATORS = {'=', '==', '~', '>', '>=', '<', '<='}
@@ -529,7 +532,7 @@ class Filter(object):
     LOG_LEVELS = ['CRITICAL', 'ERROR', 'WARNING', 'INFO', 'DEBUG']
 
     @staticmethod
-    def loads(expression, filter=True):
+    def loads(expression, invert=True):
         """
         Construct a `Filter` from the given free-form expression.
 
@@ -556,7 +559,7 @@ class Filter(object):
 
             criteria.append((lhs, criterion))
 
-        return Filter(criteria, filter=filter)
+        return Filter(criteria, invert=invert)
 
     @staticmethod
     def parse(expression):
@@ -583,8 +586,8 @@ class Filter(object):
 
             yield lhs, op, rhs
 
-    def __init__(self, criteria, filter=True):
-        self._filter = filter
+    def __init__(self, criteria, invert=True):
+        self._invert = invert
         self.criteria = []
         self.append(criteria)
 
@@ -625,7 +628,7 @@ class Filter(object):
                 matches = False
                 break
 
-        if self._filter:
+        if self._invert:
             return not matches
         return matches
 
@@ -703,6 +706,8 @@ class Timer(object):
         self.label = label
         self.stats = stats
         self.logger = logger
+        self.mark_start = None
+        self.start = None
 
     def mark(self, label):
         """
@@ -755,7 +760,7 @@ class Udp2LogHandler(logging.handlers.DatagramHandler):
         :param port: Port
         :param prefix: Line prefix (udp2log destination)
         """
-        super(self.__class__, self).__init__(host, port)
+        super(Udp2LogHandler, self).__init__(host, port)
         self.prefix = prefix
 
     def makePickle(self, record):

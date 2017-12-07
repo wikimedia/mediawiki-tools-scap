@@ -77,6 +77,15 @@ class DeployLocal(cli.Application):
     the appropriate revisions, restarting services and running checks.
     """
 
+    def __init__(self, exe_name):
+        super(DeployLocal, self).__init__(exe_name)
+        self.context = None
+        self.final_path = None
+        self.noop = False
+        self.rev = None
+        self.server_url = None
+        self.stages = STAGES
+
     def _load_config(self):
 
         super(DeployLocal, self)._load_config()
@@ -120,12 +129,9 @@ class DeployLocal(cli.Application):
                        'server rather than using the locally cached config')
     def main(self, *extra_args):
         self.rev = self.config['git_rev']
-        self.noop = False
         # only supports http from tin for the moment
         url = os.path.normpath('{git_server}/{git_repo}'.format(**self.config))
         self.server_url = 'http://{0}'.format(url)
-
-        self.stages = STAGES
 
         if self.arguments.stage:
             self.stages = [self.arguments.stage]
@@ -142,7 +148,7 @@ class DeployLocal(cli.Application):
             if not self.noop and self.config['perform_checks']:
                 status = self._execute_checks(stage, group)
 
-            if not status == 0:
+            if status != 0:
                 break
 
         return status
@@ -273,6 +279,13 @@ class DeployLocal(cli.Application):
         # clone/fetch from the repo to the cache directory
         git.fetch(self.context.cache_dir, git_remote)
 
+        if has_submodules:
+            upstream_submodules = self.config['git_upstream_submodules']
+            logger.info('Update submodules')
+            git.update_submodules(location=self.context.cache_dir,
+                                  git_remote=git_remote,
+                                  use_upstream=upstream_submodules)
+
         # If the rev_dir already exists AND the currently checked-out HEAD is
         # already at the revision specified by ``self.rev`` then you can assume
         #
@@ -292,7 +305,10 @@ class DeployLocal(cli.Application):
                 return
 
         # clone/fetch from the local cache directory to the revision directory
-        git.fetch(rev_dir, self.context.cache_dir)
+        git.fetch(rev_dir, self.context.cache_dir,
+                  reference=self.context.cache_dir,
+                  dissociate=False,
+                  recurse_submodules=False)
 
         logger.info('Checkout rev: {}'.format(self.rev))
 
@@ -300,12 +316,9 @@ class DeployLocal(cli.Application):
         git.checkout(rev_dir, self.rev)
 
         if has_submodules:
-            upstream_submodules = self.config['git_upstream_submodules']
-            logger.info('Sync submodules')
-            git.sync_submodules(rev_dir)
-            logger.info('Update submodules')
-            git.update_submodules(
-                rev_dir, git_remote, use_upstream=upstream_submodules)
+            git.update_submodules(location=rev_dir, git_remote=git_remote,
+                                  use_upstream=upstream_submodules,
+                                  reference=self.context.cache_dir)
 
         if has_gitfat:
             if not git.fat_isinitialized(rev_dir):
@@ -383,7 +396,9 @@ class DeployLocal(cli.Application):
 
         self.context.rm_in_progress()
 
-        for rev_dir in self.context.find_old_rev_dirs():
+        cache_revs = self.config.get('cache_revs', 5)
+
+        for rev_dir in self.context.find_old_rev_dirs(cache_revs):
             logger.info('Removing old revision {}'.format(rev_dir))
             shutil.rmtree(rev_dir)
 
@@ -520,6 +535,10 @@ class Deploy(cli.Application):
     MAX_FAILURES = 0
 
     DEPLOY_CONF = [
+        'cache_revs',
+        'config_deploy',
+        'config_files',
+        'environment',
         'git_deploy_dir',
         'git_fat',
         'git_server',
@@ -527,21 +546,25 @@ class Deploy(cli.Application):
         'git_repo',
         'git_rev',
         'git_submodules',
-        'nrpe_dir',
         'git_upstream_submodules',
+        'nrpe_dir',
+        'perform_checks',
         'require_valid_service',
         'service_name',
         'service_port',
         'service_timeout',
-        'config_deploy',
-        'config_files',
-        'perform_checks',
-        'environment',
     ]
 
     continue_all = False
     repo = None
     targets = []
+
+    def __init__(self, exe_name):
+        super(Deploy, self).__init__(exe_name)
+        self.all_targets = None
+        self.context = None
+        self.deploy_groups = None
+        self.deploy_info = {}
 
     @cli.argument('-r', '--rev', help='Specify the revision to deploy')
     @cli.argument('-s', '--stages', choices=STAGES,
@@ -562,7 +585,6 @@ class Deploy(cli.Application):
     def main(self, *extra_args):
         logger = self.get_logger()
 
-        self.deploy_info = {}
         self.repo = self.config['git_repo']
 
         if self.arguments.stages:
@@ -705,12 +727,12 @@ class Deploy(cli.Application):
         attempted_groups = []
 
         try:
-            for name, group in self.deploy_groups.iteritems():
+            for name, group in self.deploy_groups.items():
                 attempted_groups.append(group)
                 self._execute_for_group(stages, group, prompt_user=True)
 
         except DeployGroupFailure as failure:
-            logger.error(failure.message)
+            logger.error(str(failure))
 
             if utils.confirm('Rollback all deployed groups?', default=True):
                 # Rollback groups in reverse order
@@ -949,7 +971,8 @@ class Deploy(cli.Application):
         deploy_stage = ssh.Job(
             hosts=targets,
             user=self.config['ssh_user'],
-            key=self.get_keyholder_key())
+            key=self.get_keyholder_key(),
+            verbose=self.verbose)
         deploy_stage.output_handler = ssh.JSONOutputHandler
         deploy_stage.max_failure = self.MAX_FAILURES
         deploy_stage.command(deploy_local_cmd)
@@ -1039,10 +1062,11 @@ class DeployLog(cli.Application):
         else:
             given_log = self.arguments.file
 
-        filter = log.Filter.loads(self.arguments.expr, filter=False)
+        logfilter = log.Filter.loads(self.arguments.expr, invert=False)
 
-        if not filter.isfiltering('levelno'):
-            filter.append({'levelno': lambda v: v >= self.arguments.loglevel})
+        if not logfilter.isfiltering('levelno'):
+            logfilter.append(
+                {'levelno': lambda v: v >= self.arguments.loglevel})
 
         formatter = log.DiffLogFormatter(self.FORMAT, self.DATE_FORMAT)
 
@@ -1064,7 +1088,7 @@ class DeployLog(cli.Application):
             if line:
                 try:
                     record = log.JSONFormatter.make_record(line)
-                    if filter.filter(record):
+                    if logfilter.filter(record):
                         print(formatter.format(record))
                 except (ValueError, TypeError):
                     pass
@@ -1126,10 +1150,16 @@ class DeployMediaWiki(cli.Application):
             'git_repo': self.config['deploy_dir'],
         }
 
-        option_list = ['-D{}:{}'.format(x, y) for x, y in options.iteritems()]
+        option_list = ['-D{}:{}'.format(x, y) for x, y in options.items()]
         cmd = [scap, 'deploy', '-v']
         cmd += option_list
         cmd += ['--init']
 
         with utils.cd(self.config['deploy_dir']):
             subprocess.check_call(cmd)
+
+
+@cli.command('deploy-status', help='Display the status of deployed revisions \
+             on target hosts')
+class DeployStatus(cli.Application):
+    pass

@@ -129,8 +129,8 @@ def cache_git_info(version, cfg):
 
     # Create cache for each extension and skin
     for dirname in ['extensions', 'skins']:
-        dir = os.path.join(branch_dir, dirname)
-        for subdir in utils.iterate_subdirectories(dir):
+        full_dir = os.path.join(branch_dir, dirname)
+        for subdir in utils.iterate_subdirectories(full_dir):
             try:
                 info = git.info(subdir)
             except IOError:
@@ -139,30 +139,6 @@ def cache_git_info(version, cfg):
                 cache_file = git.info_filename(subdir, branch_dir, cache_dir)
                 with open(cache_file, 'w') as f:
                     json.dump(info, f)
-
-
-def check_valid_syntax(*paths):
-    """Run php -l in parallel on `paths`; raise CalledProcessError if nonzero
-    exit."""
-    logger = logging.getLogger('check_php_syntax')
-    quoted_paths = ["'%s'" % x for x in paths]
-    cmd = (
-        "find "
-        "-O2 "  # -O2 get -type executed after
-        "%s "
-        "-not -type d "  # makes no sense to lint a dir named 'less.php'
-        "-name '*.php' -not -name 'autoload_static.php' "
-        " -or -name '*.inc' | xargs -n1 -P%d -exec php -l >/dev/null"
-    ) % (' '.join(quoted_paths), utils.cpus_for_jobs())
-    logger.debug('Running command: `%s`', cmd)
-    subprocess.check_call(cmd, shell=True)
-    # Check for anything that isn't a shebang before <?php (T92534)
-    for path in paths:
-        for root, dirs, files in os.walk(path):
-            for filename in files:
-                abspath = os.path.join(root, filename)
-                utils.check_php_opening_tag(abspath)
-                utils.check_valid_json_file(abspath)
 
 
 @utils.log_context('compile_wikiversions')
@@ -476,7 +452,7 @@ def update_l10n_cdb_wrapper(args, logger=None):
     """
     try:
         return update_l10n_cdb(*args)
-    except:
+    except Exception:
         # Log detailed error; multiprocessing will truncate the stack trace
         logger.exception('Failure processing %s', args)
         raise
@@ -705,7 +681,7 @@ def refresh_cdb_json_file(file_path):
         reader = cdblib.Reader(fp.read())
 
     out = collections.OrderedDict()
-    for k, v in reader.iteritems():
+    for k, v in reader.items():
         out[k] = v
 
     json_data = json.dumps(out, indent=0, separators=(',', ':'))
@@ -828,7 +804,7 @@ def check_patch_files(version, cfg):
     version_base = os.path.join(patch_path, version)
 
     ext_dir = os.path.join(version_base, 'extensions')
-    _, extensions, _ = os.walk(ext_dir).next()
+    _, extensions, _ = next(os.walk(ext_dir))
 
     patches = utils.get_patches(['core'], version_base)
     patches.update(utils.get_patches(extensions, ext_dir))
@@ -837,7 +813,7 @@ def check_patch_files(version, cfg):
     version_dir = 'php-{}'.format(version)
     apply_dir = os.path.join(cfg['stage_dir'], version_dir)
 
-    for extension, diffs in patches.iteritems():
+    for extension, diffs in patches.items():
         diff = '\n'.join(diffs)
 
         if extension != 'core':

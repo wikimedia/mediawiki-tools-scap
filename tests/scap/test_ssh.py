@@ -1,10 +1,12 @@
 #!/usr/bin/env python2
 
+from __future__ import absolute_import
+
 import logging
 import unittest
-
-from scap import ssh
 from StringIO import StringIO
+
+import scap.ssh as ssh
 
 
 class JSONOutputHandlerTest(unittest.TestCase):
