@@ -1,80 +1,23 @@
-scap (3.7.4-1) UNRELEASED; urgency=medium
+scap (3.7.4-1) unstable; urgency=medium
 
-  [ Mukunda Modell ]
-  * Cache submodules and use --reference to save space
+  * Disk usage: Cache submodules and use --reference to save space
+    
+  * Logging: Don't lie when sync-wikiversions actually failed
 
-  [ Chad Horohoe ]
-  * Get rid of some weird line continuation issues
-  * Fix up some super strict flake8 warnings that are preventing docker builds from completing
-  * Stop using predefined built-in functions and such in scap code
-  * Iterating directly instead of calling keys() on a dict
-  * Fix up import stuff in test modules
-  * Don't lie when sync-wikiversions actually failed
-  * Rewrite exec() call from execfile()
-  * Cast ints to strings for --jobs operations in git.fetch()
-  * One more string for good measure. Silly python
+  * Premium Feature: New scap sayings
 
-  [ Mukunda Modell ]
-  * sync submodules after git submodule update
+  * Internals: Use the `sh` library to wrap git commands.
 
-  [ Chad Horohoe ]
-  * Clean up various bad super calls in __init__ functions
-  * Fix py2/3 compat with next()
-  * Scap bin: Provide a sane initial docblock with license and such
-  * Clean up broad exceptions: Exception -> StandardError
-  * list doesn't have a clear() method until python 3.3+
-  * Add future imports to pooler
-  * Revert "Clean up broad exceptions: Exception -> StandardError"
+  * Logging: Correct action for no-log-message
 
-  [ Mukunda Modell ]
-  * Sync submodules for the cache AND the rev directory
-  * Improve test coverage
+  * Disk usage: Add a config key `cache_revs` to specify how many revs to keep
 
-  [ Chad Horohoe ]
-  * Stop using xrange() for python 3 compat
-  * Stop using raw_input for python3 compat
+  * Modernization: Migrate from nosetests to pytest, plus tons of changes for
+    python 3.x compatibility.
 
-  [ Mukunda Modell ]
-  * Fix the change-shebangs.patch
+  * Logging: pass `-v` to ssh when running `scap deploy -v`
 
-  [ Chad Horohoe ]
-  * Use backported ConfigParser from 3.2+
-  * Just use the direct octals for the mode on the lock file
-  * Swap iteritems() for items()
-  * Swap xrange fallback from six for plain ol' range
-  * Python 3 compat: swap next() as a method for next() as a builtin
-  * Properly capitalize TERM as a constant in terminal
-  * Basic documentation for terminal ui
-
-  [ Mukunda Modell ]
-  * New scap sayings
-  * Remove extra call to git.submodule_update
-  * Use sh library to wrap git commands.
-
-  [ Tyler Cipriani ]
-  * Revert "Use sh library to wrap git commands."
-
-  [ Mukunda Modell ]
-  * Logging: Don't treat % as format string unless there are format args
-  * Fix tag_release to deal with git_version :-/
-  * Cleaner `git --version` cache handling.
-
-  [ Tyler Cipriani ]
-  * Fix scap git test
-  * Correct action for no-log-message
-
-  [ Chad Horohoe ]
-  * iteritems() -> items() for Python 3 compat
-  * Drop basestring check for terminal arguments
-  * Fix compile() mode
-
-  [ Mukunda Modell ]
-  * Fix PEP8 E225 (missing whitespace around operator)
-
-  [ Chad Horohoe ]
-  * Various pylint fixes for arg.py
-
- -- Tyler Cipriani <tcipriani@wikimedia.org>  Mon, 20 Nov 2017 08:49:40 -0700
+ -- Mukunda Modell <mmodell@wikimedia.org>  Thu, 07 Dec 2017 11:35:58 -0600
 
 scap (3.7.3-1) unstable; urgency=low
 
