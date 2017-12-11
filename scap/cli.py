@@ -301,8 +301,9 @@ class Application(object):
             datefmt='%H:%M:%S',
             stream=sys.stdout)
 
-        # Silence this noisy logger early
+        # Silence noisy loggers early
         logging.getLogger('urllib3').setLevel(logging.WARNING)
+        logging.getLogger('scap.sh').setLevel(logging.WARNING)
 
         # Setup instance for logger access
         app = cls('scap')
