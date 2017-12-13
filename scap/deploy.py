@@ -634,6 +634,11 @@ class Deploy(cli.Application):
         # No revision passed on the command line, let's check the config
         if not rev:
             rev = self.config.get('git_rev')
+            use_upstream = self.config.get('git_upstream_submodules', False)
+            if rev.startswith('origin/') and not use_upstream:
+                logger.warning('You have set `git_rev` to "%s" without ' +
+                               'setting `git_upstream_submodules=True`. ' +
+                               'This could lead to unexpected behavior.' % rev)
 
         # No revision from the config or cli
         # AND we're not running a stage that we want to deploy new code
@@ -653,7 +658,7 @@ class Deploy(cli.Application):
                 timestamp = datetime.utcnow()
                 tag = git.next_deploy_tag(location=self.context.root)
                 commit = git.sha(location=self.context.root, rev=rev)
-                self.get_logger().debug('Deploying Rev: {}'.format(commit))
+                logger.info('Deploying Rev: {} = {}'.format(rev, commit))
 
                 self.config_deploy_setup(commit)
                 self.checks_setup()
