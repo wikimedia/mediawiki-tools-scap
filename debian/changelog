@@ -1,3 +1,9 @@
+scap (3.7.4-2) unstable; urgency=medium
+
+  * Bumped version number to fix wrong release. See T182347#3838535
+
+ -- Alexandros Kosiaris <akosiaris@wikimedia.org>  Fri, 15 Dec 2017 17:22:56 +0000
+
 scap (3.7.4-1) unstable; urgency=medium
 
   * Disk usage: Cache submodules and use --reference to save space
