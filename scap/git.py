@@ -203,6 +203,9 @@ def clean_tags(location, max_tags):
             return
 
         git.tag('-d', *old_tags)
+        # also remove the same tags from any submodules.
+        rm_tags = 'git tag -d' + ' '.join(old_tags)
+        git.submodule('foreach', rm_tags)
 
 
 def garbage_collect(location):
@@ -210,6 +213,7 @@ def garbage_collect(location):
 
     ensure_dir(location)
     with sh.pushd(location):
+        git.submodule('foreach', 'git gc --quiet --auto')
         git.gc('--quiet', '--auto')
 
 
@@ -307,16 +311,21 @@ def remote_set(location, repo, remote='origin'):
 
 
 def fetch(location, repo, reference=None, dissociate=True,
-          recurse_submodules=False):
+          recurse_submodules=False, shallow=False, bare=False):
     """Fetch a git repo to a location"""
+
     if is_dir(location):
         remote_set(location, repo)
         with sh.pushd(location):
-            cmd = append_jobs_arg([])
+            cmd = append_jobs_arg(['--tags'])
+            if recurse_submodules:
+                cmd.append('--recurse-submodules')
             git.fetch(*cmd)
     else:
         cmd = append_jobs_arg([])
-
+        if shallow:
+            cmd.append('--depth')
+            cmd.append('1')
         if reference is not None and GIT_VERSION[0] > 1:
             ensure_dir(reference)
             cmd.append('--reference')
@@ -325,9 +334,17 @@ def fetch(location, repo, reference=None, dissociate=True,
                 cmd.append('--dissociate')
         if recurse_submodules:
             cmd.append('--recurse-submodules')
+            if shallow:
+                cmd.append('--shallow-submodules')
+        if bare:
+            cmd.append('--bare')
+        cmd.append('--prune')
         cmd.append(repo)
         cmd.append(location)
         git.clone(*cmd)
+
+    with sh.pushd(location):
+        git.fetch('--tags', '+refs/remotes/origin/*:refs/heads/origin/*')
 
 
 def append_jobs_arg(cmd):
@@ -428,18 +445,13 @@ def tag_repo(deploy_info, location=os.getcwd()):
 
     ensure_dir(location)
     with utils.cd(location):
-        cmd = """
-        /usr/bin/git tag -fa \\
-                -m 'user {0}' \\
-                -m 'timestamp {1}' -- \\
-                {2} {3}
-        """.format(
-            deploy_info['user'],
-            deploy_info['timestamp'],
-            deploy_info['tag'],
-            deploy_info['commit']
-        )
-        subprocess.check_call(cmd, shell=True)
+        user = "user {0}".format(deploy_info['user'])
+        timestamp = "timestamp {0}".format(deploy_info['timestamp'])
+        args = ['tag', '-fa', '-m', user, '-m', timestamp, '--',
+                deploy_info['tag'], deploy_info['commit']]
+        git(*args)
+        submodule_cmd = " ".join(args)
+        git('submodule', 'foreach', "git %s" % submodule_cmd)
 
 
 def resolve_gitdir(directory):
