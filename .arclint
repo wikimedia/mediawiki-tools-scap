@@ -1,24 +1,8 @@
 {
   "linters": {
-    "pep8-py": {
-      "type": "pep8",
-      "include": "(\\.py$)",
-      "exclude": "(^scap/sh.py$)",
-      "severity": {
-        "E501": "advice"
-      }
-    },
-    "pep8-bin": {
-      "type": "pep8",
-      "include": "(^bin/.+$)",
-      "severity": {
-        "E402" : "disabled"
-      }
-    },
-    "pyflakes": {
-      "type": "pyflakes",
-      "include": "(\\.py$|^bin/.+$)",
-      "exclude": "(^setup.py$|^scap/__init__.py$|^scap/sh.py$)"
+    "flake8": {
+      "type": "flake8",
+      "include": "(\\.py$)"
     },
     "php": {
       "type": "php",
