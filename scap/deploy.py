@@ -1180,9 +1180,3 @@ class DeployMediaWiki(cli.Application):
 
         with utils.cd(self.config['deploy_dir']):
             subprocess.check_call(cmd)
-
-
-@cli.command('deploy-status', help='Display the status of deployed revisions \
-             on target hosts')
-class DeployStatus(cli.Application):
-    pass
