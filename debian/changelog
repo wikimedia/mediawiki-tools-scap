@@ -1,3 +1,9 @@
+scap (3.7.4-3) unstable; urgency=high
+
+  * Bumped version number to one more botched release. T183046
+
+ -- Alexandros Kosiaris <akosiaris@wikimedia.org>  Mon, 18 Dec 2017 11:42:27 +0000
+
 scap (3.7.4-2) unstable; urgency=medium
 
   * Bumped version number to fix wrong release. See T182347#3838535
