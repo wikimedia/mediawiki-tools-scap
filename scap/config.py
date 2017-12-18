@@ -65,6 +65,7 @@ DEFAULT_CONFIG = {
     'group_size': (int, None),
     'git_deploy_dir': (str, '/srv/deployment'),
     'git_fat': (bool, False),
+    'git_binary_manager': (str, None),
     'git_server': (str, 'tin.eqiad.wmnet'),
     'git_scheme': (str, 'http'),
     'git_submodules': (bool, False),

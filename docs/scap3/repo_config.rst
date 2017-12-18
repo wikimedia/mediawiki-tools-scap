@@ -73,6 +73,11 @@ Available configuration variables
 |                            |                           | synced as part of the deploy on |
 |                            |                           | targets.                        |
 +----------------------------+---------------------------+---------------------------------+
+| ``git_binary_manager``     | **None***                 | (*String*) (*Optional*)         |
+|                            |                           | Binary files should be managed  |
+|                            |                           | by an external program.         |
+|                            |                           | Allowed values are ``git-fat``  |
++----------------------------+---------------------------+---------------------------------+
 | ``dsh_targets``            | ``mediawiki-installation``| (*String*) Path to list         |
 |                            |                           | of deploy targets. If           |
 |                            |                           | the path is not absolute,       |

@@ -268,9 +268,17 @@ class DeployLocal(cli.Application):
         At the end of this stage, the .in-progress link is created to signal
         the possibility for future rollback.
         """
-        has_submodules = self.config['git_submodules']
-        has_gitfat = self.config['git_fat']
         logger = self.get_logger()
+
+        has_submodules = self.config['git_submodules']
+        git_binary_manager = None
+        if self.config['git_fat']:
+            logger.warning(
+                'Using deprecated git_fat config, swap to git_binary_manager')
+            git_binary_manager = 'fat'
+        elif self.config['git_binary_manager']:
+            git_binary_manager = self.config['git_binary_manager']
+
         rev_dir = self.context.rev_path(self.rev)
 
         git_remote = os.path.join(self.server_url, '.git')
@@ -320,13 +328,19 @@ class DeployLocal(cli.Application):
                                   use_upstream=upstream_submodules,
                                   reference=self.context.cache_dir)
 
-        if has_gitfat:
+        if git_binary_manager == 'git-fat':
             if not git.fat_isinitialized(rev_dir):
                 logger.info('Git fat initialize')
                 git.fat_init(rev_dir)
 
             logger.info("Git fat pull '%s'", rev_dir)
             git.fat_pull(rev_dir)
+        elif git_binary_manager == 'git-lfs':
+            # Todo: Actually implement git lfs support
+            pass
+        elif git_binary_manager:
+            logger.warning("Passed unrecognized git_binary_manager {}",
+                           git_binary_manager)
 
         self.context.mark_rev_in_progress(self.rev)
 
@@ -541,6 +555,7 @@ class Deploy(cli.Application):
         'environment',
         'git_deploy_dir',
         'git_fat',
+        'git_binary_manager',
         'git_server',
         'git_scheme',
         'git_repo',
