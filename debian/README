@@ -1,0 +1,89 @@
+Releasing a new version
+=======================
+
+These are the steps to prepare a new release of the Debian package for
+scap.
+
+The first 4 steps are generally performed by the *Release Engineering*
+team.  Step 5 is generally performed by the *Technical Operations* team.
+
+1. Bump upstream version
+------------------------
+Modify version in scap/version.py and commit those changes
+
+    git add scap/version.py
+    git commit -m 'Bump version to 3.2.4'
+
+Tag new version:
+
+    git tag --sign 3.2.4
+
+2. Test the build
+-----------------
+Clean everything, you need a completely clean checkout for git build
+package to be happy:
+
+    debclean
+    pushd .. && rm -rf scap_* && popd
+    rm -rf .pc .tox cover .coverage Scap.egg-info docs
+    git checkout docs
+
+Update changelog
+
+    DEBEMAIL='tcipriani@wikimedia.org' \
+        DEBFULLNAME='Tyler Cipriani' \
+        gbp dch --new-version 3.2.4-1
+
+Modify debian/changelog. This file is not just for package building, it should
+be human readable!
+
+Ensure that you are able to build the package locally:
+
+    gbp buildpackage -us -uc --git-ignore-new
+
+3. Puppet patch
+---------------
+Update puppet with a scap version patch in:
+modules/scap/manifests/init.pp
+
+Go ahead and push the puppet patch to gerrit, you'll need it after you
+have tagged the new Debian version.
+
+    git push origin HEAD:refs/for/production/scap/[version]
+
+4. Tag Debian Version
+---------------------
+If the build worked fine on beta, you can tag the upstream version.
+
+    # version.py will have also changed here, but don't add it
+    git add debian/changelog
+    git commit -m 'Bumping Debian version to 3.2.4-1'
+    gbp buildpackage --git-tag-only
+    git push --tags origin release
+
+5. Production update
+--------------------
+This step is generally performed by someone on the *Technical
+Operations* team.
+
+The Debian package for scap can be built with git-buildpackage.
+
+More specifically for production the standard procedure is to have a
+Debian source package built with:
+
+    gbp buildpackage -us -uc -S
+
+and then have the package built with:
+
+    DIST=trusty sudo -E cowbuilder --build scap_VERSION.dsc
+
+To upload the resulting package to e.g. trusty-wikimedia:
+
+    reprepro -C main --ignore=wrongdistribution \
+        include trusty-wikimedia CHANGES_FILE
+
+Note that the package for trusty works the same on jessie and stretch
+too, so it can be copied with reprepro:
+
+    reprepro -C main copy jessie-wikimedia trusty-wikimedia scap
+    reprepro -C main copy stretch-wikimedia trusty-wikimedia scap
