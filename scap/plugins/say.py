@@ -73,31 +73,39 @@ def fortune():
     ])
 
 
-def scap_say(words=None, eyes=None, width=None):
+def scap_say(words=None, eyes=None, width=None, nowrap=False, color=True):
     """Make the scap pig say stuff."""
     if not words:
         words = fortune()
 
-    if not width:
+    if not width and not nowrap:
         width = min([50, os.environ.get('COLUMNS', 50)])
+
+    if nowrap:
+        width = max(list(map(len, words))) + 2
 
     txt_width = width - 5
     box_width = width - 2
 
-    if len(words) > txt_width:
-        words = textwrap.wrap(words, txt_width)
-    else:
-        words = [words]
+    if not nowrap:
+        word_string = ' '.join(words)
+        if len(word_string) > txt_width:
+            words = textwrap.wrap(word_string, txt_width)
 
     lines = [' {:-^{width}}\n/{:^{width}}\\'.format('', '', width=box_width)]
-    lines += ['|{:^{width}}|'.format(word, width=box_width) for word in words]
+    if nowrap:
+        lines += [
+            '|{:<{width}}|'.format(word, width=box_width) for word in words]
+    else:
+        lines += [
+            '|{:^{width}}|'.format(word, width=box_width) for word in words]
 
     lines.append('\{:^{width}}/\n {:-^{width}}'.format('', '',
                                                        width=box_width))
     lines.append('{:^10}'.format('\\'))
     lines.append('{:^11}'.format('\\'))
     lines.append('{:^13}'.format('\\'))
-    lines.append(utils.logo(eyes=eyes))
+    lines.append(utils.logo(eyes=eyes, color=color))
     return '\n'.join(lines)
 
 
@@ -106,6 +114,9 @@ class Fortune(cli.Application):
     """Scap propaganda of a middling order."""
     def main(self, *extra_args):
         print(fortune())
+
+        # If we don't return 0, this will ring the term bell!
+        return 0
 
 
 @cli.command('say', help=argparse.SUPPRESS)
@@ -116,19 +127,24 @@ class Say(cli.Application):
                   help='Column width for message box')
     @cli.argument('-e', '--eyes', type=lambda s: text_type(s, 'utf8'),
                   help='Eyes')
+    @cli.argument('-n', '--no-wrap', action='store_true', help='No Wordwrap')
+    @cli.argument('-c', '--color', action='store_true', help='Color logo')
     @cli.argument('propaganda', nargs='*', help='Message to print')
     def main(self, *extra_args):
-        msg = ' '.join(self.arguments.propaganda)
+        msg = self.arguments.propaganda
 
         if not msg:
-            msg = sys.stdin.read()
+            msg = sys.stdin.readlines()
 
-        msg = msg.replace('\n', ' ').strip()
+        msg = list(map(lambda x: x.rstrip('\n'), msg))
+
         print(
             scap_say(
                 msg,
                 eyes=self.arguments.eyes,
-                width=self.arguments.width
+                width=self.arguments.width,
+                nowrap=self.arguments.no_wrap,
+                color=self.arguments.color
             )
         )
         return 0

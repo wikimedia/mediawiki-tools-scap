@@ -523,18 +523,11 @@ def logo(eyes=None, color=True, **colors):
     .. [#] http://www.oocities.org/spunk1111/farm.htm#pig
     .. [#] http://www.jave.de/figlet/fonts/details/speed.html
     """
-
-    if not eyes:
-        eyes = 'OO'
-
-    eyes = eyes[:2]
-
     pallet = {
         'pig': ansi.reset() + ansi.esc(ansi.FG_MAGENTA, ansi.BRIGHT),
         'nose': ansi.reset() + ansi.esc(ansi.FG_MAGENTA, ansi.BRIGHT),
         'mouth': ansi.reset() + ansi.esc(ansi.FG_MAGENTA, ansi.BRIGHT),
         'goggles': ansi.reset() + ansi.esc(ansi.FG_YELLOW),
-        'eyes': eyes.encode('utf-8'),
         'brand': ansi.reset(),
         'hoof': ansi.reset() + ansi.esc(ansi.FG_BLUE),
         'wing': ansi.reset() + ansi.esc(ansi.FG_CYAN),
@@ -546,8 +539,14 @@ def logo(eyes=None, color=True, **colors):
     pallet.update(colors)
 
     if not color:
-        for key, _ in pallet:
+        for key, _ in pallet.items():
             pallet[key] = ''
+
+    if not eyes:
+        eyes = 'OO'
+
+    eyes = eyes[:2]
+    pallet['eyes'] = eyes.encode('utf-8')
 
     return ''.join(line % pallet for line in [
         '''           %(wing)s___%(reset)s %(wing)s____%(reset)s\n''',
