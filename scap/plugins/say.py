@@ -70,6 +70,7 @@ def fortune():
         "S.C.A.P.: sh -c awk | perl",
         "S.C.A.P.: sulphur, carbon, arsenic, phosphorus",
         "S.C.A.P.: syntax: conjunction, article, pronoun",
+        "S.C.A.P.: some cats and puppies",
     ])
 
 
