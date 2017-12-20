@@ -25,7 +25,7 @@ from __future__ import absolute_import
 
 import scap.plugins
 
-from .main import (
+from scap.main import (
     CompileWikiversions,
     HHVMGracefulAll,
     LockManager,
@@ -45,9 +45,9 @@ from .main import (
     Version,
 )
 
-from .version import __version__
+from scap.version import __version__
 
-from .deploy import (
+from scap.deploy import (
     Deploy,
     DeployLocal,
     DeployLog,
