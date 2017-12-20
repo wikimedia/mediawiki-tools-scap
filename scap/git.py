@@ -17,7 +17,7 @@ import yaml
 
 
 from scap.sh.contrib import git
-from scap.sh import ErrorReturnCode, ErrorReturnCode_1
+from scap.sh import ErrorReturnCode
 import scap.utils as utils
 import scap.sh as sh
 
@@ -28,7 +28,7 @@ def version():
         return tuple(int(n)
                      for n in version_numbers.split('.')[:4]
                      if n.isdigit())
-    except Exception:
+    except (ErrorReturnCode, KeyError):
         return (1, 9, 0)
 
 
@@ -101,7 +101,7 @@ def fat_isinitialized(location):
                 git.config('--local', '--get', 'filter.fat.smudge',
                            _out=devnull)
                 return True
-            except ErrorReturnCode_1:
+            except ErrorReturnCode:
                 return False
 
 
@@ -494,8 +494,8 @@ def remap_submodules(location, server):
     with sh.pushd(location):
         gitmodule = os.path.join(location, '.gitmodules')
         if not os.path.isfile(gitmodule):
-            logger.warning('Unable to rewrite_submodules: No .gitmodules in %s'
-                           % location)
+            logger.warning(
+                'Unable to rewrite_submodules: No .gitmodules in %s', location)
             return
 
         logger.info('Updating .gitmodule: %s', os.path.dirname(gitmodule))
