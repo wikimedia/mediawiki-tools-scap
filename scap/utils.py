@@ -37,7 +37,6 @@ from six.moves import input as _input
 import pygments
 import pygments.lexers
 import pygments.formatters
-import scap.ansi as ansi
 
 
 BRANCH_RE = re.compile(
@@ -496,81 +495,6 @@ def check_dir_exists(path, message=False):
             message or 'Error: %s is not a directory.' % path,
             path
         )
-
-
-def logo(eyes=None, color=True, **colors):
-    """
-    Get the scap logo.
-
-    Scappy the scap pig::
-
-               ___ ____
-             ⎛   ⎛ ,----
-              \  //==--'
-         _//| .·//==--'    ____________________________
-        _OO≣=-  ︶ ᴹw ⎞_§ ______  ___\ ___\ ,\__ \/ __ \
-       (∞)_, )  (     |  ______/__  \/ /__ / /_/ / /_/ /
-         ¨--¨|| |- (  / _______\____/\___/ \__^_/  .__/
-             ««_/  «_/ jgs/bd808               /_/
-
-    Ascii art derived from original work by Joan Stark [#]_ and the `speed`
-    figlet font [#]_.
-
-    :param color: Color logo using ANSI escapes
-    :param colors: Alternate colors
-    :returns: str
-
-    .. [#] http://www.oocities.org/spunk1111/farm.htm#pig
-    .. [#] http://www.jave.de/figlet/fonts/details/speed.html
-    """
-    pallet = {
-        'pig': ansi.reset() + ansi.esc(ansi.FG_MAGENTA, ansi.BRIGHT),
-        'nose': ansi.reset() + ansi.esc(ansi.FG_MAGENTA, ansi.BRIGHT),
-        'mouth': ansi.reset() + ansi.esc(ansi.FG_MAGENTA, ansi.BRIGHT),
-        'goggles': ansi.reset() + ansi.esc(ansi.FG_YELLOW),
-        'brand': ansi.reset(),
-        'hoof': ansi.reset() + ansi.esc(ansi.FG_BLUE),
-        'wing': ansi.reset() + ansi.esc(ansi.FG_CYAN),
-        'speed': ansi.reset() + ansi.esc(ansi.FG_WHITE),
-        'text': ansi.reset() + ansi.esc(ansi.FG_GREEN),
-        'signature': ansi.reset() + ansi.esc(ansi.FG_BLUE),
-        'reset': ansi.reset(),
-    }
-    pallet.update(colors)
-
-    if not color:
-        for key, _ in pallet.items():
-            pallet[key] = ''
-
-    if not eyes:
-        eyes = 'OO'
-
-    eyes = eyes[:2]
-    pallet['eyes'] = eyes.encode('utf-8')
-
-    return ''.join(line % pallet for line in [
-        '''           %(wing)s___%(reset)s %(wing)s____%(reset)s\n''',
-        '''         %(wing)s⎛   ⎛ ,----%(reset)s\n''',
-        '''          %(wing)s\  //==--'%(reset)s\n''',
-        '''     %(pig)s_//|,.·%(wing)s//==--'%(reset)s    ''',
-        '''%(speed)s______%(text)s____''',
-        '''%(speed)s_%(text)s____''',
-        '''%(speed)s___%(text)s____''',
-        '''%(speed)s__%(text)s____%(reset)s\n''',
-
-        '''    %(pig)s_%(goggles)s%(eyes)s≣=-%(pig)s ''',
-        ''' %(wing)s︶%(pig)s %(brand)sᴹw%(pig)s ⎞_§%(reset)s ''',
-        '''%(speed)s______%(text)s  ___\ ___\ ,\__ \/ __ \%(reset)s\n''',
-        '''   %(pig)s(%(nose)s∞%(pig)s)%(mouth)s_,''',
-        '''%(pig)s )  (     |%(reset)s''',
-        '''  %(speed)s______%(text)s/__  \/ /__ / /_/ / /_/ /%(reset)s\n''',
-        '''     %(pig)s¨--¨|| |- (  /%(reset)s''',
-        ''' %(speed)s______%(text)s\____/ \___/ \__^_/  .__/%(reset)s\n''',
-        '''         %(hoof)s««%(pig)s_/%(reset)s''',
-        '''  %(hoof)s«%(pig)s_/%(reset)s''',
-        ''' %(signature)sjgs/bd808%(reset)s''',
-        '''                %(text)s/_/%(reset)s\n''',
-    ])
 
 
 @contextlib.contextmanager

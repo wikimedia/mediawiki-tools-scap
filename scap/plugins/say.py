@@ -23,7 +23,6 @@
 """
 from __future__ import absolute_import
 from __future__ import print_function
-from six import text_type
 
 import argparse
 import os
@@ -31,8 +30,10 @@ import random
 import sys
 import textwrap
 
-import scap.cli as cli
-import scap.utils as utils
+from six import text_type
+
+from scap import ansi
+from scap import cli
 
 
 def fortune():
@@ -106,7 +107,7 @@ def scap_say(words=None, eyes=None, width=None, nowrap=False, color=True):
     lines.append('{:^10}'.format('\\'))
     lines.append('{:^11}'.format('\\'))
     lines.append('{:^13}'.format('\\'))
-    lines.append(utils.logo(eyes=eyes, color=color))
+    lines.append(ansi.logo(eyes=eyes, color=color))
     return '\n'.join(lines)
 
 

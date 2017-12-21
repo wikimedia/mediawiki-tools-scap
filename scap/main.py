@@ -33,6 +33,7 @@ import subprocess
 import sys
 import time
 
+from scap import ansi
 import scap.arg as arg
 import scap.cli as cli
 import scap.lint as lint
@@ -59,7 +60,7 @@ class AbstractSync(cli.Application):
     @cli.argument('message', nargs='*', help='Log message for SAL')
     def main(self, *extra_args):
         """Perform a sync operation to the cluster."""
-        print(utils.logo())
+        print(ansi.logo())
         self._assert_auth_sock()
 
         with lock.Lock(self.get_lock_file(), self.arguments.message):
