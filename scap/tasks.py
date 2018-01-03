@@ -34,6 +34,7 @@ import os
 import shutil
 import socket
 import subprocess
+import sys
 import time
 import tempfile
 
@@ -293,7 +294,8 @@ def sync_master(cfg, master, verbose=False, logger=None):
     with log.Timer('rebuild CDB staging files', stats):
         subprocess.check_call([
             'sudo', '-u', 'l10nupdate', '-n', '--',
-            'scap', 'cdb-rebuild', '--no-progress',
+            os.path.join(os.path.dirname(sys.argv[0]), 'scap'),
+            'cdb-rebuild', '--no-progress',
             '--staging', '--verbose'])
 
 
@@ -588,11 +590,12 @@ def update_localization_cache(version, wikidb, verbose, cfg, logger=None):
 
     # Include JSON versions of the CDB files and add MD5 files
     logger.info('Generating JSON versions and md5 files')
+    scap_path = os.path.join(os.path.dirname(sys.argv[0]), 'scap')
     utils.sudo_check_call(
         'l10nupdate',
-        'scap cdb-json-refresh '
+        '%s cdb-json-refresh '
         '--directory="%s" --threads=%s %s' % (
-            cache_dir, use_cores, verbose_messagelist))
+            scap_path, cache_dir, use_cores, verbose_messagelist))
 
 
 def restart_hhvm(hosts, cfg, key=None, batch_size=1):
