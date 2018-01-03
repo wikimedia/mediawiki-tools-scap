@@ -1,4 +1,63 @@
-scap (3.7.4-1) UNRELEASED; urgency=medium
+scap (3.8.0-1) UNRELEASED; urgency=medium
+
+  [ Chad Horohoe ]
+  * Swap Exception.message for str(Exception) calls
+  * Consistently define all attributes in __init__()
+  * Minor requirements tweaks
+  * Moving lint-related stuff out of the weird utils/tasks
+  * Swap default bin_dir to something that actually resembles reality
+  * Revert "Swap default bin_dir to something that actually resembles reality"
+
+  [ Mukunda Modell ]
+  * Add a config key `cache_revs` to specify how many revs to keep
+
+  [ Chad Horohoe ]
+  * Add some future imports
+  * Migrate from nosetests to pytest
+
+  [ Mukunda Modell ]
+  * pass -v to ssh when running `scap deploy -v`
+  * verbose is a property, not callable
+
+  [ Chad Horohoe ]
+  * Couple of minor cleanups to setup.py, based on runs from Pyroma
+
+  [ Tyler Cipriani ]
+  * scap.sh logging is alarming
+
+  [ Mukunda Modell ]
+  * Make it more obvious when we are using `git_rev` in scap.cfg
+  * Check for None
+
+  [ Chad Horohoe ]
+  * Abstract configuration of git-fat support into git_binary_manager
+  * Remove DeployStatus, snuck in premature
+  * Drop semver requirement. Dumb experiment I never even pushed to Phab
+  * Drop pep8 and pyflakes from linting, use flake8 to do both
+
+  [ Tyler Cipriani ]
+  * Scap say: moar cowsay compat
+
+  [ Chad Horohoe ]
+  * Fix up remaining relative imports
+  * Fix up a few import errors
+  * scap gains +2 cuteness
+
+  [ Mukunda Modell ]
+  * scap deploy-cache: Fetch refs/tags/* and refs/remotes/*
+
+  [ Chad Horohoe ]
+  * Move logo out of utils and to ansi
+
+  [ Tyler Cipriani ]
+  * Log message to explain canary behavior
+
+  [ Chad Horohoe ]
+  * Remove bin_dir
+
+ -- Tyler Cipriani <tcipriani@wikimedia.org>  Wed, 03 Jan 2018 16:33:18 -0700
+
+scap (3.7.4-1) unstable; urgency=low
 
   [ Mukunda Modell ]
   * Cache submodules and use --reference to save space
