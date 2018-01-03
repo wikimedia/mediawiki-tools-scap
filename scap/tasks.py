@@ -289,13 +289,11 @@ def sync_master(cfg, master, verbose=False, logger=None):
     with log.Timer('rsync master', stats):
         subprocess.check_call(rsync)
 
-    scap_cmd = os.path.join(cfg['bin_dir'], 'scap')
-
     # Rebuild the CDB files from the JSON versions
     with log.Timer('rebuild CDB staging files', stats):
         subprocess.check_call([
             'sudo', '-u', 'l10nupdate', '-n', '--',
-            scap_cmd, 'cdb-rebuild', '--no-progress',
+            'scap', 'cdb-rebuild', '--no-progress',
             '--staging', '--verbose'])
 
 
@@ -592,9 +590,9 @@ def update_localization_cache(version, wikidb, verbose, cfg, logger=None):
     logger.info('Generating JSON versions and md5 files')
     utils.sudo_check_call(
         'l10nupdate',
-        '%s/scap cdb-json-refresh '
+        'scap cdb-json-refresh '
         '--directory="%s" --threads=%s %s' % (
-            cfg['bin_dir'], cache_dir, use_cores, verbose_messagelist))
+            cache_dir, use_cores, verbose_messagelist))
 
 
 def restart_hhvm(hosts, cfg, key=None, batch_size=1):
@@ -607,9 +605,7 @@ def restart_hhvm(hosts, cfg, key=None, batch_size=1):
     stats = log.Stats(cfg['statsd_host'], int(cfg['statsd_port']))
     with log.Timer('restart_hhvm', stats):
         restart = ssh.Job(hosts, user=cfg['ssh_user'], key=key).shuffle()
-        restart.command(
-            'sudo -u mwdeploy -n -- %s hhvm-restart' %
-            os.path.join(cfg['bin_dir'], 'scap'))
+        restart.command('sudo -u mwdeploy -n -- scap hhvm-restart')
         reporter = log.reporter('restart_hhvm', cfg['fancy_progress'])
         return restart.progress(reporter).run(batch_size=batch_size)
 
