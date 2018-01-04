@@ -445,13 +445,14 @@ def tag_repo(deploy_info, location=os.getcwd()):
 
     ensure_dir(location)
     with utils.cd(location):
-        user = "user {0}".format(deploy_info['user'])
-        timestamp = "timestamp {0}".format(deploy_info['timestamp'])
+        user = "'user {0}'".format(deploy_info['user'])
+        timestamp = "'timestamp {0}'".format(deploy_info['timestamp'])
         args = ['tag', '-fa', '-m', user, '-m', timestamp, '--',
                 deploy_info['tag'], deploy_info['commit']]
+        # tag top level repo
         git(*args)
-        submodule_cmd = " ".join(args)
-        git('submodule', 'foreach', "git %s" % submodule_cmd)
+        # also tag the submodules
+        git('submodule', 'foreach', "git {0}".format(" ".join(args)))
 
 
 def resolve_gitdir(directory):
