@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 http://amoffat.github.io/sh/
 """
@@ -24,6 +23,7 @@ http://amoffat.github.io/sh/
 # THE SOFTWARE.
 #===============================================================================
 
+from __future__ import absolute_import
 
 __version__ = "1.12.14"
 __project_url__ = "https://github.com/amoffat/sh"
@@ -754,7 +754,7 @@ class RunningCommand(object):
             logger_str = log_str_factory(self.ran, call_args)
             self.log = Logger("command", logger_str)
 
-            self.log.debug("starting process")
+            self.log.info("starting process")
 
             if should_wait:
                 self._spawned_and_waited = True
@@ -769,7 +769,7 @@ class RunningCommand(object):
 
             logger_str = log_str_factory(self.ran, call_args, self.process.pid)
             self.log.set_context(logger_str)
-            self.log.debug("process started")
+            self.log.info("process started")
 
             if should_wait:
                 self.wait()
@@ -799,7 +799,7 @@ class RunningCommand(object):
                 if self.process._stdin_process:
                     self.process._stdin_process.command.wait()
 
-        self.log.debug("process completed")
+        self.log.info("process completed")
         return self
 
 
@@ -3582,4 +3582,3 @@ else:
     self = sys.modules[__name__]
     sys.modules[__name__] = SelfWrapper(self)
     register_importer()
-
