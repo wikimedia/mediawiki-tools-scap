@@ -798,6 +798,11 @@ def setup_loggers(cfg, console_level=logging.INFO, handlers=None):
     :param console_level: Logging level for the local console appender
     :param handlers: Additional handlers
     """
+
+    # The INFO level for scap.sh is pretty verbose
+    if console_level == logging.DEBUG:
+        logging.getLogger('scap.sh').setLevel(logging.INFO)
+
     # Set logger levels
     logging.root.setLevel(logging.DEBUG)
     logging.root.handlers[0].setLevel(console_level)

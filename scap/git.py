@@ -17,7 +17,7 @@ import yaml
 
 
 from scap.sh.contrib import git
-from scap.sh import ErrorReturnCode, ErrorReturnCode_1
+from scap.sh import ErrorReturnCode
 import scap.utils as utils
 import scap.sh as sh
 
@@ -28,7 +28,7 @@ def version():
         return tuple(int(n)
                      for n in version_numbers.split('.')[:4]
                      if n.isdigit())
-    except Exception:
+    except (ErrorReturnCode, KeyError):
         return (1, 9, 0)
 
 
@@ -101,7 +101,7 @@ def fat_isinitialized(location):
                 git.config('--local', '--get', 'filter.fat.smudge',
                            _out=devnull)
                 return True
-            except ErrorReturnCode_1:
+            except ErrorReturnCode:
                 return False
 
 
@@ -203,6 +203,9 @@ def clean_tags(location, max_tags):
             return
 
         git.tag('-d', *old_tags)
+        # also remove the same tags from any submodules.
+        rm_tags = 'git tag -d' + ' '.join(old_tags)
+        git.submodule('foreach', rm_tags)
 
 
 def garbage_collect(location):
@@ -210,6 +213,7 @@ def garbage_collect(location):
 
     ensure_dir(location)
     with sh.pushd(location):
+        git.submodule('foreach', 'git gc --quiet --auto')
         git.gc('--quiet', '--auto')
 
 
@@ -307,16 +311,21 @@ def remote_set(location, repo, remote='origin'):
 
 
 def fetch(location, repo, reference=None, dissociate=True,
-          recurse_submodules=False):
+          recurse_submodules=False, shallow=False, bare=False):
     """Fetch a git repo to a location"""
+
     if is_dir(location):
         remote_set(location, repo)
         with sh.pushd(location):
-            cmd = append_jobs_arg([])
+            cmd = append_jobs_arg(['--tags'])
+            if recurse_submodules:
+                cmd.append('--recurse-submodules')
             git.fetch(*cmd)
     else:
         cmd = append_jobs_arg([])
-
+        if shallow:
+            cmd.append('--depth')
+            cmd.append('1')
         if reference is not None and GIT_VERSION[0] > 1:
             ensure_dir(reference)
             cmd.append('--reference')
@@ -325,9 +334,17 @@ def fetch(location, repo, reference=None, dissociate=True,
                 cmd.append('--dissociate')
         if recurse_submodules:
             cmd.append('--recurse-submodules')
+            if shallow:
+                cmd.append('--shallow-submodules')
+        if bare:
+            cmd.append('--bare')
+        cmd.append('--prune')
         cmd.append(repo)
         cmd.append(location)
         git.clone(*cmd)
+
+    with sh.pushd(location):
+        git.fetch('--tags', '+refs/remotes/origin/*:refs/heads/origin/*')
 
 
 def append_jobs_arg(cmd):
@@ -375,12 +392,16 @@ def update_submodules(location, git_remote=None, use_upstream=False,
     with utils.cd(location):
         logger.debug('Fetch submodules')
         if not use_upstream:
+            logger.debug('Remapping submodule %s to %s', location, git_remote)
             remap_submodules(location, git_remote)
+        else:
+            logger.debug('Using upstream submodules')
 
         cmd = ['update', '--init', '--recursive']
         cmd = append_jobs_arg(cmd)
 
         if reference is not None and GIT_VERSION[0] > 1:
+            logger.debug('Using --reference repository: %s', reference)
             ensure_dir(reference)
             cmd.append('--reference')
             cmd.append(reference)
@@ -424,18 +445,14 @@ def tag_repo(deploy_info, location=os.getcwd()):
 
     ensure_dir(location)
     with utils.cd(location):
-        cmd = """
-        /usr/bin/git tag -fa \\
-                -m 'user {0}' \\
-                -m 'timestamp {1}' -- \\
-                {2} {3}
-        """.format(
-            deploy_info['user'],
-            deploy_info['timestamp'],
-            deploy_info['tag'],
-            deploy_info['commit']
-        )
-        subprocess.check_call(cmd, shell=True)
+        user = "'user {0}'".format(deploy_info['user'])
+        timestamp = "'timestamp {0}'".format(deploy_info['timestamp'])
+        args = ['tag', '-fa', '-m', user, '-m', timestamp, '--',
+                deploy_info['tag'], deploy_info['commit']]
+        # tag top level repo
+        git(*args)
+        # also tag the submodules
+        git('submodule', 'foreach', "git {0}".format(" ".join(args)))
 
 
 def resolve_gitdir(directory):
@@ -490,8 +507,8 @@ def remap_submodules(location, server):
     with sh.pushd(location):
         gitmodule = os.path.join(location, '.gitmodules')
         if not os.path.isfile(gitmodule):
-            logger.warning('Unable to rewrite_submodules: No .gitmodules in %s'
-                           % location)
+            logger.warning(
+                'Unable to rewrite_submodules: No .gitmodules in %s', location)
             return
 
         logger.info('Updating .gitmodule: %s', os.path.dirname(gitmodule))

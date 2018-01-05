@@ -33,6 +33,7 @@ import subprocess
 import sys
 import time
 
+from scap import ansi
 import scap.arg as arg
 import scap.cli as cli
 import scap.lint as lint
@@ -59,7 +60,7 @@ class AbstractSync(cli.Application):
     @cli.argument('message', nargs='*', help='Log message for SAL')
     def main(self, *extra_args):
         """Perform a sync operation to the cluster."""
-        print(utils.logo())
+        print(ansi.logo())
         self._assert_auth_sock()
 
         with lock.Lock(self.get_lock_file(), self.arguments.message):
@@ -110,7 +111,8 @@ class AbstractSync(cli.Application):
                     canaries, **canary_checks)
 
                 # If more than 1/4 of the canaries failed, stop deployment
-                if failed > max(len(canaries)/4, 1):
+                max_failed_canaries = max(len(canaries)/4, 1)
+                if failed > max_failed_canaries:
                     canary_fail_msg = (
                         'scap failed: average error rate on {}/{} '
                         'canaries increased by 10x '
@@ -122,6 +124,18 @@ class AbstractSync(cli.Application):
 
                     self.announce(canary_fail_msg)
                     raise RuntimeError(canary_fail_msg)
+
+                # If some canaries failed, explain why we didn't raise a
+                # RuntimeError - T173146
+                if failed > 0:
+                    self.get_logger().info(
+                        'Canary error check failed for {} canaries, less than '
+                        'threshold to halt deployment ({}/{}), see {} for '
+                        'details. Continuing...'.format(
+                            failed,
+                            max_failed_canaries,
+                            len(canaries),
+                            self.config['canary_dashboard_url']))
 
             # Update proxies
             proxies = [node for node in self._get_proxy_list()

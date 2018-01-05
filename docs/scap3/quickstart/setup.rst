@@ -68,7 +68,7 @@ An example of a sensible default ``scap/scap.cfg`` file is seen here::
     git_submodules: True
 
     # The repo has git-fat managed binary files that should be synced
-    git_fat: True
+    git_binary_manager: git-fat
 
     # There is a service that needs to be restarted
     service_name: mockbase

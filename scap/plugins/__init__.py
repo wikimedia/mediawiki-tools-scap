@@ -39,8 +39,8 @@ import importlib
 import logging
 import os
 import sys
-from ..cli import Application
-from .say import Say
+from scap.cli import Application
+from scap.plugins.say import Say
 
 THIS_MODULE = sys.modules[__name__]
 LOADED_PLUGINS = {}

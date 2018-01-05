@@ -51,6 +51,33 @@ Available configuration variables
 |                            |                           | targets in which                |
 |                            |                           | your repo is placed             |
 +----------------------------+---------------------------+---------------------------------+
+| ``git_rev``                | **HEAD**                  | (*String*) Specific git rev to  |
+|                            |                           | deploy.                         |
++----------------------------+---------------------------+---------------------------------+
+| ``git_submodules``         | False                     | (*Boolean*) (*Optional*)        |
+|                            |                           | Whether submodules need         |
+|                            |                           | to be fetched and               |
+|                            |                           | checked-out as part of          |
+|                            |                           | the deploy on targets.          |
++----------------------------+---------------------------+---------------------------------+
+| ``git_upstream_submodules``| False                     | (*Boolean*) If ``True``,        |
+|                            |                           | submodules will **NOT** be      |
+|                            |                           | fetched from                    |
+|                            |                           | ``git_deploy_server``,          |
+|                            |                           | but from the git server         |
+|                            |                           | defined in ``.gitmodules``      |
++----------------------------+---------------------------+---------------------------------+
+| ``git_fat``                | False                     | (*Boolean*) (*Optional*)        |
+|                            |                           | Whether binary files are managed|
+|                            |                           | via git-fat and should be       |
+|                            |                           | synced as part of the deploy on |
+|                            |                           | targets.                        |
++----------------------------+---------------------------+---------------------------------+
+| ``git_binary_manager``     | **None***                 | (*String*) (*Optional*)         |
+|                            |                           | Binary files should be managed  |
+|                            |                           | by an external program.         |
+|                            |                           | Allowed values are ``git-fat``  |
++----------------------------+---------------------------+---------------------------------+
 | ``dsh_targets``            | ``mediawiki-installation``| (*String*) Path to list         |
 |                            |                           | of deploy targets. If           |
 |                            |                           | the path is not absolute,       |
@@ -105,18 +132,6 @@ Available configuration variables
 |                            |                           | A global and/or group specific  |
 |                            |                           | configuration may be provided.  |
 +----------------------------+---------------------------+---------------------------------+
-| ``git_submodules``         | False                     | (*Boolean*) (*Optional*)        |
-|                            |                           | Whether submodules need         |
-|                            |                           | to be fetched and               |
-|                            |                           | checked-out as part of          |
-|                            |                           | the deploy on targets.          |
-+----------------------------+---------------------------+---------------------------------+
-| ``git_fat``                | False                     | (*Boolean*) (*Optional*)        |
-|                            |                           | Whether binary files are managed|
-|                            |                           | via git-fat and should be       |
-|                            |                           | synced as part of the deploy on |
-|                            |                           | targets.                        |
-+----------------------------+---------------------------+---------------------------------+
 | ``service_name``           | **NONE**                  | (*String*) (*Optional*)         |
 |                            |                           | If a service name is            |
 |                            |                           | defined, the service            |
@@ -151,14 +166,6 @@ Available configuration variables
 |                            |                           | for accepting TCP               |
 |                            |                           | connections.                    |
 +----------------------------+---------------------------+---------------------------------+
-| ``tags_to_keep``           | 20                        | (*Int*) (*Optional*)            |
-|                            |                           | Number of tags to keep in the   |
-|                            |                           | deployment server repo. Git     |
-|                            |                           | appears to max-out at 999.      |
-|                            |                           | Scap thinks 20 tags on the      |
-|                            |                           | deployment server is quite      |
-|                            |                           | enough.                         |
-+----------------------------+---------------------------+---------------------------------+
 | ``batch_size``             | 80                        | (*Int*) (*Optional*)            |
 | ``[stage]_batch_size``     |                           | Parallelism  of a stage of      |
 |                            |                           | deployment Number of hosts to   |
@@ -178,13 +185,6 @@ Available configuration variables
 |                            |                           | will be evaluated with jinja2   |
 |                            |                           | and deployed.                   |
 +----------------------------+---------------------------+---------------------------------+
-| ``git_upstream_submodules``| False                     | (*Boolean*) If ``True``,        |
-|                            |                           | submodules will **NOT** be      |
-|                            |                           | fetched from                    |
-|                            |                           | ``git_deploy_server``,          |
-|                            |                           | but from the git server         |
-|                            |                           | defined in ``.gitmodules``      |
-+----------------------------+---------------------------+---------------------------------+
 | ``nrpe_dir``               | ``/etc/nagios/nrpe.d``    | (*String*) Directory in         |
 |                            |                           | which nrpe checks are           |
 |                            |                           | stored                          |
@@ -194,4 +194,12 @@ Available configuration variables
 |                            |                           | ``./scap/checks.yaml``          |
 |                            |                           | will be performed after         |
 |                            |                           | each-stage of checkout.         |
++----------------------------+---------------------------+---------------------------------+
+| ``tags_to_keep``           | 20                        | (*Int*) (*Optional*)            |
+|                            |                           | Number of tags to keep in the   |
+|                            |                           | deployment server repo. Git     |
+|                            |                           | appears to max-out at 999.      |
+|                            |                           | Scap thinks 20 tags on the      |
+|                            |                           | deployment server is quite      |
+|                            |                           | enough.                         |
 +----------------------------+---------------------------+---------------------------------+

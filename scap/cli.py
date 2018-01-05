@@ -91,9 +91,9 @@ class Application(object):
         """Get the elapsed duration in seconds."""
         return time.time() - self.start
 
-    def get_script_path(self, script_name='scap'):
-        """Qualify the path to a scap script."""
-        return os.path.join(self.config['bin_dir'], script_name)
+    def get_script_path(self):
+        """Qualify the path to the scap script."""
+        return os.path.join(os.path.dirname(sys.argv[0]), 'scap')
 
     def get_keyholder_key(self):
         """Get the public key for IdentityFile use in ssh."""
@@ -301,8 +301,9 @@ class Application(object):
             datefmt='%H:%M:%S',
             stream=sys.stdout)
 
-        # Silence this noisy logger early
+        # Silence noisy loggers early
         logging.getLogger('urllib3').setLevel(logging.WARNING)
+        logging.getLogger('scap.sh').setLevel(logging.WARNING)
 
         # Setup instance for logger access
         app = cls('scap')

@@ -31,7 +31,6 @@ import scap.utils as utils
 
 
 DEFAULT_CONFIG = {
-    'bin_dir': (str, '/srv/deployment/scap/scap/bin'),
     'canary_dashboard_url': (
         str,
         'https://logstash.wikimedia.org/goto/3888cca979647b9381a7739b0bdbc88e'
@@ -65,6 +64,7 @@ DEFAULT_CONFIG = {
     'group_size': (int, None),
     'git_deploy_dir': (str, '/srv/deployment'),
     'git_fat': (bool, False),
+    'git_binary_manager': (str, None),
     'git_server': (str, 'tin.eqiad.wmnet'),
     'git_scheme': (str, 'http'),
     'git_submodules': (bool, False),
