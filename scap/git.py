@@ -338,9 +338,6 @@ def fetch(location, repo, reference=None, dissociate=True,
         cmd.append(location)
         git.clone(*cmd)
 
-    with sh.pushd(location):
-        git.fetch('--tags', '+refs/remotes/origin/*:refs/heads/origin/*')
-
 
 def append_jobs_arg(cmd):
     if GIT_VERSION[0] > 2 or (GIT_VERSION[0] == 2 and GIT_VERSION[1] > 9):
