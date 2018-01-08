@@ -334,7 +334,6 @@ def fetch(location, repo, reference=None, dissociate=True,
                 cmd.append('--shallow-submodules')
         if bare:
             cmd.append('--bare')
-        cmd.append('--prune')
         cmd.append(repo)
         cmd.append(location)
         git.clone(*cmd)
