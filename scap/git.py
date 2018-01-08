@@ -203,9 +203,6 @@ def clean_tags(location, max_tags):
             return
 
         git.tag('-d', *old_tags)
-        # also remove the same tags from any submodules.
-        rm_tags = 'git tag -d' + ' '.join(old_tags)
-        git.submodule('foreach', rm_tags)
 
 
 def garbage_collect(location):
@@ -213,7 +210,6 @@ def garbage_collect(location):
 
     ensure_dir(location)
     with sh.pushd(location):
-        git.submodule('foreach', 'git gc --quiet --auto')
         git.gc('--quiet', '--auto')
 
 
@@ -445,14 +441,18 @@ def tag_repo(deploy_info, location=os.getcwd()):
 
     ensure_dir(location)
     with utils.cd(location):
-        user = "'user {0}'".format(deploy_info['user'])
-        timestamp = "'timestamp {0}'".format(deploy_info['timestamp'])
-        args = ['tag', '-fa', '-m', user, '-m', timestamp, '--',
-                deploy_info['tag'], deploy_info['commit']]
-        # tag top level repo
-        git(*args)
-        # also tag the submodules
-        git('submodule', 'foreach', "git {0}".format(" ".join(args)))
+        cmd = """
+        /usr/bin/git tag -fa \\
+                -m 'user {0}' \\
+                -m 'timestamp {1}' -- \\
+                {2} {3}
+        """.format(
+            deploy_info['user'],
+            deploy_info['timestamp'],
+            deploy_info['tag'],
+            deploy_info['commit']
+        )
+        subprocess.check_call(cmd, shell=True)
 
 
 def resolve_gitdir(directory):

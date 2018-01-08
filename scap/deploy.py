@@ -285,7 +285,7 @@ class DeployLocal(cli.Application):
         logger.info('Fetch from: {}'.format(git_remote))
 
         # clone/fetch from the repo to the cache directory
-        git.fetch(self.context.cache_dir, git_remote, bare=True)
+        git.fetch(self.context.cache_dir, git_remote)
 
         if has_submodules:
             upstream_submodules = self.config['git_upstream_submodules']
