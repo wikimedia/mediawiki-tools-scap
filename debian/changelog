@@ -1,3 +1,21 @@
+scap (3.7.5-1) unstable; urgency=medium
+
+  [ Chad Horohoe ]
+  * Abstract configuration of git-fat support into git_binary_manager
+  * scap gains +2 cuteness
+  * Migrate to pytest
+
+  [ Mukunda Modell ]
+  * Make it more obvious when we are using `git_rev` in scap.cfg
+
+  [ Tyler Cipriani ]
+  * scap.sh logging is alarming (stop excessive console logging)
+  * Add debian/README to release branch
+  * Scap say: moar cowsay compat
+  * Log message to explain canary behavior
+
+ -- Mukunda Modell <mmodell@wikimedia.org>  Thu, 11 Jan 2018 15:58:41 -0600
+
 scap (3.7.4-3) unstable; urgency=high
 
   * Bumped version number to one more botched release. T183046
