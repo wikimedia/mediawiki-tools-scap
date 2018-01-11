@@ -6,16 +6,16 @@ import logging
 import unittest
 from StringIO import StringIO
 
-import scap.ssh as ssh
+from scap import ssh
 
 
 class JSONOutputHandlerTest(unittest.TestCase):
 
     def setUp(self):
-        self.host = 'host1'
-        self.output_handler = ssh.JSONOutputHandler(self.host)
+        host = 'host1'
+        self.output_handler = ssh.JSONOutputHandler(host)
 
-        self.logger = logging.getLogger('target.' + self.host)
+        self.logger = logging.getLogger('target.' + host)
         self.logger.setLevel(logging.INFO)
 
         for log_handler in self.logger.handlers:
@@ -25,28 +25,24 @@ class JSONOutputHandlerTest(unittest.TestCase):
         self.log_handler = logging.StreamHandler(self.stream)
         self.logger.addHandler(self.log_handler)
 
-    def assertLogged(self, message):
-        self.assertEqual(message, self.stream.getvalue())
+    def assert_logged(self, message):
+        assert message == self.stream.getvalue()
 
     def test_lines_buffers_partial_lines(self):
         lines = self.output_handler.lines("one\ntwo\nthre")
-        self.assertEqual(['one', 'two'], list(lines))
+        assert ['one', 'two'] == list(lines)
 
         lines = self.output_handler.lines("e\nfour\n")
-        self.assertEqual(['three', 'four'], list(lines))
+        assert ['three', 'four'] == list(lines)
 
     def test_accept_parses_and_logs_json_messages(self):
         self.output_handler.accept("{ \"msg\": \"foo\" }\n")
-        self.assertLogged("foo\n")
+        self.assert_logged("foo\n")
 
     def test_accept_ignores_bad_json(self):
         self.output_handler.accept('invalid json')
-        self.assertLogged('')
+        self.assert_logged('')
 
     def tearDown(self):
         self.logger.removeHandler(self.log_handler)
         self.log_handler.close()
-
-
-if __name__ == '__main__':
-    unittest.main()

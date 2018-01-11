@@ -307,16 +307,21 @@ def remote_set(location, repo, remote='origin'):
 
 
 def fetch(location, repo, reference=None, dissociate=True,
-          recurse_submodules=False):
+          recurse_submodules=False, shallow=False, bare=False):
     """Fetch a git repo to a location"""
+
     if is_dir(location):
         remote_set(location, repo)
         with sh.pushd(location):
-            cmd = append_jobs_arg([])
+            cmd = append_jobs_arg(['--tags'])
+            if recurse_submodules:
+                cmd.append('--recurse-submodules')
             git.fetch(*cmd)
     else:
         cmd = append_jobs_arg([])
-
+        if shallow:
+            cmd.append('--depth')
+            cmd.append('1')
         if reference is not None and GIT_VERSION[0] > 1:
             ensure_dir(reference)
             cmd.append('--reference')
@@ -325,6 +330,10 @@ def fetch(location, repo, reference=None, dissociate=True,
                 cmd.append('--dissociate')
         if recurse_submodules:
             cmd.append('--recurse-submodules')
+            if shallow:
+                cmd.append('--shallow-submodules')
+        if bare:
+            cmd.append('--bare')
         cmd.append(repo)
         cmd.append(location)
         git.clone(*cmd)
