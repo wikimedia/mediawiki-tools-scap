@@ -17,8 +17,8 @@ code and configuration on production web servers.
 Reporting Issues
 ================
 
-You can report issues to the `#scap3
-<https://phabricator.wikimedia.org/maniphest/task/create/?projects=Scap3>`_
+You can report issues to the `#scap
+<https://phabricator.wikimedia.org/maniphest/task/create/?projects=Scap>`_
 project on phabricator.wikimedia.org
 
 
