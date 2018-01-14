@@ -45,6 +45,10 @@ DEFAULT_IGNORE = {
 }
 
 
+LFS = 'git-lfs'
+FAT = 'git-fat'
+
+
 def info_filename(directory, install_path, cache_path):
     """Compute the path for a git_info cache file related to a given
     directory.
