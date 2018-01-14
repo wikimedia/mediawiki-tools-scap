@@ -47,3 +47,9 @@ License
 |
 |    You should have received a copy of the GNU General Public License
 |    along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+
+Increment T184118
+=================
+Increment this number when you work around `#T184118
+<https://phabricator.wikimedia.org/T184118>`_: 2
