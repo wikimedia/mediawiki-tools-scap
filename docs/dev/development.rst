@@ -10,7 +10,7 @@ Scap-Vagrant
 ------------
 For testing scap deployments, we have created a vagrant development environment
 called `scap-vagrant
-<https://phabricator.wikimedia.org/diffusion/GSV/>`_
+<https://phabricator.wikimedia.org/source/scap-vagrant/>`_
 
 Code Review
 -----------
