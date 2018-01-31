@@ -275,9 +275,10 @@ class DeployLocal(cli.Application):
         if self.config['git_fat']:
             logger.warning(
                 'Using deprecated git_fat config, swap to git_binary_manager')
-            git_binary_manager = git.FAT
+            git_binary_manager = [git.FAT]
         elif self.config['git_binary_manager']:
-            git_binary_manager = self.config['git_binary_manager']
+            git_binary_manager = config.multi_value(
+                self.config['git_binary_manager'])
 
         rev_dir = self.context.rev_path(self.rev)
 
@@ -328,19 +329,13 @@ class DeployLocal(cli.Application):
                                   use_upstream=upstream_submodules,
                                   reference=self.context.cache_dir)
 
-        if git_binary_manager == git.FAT:
-            if not git.fat_isinitialized(rev_dir):
-                logger.info('Git fat initialize')
-                git.fat_init(rev_dir)
-
-            logger.info("Git fat pull '%s'", rev_dir)
-            git.fat_pull(rev_dir)
-        elif git_binary_manager == git.LFS:
-            # Todo: Actually implement git lfs support
-            pass
-        elif git_binary_manager:
-            logger.warning('Passed unrecognized git_binary_manager "%s"',
-                           git_binary_manager)
+        for manager in git_binary_manager:
+            logger.info("Pulling large objects [using %s]", manager)
+            if manager in [git.FAT, git.LFS]:
+                git.largefile_pull(rev_dir, manager)
+            else:
+                logger.warning("Passed unrecognized binary manager %s",
+                               manager)
 
         self.context.mark_rev_in_progress(self.rev)
 

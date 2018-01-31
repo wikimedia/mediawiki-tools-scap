@@ -77,6 +77,8 @@ Available configuration variables
 |                            |                           | Binary files should be managed  |
 |                            |                           | by an external program.         |
 |                            |                           | Allowed values are ``git-fat``  |
+|                            |                           | and ``git-lfs``. Multiple values|
+|                            |                           | are allowed separated by commas |
 +----------------------------+---------------------------+---------------------------------+
 | ``dsh_targets``            | ``mediawiki-installation``| (*String*) Path to list         |
 |                            |                           | of deploy targets. If           |

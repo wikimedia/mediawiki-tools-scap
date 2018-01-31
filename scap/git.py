@@ -109,11 +109,20 @@ def fat_isinitialized(location):
                 return False
 
 
-def fat_pull(location):
-    """Syncs all git-fat objects for the given repo directory."""
+def largefile_pull(location, implementor):
+    """Syncs all git-fat or git-lfs objects for the given repo directory.
 
+    :param location: Repository to work in
+    :param implementor: What implementation to pull with (git-lfs, git-fat)
+    """
     with utils.cd(location):
-        git.fat('pull')
+        if implementor == LFS:
+            git.lfs('pull')
+        elif implementor == FAT:
+            fat_init(location)
+            git.fat('pull')
+        else:
+            raise ValueError('Must be passed one of lfs or fat')
 
 
 def info(directory):

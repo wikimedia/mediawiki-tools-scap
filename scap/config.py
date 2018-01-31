@@ -22,10 +22,10 @@
 """
 from __future__ import absolute_import
 
-from six.moves.configparser import ConfigParser
 import getpass
 import os
 import socket
+from six.moves.configparser import ConfigParser
 
 import scap.utils as utils
 
@@ -192,3 +192,13 @@ def coerce_value(key, value):
             return default_type(value)
 
     return value
+
+
+def multi_value(str_value):
+    """
+    Given a string that's got commas, turn it into a list
+
+    :param str_value: Random thing the user typed in config
+    """
+    comma_list = [x.strip() for x in str_value.split(',')]
+    return comma_list
