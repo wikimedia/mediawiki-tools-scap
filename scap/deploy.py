@@ -329,13 +329,14 @@ class DeployLocal(cli.Application):
                                   use_upstream=upstream_submodules,
                                   reference=self.context.cache_dir)
 
-        for manager in git_binary_manager:
-            logger.info("Pulling large objects [using %s]", manager)
-            if manager in [git.FAT, git.LFS]:
-                git.largefile_pull(rev_dir, manager)
-            else:
-                logger.warning("Passed unrecognized binary manager %s",
-                               manager)
+        if git_binary_manager:
+            for manager in git_binary_manager:
+                logger.info("Pulling large objects [using %s]", manager)
+                if manager in [git.FAT, git.LFS]:
+                    git.largefile_pull(rev_dir, manager)
+                else:
+                    logger.warning("Passed unrecognized binary manager %s",
+                                   manager)
 
         self.context.mark_rev_in_progress(self.rev)
 
