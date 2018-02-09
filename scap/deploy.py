@@ -41,6 +41,7 @@ import scap.checks as checks
 import scap.config as config
 import scap.context as context
 import scap.nrpe as nrpe
+import scap.script as script
 import scap.template as template
 import scap.cli as cli
 import scap.lock as lock
@@ -472,12 +473,19 @@ class DeployLocal(cli.Application):
         Checks are retrieved from the remote deploy host and cached within
         tmp.
         """
+        # Primarily for use in script checks
+        check_environment = os.environ.copy()
+        check_environment['SCAP_FINAL_PATH'] = self.final_path
+        check_environment['SCAP_REV_PATH'] = self.context.rev_path(self.rev)
 
         # Load NRPE checks
         if os.path.isdir(self.config['nrpe_dir']):
             nrpe.register(nrpe.load_directory(self.config['nrpe_dir']))
 
-        chks = checks.load(self.config)
+        # Load script checks
+        script.register_directory(self.context.scripts_dir(self.rev))
+
+        chks = checks.load(self.config, check_environment)
         chks = [
             chk for chk in chks.values() if self._valid_chk(chk, stage, group)
         ]

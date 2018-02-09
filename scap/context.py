@@ -254,6 +254,10 @@ class TargetContext(Context):
 
         return self.path('revs')
 
+    def scripts_dir(self, rev):
+        """Path to scripts for a given rev."""
+        return self.rev_path(rev, 'scap', 'scripts')
+
     def setup(self):
         """
         Create the cache and revs directory.

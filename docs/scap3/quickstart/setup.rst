@@ -220,6 +220,12 @@ will timeout after 120 seconds. If a service takes a long time to begin
 accepting connections, you may need to set the ``service_timeout`` value
 to a number > 120.
 
+In addition to service restarts, users may define their own custom checks. The
+environment variables ``$SCAP_FINAL_PATH`` and ``$SCAP_REV_PATH`` are available
+for all checks. ``$SCAP_FINAL_PATH`` is the final path of the code after
+deployment is complete. ``$SCAP_REV_PATH`` is the variable path of the code
+currently being deployed.
+
 Command Checks
 --------------
 
@@ -272,6 +278,9 @@ If I wanted to only run this check for the ``canary`` deploy group, I would modi
         command: curl -Ss localhost:1134
         timeout: 60
 
+NRPE Checks
+-----------
+
 In addition to the ``command``-type checks, you can also run any :ref:`nrpe`
 that are defined in ``/etc/nagios/nrpe.d``. For example, if, in addition to
 cURLing a known end-point, you wanted to check disk-space at the end
@@ -291,6 +300,35 @@ of the fetch stage for all groups using the NRPE check at
         type: nrpe
         stage: fetch
         command: check_disk_space
+
+Script Checks
+-------------
+
+The final type of checks available are :ref:`script`. Script checks allow you
+to run any script inside the repository's ``scap/scripts`` directory that is
+executable by the ``ssh_user``. An example of a script that may be needed for a
+given deployment is one to setup a virtual environment for a python project
+after the ``fetch`` stage is complete. This is accomplished in this example via
+a bash script that is executable by the ``ssh_user`` in the repository at
+``scap/scripts/build_virtualenv.sh``::
+
+    checks:
+      mockbase_responds:
+        type: command
+        stage: promote
+        group: canary
+        command: curl -Ss localhost:1134
+        timeout: 60
+
+      check_diskspace:
+        type: nrpe
+        stage: fetch
+        command: check_disk_space
+
+      build_virtualenv:
+        type: script
+        stage: fetch
+        command: build_virtualenv.sh
 
 No additional ``scap/scap.cfg`` variables are required to run the checks in
 ``scap/checks.yaml``: if the file doesn't exist, no user-defined checks are run.

@@ -7,6 +7,10 @@ problems that might be caused by the new code (or configuration) and alert the
 deployer early in the process and offering the option to roll back to the
 previously deployed version. Additionally, you can run any arbitrary command using checks.
 
+The environment in which a check executes has two additional variables defined
+by scap: ``$SCAP_FINAL_PATH`` and ``$SCAP_REV_PATH``. ``$SCAP_FINAL_PATH`` is
+the final path of the code after deployment is complete. ``$SCAP_REV_PATH`` is
+the variable path of the code currently being deployed.
 
 .. topic:: Logging and Monitoring
 
@@ -68,6 +72,36 @@ Example checks.yml:
 
     * :class:`scap.checks.Check`
     * :class:`scap.nrpe.NRPECheck`
+
+.. _script:
+
+Script Checks
+=============
+The ``script`` check type allows users to run scripts after any stage of a
+deployment. This was in the past achieved through use of the ``command`` check;
+however, this provides an easier means by which to execute scripts that may
+change between revisions of a repository.
+
+Script checks will only run executable files in the `scap/scripts` directory.
+
+Script checks can be referenced in `checks.yaml` using `type: script` and
+`command: [basename_of_executable_file]`. The value of
+`[basename_of_executable_file]` will be executed by the ``ssh_user`` after the
+stage specified by ``stage:``
+
+In the example below, scap expects that in the repo being deployed there exists
+a `scap/scripts/bulid_venv.sh` file that is executable by the ``ssh_user``.
+
+Example checks.yml:
+
+.. code-block:: yaml
+
+    checks:
+      build_venv:
+        type: script
+        stage: promote
+        command: build_venv.sh
+
 
 Command Checks
 ==============

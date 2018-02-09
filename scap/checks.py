@@ -145,13 +145,13 @@ def execute(checks, logger, concurrency=1):
     return (len(done) == len(checks) == success, done)
 
 
-def load(cfg):
+def load(cfg, environment=None):
     """
     Load checks from the given config dict.
 
     :param cfg: config dict
+    :param environment: environment in which to execute checks
     """
-
     checks = collections.OrderedDict()
     if cfg and cfg.get('checks', None):
         for name, options in cfg['checks'].items():
@@ -164,7 +164,11 @@ def load(cfg):
                 msg = "unknown check type '{}'".format(check_type)
                 raise CheckInvalid(msg)
 
-            checks[name] = _TYPES[check_type](name=name, **options)
+            checks[name] = _TYPES[check_type](
+                name=name,
+                environment=environment,
+                **options
+            )
 
     return checks
 
@@ -187,19 +191,24 @@ class Check(object):
 
     :param name: check name
     :param stage: stage after which to run the check
+    :param environment: environment in which to run checks
     :param group: deploy group for which to run the check
     :param timeout: maximum time allowed for check execution, in seconds
     :param command: check command to run
     """
 
-    def __init__(self, name, stage, group=None, timeout=30.0, command='',
-                 **opts):
+    def __init__(self, name, stage, environment=None, group=None, timeout=30.0,
+                 command='', **opts):
         self.name = name
+        self.environment = environment
         self.stage = stage
         self.group = group
         self.timeout = timeout
         self.command = command
         self.options = opts
+
+        if self.environment is None:
+            self.environment = os.environ.copy()
 
         self.validate()
 
@@ -230,7 +239,10 @@ class CheckJob(object):
         self.check = check
         self.proc = subprocess.Popen(
             shlex.split(check.command),
-            stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+            env=check.environment,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT
+        )
         self.fd = self.proc.stdout.fileno()
         self.stream = self.proc.stdout
         self.output = ''
