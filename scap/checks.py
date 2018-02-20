@@ -306,9 +306,10 @@ class CheckJob(object):
 class OverrideCheck(object):
     """Represent a loaded 'override' check."""
 
-    def __init__(self, name):
+    def __init__(self, name, environment):
         """Initialize override check."""
         self.name = name
+        self.environment = environment
 
     @property
     def stage(self):
