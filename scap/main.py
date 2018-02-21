@@ -603,14 +603,19 @@ class SyncCommon(cli.Application):
                   help='Rsync include pattern to limit transfer to.'
                   ' End directories with a trailing `/***`.'
                   ' Can be used multiple times.')
+    @cli.argument('--delete-excluded', action='store_true',
+                  help='Also delete local files not found on the master.')
     @cli.argument('servers', nargs=argparse.REMAINDER,
                   help='Rsync server(s) to copy from')
     def main(self, *extra_args):
+        rsync_args = [
+            '--delete-excluded'] if self.arguments.delete_excluded else []
         tasks.sync_common(
             self.config,
             include=self.arguments.include,
             sync_from=self.arguments.servers,
-            verbose=self.verbose
+            verbose=self.verbose,
+            rsync_args=rsync_args
         )
         if self.arguments.update_l10n:
             utils.sudo_check_call(
