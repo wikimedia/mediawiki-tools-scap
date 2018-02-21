@@ -135,9 +135,19 @@ Example checks.yml:
 Check stages
 ============
 
+Not all of these stages are run for every deployment.  The basic stages that
+you might want to write checks for are ``fetch`` and ``promote``.
+
 NRPE checks, and command checks may be executed following any stage of
 deployment (the stage is specified using the ``stage`` option in the
 ``checks.yaml`` file:
 
 #. ``restart_service`` - a service is restarted
+#. ``config_deploy`` - templated configuration files are rendered
+#. ``config_diff`` - compare each file to the deployed version, called during
+   ``scap deploy --dry-run``.
+#. ``fetch`` - target repository has been checked-out
+#. ``finalize`` - final deployment cleanup
+#. ``promote`` - make the new deployment active
+#. ``rollback`` - target is rolled back to the last deployed revision
 
