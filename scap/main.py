@@ -846,42 +846,6 @@ class RestartHHVM(cli.Application):
             return 1
 
 
-@cli.command('hhvm-graceful')
-class HHVMGracefulAll(AbstractSync):
-    """Perform a rolling restart of HHVM across the cluster."""
-
-    @cli.argument('message', nargs='*', help='Log message for SAL')
-    def main(self, *extra_args):
-        exit_code = 0
-        self.announce('Restarting HHVM: %s', self.arguments.message)
-
-        target_hosts = self._get_target_list()
-        try:
-            succeeded, failed = tasks.restart_hhvm(
-                target_hosts,
-                self.config,
-                key=self.get_keyholder_key(),
-                # Use a batch size of 5% of the total target list
-                batch_size=len(target_hosts) // 20)
-        except NotImplementedError:
-            self.get_logger().warning(
-                "Not restarting HHVM, feature is not implemented")
-            exit_code = 1
-        else:
-            if failed:
-                self.get_logger().warning(
-                    '%d hosts failed to restart HHVM', failed)
-                self.get_stats().increment('deploy.fail')
-                exit_code = 1
-        self.announce(
-            'Finished HHVM restart: %s (duration: %s)',
-            self.arguments.message,
-            utils.human_duration(self.get_duration()))
-        self.get_stats().increment('deploy.restart')
-
-        return exit_code
-
-
 @cli.command('cdb-json-refresh', help=argparse.SUPPRESS)
 class RefreshCdbJsonFiles(cli.Application):
     """
