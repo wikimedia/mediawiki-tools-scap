@@ -809,16 +809,6 @@ class SyncWikiversions(AbstractSync):
         self.get_stats().increment('deploy.all')
 
 
-@cli.command('l10n-update')
-class UpdateL10n(cli.Application):
-    """Update localization files."""
-
-    def main(self, *extra_args):
-        for version, wikidb in self.active_wikiversions().items():
-            tasks.update_localization_cache(
-                version, wikidb, self.verbose, self.config)
-
-
 @cli.command('hhvm-restart')
 class RestartHHVM(cli.Application):
     """

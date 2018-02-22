@@ -40,7 +40,6 @@ from scap.main import (
     SyncL10n,
     SyncMaster,
     SyncWikiversions,
-    UpdateL10n,
     Version,
 )
 
@@ -70,7 +69,6 @@ __all__ = [
     'SyncL10n',
     'SyncMaster',
     'SyncWikiversions',
-    'UpdateL10n',
     'Version',
     '__version__',
 ]
@@ -103,6 +101,5 @@ any((
     SyncMaster,
     SyncL10n,
     SyncWikiversions,
-    UpdateL10n,
     Version,
     __version__))  # Ignore unused import warning

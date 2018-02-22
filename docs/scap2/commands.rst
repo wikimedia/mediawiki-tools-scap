@@ -98,16 +98,6 @@ scap cdb-rebuild
    * :func:`scap.tasks.merge_cdb_updates`
 
 
-scap l10n-update
-----------------
-:command:`scap l10n-update` generates localization cache files.
-
-.. program-output:: ../bin/scap l10n-update --help
-.. seealso::
-   * :func:`scap.UpdateL10n`
-   * :func:`scap.tasks.update_localization_cache`
-
-
 scap cdb-json-refresh
 ---------------------
 :command:`refreshCdbJsonFiles` Create JSON/MD5 files for all CDB files in a directory.
