@@ -78,7 +78,7 @@ class AbstractSync(cli.Application):
             if not self.arguments.force:
                 with log.Timer('sync-check-canaries', self.get_stats()):
                     sync_cmd = self._apache_sync_command(
-                        self._get_master_list())
+                        self.get_master_list())
                     sync_cmd.append(socket.getfqdn())
                     update_canaries = ssh.Job(
                         canaries,
@@ -149,7 +149,7 @@ class AbstractSync(cli.Application):
                 proxy_pooler.depool()
 
             with log.Timer('sync-proxies', self.get_stats()):
-                sync_cmd = self._apache_sync_command(self._get_master_list())
+                sync_cmd = self._apache_sync_command(self.get_master_list())
                 # Proxies should always use the current host as their sync
                 # origin server.
                 sync_cmd.append(socket.getfqdn())
@@ -175,7 +175,7 @@ class AbstractSync(cli.Application):
                     user=self.config['ssh_user'],
                     key=self.get_keyholder_key())
                 update_apaches.exclude_hosts(proxies)
-                update_apaches.exclude_hosts(self._get_master_list())
+                update_apaches.exclude_hosts(self.get_master_list())
                 if not self.arguments.force:
                     update_apaches.exclude_hosts(canaries)
                 update_apaches.shuffle()
@@ -235,11 +235,6 @@ class AbstractSync(cli.Application):
                 "%s's sync.flag is blocking deployments", owner)
             raise IOError(errno.EPERM, 'Blocked by sync.flag', sync_flag)
 
-    def _get_master_list(self):
-        """Get list of deploy master hostnames that should be updated before
-        the rest of the cluster."""
-        return targets.get('dsh_masters', self.config).all
-
     def _get_proxy_list(self):
         """Get list of sync proxy hostnames that should be updated before the
         rest of the cluster."""
@@ -248,7 +243,7 @@ class AbstractSync(cli.Application):
     def _get_target_list(self):
         """Get list of hostnames that should be updated from the proxies."""
         return list(
-            set(self._get_master_list()) |
+            set(self.get_master_list()) |
             set(self._get_proxy_list()) |
             set(targets.get('dsh_targets', self.config).all)
         )
@@ -281,7 +276,7 @@ class AbstractSync(cli.Application):
         :param cmd: List of command/parameters to be executed
         """
 
-        masters = self._get_master_list()
+        masters = self.get_master_list()
         with log.Timer(timer, self.get_stats()):
             update_masters = ssh.Job(
                 masters,
