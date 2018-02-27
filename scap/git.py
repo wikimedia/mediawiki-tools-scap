@@ -320,8 +320,10 @@ def remote_set(location, repo, remote='origin'):
 
 
 def fetch(location, repo, reference=None, dissociate=True,
-          recurse_submodules=False, shallow=False, bare=False):
+          recurse_submodules=False, shallow=False, bare=False, config=None):
     """Fetch a git repo to a location"""
+    if config is None:
+        config = {}
 
     if is_dir(location):
         remote_set(location, repo)
@@ -330,6 +332,8 @@ def fetch(location, repo, reference=None, dissociate=True,
             if recurse_submodules:
                 cmd.append('--recurse-submodules')
             git.fetch(*cmd)
+            for name, value in config.items():
+                git.config(name, value)
     else:
         cmd = append_jobs_arg([])
         if shallow:
@@ -347,6 +351,10 @@ def fetch(location, repo, reference=None, dissociate=True,
                 cmd.append('--shallow-submodules')
         if bare:
             cmd.append('--bare')
+        if config:
+            for name, value in config.items():
+                cmd.append('--config')
+                cmd.append('{}={}'.format(name, value))
         cmd.append(repo)
         cmd.append(location)
         git.clone(*cmd)
