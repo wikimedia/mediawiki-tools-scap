@@ -27,7 +27,6 @@ import scap.plugins
 
 from scap.main import (
     CompileWikiversions,
-    HHVMGracefulAll,
     LockManager,
     MWVersionsInUse,
     RebuildCdbs,
@@ -41,7 +40,6 @@ from scap.main import (
     SyncL10n,
     SyncMaster,
     SyncWikiversions,
-    UpdateL10n,
     Version,
 )
 
@@ -58,7 +56,6 @@ __all__ = [
     'Deploy',
     'DeployLocal',
     'DeployLog',
-    'HHVMGracefulAll',
     'LockManager',
     'MWVersionsInUse',
     'RebuildCdbs',
@@ -72,7 +69,6 @@ __all__ = [
     'SyncL10n',
     'SyncMaster',
     'SyncWikiversions',
-    'UpdateL10n',
     'Version',
     '__version__',
 ]
@@ -92,7 +88,6 @@ any((
     Deploy,
     DeployLocal,
     DeployLog,
-    HHVMGracefulAll,
     LockManager,
     MWVersionsInUse,
     RebuildCdbs,
@@ -106,6 +101,5 @@ any((
     SyncMaster,
     SyncL10n,
     SyncWikiversions,
-    UpdateL10n,
     Version,
     __version__))  # Ignore unused import warning

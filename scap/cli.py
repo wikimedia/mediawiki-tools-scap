@@ -35,6 +35,7 @@ import scap.arg as arg
 import scap.config as config
 import scap.lock as lock
 import scap.log as log
+import scap.targets as targets
 import scap.utils as utils
 
 
@@ -111,6 +112,11 @@ class Application(object):
         self.get_logger().debug(
             'Unable to find keyholder key for %s', key_safe_name)
         return None
+
+    def get_master_list(self):
+        """Get list of deploy master hostnames that should be updated before
+        the rest of the cluster."""
+        return targets.get('dsh_masters', self.config).all
 
     def announce(self, *args):
         """

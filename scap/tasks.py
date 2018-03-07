@@ -300,7 +300,8 @@ def sync_master(cfg, master, verbose=False, logger=None):
 
 
 @utils.log_context('sync_common')
-def sync_common(cfg, include=None, sync_from=None, verbose=False, logger=None):
+def sync_common(cfg, include=None, sync_from=None, verbose=False, logger=None,
+                rsync_args=None):
     """
     Sync local deploy dir with upstream rsync server's copy.
 
@@ -342,6 +343,9 @@ def sync_common(cfg, include=None, sync_from=None, verbose=False, logger=None):
             rsync.append('--include=/%s' % path)
         # Exclude everything not explicitly included
         rsync.append('--exclude=*')
+
+    if rsync_args:
+        rsync += rsync_args
 
     rsync.append('%s::common' % server)
     rsync.append(cfg['deploy_dir'])

@@ -14,3 +14,4 @@
 /docs/html
 /.cache
 /htmlcov
+.pytest_cache/

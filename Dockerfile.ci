@@ -32,7 +32,7 @@ RUN apt-get update && \
         python-setuptools
 
 RUN $PYTHON -m easy_install pip
-RUN $PYTHON -m pip install wheel tox
+RUN $PYTHON -m pip install -U setuptools wheel tox
 
 # Start of Scap specifics
 RUN apt-get update && \

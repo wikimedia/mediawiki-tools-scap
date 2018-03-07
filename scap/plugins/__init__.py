@@ -83,6 +83,9 @@ def load_plugins(plugin_dir=None):
     module namespace.
     """
 
+    if os.getenv('SCAP_DISABLE_PLUGINS'):
+        return
+
     if LOADED_PLUGINS:
         # prevent loading plugins multiple times
         return

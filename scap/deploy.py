@@ -41,6 +41,7 @@ import scap.checks as checks
 import scap.config as config
 import scap.context as context
 import scap.nrpe as nrpe
+import scap.script as script
 import scap.template as template
 import scap.cli as cli
 import scap.lock as lock
@@ -275,9 +276,10 @@ class DeployLocal(cli.Application):
         if self.config['git_fat']:
             logger.warning(
                 'Using deprecated git_fat config, swap to git_binary_manager')
-            git_binary_manager = git.FAT
+            git_binary_manager = [git.FAT]
         elif self.config['git_binary_manager']:
-            git_binary_manager = self.config['git_binary_manager']
+            git_binary_manager = config.multi_value(
+                self.config['git_binary_manager'])
 
         rev_dir = self.context.rev_path(self.rev)
 
@@ -328,19 +330,14 @@ class DeployLocal(cli.Application):
                                   use_upstream=upstream_submodules,
                                   reference=self.context.cache_dir)
 
-        if git_binary_manager == git.FAT:
-            if not git.fat_isinitialized(rev_dir):
-                logger.info('Git fat initialize')
-                git.fat_init(rev_dir)
-
-            logger.info("Git fat pull '%s'", rev_dir)
-            git.fat_pull(rev_dir)
-        elif git_binary_manager == git.LFS:
-            # Todo: Actually implement git lfs support
-            pass
-        elif git_binary_manager:
-            logger.warning('Passed unrecognized git_binary_manager "%s"',
-                           git_binary_manager)
+        if git_binary_manager:
+            for manager in git_binary_manager:
+                logger.info("Pulling large objects [using %s]", manager)
+                if manager in [git.FAT, git.LFS]:
+                    git.largefile_pull(rev_dir, manager)
+                else:
+                    logger.warning("Passed unrecognized binary manager %s",
+                                   manager)
 
         self.context.mark_rev_in_progress(self.rev)
 
@@ -476,12 +473,19 @@ class DeployLocal(cli.Application):
         Checks are retrieved from the remote deploy host and cached within
         tmp.
         """
+        # Primarily for use in script checks
+        check_environment = os.environ.copy()
+        check_environment['SCAP_FINAL_PATH'] = self.final_path
+        check_environment['SCAP_REV_PATH'] = self.context.rev_path(self.rev)
 
         # Load NRPE checks
         if os.path.isdir(self.config['nrpe_dir']):
             nrpe.register(nrpe.load_directory(self.config['nrpe_dir']))
 
-        chks = checks.load(self.config)
+        # Load script checks
+        script.register_directory(self.context.scripts_dir(self.rev))
+
+        chks = checks.load(self.config, check_environment)
         chks = [
             chk for chk in chks.values() if self._valid_chk(chk, stage, group)
         ]

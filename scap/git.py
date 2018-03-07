@@ -109,11 +109,20 @@ def fat_isinitialized(location):
                 return False
 
 
-def fat_pull(location):
-    """Syncs all git-fat objects for the given repo directory."""
+def largefile_pull(location, implementor):
+    """Syncs all git-fat or git-lfs objects for the given repo directory.
 
+    :param location: Repository to work in
+    :param implementor: What implementation to pull with (git-lfs, git-fat)
+    """
     with utils.cd(location):
-        git.fat('pull')
+        if implementor == LFS:
+            git.lfs('pull')
+        elif implementor == FAT:
+            fat_init(location)
+            git.fat('pull')
+        else:
+            raise ValueError('Must be passed one of lfs or fat')
 
 
 def info(directory):
@@ -311,8 +320,10 @@ def remote_set(location, repo, remote='origin'):
 
 
 def fetch(location, repo, reference=None, dissociate=True,
-          recurse_submodules=False, shallow=False, bare=False):
+          recurse_submodules=False, shallow=False, bare=False, config=None):
     """Fetch a git repo to a location"""
+    if config is None:
+        config = {}
 
     if is_dir(location):
         remote_set(location, repo)
@@ -321,6 +332,8 @@ def fetch(location, repo, reference=None, dissociate=True,
             if recurse_submodules:
                 cmd.append('--recurse-submodules')
             git.fetch(*cmd)
+            for name, value in config.items():
+                git.config(name, value)
     else:
         cmd = append_jobs_arg([])
         if shallow:
@@ -338,6 +351,10 @@ def fetch(location, repo, reference=None, dissociate=True,
                 cmd.append('--shallow-submodules')
         if bare:
             cmd.append('--bare')
+        if config:
+            for name, value in config.items():
+                cmd.append('--config')
+                cmd.append('{}={}'.format(name, value))
         cmd.append(repo)
         cmd.append(location)
         git.clone(*cmd)

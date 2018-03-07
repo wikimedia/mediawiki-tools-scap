@@ -78,7 +78,7 @@ class AbstractSync(cli.Application):
             if not self.arguments.force:
                 with log.Timer('sync-check-canaries', self.get_stats()):
                     sync_cmd = self._apache_sync_command(
-                        self._get_master_list())
+                        self.get_master_list())
                     sync_cmd.append(socket.getfqdn())
                     update_canaries = ssh.Job(
                         canaries,
@@ -149,7 +149,7 @@ class AbstractSync(cli.Application):
                 proxy_pooler.depool()
 
             with log.Timer('sync-proxies', self.get_stats()):
-                sync_cmd = self._apache_sync_command(self._get_master_list())
+                sync_cmd = self._apache_sync_command(self.get_master_list())
                 # Proxies should always use the current host as their sync
                 # origin server.
                 sync_cmd.append(socket.getfqdn())
@@ -175,7 +175,7 @@ class AbstractSync(cli.Application):
                     user=self.config['ssh_user'],
                     key=self.get_keyholder_key())
                 update_apaches.exclude_hosts(proxies)
-                update_apaches.exclude_hosts(self._get_master_list())
+                update_apaches.exclude_hosts(self.get_master_list())
                 if not self.arguments.force:
                     update_apaches.exclude_hosts(canaries)
                 update_apaches.shuffle()
@@ -235,11 +235,6 @@ class AbstractSync(cli.Application):
                 "%s's sync.flag is blocking deployments", owner)
             raise IOError(errno.EPERM, 'Blocked by sync.flag', sync_flag)
 
-    def _get_master_list(self):
-        """Get list of deploy master hostnames that should be updated before
-        the rest of the cluster."""
-        return targets.get('dsh_masters', self.config).all
-
     def _get_proxy_list(self):
         """Get list of sync proxy hostnames that should be updated before the
         rest of the cluster."""
@@ -248,7 +243,7 @@ class AbstractSync(cli.Application):
     def _get_target_list(self):
         """Get list of hostnames that should be updated from the proxies."""
         return list(
-            set(self._get_master_list()) |
+            set(self.get_master_list()) |
             set(self._get_proxy_list()) |
             set(targets.get('dsh_targets', self.config).all)
         )
@@ -281,7 +276,7 @@ class AbstractSync(cli.Application):
         :param cmd: List of command/parameters to be executed
         """
 
-        masters = self._get_master_list()
+        masters = self.get_master_list()
         with log.Timer(timer, self.get_stats()):
             update_masters = ssh.Job(
                 masters,
@@ -604,14 +599,19 @@ class SyncCommon(cli.Application):
                   help='Rsync include pattern to limit transfer to.'
                   ' End directories with a trailing `/***`.'
                   ' Can be used multiple times.')
+    @cli.argument('--delete-excluded', action='store_true',
+                  help='Also delete local files not found on the master.')
     @cli.argument('servers', nargs=argparse.REMAINDER,
                   help='Rsync server(s) to copy from')
     def main(self, *extra_args):
+        rsync_args = [
+            '--delete-excluded'] if self.arguments.delete_excluded else []
         tasks.sync_common(
             self.config,
             include=self.arguments.include,
             sync_from=self.arguments.servers,
-            verbose=self.verbose
+            verbose=self.verbose,
+            rsync_args=rsync_args
         )
         if self.arguments.update_l10n:
             utils.sudo_check_call(
@@ -805,16 +805,6 @@ class SyncWikiversions(AbstractSync):
         self.get_stats().increment('deploy.all')
 
 
-@cli.command('l10n-update')
-class UpdateL10n(cli.Application):
-    """Update localization files."""
-
-    def main(self, *extra_args):
-        for version, wikidb in self.active_wikiversions().items():
-            tasks.update_localization_cache(
-                version, wikidb, self.verbose, self.config)
-
-
 @cli.command('hhvm-restart')
 class RestartHHVM(cli.Application):
     """
@@ -840,42 +830,6 @@ class RestartHHVM(cli.Application):
             self.get_logger().warning(
                 'Could not correctly restart the service')
             return 1
-
-
-@cli.command('hhvm-graceful')
-class HHVMGracefulAll(AbstractSync):
-    """Perform a rolling restart of HHVM across the cluster."""
-
-    @cli.argument('message', nargs='*', help='Log message for SAL')
-    def main(self, *extra_args):
-        exit_code = 0
-        self.announce('Restarting HHVM: %s', self.arguments.message)
-
-        target_hosts = self._get_target_list()
-        try:
-            succeeded, failed = tasks.restart_hhvm(
-                target_hosts,
-                self.config,
-                key=self.get_keyholder_key(),
-                # Use a batch size of 5% of the total target list
-                batch_size=len(target_hosts) // 20)
-        except NotImplementedError:
-            self.get_logger().warning(
-                "Not restarting HHVM, feature is not implemented")
-            exit_code = 1
-        else:
-            if failed:
-                self.get_logger().warning(
-                    '%d hosts failed to restart HHVM', failed)
-                self.get_stats().increment('deploy.fail')
-                exit_code = 1
-        self.announce(
-            'Finished HHVM restart: %s (duration: %s)',
-            self.arguments.message,
-            utils.human_duration(self.get_duration()))
-        self.get_stats().increment('deploy.restart')
-
-        return exit_code
 
 
 @cli.command('cdb-json-refresh', help=argparse.SUPPRESS)
