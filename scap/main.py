@@ -768,7 +768,7 @@ class SyncWikiversions(AbstractSync):
         # check for the presence of ExtensionMessages and l10n cache
         # for every branch of mediawiki that is referenced in wikiversions.json
         # to avoid syncing a branch that is lacking these critical files.
-        for version, wikidb in self.active_wikiversions().items():
+        for version in self.active_wikiversions().keys():
             ext_msg = os.path.join(
                 self.config['stage_dir'],
                 'wmf-config', 'ExtensionMessages-%s.php' % version)
