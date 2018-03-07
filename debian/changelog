@@ -1,3 +1,13 @@
+scap (3.7.7-1) unstable; urgency=medium
+
+  * Added git-lfs support
+  * Added `script` check type and environment variables
+  * Added quick environment variable to disable scap plugins
+  * Removed `scap l10n-update` and `scap hhvm-graceful`
+  * Updated documentation for checks
+
+ -- Mukunda Modell <mmodell@wikimedia.org>  Wed, 7 Mar 2018 15:54:01 -0600
+
 scap (3.7.6-1) unstable; urgency=medium
 
   * Fix unrecognized git_binary_manager compatibility (fixes T184882)
