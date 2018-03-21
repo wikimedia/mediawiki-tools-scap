@@ -1,139 +1,73 @@
 scap (3.8.0-1) UNRELEASED; urgency=medium
 
-  [ Chad Horohoe ]
-  * Swap Exception.message for str(Exception) calls
-  * Consistently define all attributes in __init__()
-  * Minor requirements tweaks
-  * Moving lint-related stuff out of the weird utils/tasks
-  * Swap default bin_dir to something that actually resembles reality
-  * Revert "Swap default bin_dir to something that actually resembles reality"
+  * Merged debian/changelog from release branch
 
-  [ Mukunda Modell ]
-  * Add a config key `cache_revs` to specify how many revs to keep
+scap (3.7.7-1) unstable; urgency=medium
 
-  [ Chad Horohoe ]
-  * Add some future imports
-  * Migrate from nosetests to pytest
+  * Added git-lfs support
+  * Added `script` check type and environment variables
+  * Added quick environment variable to disable scap plugins
+  * Removed `scap l10n-update` and `scap hhvm-graceful`
+  * Updated documentation for checks
 
-  [ Mukunda Modell ]
-  * pass -v to ssh when running `scap deploy -v`
-  * verbose is a property, not callable
+ -- Mukunda Modell <mmodell@wikimedia.org>  Wed, 7 Mar 2018 15:54:01 -0600
 
-  [ Chad Horohoe ]
-  * Couple of minor cleanups to setup.py, based on runs from Pyroma
+scap (3.7.6-1) unstable; urgency=medium
 
-  [ Tyler Cipriani ]
-  * scap.sh logging is alarming
+  * Fix unrecognized git_binary_manager compatibility (fixes T184882)
 
-  [ Mukunda Modell ]
-  * Make it more obvious when we are using `git_rev` in scap.cfg
-  * Check for None
+ -- Tyler Cipriani <tcipriani@wikimedia.org>  Sun, 14 Jan 2018 14:55:01 -0700
+
+scap (3.7.5-1) unstable; urgency=medium
 
   [ Chad Horohoe ]
   * Abstract configuration of git-fat support into git_binary_manager
-  * Remove DeployStatus, snuck in premature
-  * Drop semver requirement. Dumb experiment I never even pushed to Phab
-  * Drop pep8 and pyflakes from linting, use flake8 to do both
-
-  [ Tyler Cipriani ]
-  * Scap say: moar cowsay compat
-
-  [ Chad Horohoe ]
-  * Fix up remaining relative imports
-  * Fix up a few import errors
   * scap gains +2 cuteness
+  * Migrate to pytest
 
   [ Mukunda Modell ]
-  * scap deploy-cache: Fetch refs/tags/* and refs/remotes/*
-
-  [ Chad Horohoe ]
-  * Move logo out of utils and to ansi
+  * Make it more obvious when we are using `git_rev` in scap.cfg
 
   [ Tyler Cipriani ]
+  * scap.sh logging is alarming (stop excessive console logging)
+  * Add debian/README to release branch
+  * Scap say: moar cowsay compat
   * Log message to explain canary behavior
 
-  [ Chad Horohoe ]
-  * Remove bin_dir
+ -- Mukunda Modell <mmodell@wikimedia.org>  Thu, 11 Jan 2018 15:58:41 -0600
 
- -- Tyler Cipriani <tcipriani@wikimedia.org>  Wed, 03 Jan 2018 16:33:18 -0700
+scap (3.7.4-3) unstable; urgency=high
 
-scap (3.7.4-1) unstable; urgency=low
+  * Bumped version number to one more botched release. T183046
 
-  [ Mukunda Modell ]
-  * Cache submodules and use --reference to save space
+ -- Alexandros Kosiaris <akosiaris@wikimedia.org>  Mon, 18 Dec 2017 11:42:27 +0000
 
-  [ Chad Horohoe ]
-  * Get rid of some weird line continuation issues
-  * Fix up some super strict flake8 warnings that are preventing docker builds from completing
-  * Stop using predefined built-in functions and such in scap code
-  * Iterating directly instead of calling keys() on a dict
-  * Fix up import stuff in test modules
-  * Don't lie when sync-wikiversions actually failed
-  * Rewrite exec() call from execfile()
-  * Cast ints to strings for --jobs operations in git.fetch()
-  * One more string for good measure. Silly python
+scap (3.7.4-2) unstable; urgency=medium
 
-  [ Mukunda Modell ]
-  * sync submodules after git submodule update
+  * Bumped version number to fix wrong release. See T182347#3838535
 
-  [ Chad Horohoe ]
-  * Clean up various bad super calls in __init__ functions
-  * Fix py2/3 compat with next()
-  * Scap bin: Provide a sane initial docblock with license and such
-  * Clean up broad exceptions: Exception -> StandardError
-  * list doesn't have a clear() method until python 3.3+
-  * Add future imports to pooler
-  * Revert "Clean up broad exceptions: Exception -> StandardError"
+ -- Alexandros Kosiaris <akosiaris@wikimedia.org>  Fri, 15 Dec 2017 17:22:56 +0000
 
-  [ Mukunda Modell ]
-  * Sync submodules for the cache AND the rev directory
-  * Improve test coverage
+scap (3.7.4-1) unstable; urgency=medium
 
-  [ Chad Horohoe ]
-  * Stop using xrange() for python 3 compat
-  * Stop using raw_input for python3 compat
+  * Disk usage: Cache submodules and use --reference to save space
+    
+  * Logging: Don't lie when sync-wikiversions actually failed
 
-  [ Mukunda Modell ]
-  * Fix the change-shebangs.patch
+  * Premium Feature: New scap sayings
 
-  [ Chad Horohoe ]
-  * Use backported ConfigParser from 3.2+
-  * Just use the direct octals for the mode on the lock file
-  * Swap iteritems() for items()
-  * Swap xrange fallback from six for plain ol' range
-  * Python 3 compat: swap next() as a method for next() as a builtin
-  * Properly capitalize TERM as a constant in terminal
-  * Basic documentation for terminal ui
+  * Internals: Use the `sh` library to wrap git commands.
 
-  [ Mukunda Modell ]
-  * New scap sayings
-  * Remove extra call to git.submodule_update
-  * Use sh library to wrap git commands.
+  * Logging: Correct action for no-log-message
 
-  [ Tyler Cipriani ]
-  * Revert "Use sh library to wrap git commands."
+  * Disk usage: Add a config key `cache_revs` to specify how many revs to keep
 
-  [ Mukunda Modell ]
-  * Logging: Don't treat % as format string unless there are format args
-  * Fix tag_release to deal with git_version :-/
-  * Cleaner `git --version` cache handling.
+  * Modernization: Migrate from nosetests to pytest, plus tons of changes for
+    python 3.x compatibility.
 
-  [ Tyler Cipriani ]
-  * Fix scap git test
-  * Correct action for no-log-message
+  * Logging: pass `-v` to ssh when running `scap deploy -v`
 
-  [ Chad Horohoe ]
-  * iteritems() -> items() for Python 3 compat
-  * Drop basestring check for terminal arguments
-  * Fix compile() mode
-
-  [ Mukunda Modell ]
-  * Fix PEP8 E225 (missing whitespace around operator)
-
-  [ Chad Horohoe ]
-  * Various pylint fixes for arg.py
-
- -- Tyler Cipriani <tcipriani@wikimedia.org>  Mon, 20 Nov 2017 08:49:40 -0700
+ -- Mukunda Modell <mmodell@wikimedia.org>  Thu, 07 Dec 2017 11:35:58 -0600
 
 scap (3.7.3-1) unstable; urgency=low
 
