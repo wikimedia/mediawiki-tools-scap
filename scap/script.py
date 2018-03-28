@@ -61,7 +61,7 @@ def register(script, script_path):
 
 @checks.checktype('script')
 class ScriptCheck(checks.Check):
-    """Represent a loaded 'nrpe' check."""
+    """Represent a loaded 'script' check."""
 
     def validate(self):
         """Validates that the configured NRPE check is available."""
