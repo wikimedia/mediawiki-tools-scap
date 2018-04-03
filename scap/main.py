@@ -561,7 +561,7 @@ class Scap(AbstractSync):
         return 1
 
     def _handle_exception(self, ex):
-        self.get_logger().warn('Unhandled error:', exc_info=True)
+        self.get_logger().warning('Unhandled error:', exc_info=True)
         self.announce(
             'scap failed: %s %s (duration: %s)',
             type(ex).__name__, ex, utils.human_duration(self.get_duration()))

@@ -627,7 +627,7 @@ class Deploy(cli.Application):
         self._build_deploy_groups()
 
         if not self.all_targets:
-            logger.warn('No targets selected, check limits and dsh_targets')
+            logger.warning('No targets selected, check limits and dsh_targets')
             return 1
 
         short_sha1 = git.info(self.context.root)['headSHA1'][:7]

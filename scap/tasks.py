@@ -829,8 +829,8 @@ def check_patch_files(version, cfg):
             p.communicate(diff)
 
             if p.returncode > 0:
-                logger.warn('Patch(s) for %s have not been applied.',
-                            apply_dir)
+                logger.warning('Patch(s) for %s have not been applied.',
+                               apply_dir)
 
 
 def get_wikiversions_ondisk(directory):
