@@ -158,33 +158,6 @@ class Reader(object):
         # Avoid exception catch when handling default case; much faster.
         return next(chain(self.gets(key), (default,)))
 
-    def getint(self, key, default=None, base=0):
-        """Get the first value for key converted it to an int.
-
-        It returns default if key is missing."""
-        value = self.get(key, default)
-        if value is not default:
-            return int(value, base)
-        return value
-
-    def getints(self, key, base=0):
-        """Yield values for key in insertion order after converting to int."""
-        return (int(v, base) for v in self.gets(key))
-
-    def getstring(self, key, default=None, encoding='utf-8'):
-        """Get the first value for key decoded as unicode.
-
-        it returns default if key is not found."""
-        value = self.get(key, default)
-        if value is not default:
-            return value.decode(encoding)
-        return value
-
-    def getstrings(self, key, encoding='utf-8'):
-        """Yield values for key in insertion order after decoding as
-        unicode."""
-        return (v.decode(encoding) for v in self.gets(key))
-
 
 class Writer(object):
     """Object for building new Constant Databases, and writing them to a
@@ -227,26 +200,6 @@ class Writer(object):
         """
         for value in values:
             self.put(key, value)
-
-    def putint(self, key, value):
-        """Write an integer as a base-10 string associated with the given key
-        to the output file."""
-        self.put(key, str(value))
-
-    def putints(self, key, values):
-        """Write zero or more integers for the same key to the output file.
-        Equivalent to calling putint() in a loop."""
-        self.puts(key, (str(value) for value in values))
-
-    def putstring(self, key, value, encoding='utf-8'):
-        """Write a unicode string associated with the given key to the output
-        file after encoding it as UTF-8 or the given encoding."""
-        self.put(key, unicode.encode(value, encoding))
-
-    def putstrings(self, key, values, encoding='utf-8'):
-        """Write zero or more unicode strings to the output file. Equivalent to
-        calling putstring() in a loop."""
-        self.puts(key, (unicode.encode(value, encoding) for value in values))
 
     def finalize(self):
         """Write the final hash tables to the output file, and write out its
