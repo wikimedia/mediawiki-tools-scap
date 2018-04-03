@@ -871,18 +871,6 @@ class RefreshCdbJsonFiles(cli.Application):
         tasks.refresh_cdb_json_files(cdb_dir, use_cores, self.verbose)
 
 
-@cli.command('log')
-@cli.command('sal')
-class ServerAdminLog(cli.Application):
-    """
-    Send an entry to the server admin log
-    """
-
-    @cli.argument('message', nargs='*', help='Log message for SAL')
-    def main(self, *extra_args):
-        self.announce(self.arguments.message)
-
-
 @cli.command('version', help='Show the version number and exit')
 class Version(cli.Application):
     def main(self, *extra_args):
