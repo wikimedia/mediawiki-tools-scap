@@ -613,10 +613,11 @@ class SyncCommon(cli.Application):
             rsync_args=rsync_args
         )
         if self.arguments.update_l10n:
-            utils.sudo_check_call(
-                'mwdeploy',
-                self.get_script_path() + ' cdb-rebuild --no-progress'
-            )
+            with log.Timer('scap-cdb-rebuild', self.get_stats()):
+                utils.sudo_check_call(
+                    'mwdeploy',
+                    self.get_script_path() + ' cdb-rebuild --no-progress'
+                )
 
         return 0
 
