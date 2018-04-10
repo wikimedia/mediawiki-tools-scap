@@ -123,6 +123,10 @@ def execute(checks, logger, concurrency=1):
                         msg = msg.format(job.check.name, job.output)
                         handle_failure(job, msg, kill=False)
                     else:
+                        msg = "Check '{}' completed, output: {}".format(
+                            job.check.name,
+                            job.output)
+                        logger.debug(msg)
                         handle_done(job)
                         success += 1
 
