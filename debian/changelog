@@ -1,3 +1,14 @@
+scap (3.8.0-1) unstable; urgency=medium
+
+  * git-lfs support is graduating from beta to production.
+  * Always log check output (even when the check succeeds.)
+  * Add timer info to the cdb rebuild stage of scap pull
+  * cdblib: Drop (get|put)(string|int)s?
+  * Various python3 compatibility changes
+  * Improved Docs.
+
+ -- Mukunda Modell <mmodell@wikimedia.org>  Wed, 18 Apr 2018 15:43:01 -0600
+
 scap (3.7.7-1) unstable; urgency=medium
 
   * Added git-lfs support
