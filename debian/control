@@ -7,17 +7,23 @@ Uploaders: Tyler Cipriani <tcipriani@wikimedia.org>,
            Antoine Musso <hashar@free.fr>,
 Section: python
 Priority: optional
-Build-Depends: python-all (>= 2.6.6-3), debhelper (>= 9), dh-python (>= 1.2014),
-               bash-completion
+Build-Depends:
+  debhelper (>= 9),
+  dh-python (>= 1.2014),
+  bash-completion,
+  python-all (>= 2.7),
+  python-setuptools
 Standards-Version: 3.9.6
+X-Python-Version: >= 2.7
 
 Package: scap
-Architecture: all
-Depends: ${misc:Depends}, ${python:Depends}, python-jinja2, python-psutil,
-         python-pygments, python-yaml, python-requests, git, bash-completion,
-         python-conftool, python-six, python-configparser
+Architecture: any
+Depends: ${python:Depends}, ${shlibs:Depends}, ${misc:Depends},
+  python-jinja2, python-psutil, python-pygments, python-yaml, python-requests,
+  git, bash-completion, python-conftool, python-six, python-configparser
+Breaks: ${python:Breaks}
+Provides: ${python:Provides}
 Suggests: git-fat, php5-cli | php-cli | hhvm
-X-Python-Version: >= 2.7
 Description: Deployment toolchain for Wikimedia projects
  Scap is a tool that was originally designed to deploy MediaWiki code on
  Wikimedia Foundation servers.
@@ -26,3 +32,5 @@ Description: Deployment toolchain for Wikimedia projects
  project, with additional support for serial deployment groups, templated
  configuration deployment, rolling or highly concurrent execution, service
  restart, intermediate checks, and automated rollback.
+ .
+ This is the Python 2 version of the package.

@@ -47,7 +47,7 @@ class Test(cli.Application):
                 rand = random.randrange(0, 30, 2)
                 if rand == 0:
                     reporter.add_failure()
-                    logger.warn('Fail: %s of %s', i, steps)
+                    logger.warning('Fail: %s of %s', i, steps)
                 else:
                     reporter.add_success()
                     logger.info('Success: %s of %s', i, steps)

@@ -90,7 +90,7 @@ Script checks can be referenced in `checks.yaml` using `type: script` and
 stage specified by ``stage:``
 
 In the example below, scap expects that in the repo being deployed there exists
-a `scap/scripts/bulid_venv.sh` file that is executable by the ``ssh_user``.
+a `scap/scripts/build_venv.sh` file that is executable by the ``ssh_user``.
 
 Example checks.yml:
 

@@ -89,11 +89,14 @@ Available configuration variables
 |                            |                           | uses the full path to           |
 |                            |                           | the file.                       |
 +----------------------------+---------------------------+---------------------------------+
-| ``server_groups``          | **NONE**                  | (*String*) (*Optional*)         |
+| ``server_groups``          | ``default``               | (*String*) (*Optional*)         |
 |                            |                           | If this option is defined,      |
-|                            |                           | Scap will look deploy to        |
+|                            |                           | Scap will deploy to             |
 |                            |                           | these *groups* of servers       |
-|                            |                           | in order.                       |
+|                            |                           | in order. If this is not        |
+|                            |                           | specified scap will deploy to   |
+|                            |                           | a single group of servers -     |
+|                            |                           | those listed in ``dsh_targets`` |
 |                            |                           |                                 |
 |                            |                           | For example:                    |
 |                            |                           | ``server_groups: 'one, default``|

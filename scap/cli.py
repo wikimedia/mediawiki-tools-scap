@@ -233,7 +233,7 @@ class Application(object):
             backtrace = False
 
         if backtrace:
-            logger.warn('Unhandled error:', exc_info=True)
+            logger.warning('Unhandled error:', exc_info=True)
 
         logger.error(message, self.program_name, exception_type, ex)
         return 70

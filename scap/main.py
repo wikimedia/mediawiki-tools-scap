@@ -562,7 +562,7 @@ class Scap(AbstractSync):
         return 1
 
     def _handle_exception(self, ex):
-        self.get_logger().warn('Unhandled error:', exc_info=True)
+        self.get_logger().warning('Unhandled error:', exc_info=True)
         self.announce(
             'scap failed: %s %s (duration: %s)',
             type(ex).__name__, ex, utils.human_duration(self.get_duration()))
@@ -614,10 +614,11 @@ class SyncCommon(cli.Application):
             rsync_args=rsync_args
         )
         if self.arguments.update_l10n:
-            utils.sudo_check_call(
-                'mwdeploy',
-                self.get_script_path() + ' cdb-rebuild --no-progress'
-            )
+            with log.Timer('scap-cdb-rebuild', self.get_stats()):
+                utils.sudo_check_call(
+                    'mwdeploy',
+                    self.get_script_path() + ' cdb-rebuild --no-progress'
+                )
 
         return 0
 
@@ -769,7 +770,7 @@ class SyncWikiversions(AbstractSync):
         # check for the presence of ExtensionMessages and l10n cache
         # for every branch of mediawiki that is referenced in wikiversions.json
         # to avoid syncing a branch that is lacking these critical files.
-        for version, wikidb in self.active_wikiversions().items():
+        for version in self.active_wikiversions().keys():
             ext_msg = os.path.join(
                 self.config['stage_dir'],
                 'wmf-config', 'ExtensionMessages-%s.php' % version)
@@ -870,18 +871,6 @@ class RefreshCdbJsonFiles(cli.Application):
             os.mkdir(upstream_dir)
 
         tasks.refresh_cdb_json_files(cdb_dir, use_cores, self.verbose)
-
-
-@cli.command('log')
-@cli.command('sal')
-class ServerAdminLog(cli.Application):
-    """
-    Send an entry to the server admin log
-    """
-
-    @cli.argument('message', nargs='*', help='Log message for SAL')
-    def main(self, *extra_args):
-        self.announce(self.arguments.message)
 
 
 @cli.command('version', help='Show the version number and exit')
