@@ -1,3 +1,9 @@
+scap (3.8.0-2) unstable; urgency=medium
+
+  * Switch package back to architecture: all
+
+ -- Mukunda Modell <mmodell@wikimedia.org>  Fri, 20 Apr 2018 04:52:09 -0500
+
 scap (3.8.0-1) unstable; urgency=medium
 
   * git-lfs support is graduating from beta to production.
