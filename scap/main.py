@@ -734,8 +734,10 @@ class SyncL10n(AbstractSync):
                 key=self.get_keyholder_key())
             rebuild_cdbs.shuffle()
             cdb_cmd = 'sudo -u mwdeploy -n -- {} cdb-rebuild --version {}'
-            cdb_cmd.format(self.get_script_path(),
-                           self.arguments.version)
+            cdb_cmd = cdb_cmd.format(
+                self.get_script_path(),
+                self.arguments.version
+            )
             rebuild_cdbs.command(cdb_cmd)
             rebuild_cdbs.progress(
                 log.reporter(
