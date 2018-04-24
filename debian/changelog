@@ -1,6 +1,8 @@
-scap (3.8.0-1) UNRELEASED; urgency=medium
+scap (3.9.0-1) unstable; urgency=medium
 
   * Merged debian/changelog from release branch
+
+ -- Mukunda Modell <mmodell@wikimedia.org>  Wed, 21 Mar 2018 16:13:20 -0500
 
 scap (3.7.7-1) unstable; urgency=medium
 
