@@ -70,6 +70,8 @@ DEFAULT_CONFIG = {
     'git_submodules': (bool, False),
     'git_upstream_submodules': (bool, False),
     'config_deploy': (bool, False),
+    'mediawiki_canary_swagger_url': (str, 'http://en.wikipedia.org'),
+    'mediawiki_canary_swagger_spec_path': (str, '/spec.yaml'),
     'nrpe_dir': (str, '/etc/nagios/nrpe.d'),
     'require_valid_service': (bool, False),
     'service_timeout': (float, 120.0),
