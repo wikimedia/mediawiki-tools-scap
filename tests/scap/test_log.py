@@ -3,7 +3,7 @@ from __future__ import absolute_import
 import json
 import logging
 import re
-from StringIO import StringIO
+from io import StringIO
 import sys
 from textwrap import dedent
 import unittest
@@ -32,8 +32,8 @@ class FilterTest(unittest.TestCase):
 
         self.root_handler.addFilter(logfilter)
 
-        self.b_logger.info('please log this')
-        self.c_logger.info('do not log this')
+        self.b_logger.info(u'please log this')
+        self.c_logger.info(u'do not log this')
 
         assert self.stream.getvalue() == "please log this\n"
 
@@ -42,8 +42,8 @@ class FilterTest(unittest.TestCase):
 
         self.root_handler.addFilter(logfilter)
 
-        self.b_logger.info('please log this')
-        self.c_logger.info('do not log this')
+        self.b_logger.info(u'please log this')
+        self.c_logger.info(u'do not log this')
 
         assert self.stream.getvalue() == "please log this\n"
 
@@ -52,8 +52,8 @@ class FilterTest(unittest.TestCase):
 
         self.root_handler.addFilter(logfilter)
 
-        self.b_logger.warning('please log this')
-        self.c_logger.info('do not log this')
+        self.b_logger.warning(u'please log this')
+        self.c_logger.info(u'do not log this')
 
         assert self.stream.getvalue() == "please log this\n"
 
@@ -62,8 +62,8 @@ class FilterTest(unittest.TestCase):
 
         self.root_handler.addFilter(logfilter)
 
-        self.b_logger.info('please log this')
-        self.c_logger.info('do not log this')
+        self.b_logger.info(u'please log this')
+        self.c_logger.info(u'do not log this')
 
         assert self.stream.getvalue() == "do not log this\n"
 
