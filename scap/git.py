@@ -117,6 +117,7 @@ def largefile_pull(location, implementor):
     """
     with utils.cd(location):
         if implementor == LFS:
+            git.lfs('install')
             git.lfs('pull')
         elif implementor == FAT:
             fat_init(location)
