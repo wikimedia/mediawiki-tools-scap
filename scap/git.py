@@ -585,11 +585,17 @@ def get_disclosable_head(repo_directory, remote_thing):
                 cwd=repo_directory, stderr=dev_null).strip()
         except subprocess.CalledProcessError:
             try:
+                remote = subprocess.check_output(
+                    ('/usr/bin/git', 'remote'),
+                    cwd=repo_directory, stderr=dev_null).strip()
+
+                # If the branch is not a SHA1, combine with remote name
                 if not re.match('[a-f0-9]{40}', remote_thing):
-                    remote = subprocess.check_output(
-                        ('/usr/bin/git', 'remote'),
-                        cwd=repo_directory, stderr=dev_null).strip()
                     remote_thing = '%s/%s' % (remote, remote_thing)
+                # If the branch is a SHA1, count on remote HEAD being a
+                # symbolic-ref for the actual remote
+                else:
+                    remote_thing = remote
                 return subprocess.check_output(
                     ('/usr/bin/git', 'merge-base', 'HEAD', remote_thing),
                     cwd=repo_directory, stderr=dev_null).strip()
