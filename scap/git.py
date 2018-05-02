@@ -117,13 +117,24 @@ def largefile_pull(location, implementor):
     """
     with utils.cd(location):
         if implementor == LFS:
-            git.lfs('install')
             git.lfs('pull')
         elif implementor == FAT:
             fat_init(location)
             git.fat('pull')
         else:
             raise ValueError('Must be passed one of lfs or fat')
+
+
+def lfs_install(*args):
+    """ Run git-lfs-install with provided arguments.
+
+    If no args are provided, defaults to `git lfs install --global`
+    """
+    if not args:
+        args = ['--global']
+    lfsargs = ['install'] + list(args)
+    # run `git lfs install $args`
+    git.lfs(*lfsargs)
 
 
 def info(directory):
