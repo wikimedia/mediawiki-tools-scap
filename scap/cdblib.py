@@ -96,68 +96,6 @@ class Reader(object):
         """Like dict.items()."""
         return list(self.iteritems())
 
-    def iterkeys(self):
-        """Like dict.iterkeys()."""
-        return (p[0] for p in self.iteritems())
-    __iter__ = iterkeys
-
-    def itervalues(self):
-        """Like dict.itervalues()."""
-        return (p[1] for p in self.iteritems())
-
-    def keys(self):
-        """Like dict.keys()."""
-        return [p[0] for p in self.iteritems()]
-
-    def values(self):
-        """Like dict.values()."""
-        return [p[1] for p in self.iteritems()]
-
-    def __getitem__(self, key):
-        """Like dict.__getitem__()."""
-        value = self.get(key)
-        if value is None:
-            raise KeyError(key)
-        return value
-
-    def has_key(self, key):
-        """Return True if key exists in the database."""
-        return self.get(key) is not None
-    __contains__ = has_key
-
-    def __len__(self):
-        """Return the number of records in the database."""
-        return self.length
-
-    def gets(self, key):
-        """Yield values for key in insertion order."""
-        # Truncate to 32 bits and remove sign.
-        h = self.hashfn(key) & 0xffffffff
-        start, nslots = self.index[h & 0xff]
-
-        if nslots:
-            end = start + (nslots << 3)
-            slot_off = start + (((h >> 8) % nslots) << 3)
-
-            for pos in chain(range(slot_off, end, 8),
-                             range(start, slot_off, 8)):
-                rec_h, rec_pos = READ_2_LE4(self.data[pos:pos + 8])
-
-                if not rec_h:
-                    break
-                elif rec_h == h:
-                    klen, dlen = READ_2_LE4(self.data[rec_pos:rec_pos + 8])
-                    rec_pos += 8
-
-                    if self.data[rec_pos:rec_pos + klen] == key:
-                        rec_pos += klen
-                        yield self.data[rec_pos:rec_pos + dlen]
-
-    def get(self, key, default=None):
-        """Get the first value for key, returning default if missing."""
-        # Avoid exception catch when handling default case; much faster.
-        return next(chain(self.gets(key), (default,)))
-
 
 class Writer(object):
     """Object for building new Constant Databases, and writing them to a
@@ -191,15 +129,6 @@ class Writer(object):
 
         h = self.hashfn(key) & 0xffffffff
         self._unordered[h & 0xff].append((h, pos))
-
-    def puts(self, key, values):
-        """
-        Write more than one value for the same key to the output file.
-
-        Equivalent to calling put() in a loop.
-        """
-        for value in values:
-            self.put(key, value)
 
     def finalize(self):
         """Write the final hash tables to the output file, and write out its

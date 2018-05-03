@@ -690,9 +690,9 @@ class Timer(object):
 
     >>> with Timer('file copy') as t:
     ...     time.sleep(0.1)
-    ...     t.mark('copy phase 1')
+    ...     x = t.mark('copy phase 1')
     ...     time.sleep(0.1)
-    ...     t.mark('copy phase 2')
+    ...     y = t.mark('copy phase 2')
     """
 
     @utils.log_context('timer')
@@ -717,8 +717,10 @@ class Timer(object):
         :type label: str
         """
         now = time.time()
-        self._record_elapsed(label, now - self.mark_start)
+        elapsed = now - self.mark_start
+        self._record_elapsed(label, elapsed)
         self.mark_start = now
+        return elapsed
 
     def __enter__(self):
         """

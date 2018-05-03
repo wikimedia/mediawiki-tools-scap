@@ -2,7 +2,7 @@ from __future__ import absolute_import
 
 import logging
 import unittest
-from StringIO import StringIO
+from io import StringIO
 
 from scap import ssh
 

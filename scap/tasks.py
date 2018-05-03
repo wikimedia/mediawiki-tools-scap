@@ -65,9 +65,10 @@ RESTART = 'restart'
 RELOAD = 'reload'
 
 
-def check_canaries(canaries, service, threshold, logstash, delay, cores=2):
+def logstash_canary_checks(
+        canaries, service, threshold, logstash, delay, cores=2):
     """
-    Run canary checks on test application servers.
+    Run the logstash canary checks on test application servers.
 
     :param canaries: list, canaries to check
     :param threshold: float, average log multiple at which to fail
@@ -75,6 +76,7 @@ def check_canaries(canaries, service, threshold, logstash, delay, cores=2):
     :param logstash: string, logstash server
     :param verbose: bool, verbose output
     :param delay: float, time between deploy and now
+    :param cores: number of processor cores to use
     """
     logger = utils.get_logger()
 
@@ -96,7 +98,48 @@ def check_canaries(canaries, service, threshold, logstash, delay, cores=2):
 
         cmd = ' '.join(map(str, cmd))
         canary_checks.append(
-            checks.Check(check_name, 'canary', command=cmd, timeout=120.0))
+            checks.Check(
+                check_name, 'logstash-canary', command=cmd, timeout=120.0))
+
+    success, done = checks.execute(canary_checks, logger, concurrency=cores)
+    failed = [job.check.name for job in done if job.isfailure()]
+
+    return (len(done) - len(failed), len(failed))
+
+
+def endpoint_canary_checks(canaries, url, spec_path='/spec.yaml', cores=2):
+    """
+    Run service-checker-swagger canary checks on test application servers.
+
+    :param canaries: list, canaries to check
+    :param url: url to pass to service-checker-swagger
+    :param spec_path: url to pass to service-checker-swagger
+    :param cores: number of processor cores to use
+    """
+    logger = utils.get_logger()
+
+    canary_checks = []
+
+    # Build Check command list
+    for canary in canaries:
+        check_name = 'Check endpoints for {}'.format(canary)
+
+        # service-checker-swagger \
+        #   deployment-mediawiki-07.deployment-prep.eqiad.wmflabs \
+        #   http://en.wikipedia.beta.wmflabs.org \
+        #   -s "/spec.yaml"
+        cmd = [
+            '/usr/bin/service-checker-swagger',
+            canary,
+            url,
+            '-s',
+            spec_path
+        ]
+
+        cmd = ' '.join(map(str, cmd))
+        canary_checks.append(
+            checks.Check(
+                check_name, 'endpoint-canary', command=cmd, timeout=120.0))
 
     success, done = checks.execute(canary_checks, logger, concurrency=cores)
     failed = [job.check.name for job in done if job.isfailure()]

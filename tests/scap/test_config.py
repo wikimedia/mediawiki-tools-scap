@@ -14,7 +14,7 @@ def config_file(content):
     cfg_file = tempfile.NamedTemporaryFile(delete=False)
 
     try:
-        cfg_file.write(content)
+        cfg_file.write(content.encode('utf-8'))
         cfg_file.close()
         yield cfg_file.name
     finally:

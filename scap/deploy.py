@@ -314,6 +314,12 @@ class DeployLocal(cli.Application):
                 self.context.mark_rev_in_progress(self.rev)
                 return
 
+        if not os.path.isdir(rev_dir):
+            # if lfs is enabled and this is the first time cloning this repo,
+            # then we need to run `git lfs install`` before `git clone`
+            if git_binary_manager and git.LFS in git_binary_manager:
+                git.lfs_install('--global')
+
         # clone/fetch from the local cache directory to the revision directory
         git.fetch(rev_dir, self.context.cache_dir,
                   reference=self.context.cache_dir,

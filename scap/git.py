@@ -125,6 +125,18 @@ def largefile_pull(location, implementor):
             raise ValueError('Must be passed one of lfs or fat')
 
 
+def lfs_install(*args):
+    """ Run git-lfs-install with provided arguments.
+
+    If no args are provided, defaults to `git lfs install --global`
+    """
+    if not args:
+        args = ['--global']
+    lfsargs = ['install'] + list(args)
+    # run `git lfs install $args`
+    git.lfs(*lfsargs)
+
+
 def info(directory):
     """Compute git version information for a given directory that is
     compatible with MediaWiki's GitInfo class.
@@ -585,11 +597,17 @@ def get_disclosable_head(repo_directory, remote_thing):
                 cwd=repo_directory, stderr=dev_null).strip()
         except subprocess.CalledProcessError:
             try:
+                remote = subprocess.check_output(
+                    ('/usr/bin/git', 'remote'),
+                    cwd=repo_directory, stderr=dev_null).strip()
+
+                # If the branch is not a SHA1, combine with remote name
                 if not re.match('[a-f0-9]{40}', remote_thing):
-                    remote = subprocess.check_output(
-                        ('/usr/bin/git', 'remote'),
-                        cwd=repo_directory, stderr=dev_null).strip()
                     remote_thing = '%s/%s' % (remote, remote_thing)
+                # If the branch is a SHA1, count on remote HEAD being a
+                # symbolic-ref for the actual remote
+                else:
+                    remote_thing = remote
                 return subprocess.check_output(
                     ('/usr/bin/git', 'merge-base', 'HEAD', remote_thing),
                     cwd=repo_directory, stderr=dev_null).strip()

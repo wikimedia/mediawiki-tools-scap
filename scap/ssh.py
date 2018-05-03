@@ -105,6 +105,9 @@ class JSONOutputHandler(OutputHandler):
 
                     # propagate the log record
                     self._logger.handle(record)
+
+                    # store the output in case of error
+                    self.output += record.getMessage() + "\n"
             else:
                 self.output += line + "\n"
 
