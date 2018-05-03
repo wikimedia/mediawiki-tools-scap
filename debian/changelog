@@ -1,3 +1,23 @@
+scap (3.8.1-1) unstable; urgency=medium
+
+  * MediaWiki: Fix for sync-l10n (Bug: T192801)
+
+  * MediaWiki: Canaries now use swagger spec (Bug: T136839)
+
+  * Mediawiki: get_disclosable_head fixes
+
+  * Scap3: Will show more on stdout than previously. Previously only ssh info
+    was in case of errors (Bug: T182623)
+
+  * Scap3: git-lfs will now run install prior to git-lfs pull, should be close
+    to the last round of changes for git-lfs support.
+
+  * Tests got updates for py2/3 compat, specifically using io vs StringIO
+
+  * Further cleanup of cdblib
+
+ -- Tyler Cipriani <tcipriani@wikimedia.org>  Thu, 03 May 2018 15:15:36 -0600
+
 scap (3.8.0-2) unstable; urgency=medium
 
   * Switch package back to architecture: all
