@@ -43,7 +43,7 @@ def test_dsh_target_default_groups():
 
     # Without a group in the config, the only group should be "default"
     assert len(deploy_groups.keys()) == 1
-    assert deploy_groups.keys()[0] == 'default'
+    assert list(deploy_groups.keys())[0] == 'default'
 
 
 def test_dsh_target_other_groups():
@@ -62,7 +62,7 @@ def test_dsh_target_other_groups():
     # Since server_groups is set, there should be 2 groups:
     # canary and default
     assert len(deploy_groups.keys()) == 2
-    assert deploy_groups.keys()[0] == 'canary'
+    assert list(deploy_groups.keys())[0] == 'canary'
 
 
 def test_dsh_global_group_size():
