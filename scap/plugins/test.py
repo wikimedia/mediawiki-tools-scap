@@ -27,8 +27,8 @@ import logging
 import time
 import random
 
-import scap.cli as cli
-import scap.log as log
+from .. import cli
+from .. import log
 
 
 @cli.command('test-progress')
