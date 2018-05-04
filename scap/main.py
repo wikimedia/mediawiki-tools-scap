@@ -142,6 +142,17 @@ class AbstractSync(cli.Application):
             return 1
         return 0
 
+    def increment_stat(self, stat, all_stat=True, value=1):
+        """Increment a stat in deploy.*
+
+        :param stat: String name of stat to increment
+        :param all_stat: Whether to increment deploy.all as well
+        :param value: How many to increment by, default of 1 is normal
+        """
+        self.get_stats().increment('deploy.%s' % stat, value)
+        if all_stat:
+            self.get_stats().increment('deploy.all', value)
+
     def get_keyholder_key(self):
         """
         Returns scap2-specific deploy key
@@ -596,14 +607,13 @@ class Scap(AbstractSync):
                 self.get_logger().warning(
                     '%d hosts failed to restart HHVM', failed)
                 self.soft_errors = True
-            self.get_stats().increment('deploy.restart')
+            self.increment_stat('restart', all_stat=False)
 
     def _after_lock_release(self):
         self.announce(
             'Finished scap: %s (duration: %s)',
             self.arguments.message, utils.human_duration(self.get_duration()))
-        self.get_stats().increment('deploy.scap')
-        self.get_stats().increment('deploy.all')
+        self.increment_stat('scap')
 
     def _handle_exception(self, ex):
         self.get_logger().warning('Unhandled error:', exc_info=True)
@@ -719,8 +729,7 @@ class SyncFile(AbstractSync):
             'Synchronized %s: %s (duration: %s)',
             self.arguments.file, self.arguments.message,
             utils.human_duration(self.get_duration()))
-        self.get_stats().increment('deploy.sync-file')
-        self.get_stats().increment('deploy.all')
+        self.increment_stat('sync-file')
 
 
 @cli.command('sync-l10n')
@@ -798,7 +807,7 @@ class SyncL10n(AbstractSync):
         self.announce(
             'scap sync-l10n completed (%s) (duration: %s)',
             self.arguments.version, utils.human_duration(self.get_duration()))
-        self.get_stats().increment('l10nupdate-sync')
+        self.increment_stat('l10nupdate-sync')
 
     def _after_sync_common(self):
         self._git_repo()
@@ -848,8 +857,7 @@ class SyncWikiversions(AbstractSync):
             self.announce('rebuilt and synchronized wikiversions files: %s',
                           self.arguments.message)
 
-        self.get_stats().increment('deploy.sync-wikiversions')
-        self.get_stats().increment('deploy.all')
+        self.increment_stat('sync-wikiversions')
 
 
 @cli.command('hhvm-restart')
