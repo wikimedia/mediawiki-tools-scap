@@ -305,6 +305,7 @@ def merge_cdb_updates(
 
     reporter.finish()
     logger.info('Updated %d CDB files(s) in %s', updated, cache_dir)
+    return 0
 
 
 @utils.log_context('sync_master')

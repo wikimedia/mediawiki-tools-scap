@@ -881,6 +881,7 @@ class RestartHHVM(cli.Application):
         # Restart HHVM
         try:
             subprocess.check_call('/usr/local/bin/restart-hhvm')
+            return 0
         except subprocess.CalledProcessError:
             self.get_logger().warning(
                 'Could not correctly restart the service')
@@ -954,7 +955,7 @@ class LockManager(cli.Application):
 
         if self.arguments.message == '(no justification provided)':
             logger.fatal('Cannot lock repositories without a reason')
-            return
+            return 1
 
         if self.arguments.all:
             lock_path = lock.GLOBAL_LOCK_FILE

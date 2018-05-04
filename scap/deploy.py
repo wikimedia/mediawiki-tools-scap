@@ -164,7 +164,7 @@ class DeployLocal(cli.Application):
         logger = self.get_logger()
         if not self.config['config_deploy']:
             logger.info('config_deploy is not enabled in scap.cfg, skipping.')
-            return
+            return 0
 
         config_files = self.config.get('config_files')
         if not config_files:
@@ -213,6 +213,7 @@ class DeployLocal(cli.Application):
             with open(source, 'w+') as f:
                 output_file = tmpl.render()
                 f.write(output_file)
+        return 0
 
     def config_diff(self):
         '''
