@@ -605,12 +605,6 @@ class Scap(AbstractSync):
         self.get_stats().increment('deploy.scap')
         self.get_stats().increment('deploy.all')
 
-    def _handle_keyboard_interrupt(self):
-        self.announce(
-            'scap aborted: %s (duration: %s)',
-            self.arguments.message, utils.human_duration(self.get_duration()))
-        return 1
-
     def _handle_exception(self, ex):
         self.get_logger().warning('Unhandled error:', exc_info=True)
         self.announce(

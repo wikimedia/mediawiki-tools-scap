@@ -209,13 +209,16 @@ class Application(object):
         """
         raise NotImplementedError()
 
-    def _handle_keyboard_interrupt(self):
+    def handle_keyboard_interrupt(self):
         """
         Handle ctrl-c from interactive user.
 
         :returns: exit status
         """
-        self.get_logger().warning('%s aborted', self.program_name)
+        self.announce('{} aborted: {} (duration: {})'.format(
+                      self.program_name,
+                      self.arguments.message,
+                      utils.human_duration(self.get_duration())))
         return 130
 
     def _handle_exception(self, ex):
@@ -337,7 +340,7 @@ class Application(object):
 
         except KeyboardInterrupt:
             # Handle ctrl-c from interactive user
-            exit_status = app._handle_keyboard_interrupt()
+            exit_status = app.handle_keyboard_interrupt()
 
         except Exception as ex:
             # Handle all unhandled exceptions and errors
