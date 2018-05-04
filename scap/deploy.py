@@ -540,7 +540,7 @@ class DeployLocal(cli.Application):
             '.git', 'DEPLOY_HEAD')
 
         r = requests.get('{}://{}'.format(self.config['git_scheme'], cfg_url))
-        if r.status_code != requests.codes.ok:
+        if r.status_code != 200:
             raise IOError(errno.ENOENT, 'Config file not found', cfg_url)
 
         return yaml.load(r.text)
