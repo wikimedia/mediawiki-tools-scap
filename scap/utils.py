@@ -7,6 +7,7 @@
 """
 from __future__ import absolute_import
 from __future__ import print_function
+from __future__ import unicode_literals
 
 import collections
 import contextlib
@@ -192,7 +193,7 @@ def find_nearest_host(hosts, port=22, timeout=1):
     >>> fixture_port = fixture_socket.getsockname()[1]
     >>> # End test fixture
     >>> find_nearest_host(['127.0.0.1'], port=fixture_port)
-    '127.0.0.1'
+    u'127.0.0.1'
 
     :param hosts: Hosts to check
     :param port: Port to try to connect on (default: 22)
@@ -322,11 +323,11 @@ def human_duration(elapsed):
     Format an elapsed seconds count as human readable duration.
 
     >>> human_duration(1)
-    '00m 01s'
+    u'00m 01s'
     >>> human_duration(65)
-    '01m 05s'
+    u'01m 05s'
     >>> human_duration(60*30+11)
-    '30m 11s'
+    u'30m 11s'
     """
     return '%02dm %02ds' % divmod(elapsed, 60)
 

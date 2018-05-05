@@ -23,6 +23,8 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """
 
+from __future__ import unicode_literals
+
 FG_BLACK = 30
 FG_RED = 31
 FG_GREEN = 32
