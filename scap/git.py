@@ -6,7 +6,6 @@
 
 """
 from __future__ import absolute_import
-from __future__ import unicode_literals
 
 from datetime import datetime
 import errno
@@ -55,9 +54,9 @@ def info_filename(directory, install_path, cache_path):
     directory.
 
     >>> info_filename('foo', 'foo', '')
-    u'info.json'
+    'info.json'
     >>> info_filename('foo/bar/baz', 'foo', 'xyzzy')
-    u'xyzzy/info-bar-baz.json'
+    'xyzzy/info-bar-baz.json'
     """
     path = directory
     if path.startswith(install_path):

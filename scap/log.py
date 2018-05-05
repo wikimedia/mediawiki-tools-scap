@@ -21,7 +21,6 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """
 from __future__ import absolute_import
-from __future__ import unicode_literals
 
 import fnmatch
 from functools import partial
@@ -772,11 +771,11 @@ class Udp2LogHandler(logging.handlers.DatagramHandler):
 
         >>> Udp2LogHandler('127.0.0.1', 12345).makePickle(
         ...     logging.makeLogRecord({'msg':'line1\\nline2'}))
-        u'scap line1\\nscap line2\\n'
+        'scap line1\\nscap line2\\n'
         >>> Udp2LogHandler('127.0.0.1', 12345).makePickle(
         ...     logging.makeLogRecord({'msg':'%s12'% ('0'*65500)}))
         ...     # doctest: +ELLIPSIS
-        u'scap 00000...00001\\n'
+        'scap 00000...00001\\n'
         """
         text = self.format(record)
         if self.prefix:
