@@ -27,10 +27,8 @@ import logging
 import os
 import subprocess
 
-import scap.utils as utils
 
-
-def check_valid_syntax(paths):
+def check_valid_syntax(paths, procs=1):
     """Run php -l in parallel on `paths`; raise CalledProcessError if nonzero
     exit."""
     if isinstance(paths, str):
@@ -47,7 +45,7 @@ def check_valid_syntax(paths):
         "-not -type d "  # makes no sense to lint a dir named 'less.php'
         "-name '*.php' -not -name 'autoload_static.php' "
         " -or -name '*.inc' | xargs -n1 -P%d -exec php -l >/dev/null 2>&1"
-    ) % (' '.join(quoted_paths), utils.cpus_for_jobs())
+    ) % (' '.join(quoted_paths), procs)
     logger.debug('Running command: `%s`', cmd)
     subprocess.check_call(cmd, shell=True)
     # Check for anything that isn't a shebang before <?php (T92534)

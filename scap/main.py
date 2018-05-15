@@ -543,7 +543,8 @@ class Scap(AbstractSync):
         # Validate php syntax of wmf-config and multiversion
         lint.check_valid_syntax(
             ['%(stage_dir)s/wmf-config' % self.config,
-             '%(stage_dir)s/multiversion' % self.config])
+             '%(stage_dir)s/multiversion' % self.config],
+            utils.cpus_for_jobs())
 
     def _after_sync_common(self):
         super(Scap, self)._after_sync_common()
@@ -706,7 +707,7 @@ class SyncFile(AbstractSync):
             self.get_logger().info("%s: syncing symlink, not its target [%s]",
                                    abspath, symlink_dest)
         else:
-            lint.check_valid_syntax(abspath)
+            lint.check_valid_syntax(abspath, utils.cpus_for_jobs())
 
     def _proxy_sync_command(self):
         cmd = [self.get_script_path(), 'pull', '--no-update-l10n']
