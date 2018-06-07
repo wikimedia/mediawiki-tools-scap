@@ -1,3 +1,9 @@
+scap (3.8.2-1) unstable; urgency=low
+
+  * Don't recurse submodules as part of fetch (Bug: T196663)
+
+ -- Tyler Cipriani <tcipriani@wikimedia.org>  Thu, 07 Jun 2018 16:44:48 -0600
+
 scap (3.8.1-1) unstable; urgency=medium
 
   * MediaWiki: Fix for sync-l10n (Bug: T192801)
