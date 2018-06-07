@@ -343,6 +343,8 @@ def fetch(location, repo, reference=None, dissociate=True,
             cmd = append_jobs_arg(['--tags'])
             if recurse_submodules:
                 cmd.append('--recurse-submodules')
+            else:
+                cmd.append('--no-recurse-submodules')
             git.fetch(*cmd)
             for name, value in config.items():
                 git.config(name, value)
