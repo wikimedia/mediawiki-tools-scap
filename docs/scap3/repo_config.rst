@@ -37,7 +37,11 @@ Available configuration variables
 | Value                      | Default                   | Explanation                     |
 +============================+===========================+=================================+
 | ``git_server``             | ``tin.eqiad.wmnet``       | (*String*) Server from          |
-|                            |                           | which code is fetched           |
+|                            |                           | which code is fetched.          |
+|                            |                           | **Use is not recommended!**     |
+|                            |                           | The deployment-host will have a |
+|                            |                           | good value set for this         |
+|                            |                           | already.                        |
 +----------------------------+---------------------------+---------------------------------+
 | ``ssh_user``               | your username             | (*String*) User as whom         |
 |                            |                           | to ssh to target hosts and      |

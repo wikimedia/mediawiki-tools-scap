@@ -44,15 +44,15 @@ The ``scap/scap.cfg`` file needs, at a minimum, values for these keys:
 #. ``git_repo``
 #. ``dsh_targets``
 
-The ``git_repo`` is the path on the ``git_server`` (``tin.eqiad.wmnet`` by
-default) where your repository lives.
+The ``git_repo`` is the path on the ``git_server`` (which is setup on
+deployment-hosts and should not be set manually) where your repository lives.
 
 The ``dsh_targets`` file is the list of deployment targets for your repository.
 
 An example of a sensible default ``scap/scap.cfg`` file is seen here::
 
     [global]
-    # The repo "mockbase" will be fetched from tin (the git_server)
+    # The repo "mockbase" will be fetched from the active git_server
     git_repo: mockbase
 
     # code will be deployed to /srv/deployment/ on the target
@@ -73,12 +73,6 @@ An example of a sensible default ``scap/scap.cfg`` file is seen here::
     # There is a service that needs to be restarted
     service_name: mockbase
     service_port: 1134
-
-    [wmflabs]
-    git_server: deployment-bastion.deployment-prep.eqiad.wmflabs
-
-    [wmnet]
-    git_server: tin.eqiad.wmnet
 
 This file is in ConfigParser_ format.  A ``scap.cfg`` file consists of
 sections led by a ``[section]`` header and followed by ``name: value``
@@ -147,12 +141,6 @@ The full ``scap/scap.cfg`` file would now look like::
     # There is a service that needs to be restarted
     service_name: mockbase
     service_port: 1134
-
-    [wmflabs]
-    git_server: deployment-bastion.deployment-prep.eqiad.wmflabs
-
-    [wmnet]
-    git_server: tin.eqiad.wmnet
 
 The ``server_groups`` config variable represents the order of group deployment.
 In the example above, the ``canary`` group is deployed to before the ``default`` group.
@@ -376,7 +364,7 @@ this service by adding the following directive to ``scap/scap.cfg``::
     config_deploy: True
 
 During the next ``scap deploy`` run, in the ``config_deploy`` phase, this template
-will be fetched from tin (the ``git_server``) and symlinked to its final
+will be fetched from the active ``git_server`` and symlinked to its final
 location at ``/etc/mockbase/config.yaml``.
 
 Config Template Variables
