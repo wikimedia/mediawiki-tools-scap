@@ -1,3 +1,19 @@
+scap (3.8.3-1) unstable; urgency=low
+
+  [ Chad Horohoe ]
+  * Scap plugins: Tidy up imports for py3 transition
+  * Unify keyboard exit handling
+  * Unify stats increment calls in sync operations
+  * Consistent return statements on functions that already have them
+  * Remove pointless unicode distinctions on ASCII
+  * lint.py: Move number of processes to callers
+
+  [ Tyler Cipriani ]
+  * Warn about setting git_server in docs
+  * Remove HHVM restart
+
+ -- Tyler Cipriani <tcipriani@wikimedia.org>  Tue, 26 Jun 2018 15:20:21 -0600
+
 scap (3.8.2-1) unstable; urgency=low
 
   * Don't recurse submodules as part of fetch (Bug: T196663)
