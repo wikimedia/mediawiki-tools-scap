@@ -29,7 +29,6 @@ import os
 import pwd
 import select
 import socket
-import subprocess
 import sys
 import time
 
@@ -527,11 +526,8 @@ class Scap(AbstractSync):
     #. Ask apaches to rebuild l10n CDB files
     #. Update wikiversions.php on localhost
     #. Ask apaches to sync wikiversions.php
-    #. Restart HHVM across the cluster
     """
 
-    @cli.argument('-r', '--restart', action='store_true', dest='restart',
-                  help='Restart HHVM process on target hosts.')
     @cli.argument('--force', action='store_true', help='Skip canary checks')
     @cli.argument('message', nargs='*', help='Log message for SAL')
     def main(self, *extra_args):
@@ -589,26 +585,6 @@ class Scap(AbstractSync):
             self.get_logger().warning(
                 '%d hosts had sync_wikiversions errors', failed)
             self.soft_errors = True
-
-        if self.arguments.restart:
-            # Restart HHVM across the cluster
-            try:
-                succeeded, failed = tasks.restart_hhvm(
-                    target_hosts,
-                    self.config,
-                    key=self.get_keyholder_key(),
-                    # Use a batch size of 5% of the total target list
-                    batch_size=len(target_hosts) // 20)
-            except NotImplementedError:
-                self.get_logger().warning(
-                    "Not restarting HHVM, feature is not implemented")
-                return
-
-            if failed:
-                self.get_logger().warning(
-                    '%d hosts failed to restart HHVM', failed)
-                self.soft_errors = True
-            self.increment_stat('restart', all_stat=False)
 
     def _after_lock_release(self):
         self.announce(
@@ -859,34 +835,6 @@ class SyncWikiversions(AbstractSync):
                           self.arguments.message)
 
         self.increment_stat('sync-wikiversions')
-
-
-@cli.command('hhvm-restart')
-class RestartHHVM(cli.Application):
-    """
-    Restart the HHVM fcgi process on the local server.
-
-    #. Depool the server if registered with pybal
-    #. Restart HHVM process
-    #. Re-pool the server if needed
-    """
-
-    def main(self, *extra_args):
-        self._run_as('mwdeploy')
-        self._assert_current_user('mwdeploy')
-
-        if not utils.is_service_running('hhvm'):
-            self.get_logger().debug('HHVM not running')
-            return 0
-
-        # Restart HHVM
-        try:
-            subprocess.check_call('/usr/local/bin/restart-hhvm')
-            return 0
-        except subprocess.CalledProcessError:
-            self.get_logger().warning(
-                'Could not correctly restart the service')
-            return 1
 
 
 @cli.command('cdb-json-refresh', help=argparse.SUPPRESS)
