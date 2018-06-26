@@ -14,11 +14,11 @@ extensions += ['sphinxcontrib.programoutput']
 templates_path = ['_templates']
 source_suffix = '.rst'
 master_doc = 'index'
-project = u'scap'
+project = 'scap'
 year = date.today().year
-copyright = u'2014-%s, Wikimedia Foundation & Contributors.' % year
-copyright += u" Released under the terms of the GNU General Public License," \
-          + u" version 3 <https://www.gnu.org/licenses/gpl-3.0.txt>."
+copyright = '2014-%s, Wikimedia Foundation & Contributors.' % year
+copyright += " Released under the terms of the GNU General Public License," \
+          + " version 3 <https://www.gnu.org/licenses/gpl-3.0.txt>."
 version = '3.0'
 release = version
 exclude_patterns = ['_build']

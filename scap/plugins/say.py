@@ -32,8 +32,8 @@ import textwrap
 
 from six import text_type
 
-from scap import ansi
-from scap import cli
+from .. import ansi
+from .. import cli
 
 
 def fortune():
@@ -138,7 +138,7 @@ class Say(cli.Application):
         if not msg:
             msg = sys.stdin.readlines()
 
-        msg = list(map(lambda x: x.rstrip('\n'), msg))
+        msg = [x.rstrip('\n') for x in msg]
 
         print(
             scap_say(

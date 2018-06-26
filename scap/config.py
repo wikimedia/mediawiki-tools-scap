@@ -56,8 +56,6 @@ DEFAULT_CONFIG = {
     'wmf_realm': (str, 'production'),
     'ssh_user': (str, getpass.getuser()),
     'datacenter': (str, 'eqiad'),
-    'hhvm_pid_file': (str, '/run/hhvm/hhvm.pid'),
-    'apache_pid_file': (str, '/var/run/apache2/apache2.pid'),
     'dsh_targets': (str, 'mediawiki-installation'),
     'dsh_masters': (str, 'scap-masters'),
     'dsh_proxies': (str, 'scap-proxies'),

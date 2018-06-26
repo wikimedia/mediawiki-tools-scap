@@ -305,6 +305,7 @@ def merge_cdb_updates(
 
     reporter.finish()
     logger.info('Updated %d CDB files(s) in %s', updated, cache_dir)
+    return 0
 
 
 @utils.log_context('sync_master')
@@ -643,21 +644,6 @@ def update_localization_cache(version, wikidb, verbose, cfg, logger=None):
         '%s cdb-json-refresh '
         '--directory="%s" --threads=%s %s' % (
             scap_path, cache_dir, use_cores, verbose_messagelist))
-
-
-def restart_hhvm(hosts, cfg, key=None, batch_size=1):
-    """Restart HHVM on the given hosts.
-
-    :param hosts: List of hosts to sync to
-    :param cfg: Dict of global configuration values
-    :param batch_size: Number of hosts to restart in parallel
-    """
-    stats = log.Stats(cfg['statsd_host'], int(cfg['statsd_port']))
-    with log.Timer('restart_hhvm', stats):
-        restart = ssh.Job(hosts, user=cfg['ssh_user'], key=key).shuffle()
-        restart.command('sudo -u mwdeploy -n -- scap hhvm-restart')
-        reporter = log.reporter('restart_hhvm', cfg['fancy_progress'])
-        return restart.progress(reporter).run(batch_size=batch_size)
 
 
 def refresh_cdb_json_files(in_dir, pool_size, verbose):
