@@ -87,6 +87,7 @@ class Template(object):
 
     def _make_env_args(self, loader, erb_syntax, output_format):
         """Generate properties to pass to the jinja template."""
+        loader = {n: f.decode('utf-8') for n, f in loader.items()}
         loader = jinja2.DictLoader(loader)
         env_args = {
             'loader': loader,
@@ -132,4 +133,4 @@ class Template(object):
             overrides = self._overrides
             overrides.update(template_vars)
             template_vars = overrides
-        return self._template.render(template_vars)
+        return self._template.render(template_vars).encode('utf-8')

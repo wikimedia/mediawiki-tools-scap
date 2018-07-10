@@ -74,7 +74,11 @@ class AbstractSync(cli.Application):
             if not self.arguments.force:
                 canaries = [node for node in self._get_canary_list()
                             if node in full_target_list]
-                self.canary_checks(canaries)
+                with log.Timer(
+                        'sync-check-canaries', self.get_stats()) as timer:
+                    self.sync_canary(canaries)
+                    timer.mark('Canaries Synced')
+                    self.canary_checks(canaries, timer)
 
             # Update proxies
             proxies = [node for node in self._get_proxy_list()
@@ -302,18 +306,14 @@ class AbstractSync(cli.Application):
     def _after_lock_release(self):
         pass
 
-    def canary_checks(self, canaries=None):
+    def sync_canary(self, canaries=None):
         """
-        Run canary checks
+        Sync canary hosts
 
-        :param canaries: Iterable of canary servers to check
-        :raises RuntimeError: on canary check failure
+        :param canaries: Iterable of canary servers to sync
         """
         if not canaries:
             return
-
-        # If more than 1/4 of the canaries failed, stop deployment
-        max_failed_canaries = max(len(canaries)/4, 1)
 
         sync_cmd = self._apache_sync_command(self.get_master_list())
         sync_cmd.append(socket.getfqdn())
@@ -330,88 +330,102 @@ class AbstractSync(cli.Application):
             )
         )
 
-        with log.Timer('sync-check-canaries', self.get_stats()) as timer:
-            succeeded, failed = update_canaries.run()
-            if failed:
-                self.get_logger().warning(
-                    '%d canaries had sync errors', failed)
-                self.soft_errors = True
+        succeeded, failed = update_canaries.run()
+        if failed:
+            self.get_logger().warning(
+                '%d canaries had sync errors', failed)
+            self.soft_errors = True
 
-            timer.mark('Canaries Synced')
+    def canary_checks(self, canaries=None, timer=None):
+        """
+        Run canary checks
 
-            swagger_url = self.config['mediawiki_canary_swagger_url']
-            spec_path = self.config['mediawiki_canary_swagger_spec_path']
+        :param canaries: Iterable of canary servers to check
+        :param timer: log.Timer
+        :raises RuntimeError: on canary check failure
+        """
+        if not canaries:
+            return
 
-            succeeded, failed = tasks.endpoint_canary_checks(
-                canaries,
-                swagger_url,
-                spec_path,
-                cores=utils.cpus_for_jobs(),
+        # If more than 1/4 of the canaries failed, stop deployment
+        max_failed_canaries = max(len(canaries)/4, 1)
+
+        swagger_url = self.config['mediawiki_canary_swagger_url']
+        spec_path = self.config['mediawiki_canary_swagger_spec_path']
+
+        succeeded, failed = tasks.endpoint_canary_checks(
+            canaries,
+            swagger_url,
+            spec_path,
+            cores=utils.cpus_for_jobs(),
+        )
+
+        if failed > max_failed_canaries:
+            canary_fail_msg = (
+                'Scap failed!: {}/{} canaries failed their endpoint checks'
+                '({})'
+            ).format(
+                failed,
+                len(canaries),
+                swagger_url
             )
+            self.announce(canary_fail_msg)
+            raise RuntimeError(canary_fail_msg)
 
-            if failed > max_failed_canaries:
-                canary_fail_msg = (
-                    'Scap failed!: {}/{} canaries failed their endpoint checks'
-                    '({})'
-                ).format(
-                    failed,
-                    len(canaries),
-                    swagger_url
-                )
-                self.announce(canary_fail_msg)
-                raise RuntimeError(canary_fail_msg)
+        time_since_sync = 0
 
+        if timer:
             time_since_sync = timer.mark('Canary Endpoint Check Complete')
 
-            # Needs some time for log errors to happen
-            canary_wait_time = self.config['canary_wait_time']
-            remaining_wait_time = canary_wait_time - time_since_sync
+        # Needs some time for log errors to happen
+        canary_wait_time = self.config['canary_wait_time']
+        remaining_wait_time = canary_wait_time - time_since_sync
 
-            # If the canary endpoint check took less than the wait time we
-            # should wait longer
-            if remaining_wait_time > 0:
-                self.get_logger().info('Waiting for canary traffic...')
-                time.sleep(remaining_wait_time)
-            # Otherwise Canary endpoint check took more than the wait time
-            # we should adjust the logstash canary delay
-            else:
-                canary_wait_time = time_since_sync
+        # If the canary endpoint check took less than the wait time we
+        # should wait longer
+        if remaining_wait_time > 0:
+            self.get_logger().info('Waiting for canary traffic...')
+            time.sleep(remaining_wait_time)
+        # Otherwise Canary endpoint check took more than the wait time
+        # we should adjust the logstash canary delay
+        else:
+            canary_wait_time = time_since_sync
 
-            logstash_canary_checks = {
-                'service': self.config['canary_service'],
-                'threshold': self.config['canary_threshold'],
-                'logstash': self.config['logstash_host'],
-                'delay': canary_wait_time,
-                'cores': utils.cpus_for_jobs(),
-            }
+        logstash_canary_checks = {
+            'service': self.config['canary_service'],
+            'threshold': self.config['canary_threshold'],
+            'logstash': self.config['logstash_host'],
+            'delay': canary_wait_time,
+            'cores': utils.cpus_for_jobs(),
+        }
 
-            succeeded, failed = tasks.logstash_canary_checks(
-                canaries, **logstash_canary_checks)
+        succeeded, failed = tasks.logstash_canary_checks(
+            canaries, **logstash_canary_checks)
 
-            if failed > max_failed_canaries:
-                canary_fail_msg = (
-                    'scap failed: average error rate on {}/{} '
-                    'canaries increased by 10x '
-                    '(rerun with --force to override this check, '
-                    'see {} for details)'.format(
-                        failed,
-                        len(canaries),
-                        self.config['canary_dashboard_url']))
+        if failed > max_failed_canaries:
+            canary_fail_msg = (
+                'scap failed: average error rate on {}/{} '
+                'canaries increased by 10x '
+                '(rerun with --force to override this check, '
+                'see {} for details)'.format(
+                    failed,
+                    len(canaries),
+                    self.config['canary_dashboard_url']))
 
-                self.announce(canary_fail_msg)
-                raise RuntimeError(canary_fail_msg)
+            self.announce(canary_fail_msg)
+            raise RuntimeError(canary_fail_msg)
 
-            # If some canaries failed, explain why we didn't raise a
-            # RuntimeError - T173146
-            if failed > 0:
-                self.get_logger().info(
-                    'Canary error check failed for {} canaries, less than '
-                    'threshold to halt deployment ({}/{}), see {} for '
-                    'details. Continuing...'.format(
-                        failed,
-                        max_failed_canaries,
-                        len(canaries),
-                        self.config['canary_dashboard_url']))
+        # If some canaries failed, explain why we didn't raise a
+        # RuntimeError - T173146
+        if failed > 0:
+            self.get_logger().info(
+                'Canary error check failed for {} canaries, less than '
+                'threshold to halt deployment ({}/{}), see {} for '
+                'details. Continuing...'.format(
+                    failed,
+                    max_failed_canaries,
+                    len(canaries),
+                    self.config['canary_dashboard_url']))
 
 
 @cli.command('security-check')
