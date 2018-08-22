@@ -808,14 +808,12 @@ class SyncL10n(AbstractSync):
 class SyncWikiversions(AbstractSync):
     """Rebuild and sync wikiversions.php to the cluster."""
 
-    @cli.argument('--force', action='store_true', help='Skip canary checks')
-    @cli.argument('message', nargs='*', help='Log message for SAL')
-    def main(self, *extra_args):
-        self._assert_auth_sock()
-
-        # check for the presence of ExtensionMessages and l10n cache
-        # for every branch of mediawiki that is referenced in wikiversions.json
-        # to avoid syncing a branch that is lacking these critical files.
+    def _before_cluster_sync(self):
+        """
+        check for the presence of ExtensionMessages and l10n cache
+        for every branch of mediawiki that is referenced in wikiversions.json
+        to avoid syncing a branch that is lacking these critical files.
+        """
         for version in self.active_wikiversions().keys():
             ext_msg = os.path.join(
                 self.config['stage_dir'],
@@ -829,24 +827,15 @@ class SyncWikiversions(AbstractSync):
             err_msg = 'l10n cache missing for %s' % version
             utils.check_file_exists(cache_file, err_msg)
 
-        # this is here for git_repo
+        # Compile mediawiki-staging wikiversions
+        tasks.compile_wikiversions('stage', self.config)
         self.include = '/wikiversions*.{json,php}'
-        success = failed = 0
-        with lock.Lock(self.get_lock_file(), self.arguments.message):
-            self._check_sync_flag()
-            self._sync_common()
-            self._after_sync_common()
-            self._sync_masters()
-            mw_install_hosts = self._get_target_list()
-            success, failed = tasks.sync_wikiversions(
-                mw_install_hosts, self.config, key=self.get_keyholder_key())
 
-        if failed:
-            self.get_logger().warning(
-                '%d hosts had sync_wikiversions errors', failed)
-        if success:
-            self.announce('rebuilt and synchronized wikiversions files: %s',
-                          self.arguments.message)
+    def _after_lock_release(self):
+        self.announce(
+            'rebuilt and synchronized wikiversions files: %s',
+            self.arguments.message
+        )
 
         self.increment_stat('sync-wikiversions')
 
