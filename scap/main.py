@@ -56,6 +56,7 @@ class AbstractSync(cli.Application):
         super(AbstractSync, self).__init__(exe_name)
         self.include = None
 
+    @cli.argument('--force', action='store_true', help='Skip canary checks')
     @cli.argument('message', nargs='*', help='Log message for SAL')
     def main(self, *extra_args):
         """Perform a sync operation to the cluster."""
@@ -79,6 +80,8 @@ class AbstractSync(cli.Application):
                     self.sync_canary(canaries)
                     timer.mark('Canaries Synced')
                     self.canary_checks(canaries, timer)
+            else:
+                self.get_logger().warning('Canaries Skipped by --force')
 
             # Update proxies
             proxies = [node for node in self._get_proxy_list()
