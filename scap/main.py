@@ -811,6 +811,15 @@ class SyncL10n(AbstractSync):
 class SyncWikiversions(AbstractSync):
     """Rebuild and sync wikiversions.php to the cluster."""
 
+    def _after_sync_common(self):
+        """
+        Skip this step.
+
+        It currently consists only of cache_git_info and this class should
+        attempt to be fast where possible.
+        """
+        pass
+
     def _before_cluster_sync(self):
         """
         check for the presence of ExtensionMessages and l10n cache
