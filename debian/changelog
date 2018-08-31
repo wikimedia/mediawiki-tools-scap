@@ -1,3 +1,11 @@
+scap (3.8.5-1) unstable; urgency=low
+
+  * sync-wikiversion: don't overwrite AbstractSync (Bug: T198640)
+  * Add --force to AbstractSync
+  * Skip cache_git_info for sync-wikiversions
+
+ -- Tyler Cipriani <tcipriani@wikimedia.org>  Fri, 31 Aug 2018 12:52:00 -0600
+
 scap (3.8.4-1) unstable; urgency=low
 
   * Support utf-8 for config templates (Bug: T198621)
