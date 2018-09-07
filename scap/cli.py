@@ -194,9 +194,6 @@ class Application(object):
     def _setup_environ(self):
         """Setup shell environment."""
         auth_sock = self.config.get('ssh_auth_sock')
-        php_version = self.config.get('php_version')
-        if php_version is not None:
-            os.environ['PHP'] = php_version
         if auth_sock is not None and self.arguments.shared_authsock:
             os.environ['SSH_AUTH_SOCK'] = auth_sock
 

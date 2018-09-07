@@ -458,7 +458,7 @@ def sudo_check_call(user, cmd, logger=None):
     if user == get_username():
         fullCmd = cmd
     else:
-        fullCmd = 'sudo --preserve-env=PHP -u %s -n -- %s' % (user, cmd)
+        fullCmd = 'sudo -u %s -n -- %s' % (user, cmd)
 
     proc = subprocess.Popen(
         fullCmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, shell=True)
