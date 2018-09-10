@@ -91,6 +91,21 @@ def test_cpus_for_jobs():
     assert cpus > 0
 
 
+def test_make_sudo_check_call_env():
+    os.environ['PHP'] = 'phptest'
+    os.environ['FOO'] = 'bar'
+    os.environ['BAZ'] = 'bam'
+    assert utils.make_sudo_check_call_env(['PHP']) == 'PHP="phptest"'
+    assert 'PHP="phptest"' in utils.make_sudo_check_call_env(
+        ['PHP', 'FOO']
+    )
+    assert 'FOO="bar"' in utils.make_sudo_check_call_env(
+        ['PHP', 'FOO']
+    )
+    assert 'bam' in utils.make_sudo_check_call_env(['BAZ'])
+    assert '' == utils.make_sudo_check_call_env(['BAM'])
+
+
 def _env(path, env='test'):
     if env is None:
         return utils.get_env_specific_filename(path)
