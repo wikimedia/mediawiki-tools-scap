@@ -441,6 +441,23 @@ def md5_file(path):
     return crc.hexdigest()
 
 
+def make_sudo_check_call_env(env):
+    """
+    Returns a string of environment variables formatted for the shell
+
+    sudo 1.8.21 adds support for adding a list of variables to
+    --preserve-env, that should replace this function in future
+    """
+    envvars = {}
+    for key in env:
+        val = os.environ.get(key)
+        if val:
+            envvars[key] = val
+    return ' '.join(
+        ['{}="{}"'.format(k, v) for k, v in envvars.items()]
+    )
+
+
 @log_context('sudo_check_call')
 def sudo_check_call(user, cmd, logger=None):
     """
@@ -458,7 +475,8 @@ def sudo_check_call(user, cmd, logger=None):
     if user == get_username():
         fullCmd = cmd
     else:
-        fullCmd = 'sudo -u %s -n -- %s' % (user, cmd)
+        cmd_env = make_sudo_check_call_env(['PHP'])
+        fullCmd = 'sudo -u %s -n %s -- %s' % (user, cmd_env, cmd)
 
     proc = subprocess.Popen(
         fullCmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, shell=True)
