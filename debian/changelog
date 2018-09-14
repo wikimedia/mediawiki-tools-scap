@@ -1,3 +1,10 @@
+scap (3.8.6-1) unstable; urgency=low
+
+  [ Tyler Cipriani ]
+  * Add ability to specify PHP version for scap (Bug: T203680)
+
+ -- Tyler Cipriani <tcipriani@wikimedia.org>  Fri, 14 Sep 2018 15:05:18 -0600
+
 scap (3.8.5-1) unstable; urgency=low
 
   * sync-wikiversion: don't overwrite AbstractSync (Bug: T198640)
