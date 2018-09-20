@@ -2,11 +2,15 @@ from __future__ import absolute_import
 
 import logging
 import select
-from StringIO import StringIO
 import unittest
 import pytest
 
 from scap import checks
+
+try:
+    from StringIO import StringIO
+except ImportError:
+    from io import StringIO
 
 
 def test_load_valid_config():

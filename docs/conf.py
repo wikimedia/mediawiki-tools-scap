@@ -41,7 +41,9 @@ intersphinx_mapping = {'python': ('https://docs.python.org/2.7', None)}
 # html_static_path = ['_static']
 htmlhelp_basename = 'scapdoc'
 html_favicon = 'favicon.ico'
-autodoc_default_flags = ['members', 'private-members', 'special-members']
+autodoc_default_options = {'members': None,
+                           'private-members': None,
+                           'special-members': None}
 autodoc_memeber_order = 'groupwise'
 
 # diagram support
