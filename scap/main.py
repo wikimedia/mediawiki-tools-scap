@@ -73,6 +73,8 @@ class AbstractSync(cli.Application):
         with lock.Lock(self.get_lock_file(), self.arguments.message):
             self._check_sync_flag()
             if not self.arguments.force:
+                self.get_logger().info(
+                    'Checking for new runtime errors locally')
                 self._check_fatals()
             else:
                 self.get_logger().warning('check_fatals Skipped by --force')
