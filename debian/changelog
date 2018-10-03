@@ -1,3 +1,16 @@
+scap (3.8.7-1) UNRELEASED; urgency=medium
+
+  [ Mukunda Modell ]
+  * Check for fatals in AbstractSync by calling `mwscript eval.php`
+
+  [ Tyler Cipriani ]
+  * Add logging for mwscript eval.php check
+
+  [ Mukunda Modell ]
+  * Bump version to 3.8.7
+
+ -- Mukunda Modell <mmodell@wikimedia.org>  Wed, 03 Oct 2018 08:39:35 -0500
+
 scap (3.8.6-1) unstable; urgency=low
 
   [ Tyler Cipriani ]
