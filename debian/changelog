@@ -1,4 +1,4 @@
-scap (3.8.7-1) UNRELEASED; urgency=medium
+scap (3.8.7-1) unstable; urgency=medium
 
   [ Mukunda Modell ]
   * Check for fatals in AbstractSync by calling `mwscript eval.php`
