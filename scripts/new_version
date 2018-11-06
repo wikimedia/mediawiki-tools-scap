@@ -1,0 +1,42 @@
+#!/bin/bash
+if [ "$1" == "" ]; then
+    CURRENT_VERSION="$(dpkg-parsechangelog --show-field Version)"
+    echo "$0: Creates git tags for a new upstream and debian version."
+    echo "Error: You must provide a version number for the new upstream version."
+    echo
+    echo "Usage: $0 NEWVERSION [REVISION]"
+    echo
+    echo "Most recent debian version from changelog: $CURRENT_VERSION"
+    echo
+    exit 1
+fi
+
+set -e
+
+SCAP_VERSION="$1"
+DEBREV=${2:-"1"}
+export SCAP_DEBIAN_VERSION="$SCAP_VERSION-$DEBREV"
+echo "New debian version: $SCAP_DEBIAN_VERSION"
+
+echo "__version__ = '$SCAP_VERSION'" > ./scap/version.py
+git add ./scap/version.py
+git commit -m "Bump version to $SCAP_VERSION"
+git tag -s $SCAP_VERSION -m "Upstream version $SCAP_VERSION"
+gbp dch --new-version $SCAP_DEBIAN_VERSION
+
+$EDITOR debian/changelog
+
+debclean
+pushd .. && rm -rf scap_* && popd
+rm -rf .pc .tox cover .coverage Scap.egg-info htmlcov .cache docs .pytest_cache
+git checkout docs
+
+gbp buildpackage -us -uc --git-ignore-new
+
+debclean
+git checkout scap/version.py
+git add debian/changelog # version.py will have also changed here, but don't add it
+git commit -m 'Bumping Debian version to $SCAP_DEBIAN_VERSION'
+gbp buildpackage --git-tag-only
+
+echo "Now run \"git push --tags origin release\" to publish your work."
