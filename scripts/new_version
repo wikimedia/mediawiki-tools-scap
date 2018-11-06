@@ -36,7 +36,7 @@ gbp buildpackage -us -uc --git-ignore-new
 debclean
 git checkout scap/version.py
 git add debian/changelog # version.py will have also changed here, but don't add it
-git commit -m 'Bumping Debian version to $SCAP_DEBIAN_VERSION'
-gbp buildpackage --git-tag-only
+git commit -m "Bumping Debian version to $SCAP_DEBIAN_VERSION"
+gbp buildpackage --git-tag-only --git-sign-tags
 
 echo "Now run \"git push --tags origin release\" to publish your work."
