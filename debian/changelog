@@ -1,3 +1,15 @@
+scap (3.8.8-1) unstable; urgency=low
+
+  [ Tyler Cipriani ]
+  * Remove '/' from include in sync-wikiversions (Bug: T207602)
+  * Fix "invalid escape sequence '\' (W605)"
+  * Error: --service-restart without a service_name (Bug: T207263)
+
+  [ Mukunda Modell ]
+  * scripts/new_version - crude automation of the release process
+
+ -- Mukunda Modell <mmodell@wikimedia.org>  Tue, 06 Nov 2018 21:04:33 -0600
+
 scap (3.8.7-1) unstable; urgency=medium
 
   [ Mukunda Modell ]
