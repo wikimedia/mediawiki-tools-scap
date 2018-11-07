@@ -620,6 +620,11 @@ class Deploy(cli.Application):
 
         if self.arguments.service_restart:
             stages = [RESTART]
+            if not self.config.get('service_name'):
+                raise RuntimeError(
+                    '--service-restart flag requires a `service_name` in '
+                    'the config'
+                )
 
         if self.arguments.dry_run:
             stages = ['config_diff']

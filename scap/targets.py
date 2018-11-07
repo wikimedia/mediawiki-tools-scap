@@ -102,10 +102,10 @@ def limit_target_hosts(pattern, hosts):
         test_pattern = pattern.lstrip('!')
 
         # change '.' to literal period
-        test_pattern = test_pattern.replace('.', '\.')
+        test_pattern = test_pattern.replace('.', r'\.')
 
         # convert '*' to match a-Z, 0-9, _, -, or .
-        test_pattern = test_pattern.replace('*', '[\w\.-]*')
+        test_pattern = test_pattern.replace('*', r'[\w\.-]*')
 
         # Add beginning and end marks
         test_pattern = '^{}$'.format(test_pattern)

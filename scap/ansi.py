@@ -102,7 +102,7 @@ def reset():
 
 
 def logo(eyes=None, color=True, **colors):
-    """
+    r"""
     Get the scap logo.
 
     Scappy the scap pig::
@@ -152,25 +152,24 @@ def logo(eyes=None, color=True, **colors):
     pallet['eyes'] = eyes.encode('utf-8')
 
     return ''.join(line % pallet for line in [
-        '''           %(wing)s___%(reset)s %(wing)s____%(reset)s\n''',
-        '''         %(wing)s⎛   ⎛ ,----%(reset)s\n''',
-        '''          %(wing)s\  //==--'%(reset)s\n''',
-        '''     %(pig)s_//|,.·%(wing)s//==--'%(reset)s    ''',
-        '''%(speed)s______%(text)s____''',
-        '''%(speed)s_%(text)s____''',
-        '''%(speed)s___%(text)s____''',
-        '''%(speed)s__%(text)s____%(reset)s\n''',
-
-        '''    %(pig)s_%(goggles)s%(eyes)s≣=-%(pig)s ''',
-        ''' %(wing)s︶%(pig)s %(brand)sᴹw%(pig)s ⎞_§%(reset)s ''',
-        '''%(speed)s______%(text)s  ___\ ___\ ,\__ \/ __ \%(reset)s\n''',
-        '''   %(pig)s(%(nose)s∞%(pig)s)%(mouth)s_,''',
-        '''%(pig)s )  (     |%(reset)s''',
-        '''  %(speed)s______%(text)s/__  \/ /__ / /_/ / /_/ /%(reset)s\n''',
-        '''     %(pig)s¨--¨|| |- (  /%(reset)s''',
-        ''' %(speed)s______%(text)s\____/ \___/ \__^_/  .__/%(reset)s\n''',
-        '''         %(hoof)s««%(pig)s_/%(reset)s''',
-        '''  %(hoof)s«%(pig)s_/%(reset)s''',
-        ''' %(signature)sjgs/bd808%(reset)s''',
-        '''                %(text)s/_/%(reset)s\n''',
+        r'''           %(wing)s___%(reset)s %(wing)s____%(reset)s\n''',
+        r'''         %(wing)s⎛   ⎛ ,----%(reset)s\n''',
+        r'''          %(wing)s\  //==--'%(reset)s\n''',
+        r'''     %(pig)s_//|,.·%(wing)s//==--'%(reset)s    ''',
+        r'''%(speed)s______%(text)s____''',
+        r'''%(speed)s_%(text)s____''',
+        r'''%(speed)s___%(text)s____''',
+        r'''%(speed)s__%(text)s____%(reset)s\n''',
+        r'''    %(pig)s_%(goggles)s%(eyes)s≣=-%(pig)s ''',
+        r''' %(wing)s︶%(pig)s %(brand)sᴹw%(pig)s ⎞_§%(reset)s ''',
+        r'''%(speed)s______%(text)s  ___\ ___\ ,\__ \/ __ \%(reset)s\n''',
+        r'''   %(pig)s(%(nose)s∞%(pig)s)%(mouth)s_,''',
+        r'''%(pig)s )  (     |%(reset)s''',
+        r'''  %(speed)s______%(text)s/__  \/ /__ / /_/ / /_/ /%(reset)s\n''',
+        r'''     %(pig)s¨--¨|| |- (  /%(reset)s''',
+        r''' %(speed)s______%(text)s\____/ \___/ \__^_/  .__/%(reset)s\n''',
+        r'''         %(hoof)s««%(pig)s_/%(reset)s''',
+        r'''  %(hoof)s«%(pig)s_/%(reset)s''',
+        r''' %(signature)sjgs/bd808%(reset)s''',
+        r'''                %(text)s/_/%(reset)s\n''',
     ])

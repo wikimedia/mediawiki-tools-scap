@@ -723,7 +723,7 @@ def refresh_cdb_json_file(file_path):
     json_data = json_data.replace('\n', '', 1)
 
     # Escape slashes
-    json_data = json_data.replace('/', '\/')
+    json_data = json_data.replace('/', r'\/')
 
     # Remove final newline
     json_data = ''.join(json_data.rsplit('\n', 1))

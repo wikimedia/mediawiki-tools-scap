@@ -102,8 +102,8 @@ def scap_say(words=None, eyes=None, width=None, nowrap=False, color=True):
         lines += [
             '|{:^{width}}|'.format(word, width=box_width) for word in words]
 
-    lines.append('\{:^{width}}/\n {:-^{width}}'.format('', '',
-                                                       width=box_width))
+    lines.append(r'\{:^{width}}/\n {:-^{width}}'.format('', '',
+                                                        width=box_width))
     lines.append('{:^10}'.format('\\'))
     lines.append('{:^11}'.format('\\'))
     lines.append('{:^13}'.format('\\'))
