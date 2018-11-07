@@ -150,26 +150,27 @@ def logo(eyes=None, color=True, **colors):
 
     eyes = eyes[:2]
     pallet['eyes'] = eyes.encode('utf-8')
+    pallet['newline'] = '\n'
 
     return ''.join(line % pallet for line in [
-        r'''           %(wing)s___%(reset)s %(wing)s____%(reset)s\n''',
-        r'''         %(wing)s⎛   ⎛ ,----%(reset)s\n''',
-        r'''          %(wing)s\  //==--'%(reset)s\n''',
+        r'''           %(wing)s___%(reset)s %(wing)s____%(reset)s''',
+        r'''%(newline)s         %(wing)s⎛   ⎛ ,----%(reset)s%(newline)s''',
+        r'''          %(wing)s\  //==--'%(reset)s%(newline)s''',
         r'''     %(pig)s_//|,.·%(wing)s//==--'%(reset)s    ''',
         r'''%(speed)s______%(text)s____''',
         r'''%(speed)s_%(text)s____''',
         r'''%(speed)s___%(text)s____''',
-        r'''%(speed)s__%(text)s____%(reset)s\n''',
+        r'''%(speed)s__%(text)s____%(reset)s%(newline)s''',
         r'''    %(pig)s_%(goggles)s%(eyes)s≣=-%(pig)s ''',
         r''' %(wing)s︶%(pig)s %(brand)sᴹw%(pig)s ⎞_§%(reset)s ''',
-        r'''%(speed)s______%(text)s  ___\ ___\ ,\__ \/ __ \%(reset)s\n''',
-        r'''   %(pig)s(%(nose)s∞%(pig)s)%(mouth)s_,''',
+        r'''%(speed)s______%(text)s  ___\ ___\ ,\__ \/ __ \%(reset)s''',
+        r'''%(newline)s   %(pig)s(%(nose)s∞%(pig)s)%(mouth)s_,''',
         r'''%(pig)s )  (     |%(reset)s''',
-        r'''  %(speed)s______%(text)s/__  \/ /__ / /_/ / /_/ /%(reset)s\n''',
-        r'''     %(pig)s¨--¨|| |- (  /%(reset)s''',
-        r''' %(speed)s______%(text)s\____/ \___/ \__^_/  .__/%(reset)s\n''',
-        r'''         %(hoof)s««%(pig)s_/%(reset)s''',
+        r'''  %(speed)s______%(text)s/__  \/ /__ / /_/ / /_/ /%(reset)s''',
+        r'''%(newline)s     %(pig)s¨--¨|| |- (  /%(reset)s''',
+        r''' %(speed)s______%(text)s\____/ \___/ \__^_/  .__/%(reset)s''',
+        r'''%(newline)s         %(hoof)s««%(pig)s_/%(reset)s''',
         r'''  %(hoof)s«%(pig)s_/%(reset)s''',
         r''' %(signature)sjgs/bd808%(reset)s''',
-        r'''                %(text)s/_/%(reset)s\n''',
+        r'''                %(text)s/_/%(reset)s%(newline)s''',
     ])
