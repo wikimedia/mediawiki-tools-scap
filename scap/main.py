@@ -874,7 +874,7 @@ class SyncWikiversions(AbstractSync):
 
         # Compile mediawiki-staging wikiversions
         tasks.compile_wikiversions('stage', self.config)
-        self.include = 'wikiversions*.{json,php}'
+        self.include = 'wikiversions*.*'
 
     def _after_lock_release(self):
         self.announce(
