@@ -25,7 +25,6 @@ from __future__ import absolute_import
 import jinja2
 import yaml
 
-
 VALID_OUTPUT_FORMATS = ['yaml', 'yml']
 OUTPUT_ALIASES = {
     'yml': 'yaml'

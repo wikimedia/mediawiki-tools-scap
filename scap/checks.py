@@ -42,6 +42,8 @@ import shlex
 import subprocess
 import time
 
+import six
+
 import scap.utils as utils
 
 
@@ -133,7 +135,7 @@ def execute(checks, logger, concurrency=1):
                     done.append(job)
 
             # Enforce timeout on running jobs
-            for job in doing.values():
+            for job in list(six.itervalues(doing)):
                 if job.timedout():
                     msg = "Check '{}' exceeded {}s timeout"
                     msg = msg.format(job.check.name, job.check.timeout)
@@ -279,7 +281,9 @@ class CheckJob(object):
         `checks.execute`.
         """
 
-        self.output += utils.eintr_retry(os.read, self.fd, 1048576)
+        self.output += utils.eintr_retry(
+            os.read, self.fd, 1048576
+        ).decode('utf-8')
         result = utils.eintr_retry(self.proc.poll)
 
         if result is not None:
@@ -303,7 +307,7 @@ class CheckJob(object):
 
         for output in self.proc.communicate():
             if output is not None:
-                self.output += output
+                self.output += output.decode('utf-8')
 
 
 @checktype('override')
