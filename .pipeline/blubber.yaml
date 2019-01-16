@@ -1,0 +1,30 @@
+version: v3
+base: docker-registry.wikimedia.org/wikimedia-jessie
+apt:
+  packages: [python2.7, git, php5-cli]
+python:
+  version: python2.7
+runs:
+  environment:
+    LANG: C.UTF-8
+
+
+variants:
+  build:
+    apt:
+      packages:
+        - build-essential
+        - ca-certificates
+        - openssl
+        - python2.7-dev
+        - python-openssl
+        - python-setuptools
+        - zlib1g-dev
+        - libjpeg-dev
+  test:
+    includes: [build]
+    python:
+      requirements: [requirements.txt, test-requirements.txt, docs/requirements.txt]
+    entrypoint: [python2.7, -m, tox]
+    runs:
+      insecurely: True
