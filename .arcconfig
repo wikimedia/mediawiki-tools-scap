@@ -1,6 +1,0 @@
-{
-  "phabricator.uri" : "https://phabricator.wikimedia.org/",
-  "repository.callsign" : "MSCA",
-  "history.immutable" : false,
-  "unit.engine": "PytestTestEngine"
-}
