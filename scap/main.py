@@ -39,6 +39,7 @@ import scap.cli as cli
 import scap.lint as lint
 import scap.lock as lock
 import scap.log as log
+import scap.opcache_manager as opcache_manager
 import scap.pooler as pooler
 import scap.sh as sh
 import scap.ssh as ssh
@@ -62,6 +63,7 @@ class AbstractSync(cli.Application):
     def __init__(self, exe_name):
         super(AbstractSync, self).__init__(exe_name)
         self.include = None
+        self.om = None
 
     @cli.argument('--force', action='store_true', help='Skip canary checks')
     @cli.argument('message', nargs='*', help='Log message for SAL')
@@ -92,6 +94,7 @@ class AbstractSync(cli.Application):
                         'sync-check-canaries', self.get_stats()) as timer:
                     self.sync_canary(canaries)
                     timer.mark('Canaries Synced')
+                    self._invalidate_opcache(canaries)
                     self.canary_checks(canaries, timer)
             else:
                 self.get_logger().warning('Canaries Skipped by --force')
@@ -462,6 +465,22 @@ class AbstractSync(cli.Application):
                     len(canaries),
                     self.config['canary_dashboard_url']))
 
+    def _invalidate_opcache(self, target_hosts=None, filename=None):
+        """Invalidate opcache"""
+        php7_admin_port = self.config.get('php7-admin-port')
+        if not php7_admin_port:
+            return
+        if self.om is None:
+            self.om = opcache_manager.OpcacheManager(self.config)
+        if target_hosts:
+            failed = self.om.invalidate(target_hosts,
+                                        php7_admin_port, filename)
+        else:
+            failed = self.om.invalidate_all(php7_admin_port, filename)
+        for host, reason in failed.items():
+            self.get_logger().warning(
+                '%s failed to update opcache: %s', host, reason)
+
 
 @cli.command('security-check')
 class SecurityPatchCheck(cli.Application):
@@ -558,7 +577,7 @@ class RebuildCdbs(cli.Application):
                 cache_dir, use_cores, True, self.arguments.mute)
 
 
-@cli.command('sync', help='Deploy MediaWiki to the cluser (formerly scap)')
+@cli.command('sync', help='Deploy MediaWiki to the cluster (formerly scap)')
 class Scap(AbstractSync):
     """
     Deploy MediaWiki to the cluster.
@@ -576,6 +595,7 @@ class Scap(AbstractSync):
     #. Ask apaches to rebuild l10n CDB files
     #. Update wikiversions.php on localhost
     #. Ask apaches to sync wikiversions.php
+    #. Rolling invalidation of all opcache for php 7.x
     """
 
     @cli.argument('--force', action='store_true', help='Skip canary checks')
@@ -635,6 +655,7 @@ class Scap(AbstractSync):
             self.get_logger().warning(
                 '%d hosts had sync_wikiversions errors', failed)
             self.soft_errors = True
+        self._invalidate_opcache()
 
     def _after_lock_release(self):
         self.announce(
@@ -700,7 +721,8 @@ class SyncCommon(cli.Application):
                     'mwdeploy',
                     self.get_script_path() + ' cdb-rebuild --no-progress'
                 )
-
+        # Invalidate opcache
+        self._invalidate_opcache([socket.gethostbyname()])
         return 0
 
 
@@ -734,6 +756,9 @@ class SyncFile(AbstractSync):
                                    abspath, symlink_dest)
         else:
             lint.check_valid_syntax(abspath, utils.cpus_for_jobs())
+
+    def _after_cluster_sync(self):
+        self._invalidate_opcache(None, self.arguments.file)
 
     def _proxy_sync_command(self):
         cmd = [self.get_script_path(), 'pull', '--no-update-l10n']
@@ -829,6 +854,8 @@ class SyncL10n(AbstractSync):
                 self.get_logger().warning(
                     '%d hosts had scap-cdb-rebuild errors', failed)
                 self.soft_errors = True
+        # Globally invalidate opcache. TODO: is this needed?
+        self._invalidate_opcache(target_hosts)
 
     def _after_lock_release(self):
         self.announce(
@@ -883,6 +910,9 @@ class SyncWikiversions(AbstractSync):
         )
 
         self.increment_stat('sync-wikiversions')
+
+    def _after_cluster_sync(self):
+        self._invalidate_opcache(None, 'wikiversions.php')
 
 
 @cli.command('cdb-json-refresh', help=argparse.SUPPRESS)

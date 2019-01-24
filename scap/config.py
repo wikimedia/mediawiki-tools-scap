@@ -49,6 +49,7 @@ DEFAULT_CONFIG = {
     'lock_file': (compat.to_bytes_or_none, None),
     'log_json': (bool, False),
     'logstash_host': (str, 'logstash1001.eqiad.wmnet:9200'),
+    'mw_web_clusters': (str, 'jobrunner,appserver,appserver_api,testserver'),
     'master_rsync': (str, 'localhost'),
     'statsd_host': (str, '127.0.0.1'),
     'statsd_port': (str, '2003'),

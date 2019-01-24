@@ -6,3 +6,5 @@ pyaml
 requests
 six
 pygments
+gevent
+urllib3
