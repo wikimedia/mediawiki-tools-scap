@@ -73,8 +73,8 @@ class Application(object):
             return self.config['lock_file']
         else:
             try:
-                return '/var/lock/scap.%s.lock' % (
-                    self.config['git_repo'].replace('/', '_'))
+                return b'/var/lock/scap.%s.lock' % (
+                    self.config['git_repo'].replace(b'/', b'_'))
             except KeyError:
                 # `scap sync*` can run from anywhere on the file system and
                 # doesn't actually use the value of `git_repo`. In contrast,
@@ -82,7 +82,7 @@ class Application(object):
                 # set. If we're attempting to create a lock file, and there is
                 # no git_repo, then it's likely for a sync* command and the
                 # correct git_repo is operations/mediawiki-config.
-                return '/var/lock/scap.operations_mediawiki-config.lock'
+                return b'/var/lock/scap.operations_mediawiki-config.lock'
 
     @property
     def verbose(self):

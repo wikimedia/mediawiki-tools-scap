@@ -38,6 +38,7 @@ import yaml
 import requests
 
 import scap.checks as checks
+import scap.compat as compat
 import scap.config as config
 import scap.context as context
 import scap.nrpe as nrpe
@@ -607,7 +608,8 @@ class Deploy(cli.Application):
                   help='Skip deployment, just restart the service.')
     @cli.argument('-i', '--init', action='store_true',
                   help='Setup a repo for initial deployment')
-    @cli.argument('message', nargs='*', help='Log message for SAL')
+    @cli.argument('message', nargs='*', type=compat.to_text,
+                  help='Log message for SAL')
     def main(self, *extra_args):
         logger = self.get_logger()
 

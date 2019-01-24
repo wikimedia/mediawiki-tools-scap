@@ -26,8 +26,10 @@ import getpass
 import os
 import socket
 from six.moves.configparser import ConfigParser
+from six import iteritems
 
 import scap.utils as utils
+import scap.compat as compat
 
 
 DEFAULT_CONFIG = {
@@ -44,7 +46,7 @@ DEFAULT_CONFIG = {
     'php_version': (str, 'php'),
     'keyholder_key': (str, None),
     'stage_dir': (str, '/srv/mediawiki-staging'),
-    'lock_file': (str, None),
+    'lock_file': (compat.to_bytes_or_none, None),
     'log_json': (bool, False),
     'logstash_host': (str, 'logstash1001.eqiad.wmnet:9200'),
     'master_rsync': (str, 'localhost'),
@@ -64,6 +66,7 @@ DEFAULT_CONFIG = {
     'git_deploy_dir': (str, '/srv/deployment'),
     'git_fat': (bool, False),
     'git_binary_manager': (str, None),
+    'git_repo': (compat.to_bytes_or_none, None),
     'git_server': (str, 'tin.eqiad.wmnet'),
     'git_scheme': (str, 'http'),
     'git_submodules': (bool, False),
@@ -147,7 +150,6 @@ def load(cfg_file=None, environment=None, overrides=None):
     for section in sections:
         if parser.has_section(section):
             # Do not interpolate items in the section.
-            # Fixes crash on tin: 'int' object has no attribute 'find'
             for key, value in parser.items(section, True):
                 config[key] = coerce_value(key, value)
 
@@ -163,7 +165,7 @@ def load(cfg_file=None, environment=None, overrides=None):
 def override_config(config, overrides=None):
     """Override values in a config with type-coerced values."""
     if overrides:
-        for key, value in overrides.items():
+        for key, value in iteritems(overrides):
             config[key] = coerce_value(key, value)
 
     return config
@@ -175,7 +177,8 @@ def coerce_value(key, value):
     if key in DEFAULT_CONFIG:
         default_type, _ = DEFAULT_CONFIG[key]
 
-        if isinstance(value, default_type):
+        if (isinstance(default_type, type) and
+                isinstance(value, default_type)):
             return value
 
         if default_type == bool:
