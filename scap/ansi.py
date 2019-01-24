@@ -57,13 +57,13 @@ def esc(*args):
     """
     Get an ANSI escape code.
 
-    >>> esc(BG_WHITE, FG_RED, BLINK) == r'\x1b[5;31;47m'
+    >>> esc(BG_WHITE, FG_RED, BLINK) == u'\x1b[5;31;47m'
     True
 
     :param args: ANSI attributes
     :returns: str
     """
-    return '\x1b[%sm' % ';'.join(str(arg) for arg in sorted(args))
+    return u'\x1b[{}m'.format(u';'.join(str(arg) for arg in sorted(args)))
 
 
 def format_ansi(*args):
@@ -93,7 +93,7 @@ def reset():
     """
     Get the ANSI reset code.
 
-    >>> reset() == r'\x1b[0m'
+    >>> reset() == u'\x1b[0m'
     True
 
     :returns: str
@@ -146,31 +146,30 @@ def logo(eyes=None, color=True, **colors):
             pallet[key] = ''
 
     if not eyes:
-        eyes = 'OO'
+        eyes = u'OO'
 
-    eyes = eyes[:2]
-    pallet['eyes'] = eyes.encode('utf-8')
+    pallet['eyes'] = eyes[:2]
     pallet['newline'] = '\n'
 
-    return ''.join(line % pallet for line in [
-        r'''           %(wing)s___%(reset)s %(wing)s____%(reset)s''',
-        r'''%(newline)s         %(wing)s⎛   ⎛ ,----%(reset)s%(newline)s''',
-        r'''          %(wing)s\  //==--'%(reset)s%(newline)s''',
-        r'''     %(pig)s_//|,.·%(wing)s//==--'%(reset)s    ''',
-        r'''%(speed)s______%(text)s____''',
-        r'''%(speed)s_%(text)s____''',
-        r'''%(speed)s___%(text)s____''',
-        r'''%(speed)s__%(text)s____%(reset)s%(newline)s''',
-        r'''    %(pig)s_%(goggles)s%(eyes)s≣=-%(pig)s ''',
-        r''' %(wing)s︶%(pig)s %(brand)sᴹw%(pig)s ⎞_§%(reset)s ''',
-        r'''%(speed)s______%(text)s  ___\ ___\ ,\__ \/ __ \%(reset)s''',
-        r'''%(newline)s   %(pig)s(%(nose)s∞%(pig)s)%(mouth)s_,''',
-        r'''%(pig)s )  (     |%(reset)s''',
-        r'''  %(speed)s______%(text)s/__  \/ /__ / /_/ / /_/ /%(reset)s''',
-        r'''%(newline)s     %(pig)s¨--¨|| |- (  /%(reset)s''',
-        r''' %(speed)s______%(text)s\____/ \___/ \__^_/  .__/%(reset)s''',
-        r'''%(newline)s         %(hoof)s««%(pig)s_/%(reset)s''',
-        r'''  %(hoof)s«%(pig)s_/%(reset)s''',
-        r''' %(signature)sjgs/bd808%(reset)s''',
-        r'''                %(text)s/_/%(reset)s%(newline)s''',
+    return u''.join(line % pallet for line in [
+        u'''           %(wing)s___%(reset)s %(wing)s____%(reset)s''',
+        u'''%(newline)s         %(wing)s⎛   ⎛ ,----%(reset)s%(newline)s''',
+        u'''          %(wing)s\  //==--'%(reset)s%(newline)s''',
+        u'''     %(pig)s_//|,.·%(wing)s//==--'%(reset)s    ''',
+        u'''%(speed)s______%(text)s____''',
+        u'''%(speed)s_%(text)s____''',
+        u'''%(speed)s___%(text)s____''',
+        u'''%(speed)s__%(text)s____%(reset)s%(newline)s''',
+        u'''    %(pig)s_%(goggles)s%(eyes)s≣=-%(pig)s ''',
+        u''' %(wing)s︶%(pig)s %(brand)sᴹw%(pig)s ⎞_§%(reset)s ''',
+        u'''%(speed)s______%(text)s  ___\ ___\ ,\__ \/ __ \%(reset)s''',
+        u'''%(newline)s   %(pig)s(%(nose)s∞%(pig)s)%(mouth)s_,''',
+        u'''%(pig)s )  (     |%(reset)s''',
+        u'''  %(speed)s______%(text)s/__  \/ /__ / /_/ / /_/ /%(reset)s''',
+        u'''%(newline)s     %(pig)s¨--¨|| |- (  /%(reset)s''',
+        u''' %(speed)s______%(text)s\____/ \___/ \__^_/  .__/%(reset)s''',
+        u'''%(newline)s         %(hoof)s««%(pig)s_/%(reset)s''',
+        u'''  %(hoof)s«%(pig)s_/%(reset)s''',
+        u''' %(signature)sjgs/bd808%(reset)s''',
+        u'''                %(text)s/_/%(reset)s%(newline)s''',
     ])
