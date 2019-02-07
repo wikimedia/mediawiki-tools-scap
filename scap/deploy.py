@@ -632,7 +632,7 @@ class Deploy(cli.Application):
             stages = ['config_diff']
 
         restart_only = False
-        if len(stages) is 1 and stages[0] is RESTART:
+        if len(stages) == 1 and stages[0] == RESTART:
             restart_only = True
 
         if not git.is_dir(self.context.root):
