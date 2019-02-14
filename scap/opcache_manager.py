@@ -12,7 +12,7 @@ class OpcacheManager(object):
     TIMEOUT = 5
 
     def __init__(self):
-        self.http = urllib3.PoolManager({'retries': 1, 'timeout': 1})
+        self.http = urllib3.PoolManager(num_pools=10, retries=1, timeout=1)
         self.config = {}
 
     def _invalidate_host(self, url, filename):

@@ -471,7 +471,7 @@ class AbstractSync(cli.Application):
         if not php7_admin_port:
             return
         if self.om is None:
-            self.om = opcache_manager.OpcacheManager(self.config)
+            self.om = opcache_manager.OpcacheManager()
         if target_hosts:
             failed = self.om.invalidate(target_hosts,
                                         php7_admin_port, filename)
@@ -722,7 +722,15 @@ class SyncCommon(cli.Application):
                     self.get_script_path() + ' cdb-rebuild --no-progress'
                 )
         # Invalidate opcache
-        self._invalidate_opcache([socket.gethostbyname()])
+        php7_admin_port = self.config.get('php7-admin-port')
+        if not php7_admin_port:
+            return 0
+        om = opcache_manager.OpcacheManager()
+        failed = om.invalidate([socket.gethostname()], php7_admin_port, None)
+        if failed:
+            self.get_logger().warning(
+                'Opcache invalidation failed. Consider performing it manually.'
+            )
         return 0
 
 
