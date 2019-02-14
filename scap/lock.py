@@ -11,11 +11,10 @@ import errno
 import fcntl
 import os
 
-import scap.compat as compat
 import scap.utils as utils
 
 
-GLOBAL_LOCK_FILE = b'/var/lock/scap-global-lock'
+GLOBAL_LOCK_FILE = '/var/lock/scap-global-lock'
 
 
 class LockFailedError(RuntimeError):
@@ -31,7 +30,7 @@ class Lock(object):  # pylint: disable=too-few-public-methods
     :param reason: Reason we're locking a file
     :raises: LockFailedError on failure
     """
-    def __init__(self, filename, reason=u'No reason given', group_write=False):
+    def __init__(self, filename, reason='No reason given', group_write=False):
         self.filename = filename
         self.reason = reason
         self.lock_fd = None
@@ -56,7 +55,7 @@ class Lock(object):  # pylint: disable=too-few-public-methods
                 self.lock_perms
             )
             fcntl.lockf(self.lock_fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
-            os.write(self.lock_fd, compat.to_bytes(self.reason))
+            os.write(self.lock_fd, self.reason)
         except OSError as ose:
             if ose.errno is errno.EEXIST:
                 details = get_lock_excuse(self.filename)
@@ -95,13 +94,13 @@ def get_lock_excuse(lockfile):
     :param lockfile: Lock file to look for information in
     """
 
-    bad_user = u'a server gremlin'
-    excuses = u'no excuse given'
+    bad_user = 'a server gremlin'
+    excuses = 'no excuse given'
     try:
         bad_user = utils.get_username(os.stat(lockfile).st_uid) or bad_user
-        excuses = compat.to_text(open(lockfile, 'rb').read()) or excuses
+        excuses = open(lockfile, 'r').read() or excuses
     except (IOError, OSError) as failure:
         # Before we raise, let's at least warn what failed
         utils.get_logger().warning(failure)
     return 'Failed to acquire lock "%s"; owner is "%s"; reason is "%s"' % (
-        compat.to_text(lockfile), bad_user, excuses)
+        lockfile, bad_user, excuses)
