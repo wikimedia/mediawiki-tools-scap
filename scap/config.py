@@ -79,6 +79,7 @@ DEFAULT_CONFIG = {
     'tags_to_keep': (int, 20),
     'perform_checks': (bool, True),
     'patch_path': (str, None),
+    'php7_admin_port': (int, None),
     'conftool_config': (str, None),
     'cache_revs': (int, 5),
 }

@@ -471,12 +471,11 @@ class AbstractSync(cli.Application):
         if not php7_admin_port:
             return
         if self.om is None:
-            self.om = opcache_manager.OpcacheManager()
+            self.om = opcache_manager.OpcacheManager(php7_admin_port)
         if target_hosts:
-            failed = self.om.invalidate(target_hosts,
-                                        php7_admin_port, filename)
+            failed = self.om.invalidate(target_hosts, filename)
         else:
-            failed = self.om.invalidate_all(php7_admin_port, filename)
+            failed = self.om.invalidate_all(filename)
         for host, reason in failed.items():
             self.get_logger().warning(
                 '%s failed to update opcache: %s', host, reason)
@@ -725,8 +724,8 @@ class SyncCommon(cli.Application):
         php7_admin_port = self.config.get('php7-admin-port')
         if not php7_admin_port:
             return 0
-        om = opcache_manager.OpcacheManager()
-        failed = om.invalidate([socket.gethostname()], php7_admin_port, None)
+        om = opcache_manager.OpcacheManager(php7_admin_port)
+        failed = om.invalidate([socket.gethostname()], None)
         if failed:
             self.get_logger().warning(
                 'Opcache invalidation failed. Consider performing it manually.'

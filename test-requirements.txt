@@ -2,5 +2,6 @@
 flake8 ~= 3.0
 pytest
 pytest-cov
+pytest-mock
 coverage
 mock

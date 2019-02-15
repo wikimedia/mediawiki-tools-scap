@@ -6,5 +6,4 @@ pyaml
 requests
 six
 pygments
-gevent
-urllib3
+futures;python_version<"3"
