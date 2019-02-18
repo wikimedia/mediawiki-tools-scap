@@ -1,0 +1,61 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "cb356525_423e380b",
+        "filename": "/COMMIT_MSG",
+        "patchSetId": 1
+      },
+      "lineNbr": 21,
+      "author": {
+        "id": 3215
+      },
+      "writtenOn": "2019-02-18T09:14:21Z",
+      "side": 1,
+      "message": "Instead of this you could use directly requests-mock ;)",
+      "range": {
+        "startLine": 21,
+        "startChar": 2,
+        "endLine": 21,
+        "endChar": 13
+      },
+      "revId": "b66a4e6d8f0b945b83c4c478dfc223ecf0c7f32d",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "8ad0ab6a_cdc4cf96",
+        "filename": "setup.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 57,
+      "author": {
+        "id": 3215
+      },
+      "writtenOn": "2019-02-18T09:14:21Z",
+      "side": 1,
+      "message": "AFAIK this was mostly a trick, not even sure still works as expected. The same should be achievable directly in install_requires with:\n\n  \u0027futures;python_version\u003c\"3\"\u0027",
+      "revId": "b66a4e6d8f0b945b83c4c478dfc223ecf0c7f32d",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "53a61d70_dbab28e5",
+        "filename": "tox.ini",
+        "patchSetId": 1
+      },
+      "lineNbr": 27,
+      "author": {
+        "id": 3215
+      },
+      "writtenOn": "2019-02-18T09:14:21Z",
+      "side": 1,
+      "message": "Why tox should not fail if this fails?",
+      "revId": "b66a4e6d8f0b945b83c4c478dfc223ecf0c7f32d",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": true
+    }
+  ]
+}
