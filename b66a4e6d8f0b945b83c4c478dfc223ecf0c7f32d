@@ -49,6 +49,64 @@
     },
     {
       "key": {
+        "uuid": "2175b826_f1938aae",
+        "filename": "/COMMIT_MSG",
+        "patchSetId": 1
+      },
+      "lineNbr": 21,
+      "author": {
+        "id": 3215
+      },
+      "writtenOn": "2019-02-18T17:19:28Z",
+      "side": 1,
+      "message": "I normally use the standard mock (from unittest in py3) with their decorators to make more explicit what each test function is mocking. But feel free to add pytest-mock too, it\u0027s just a thin wrapper.",
+      "parentUuid": "d207a4ee_355a7e2f",
+      "range": {
+        "startLine": 21,
+        "startChar": 2,
+        "endLine": 21,
+        "endChar": 13
+      },
+      "revId": "b66a4e6d8f0b945b83c4c478dfc223ecf0c7f32d",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "5750d856_da2786d5",
+        "filename": "scap/opcache_manager.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 24,
+      "author": {
+        "id": 3215
+      },
+      "writtenOn": "2019-02-18T17:19:28Z",
+      "side": 1,
+      "message": "By default requests doesn\u0027t set a timeout, so you probably want to add here the timeout that was set in PoolManager before. See http://docs.python-requests.org/en/master/user/advanced/#timeouts",
+      "revId": "b66a4e6d8f0b945b83c4c478dfc223ecf0c7f32d",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "9dd4b3d2_05a04adc",
+        "filename": "scap/opcache_manager.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 25,
+      "author": {
+        "id": 3215
+      },
+      "writtenOn": "2019-02-18T17:19:28Z",
+      "side": 1,
+      "message": "This is semantically different from before, raies_for_status() raises for 4xx and 5xx responses only, while the previous code was returning True only for a 200 response.\nI\u0027m missing the broader context to comment on what\u0027s better here, but thought it was important to point it out.",
+      "revId": "b66a4e6d8f0b945b83c4c478dfc223ecf0c7f32d",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": true
+    },
+    {
+      "key": {
         "uuid": "8ad0ab6a_cdc4cf96",
         "filename": "setup.py",
         "patchSetId": 1
@@ -78,6 +136,47 @@
       "side": 1,
       "message": "This actually works, and is the recommended way to include the module according to its own documentation.\n\nI\u0027ll test if this works by adding the line to requirements.txt, and change it.",
       "parentUuid": "8ad0ab6a_cdc4cf96",
+      "revId": "b66a4e6d8f0b945b83c4c478dfc223ecf0c7f32d",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "09a93619_24ee96be",
+        "filename": "setup.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 57,
+      "author": {
+        "id": 3215
+      },
+      "writtenOn": "2019-02-18T17:19:28Z",
+      "side": 1,
+      "message": "Ok both works, mine is the newer syntax, as reported also here: https://pypi.org/project/futures/\nI thought the old one was already deprecated, probably not yet :)",
+      "parentUuid": "ac92bf77_29f8f790",
+      "revId": "b66a4e6d8f0b945b83c4c478dfc223ecf0c7f32d",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "fedfd6b6_e848cce2",
+        "filename": "tests/scap/test_opcache_manager.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 85,
+      "author": {
+        "id": 3215
+      },
+      "writtenOn": "2019-02-18T17:19:28Z",
+      "side": 1,
+      "message": "you might want to add any_order\u003dTrue to avoid race conditions on the order given the thread pool.",
+      "range": {
+        "startLine": 85,
+        "startChar": 24,
+        "endLine": 85,
+        "endChar": 40
+      },
       "revId": "b66a4e6d8f0b945b83c4c478dfc223ecf0c7f32d",
       "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
       "unresolved": true
@@ -116,6 +215,24 @@
       "revId": "b66a4e6d8f0b945b83c4c478dfc223ecf0c7f32d",
       "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
       "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "ba535274_fe2b5e7c",
+        "filename": "tox.ini",
+        "patchSetId": 1
+      },
+      "lineNbr": 27,
+      "author": {
+        "id": 3215
+      },
+      "writtenOn": "2019-02-18T17:19:28Z",
+      "side": 1,
+      "message": "Ack",
+      "parentUuid": "8518b044_bdc40222",
+      "revId": "b66a4e6d8f0b945b83c4c478dfc223ecf0c7f32d",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
     }
   ]
 }
