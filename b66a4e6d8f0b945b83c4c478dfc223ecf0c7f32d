@@ -25,6 +25,30 @@
     },
     {
       "key": {
+        "uuid": "d207a4ee_355a7e2f",
+        "filename": "/COMMIT_MSG",
+        "patchSetId": 1
+      },
+      "lineNbr": 21,
+      "author": {
+        "id": 1616
+      },
+      "writtenOn": "2019-02-18T12:45:52Z",
+      "side": 1,
+      "message": "pytest-mock can be useful in more places I think?\n\nAnyways, the tests code still needs some work on my side, I might just move to requests-mock.",
+      "parentUuid": "cb356525_423e380b",
+      "range": {
+        "startLine": 21,
+        "startChar": 2,
+        "endLine": 21,
+        "endChar": 13
+      },
+      "revId": "b66a4e6d8f0b945b83c4c478dfc223ecf0c7f32d",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": true
+    },
+    {
+      "key": {
         "uuid": "8ad0ab6a_cdc4cf96",
         "filename": "setup.py",
         "patchSetId": 1
@@ -42,6 +66,24 @@
     },
     {
       "key": {
+        "uuid": "ac92bf77_29f8f790",
+        "filename": "setup.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 57,
+      "author": {
+        "id": 1616
+      },
+      "writtenOn": "2019-02-18T12:45:52Z",
+      "side": 1,
+      "message": "This actually works, and is the recommended way to include the module according to its own documentation.\n\nI\u0027ll test if this works by adding the line to requirements.txt, and change it.",
+      "parentUuid": "8ad0ab6a_cdc4cf96",
+      "revId": "b66a4e6d8f0b945b83c4c478dfc223ecf0c7f32d",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": true
+    },
+    {
+      "key": {
         "uuid": "53a61d70_dbab28e5",
         "filename": "tox.ini",
         "patchSetId": 1
@@ -53,6 +95,24 @@
       "writtenOn": "2019-02-18T09:14:21Z",
       "side": 1,
       "message": "Why tox should not fail if this fails?",
+      "revId": "b66a4e6d8f0b945b83c4c478dfc223ecf0c7f32d",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "8518b044_bdc40222",
+        "filename": "tox.ini",
+        "patchSetId": 1
+      },
+      "lineNbr": 27,
+      "author": {
+        "id": 1616
+      },
+      "writtenOn": "2019-02-18T12:45:52Z",
+      "side": 1,
+      "message": "Because python 3 support in scap is not done. Still we want to be running the tests in order to progressively fix issues.\n\nI\u0027m at least verifying my code doesn\u0027t introduce further incompatibilities.",
+      "parentUuid": "53a61d70_dbab28e5",
       "revId": "b66a4e6d8f0b945b83c4c478dfc223ecf0c7f32d",
       "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
       "unresolved": true
