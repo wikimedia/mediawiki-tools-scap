@@ -90,6 +90,24 @@
     },
     {
       "key": {
+        "uuid": "60727ab3_5b99ffae",
+        "filename": "scap/opcache_manager.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 24,
+      "author": {
+        "id": 1616
+      },
+      "writtenOn": "2019-02-19T06:05:39Z",
+      "side": 1,
+      "message": "Uh, sure, I was sure I added it here. Done.",
+      "parentUuid": "5750d856_da2786d5",
+      "revId": "b66a4e6d8f0b945b83c4c478dfc223ecf0c7f32d",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": true
+    },
+    {
+      "key": {
         "uuid": "9dd4b3d2_05a04adc",
         "filename": "scap/opcache_manager.py",
         "patchSetId": 1
@@ -101,6 +119,24 @@
       "writtenOn": "2019-02-18T17:19:28Z",
       "side": 1,
       "message": "This is semantically different from before, raies_for_status() raises for 4xx and 5xx responses only, while the previous code was returning True only for a 200 response.\nI\u0027m missing the broader context to comment on what\u0027s better here, but thought it was important to point it out.",
+      "revId": "b66a4e6d8f0b945b83c4c478dfc223ecf0c7f32d",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "bee624aa_14f86d7d",
+        "filename": "scap/opcache_manager.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 25,
+      "author": {
+        "id": 1616
+      },
+      "writtenOn": "2019-02-19T06:05:39Z",
+      "side": 1,
+      "message": "We have complete control over the server-side component, and it will throw a 500 error on failure, or a 404 if the php admin suite is not installed. So this is a more accurate behaviour.",
+      "parentUuid": "9dd4b3d2_05a04adc",
       "revId": "b66a4e6d8f0b945b83c4c478dfc223ecf0c7f32d",
       "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
       "unresolved": true
@@ -160,6 +196,24 @@
     },
     {
       "key": {
+        "uuid": "e78981f8_2e7d013d",
+        "filename": "setup.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 57,
+      "author": {
+        "id": 1616
+      },
+      "writtenOn": "2019-02-19T06:05:39Z",
+      "side": 1,
+      "message": "Done",
+      "parentUuid": "09a93619_24ee96be",
+      "revId": "b66a4e6d8f0b945b83c4c478dfc223ecf0c7f32d",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "fedfd6b6_e848cce2",
         "filename": "tests/scap/test_opcache_manager.py",
         "patchSetId": 1
@@ -180,6 +234,30 @@
       "revId": "b66a4e6d8f0b945b83c4c478dfc223ecf0c7f32d",
       "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
       "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "065611eb_26496ddf",
+        "filename": "tests/scap/test_opcache_manager.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 85,
+      "author": {
+        "id": 1616
+      },
+      "writtenOn": "2019-02-19T06:05:39Z",
+      "side": 1,
+      "message": "Done",
+      "parentUuid": "fedfd6b6_e848cce2",
+      "range": {
+        "startLine": 85,
+        "startChar": 24,
+        "endLine": 85,
+        "endChar": 40
+      },
+      "revId": "b66a4e6d8f0b945b83c4c478dfc223ecf0c7f32d",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
     },
     {
       "key": {

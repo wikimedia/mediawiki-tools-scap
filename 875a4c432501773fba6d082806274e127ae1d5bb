@@ -16,6 +16,24 @@
       "revId": "875a4c432501773fba6d082806274e127ae1d5bb",
       "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
       "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "581e94a1_1cfaac93",
+        "filename": "scap/opcache_manager.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 48,
+      "author": {
+        "id": 1616
+      },
+      "writtenOn": "2019-02-19T06:05:39Z",
+      "side": 0,
+      "message": "yes, indeed. It should\u0027ve been removed from the code too, it was missed in the review.",
+      "parentUuid": "6d292093_096de771",
+      "revId": "875a4c432501773fba6d082806274e127ae1d5bb",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": true
     }
   ]
 }
