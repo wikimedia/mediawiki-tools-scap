@@ -1,5 +1,4 @@
 configparser
-conftool
 jinja2
 psutil
 pyaml

@@ -40,7 +40,6 @@ import scap.lint as lint
 import scap.lock as lock
 import scap.log as log
 import scap.opcache_manager as opcache_manager
-import scap.pooler as pooler
 import scap.sh as sh
 import scap.ssh as ssh
 import scap.targets as targets
@@ -103,13 +102,6 @@ class AbstractSync(cli.Application):
             proxies = [node for node in self._get_proxy_list()
                        if node in full_target_list]
 
-            conftool_conf = self.config['conftool_config']
-            if proxies and conftool_conf:
-                # Before we hammer the proxies, depool them
-                self.get_logger().info('Depooling proxies')
-                proxy_pooler = pooler.Pooler(conftool_conf, proxies)
-                proxy_pooler.depool()
-
             with log.Timer('sync-proxies', self.get_stats()):
                 sync_cmd = self._apache_sync_command(self.get_master_list())
                 # Proxies should always use the current host as their sync
@@ -151,11 +143,6 @@ class AbstractSync(cli.Application):
                     self.get_logger().warning(
                         '%d apaches had sync errors', failed)
                     self.soft_errors = True
-
-            if proxies and conftool_conf:
-                # Ok all done
-                self.get_logger().info('Repooling proxies')
-                proxy_pooler.pool()
 
             self._after_cluster_sync()
 
