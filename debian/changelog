@@ -1,3 +1,21 @@
+scap (3.9.0-1) unstable; urgency=low
+
+  [ Tyler Cipriani ]
+  * pipeline: test scap with CD pipeline
+  * Docs: remove references to differential
+
+  [ Antoine Musso ]
+  * Change message to 'Copying from x to y'
+
+  [ Giuseppe Lavagetto ]
+  * Invalidate PHP7's opcache when needed (Bug: T211964)
+  * Rewrite the concurrency logic of OpcacheManager (Bug: T211964)
+
+  [ MarcoAurelio ]
+  * Fix flake8 "F632 use ==/!= to compare str, bytes, and int literals" error
+
+ -- Tyler Cipriani <tcipriani@wikimedia.org>  Wed, 20 Feb 2019 16:39:39 -0700
+
 scap (3.8.10-1) unstable; urgency=low
 
   * sync-wikiversions - don't do shell expansion
