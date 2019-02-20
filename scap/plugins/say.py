@@ -21,7 +21,8 @@
     You should have received a copy of the GNU General Public License
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """
-from __future__ import (absolute_import, print_function)
+from __future__ import absolute_import
+from __future__ import print_function
 
 import argparse
 import os
@@ -29,8 +30,9 @@ import random
 import sys
 import textwrap
 
+from six import text_type
+
 from .. import ansi
-from .. import compat
 from .. import cli
 
 
@@ -129,7 +131,8 @@ class Say(cli.Application):
 
     @cli.argument('-W', '--width', type=int,
                   help='Column width for message box')
-    @cli.argument('-e', '--eyes', type=compat._unicode, help='Eyes')
+    @cli.argument('-e', '--eyes', type=lambda s: text_type(s, 'utf8'),
+                  help='Eyes')
     @cli.argument('-n', '--no-wrap', action='store_true', help='No Wordwrap')
     @cli.argument('-c', '--color', action='store_true', help='Color logo')
     @cli.argument('propaganda', nargs='*', help='Message to print')
