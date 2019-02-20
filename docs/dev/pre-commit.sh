@@ -1,11 +1,11 @@
 #!/bin/bash
-# example pre-commit hook for git which runs `arc lint` and `tox -e doc`
+# example pre-commit hook for git which runs `flake8` and `tox -e doc`
 # before each commit, aborting the commit if there is a lint error.
 
 
-lint=`arc lint`
+lint=`tox -e flake8 2>&1`
 if [ $? != 0 ]; then
-    arc lint
+    echo $lint
     exit 1
 fi
 

@@ -6,3 +6,4 @@ pyaml
 requests
 six
 pygments
+futures;python_version<"3"

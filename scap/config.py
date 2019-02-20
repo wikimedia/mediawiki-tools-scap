@@ -47,6 +47,7 @@ DEFAULT_CONFIG = {
     'lock_file': (str, None),
     'log_json': (bool, False),
     'logstash_host': (str, 'logstash1001.eqiad.wmnet:9200'),
+    'mw_web_clusters': (str, 'jobrunner,appserver,appserver_api,testserver'),
     'master_rsync': (str, 'localhost'),
     'statsd_host': (str, '127.0.0.1'),
     'statsd_port': (str, '2003'),
@@ -78,6 +79,7 @@ DEFAULT_CONFIG = {
     'tags_to_keep': (int, 20),
     'perform_checks': (bool, True),
     'patch_path': (str, None),
+    'php7_admin_port': (int, None),
     'conftool_config': (str, None),
     'cache_revs': (int, 5),
 }

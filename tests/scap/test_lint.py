@@ -36,7 +36,7 @@ from scap import lint
 def test_check_valid_syntax__invalid_php_file_raise_exception():
     """Make sure we raise exceptions when passed bad PHP files"""
     with tempfile.NamedTemporaryFile(suffix=".php") as php_file:
-        php_file.write('<?php blba')
+        php_file.write(b'<?php blba')
         php_file.flush()
         with pytest.raises(CalledProcessError) as cpe:
             lint.check_valid_syntax(php_file.name)

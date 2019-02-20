@@ -13,8 +13,8 @@ import contextlib
 import distutils.version
 import errno
 from functools import wraps
-import hashlib
 import glob
+import hashlib
 import inspect
 import json
 from json import JSONEncoder

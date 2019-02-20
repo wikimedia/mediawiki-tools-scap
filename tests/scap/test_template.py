@@ -40,7 +40,7 @@ def test_render_utf8_vars():
         'vars-utf8.yaml'
     )
 
-    with open(template_path) as f:
+    with open(template_path, 'rb') as f:
         template_data = f.read()
 
     tmp = template.Template(
@@ -49,7 +49,7 @@ def test_render_utf8_vars():
         var_file=override_path
     )
 
-    assert '❤' in tmp.render()
+    assert u'❤'.encode('utf-8') in tmp.render()
 
 
 def test_render_utf8_template():
@@ -61,11 +61,11 @@ def test_render_utf8_template():
         'test-utf8.yaml'
     )
 
-    with open(template_path) as f:
+    with open(template_path, 'rb') as f:
         template_data = f.read()
 
     tmp = template.Template(
         name=test_file,
         loader={test_file: template_data}
     )
-    assert '⚡' in tmp.render()
+    assert u'⚡'.encode('utf-8') in tmp.render()
