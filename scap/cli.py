@@ -282,9 +282,9 @@ class Application(object):
                 '%s requires SSH agent forwarding' % self.program_name)
 
     @staticmethod
-    def factory():
+    def factory(argv=None):
         parser = arg.build_parser()
-        args, extra_args = parser.parse_known_args()
+        args, extra_args = parser.parse_known_args(argv)
         app = args.which(args.command)
         app._argparser = parser
         app.arguments = args
