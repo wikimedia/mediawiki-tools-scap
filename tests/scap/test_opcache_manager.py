@@ -10,7 +10,7 @@ import requests
 
 import pytest
 
-from scap import opcache_manager
+from scap import opcache_manager, targets
 
 
 @pytest.fixture
@@ -89,15 +89,23 @@ def test_invalidate(om):
     )
 
 
-def test_invalidate_all(om):
+def test_invalidate_all(om, mocker):
     """Test that global invalidation works as expected."""
-    om.config = {'dsh-targets': 'mediawiki-installation'}
-    om._invalidate_host = mock.MagicMock(side_effect=invalidate_results)
-    with mock.patch('scap.targets.get') as mocker:
-        mocker.all.return_value = ['host1']
-        assert om.invalidate_all() == {}
-        mocker.assert_called_with('mediawiki-installation', om.config)
-        mocker.reset_mock()
-        om.config['mw_web_clusters'] = 'cl1,cl2, cl3'
-        assert om.invalidate_all(9005) == {}
-        mocker.assert_called_with('cl3', om.config)
+    config = {'dsh_targets': 'mediawiki-installation'}
+    om.invalidate = mock.MagicMock()
+    target_list_class = mocker.patch('scap.targets.DirectDshTargetList')
+    target_list = target_list_class.return_value
+    # Simulate no answer received
+    target_list.all.__nonzero__.return_value = 0
+    assert om.invalidate_all(config) == {}
+    target_list_class.assert_called_with('mw_web_clusters', config)
+    assert target_list.primary_key == 'dsh_targets'
+    target_list.reset_mock()
+    target_list.groups = {
+        'cl1': targets.DeployGroup('cl1', ['host1', 'host2']),
+        'cl2': targets.DeployGroup('cl2', ['host4', 'host3']),
+    }
+    config['mw_web_clusters'] = 'cl1,cl2, cl3'
+    assert om.invalidate_all(config, 'test.php') == {}
+    om.invalidate.assert_any_call(['host1', 'host2'], 'test.php')
+    om.invalidate.assert_any_call(['host4', 'host3'], 'test.php')

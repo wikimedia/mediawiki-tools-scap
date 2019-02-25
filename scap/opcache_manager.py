@@ -41,12 +41,13 @@ class OpcacheManager(object):
         # Collect all failed results and return them to the caller
         return {host: result[1] for host, result in results if not result[0]}
 
-    def invalidate_all(self, filename=None):
-        # get all current hostgroups, or default to
-        groups = self.config.get('mw_web_clusters',
-                                 self.config['dsh-targets']).split(',')
+    def invalidate_all(self, config, filename=None):
+        target_groups = targets.DirectDshTargetList('mw_web_clusters', config)
+        # Fallback if nothing was defined.
+        if not target_groups.all:
+            target_groups.primary_key = 'dsh_targets'
+            target_groups.deploy_groups = None
         failed = {}
-        for group in groups:
-            hosts = targets.get(group.strip(), self.config).all
-            failed.update(self.invalidate(hosts, filename))
+        for _, group in target_groups.groups.items():
+            failed.update(self.invalidate(group.targets, filename))
         return failed

@@ -475,7 +475,7 @@ class AbstractSync(cli.Application):
         if target_hosts:
             failed = self.om.invalidate(target_hosts, filename)
         else:
-            failed = self.om.invalidate_all(filename)
+            failed = self.om.invalidate_all(self.config, filename)
         for host, reason in failed.items():
             self.get_logger().warning(
                 '%s failed to update opcache: %s', host, reason)

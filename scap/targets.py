@@ -151,16 +151,30 @@ class TargetList(object):
 
         return int(size) if size is not None else None
 
-    def _get_server_groups(self):
-        """Get the server_groups from configuration."""
-        server_groups = self.config.get('server_groups', None)
-
+    def _get_filenames_for_groups(self):
+        """
+        Given the values in config and the primary key,
+        return a hash {group_name: file_name} for the dsh groups
+        """
+        groups = {}
+        server_groups = self.config.get('server_groups')
         if server_groups is None:
             server_groups = ['default']
         else:
             server_groups = server_groups.split(',')
-
-        return server_groups
+        for group in server_groups:
+            group.strip()
+            if group == 'default':
+                cfg_key = self.primary_key
+            else:
+                cfg_key = group + '_' + self.primary_key
+            try:
+                groups[group] = self.config[cfg_key]
+            except KeyError:
+                raise RuntimeError(
+                    'Could not find config setting `{0}`'.format(cfg_key)
+                )
+        return groups
 
     def _get_targets_for_key(self, key):
         """
@@ -179,21 +193,9 @@ class TargetList(object):
 
         groups = collections.OrderedDict()
         all_hosts = []
-        server_groups = self._get_server_groups()
 
-        for group in server_groups:
-            group = group.strip()
-            cfg_key = group + '_' + self.primary_key
-            if group == 'default':
-                cfg_key = self.primary_key
-
-            key = self.config.get(cfg_key, None)
-
-            if key is None:
-                raise RuntimeError(
-                    'Reading `{0}` file "{1}" failed'.format(cfg_key, key))
-
-            targets = self._get_targets_for_key(key)
+        for group, filename in self._get_filenames_for_groups().items():
+            targets = self._get_targets_for_key(filename)
 
             if self.limit_hosts is not None:
                 targets = limit_target_hosts(self.limit_hosts, targets)
@@ -257,6 +259,23 @@ class DshTargetList(TargetList):
                 return re.findall(r'^[\w\.\-]+', f.read(), re.MULTILINE)
         except IOError as e:
             raise IOError(e.errno, e.strerror, hosts_file)
+
+
+class DirectDshTargetList(DshTargetList):
+    """
+    Read host lists from dsh files, minus the indirection.
+
+    Usage:
+    # This will read the dsh files named 'path/{a,b,c}'
+    d = DirectDshTargetList('label', {'label': 'a,b,c'}, extra_path=path)
+    """
+
+    def _get_filenames_for_groups(self):
+        server_groups = self.config.get(self.primary_key, None)
+        if server_groups is None:
+            return {}
+        else:
+            return {k: k.strip() for k in server_groups.split(',')}
 
 
 class DeployGroup(object):
