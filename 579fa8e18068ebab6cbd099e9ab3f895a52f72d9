@@ -1,0 +1,38 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "803d29ce_5208797d",
+        "filename": "tests/scap/test_opcache_manager.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 102,
+      "author": {
+        "id": 2321
+      },
+      "writtenOn": "2019-02-25T18:23:00Z",
+      "side": 1,
+      "message": "Weird(/doesn\u0027t matter afaict) nitpick: is 9005 a filename?",
+      "revId": "579fa8e18068ebab6cbd099e9ab3f895a52f72d9",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "9007e1d8_b98197a0",
+        "filename": "tests/scap/test_opcache_manager.py",
+        "patchSetId": 1
+      },
+      "lineNbr": 103,
+      "author": {
+        "id": 2321
+      },
+      "writtenOn": "2019-02-25T18:23:00Z",
+      "side": 1,
+      "message": "Looks like you missed a few \"om.config\"s here",
+      "revId": "579fa8e18068ebab6cbd099e9ab3f895a52f72d9",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
+    }
+  ]
+}
