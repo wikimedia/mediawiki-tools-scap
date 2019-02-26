@@ -1,0 +1,21 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "a48e97e2_0698c0de",
+        "filename": "scap/targets.py",
+        "patchSetId": 2
+      },
+      "lineNbr": 270,
+      "author": {
+        "id": 2321
+      },
+      "writtenOn": "2019-02-26T21:51:14Z",
+      "side": 1,
+      "message": "This is a nice extension of targets! Makes the interface saner.",
+      "revId": "cb41af66b6c3ea713f402eb372f9138993facaf9",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": true
+    }
+  ]
+}
