@@ -223,3 +223,12 @@ def test_subgroups__with_excluded_target():
     group.exclude('target2')
     subgroups = list(group.subgroups())
     assert subgroups == [('foo', ['target1', 'target3'])]
+
+
+def test_dsh_direct_deploy_groups():
+    dsh_files = 'test-targets,canary_test-targets'
+    dsh_path = os.path.join(os.path.dirname(__file__), 'targets-test')
+    target_obj = targets.DirectDshTargetList('label', {'label': dsh_files},
+                                             extra_paths=[dsh_path])
+    assert sorted(_HOSTS) == sorted(
+        target_obj.get_deploy_groups()['all_targets'])
