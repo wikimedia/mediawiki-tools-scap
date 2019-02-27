@@ -1,3 +1,10 @@
+scap (3.9.1-1) unstable; urgency=low
+
+  [ Giuseppe Lavagetto ]
+  * Fix OpcacheManager.invalidate_all()
+
+ -- Tyler Cipriani <tcipriani@wikimedia.org>  Wed, 27 Feb 2019 13:25:12 -0700
+
 scap (3.9.0-1) unstable; urgency=low
 
   [ Tyler Cipriani ]
