@@ -156,14 +156,15 @@ class TargetList(object):
         Given the values in config and the primary key,
         return a hash {group_name: file_name} for the dsh groups
         """
-        groups = {}
+        groups = collections.OrderedDict()
         server_groups = self.config.get('server_groups')
         if server_groups is None:
             server_groups = ['default']
         else:
             server_groups = server_groups.split(',')
+
         for group in server_groups:
-            group.strip()
+            group = group.strip()
             if group == 'default':
                 cfg_key = self.primary_key
             else:

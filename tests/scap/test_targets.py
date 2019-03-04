@@ -65,6 +65,47 @@ def test_dsh_target_other_groups():
     assert list(deploy_groups.keys())[0] == 'canary'
 
 
+def test_dsh_target_group_order():
+    dsh_file = 'test-targets'
+    canary_test_targets = 'canary_test-targets'
+
+    dsh_path = os.path.join(os.path.dirname(__file__), 'targets-test')
+
+    # Order matters, if they put default first, that's what they want to deploy
+    # to first.
+    cfg = {'server_groups': 'default, canary',
+           dsh_file: dsh_file,
+           canary_test_targets: canary_test_targets}
+
+    target_obj = targets.get(dsh_file, cfg, extra_paths=[dsh_path])
+    deploy_groups = target_obj.groups
+
+    # Since 'default' contains all the hosts from the canary AND it was listed
+    # first in server_group list, the only remaining group should be the
+    # default group
+    assert len(deploy_groups.keys()) == 1
+    assert list(deploy_groups.keys())[0] == 'default'
+
+
+def test_dsh_target_other_groups_with_space():
+    dsh_file = 'test-targets'
+    canary_test_targets = 'canary_test-targets'
+
+    dsh_path = os.path.join(os.path.dirname(__file__), 'targets-test')
+
+    cfg = {'server_groups': 'canary, default',
+           dsh_file: dsh_file,
+           canary_test_targets: canary_test_targets}
+
+    target_obj = targets.get(dsh_file, cfg, extra_paths=[dsh_path])
+    deploy_groups = target_obj.groups
+
+    # Since server_groups is set, there should be 2 groups:
+    # canary and default
+    assert len(deploy_groups.keys()) == 2
+    assert list(deploy_groups.keys())[0] == 'canary'
+
+
 def test_dsh_global_group_size():
     dsh_file = 'test-targets'
     canary_test_targets = 'canary_test-targets'
