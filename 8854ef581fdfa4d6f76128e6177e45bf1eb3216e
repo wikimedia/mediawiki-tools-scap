@@ -1,0 +1,55 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "e484c1e0_2680ab8b",
+        "filename": "scap/arg.py",
+        "patchSetId": 5
+      },
+      "lineNbr": 297,
+      "author": {
+        "id": 1616
+      },
+      "writtenOn": "2019-03-05T13:08:00Z",
+      "side": 1,
+      "message": "You should make this and -D above mutually exclusive, see ArgParse.add_mutually_exclusive_group()",
+      "revId": "8854ef581fdfa4d6f76128e6177e45bf1eb3216e",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "2e7257a9_f509e72f",
+        "filename": "scap/arg.py",
+        "patchSetId": 5
+      },
+      "lineNbr": 299,
+      "author": {
+        "id": 1616
+      },
+      "writtenOn": "2019-03-05T13:08:00Z",
+      "side": 1,
+      "message": "why \"Append\"? I don\u0027t think it\u0027s a great idea, we definitely don\u0027t want to have two ways to override the configuration that can compete with each other. The alternative is to do conflict resolution post-facto, but I don\u0027t think it\u0027s worth it.",
+      "revId": "8854ef581fdfa4d6f76128e6177e45bf1eb3216e",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "d0e5d944_c289b59a",
+        "filename": "scap/arg.py",
+        "patchSetId": 5
+      },
+      "lineNbr": 300,
+      "author": {
+        "id": 1616
+      },
+      "writtenOn": "2019-03-05T13:08:00Z",
+      "side": 1,
+      "message": "this can simply be type\u003dlambda v: (\u0027canary_wait_time\u0027, v)\n\n(or if you remove the append, lambda v: [(\u0027canary_wait_time\u0027, v)]",
+      "revId": "8854ef581fdfa4d6f76128e6177e45bf1eb3216e",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": true
+    }
+  ]
+}
