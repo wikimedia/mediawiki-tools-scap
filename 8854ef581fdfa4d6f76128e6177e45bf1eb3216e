@@ -2,6 +2,23 @@
   "comments": [
     {
       "key": {
+        "uuid": "8969d517_726fce07",
+        "filename": ".gitignore",
+        "patchSetId": 5
+      },
+      "lineNbr": 18,
+      "author": {
+        "id": 2321
+      },
+      "writtenOn": "2019-03-05T23:55:14Z",
+      "side": 1,
+      "message": "Feel free to add this to .gitignore as a separate patch and merge to master at will. +2 for this line :)",
+      "revId": "8854ef581fdfa4d6f76128e6177e45bf1eb3216e",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "e484c1e0_2680ab8b",
         "filename": "scap/arg.py",
         "patchSetId": 5
@@ -50,6 +67,40 @@
       "revId": "8854ef581fdfa4d6f76128e6177e45bf1eb3216e",
       "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
       "unresolved": true
+    },
+    {
+      "key": {
+        "uuid": "306247ff_26ec3fb4",
+        "filename": "scap/arg.py",
+        "patchSetId": 5
+      },
+      "lineNbr": 303,
+      "author": {
+        "id": 2321
+      },
+      "writtenOn": "2019-03-05T23:55:14Z",
+      "side": 1,
+      "message": "Giuseppe\u0027s comments seem spot on for this implementation.\n\nAs an alternative implementation we could move canary_wait_time out of the configuration and just make it a command-line argument accepting an int with a default of 20. This should be easy to do since it\u0027s currently only used in one place in main.py. This option side-steps the necessity for deciding how to deal with:\n\n    scap sync-file -Dcanary_wait_time:10 --cw 30 \u0027being difficult\u0027",
+      "revId": "8854ef581fdfa4d6f76128e6177e45bf1eb3216e",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "2ab00e30_4aa8b4b2",
+        "filename": "tests/scap/test_main.py",
+        "patchSetId": 5
+      },
+      "lineNbr": 15,
+      "author": {
+        "id": 2321
+      },
+      "writtenOn": "2019-03-05T23:55:14Z",
+      "side": 1,
+      "message": "Needs some modification to the cli.Application.factory method which entails some changes to bin/scap and cli.Application.run to accept args as arguments to those functions; however, once those changes are made (and \"--is-wrong\" is removed) this seems like a sound start.",
+      "revId": "8854ef581fdfa4d6f76128e6177e45bf1eb3216e",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
     }
   ]
 }
