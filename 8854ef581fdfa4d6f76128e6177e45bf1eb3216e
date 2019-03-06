@@ -19,6 +19,24 @@
     },
     {
       "key": {
+        "uuid": "fcb3f636_7a6b4007",
+        "filename": ".gitignore",
+        "patchSetId": 5
+      },
+      "lineNbr": 18,
+      "author": {
+        "id": 24
+      },
+      "writtenOn": "2019-03-06T05:53:10Z",
+      "side": 1,
+      "message": "Or have git to always ignore it on your local machine by adding it to your local $HOME/.config/git/ignore :)",
+      "parentUuid": "8969d517_726fce07",
+      "revId": "8854ef581fdfa4d6f76128e6177e45bf1eb3216e",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "e484c1e0_2680ab8b",
         "filename": "scap/arg.py",
         "patchSetId": 5
@@ -98,6 +116,24 @@
       "writtenOn": "2019-03-05T23:55:14Z",
       "side": 1,
       "message": "Needs some modification to the cli.Application.factory method which entails some changes to bin/scap and cli.Application.run to accept args as arguments to those functions; however, once those changes are made (and \"--is-wrong\" is removed) this seems like a sound start.",
+      "revId": "8854ef581fdfa4d6f76128e6177e45bf1eb3216e",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "57527d1d_67cd787b",
+        "filename": "tests/scap/test_main.py",
+        "patchSetId": 5
+      },
+      "lineNbr": 15,
+      "author": {
+        "id": 24
+      },
+      "writtenOn": "2019-03-06T05:53:10Z",
+      "side": 1,
+      "message": "The change should be split in two changes:\n\n1) add basic tests on main.py and introduce the slight refactoring Tyler mentions there\n\n2) add canary wait time feature ;)\n\n(and even a third for the .gitignore)",
+      "parentUuid": "2ab00e30_4aa8b4b2",
       "revId": "8854ef581fdfa4d6f76128e6177e45bf1eb3216e",
       "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
       "unresolved": false
