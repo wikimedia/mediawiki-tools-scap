@@ -15,3 +15,4 @@ cover/
 /.cache
 htmlcov/
 .pytest_cache/
+.idea/
