@@ -289,7 +289,6 @@ class Application(object):
         app._argparser = parser
         app.arguments = args
         app.extra_arguments = extra_args
-
         return app
 
     @classmethod

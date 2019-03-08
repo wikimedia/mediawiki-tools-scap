@@ -385,7 +385,7 @@ class AbstractSync(cli.Application):
             return
 
         # If more than 1/4 of the canaries failed, stop deployment
-        max_failed_canaries = max(len(canaries)/4, 1)
+        max_failed_canaries = max(len(canaries) / 4, 1)
 
         swagger_url = self.config['mediawiki_canary_swagger_url']
         spec_path = self.config['mediawiki_canary_swagger_spec_path']
@@ -629,8 +629,22 @@ class Scap(AbstractSync):
     """
 
     @cli.argument('--force', action='store_true', help='Skip canary checks')
+    @cli.argument('-w', '--canary-wait-time', dest='canary_wait_time',
+                  type=int,
+                  help='Define how long new code will run on the '
+                       'canary servers (default is 20s)',
+                  metavar='<time in secs>')
     @cli.argument('message', nargs='*', help='Log message for SAL')
     def main(self, *extra_args):
+        try:
+            if any('canary_wait_time' in s for s in self.arguments.defines):
+                raise ValueError('Canary wait time must be defined with '
+                                 '-w or --canary-wait-time')
+        except TypeError:
+            pass
+        if self.arguments.canary_wait_time not in range(20, 90):
+            raise ValueError('Canary must be between 20 and 90 seconds')
+        self.config['canary wait time'] = self.arguments.canary_wait_time
         return super(Scap, self).main(*extra_args)
 
     def _before_cluster_sync(self):
@@ -732,8 +746,8 @@ class SyncCommon(cli.Application):
                   help='Do not update l10n cache files.')
     @cli.argument('-i', '--include', default=None, action='append',
                   help='Rsync include pattern to limit transfer to.'
-                  ' End directories with a trailing `/***`.'
-                  ' Can be used multiple times.')
+                       ' End directories with a trailing `/***`.'
+                       ' Can be used multiple times.')
     @cli.argument('--delete-excluded', action='store_true',
                   help='Also delete local files not found on the master.')
     @cli.argument('--no-php-restart', action='store_false', dest='php_restart',
@@ -1039,7 +1053,7 @@ class LockManager(cli.Application):
 
     @cli.argument('--all', action='store_true',
                   help='Lock ALL repositories from deployment. ' +
-                  'With great power comes great responsibility')
+                       'With great power comes great responsibility')
     @cli.argument('--time', type=int, default=3600,
                   help='How long to lock deployments, in seconds')
     @cli.argument('message', nargs='*', help='Log message for SAL/lock file')

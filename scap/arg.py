@@ -233,7 +233,6 @@ def build_parser():
     subparsers = parser.add_subparsers(
         title='scap commands', metavar='<command>',
         parser_class=ScapArgParser, description=desc)
-
     cmds = scap.cli.all_commands()
 
     for cmd in sorted(cmds.values(), key=lambda x: x['name']):
@@ -294,7 +293,6 @@ def get_global_parser():
     group.add_argument(
         '--no-log-message', action='store_true',
         help='Do not log messages to the public (IRC)')
-
     return parser
 
 
@@ -319,22 +317,18 @@ def build_subparser(cmd, parser, global_parser):
     cls = cmd['cls']
     kwargs = extract_help_from_object(cls)
     kwargs.update(cmd['kwargs'])
-
     has_subparsers = getattr(cls, ATTR_SUBPARSER, False)
     kwargs['parents'] = [global_parser]
     sub = parser.add_parser(*cmd['args'], **kwargs)
     sub.set_defaults(which=cls, command=cmd['name'])
-
     if has_subparsers:
         class_level_args = getattr(cls, ATTR_ARGUMENTS, [])
-
         if class_level_args:
             class_parser = ScapArgParser(formatter_class=ScapHelpFormatter)
             class_parser.add_arguments(class_level_args)
             kwargs['parents'] = [class_parser, global_parser]
         else:
             kwargs['parents'] = [global_parser]
-
         kwargs['epilog'] = ''
         subsubparsers = sub.add_subparsers(
             title="%s sub-commands" % cmd['name'],
@@ -343,7 +337,6 @@ def build_subparser(cmd, parser, global_parser):
             dest='subcommand',
             description=kwargs['help'])
         cls_methods = inspect.getmembers(cls, inspect.ismethod)
-
         for method_name, method in cls_methods:
             local_args = getattr(method, ATTR_ARGUMENTS, None)
             subcmd_name = getattr(method, ATTR_SUBCOMMAND, method_name)
