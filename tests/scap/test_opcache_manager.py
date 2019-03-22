@@ -38,15 +38,15 @@ def test_invalidate_host_no_file(om, mocker):
     req(mocker, 200)
     host = 'foo1.example.com'
     assert om._invalidate_host(host, None) == (True, None)
-    requests.get.assert_called_with('http://foo1.example.com:777/opcache-free',
-                                    params={}, timeout=om.TIMEOUT)
+    requests.get.assert_called_with(
+        'http://foo1.example.com:777/opcache-free',
+        params={}, timeout=om.TIMEOUT)
 
 
 def test_invalidate_host_file(om, mocker):
     """Test that a request is made, and the response is not ok"""
     req(mocker, 500)
     requests.get.return_value.reason = 'fuzzbuzz'
-
     host = 'foo1.example.com'
     assert om._invalidate_host(host, 'testfile') == \
         (False,

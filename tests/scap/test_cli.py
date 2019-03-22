@@ -40,8 +40,8 @@ def cmd(request):
     # By doing this, we return a fully configured
     # application.
     if not hasattr(request, 'param'):
-        return cli.Application.factory(['dummy', '--is-wrong',
-                                        'pinkunicorns', 'are', 'real'])
+        return cli.Application.factory(
+            ['dummy', '--is-wrong', 'pinkunicorns', 'are', 'real'])
     else:
         return cli.Application.factory(request.param)
 
