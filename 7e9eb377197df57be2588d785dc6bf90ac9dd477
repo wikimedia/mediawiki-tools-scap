@@ -1,0 +1,72 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "6a53714c_0a61fdd1",
+        "filename": "tests/scap/test_main.py",
+        "patchSetId": 2
+      },
+      "lineNbr": 26,
+      "author": {
+        "id": 8
+      },
+      "writtenOn": "2019-03-22T11:43:42Z",
+      "side": 1,
+      "message": "I\u0027m guessing this is flake8 complaining;\n\nI distinguish between \"this is temporarily disabled\" (no space) and \"this is an actual (permanent) comment\", but w/e :)",
+      "revId": "7e9eb377197df57be2588d785dc6bf90ac9dd477",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "63388064_31f95fa5",
+        "filename": "tests/scap/test_main.py",
+        "patchSetId": 2
+      },
+      "lineNbr": 70,
+      "author": {
+        "id": 8
+      },
+      "writtenOn": "2019-03-22T11:43:42Z",
+      "side": 1,
+      "message": "Is this temporary debugging code to \"test your tests\", or do you intend this to be permanent?",
+      "revId": "7e9eb377197df57be2588d785dc6bf90ac9dd477",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "290933ba_2d0c80ad",
+        "filename": "tests/scap/test_main.py",
+        "patchSetId": 2
+      },
+      "lineNbr": 89,
+      "author": {
+        "id": 8
+      },
+      "writtenOn": "2019-03-22T11:43:42Z",
+      "side": 1,
+      "message": "Minor, but\n\nisthere.return_value \u003d lock_exists\n\n...is much shorter and cleaner.",
+      "revId": "7e9eb377197df57be2588d785dc6bf90ac9dd477",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "0d341f02_c05ae8b7",
+        "filename": "tests/scap/test_main.py",
+        "patchSetId": 2
+      },
+      "lineNbr": 99,
+      "author": {
+        "id": 8
+      },
+      "writtenOn": "2019-03-22T11:43:42Z",
+      "side": 1,
+      "message": "This doesn\u0027t seem to test whether _check_sync_flag actually does the right thing?\n\nWhether it raises an IOError (lock file exists), or not (lock file doesn\u0027t exist), this test seems to quietly accept, no?\n\nAlso in this case, I feel mocking isn\u0027t really needed; an actual (temp) lock file could be created (or not), self.config[\u0027stage_dir\u0027] pointed at it, and then this code could test whether _check_sync_flag does the right thing in either case.",
+      "revId": "7e9eb377197df57be2588d785dc6bf90ac9dd477",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
+    }
+  ]
+}
