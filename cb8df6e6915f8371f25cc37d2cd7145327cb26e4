@@ -1,0 +1,72 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "fdd60ae7_bdf3270e",
+        "filename": "scap/arg.py",
+        "patchSetId": 7
+      },
+      "lineNbr": 297,
+      "author": {
+        "id": 8
+      },
+      "writtenOn": "2019-03-22T12:07:28Z",
+      "side": 1,
+      "message": "You\u0027re adding this to the \"global arg parser\", i.e. this option is added to all scap commands (including all of scap3 etc). This should probably be added only to the scap 2 command(s) we want to add it to.",
+      "revId": "cb8df6e6915f8371f25cc37d2cd7145327cb26e4",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "f5927b8d_554a3d91",
+        "filename": "scap/arg.py",
+        "patchSetId": 7
+      },
+      "lineNbr": 300,
+      "author": {
+        "id": 8
+      },
+      "writtenOn": "2019-03-22T12:07:28Z",
+      "side": 1,
+      "message": "This help message could be slightly more descriptive I feel - now it requires knowing what the (previously internal) canary-wait-time variable in scap did.",
+      "revId": "cb8df6e6915f8371f25cc37d2cd7145327cb26e4",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "6cf5ea25_ff3fe442",
+        "filename": "scap/cli.py",
+        "patchSetId": 7
+      },
+      "lineNbr": 190,
+      "author": {
+        "id": 8
+      },
+      "writtenOn": "2019-03-22T12:07:28Z",
+      "side": 1,
+      "message": "This is argument validation (\u0026 conflict resolution), but this particular method is called \"_load_config\", and it probably should be exclusively concerned with loading the configuration.\n\nIf we need to do this argument validation, it probably belongs somewhere else, i.e. in/near the code where this argument is parsed. If nothing else, it should be made a separate method that only does argument validation (and not config loading), and may or may not need to be called from here.",
+      "revId": "cb8df6e6915f8371f25cc37d2cd7145327cb26e4",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "1da24f87_0ff2a636",
+        "filename": "tests/scap/test_cli.py",
+        "patchSetId": 7
+      },
+      "lineNbr": 46,
+      "author": {
+        "id": 8
+      },
+      "writtenOn": "2019-03-22T12:07:28Z",
+      "side": 1,
+      "message": "Temp test testing code? :)",
+      "revId": "cb8df6e6915f8371f25cc37d2cd7145327cb26e4",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
+    }
+  ]
+}
