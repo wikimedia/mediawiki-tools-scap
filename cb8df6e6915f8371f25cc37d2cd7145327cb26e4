@@ -19,6 +19,24 @@
     },
     {
       "key": {
+        "uuid": "6d137843_ee785768",
+        "filename": "scap/arg.py",
+        "patchSetId": 7
+      },
+      "lineNbr": 297,
+      "author": {
+        "id": 6298
+      },
+      "writtenOn": "2019-04-03T21:26:03Z",
+      "side": 1,
+      "message": "Moved to main",
+      "parentUuid": "fdd60ae7_bdf3270e",
+      "revId": "cb8df6e6915f8371f25cc37d2cd7145327cb26e4",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "f5927b8d_554a3d91",
         "filename": "scap/arg.py",
         "patchSetId": 7
@@ -30,6 +48,24 @@
       "writtenOn": "2019-03-22T12:07:28Z",
       "side": 1,
       "message": "This help message could be slightly more descriptive I feel - now it requires knowing what the (previously internal) canary-wait-time variable in scap did.",
+      "revId": "cb8df6e6915f8371f25cc37d2cd7145327cb26e4",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "ed3fc79a_cac501ee",
+        "filename": "scap/arg.py",
+        "patchSetId": 7
+      },
+      "lineNbr": 300,
+      "author": {
+        "id": 6298
+      },
+      "writtenOn": "2019-04-03T21:26:03Z",
+      "side": 1,
+      "message": "Done",
+      "parentUuid": "f5927b8d_554a3d91",
       "revId": "cb8df6e6915f8371f25cc37d2cd7145327cb26e4",
       "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
       "unresolved": false
@@ -53,6 +89,24 @@
     },
     {
       "key": {
+        "uuid": "2d5edaa6_ffb8d0e1",
+        "filename": "scap/cli.py",
+        "patchSetId": 7
+      },
+      "lineNbr": 190,
+      "author": {
+        "id": 6298
+      },
+      "writtenOn": "2019-04-03T21:26:03Z",
+      "side": 1,
+      "message": "Created a separate test for argument validation in test_main.py",
+      "parentUuid": "6cf5ea25_ff3fe442",
+      "revId": "cb8df6e6915f8371f25cc37d2cd7145327cb26e4",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
+    },
+    {
+      "key": {
         "uuid": "1da24f87_0ff2a636",
         "filename": "tests/scap/test_cli.py",
         "patchSetId": 7
@@ -64,6 +118,24 @@
       "writtenOn": "2019-03-22T12:07:28Z",
       "side": 1,
       "message": "Temp test testing code? :)",
+      "revId": "cb8df6e6915f8371f25cc37d2cd7145327cb26e4",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "cbf6409f_13886874",
+        "filename": "tests/scap/test_cli.py",
+        "patchSetId": 7
+      },
+      "lineNbr": 46,
+      "author": {
+        "id": 6298
+      },
+      "writtenOn": "2019-04-03T21:26:03Z",
+      "side": 1,
+      "message": "aye, removed :)",
+      "parentUuid": "1da24f87_0ff2a636",
       "revId": "cb8df6e6915f8371f25cc37d2cd7145327cb26e4",
       "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
       "unresolved": false
