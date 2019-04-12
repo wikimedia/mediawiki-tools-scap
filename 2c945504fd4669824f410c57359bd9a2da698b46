@@ -1,0 +1,27 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "63112375_ede8f343",
+        "filename": "scap/main.py",
+        "patchSetId": 12
+      },
+      "lineNbr": 588,
+      "author": {
+        "id": 34
+      },
+      "writtenOn": "2019-04-12T14:58:34Z",
+      "side": 1,
+      "message": "I don\u0027t know if we have existing options like this in Scap, but intuitively I\u0027d expect \u0027-cw X\u0027 to set boolean -c with -w taking value X. Should this be --cw instead?",
+      "range": {
+        "startLine": 588,
+        "startChar": 19,
+        "endLine": 588,
+        "endChar": 22
+      },
+      "revId": "2c945504fd4669824f410c57359bd9a2da698b46",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
+    }
+  ]
+}
