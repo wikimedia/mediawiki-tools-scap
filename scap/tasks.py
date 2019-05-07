@@ -794,6 +794,16 @@ def reload_service(service, logger=None):
     subprocess.check_call(cmd)
 
 
+@utils.log_context('clear_message_blobs')
+def clear_message_blobs():
+    """Clear MessageBlobStore cache on all wikis"""
+    utils.sudo_check_call(
+        'www-data',
+        '/usr/local/bin/foreachwiki '
+        'extensions/WikimediaMaintenance/refreshMessageBlobs.php'
+    )
+
+
 @utils.log_context('port_check')
 def check_port(port, timeout, interval=3, logger=None):
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)

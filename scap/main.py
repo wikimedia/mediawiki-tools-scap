@@ -594,6 +594,7 @@ class Scap(AbstractSync):
     #. Ask apaches to rebuild l10n CDB files
     #. Update wikiversions.php on localhost
     #. Ask apaches to sync wikiversions.php
+    #. Run refreshMessageBlobs.php
     #. Rolling invalidation of all opcache for php 7.x
     """
 
@@ -654,6 +655,8 @@ class Scap(AbstractSync):
             self.get_logger().warning(
                 '%d hosts had sync_wikiversions errors', failed)
             self.soft_errors = True
+
+        tasks.clear_message_blobs()
         self._invalidate_opcache()
 
     def _after_lock_release(self):
@@ -720,7 +723,9 @@ class SyncCommon(cli.Application):
                     'mwdeploy',
                     self.get_script_path() + ' cdb-rebuild --no-progress'
                 )
+            tasks.clear_message_blobs()
         # Invalidate opcache
+        # TODO deduplicate this from AbstractSync._invalidate_opcache()
         php7_admin_port = self.config.get('php7-admin-port')
         if not php7_admin_port:
             return 0
@@ -861,6 +866,7 @@ class SyncL10n(AbstractSync):
                 self.get_logger().warning(
                     '%d hosts had scap-cdb-rebuild errors', failed)
                 self.soft_errors = True
+        tasks.clear_message_blobs()
         # Globally invalidate opcache. TODO: is this needed?
         self._invalidate_opcache(target_hosts)
 
