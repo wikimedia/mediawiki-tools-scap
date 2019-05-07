@@ -1,0 +1,27 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "8631fb2e_2b5187c7",
+        "filename": "scap/main.py",
+        "patchSetId": 3
+      },
+      "lineNbr": 667,
+      "author": {
+        "id": 34
+      },
+      "writtenOn": "2019-05-07T15:33:03Z",
+      "side": 1,
+      "message": "Given that this involves invoking MediaWiki, I wonder if it should be placed after _invalidate_opcache. E.g. if the sync involves introducing anything in PHP that could alter or add a message (e.g. new extension, new message in module registration, MessageCache hook that overrides a message), then that might need to be applied before we ask MW to repopulate the cache.\n\nOn the other hand, seems like that should also/instead happen when we do the actual l10n rebuild, which happens earlier.\n\nNote that this opcache thing is new for PHP 7. Basically, in HHVM we used its developer mode (not RepoAuth mode) which means files are automatically re-compiled if mtime is changed. And HHVM has a built-in fstat cache to make that performant. PHP 7 doesn\u0027t have that, and as such it was decided to disable opcache validation in favour of explicit clearing of the opcache after each code change.\n\nSee also https://wikitech.wikimedia.org/wiki/Debugging_in_production#Pushing_code_to_a_debug_server",
+      "range": {
+        "startLine": 667,
+        "startChar": 13,
+        "endLine": 667,
+        "endChar": 33
+      },
+      "revId": "7b59f5790092c51d9a8bc826758e8ed94d87c800",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
+    }
+  ]
+}
