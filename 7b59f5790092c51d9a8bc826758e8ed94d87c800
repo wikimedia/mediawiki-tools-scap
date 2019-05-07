@@ -22,6 +22,47 @@
       "revId": "7b59f5790092c51d9a8bc826758e8ed94d87c800",
       "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
       "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "be8f3472_7da2cc5b",
+        "filename": "scap/main.py",
+        "patchSetId": 3
+      },
+      "lineNbr": 667,
+      "author": {
+        "id": 2321
+      },
+      "writtenOn": "2019-05-07T20:38:29Z",
+      "side": 1,
+      "message": "FWIW, there are other places in scap that we shell out to MediaWiki (on the deployment master) before opcache invalidation; e.g., rebuildLocalisationCache.\n\nMight cause problems to do one part before opcache invalidation and another part after?",
+      "parentUuid": "8631fb2e_2b5187c7",
+      "range": {
+        "startLine": 667,
+        "startChar": 13,
+        "endLine": 667,
+        "endChar": 33
+      },
+      "revId": "7b59f5790092c51d9a8bc826758e8ed94d87c800",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "53433442_8d29dbeb",
+        "filename": "scap/main.py",
+        "patchSetId": 3
+      },
+      "lineNbr": 735,
+      "author": {
+        "id": 2321
+      },
+      "writtenOn": "2019-05-07T20:38:29Z",
+      "side": 1,
+      "message": "Might be best to make this a standalone function in scap/tasks.py then call it from here; i.e.:\n\n tasks.clear_message_blobs()\n\nWhile still duplicated invocations, the logic would only live in one place.",
+      "revId": "7b59f5790092c51d9a8bc826758e8ed94d87c800",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
     }
   ]
 }
