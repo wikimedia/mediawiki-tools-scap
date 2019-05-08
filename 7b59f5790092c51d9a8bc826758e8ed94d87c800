@@ -49,6 +49,30 @@
     },
     {
       "key": {
+        "uuid": "1f669b67_d7913219",
+        "filename": "scap/main.py",
+        "patchSetId": 3
+      },
+      "lineNbr": 667,
+      "author": {
+        "id": 5
+      },
+      "writtenOn": "2019-05-08T21:14:09Z",
+      "side": 1,
+      "message": "Given that, I think I\u0027ll leave it before the opcache invalidation for now, for consistency. I don\u0027t know what the right order is, but if other places are running maintenance scripts before opcache invalidation as Tyler says, then I\u0027d prefer to do the same thing here unless there\u0027s a strong reason not to (or unless we change it everywhere).",
+      "parentUuid": "be8f3472_7da2cc5b",
+      "range": {
+        "startLine": 667,
+        "startChar": 13,
+        "endLine": 667,
+        "endChar": 33
+      },
+      "revId": "7b59f5790092c51d9a8bc826758e8ed94d87c800",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": true
+    },
+    {
+      "key": {
         "uuid": "53433442_8d29dbeb",
         "filename": "scap/main.py",
         "patchSetId": 3
@@ -60,6 +84,24 @@
       "writtenOn": "2019-05-07T20:38:29Z",
       "side": 1,
       "message": "Might be best to make this a standalone function in scap/tasks.py then call it from here; i.e.:\n\n tasks.clear_message_blobs()\n\nWhile still duplicated invocations, the logic would only live in one place.",
+      "revId": "7b59f5790092c51d9a8bc826758e8ed94d87c800",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "08635b76_cb6a163f",
+        "filename": "scap/main.py",
+        "patchSetId": 3
+      },
+      "lineNbr": 735,
+      "author": {
+        "id": 5
+      },
+      "writtenOn": "2019-05-08T21:14:09Z",
+      "side": 1,
+      "message": "Done",
+      "parentUuid": "53433442_8d29dbeb",
       "revId": "7b59f5790092c51d9a8bc826758e8ed94d87c800",
       "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
       "unresolved": false
