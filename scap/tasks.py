@@ -795,8 +795,9 @@ def reload_service(service, logger=None):
 
 
 @utils.log_context('clear_message_blobs')
-def clear_message_blobs():
+def clear_message_blobs(logger=None):
     """Clear MessageBlobStore cache on all wikis"""
+    logger.info('Running refreshMessageBlobs.php for each wiki')
     utils.sudo_check_call(
         'www-data',
         '/usr/local/bin/foreachwiki '
