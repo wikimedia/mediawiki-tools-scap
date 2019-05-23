@@ -796,11 +796,17 @@ def reload_service(service, logger=None):
 
 @utils.log_context('clear_message_blobs')
 def clear_message_blobs(logger=None):
-    """Clear MessageBlobStore cache on all wikis"""
+    """
+    Clear MessageBlobStore cache on all wikis
+
+    :param logger: logger instance
+    """
     logger.info('Running refreshMessageBlobs.php for each wiki')
+
+    # This script is wiki-agnostic (affects all wikis)
     utils.sudo_check_call(
         'www-data',
-        '/usr/local/bin/foreachwiki '
+        '/usr/local/bin/mwscript '
         'extensions/WikimediaMaintenance/refreshMessageBlobs.php'
     )
 
