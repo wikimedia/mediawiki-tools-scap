@@ -1,0 +1,27 @@
+{
+  "comments": [
+    {
+      "key": {
+        "uuid": "3dc6a1d0_77576a56",
+        "filename": "scap/tasks.py",
+        "patchSetId": 4
+      },
+      "lineNbr": 809,
+      "author": {
+        "id": 34
+      },
+      "writtenOn": "2019-05-25T21:25:10Z",
+      "side": 1,
+      "message": "We could whitelist this in multiversion/MWScript.php, perhaps for later, so that knowledge of --wiki\u003daawiki isn\u0027t needed locally here (and to hard fail if and when it does require a wiki again, in some potential future).",
+      "range": {
+        "startLine": 809,
+        "startChar": 9,
+        "endLine": 809,
+        "endChar": 31
+      },
+      "revId": "a2e98e55331d583bf8b8fb3a5e435b0f62031088",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
+    }
+  ]
+}
