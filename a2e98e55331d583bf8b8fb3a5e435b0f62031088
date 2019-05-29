@@ -22,6 +22,30 @@
       "revId": "a2e98e55331d583bf8b8fb3a5e435b0f62031088",
       "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
       "unresolved": false
+    },
+    {
+      "key": {
+        "uuid": "63f7610c_7cffd115",
+        "filename": "scap/tasks.py",
+        "patchSetId": 4
+      },
+      "lineNbr": 809,
+      "author": {
+        "id": 5
+      },
+      "writtenOn": "2019-05-29T17:45:02Z",
+      "side": 1,
+      "message": "Done in https://gerrit.wikimedia.org/r/#/c/operations/mediawiki-config/+/513174 (can be merged before this one, because https://gerrit.wikimedia.org/r/c/mediawiki/core/+/511611 is already merged and backported)",
+      "parentUuid": "3dc6a1d0_77576a56",
+      "range": {
+        "startLine": 809,
+        "startChar": 9,
+        "endLine": 809,
+        "endChar": 31
+      },
+      "revId": "a2e98e55331d583bf8b8fb3a5e435b0f62031088",
+      "serverId": "e9e9afe9-4712-486d-8885-f54b72dd1951",
+      "unresolved": false
     }
   ]
 }
