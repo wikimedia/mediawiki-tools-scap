@@ -1,3 +1,21 @@
+scap (3.10.0-1) unstable; urgency=low
+
+  [ Antoine Musso ]
+  * Revert "Get rid of .gitreview" (Bug: T191373)
+
+  [ Effie Mouzeli ]
+  * Updated .gitignore for .idea/ directories
+
+  [ Roan Kattouw ]
+  * Clear MessageBlobStore after syncing i18n data (Bug: T222539, T217719)
+
+  [ Tyler Cipriani ]
+  * clear_message_blobs: no logger in context
+  * clear_message_blobs: call once (Bug: T222539)
+  * Bump version to 3.10.0
+
+ -- Tyler Cipriani <tcipriani@wikimedia.org>  Mon, 03 Jun 2019 11:17:12 -0600
+
 scap (3.9.2-1) unstable; urgency=low
 
   * Targets: strip spaces from service_groups (Bug: T217597)
