@@ -461,7 +461,7 @@ class AbstractSync(cli.Application):
                 'threshold to halt deployment ({}/{}), see {} for '
                 'details. Continuing...'.format(
                     failed,
-                    max_failed_canaries,
+                    max_failed_canaries + 1,  # + 1 since we use > to compare
                     len(canaries),
                     self.config['canary_dashboard_url']))
 
