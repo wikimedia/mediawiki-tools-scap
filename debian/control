@@ -20,8 +20,7 @@ Package: scap
 Architecture: all
 Depends: ${python:Depends}, ${shlibs:Depends}, ${misc:Depends},
   python-jinja2, python-psutil, python-pygments, python-yaml, python-requests,
-  git, bash-completion, python-conftool, python-six, python-configparser,
-  python-concurrent.futures
+  git, bash-completion, python-six, python-configparser
 Breaks: ${python:Breaks}
 Provides: ${python:Provides}
 Suggests: git-fat, php5-cli | php-cli | hhvm
