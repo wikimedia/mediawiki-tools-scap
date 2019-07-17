@@ -710,7 +710,6 @@ class SyncCommon(cli.Application):
                     'mwdeploy',
                     self.get_script_path() + ' cdb-rebuild --no-progress'
                 )
-            tasks.clear_message_blobs()
         # Invalidate opcache
         # TODO deduplicate this from AbstractSync._invalidate_opcache()
         php7_admin_port = self.config.get('php7-admin-port')
