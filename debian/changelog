@@ -1,3 +1,10 @@
+scap (3.12.0-1) unstable; urgency=low
+
+  [ Tyler Cipriani ]
+  * Bump development version since we're very out-of-date
+
+ -- Tyler Cipriani <tcipriani@wikimedia.org>  Thu, 18 Jul 2019 16:14:40 -0600
+
 scap (3.9.0-1) unstable; urgency=medium
 
   * Merged debian/changelog from release branch
