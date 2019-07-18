@@ -1,3 +1,22 @@
+scap (3.11.1-1) unstable; urgency=low
+
+  [ Tyler Cipriani ]
+  * debian packaging: depend on python-concurrent.futures
+
+  [ Mark Bergsma ]
+  * Add unit testing of scap main.py
+
+  [ Giuseppe Lavagetto ]
+  * Add tests for scap.cli
+
+  [ Effie Mouzeli ]
+  * Add more tests for main (Bug: T216518)
+
+  [ Tyler Cipriani ]
+  * refreshMessageBlobs: don't run on scap pull (Bug: T228328)
+
+ -- Tyler Cipriani <tcipriani@wikimedia.org>  Thu, 18 Jul 2019 15:50:24 -0600
+
 scap (3.11.0-1) unstable; urgency=low
 
   [ Tyler Cipriani ]
