@@ -22,6 +22,9 @@ class PHPRestart(object):
         """
         :param cfg: dict - scap configuration
         """
+        if not cfg.get('php_fpm_restart_script'):
+            return
+
         self.cmd = [
             cfg['php_fpm_restart_script'],
             cfg['php_fpm'],
@@ -46,6 +49,9 @@ class PHPRestart(object):
         If the restart fails, we still want to continue the sync
         :return: boolean -- has and error
         """
+        if not self.cmd:
+            return
+
         try:
             utils.sudo_check_call(cmd=self.cmd, user=user)
             return False
@@ -57,6 +63,8 @@ class PHPRestart(object):
         Run for all targets
         :param targets: list of servers
         """
+        if not self.cmd:
+            return
         ten_percent = get_batch_size(targets)
         return self._build_job(targets).run(batch_size=ten_percent)
 

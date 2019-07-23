@@ -24,6 +24,7 @@ from __future__ import absolute_import
 from __future__ import print_function
 
 import argparse
+from concurrent.futures import ProcessPoolExecutor
 import errno
 import os
 import pwd
@@ -478,6 +479,31 @@ class AbstractSync(cli.Application):
             self.get_logger().warning(
                 '%s failed to update opcache: %s', host, reason)
 
+    def _restart_php(self):
+        """
+        Check if php-fpm opcache is full, if so restart php-fpm
+        """
+        target_groups = targets.DirectDshTargetList(
+            'mw_web_clusters',
+            self.config
+        )
+        pool = ProcessPoolExecutor(max_workers=5)
+
+        php = php_fpm.PHPRestart(
+            self.config,
+            ssh.Job(
+                key=self.get_keyholder_key(),
+                user=self.config['ssh_user']
+            )
+        )
+        results = pool.map(php.restart_all, target_groups.groups.values())
+        for _, failed in results:
+            if failed:
+                self.get_logger().warning(
+                    '%d hosts had failures restarting php-fpm',
+                    failed
+                )
+
 
 @cli.command('security-check')
 class SecurityPatchCheck(cli.Application):
@@ -656,6 +682,7 @@ class Scap(AbstractSync):
 
         tasks.clear_message_blobs()
         self._invalidate_opcache()
+        self._restart_php()
 
     def _after_lock_release(self):
         self.announce(
@@ -735,8 +762,7 @@ class SyncCommon(cli.Application):
                     'Consider performing it manually.'
                 )
 
-        if (self.arguments.php_restart and
-                self.config.get('php-fpm-restart-script')):
+        if (self.arguments.php_restart):
             fpm = php_fpm.PHPRestart(self.config)
             self.get_logger().info('Checking if php-fpm restart needed')
             failed = fpm.restart_self(user=self.config['ssh_user'])
@@ -779,6 +805,7 @@ class SyncFile(AbstractSync):
 
     def _after_cluster_sync(self):
         self._invalidate_opcache(None, self.arguments.file)
+        self._restart_php()
 
     def _proxy_sync_command(self):
         cmd = [
@@ -886,6 +913,7 @@ class SyncL10n(AbstractSync):
         tasks.clear_message_blobs()
         # Globally invalidate opcache. TODO: is this needed?
         self._invalidate_opcache(target_hosts)
+        self._restart_php()
 
     def _after_lock_release(self):
         self.announce(
@@ -943,6 +971,7 @@ class SyncWikiversions(AbstractSync):
 
     def _after_cluster_sync(self):
         self._invalidate_opcache(None, 'wikiversions.php')
+        self._restart_php()
 
 
 @cli.command('cdb-json-refresh', help=argparse.SUPPRESS)
