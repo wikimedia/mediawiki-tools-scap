@@ -40,6 +40,7 @@ import scap.lint as lint
 import scap.lock as lock
 import scap.log as log
 import scap.opcache_manager as opcache_manager
+import scap.php_fpm as php_fpm
 import scap.sh as sh
 import scap.ssh as ssh
 import scap.targets as targets
@@ -281,7 +282,12 @@ class AbstractSync(cli.Application):
 
     def _proxy_sync_command(self):
         """Synchronization command to run on the proxy hosts."""
-        cmd = [self.get_script_path(), 'pull', '--no-update-l10n']
+        cmd = [
+            self.get_script_path(),
+            'pull',
+            '--no-php-restart'
+            '--no-update-l10n'
+        ]
         if self.verbose:
             cmd.append('--verbose')
         return cmd
@@ -341,6 +347,11 @@ class AbstractSync(cli.Application):
             return
 
         sync_cmd = self._apache_sync_command(self.get_master_list())
+
+        # Go ahead and attempt to restart php for canaries
+        if '--no-php-restart' in sync_cmd:
+            sync_cmd.remove('--no-php-restart')
+
         sync_cmd.append(socket.getfqdn())
 
         update_canaries = ssh.Job(
@@ -692,6 +703,8 @@ class SyncCommon(cli.Application):
                   ' Can be used multiple times.')
     @cli.argument('--delete-excluded', action='store_true',
                   help='Also delete local files not found on the master.')
+    @cli.argument('--no-php-restart', action='store_false', dest='php_restart',
+                  help='Check to see if php needs a restart')
     @cli.argument('servers', nargs=argparse.REMAINDER,
                   help='Rsync server(s) to copy from')
     def main(self, *extra_args):
@@ -713,14 +726,23 @@ class SyncCommon(cli.Application):
         # Invalidate opcache
         # TODO deduplicate this from AbstractSync._invalidate_opcache()
         php7_admin_port = self.config.get('php7-admin-port')
-        if not php7_admin_port:
-            return 0
-        om = opcache_manager.OpcacheManager(php7_admin_port)
-        failed = om.invalidate([socket.gethostname()], None)
-        if failed:
-            self.get_logger().warning(
-                'Opcache invalidation failed. Consider performing it manually.'
-            )
+        if php7_admin_port:
+            om = opcache_manager.OpcacheManager(php7_admin_port)
+            failed = om.invalidate([socket.gethostname()], None)
+            if failed:
+                self.get_logger().warning(
+                    'Opcache invalidation failed. '
+                    'Consider performing it manually.'
+                )
+
+        if (self.arguments.php_restart and
+                self.config.get('php-fpm-restart-script')):
+            fpm = php_fpm.PHPRestart(self.config)
+            self.get_logger().info('Checking if php-fpm restart needed')
+            failed = fpm.restart_self(user=self.config['ssh_user'])
+            if failed:
+                self.get_logger().warning('php-fpm restart failed!')
+
         return 0
 
 
@@ -759,7 +781,12 @@ class SyncFile(AbstractSync):
         self._invalidate_opcache(None, self.arguments.file)
 
     def _proxy_sync_command(self):
-        cmd = [self.get_script_path(), 'pull', '--no-update-l10n']
+        cmd = [
+            self.get_script_path(),
+            'pull',
+            '--no-update-l10n',
+            '--no-php-restart'
+        ]
 
         if '/' in self.include:
             parts = self.include.split('/')
@@ -814,7 +841,11 @@ class SyncL10n(AbstractSync):
 
     def _proxy_sync_command(self):
         cmd = [
-            self.get_script_path(), 'pull', '--no-update-l10n']
+            self.get_script_path(),
+            'pull',
+            '--no-update-l10n',
+            '--no-php-restart'
+        ]
 
         parts = self.include.split('/')
         for i in range(1, len(parts)):
