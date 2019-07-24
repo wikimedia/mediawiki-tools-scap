@@ -1,4 +1,4 @@
-version: v3
+version: v4
 base: docker-registry.wikimedia.org/wikimedia-jessie
 apt:
   packages: [python2.7, git, php5-cli]
@@ -11,6 +11,7 @@ runs:
 
 variants:
   build:
+    copies: [local]
     apt:
       packages:
         - build-essential
