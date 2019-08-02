@@ -467,52 +467,6 @@ global arguments:
 .UNINDENT
 .UNINDENT
 .UNINDENT
-.SH SCAP L10N-UPDATE
-.sp
-\fBscap l10n\-update\fP generates localization cache files.
-.INDENT 0.0
-.INDENT 3.5
-.sp
-.nf
-.ft C
-usage: scap l10n\-update [\-h] [\-c CONF_FILE] [\-\-no\-shared\-authsock]
-                        [\-D <name>:<value>] [\-V] [\-v]
-                        [\-\-environment ENVIRONMENT]
-
-Update localization files.
-
-optional arguments:
-  \-h, \-\-help            show this help message and exit
-
-global arguments:
-  Although these arguments can be passed to all scap (sub\-)commands, not all
-  commands are affected by every global argument.
-
-  \-c CONF_FILE, \-\-conf CONF_FILE
-                        Path to configuration file
-  \-\-no\-shared\-authsock  Ignore any shared ssh\-auth configuration
-  \-D <name>:<value>, \-\-define <name>:<value>
-                        Set a configuration value
-  \-V                    Print scap version.
-  \-v, \-\-verbose         Verbose output
-  \-\-environment ENVIRONMENT
-                        environment in which to execute scap
-.ft P
-.fi
-.UNINDENT
-.UNINDENT
-.sp
-\fBSEE ALSO:\fP
-.INDENT 0.0
-.INDENT 3.5
-.INDENT 0.0
-.IP \(bu 2
-\fBscap.UpdateL10n()\fP
-.IP \(bu 2
-\fBscap.tasks.update_localization_cache()\fP
-.UNINDENT
-.UNINDENT
-.UNINDENT
 .SH SCAP CDB-JSON-REFRESH
 .sp
 \fBrefreshCdbJsonFiles\fP Create JSON/MD5 files for all CDB files in a directory.
