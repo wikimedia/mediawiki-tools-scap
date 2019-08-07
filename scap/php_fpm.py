@@ -12,6 +12,8 @@ import math
 from scap import log
 from scap import utils
 
+INSTANCE = None
+
 
 class PHPRestart(object):
     """
@@ -90,3 +92,18 @@ def get_batch_size(targets, percentage=10.0):
         raise ValueError('php_fpm expected targets, 0 given')
 
     return int(math.ceil(len(targets) * percentage/100.0))
+
+
+def restart_helper(groups):
+    """
+    Wrapper to make pickling with multiprocessing work
+
+    :param groups: list of target groups
+    :return: tuple -- (# of successful, # of failed)
+    """
+    if not isinstance(INSTANCE, PHPRestart):
+        raise RuntimeError(
+            'Attempting to use php_fpm.restart_helper before populating '
+            'INSTANCE!'
+        )
+    return INSTANCE.restart_all(groups)

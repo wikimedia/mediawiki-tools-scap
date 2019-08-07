@@ -490,7 +490,7 @@ class AbstractSync(cli.Application):
         )
         pool = ProcessPoolExecutor(max_workers=5)
 
-        php = php_fpm.PHPRestart(
+        php_fpm.INSTANCE = php_fpm.PHPRestart(
             self.config,
             ssh.Job(
                 key=self.get_keyholder_key(),
@@ -502,7 +502,7 @@ class AbstractSync(cli.Application):
         for group in target_groups.groups.values():
             group_hosts.append(group.targets)
 
-        results = pool.map(php.restart_all, group_hosts)
+        results = pool.map(php_fpm.restart_helper, group_hosts)
         for _, failed in results:
             if failed:
                 self.get_logger().warning(
