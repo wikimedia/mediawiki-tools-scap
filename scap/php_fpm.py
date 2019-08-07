@@ -22,14 +22,14 @@ class PHPRestart(object):
         """
         :param cfg: dict - scap configuration
         """
-        if not cfg.get('php_fpm_restart_script'):
-            return
+        self.cmd = []
 
-        self.cmd = [
-            cfg['php_fpm_restart_script'],
-            cfg['php_fpm'],
-            str(cfg['php_fpm_opcache_threshold'])
-        ]
+        if cfg.get('php_fpm_restart_script'):
+            self.cmd = [
+                cfg['php_fpm_restart_script'],
+                cfg['php_fpm'],
+                str(cfg['php_fpm_opcache_threshold'])
+            ]
         self.job = job
 
     def _build_job(self, targets):

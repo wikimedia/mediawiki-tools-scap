@@ -64,3 +64,15 @@ def test_get_batch_size():
         php_fpm.get_batch_size([])
     assert php_fpm.get_batch_size(range(0, 1000)) == 100
     assert php_fpm.get_batch_size(range(0, 1000), percentage=20) == 200
+
+
+def test_cmd_and_job_exist():
+    """
+    Test to ensure that cmd and job exist
+
+    Many functions expect cmd and job to exist as members of the PHPRestart
+    class. This ensures that they're set, even if to falsy values.
+    """
+    php_restart = php_fpm.PHPRestart({})
+    assert php_restart.cmd == []
+    assert php_restart.job is None
