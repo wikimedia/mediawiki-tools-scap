@@ -483,6 +483,7 @@ class AbstractSync(cli.Application):
         """
         Check if php-fpm opcache is full, if so restart php-fpm
         """
+        self.get_logger().info('Check php-fpm cache...')
         target_groups = targets.DirectDshTargetList(
             'mw_web_clusters',
             self.config
@@ -496,7 +497,12 @@ class AbstractSync(cli.Application):
                 user=self.config['ssh_user']
             )
         )
-        results = pool.map(php.restart_all, target_groups.groups.values())
+
+        group_hosts = []
+        for group in target_groups.groups.values():
+            group_hosts.append(group.targets)
+
+        results = pool.map(php.restart_all, group_hosts)
         for _, failed in results:
             if failed:
                 self.get_logger().warning(

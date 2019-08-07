@@ -9,6 +9,7 @@ from __future__ import absolute_import
 
 import math
 
+from scap import log
 from scap import utils
 
 
@@ -36,11 +37,14 @@ class PHPRestart(object):
         """
         :param targets: list of targets
         :raises: :class:``AttributeError`` if self.job is not set
+        :return: ssh.Job -- used in self.restart_all
         """
         if self.job is None:
             raise AttributeError('php_fpm member "job" is not set')
         self.job.hosts(targets)
         self.job.command(self.cmd)
+        self.job.progress(log.MuteReporter())
+        return self.job
 
     def restart_self(self, user='mwdeploy'):
         """
@@ -62,9 +66,10 @@ class PHPRestart(object):
         """
         Run for all targets
         :param targets: list of servers
+        :return: tuple -- (# of successful, # of failed)
         """
         if not self.cmd:
-            return
+            return (0, 0)  # 0 successful, 0 failed
         ten_percent = get_batch_size(targets)
         return self._build_job(targets).run(batch_size=ten_percent)
 
