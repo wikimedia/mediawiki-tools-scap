@@ -286,7 +286,7 @@ class AbstractSync(cli.Application):
         cmd = [
             self.get_script_path(),
             'pull',
-            '--no-php-restart'
+            '--no-php-restart',
             '--no-update-l10n'
         ]
         if self.verbose:
