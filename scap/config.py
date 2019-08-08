@@ -80,6 +80,7 @@ DEFAULT_CONFIG = {
     'perform_checks': (bool, True),
     'patch_path': (str, None),
     'php7_admin_port': (int, None),
+    'php_fpm_opcache_threshold': (int, 100),
     'cache_revs': (int, 5),
 }
 
