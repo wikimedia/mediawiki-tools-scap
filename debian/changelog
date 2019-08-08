@@ -1,3 +1,15 @@
+scap (3.12.0-1) unstable; urgency=low
+
+  * php7x: Add php_fpm module (Bug: T224857)
+  * php7x: restart on 'scap pull' (Bug: T224857)
+  * php7x: restart php-fpm after all sync operations (Bug: T224857)
+  * --no-php-restart missing comma
+  * PHPRestart: fix attribute error for cmd/job
+  * PHPRestart: Fix logging, groups, return types
+  * PHPRestart: Create global INSTANCE for pickling
+
+ -- Tyler Cipriani <tcipriani@wikimedia.org>  Thu, 08 Aug 2019 10:37:18 -0600
+
 scap (3.11.1-1) unstable; urgency=low
 
   [ Tyler Cipriani ]
