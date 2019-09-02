@@ -771,7 +771,7 @@ class SyncCommon(cli.Application):
         if (self.arguments.php_restart):
             fpm = php_fpm.PHPRestart(self.config)
             self.get_logger().info('Checking if php-fpm restart needed')
-            failed = fpm.restart_self(user=self.config['ssh_user'])
+            failed = fpm.restart_self()
             if failed:
                 self.get_logger().warning('php-fpm restart failed!')
 

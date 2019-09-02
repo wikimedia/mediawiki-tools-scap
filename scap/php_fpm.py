@@ -25,14 +25,14 @@ class PHPRestart(object):
         """
         :param cfg: dict - scap configuration
         """
-        self.cmd = []
+        self.cmd = None
 
         if cfg.get('php_fpm_restart_script'):
-            self.cmd = [
+            self.cmd = "{} {} {}".format(
                 cfg['php_fpm_restart_script'],
                 cfg['php_fpm'],
                 str(cfg['php_fpm_opcache_threshold'])
-            ]
+            )
         self.job = job
 
     def _build_job(self, targets):
@@ -44,11 +44,12 @@ class PHPRestart(object):
         if self.job is None:
             raise AttributeError('php_fpm member "job" is not set')
         self.job.hosts(targets)
-        self.job.command(self.cmd)
+        sudo_cmd = '/usr/bin/sudo -u root -- {}'.format(self.cmd)
+        self.job.command(sudo_cmd)
         self.job.progress(log.MuteReporter())
         return self.job
 
-    def restart_self(self, user='mwdeploy'):
+    def restart_self(self):
         """
         Run php-fpm restart on the localhost
 
@@ -56,10 +57,10 @@ class PHPRestart(object):
         :return: boolean -- has and error
         """
         if not self.cmd:
-            return
+            return False
 
         try:
-            utils.sudo_check_call(cmd=self.cmd, user=user)
+            utils.sudo_check_call(cmd=self.cmd, user='root')
             return False
         except Exception:
             return True
