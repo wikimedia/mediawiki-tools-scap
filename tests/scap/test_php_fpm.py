@@ -33,7 +33,7 @@ def php_restart():
 
 def test_init(php_restart):
     """Test php_restart initialization"""
-    assert php_restart.cmd == ['/bin/foo', 'php7.2-fpm', '100']
+    assert php_restart.cmd == '/bin/foo php7.2-fpm 100'
 
 
 def test_build_job(php_restart):
@@ -42,11 +42,8 @@ def test_build_job(php_restart):
     """
     php_restart._build_job(['x'])
     assert php_restart.job._hosts == ['x']
-    assert php_restart.job._command == [
-        '/bin/foo',
-        'php7.2-fpm',
-        '100',
-    ]
+    assert php_restart.job._command == \
+        '/usr/bin/sudo -u root -- /bin/foo php7.2-fpm 100'
 
 
 def test_build_job_raises():
@@ -74,5 +71,5 @@ def test_cmd_and_job_exist():
     class. This ensures that they're set, even if to falsy values.
     """
     php_restart = php_fpm.PHPRestart({})
-    assert php_restart.cmd == []
+    assert php_restart.cmd is None
     assert php_restart.job is None
