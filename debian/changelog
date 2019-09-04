@@ -1,3 +1,13 @@
+scap (3.12.1-1) unstable; urgency=low
+
+  [ Lucas Werkmeister ]
+  * Remove l10n-update from manpage
+
+  [ Giuseppe Lavagetto ]
+  * Fix restart_php (Bug: T224857)
+
+ -- Tyler Cipriani <tcipriani@wikimedia.org>  Wed, 04 Sep 2019 14:31:47 -0600
+
 scap (3.12.0-1) unstable; urgency=low
 
   * php7x: Add php_fpm module (Bug: T224857)
