@@ -305,6 +305,11 @@ class LogstashFormatter(logging.Formatter):
         }
 
 
+class SyslogFormatter(LogstashFormatter):
+    def format(self, record):
+        return 'scap: ' + super(SyslogFormatter, self).format(record)
+
+
 def reporter(message, fancy=False):
     """
     Instantiate progress reporter
@@ -826,6 +831,13 @@ def setup_loggers(cfg, console_level=logging.INFO, handlers=None):
         udp_handler.setLevel(logging.DEBUG)
         udp_handler.setFormatter(LogstashFormatter())
         logging.root.addHandler(udp_handler)
+
+    if cfg['use_syslog']:
+        # Send a copy of all logs to local syslog
+        syslog_handler = logging.handlers.SysLogHandler('/dev/log')
+        syslog_handler.setLevel(logging.DEBUG)
+        syslog_handler.setFormatter(SyslogFormatter())
+        logging.root.addHandler(syslog_handler)
 
     if cfg['tcpircbot_host']:
         # Send 'scap.announce' messages to irc relay
