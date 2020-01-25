@@ -1026,7 +1026,7 @@ class Version(cli.Application):
         print(scapversion.__version__)
 
 
-@cli.command('lock', help='Tempoarily lock deployment of this repository')
+@cli.command('lock', help='Temporarily lock deployment of this repository')
 class LockManager(cli.Application):
     """
     Holds a lock open for a given repository.
