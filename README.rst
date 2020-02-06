@@ -31,6 +31,10 @@ tests. It uses the tox.ini file to know what to do. Edit that file to
 drop any Python3 versions you don't have installed from the
 ``envlist`` line.
 
+Alternatively, you can specify python environments against which to run the
+test suite by selecting a custom envlist in ``tox`` via the ``-e`` option,
+i.e., ``tox -e py27``.
+
 
 Reporting Issues
 ================
