@@ -14,6 +14,24 @@
 code and configuration on production web servers.
 
 
+Running tests
+=============
+
+Scap come with a unit test suite implemented using pytest and invoked
+using tox.
+
+On Debian 10 (buster) you need the following packages installed to run
+the test suite:
+
+   build-essential locales-all git python2 python3 python-all-dev
+   python3-all-dev tox php
+
+After this, run the ``tox`` command on the command line to run the
+tests. It uses the tox.ini file to know what to do. Edit that file to
+drop any Python3 versions you don't have installed from the
+``envlist`` line.
+
+
 Reporting Issues
 ================
 
