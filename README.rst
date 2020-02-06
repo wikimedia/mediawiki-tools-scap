@@ -17,7 +17,7 @@ code and configuration on production web servers.
 Running tests
 =============
 
-Scap come with a unit test suite implemented using pytest and invoked
+Scap comes with a unit test suite implemented using pytest and invoked
 using tox.
 
 On Debian 10 (buster) you need the following packages installed to run
