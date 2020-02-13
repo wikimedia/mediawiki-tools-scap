@@ -533,7 +533,7 @@ def _call_rebuildLocalisationCache(
             'www-data',
             '/usr/local/bin/mwscript rebuildLocalisationCache.php '
             '--wiki="%(wikidb)s" --outdir="%(temp_dir)s" '
-            '--store-class=LCStoreCDB'
+            '--store-class=LCStoreCDB '
             '--threads=%(use_cores)s %(lang)s %(force)s %(quiet)s' % {
                 'wikidb': wikidb,
                 'temp_dir': temp_dir,
