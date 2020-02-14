@@ -1,0 +1,32 @@
+# Note: This is not called scap.py, because that would break tox,
+# which finds all files named *.py, and gets confused when this one
+# doesn't look and behave like it expects.
+
+import os
+import re
+import subprocess
+
+def nop(ctx):
+    pass
+
+def run_scap_version(ctx):
+    scap = _binary('bin', 'scap')
+    _runcmd(ctx, [scap, 'version'])
+
+def exit_code_is_zero(ctx):
+    assert_eq(ctx['exit'], 0)
+
+def stdout_matches(ctx, regex=None):
+    assert_ne(re.search(regex, ctx['stdout']), None)
+
+
+def _binary(*basenames):
+    return os.path.join(srcdir, *basenames)
+
+def _runcmd(ctx, argv):
+    p = subprocess.Popen(argv, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    stdout, stderr = p.communicate("")
+    ctx['argv'] = argv
+    ctx['stdout'] = stdout.decode('utf-8')
+    ctx['stderr'] = stderr.decode('utf-8')
+    ctx['exit'] = p.returncode

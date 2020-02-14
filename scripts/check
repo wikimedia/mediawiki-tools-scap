@@ -1,0 +1,11 @@
+#!/bin/sh
+
+
+set -eu
+
+tox
+
+if command -v sp-codegen > /dev/null
+then
+    sp-codegen scap.md -o test.py --run
+fi

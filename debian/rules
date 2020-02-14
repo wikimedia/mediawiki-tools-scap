@@ -9,4 +9,7 @@ PKG_VERSION = $(shell dpkg-parsechangelog --show-field Version)
 
 override_dh_auto_configure:
 	dh_auto_configure
-	echo "__version__= '$(PKG_VERSION)'" > scap/version.py
+	echo "__version__ = '$(PKG_VERSION)'" > scap/version.py
+
+override_dh_auto_test:
+	scripts/check
