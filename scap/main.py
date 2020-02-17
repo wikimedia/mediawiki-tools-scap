@@ -1024,6 +1024,7 @@ class RefreshCdbJsonFiles(cli.Application):
 class Version(cli.Application):
     def main(self, *extra_args):
         print(scapversion.__version__)
+        return 0
 
 
 @cli.command('lock', help='Temporarily lock deployment of this repository')
