@@ -1,3 +1,9 @@
+scap (3.14.0-1) unstable; urgency=low
+
+  * UNRELEASED
+
+ -- Lars Wirzenius <lwirzenius@wikimedia.org>  Tue, 18 Feb 2020 18:05:40 +0200
+
 scap (3.13.0-1) unstable; urgency=low
 
   * UNRELEASED
