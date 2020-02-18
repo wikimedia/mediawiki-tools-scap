@@ -1,3 +1,34 @@
+scap (3.13.0-1) unstable; urgency=low
+
+  [ Tyler Cipriani ]
+  * docs: update dependencies
+
+  [ Amir Sarabadani ]
+  * Add the part for rebuilding array l10n cache (Bug: T105683)
+
+  [ Reedy ]
+  * Fix Temporarily typo
+
+  [ Lars Wirzenius ]
+  * Add to README.rst instructions for running the scap test suite
+
+  [ Tyler Cipriani ]
+  * README: alternative tox workaround
+
+  [ Greg Grossmeier ]
+  * README: typo
+
+  [ Filippo Giunchedi ]
+  * Support for logging json to syslog (Bug: T86969)
+
+  [ Tyler Cipriani ]
+  * rebuildLocalisationCache.php: add space in subprocess (Bug: T243358)
+
+  [ Lars Wirzenius ]
+  * Fix: 'version' subcommand function should return 0, not None
+
+ -- Lars Wirzenius <lwirzenius@wikimedia.org>  Tue, 18 Feb 2020 17:56:26 +0200
+
 scap (3.12.1-1) unstable; urgency=low
 
   [ Lucas Werkmeister ]
