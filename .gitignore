@@ -16,3 +16,4 @@ cover/
 htmlcov/
 .pytest_cache/
 .idea/
+*.pdf
