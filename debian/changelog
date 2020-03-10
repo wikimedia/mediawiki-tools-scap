@@ -1,6 +1,11 @@
 scap (3.14.0-1) unstable; urgency=low
 
   * UNRELEASED
+  * Don't run tests when building the Debian package: package is built
+    on jessie, and the tests don't pass on jessie. The tests SHOULD be
+    re-enabled when they pass on jessie, or when building in CI
+    happens on buster or later.
+  * Also fix build-dependencies to use names of packages in jessie.
 
  -- Lars Wirzenius <lwirzenius@wikimedia.org>  Tue, 18 Feb 2020 18:05:40 +0200
 

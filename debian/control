@@ -22,8 +22,8 @@ Build-Depends:
   python-six,
   python-configparser,
   python-psutil,
-  tox,
-  flake8
+  tox | python-tox,
+  flake8 | python-flake8
 Standards-Version: 3.9.6
 X-Python-Version: >= 2.7
 
