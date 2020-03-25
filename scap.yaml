@@ -4,8 +4,11 @@
 - when: I run scap version
   function: run_scap_version
 
-- then: the exit code is 0
-  function: exit_code_is_zero
+- when: I run scap sync
+  function: run_scap_sync
+
+- then: the exit code is (?P<exit_code>\d+)
+  function: exit_code_is
 
 - then: the output matches (?P<regex>.+)
   function: stdout_matches
