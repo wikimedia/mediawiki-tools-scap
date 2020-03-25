@@ -3,9 +3,17 @@
 
 set -eu
 
+echo "Run unit and other automated local tests"
 tox
+echo "Nice, tox tests passed successfully"
 
 if command -v sp-codegen > /dev/null
 then
+    echo
+    echo "Verify acceptance criteria automatically"
     sp-codegen scap.md -o test.py --run
+    echo "Nice, acceptance tests passed successfully!"
 fi
+
+echo
+echo "Oh happy day: all tests pass OK!"
