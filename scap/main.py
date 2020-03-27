@@ -642,9 +642,11 @@ class Scap(AbstractSync):
                                  '-w or --canary-wait-time')
         except TypeError:
             pass
-        if self.arguments.canary_wait_time not in range(20, 90):
-            raise ValueError('Canary must be between 20 and 90 seconds')
-        self.config['canary wait time'] = self.arguments.canary_wait_time
+
+        wait = self.arguments.canary_wait_time
+        if wait is not None:
+            self.config['canary_wait_time'] = wait
+
         return super(Scap, self).main(*extra_args)
 
     def _before_cluster_sync(self):

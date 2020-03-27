@@ -56,3 +56,17 @@ when I run scap version
 then the exit code is 0
 then the output matches ^\d+(\.\d+)+(-\S+)?$
 ~~~
+
+
+scap sync without --canary-wait-time works
+-----------------------------------------------------------------------------
+
+The `scap sync` command takes an optional `--canary-wait-time` option.
+Make sure it works without the option or rather fails in the right way.
+
+~~~scenario
+given a built scap
+when I run scap sync
+then the exit code is 1
+then the output matches scap failed: RuntimeError sync requires SSH agent forwarding
+~~~

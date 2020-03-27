@@ -13,8 +13,12 @@ def run_scap_version(ctx):
     scap = _binary('bin', 'scap')
     _runcmd(ctx, [scap, 'version'])
 
-def exit_code_is_zero(ctx):
-    assert_eq(ctx['exit'], 0)
+def run_scap_sync(ctx):
+    scap = _binary('bin', 'scap')
+    _runcmd(ctx, [scap, 'sync'])
+
+def exit_code_is(ctx, exit_code=None):
+    assert_eq(ctx['exit'], int(exit_code))
 
 def stdout_matches(ctx, regex=None):
     assert_ne(re.search(regex, ctx['stdout']), None)

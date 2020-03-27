@@ -33,29 +33,30 @@ def test_init():
 
 
 @pytest.mark.parametrize(
-    'cmd', [['sync', '-cw', '7'],
+    'cmd', [['sync', '-w', '7'],
             ['sync', '--canary-wait-time', '30'],
-            ['sync', '-cw', '92'],
+            ['sync', '-w', '92'],
             ['sync', '-D', 'canary_wait_time:30']],
     indirect=True)
 def test_scap_sync_flags(cmd, mocker):
-    # Testing if we are parsing cw propertly, argparse
-    # makes sure cw is int or exists if -cw flag is set
-    # no need to test for those
+    # Testing if we are parsing -w propertly. argparse makes sure cw
+    # is int or exists if -w flag is set, so no need to test for those.
     isthere = mocker.patch('os.path.exists')
     isthere.return_value = True
     try:
         cmd.main(cmd.extra_arguments)
     except ValueError as ve:
-        assert 'seconds' or 'defined' in str(ve)
         if 'seconds' in str(ve):
-            assert 92 == cmd.arguments.canary_wait_time or 7
-        if 'defined' in str(ve):
+            assert cmd.arguments.canary_wait_time in (7, 92)
+        elif 'defined' in str(ve):
             assert 'canary_wait_time' in cmd.arguments.defines[0]
+        else:
+            assert 0, (
+                'expected "seconds" or "defined" in ValueError, got: %s' %
+                str(ve))
     # if we get a RuntimeError, means our args are ok
     except RuntimeError as re:
         assert 'scap-global-lock' in str(re)
-        assert cmd.arguments.canary_wait_time == 30
 
 
 def test_increment_stat(cmd, mocker):
