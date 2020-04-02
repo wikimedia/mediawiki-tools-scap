@@ -1,6 +1,8 @@
 scap (3.14.0-1) unstable; urgency=low
 
-  * UNRELEASED
+  * Add --canary-wait-time (-w) option.
+  * Add the beginnings of an acceptance test suite for Scap.
+  * Add detailed release procedure documentation.
   * Don't run tests when building the Debian package: package is built
     on jessie, and the tests don't pass on jessie. The tests SHOULD be
     re-enabled when they pass on jessie, or when building in CI
