@@ -1,0 +1,14 @@
+- given: a built scap
+  function: nop
+
+- when: I run scap version
+  function: run_scap_version
+
+- when: I run scap sync
+  function: run_scap_sync
+
+- then: the exit code is (?P<exit_code>\d+)
+  function: exit_code_is
+
+- then: the output matches (?P<regex>.+)
+  function: stdout_matches

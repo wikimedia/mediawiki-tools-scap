@@ -12,7 +12,18 @@ Build-Depends:
   dh-python (>= 1.2014),
   bash-completion,
   python-all (>= 2.7),
-  python-setuptools
+  python-setuptools,
+  python-concurrent.futures,
+  python-jinja2,
+  python-pygments,
+  python-yaml,
+  python-requests,
+  git,
+  python-six,
+  python-configparser,
+  python-psutil,
+  tox | python-tox,
+  flake8 | python-flake8
 Standards-Version: 3.9.6
 X-Python-Version: >= 2.7
 
