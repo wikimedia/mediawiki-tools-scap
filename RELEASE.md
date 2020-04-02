@@ -24,11 +24,21 @@ Everything seems OK.
 $ 
 ```
 
+To do this in Docker:
+
+~~~
+$ ~/go/bin/blubber .pipeline/blubber.yaml test > Dockerfile
+$ docker build . # note build id
+$ docker run --rm 5fea442ac172 # Fix the image id based on above
+~~~
+
+
 ## Pick version number
 
 Pick a new version number, called VERS in these instructions; a
 version number might be, for example `1.2.3` Replace every instance of
-that in examples below.
+`VERS` in examples below with the version number. If the example says
+`VERS-1` that would result in `1.2.3-1`.
 
 
 ## Test Debian package build locally
@@ -45,18 +55,31 @@ $ git reset --hard
 $ rm -f ../scap_*
 $ DEBEMAIL='YOU@wikimedia.org' DEBFULLNAME='YOU' \
   gbp dch --distribution unstable --urgency low --new-version VERS-1
-$ git commit -m "Bump Debian package to VERS-1" debian/changelog
 ```
 
 At this point, edit `debian/changelog` to summarize changes since the
-previous release. Then build the package:
+previous release. Then build the package.
 
 ```sh
 $ gbp buildpackage -us -uc --git-ignore-new
 ```
 
-If this fails, fix and repeat until it works. Remember to commit any
-changes.
+If this fails, fix whatever is broken, and repeat until it works.
+Finally, commit any changes.
+
+```sh
+$ git commit -m "Bump Debian package to VERS-1" debian/changelog
+$ git status
+```
+
+Push the changes directly to Gerrit. This is a rare exception to the
+rule that all changes should be reviewed, and hopefully Scap will be
+less of a SPoF in the future so that this exception can cease to
+exist.
+
+```sh
+$ git push origin HEAD:master
+```
 
 
 ## Test changes on the beta cluster
@@ -83,34 +106,31 @@ You MUST have the following access:
 
 To build the Debian package for the beta cluster:
 
-* have Gerrit merge changes to Scap; this triggers a Jenkins job to
-  build a Debian package for beta
+* go to the scap-beta-deb Jenkins project
+  (<https://integration.wikimedia.org/ci/job/scap-beta-deb/>), and
+  trigger it manually by clicking "Build with Parameters", entering
+  the following parameters:
 
-  * <https://integration.wikimedia.org/ci/job/scap-beta-deb/>
+  * ZUUL_URL: https://gerrit.wikimedia.org/r
+  * ZUUL_PROJECT: mediawiki/tools/scap.git
+  * ZUUL_REF: refs/heads/master
+  * ZUUL_VOTING: 0
 
 * if scap-beta-deb finishes successfully, it triggers the
   beta-publish-deb job, which publishes the newly built Debian package
 
-  * this is currently broken due to permissions problems
-  * run the following commands on deploy01, if that is the case:
-
-    * sudo aptly repo -remove-files=false -force-replace=true add jessie-deployment-prep /srv/deployment/debs/
-    * sudo aptly repo -remove-files=false -force-replace=true add trusty-deployment-prep /srv/deployment/debs/
-    * sudo aptly repo -remove-files=true -force-replace=true add stretch-deployment-prep /srv/deployment/debs/
-    * sudo aptly publish --skip-signing update jessie-deployment-prep
-    * sudo aptly publish --skip-signing update trusty-deployment-prep
-    * sudo aptly publish --skip-signing update stretch-deployment-prep
-
-    * stretch goal: fix the problems
-
 * install new package on all beta hosts with Scap already installed
 
-    * use `apt-get update && apt-get policy scap` on
-      deployment-cumin02.deployment-prep.eqiad.wmflabs to find version
-      of new package and fix it in the command line below
-    * `sudo cumin 'O{project:deployment-prep}' 'command -v scap &&
+    * on the #wikimedia-operations IRC channel, say you're tesing
+      Scap: `!log testing upcoming Scap release on beta`
+    * log into the cumin02 host
+    * run: `sudo LC_ALL=C apt-get update && apt-get policy scap`
+    * find version of new package and fix it in the command line below
+    * run: `sudo cumin 'O{project:deployment-prep}' 'command -v scap &&
       apt-get install -y --allow-downgrades scap=VERSION || echo "no
-      scap"`
+      scap"'`
+    * this seems to usually fail on a small number of nodes; you can
+      ignore that
 
 * run the following Jenkins job (click "Build now") or wait for it to
   run automatically (runs every ten minutes):
@@ -137,17 +157,21 @@ To build the Debian package for the beta cluster:
 
 * manually run a deployment from deployment-deploy01
 
-    * cd /srv/deployment/integration/slave-scripts
+    * `cd /srv/deployment/integration/slave-scripts`
     * make a dummy change to README and commit it
-    * run: scap deploy -v 'testing scap3'
-    * run: scap deploy-log
+    * run: `scap version && dpkg -l scap`
+    * check the version numbers are correct
+    * run: `scap deploy -v 'testing scap3'`
+    * run: `scap deploy-log`
+    * kill that with control-C if it looks good
     * output from 'scap deploy' might mention a host like
       deployment-mediawiki-07.deployment-prep.eqiad.wmflabs; log in
       there and check that
       /srv/deployment/integration/slave-scripts-cache has a current
       symlinked to a refs/... directory and that
       /srv/deployment/integration/slave-scripts is a symlink to the
-      same revs directory
+      same revs directory: 
+      `ls -l /srv/deployment/integration/slave-scripts-cache /srv/deployment/integration/slave-scripts`
 
 
 ## Tag the release in git
@@ -158,6 +182,8 @@ the **release branch** and need to be merge in master to that branch.
 
 * Make sure the workspace is clean and has no uncommitted changes or
   unwanted files: `git status`
+* run: `git checkout release`
+* run: `git merge master`
 * Edit `scap/version.py`, set `__version__ = 'VERS'`
 * Commit: `git commit -m "Bump version to VERS" scap/version.py`
 * Tag version: `git tag --sign VERS`
@@ -171,6 +197,7 @@ git push --tags origin release
 We keep the version number in the master branch ahead of a release so
 update it. Below, `NEW` is a version number later than VERS.
 
+* Run: `git checkout master`
 * Edit `scap/version.py`, set `__version__ = 'NEW-dev'`
 * Bump `debian/changelog`: `DEBEMAIL='YOU@wikimedia.org'
   DEBFULLNAME='YOU' gbp dch --distribution unstable --urgency low
@@ -184,8 +211,14 @@ update it. Below, `NEW` is a version number later than VERS.
 
 File an issue in Phabricator:
 
-* title: Deploy Scap version VERS
+* title: Deploy Scap version VERS-1
+* description: The release branch of scap has tags for VERS-1. Please
+  build the package and deploy it. Instructions at
+  https://wikitech.wikimedia.org/wiki/Scap3#Production_update
+
+  Thank you.
 * tagged: scap serviceops release-engineering-team-todo
+
 
 Mention the debian/VERS tag for the release. Include the
 debian/changelog entry for the new version, and any other versions
