@@ -1,3 +1,9 @@
+scap (3.15.0-1) unstable; urgency=low
+
+  * UNRELEASED
+
+ -- Lars Wirzenius <lwirzenius@wikimedia.org>  Thu, 02 Apr 2020 20:37:00 +0300
+
 scap (3.14.0-1) unstable; urgency=low
 
   * Add --canary-wait-time (-w) option.
