@@ -1,3 +1,45 @@
+scap (3.15.0-1) unstable; urgency=low
+
+  * Feature: Rename "scap sync" to "scap sync-world". The old command
+    now gives an error message and tells user to use the new command
+    instead. See https://phabricator.wikimedia.org/T250302 and give
+    feedback if this bites you.
+  * Feature: Add "scap list-patches", "scap test-patches", and
+    "scap apply-patches" for train security patches.
+  * Feature: Scap plugins from mediawiki-config have been added to the
+    main Scap repository.
+  * Bug: Regular expression for parsing exceptions in sh.py wasn't
+    using raw strings.
+  * Bug: Fixes to the subplot acceptance testing stuff to work with
+    current Subplot tool.
+  * Bug: Target host patterns with both ! and [] didn't used to work.
+  * Refactor: avoid using a confusing variable name (lower case ell).
+  * Packaging: drop run-time dependency on bash-completion. It's not
+    necessary. If bash-completion is installed, completion works.
+    Build-dependency is necessary, though.
+  * Packaging: Add myself to the debian/control Uploaders field, and
+    drop Chad. This should reflect current reality.
+  * Python 3: Various changes for Python 3 compatibility, while
+    keeping Python 2 compatibility.
+
+  [Ahmon Dancy]
+  * Feature: drop unused "scap swat" command.
+  * Bug: Fix version parsing so it actually notices problems.
+  * Bug: Fix unclear error message if mwscript is not found.
+
+  [Antoine Musso]
+  * Bug: Fix references to obsolete name tin.eqiad.wmnet.
+  * Test: Pin flake8 version so we are not surprised by a newer
+    version.
+  * Performance: Use rsync's newer compression algorithm to use less
+    CPU.
+
+  [Tyler Cipriani]
+  * Feature: Make user confirm they intend it, before running "scap
+    sync". Can be bypassed with the --force option.
+
+ -- Lars Wirzenius <lwirzenius@wikimedia.org>  Thu, 02 Apr 2020 20:37:00 +0300
+
 scap (3.14.0-1) unstable; urgency=low
 
   * Add --canary-wait-time (-w) option.
@@ -13,252 +55,22 @@ scap (3.14.0-1) unstable; urgency=low
 
 scap (3.13.0-1) unstable; urgency=low
 
-  [ Tyler Cipriani ]
-  * docs: update dependencies
+  * UNRELEASED
 
-  [ Amir Sarabadani ]
-  * Add the part for rebuilding array l10n cache (Bug: T105683)
-
-  [ Reedy ]
-  * Fix Temporarily typo
-
-  [ Lars Wirzenius ]
-  * Add to README.rst instructions for running the scap test suite
-
-  [ Tyler Cipriani ]
-  * README: alternative tox workaround
-
-  [ Greg Grossmeier ]
-  * README: typo
-
-  [ Filippo Giunchedi ]
-  * Support for logging json to syslog (Bug: T86969)
-
-  [ Tyler Cipriani ]
-  * rebuildLocalisationCache.php: add space in subprocess (Bug: T243358)
-
-  [ Lars Wirzenius ]
-  * Fix: 'version' subcommand function should return 0, not None
-
- -- Lars Wirzenius <lwirzenius@wikimedia.org>  Tue, 18 Feb 2020 17:56:26 +0200
-
-scap (3.12.1-1) unstable; urgency=low
-
-  [ Lucas Werkmeister ]
-  * Remove l10n-update from manpage
-
-  [ Giuseppe Lavagetto ]
-  * Fix restart_php (Bug: T224857)
-
- -- Tyler Cipriani <tcipriani@wikimedia.org>  Wed, 04 Sep 2019 14:31:47 -0600
+ -- Tyler Cipriani <tcipriani@wikimedia.org>  Thu, 08 Aug 2019 10:40:15 -0600
 
 scap (3.12.0-1) unstable; urgency=low
 
-  * php7x: Add php_fpm module (Bug: T224857)
-  * php7x: restart on 'scap pull' (Bug: T224857)
-  * php7x: restart php-fpm after all sync operations (Bug: T224857)
-  * --no-php-restart missing comma
-  * PHPRestart: fix attribute error for cmd/job
-  * PHPRestart: Fix logging, groups, return types
-  * PHPRestart: Create global INSTANCE for pickling
-
- -- Tyler Cipriani <tcipriani@wikimedia.org>  Thu, 08 Aug 2019 10:37:18 -0600
-
-scap (3.11.1-1) unstable; urgency=low
-
   [ Tyler Cipriani ]
-  * debian packaging: depend on python-concurrent.futures
+  * Bump development version since we're very out-of-date
 
-  [ Mark Bergsma ]
-  * Add unit testing of scap main.py
+ -- Tyler Cipriani <tcipriani@wikimedia.org>  Thu, 18 Jul 2019 16:14:40 -0600
 
-  [ Giuseppe Lavagetto ]
-  * Add tests for scap.cli
+scap (3.9.0-1) unstable; urgency=medium
 
-  [ Effie Mouzeli ]
-  * Add more tests for main (Bug: T216518)
+  * Merged debian/changelog from release branch
 
-  [ Tyler Cipriani ]
-  * refreshMessageBlobs: don't run on scap pull (Bug: T228328)
-
- -- Tyler Cipriani <tcipriani@wikimedia.org>  Thu, 18 Jul 2019 15:50:24 -0600
-
-scap (3.11.0-1) unstable; urgency=low
-
-  [ Tyler Cipriani ]
-  * Fix failed canary threshold logging
-
-  [ Giuseppe Lavagetto ]
-  * Remove functionality to talk to conftool
-
- -- Tyler Cipriani <tcipriani@wikimedia.org>  Wed, 03 Jul 2019 16:33:10 -0600
-
-scap (3.10.0-1) unstable; urgency=low
-
-  [ Antoine Musso ]
-  * Revert "Get rid of .gitreview" (Bug: T191373)
-
-  [ Effie Mouzeli ]
-  * Updated .gitignore for .idea/ directories
-
-  [ Roan Kattouw ]
-  * Clear MessageBlobStore after syncing i18n data (Bug: T222539, T217719)
-
-  [ Tyler Cipriani ]
-  * clear_message_blobs: no logger in context
-  * clear_message_blobs: call once (Bug: T222539)
-  * Bump version to 3.10.0
-
- -- Tyler Cipriani <tcipriani@wikimedia.org>  Mon, 03 Jun 2019 11:17:12 -0600
-
-scap (3.9.2-1) unstable; urgency=low
-
-  * Targets: strip spaces from service_groups (Bug: T217597)
-
- -- Tyler Cipriani <tcipriani@wikimedia.org>  Mon, 04 Mar 2019 16:16:16 -0700
-
-scap (3.9.1-1) unstable; urgency=low
-
-  [ Giuseppe Lavagetto ]
-  * Fix OpcacheManager.invalidate_all()
-
- -- Tyler Cipriani <tcipriani@wikimedia.org>  Wed, 27 Feb 2019 13:25:12 -0700
-
-scap (3.9.0-1) unstable; urgency=low
-
-  [ Tyler Cipriani ]
-  * pipeline: test scap with CD pipeline
-  * Docs: remove references to differential
-
-  [ Antoine Musso ]
-  * Change message to 'Copying from x to y'
-
-  [ Giuseppe Lavagetto ]
-  * Invalidate PHP7's opcache when needed (Bug: T211964)
-  * Rewrite the concurrency logic of OpcacheManager (Bug: T211964)
-
-  [ MarcoAurelio ]
-  * Fix flake8 "F632 use ==/!= to compare str, bytes, and int literals" error
-
- -- Tyler Cipriani <tcipriani@wikimedia.org>  Wed, 20 Feb 2019 16:39:39 -0700
-
-scap (3.8.10-1) unstable; urgency=low
-
-  * sync-wikiversions - don't do shell expansion
-
- -- Tyler Cipriani <tcipriani@wikimedia.org>  Tue, 27 Nov 2018 11:40:31 -0700
-
-scap (3.8.9-1) unstable; urgency=low
-
-  * Fix ascii art regression
-
- -- Tyler Cipriani <tcipriani@wikimedia.org>  Wed, 07 Nov 2018 10:50:18 -0700
-
-scap (3.8.8-1) unstable; urgency=low
-
-  [ Tyler Cipriani ]
-  * Remove '/' from include in sync-wikiversions (Bug: T207602)
-  * Fix "invalid escape sequence '\' (W605)"
-  * Error: --service-restart without a service_name (Bug: T207263)
-
-  [ Mukunda Modell ]
-  * scripts/new_version - crude automation of the release process
-
- -- Mukunda Modell <mmodell@wikimedia.org>  Tue, 06 Nov 2018 21:04:33 -0600
-
-scap (3.8.7-1) unstable; urgency=medium
-
-  [ Mukunda Modell ]
-  * Check for fatals in AbstractSync by calling `mwscript eval.php`
-
-  [ Tyler Cipriani ]
-  * Add logging for mwscript eval.php check
-
-  [ Mukunda Modell ]
-  * Bump version to 3.8.7
-
- -- Mukunda Modell <mmodell@wikimedia.org>  Wed, 03 Oct 2018 08:39:35 -0500
-
-scap (3.8.6-1) unstable; urgency=low
-
-  [ Tyler Cipriani ]
-  * Add ability to specify PHP version for scap (Bug: T203680)
-
- -- Tyler Cipriani <tcipriani@wikimedia.org>  Fri, 14 Sep 2018 15:05:18 -0600
-
-scap (3.8.5-1) unstable; urgency=low
-
-  * sync-wikiversion: don't overwrite AbstractSync (Bug: T198640)
-  * Add --force to AbstractSync
-  * Skip cache_git_info for sync-wikiversions
-
- -- Tyler Cipriani <tcipriani@wikimedia.org>  Fri, 31 Aug 2018 12:52:00 -0600
-
-scap (3.8.4-1) unstable; urgency=low
-
-  * Support utf-8 for config templates (Bug: T198621)
-  * Refactor canary_checks method
-
- -- Tyler Cipriani <tcipriani@wikimedia.org>  Tue, 10 Jul 2018 15:51:53 -0600
-
-scap (3.8.3-1) unstable; urgency=low
-
-  [ Chad Horohoe ]
-  * Scap plugins: Tidy up imports for py3 transition
-  * Unify keyboard exit handling
-  * Unify stats increment calls in sync operations
-  * Consistent return statements on functions that already have them
-  * Remove pointless unicode distinctions on ASCII
-  * lint.py: Move number of processes to callers
-
-  [ Tyler Cipriani ]
-  * Warn about setting git_server in docs
-  * Remove HHVM restart
-
- -- Tyler Cipriani <tcipriani@wikimedia.org>  Tue, 26 Jun 2018 15:20:21 -0600
-
-scap (3.8.2-1) unstable; urgency=low
-
-  * Don't recurse submodules as part of fetch (Bug: T196663)
-
- -- Tyler Cipriani <tcipriani@wikimedia.org>  Thu, 07 Jun 2018 16:44:48 -0600
-
-scap (3.8.1-1) unstable; urgency=medium
-
-  * MediaWiki: Fix for sync-l10n (Bug: T192801)
-
-  * MediaWiki: Canaries now use swagger spec (Bug: T136839)
-
-  * Mediawiki: get_disclosable_head fixes
-
-  * Scap3: Will show more on stdout than previously. Previously only ssh info
-    was in case of errors (Bug: T182623)
-
-  * Scap3: git-lfs will now run install prior to git-lfs pull, should be close
-    to the last round of changes for git-lfs support.
-
-  * Tests got updates for py2/3 compat, specifically using io vs StringIO
-
-  * Further cleanup of cdblib
-
- -- Tyler Cipriani <tcipriani@wikimedia.org>  Thu, 03 May 2018 15:15:36 -0600
-
-scap (3.8.0-2) unstable; urgency=medium
-
-  * Switch package back to architecture: all
-
- -- Mukunda Modell <mmodell@wikimedia.org>  Fri, 20 Apr 2018 04:52:09 -0500
-
-scap (3.8.0-1) unstable; urgency=medium
-
-  * git-lfs support is graduating from beta to production.
-  * Always log check output (even when the check succeeds.)
-  * Add timer info to the cdb rebuild stage of scap pull
-  * cdblib: Drop (get|put)(string|int)s?
-  * Various python3 compatibility changes
-  * Improved Docs.
-
- -- Mukunda Modell <mmodell@wikimedia.org>  Wed, 18 Apr 2018 15:43:01 -0600
+ -- Mukunda Modell <mmodell@wikimedia.org>  Wed, 21 Mar 2018 16:13:20 -0500
 
 scap (3.7.7-1) unstable; urgency=medium
 
