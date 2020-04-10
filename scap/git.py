@@ -519,7 +519,7 @@ def resolve_gitdir(directory):
 
 
 def remap_submodules(location, server):
-    """Remap all submodules to new server (tin)
+    """Remap all submodules to deployment server
 
     This function supports remapping submodules available on the deployment
     server. Since the remote is a non-bare repo (as of git 1.7.8) all

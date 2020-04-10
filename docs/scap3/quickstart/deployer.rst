@@ -7,22 +7,22 @@ For a deployer, interaction with Scap is straight-forward.
 The two most-typical commands are ``scap deploy`` and ``scap deploy-log``.
 
 Below we demo deployment using a fake service called **Mockbase**
-located at ``tin:/srv/deployment/mockbase/deploy``.
+located at ``deployXXXX:/srv/deployment/mockbase/deploy``.
 
 ``scap deploy``
 ~~~~~~~~~~~~~~~
 
 The first step to deploying new code from your ``deployment_host`` (in most
-cases this will be ``tin.eqiad.wmnet``) is to use ``git pull``, ``git checkout``,
-``git cherry-pick``, and ``git commit`` to bring the repository on the
-``deployment_host`` into the state that you want deployed to your targets.
-
+cases this will be one of the servers behind ``deployment.eqiad.wmnet``) is to
+use ``git pull``, ``git checkout``, ``git cherry-pick``, and ``git commit`` to
+bring the repository on the ``deployment_host`` into the state that you want
+deployed to your targets.
 
 .. code-block:: bash
 
-    deployer@tin:/srv/deployment/mockbase/deploy$ echo "Add a README" > README
-    deployer@tin:/srv/deployment/mockbase/deploy$ git add README
-    deployer@tin:/srv/deployment/mockbase/deploy$ git commit -m 'Added a README'
+    deployer@deployXXXX:/srv/deployment/mockbase/deploy$ echo "Add a README" > README
+    deployer@deployXXXX:/srv/deployment/mockbase/deploy$ git add README
+    deployer@deployXXXX:/srv/deployment/mockbase/deploy$ git commit -m 'Added a README'
     [master 70eb01e] Added a README
      1 file changed, 1 insertion(+)
       create mode 100644 README
@@ -32,7 +32,7 @@ finished code:
 
 .. code-block:: bash
 
-    deployer@tin:/srv/deployment/mockbase/deploy$ scap deploy
+    deployer@deployXXXX:/srv/deployment/mockbase/deploy$ scap deploy
     20:46:12 Started deploy_mockbase/deploy
     Entering 'mockbase'
     20:46:12
@@ -134,7 +134,7 @@ with this information via an annotated ``git tag``.
 
 .. code-block:: bash
 
-    deployer@tin:/srv/deployment/mockbase/deploy$ jq '.' < .git/DEPLOY_HEAD
+    deployer@deployXXXX:/srv/deployment/mockbase/deploy$ jq '.' < .git/DEPLOY_HEAD
     {
       "timestamp": "2015-11-17T22:05:53.277869",
       "user": "deployer",
