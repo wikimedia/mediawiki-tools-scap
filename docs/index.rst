@@ -9,8 +9,8 @@ Background
 
 *Scap* is a tool that was originally designed to deploy MediaWiki code
 on Wikimedia Foundation servers. In Summer/Fall 2015 functionality was
-added to Scap to allow it to deploy any git-based repositories on `tin
-<https://wikitech.wikimedia.org/wiki/Tin>`_.
+added to Scap to allow it to deploy any git-based repositories on our
+`deployment server <https://wikitech.wikimedia.org/wiki/Deployment server>`_.
 
 What does "Scap" mean?
 ----------------------

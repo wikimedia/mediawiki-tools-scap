@@ -15,8 +15,8 @@ Glossary of terms
   deploy host
   deployment server
   deployment master
-    The server where you will run scap. In the case of WMF deployments, `tin`
-    and `mira` are currently the names of deployment hosts.
+    The server where you will run scap. In the case of WMF deployments one of
+    the server being the `deployment.eqiad.wmnet`.
 
   deployment repository
   deployment project

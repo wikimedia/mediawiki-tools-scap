@@ -4,11 +4,12 @@
 SSH Access
 ##########
 
-Before Scap can work, SSH access from tin to target machines will have to work.
+Before Scap can work, SSH access from the deployment server to target machines
+will have to work.
 It is noteworthy that ssh-agent forwarding is disabled for production servers,
 so that is not an option. The current best-practice is to add a user to
 targets specifically for deployment and then add that user's private key
-to the Keyholder_ service running on tin.
+to the Keyholder_ service running on the deployment server.
 
 Below is example puppet code for each of your targets that should:
 
@@ -52,11 +53,12 @@ Below is example puppet code for each of your targets that should:
         }
     }
 
-The following puppet code should be added in a separate class, ``role::deployment::mockbase``,
-which should then be added to the ``role::deployment::server`` class that is run on tin via
+The following puppet code should be added in a separate class,
+``role::deployment::mockbase``, which should then be added to the
+``role::deployment::server`` class that is run on the deployment server via
 ``include role::deployment::mockbase``. The purpose of this code is to:
 
-#. Adds the keyfile at ``puppet:///private/ssh/tin/deploy-mockbase_rsa`` to the keyholder
+#. Adds the keyfile at ``puppet:///private/secret/screts/keyholder/deploy-mockbase`` to the keyholder
 #. Adds a permissions file to the keyholder service, so that only members of the group
    ``deploy-mockbase`` can access the deploy-mockbase key.
 
@@ -70,7 +72,7 @@ which should then be added to the ``role::deployment::server`` class that is run
     # [*keyholder_user*]
     #   file name of private key and generated filename of the keyholder permissions file
     # [*keyholder_group*]
-    #   group on tin that has access to use the keyholder-proxy socket to
+    #   group on deployment server that has access to use the keyholder-proxy socket to
     #   login to targets
     # [*keyholder_fingerprint*]
     #   Fingerprint of the public half of the private key file

@@ -5,11 +5,11 @@
 Configuring a Git Repo
 ######################
 
-Since version 3, *Scap* is now able to deploy any git-based repository from tin
-to any number of hosts. This deployment can happen in serial or in parallel. All
-that is necessary, aside from the configuration outlined here, is that the target
-hosts are accessible via SSH by the ``deploy_user`` from the ``deploy_host``
-(the machine from which you run Scap).
+Since version 3, *Scap* is now able to deploy any git-based repository from our
+deployment server to any number of hosts. This deployment can happen in serial
+or in parallel. All that is necessary, aside from the configuration outlined
+here, is that the target hosts are accessible via SSH by the ``deploy_user``
+from the ``deploy_host`` (the machine from which you run Scap).
 
 Scap configuration is loaded from several files via :func:`scap.config.load`
 function in the :mod:`scap.config` module.
@@ -36,7 +36,7 @@ Available configuration variables
 +----------------------------+---------------------------+---------------------------------+
 | Value                      | Default                   | Explanation                     |
 +============================+===========================+=================================+
-| ``git_server``             | ``tin.eqiad.wmnet``       | (*String*) Server from          |
+| ``git_server``             | ``deploy1001.eqiad.wmnet``| (*String*) Server from          |
 |                            |                           | which code is fetched.          |
 |                            |                           | **Use is not recommended!**     |
 |                            |                           | The deployment-host will have a |
