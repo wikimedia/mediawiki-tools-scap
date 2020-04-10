@@ -65,7 +65,7 @@ DEFAULT_CONFIG = {
     'git_deploy_dir': (str, '/srv/deployment'),
     'git_fat': (bool, False),
     'git_binary_manager': (str, None),
-    'git_server': (str, 'tin.eqiad.wmnet'),
+    'git_server': (str, 'deploy1001.eqiad.wmnet'),
     'git_scheme': (str, 'http'),
     'git_submodules': (bool, False),
     'git_upstream_submodules': (bool, False),
@@ -97,10 +97,10 @@ def load(cfg_file=None, environment=None, overrides=None):
     A configuration file can contain multiple sections. The configuration
     object is populated with values from the ``global`` section and additional
     sections based on the fully qualified domain name of the local host. For
-    example, on the host ``tin.eqiad.wmnet`` the final value for a given
-    setting would be the first value found in sections: ``tin.eqiad.wmnet``,
-    ``eqiad.wmnet``, ``wmnet`` or ``global``. Sections not present in the
-    configuration file will be ignored.
+    example, on the host ``deployXXXX.eqiad.wmnet`` the final value for a given
+    setting would be the first value found in sections:
+    ``deployXXXX.eqiad.wmnet``, ``eqiad.wmnet``, ``wmnet`` or ``global``.
+    Sections not present in the configuration file will be ignored.
 
     Configuration values are loaded from a file specified by the ``-c`` or
     ``--conf`` command-line options or from the default locations with the
@@ -150,7 +150,8 @@ def load(cfg_file=None, environment=None, overrides=None):
     for section in sections:
         if parser.has_section(section):
             # Do not interpolate items in the section.
-            # Fixes crash on tin: 'int' object has no attribute 'find'
+            # Fixes crash on deployment server:
+            #   'int' object has no attribute 'find'
             for key, value in parser.items(section, True):
                 config[key] = coerce_value(key, value)
 

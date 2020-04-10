@@ -130,7 +130,7 @@ class DeployLocal(cli.Application):
                        'server rather than using the locally cached config')
     def main(self, *extra_args):
         self.rev = self.config['git_rev']
-        # only supports http from tin for the moment
+        # only supports http from deployment server for the moment
         url = os.path.normpath('{git_server}/{git_repo}'.format(**self.config))
         self.server_url = 'http://{0}'.format(url)
 

@@ -7,13 +7,14 @@ from Trebuchet_ to Scap using the :ref:`commands`.
 
 This quickstart assumes that:
 
-#. You are deploying from tin_.
-#. Your repository is already present on tin.
-   If your repository is not on tin, the current best instructions are in
-   `Add the new repo's configuration in puppet`_ on wikitech. These
+#. You are deploying from `deployment server`_.
+#. Your repository is already present on deployment server.
+   If your repository is not on the deployment server, the current best instructions
+   are in `Add the new repo's configuration in puppet`_ on wikitech. These
    instructions are likely to change as Trebuchet is phased-out.
 #. You have at least one target machine.
-#. You have SSH access to the target machines from tin (more info in :ref:`ssh_access`).
+#. You have SSH access to the target machines from the deployment server (more
+   info in :ref:`ssh_access`).
 #. The target machines have the puppet modules ``scap`` and ``scap::target``
    in their manifests.
 #. The user that has SSH access has write permissions to the directory
@@ -24,12 +25,13 @@ The ``scap`` directory
 
 The ``scap`` directory contains all the configuration Scap uses to deploy
 your code. It must reside at the root of your repository's working directory
-on tin. The ``scap`` directory can be, but does not have to be, a part of your git
-repository (it may be a submodule, or a ``.gitignore``'d directory on tin).
+on the deployment server. The ``scap`` directory can be, but does not have to
+be, a part of your git repository (it may be a submodule, or a ``.gitignore``'d
+directory on the deployment server).
 
 A good starting point for a scap directory can be seen here::
 
-    deployer@tin:/srv/deployment/mockbase$ tree --dirsfirst scap
+    deployer@deployXXXX:/srv/deployment/mockbase$ tree --dirsfirst scap
     scap
     ├── mockbase
     └── scap.cfg
@@ -64,7 +66,7 @@ An example of a sensible default ``scap/scap.cfg`` file is seen here::
     # The target list is in scap/mockbase
     dsh_targets: mockbase
 
-    # There are submodules that need to be pulled from tin
+    # There are submodules that need to be pulled from deployment server
     git_submodules: True
 
     # The repo has git-fat and git-lfs managed binary files that should be synced
@@ -83,9 +85,9 @@ Lines beginning with ``#`` are ignored and may be used to provide comments.
 The configuration is read from the global section and additional sections
 based on the fully qualified domain name of the local host.
 
-For example, on the host ``tin.eqiad.wmnet``, the final value for a given
-setting would be the first value found in sections:
-``[tin.eqiad.wmnet]``, ``[eqiad.wmnet]``, ``[wmnet]`` or ``[global]``.
+For example, on the hosts behind ``deployment.eqiad.wmnet``, the final value
+for a given setting would be the first value found in sections:
+``[deployXXXX.eqiad.wmnet]``, ``[eqiad.wmnet]``, ``[wmnet]`` or ``[global]``.
 Sections not present in the configuration file will be ignored.
 
 Targets
@@ -119,7 +121,7 @@ to my ``scap/scap.cfg`` file::
 The full ``scap/scap.cfg`` file would now look like::
 
     [global]
-    # Code will be fetched from tin:/srv/deployment/mockbase
+    # Code will be fetched from deployXXXX:/srv/deployment/mockbase
     git_repo: mockbase
 
     # code will be deployed to /srv/deployment/mockbase on the target
@@ -135,7 +137,7 @@ The full ``scap/scap.cfg`` file would now look like::
     canary_dsh_targets: mockbase-canaries
     dsh_targets: mockbase
 
-    # There are submodules that need to be pulled from tin
+    # There are submodules that need to be pulled from deployment server
     git_submodules: True
 
     # There is a service that needs to be restarted
@@ -150,7 +152,7 @@ I also need a ``canary_dsh_targets`` config variable that points to a new
 target file. After adding the ``canary_dsh_targets`` file, my new ``scap``
 directory looks like this::
 
-    deployer@tin:/srv/deployment/mockbase$ tree --dirsfirst scap
+    deployer@deployXXXX:/srv/deployment/mockbase$ tree --dirsfirst scap
     scap
     ├── mockbase
     ├── mockbase-canaries
@@ -173,7 +175,7 @@ on ``mockbase01`` and ``mockbase02`` (from the ``scap/mockbase-canaries`` file)
 before I am prompted to continue the deploy on the default targets
 (from the ``scap/mockbase`` file).::
 
-    deployer@tin:/srv/deployment/mockbase$ scap deploy
+    deployer@deployXXXX:/srv/deployment/mockbase$ scap deploy
         00:05:22 Started deploy_mockbase
         Entering 'mockbase'
         00:05:22
@@ -229,7 +231,7 @@ User-defined checks may be preformed after any stage of deployment:
 
 User-defined checks are specified in the ``scap/checks.yaml`` file::
 
-    deployer@tin:/srv/deployment/mockbase$ tree --dirsfirst scap
+    deployer@deployXXXX:/srv/deployment/mockbase$ tree --dirsfirst scap
     scap
     ├── checks.yaml
     ├── mockbase
@@ -329,7 +331,7 @@ To render a file template on a target, place the template in the ``templates``
 directory of your repository's ``scap`` directory. You will also need to
 create a ``scap/config-files.yaml`` file to control rendered config templates::
 
-    deployer@tin:/srv/deployment/mockbase$ tree --dirsfirst scap
+    deployer@deployXXXX:/srv/deployment/mockbase$ tree --dirsfirst scap
     scap
     ├── templates
     │   └── config.yaml.j2
@@ -376,7 +378,7 @@ jinja-syntax-capable. Variables and looping constructs are fully supported.
 The master variable file for templates is called ``vars.yaml`` and is located
 inside the ``scap`` directory::
 
-    deployer@tin:/srv/deployment/mockbase$ tree --dirsfirst scap
+    deployer@deployXXXX:/srv/deployment/mockbase$ tree --dirsfirst scap
     scap
     ├── templates
     │   └── config.yaml.j2
@@ -515,7 +517,7 @@ For example, if the ``/etc/mockbase/config.yaml`` file needed to have an
 additional ``beta: true`` parameter in its template file, I could override
 the template in the ``beta`` environment::
 
-    deployer@tin:/srv/deployment/mockbase$ tree --dirsfirst scap
+    deployer@deployXXXX:/srv/deployment/mockbase$ tree --dirsfirst scap
     scap
     ├── environments
     │   └── beta
@@ -556,7 +558,7 @@ For example, if I wanted to set the ``/etc/mockbase/config.yaml`` variable
 ``foo`` to the value ``baz`` in the ``beta`` environment, I could do so
 by first creating an environment-specific ``vars.yaml``::
 
-    deployer@tin:/srv/deployment/mockbase$ tree --dirsfirst scap
+    deployer@deployXXXX:/srv/deployment/mockbase$ tree --dirsfirst scap
     scap
     ├── environments
     │   └── beta
@@ -590,7 +592,7 @@ Final rendered content of ``/etc/mockbase/config.yaml`` after running
     beta: true
 
 .. _trebuchet: https://wikitech.wikimedia.org/wiki/Trebuchet
-.. _tin: https://wikitech.wikimedia.org/wiki/Tin
+.. _deployment server: https://wikitech.wikimedia.org/wiki/Deployment_server
 .. _add the new repo's configuration in puppet: https://wikitech.wikimedia.org/wiki/Trebuchet#Add_the_new_repo.27s_configuration_to_puppet
 .. _configparser: https://docs.python.org/2/library/configparser.html
 .. _jinja2: http://jinja.pocoo.org/docs/dev/
