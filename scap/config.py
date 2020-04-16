@@ -130,7 +130,10 @@ def load(cfg_file=None, environment=None, overrides=None):
             # Assume that cfg_file is already an open file
             pass
 
-        parser.readfp(cfg_file)
+        if hasattr(parser, 'read_file'):
+            parser.read_file(cfg_file)
+        else:
+            parser.readfp(cfg_file)
     else:
         parser.read([
             '/etc/scap.cfg',
