@@ -62,12 +62,12 @@ class Reader(object):
         >>> Reader(data='')
         Traceback (most recent call last):
         ...
-        IOError: CDB too small
+        OSError: CDB too small
         >>> Reader(data='a' * 2048) #doctest: +ELLIPSIS
         <scap.cdblib.Reader object at 0x...>
         """
         if len(data) < 2048:
-            raise IOError('CDB too small')
+            raise OSError('CDB too small')
 
         self.data = data
         self.hashfn = hashfn
