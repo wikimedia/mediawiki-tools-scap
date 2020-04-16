@@ -96,7 +96,7 @@ def test_invalidate_all(om, mocker):
     target_list_class = mocker.patch('scap.targets.DirectDshTargetList')
     target_list = target_list_class.return_value
     # Simulate no answer received
-    target_list.all.__nonzero__.return_value = 0
+    target_list.all = False
     assert om.invalidate_all(config) == {}
     target_list_class.assert_called_with('mw_web_clusters', config)
     assert target_list.primary_key == 'dsh_targets'
