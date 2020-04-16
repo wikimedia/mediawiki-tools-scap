@@ -59,11 +59,11 @@ class Reader(object):
         """
         Create an instance reading from a sequence and hash keys using hashfn.
 
-        >>> Reader(data='')
+        >>> Reader(data=b'')
         Traceback (most recent call last):
         ...
         OSError: CDB too small
-        >>> Reader(data='a' * 2048) #doctest: +ELLIPSIS
+        >>> Reader(data=b'a' * 2048) #doctest: +ELLIPSIS
         <scap.cdblib.Reader object at 0x...>
         """
         if len(data) < 2048:
@@ -115,7 +115,7 @@ class Writer(object):
         self.fp = fp
         self.hashfn = hashfn
 
-        fp.write('\x00' * 2048)
+        fp.write(b'\x00' * 2048)
         self._unordered = [[] for i in range(256)]
 
     def put(self, key, value=''):
