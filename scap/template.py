@@ -118,7 +118,7 @@ class Template(object):
             return {}
 
         with open(self.var_file, 'r') as variables:
-            return yaml.load(variables.read())
+            return yaml.safe_load(variables.read())
 
     def render(self):
         """

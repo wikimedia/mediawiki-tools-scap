@@ -766,7 +766,7 @@ def get_patches(sub_dirs, root_dir):
     return patches
 
 
-def ordered_load(stream, Loader=yaml.Loader,
+def ordered_load(stream, Loader=yaml.SafeLoader,
                  object_pairs_hook=collections.OrderedDict):
     """
     Load yaml files and keeping order.
@@ -774,7 +774,7 @@ def ordered_load(stream, Loader=yaml.Loader,
     From stackoverflow.com/questions/5121931
 
     :param stream the file object to read
-    :param loader yaml.Load or its subclasses
+    :param loader yaml.SafeLoader or its subclasses
     :object_pairs_hook type of return
     :return OrderedDict object with the same order of the yaml file"""
     class OrderedLoader(Loader):
