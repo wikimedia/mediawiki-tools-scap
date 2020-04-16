@@ -382,7 +382,10 @@ def log_context(context_name):
     def arg_wrapper(func):
         @wraps(func)
         def context_wrapper(*args, **kwargs):
-            argspec = inspect.getargspec(func)
+            if hasattr(inspect, "getfullargspec"):
+                argspec = inspect.getfullargspec(func)
+            else:
+                argspec = inspect.getargspec(func)
 
             # Check if logger was passed as a positional argument
             try:
