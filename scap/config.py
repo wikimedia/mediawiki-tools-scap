@@ -146,7 +146,7 @@ def load(cfg_file=None, environment=None, overrides=None):
 
     fqdn = socket.getfqdn().split('.')
     sections = ['global']
-    sections += ['.'.join(fqdn[l:]) for l in range(0, len(fqdn))][::-1]
+    sections += ['.'.join(fqdn[x:]) for x in range(0, len(fqdn))][::-1]
 
     config = {key: value for key, (_, value) in DEFAULT_CONFIG.items()}
 
