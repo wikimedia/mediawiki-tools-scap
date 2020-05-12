@@ -1,13 +1,4 @@
----
-title: Scap for deploying at WMF
-author: WMF Release Engineering
-date: work in progress
-bindings: scap.yaml
-functions: scap.python
-...
-
-Introduction
-=============================================================================
+# Introduction
 
 Scap is a tool for deploying MediaWiki, MediaWiki extensions, and
 supporting software, to servers at the Wikimedia Foundation (WMF).
@@ -18,12 +9,11 @@ This document describes some of the acceptance criteria for Scap, and
 how they can be verified automatically.
 
 Note that this document describes version 2 of Scap, not version 3,
-which is a whole different codebase. At least for now, this may
+which is a whole different code base. At least for now, this may
 change later.
 
 
-Scap documentation
-=============================================================================
+## Scap documentation
 
 This document doesn't try to document Scap itself. Instead, see the
 following sources.
@@ -36,19 +26,12 @@ following sources.
   - version 3: <https://wikitech.wikimedia.org/wiki/Scap3>
 
 
-Acceptance criteria
-=============================================================================
+# scap version
 
-This chapter documents the acceptance criteria for the software, and
-how they're verified automatically, in the form of scenarios.
-
-
-scap version works
------------------------------------------------------------------------------
-
-This is a smoke test: if "scap version" runs, outputs something that
+This is a smoke test: if `scap version` runs, outputs something that
 looks like a version number, and exits with a zero code, we're
-satisfied.
+satisfied. If this doesn't work, something is really badly wrong with
+Scap or the test setup.
 
 ~~~scenario
 given a built scap
@@ -58,8 +41,7 @@ then the output matches ^\d+(\.\d+)+(-\S+)?$
 ~~~
 
 
-scap sync without --canary-wait-time works
------------------------------------------------------------------------------
+# scap sync without --canary-wait-time works
 
 The `scap sync` command takes an optional `--canary-wait-time` option.
 Make sure it works without the option or rather fails in the right way.
@@ -70,3 +52,19 @@ when I run scap sync
 then the exit code is 1
 then the output matches scap failed: RuntimeError sync requires SSH agent forwarding
 ~~~
+
+
+
+<!-- document metadata at end to not confuse Emacs syntax highlighting -->
+
+---
+title: Scap for deploying at WMF
+author: WMF Release Engineering
+bindings: scap.yaml
+functions: scap.python
+documentclass: report
+classes:
+- php
+- patch
+- scenario-disabled
+...
