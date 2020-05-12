@@ -78,7 +78,7 @@ DEFAULT_CONFIG = {
     'service_timeout': (float, 120.0),
     'tags_to_keep': (int, 20),
     'perform_checks': (bool, True),
-    'patch_path': (str, None),
+    'patch_path': (str, "/srv/patches"),
     'php7_admin_port': (int, None),
     'php_fpm_opcache_threshold': (int, 100),
     'cache_revs': (int, 5),

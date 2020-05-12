@@ -1139,3 +1139,124 @@ class LockManager(cli.Application):
                 utils.human_duration(self.get_duration()))
 
         return 0
+
+
+class PatchBase(cli.Application):
+    """Common code for list-patches, test-patches, and apply-patches"""
+
+    @cli.argument('--train', action='store',
+                  help='train version number (e.g., "1.35.0.wmf30")',
+                  metavar='TRAIN', required=True)
+    def main(self, *extra_args):
+        return self.real_main(*extra_args)
+
+    def real_main(self, *extra_args):
+        raise NotImplementedError()
+
+    def codedir(self):
+        """Return the full path to the train-specific staging directory"""
+        code = self.config["stage_dir"]
+        return os.path.abspath(
+            os.path.join(code, 'php-{}'.format(self.arguments.train)))
+
+    def patchdir(self):
+        """Return the full path to the train-specific patches directory"""
+        patch = self.config["patch_path"]
+        return os.path.abspath(os.path.join(patch, self.arguments.train))
+
+    def patch_files(self):
+        """Return valid patches or exit with error"""
+        patches = self.patchdir()
+        if not os.path.exists(patches):
+            sys.exit("Patch directory {} does not exist".format(patches))
+
+        filenames = utils.find_regular_files(patches)
+        invalid = self.invalid_patch_names(filenames)
+        if invalid:
+            for filename in invalid:
+                sys.stderr.write(
+                    'Bad filename for patch: {}\n'.format(filename))
+            sys.exit(1)
+        return filenames
+
+    def invalid_patch_names(self, filenames):
+        """Return any filenames that aren't correct for patch files"""
+        return [x for x in filenames if not x.endswith('.patch')]
+
+    def map_patches(self, func, codedir, patchdir, patchfiles):
+        """Call func for every patch file, in the right directory
+
+        func will probably run git apply or git am on the patch file. func
+        gets patch filename and the directory it should be applied in as
+        arguments.
+
+        If patch is for core, call func with the core sub-directory of
+        codedir. Similarly, call func with an extensions's sub-directory.
+        The extension's name is parsed from the patch file name.
+
+        """
+        for patchfile in patchfiles:
+            filename = os.path.join(patchdir, patchfile)
+            if patchfile.startswith('core/'):
+                func(filename, codedir)
+            elif patchfile.startswith('extensions/'):
+                # patchfile looks like extensions/GoatExt/01-T123.patch
+                # Split on /, take the second element as the extension
+                # name, to construct the path to the extension directory.
+                extension = patchfile.split('/')[1]
+                extdir = os.path.join(codedir, 'extensions', extension)
+                func(filename, extdir)
+            else:
+                sys.exit('Cannot understand patch file {}'.format(patchfile))
+
+    def git_apply_check(self, patchfile, dirname):
+        """Check if a patch applies cleanly"""
+        with utils.cd(dirname):
+            return sh.git('apply', '--no-3way', '--check', patchfile)
+
+    def git_am(self, patchfile, dirname):
+        """Apply a patch"""
+        with utils.cd(dirname):
+            ret = sh.git('apply', '--no-3way', '--check', patchfile)
+            if ret.exit_code != 0:
+                return ret
+            return sh.git('am', '--no-3way', patchfile)
+
+
+@cli.command('list-patches', help='List pending security patches for train')
+class ListPatches(PatchBase):
+    @cli.argument('--train', action='store',
+                  help='train version number (e.g., "1.35.0.wmf30")',
+                  metavar='TRAIN', required=True)
+    def main(self, *extra_args):
+        for filename in self.patch_files():
+            print(filename)
+        return 0
+
+
+@cli.command(
+    'test-patches',
+    help='Check that pending security patches for train can be applied')
+class TestPatches(PatchBase):
+    @cli.argument('--train', action='store',
+                  help='train version number (e.g., "1.35.0.wmf30")',
+                  metavar='TRAIN', required=True)
+    def main(self, *extra_args):
+        filenames = self.patch_files()
+        code = self.codedir()
+        patches = self.patchdir()
+        self.map_patches(self.git_apply_check, code, patches, filenames)
+        return 0
+
+
+@cli.command('apply-patches', help='Apply security patches for train')
+class ApplyPatches(PatchBase):
+    @cli.argument('--train', action='store',
+                  help='train version number (e.g., "1.35.0.wmf30")',
+                  metavar='TRAIN', required=True)
+    def main(self, *extra_args):
+        filenames = self.patch_files()
+        code = self.codedir()
+        patches = self.patchdir()
+        self.map_patches(self.git_am, code, patches, filenames)
+        return 0
