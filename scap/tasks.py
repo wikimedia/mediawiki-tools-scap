@@ -54,6 +54,7 @@ DEFAULT_RSYNC_ARGS = [
     '--delete-delay',
     '--delay-updates',
     '--compress',
+    '--new-compress',
     '--delete',
     '--exclude=**/cache/l10n/*.cdb',
     '--exclude=*.swp',
