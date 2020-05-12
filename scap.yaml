@@ -1,6 +1,9 @@
 - given: a built scap
   function: nop
 
+- given: empty directory {pathname}
+  function: mkdir
+
 - when: I run scap version
   function: run_scap_version
 
@@ -13,10 +16,51 @@
 - then: the exit code is {exit_code}
   function: exit_code_is
 
-- then: the output matches (?P<regex>.+)
+- then: the output is empty
+  function: stdout_is_empty
+
+- then: the output matches pattern (?P<pattern>.+)
   regex: true
   function: stdout_matches
 
-- then: the error output matches (?P<regex>.+)
+- then: the output matches first (?P<pattern1>.+) and later (?P<pattern2>.+)
   regex: true
-  function: stderr_matches
+  function: stdout_matches_and_later
+
+- then: the output does not match (?P<pattern>.+)
+  regex: true
+  function: stdout_does_not_match
+
+- given: an empty git repository at {pathname}
+  function: git_init
+
+- given: file {source} committed in {pathname}
+  function: git_commit_file
+
+- given: file {filename} from {source} committed in {pathname}
+  function: git_commit_file_from
+
+- when: I run scap list-patches -Dpatch_path:{patches} --train {train}
+  function: run_scap_list_patches
+
+- when: I run scap test-patches -Dstage_dir:{code} -Dpatch_path:{patches} --train {train}
+  function: run_scap_test_patches
+
+- when: I run scap apply-patches -Dstage_dir:{code} -Dpatch_path:{patches} --train {train}
+  function: run_scap_apply_patches
+
+- then: the {pathname} checkout is clean and committed
+  function: git_working_tree_is_clean
+
+- then: repository {pathname} is not changed
+  function: repo_has_not_changed
+
+- then: repository {pathname} has changed
+  function: repo_has_changed
+
+- then: the change in {pathname} matches {filename}
+  function: repo_change_matches
+
+- then: stderr contains "(?P<pattern>.+)"
+  regex: true
+  function: nop

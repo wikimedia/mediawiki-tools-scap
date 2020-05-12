@@ -831,3 +831,18 @@ def var_dump(*args, **kwargs):
 def cpus_for_jobs():
     """Get how many CPUs we can use for farming jobs out"""
     return max(multiprocessing.cpu_count() - 2, 1)
+
+
+def find_regular_files(dirname):
+    """Return sorted list of all regular files under a directory"""
+    return list(sorted(_listfiles(dirname)))
+
+
+def _listfiles(dirname):
+    """Generate each pathname for each regular file under dirname"""
+    prefix = dirname + '/'
+    for parent, _, filenames in os.walk(dirname):
+        for filename in filenames:
+            pathname = os.path.join(parent, filename)
+            if os.path.isfile(pathname):
+                yield pathname[len(prefix):]
