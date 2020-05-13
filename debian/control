@@ -10,7 +10,6 @@ Priority: optional
 Build-Depends:
   debhelper (>= 9),
   dh-python (>= 1.2014),
-  bash-completion,
   python-all (>= 2.7),
   python-setuptools,
   python-concurrent.futures,
@@ -31,7 +30,7 @@ Package: scap
 Architecture: all
 Depends: ${python:Depends}, ${shlibs:Depends}, ${misc:Depends},
   python-concurrent.futures, python-jinja2, python-psutil, python-pygments,
-  python-yaml, python-requests, git, bash-completion, python-six,
+  python-yaml, python-requests, git, python-six,
   python-configparser
 Breaks: ${python:Breaks}
 Provides: ${python:Provides}
