@@ -21,22 +21,41 @@ from __future__ import absolute_import
 from itertools import chain
 from _struct import Struct
 
+import sys
 
-def py_djb_hash(s):
-    u"""
-    Return the value of DJB's hash function for the given 8-bit string.
 
-    >>> py_djb_hash('')
-    5381
-    >>> py_djb_hash('\x01')
-    177572
-    >>> py_djb_hash('€')
-    193278953
-    """
-    h = 5381
-    for c in s:
-        h = (((h << 5) + h) ^ ord(c)) & 0xffffffff
-    return h
+if sys.version_info.major == 2:
+    def py_djb_hash(s):
+        u"""
+        Return the value of DJB's hash function for the given 8-bit string.
+
+        >>> py_djb_hash('')
+        5381
+        >>> py_djb_hash('\x01')
+        177572
+        >>> py_djb_hash('€')
+        193278953
+        """
+        h = 5381
+        for c in s:
+            h = (((h << 5) + h) ^ ord(c)) & 0xffffffff
+        return h
+else:
+    def py_djb_hash(s):
+        u"""
+        Return the value of DJB's hash function for the given 8-bit string.
+
+        >>> py_djb_hash('')
+        5381
+        >>> py_djb_hash('\x01')
+        177572
+        >>> py_djb_hash('€')
+        193278953
+        """
+        h = 5381
+        for c in s.encode('UTF-8'):
+            h = (((h << 5) + h) ^ c) & 0xffffffff
+        return h
 
 
 # 2014-03-04 bd808: removed try block for importing C hash implementation
