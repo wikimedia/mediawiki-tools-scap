@@ -18,6 +18,7 @@ Build-Depends:
   python-yaml,
   python-requests,
   git,
+  bash-completion,
   python-six,
   python-configparser,
   python-psutil,
