@@ -1,10 +1,10 @@
-Source: scap
+ource: scap
 Maintainer: Wikimedia Foundation Release Engineering <releng@wikimedia.org>
 Uploaders: Tyler Cipriani <tcipriani@wikimedia.org>,
            Dan Duvall <dduvall@wikimedia.org>,
-           Chad Horohoe <chadh@wikimedia.org>,
            Mukunda Modell <mmodell@wikimedia.org>,
            Antoine Musso <hashar@free.fr>,
+           Lars Wirzenius <lwirzenius@wikimedia.org>
 Section: python
 Priority: optional
 Build-Depends:
