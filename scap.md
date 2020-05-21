@@ -41,16 +41,30 @@ then the output matches ^\d+(\.\d+)+(-\S+)?$
 ~~~
 
 
-# scap sync without --canary-wait-time works
+# scap sync fails
+
+The `scap sync` command is being renamed to `scap sync-world`. The old
+command now gives an error.
+
+~~~scenario
+given a built scap
+when I run scap sync
+then the exit code is 1
+then the error output matches scap sync-world
+~~~
+
+
+
+# scap sync-world without --canary-wait-time works
 
 The `scap sync` command takes an optional `--canary-wait-time` option.
 Make sure it works without the option or rather fails in the right way.
 
 ~~~scenario
 given a built scap
-when I run scap sync
+when I run scap sync-world
 then the exit code is 1
-then the output matches scap failed: RuntimeError sync requires SSH agent forwarding
+then the output matches scap failed: RuntimeError sync-world requires SSH agent forwarding
 ~~~
 
 

@@ -7,9 +7,16 @@
 - when: I run scap sync
   function: run_scap_sync
 
+- when: I run scap sync-world
+  function: run_scap_sync_world
+
 - then: the exit code is {exit_code}
   function: exit_code_is
 
 - then: the output matches (?P<regex>.+)
   regex: true
   function: stdout_matches
+
+- then: the error output matches (?P<regex>.+)
+  regex: true
+  function: stderr_matches
