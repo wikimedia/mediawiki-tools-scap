@@ -17,11 +17,19 @@ def run_scap_sync(ctx):
     scap = _binary('bin', 'scap')
     _runcmd(ctx, [scap, 'sync'])
 
+def run_scap_sync_world(ctx):
+    scap = _binary('bin', 'scap')
+    _runcmd(ctx, [scap, 'sync-world'])
+
 def exit_code_is(ctx, exit_code=None):
     assert_eq(ctx['exit'], int(exit_code))
 
 def stdout_matches(ctx, regex=None):
     assert_ne(re.search(regex, ctx['stdout']), None)
+
+def stderr_matches(ctx, regex=None):
+    print('stderr:', repr(ctx['stderr']))
+    assert_ne(re.search(regex, ctx['stderr']), None)
 
 
 def _binary(*basenames):
