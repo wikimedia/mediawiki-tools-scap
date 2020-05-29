@@ -112,8 +112,20 @@ command fails, the train should stop until the problem can be fixed.
 Scap has two subcommands for the patching process:
 
 * `scap list-patches` lists all the patches for a given train
+* `scap test-patches` tests all the patches for a given train apply
+  cleanly
 * `scap apply-patches` actually applies the patches, if they can all
   be applied
+
+Note a caveat about **test-patches**: if a patch changes code changed
+by a previous patch, test-patches will fail, since it checks the
+patches apply against the clean source files in git. This means it's
+possibly that test-patches fails even though apply-patches would
+succeed. This has historically been a rare thing, but it's possible it
+will happen. (The fix for this would be for test-patches to actually
+apply the patches, which is somewhat complicated; if this starts
+happening, we will make the fix, but it's not worth it if it happens
+very rarely.)
 
 We verify the patching process by creating dummy git repositories for
 MW core and extensions, and dummy patches, and then verifying that the
