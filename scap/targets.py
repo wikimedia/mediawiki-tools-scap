@@ -97,9 +97,9 @@ def limit_target_hosts(pattern, hosts):
         patterns = [pattern]
 
     targets = []
-    for pattern in patterns:
+    for a_pattern in patterns:
         # remove any leading '!'
-        test_pattern = pattern.lstrip('!')
+        test_pattern = a_pattern.lstrip('!')
 
         # change '.' to literal period
         test_pattern = test_pattern.replace('.', r'\.')
