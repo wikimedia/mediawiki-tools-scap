@@ -3,6 +3,20 @@ scap (3.15.0-1) unstable; urgency=low
   * UNRELEASED
   * Added myself to debian/changelog: Uploaders. Dropped Chad, who doesn't
     work for WMF anymore.
+  * "scap sync": if --force is not used, prompt user whether they want to
+    use this command. "scap sync" is also renamed to "scap sync-world" to
+    further avoid people running it accidentally.
+  * All YAML loading is now done using the safe loader, for security.
+  * Some changes for Python 3 compatibility.
+  * Use rsync with --new-compress to use less CPU.
+  * Run-time dependency on bash-completion dropped.
+  * The Uploaders field in debian/control has been updated to reflect
+    current reality.
+  * New subcommands: list-patches, test-patches, apply-patches.
+  * Some plugins from the mediawiki-config repository have been moved to the
+    Scap repository.
+  * Bug fix: the target patterns now work correctly whan both negation (!)
+    and ranges ([]) are used.
 
  -- Lars Wirzenius <lwirzenius@wikimedia.org>  Thu, 02 Apr 2020 20:37:00 +0300
 
