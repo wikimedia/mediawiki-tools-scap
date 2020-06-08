@@ -1,6 +1,5 @@
 scap (3.15.0-1) unstable; urgency=low
 
-  * UNRELEASED
   * Added myself to debian/changelog: Uploaders. Dropped Chad, who doesn't
     work for WMF anymore.
   * "scap sync": if --force is not used, prompt user whether they want to
