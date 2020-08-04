@@ -74,7 +74,7 @@ $ git status
 
 Push the changes directly to Gerrit. This is a rare exception to the
 rule that all changes should be reviewed, and hopefully Scap will be
-less of a SPoF in the future so that this exception can cease to
+less of a SPOF in the future so that this exception can cease to
 exist.
 
 ```sh
@@ -121,7 +121,7 @@ To build the Debian package for the beta cluster:
 
 * install new package on all beta hosts with Scap already installed
 
-    * on the #wikimedia-operations IRC channel, say you're tesing
+    * on the #wikimedia-operations IRC channel, say you're testing
       Scap: `!log testing upcoming Scap release on beta`
     * log into the cumin02 host
     * run: `sudo LC_ALL=C apt-get update && apt-get policy scap`
