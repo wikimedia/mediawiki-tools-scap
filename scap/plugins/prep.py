@@ -16,9 +16,11 @@ SOURCE_URL = 'https://gerrit.wikimedia.org/r/'
 
 def version_parser(ver):
     """Validate our version number formats."""
-    try:
-        return re.match(r"(1\.\d\d\.\d+-wmf\.\d+|master)", ver).group(0)
-    except re.error:
+    match = re.match(r"(1\.\d\d\.\d+-wmf\.\d+|master)", ver)
+
+    if match:
+        return match.group(0)
+    else:
         raise argparse.ArgumentTypeError(
             "Branch '%s' does not match required format" % ver)
 
