@@ -140,7 +140,7 @@ sets. Their contents doesn't really matter, except for the following:
 * `patch` applies to the unpatched file
 * `conflict` doesn't apply to the unpatched file due to a conflict
 
-```{.file #code.php .php .numberLines}
+```{.file #code.php .php .numberLines add-newline=no}
 <?php
 /* Pretend this is some PHP code. */
 ```
