@@ -189,7 +189,7 @@ class AbstractSync(cli.Application):
                 tasks.cache_git_info(version, self.config)
 
     def _check_fatals(self):
-        mwscript = sh.Command(sh.which('mwscript'))
+        mwscript = sh.Command('mwscript')
         errbuf = StringIO()
         exit_code = None
         errmsg = 'Scap failed!: Call to mwscript eval.php {}: {}'
