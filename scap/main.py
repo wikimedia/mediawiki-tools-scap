@@ -203,8 +203,7 @@ class AbstractSync(cli.Application):
             self.announce(errmsg.format("returned", e.exit_code))
             if e.stdout:
                 self.announce("stdout: {}".format(e.stdout))
-            if e.stderr:
-                self.announce("stderr: {}".format(e.stderr))
+            self.announce("stderr: {}".format(errbuf.getvalue().strip()))
             raise RuntimeError(errmsg.format('returned', e.exit_code))
         finally:
             errbuf.close()
