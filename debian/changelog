@@ -1,3 +1,9 @@
+scap (3.16.0-1) unstable; urgency=low
+
+  * UNRELEASED
+
+ -- Lars Wirzenius <lwirzenius@wikimedia.org>  Tue, 25 Aug 2020 20:40:33 +0300
+
 scap (3.15.0-1) unstable; urgency=low
 
   * Feature: Rename "scap sync" to "scap sync-world". The old command
