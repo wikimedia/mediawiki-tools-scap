@@ -113,7 +113,7 @@ To build the Debian package for the beta cluster:
 
   * ZUUL_URL: https://gerrit.wikimedia.org/r
   * ZUUL_PROJECT: mediawiki/tools/scap.git
-  * ZUUL_REF: refs/heads/master
+  * ZUUL_REF: master
   * ZUUL_VOTING: 0
 
 * if scap-beta-deb finishes successfully, it triggers the
@@ -124,7 +124,7 @@ To build the Debian package for the beta cluster:
     * on the #wikimedia-operations IRC channel, say you're testing
       Scap: `!log testing upcoming Scap release on beta`
     * log into the cumin02 host
-    * run: `sudo LC_ALL=C apt-get update && apt-get policy scap`
+    * run: `sudo LC_ALL=C apt-get update && apt-cache policy scap`
     * find version of new package and fix it in the command line below
     * run: `sudo cumin 'O{project:deployment-prep}' 'command -v scap &&
       apt-get install -y --allow-downgrades scap=VERSION || echo "no

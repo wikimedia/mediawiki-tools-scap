@@ -702,7 +702,7 @@ class ScapWorld(AbstractSync):
             utils.cpus_for_jobs())
 
     def _after_sync_common(self):
-        super(Scap, self)._after_sync_common()
+        super(ScapWorld, self)._after_sync_common()
 
         # Bug 63659: Compile deploy_dir/wikiversions.json to cdb
         cmd = '{} wikiversions-compile'.format(self.get_script_path())
