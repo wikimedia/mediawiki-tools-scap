@@ -8,7 +8,6 @@ scap (3.15.0-1) unstable; urgency=low
     "scap apply-patches" for train security patches.
   * Feature: Scap plugins from mediawiki-config have been added to the
     main Scap repository.
-  * Security: All YAML loading is now done using the safe loader.
   * Bug: Regular expression for parsing exceptions in sh.py wasn't
     using raw strings.
   * Bug: Fixes to the subplot acceptance testing stuff to work with
