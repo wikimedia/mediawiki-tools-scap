@@ -1,21 +1,43 @@
 scap (3.15.0-1) unstable; urgency=low
 
-  * Added myself to debian/changelog: Uploaders. Dropped Chad, who doesn't
-    work for WMF anymore.
-  * "scap sync": if --force is not used, prompt user whether they want to
-    use this command. "scap sync" is also renamed to "scap sync-world" to
-    further avoid people running it accidentally.
-  * All YAML loading is now done using the safe loader, for security.
-  * Some changes for Python 3 compatibility.
-  * Use rsync with --new-compress to use less CPU.
-  * Run-time dependency on bash-completion dropped.
-  * The Uploaders field in debian/control has been updated to reflect
-    current reality.
-  * New subcommands: list-patches, test-patches, apply-patches.
-  * Some plugins from the mediawiki-config repository have been moved to the
-    Scap repository.
-  * Bug fix: the target patterns now work correctly whan both negation (!)
-    and ranges ([]) are used.
+  * Feature: Rename "scap sync" to "scap sync-world". The old command
+    now gives an error message and tells user to use the new command
+    instead. See https://phabricator.wikimedia.org/T250302 and give
+    feedback if this bites you.
+  * Feature: Add "scap list-patches", "scap test-patches", and
+    "scap apply-patches" for train security patches.
+  * Feature: Scap plugins from mediawiki-config have been added to the
+    main Scap repository.
+  * Security: All YAML loading is now done using the safe loader.
+  * Bug: Regular expression for parsing exceptions in sh.py wasn't
+    using raw strings.
+  * Bug: Fixes to the subplot acceptance testing stuff to work with
+    current Subplot tool.
+  * Bug: Target host patterns with both ! and [] didn't used to work.
+  * Refactor: avoid using a confusing variable name (lower case ell).
+  * Packaging: drop run-time dependency on bash-completion. It's not
+    necessary. If bash-completion is installed, completion works.
+    Build-dependency is necessary, though.
+  * Packaging: Add myself to the debian/control Uploaders field, and
+    drop Chad. This should reflect current reality.
+  * Python 3: Various changes for Python 3 compatibility, while
+    keeping Python 2 compatibility.
+
+  [Ahmon Dancy]
+  * Feature: drop unused "scap swat" command.
+  * Bug: Fix version parsing so it actually notices problems.
+  * Bug: Fix unclear error message if mwscript is not found.
+
+  [Antoine Musso]
+  * Bug: Fix references to obsolete name tin.eqiad.wmnet.
+  * Test: Pin flake8 version so we are not surprised by a newer
+    version.
+  * Performance: Use rsync's newer compression algorithm to use less
+    CPU.
+
+  [Tyler Cipriani]
+  * Feature: Make user confirm they intend it, before running "scap
+    sync". Can be bypassed with the --force option.
 
  -- Lars Wirzenius <lwirzenius@wikimedia.org>  Thu, 02 Apr 2020 20:37:00 +0300
 
