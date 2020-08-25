@@ -958,7 +958,7 @@ class Deploy(cli.Application):
         # environment-specific checks
         for check_path in reversed(checks_paths):
             with open(check_path) as f:
-                checks = utils.ordered_load(f, yaml.SafeLoader)['checks']
+                checks = utils.ordered_load(f, Loader=yaml.Loader)['checks']
                 checks_dict.update(checks)
 
         if not checks_dict.keys():
