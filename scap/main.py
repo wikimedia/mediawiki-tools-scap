@@ -664,24 +664,6 @@ class ScapWorld(AbstractSync):
                   metavar='<time in secs>')
     @cli.argument('message', nargs='*', help='Log message for SAL')
     def main(self, *extra_args):
-        # If we're running interactively then warn people: this is not the
-        # command you're looking for.
-        if not self.arguments.force and sys.stdout.isatty():
-            warningtext = """
-"scap sync-world" rebuilds all l10n and syncs all files.
-To deploy a a single file or directory use "scap sync-file" instead.
-
-Continue running "scap sync-world"?
-"""
-            if not utils.confirm(''.join([
-                    ansi.esc(ansi.FG_RED, ansi.BRIGHT),
-                    '[WARNING] ', ansi.reset(),
-                    warningtext.strip()
-                ])
-            ):
-                print('Sync aborted by user...')
-                return 0
-
         try:
             if any('canary_wait_time' in s for s in self.arguments.defines):
                 raise ValueError('Canary wait time must be defined with '
