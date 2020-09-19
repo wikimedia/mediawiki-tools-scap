@@ -76,9 +76,10 @@ class AbstractSync(cli.Application):
         with lock.Lock(self.get_lock_file(), self.arguments.message):
             self._check_sync_flag()
             if not self.arguments.force:
-                self.get_logger().info(
-                    'Checking for new runtime errors locally')
-                self._check_fatals()
+                if self._can_run_check_fatals():
+                    self.get_logger().info(
+                        'Checking for new runtime errors locally')
+                    self._check_fatals()
             else:
                 self.get_logger().warning('check_fatals Skipped by --force')
             self._before_cluster_sync()
@@ -187,6 +188,20 @@ class AbstractSync(cli.Application):
         with log.Timer('cache_git_info', self.get_stats()):
             for version, wikidb in self.active_wikiversions().items():
                 tasks.cache_git_info(version, self.config)
+
+    def _can_run_check_fatals(self):
+        """
+        _check_fatals will not succeed if /srv/mediawiki/wikiversions.php
+        hasn't been prepared yet. This will be the case if 'scap
+        sync-world' has never been run.  Running 'scap sync-world'
+        will fix everything up.
+        """
+        wikiversionsphp = os.path.join(
+            self.config['deploy_dir'],
+            utils.get_realm_specific_filename("wikiversions.php",
+                                              self.config['wmf_realm'],
+                                              self.config['datacenter']))
+        return os.path.exists(wikiversionsphp)
 
     def _check_fatals(self):
         mwscript = sh.Command('mwscript')
