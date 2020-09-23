@@ -307,7 +307,10 @@ class LogstashFormatter(logging.Formatter):
 
 class SyslogFormatter(LogstashFormatter):
     def format(self, record):
-        return 'scap: ' + super(SyslogFormatter, self).format(record)
+        # Add the 'cee cookie' to signal json-in-syslog
+        # The cookie is recognized by rsyslog for json parsing:
+        # https://www.rsyslog.com/doc/v8-stable/configuration/modules/mmjsonparse.html
+        return 'scap: @cee: ' + super(SyslogFormatter, self).format(record)
 
 
 def reporter(message, fancy=False):
