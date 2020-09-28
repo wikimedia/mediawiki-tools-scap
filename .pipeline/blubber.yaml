@@ -1,7 +1,7 @@
 version: v4
-base: docker-registry.wikimedia.org/wikimedia-jessie
+base: docker-registry.wikimedia.org/wikimedia-stretch
 apt:
-  packages: [python2.7, git, php5-cli]
+  packages: [python2.7, git, php-cli]
 python:
   version: python2.7
 runs:
