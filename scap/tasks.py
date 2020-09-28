@@ -508,7 +508,8 @@ def update_l10n_cdb_wrapper(args, logger=None):
 
 
 def _call_rebuildLocalisationCache(
-        wikidb, out_dir, use_cores=1, lang=None, force=False, quiet=False):
+        wikidb, out_dir, use_cores=1,
+        php_l10n=False, lang=None, force=False, quiet=False):
     """
     Helper for update_localization_cache.
 
@@ -551,6 +552,10 @@ def _call_rebuildLocalisationCache(
                 'temp_dir': temp_dir,
                 'out_dir': out_dir
             })
+
+    # PHP l10n generation feature flag
+    if not php_l10n:
+        return
 
     # Doing it all over again, with php array instead.
     # The cdb calls will be gone soon: T99740
@@ -624,7 +629,13 @@ def update_localization_cache(version, wikidb, verbose, cfg, logger=None):
         # mergeMessageFileList.php needs a l10n file
         logger.info('Bootstrapping l10n cache for %s', version)
         _call_rebuildLocalisationCache(
-            wikidb, cache_dir, use_cores, lang='en', quiet=True)
+            wikidb,
+            cache_dir,
+            use_cores,
+            cfg['php_l10n'],
+            lang='en',
+            quiet=True
+        )
         # Force subsequent cache rebuild to overwrite bootstrap version
         force_rebuild = True
 
@@ -669,7 +680,13 @@ def update_localization_cache(version, wikidb, verbose, cfg, logger=None):
         'Updating LocalisationCache for %s '
         'using %s thread(s)' % (version, use_cores))
     _call_rebuildLocalisationCache(
-        wikidb, cache_dir, use_cores, force=force_rebuild, quiet=quiet_rebuild)
+        wikidb,
+        cache_dir,
+        use_cores,
+        php_l10n=cfg['php_l10n'],
+        force=force_rebuild,
+        quiet=quiet_rebuild
+    )
 
     # Include JSON versions of the CDB files and add MD5 files
     logger.info('Generating JSON versions and md5 files')

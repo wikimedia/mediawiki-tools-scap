@@ -81,6 +81,7 @@ DEFAULT_CONFIG = {
     'patch_path': (str, "/srv/patches"),
     'php7_admin_port': (int, None),
     'php_fpm_opcache_threshold': (int, 100),
+    'php_l10n': (bool, False),  # Feature flag for PHP l10n file generation
     'cache_revs': (int, 5),
     'use_syslog': (bool, False),
 }
