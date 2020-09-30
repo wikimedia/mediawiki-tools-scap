@@ -547,10 +547,17 @@ class SecurityPatchCheck(cli.Application):
 class CompileWikiversions(cli.Application):
     """Compile wikiversions.json to wikiversions.php."""
 
+    @cli.argument('--staging', action='store_true',
+                  help='Compile wikiversions in staging directory')
     def main(self, *extra_args):
-        self._run_as('mwdeploy')
-        self._assert_current_user('mwdeploy')
-        tasks.compile_wikiversions('deploy', self.config)
+        if self.arguments.staging:
+            source_tree = 'stage'
+        else:
+            source_tree = 'deploy'
+            self._run_as('mwdeploy')
+            self._assert_current_user('mwdeploy')
+
+        tasks.compile_wikiversions(source_tree, self.config)
         return 0
 
 
