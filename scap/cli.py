@@ -94,7 +94,9 @@ class Application(object):
 
     def get_script_path(self):
         """Qualify the path to the scap script."""
-        return os.path.join(os.path.dirname(sys.argv[0]), 'scap')
+
+        scap = os.path.join(os.path.dirname(sys.argv[0]), 'scap')
+        return os.environ.get('SCAP', scap)
 
     def get_keyholder_key(self):
         """Get the public key for IdentityFile use in ssh."""
