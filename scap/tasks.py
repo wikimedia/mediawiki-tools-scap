@@ -191,14 +191,14 @@ def compile_wikiversions(source_tree, cfg, logger=None):
     """
     Validate and compile the wikiversions.json file.
 
-    1. Find the realm specific filename for wikiversions.json in staging area
+    1. Find the realm specific filename for wikiversions.json in specified tree
+       (deploy or staging)
     2. Validate that all versions mentioned in the json exist as directories
-       in the staging area
-    3. Validate that all wikis listed in the realm specific all.dblist exist
-       in the json
-    4. Create a temporary CDB file from the json contents
-    5. Create a temporary php file from the json contents
-    6. Atomically rename the temporary php to the realm specific
+       in the specified tree.
+    3. Validate that all wikis in the json file are members of (realm-specific)
+       dblists/all.dblist.
+    4. Create a temporary php file from the json contents
+    5. Atomically rename the temporary php to the realm specific
        wikiversions.php filename
 
     :param source_tree: Source tree to read file from: 'deploy' or 'stage'
@@ -221,7 +221,9 @@ def compile_wikiversions(source_tree, cfg, logger=None):
     for dbname, version in wikiversions.items():
         version_dir = os.path.join(working_dir, version)
         if not os.path.isdir(version_dir):
-            raise IOError(errno.ENOENT, 'Invalid version dir', version_dir)
+            raise IOError(errno.ENOENT,
+                          'Invalid/unavailable version dir',
+                          version_dir)
 
     # Get the list of all wikis
     all_dblist_file = utils.get_realm_specific_filename(
@@ -229,11 +231,13 @@ def compile_wikiversions(source_tree, cfg, logger=None):
         cfg['wmf_realm'], cfg['datacenter'])
     all_dbs = set(line.strip() for line in open(all_dblist_file))
 
-    # Validate that all wikis are in the json file
+    # Validate that all wikis in the json file are members of (realm-specific)
+    # dblists/all.dblist
     missing_dbs = [db for db in wikiversions.keys() if db not in all_dbs]
     if missing_dbs:
-        raise KeyError('Missing %d expected dbs in %s: %s' % (
-            len(missing_dbs), json_file, ', '.join(missing_dbs)))
+        raise KeyError('%d dbs from %s are missing from %s: %s' % (
+            len(missing_dbs), json_file, all_dblist_file,
+            ', '.join(missing_dbs)))
 
     # Build the php version
     php_code = '<?php\nreturn array(\n%s\n);\n' % json.dumps(
