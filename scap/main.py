@@ -136,7 +136,14 @@ class AbstractSync(cli.Application):
                 if not self.arguments.force:
                     update_apaches.exclude_hosts(canaries)
                 update_apaches.shuffle()
-                update_apaches.command(self._apache_sync_command(proxies))
+                if proxies:
+                    targets = proxies
+                else:
+                    # scap pull will try to rsync from localhost if it doesn't
+                    # get a list of deploy servers, so use the list of
+                    # masters if there no proxies.
+                    targets = self.get_master_list()
+                update_apaches.command(self._apache_sync_command(targets))
                 update_apaches.progress(
                     log.reporter(
                         'sync-apaches',
