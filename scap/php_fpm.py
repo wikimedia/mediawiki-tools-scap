@@ -8,6 +8,7 @@
 from __future__ import absolute_import
 
 import math
+import sys
 
 from scap import log
 from scap import utils
@@ -28,11 +29,18 @@ class PHPRestart(object):
         self.cmd = None
 
         if cfg.get('php_fpm_restart_script'):
+            threshold = cfg['php_fpm_opcache_threshold']
+
+            # Override opcache threshold in cases we always want to restart
+            if cfg.get('php_fpm_always_restart'):
+                threshold = sys.maxsize
+
             self.cmd = "{} {} {}".format(
                 cfg['php_fpm_restart_script'],
                 cfg['php_fpm'],
-                str(cfg['php_fpm_opcache_threshold'])
+                str(threshold)
             )
+
         self.job = job
 
     def _build_job(self, targets):
