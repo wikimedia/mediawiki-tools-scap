@@ -206,8 +206,7 @@ class AbstractSync(cli.Application):
         wikiversionsphp = os.path.join(
             self.config['deploy_dir'],
             utils.get_realm_specific_filename("wikiversions.php",
-                                              self.config['wmf_realm'],
-                                              self.config['datacenter']))
+                                              self.config['wmf_realm']))
         return os.path.exists(wikiversionsphp)
 
     def _check_fatals(self):

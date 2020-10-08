@@ -24,8 +24,7 @@ class UpdateWikiversions(cli.Application):
     def update_wikiversions_json(self):
         """Change all the requested dblist entries to the new version."""
         json_path = utils.get_realm_specific_filename(
-            'wikiversions.json', self.config['wmf_realm'],
-            self.config['datacenter'])
+            'wikiversions.json', self.config['wmf_realm'])
 
         db_list_name = os.path.basename(
             os.path.splitext(self.arguments.dblist)[0])
