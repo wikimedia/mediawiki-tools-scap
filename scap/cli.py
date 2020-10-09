@@ -416,7 +416,8 @@ def all_commands():
     COMMAND_REGISTRY.clear()
     all_commands = builtin_commands.copy()
 
-    scap.plugins.load_plugins()
+    plugin_dir = os.path.dirname(scap.plugins.__file__)
+    scap.plugins.load_plugins(plugin_dir=plugin_dir)
 
     for key in COMMAND_REGISTRY.keys():
         if key in builtin_commands:

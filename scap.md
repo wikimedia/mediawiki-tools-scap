@@ -26,6 +26,113 @@ following sources.
   - version 3: <https://wikitech.wikimedia.org/wiki/Scap3>
 
 
+# All expected subcommands exist
+
+This scenario verifies that every Scap subcommand that should exist,
+does exist, by running it with the `--help` option. This means that the
+commands exist and follow the normal Scap user interface pattern, and if
+they're provided by a plugin, that the plugin can be found.
+
+~~~scenario
+given a built scap
+
+when I run scap apply-patches --help
+then the exit code is 0
+
+when I run scap cdb-json-refresh --help
+then the exit code is 0
+
+when I run scap cdb-rebuild --help
+then the exit code is 0
+
+when I run scap clean --help
+then the exit code is 0
+
+when I run scap deploy --help
+then the exit code is 0
+
+when I run scap deploy-local --help
+then the exit code is 0
+
+when I run scap deploy-log --help
+then the exit code is 0
+
+when I run scap deploy-mediawiki --help
+then the exit code is 0
+
+when I run scap fortune --help
+then the exit code is 0
+
+when I run scap list-patches --help
+then the exit code is 0
+
+when I run scap lock --help
+then the exit code is 0
+
+when I run scap patch --help
+then the exit code is 0
+
+when I run scap prep --help
+then the exit code is 0
+
+when I run scap pull --help
+then the exit code is 0
+
+when I run scap pull-master --help
+then the exit code is 0
+
+when I run scap say --help
+then the exit code is 0
+
+when I run scap security-check --help
+then the exit code is 0
+
+when I run scap sync --help
+then the exit code is 0
+
+when I run scap sync-canary --help
+then the exit code is 0
+
+when I run scap sync-dir --help
+then the exit code is 0
+
+when I run scap sync-file --help
+then the exit code is 0
+
+when I run scap sync-l10n --help
+then the exit code is 0
+
+when I run scap sync-wikiversions --help
+then the exit code is 0
+
+when I run scap sync-world --help
+then the exit code is 0
+
+when I run scap test-patches --help
+then the exit code is 0
+
+when I run scap test-progress --help
+then the exit code is 0
+
+when I run scap update-interwiki-cache --help
+then the exit code is 0
+
+when I run scap update-wikiversions --help
+then the exit code is 0
+
+when I run scap version --help
+then the exit code is 0
+
+when I run scap wikiversions-compile --help
+then the exit code is 0
+
+when I run scap wikiversions-inuse --help
+then the exit code is 0
+
+when I run scap wmf-beta-autoupdate --help
+then the exit code is 0
+~~~
+
 # scap version
 
 This is a smoke test: if `scap version` runs, outputs something that

@@ -44,6 +44,9 @@ def git_commit_file_from(ctx, filename=None, source=None, pathname=None):
 
     _save_git_tip(ctx, pathname, 'master')
 
+def run_scap_subcommand_help(ctx, subcommand=None):
+    _scap(ctx, [subcommand, "--help"])
+
 def run_scap_version(ctx):
     _scap(ctx, ['version'])
 
