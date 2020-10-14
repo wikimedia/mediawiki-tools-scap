@@ -1,0 +1,48 @@
+#!/bin/bash
+#
+# Build a Debian package out of Scap. This is expected to be run in a
+# suitable build environment, with all build dependencies and tools
+# installed. The actual build is done by copying all the source from
+# the current working directory to the build directory specified as
+# the command line argument to this script. The built packages go the
+# same place. This keeps the original source clean from any side
+# effects of doing a build. (Technically, the source gets copied into
+# a subdirectory of the specified build directory.)
+#
+# You should probably use the build-deb-in-docker script instead of
+# this one.
+
+set -xeuo pipefail
+
+# Get the directory where we put the build results, and temporary
+# build tree.
+build="$1"
+
+# Get the upstream version number. It's the full version number up to
+# the last dash, if any.
+V="$(dpkg-parsechangelog -SVersion | sed 's/-[^-]*//')"
+
+# Create the tarball for this version, using only files in git. This
+# avoids putting any extra files into the build tree.
+
+tarball="scap_$V.orig.tar.gz"
+git archive HEAD | gzip > "$build/$tarball"
+
+# Create a new directory where we do the actual build so that we don't
+# pollute the real, bind-mounted source tree.
+
+rm -rf "$build/scap"
+mkdir "$build/scap"
+cd "$build/scap"
+tar -xf "$build/$tarball"
+
+# Do the build.
+dpkg-buildpackage -us -uc
+
+# Run lintian.
+lintian --allow-root ../*.changes
+
+# Set ownerships of the whole tree so it's not owned by root. Copy the
+# ownership of the $build directory to everything in it.
+chown -R --reference "$build" "$build" "$build/src"
+

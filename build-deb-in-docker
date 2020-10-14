@@ -1,0 +1,42 @@
+#!/bin/bash
+
+set -euo pipefail
+
+hideok=
+if command -v chronic > /dev/null
+then
+    hideok=chronic
+fi
+
+if [ "$#" -gt 0 ] && [ "$1" == "-v" ]
+then
+    hideok=
+    shift 1
+fi
+
+if [ "$#" = 0 ]
+then
+    echo "Usage: $0 [-v] BUILD-DIR" 1>&2
+    exit 1
+fi
+
+tmp="$(mktemp)"
+
+trap 'rm -f "$tmp"' EXIT
+
+builddir="$1"
+
+# Create build directory and the src directory underneath it, if
+# either is missing. If we don't create src here, Docker will create
+# it as root, and it will remain as root afterwards, which is
+# unwanted.
+mkdir -p "$builddir/src"
+
+# Make builddir absolute.
+builddir="$(cd "$builddir" && pwd)"
+
+$hideok docker build --iidfile "$tmp" .
+$hideok docker run --rm \
+       --mount type=bind,source="$builddir",target=/build \
+       --mount type=bind,source="$(pwd)",target=/build/src \
+       "$(cat "$tmp")"
