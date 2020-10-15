@@ -157,7 +157,7 @@ class Application(object):
         """
         return utils.get_active_wikiversions(
             self.config[source_tree + '_dir'],
-            self.config['wmf_realm'], self.config['datacenter'])
+            self.config['wmf_realm'])
 
     def _process_arguments(self, args, extra_args):
         """

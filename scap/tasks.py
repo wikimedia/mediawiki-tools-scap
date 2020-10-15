@@ -210,7 +210,7 @@ def compile_wikiversions(source_tree, cfg, logger=None):
     # Find the realm specific wikiversions file names
     base_file = os.path.join(working_dir, 'wikiversions.json')
     json_file = utils.get_realm_specific_filename(
-        base_file, cfg['wmf_realm'], cfg['datacenter'])
+        base_file, cfg['wmf_realm'])
     base_name = os.path.splitext(json_file)[0]
     php_file = base_name + '.php'
 
@@ -228,7 +228,7 @@ def compile_wikiversions(source_tree, cfg, logger=None):
     # Get the list of all wikis
     all_dblist_file = utils.get_realm_specific_filename(
         os.path.join(working_dir, 'dblists', 'all.dblist'),
-        cfg['wmf_realm'], cfg['datacenter'])
+        cfg['wmf_realm'])
     all_dbs = set(line.strip() for line in open(all_dblist_file))
 
     # Validate that all wikis in the json file are members of (realm-specific)
