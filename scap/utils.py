@@ -658,7 +658,10 @@ def get_active_wikiversions(directory, realm):
     Get an ordered collection of active MediaWiki versions.
 
     :returns: collections.OrderedDict of {version:wikidb} values sorted by
-                version number in ascending order
+              version number in ascending order.  'wikidb' will be the
+              first-seen wikidb for 'version'.  This can be used by
+              operations that need a db but don't care which wiki's db is
+              used.
     """
     path = get_realm_specific_filename(
         os.path.join(directory, 'wikiversions.json'), realm)
@@ -672,8 +675,8 @@ def get_active_wikiversions(directory, realm):
         if version not in versions:
             versions[version] = wikidb
 
-    # Convert to list of (version, db) tuples sorted by version number
-    # and then convert that list to an OrderedDict
+    # Convert to list of (version, representative-db) tuples sorted by version
+    # number and then convert that list to an OrderedDict
     sorted_versions = collections.OrderedDict(
         sorted(versions.items(),
                key=lambda v: distutils.version.LooseVersion(v[0])))

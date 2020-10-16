@@ -152,8 +152,12 @@ class Application(object):
         Get an ordered collection of active MediaWiki versions.
 
         :param source_tree: Source tree to read file from: 'deploy' or 'stage'
-        :returns: collections.OrderedDict of {version:wikidb} values sorted by
-                  version number in ascending order
+
+       :returns: collections.OrderedDict of {version:wikidb} values sorted by
+                 version number in ascending order.  'wikidb' will be the
+                 first-seen wikidb for 'version'.  This can be used by
+                 operations that need a db but don't care which wiki's db is
+                 used.
         """
         return utils.get_active_wikiversions(
             self.config[source_tree + '_dir'],
