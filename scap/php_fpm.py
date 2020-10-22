@@ -62,7 +62,7 @@ class PHPRestart(object):
         Run php-fpm restart on the localhost
 
         If the restart fails, we still want to continue the sync
-        :return: boolean -- has and error
+        :return: boolean -- True if an exception was caught.
         """
         if not self.cmd:
             return False
@@ -103,11 +103,11 @@ def get_batch_size(targets, percentage=10.0):
     return int(math.ceil(len(targets) * percentage/100.0))
 
 
-def restart_helper(groups):
+def restart_helper(targets):
     """
     Wrapper to make pickling with multiprocessing work
 
-    :param groups: list of target groups
+    :param targets: list of targets
     :return: tuple -- (# of successful, # of failed)
     """
     if not isinstance(INSTANCE, PHPRestart):
@@ -115,4 +115,4 @@ def restart_helper(groups):
             'Attempting to use php_fpm.restart_helper before populating '
             'INSTANCE!'
         )
-    return INSTANCE.restart_all(groups)
+    return INSTANCE.restart_all(targets)
