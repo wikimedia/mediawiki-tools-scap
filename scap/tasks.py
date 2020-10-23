@@ -659,8 +659,8 @@ def update_localization_cache(version, wikidb, verbose, cfg, logger=None):
         'www-data',
         '/usr/local/bin/mwscript mergeMessageFileList.php '
         '--wiki="%s" --list-file="%s" '
-        '--output="%s" %s' % (
-            wikidb, ext_list, new_extension_messages, verbose_messagelist))
+        '--output="%s"' % (
+            wikidb, ext_list, new_extension_messages))
 
     utils.sudo_check_call('www-data',
                           'chmod 0664 "%s"' % new_extension_messages)
