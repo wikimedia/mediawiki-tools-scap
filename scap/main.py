@@ -503,9 +503,32 @@ class AbstractSync(cli.Application):
 
     def _restart_php(self):
         """
-        Check if php-fpm opcache is full, if so restart php-fpm
+        On all dsh groups referenced by the mw_web_clusters config parameter:
+
+        Check if php-fpm opcache is full, if so restart php-fpm.  If
+        the php_fpm_always_restart config parameter is true, the
+        opcache is treated as always full, so php-fpm will always
+        restart.
+
+        If the operator invoked scap with the --force flag, restart
+        php-fpm unsafely (i.e., without depooling and repooling
+        around the service restart).  T243009
+
         """
-        self.get_logger().info('Check php-fpm cache...')
+
+        force = self.arguments.force
+
+        if force:
+            self.get_logger().info('Ungracefully restarting php-fpm...')
+        elif self.config.get('php_fpm_always_restart'):
+            self.get_logger().info('Restarting php-fpm...')
+        else:
+            self.get_logger().info('Check php-fpm cache...')
+
+        # mw_web_clusters is expected to be a comma-separated string naming dsh
+        # groups.
+        # target_groups will be a list of objects representing representing
+        # each group.
         target_groups = targets.DirectDshTargetList(
             'mw_web_clusters',
             self.config
@@ -517,9 +540,11 @@ class AbstractSync(cli.Application):
             ssh.Job(
                 key=self.get_keyholder_key(),
                 user=self.config['ssh_user']
-            )
+            ),
+            force
         )
 
+        # Convert the list of group objects into a list of lists of targets.
         group_hosts = []
         for group in target_groups.groups.values():
             group_hosts.append(group.targets)

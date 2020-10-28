@@ -20,15 +20,24 @@ class PHPRestart(object):
     """
     Handle PHP fpm restarts if needed.
     """
-    CHECK_FMT = 'Checking if {phpfpm} opcache restart needed for "{host}"'
 
-    def __init__(self, cfg, job=None):
+    def __init__(self, cfg, job=None, unsafe=False):
         """
         :param cfg: dict - scap configuration
+        :param unsafe: boolean - If true, an unsafe service restart
+                       (no depool/repool) will be performed.
+
+        Prepares self.cmd for later use by _build_job.
         """
         self.cmd = None
+        self.job = job
 
-        if cfg.get('php_fpm_restart_script'):
+        if unsafe:
+            script = cfg.get('php_fpm_unsafe_restart_script')
+            if script:
+                self.cmd = "{} --force".format(script)
+
+        elif cfg.get('php_fpm_restart_script'):
             threshold = cfg['php_fpm_opcache_threshold']
 
             # Override opcache threshold in cases we always want to restart
@@ -40,8 +49,6 @@ class PHPRestart(object):
                 cfg['php_fpm'],
                 str(threshold)
             )
-
-        self.job = job
 
     def _build_job(self, targets):
         """

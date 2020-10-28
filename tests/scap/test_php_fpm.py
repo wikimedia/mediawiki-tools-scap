@@ -38,6 +38,18 @@ def test_init(php_restart):
     assert php_restart.cmd == '/bin/foo php7.2-fpm 100'
 
 
+def test_init_unsafe(php_restart):
+    """Test php_restart initialization, unsafe mode"""
+    params = copy.deepcopy(PHPRESTART_PARAMS)
+    params['php_fpm_unsafe_restart_script'] = '/bin/foo-unsafe'
+    pr = php_fpm.PHPRestart(
+        params,
+        ssh.Job(),
+        True
+    )
+    assert pr.cmd == '/bin/foo-unsafe --force'
+
+
 def test_build_job(php_restart):
     """
     Test build job
