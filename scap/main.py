@@ -716,6 +716,8 @@ class ScapWorld(AbstractSync):
                   help='Define how long new code will run on the '
                        'canary servers (default is 20s)',
                   metavar='<time in secs>')
+    @cli.argument('--skip-l10n-update', action='store_true',
+                  dest='skip_l10n_update', help='Skip update of l10n files')
     @cli.argument('message', nargs='*', help='Log message for SAL')
     def main(self, *extra_args):
         try:
@@ -749,10 +751,14 @@ class ScapWorld(AbstractSync):
 
         # Update list of extension message files and regenerate the
         # localisation cache.
-        with log.Timer('l10n-update', self.get_stats()):
-            for version, wikidb in self.active_wikiversions().items():
-                tasks.update_localization_cache(
-                    version, wikidb, self.verbose, self.config)
+
+        if self.arguments.skip_l10n_update:
+            self.get_logger().warn('Skipping l10n-update')
+        else:
+            with log.Timer('l10n-update', self.get_stats()):
+                for version, wikidb in self.active_wikiversions().items():
+                    tasks.update_localization_cache(
+                        version, wikidb, self.verbose, self.config)
 
     def _after_cluster_sync(self):
         target_hosts = self._get_target_list()
