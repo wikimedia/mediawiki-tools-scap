@@ -66,7 +66,9 @@ class AbstractSync(cli.Application):
         self.include = None
         self.om = None
 
-    @cli.argument('--force', action='store_true', help='Skip canary checks')
+    @cli.argument('--force', action='store_true',
+                  help='Skip canary checks, '
+                  'performs ungraceful php-fpm restarts')
     @cli.argument('message', nargs='*', help='Log message for SAL')
     def main(self, *extra_args):
         """Perform a sync operation to the cluster."""
@@ -709,7 +711,9 @@ class ScapWorld(AbstractSync):
     #. Rolling invalidation of all opcache for php 7.x
     """
 
-    @cli.argument('--force', action='store_true', help='Skip canary checks')
+    @cli.argument('--force', action='store_true',
+                  help='Skip canary checks, '
+                  'performs ungraceful php-fpm restarts')
     @cli.argument('-w', '--canary-wait-time', dest='canary_wait_time',
                   type=int,
                   help='Define how long new code will run on the '
