@@ -21,11 +21,12 @@ class PHPRestart(object):
     Handle PHP fpm restarts if needed.
     """
 
-    def __init__(self, cfg, job=None, unsafe=False):
+    def __init__(self, cfg, job=None, unsafe=False, logger=None):
         """
         :param cfg: dict - scap configuration
         :param unsafe: boolean - If true, an unsafe service restart
                        (no depool/repool) will be performed.
+        :param logger: logger - logger to use to report problems
 
         Prepares self.cmd for later use by _build_job.
         """
@@ -36,6 +37,11 @@ class PHPRestart(object):
             script = cfg.get('php_fpm_unsafe_restart_script')
             if script:
                 self.cmd = "{} --force".format(script)
+            else:
+                if logger:
+                    logger.warn("Unsafe mode requested but "
+                                "php_fpm_unsafe_restart_script "
+                                "not defined in config")
 
         elif cfg.get('php_fpm_restart_script'):
             threshold = cfg['php_fpm_opcache_threshold']
@@ -49,6 +55,8 @@ class PHPRestart(object):
                 cfg['php_fpm'],
                 str(threshold)
             )
+        elif logger:
+            logger.warn("php_fpm_restart_script not defined in config")
 
     def _build_job(self, targets):
         """

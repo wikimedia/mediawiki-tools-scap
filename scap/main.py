@@ -516,15 +516,6 @@ class AbstractSync(cli.Application):
 
         """
 
-        force = self.arguments.force
-
-        if force:
-            self.get_logger().info('Ungracefully restarting php-fpm...')
-        elif self.config.get('php_fpm_always_restart'):
-            self.get_logger().info('Restarting php-fpm...')
-        else:
-            self.get_logger().info('Check php-fpm cache...')
-
         # mw_web_clusters is expected to be a comma-separated string naming dsh
         # groups.
         # target_groups will be a list of objects representing representing
@@ -541,21 +532,27 @@ class AbstractSync(cli.Application):
                 key=self.get_keyholder_key(),
                 user=self.config['ssh_user']
             ),
-            force
+            self.arguments.force,
+            self.get_logger()
         )
 
-        # Convert the list of group objects into a list of lists of targets.
-        group_hosts = []
-        for group in target_groups.groups.values():
-            group_hosts.append(group.targets)
+        if php_fpm.INSTANCE.cmd:
+            self.get_logger().info("Running '{}' on {} host(s)".format(
+                php_fpm.INSTANCE.cmd, len(target_groups.all)))
 
-        results = pool.map(php_fpm.restart_helper, group_hosts)
-        for _, failed in results:
-            if failed:
-                self.get_logger().warning(
-                    '%d hosts had failures restarting php-fpm',
-                    failed
-                )
+            # Convert the list of group objects into a
+            # list of lists of targets.
+            group_hosts = []
+            for group in target_groups.groups.values():
+                group_hosts.append(group.targets)
+
+            results = pool.map(php_fpm.restart_helper, group_hosts)
+            for _, failed in results:
+                if failed:
+                    self.get_logger().warning(
+                        '%d hosts had failures restarting php-fpm',
+                        failed
+                    )
 
 
 @cli.command('security-check')
