@@ -525,6 +525,12 @@ def _call_rebuildLocalisationCache(
     :param quiet: Whether to pass --quiet
     """
 
+    # Allow the default l10n language to be controlled by
+    # the SCAP_MW_LANG environment variable.
+    if lang is None:
+        # lang will remain None if SCAP_MW_LANG is not defined.
+        lang = os.getenv("SCAP_MW_LANG")
+
     with utils.sudo_temp_dir('www-data', 'scap_l10n_') as temp_dir:
         # Seed the temporary directory with the current CDB files
         if glob.glob('%s/*.cdb' % out_dir):
