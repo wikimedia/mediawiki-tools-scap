@@ -1,8 +1,47 @@
 scap (3.16.0-1) unstable; urgency=low
 
-  * UNRELEASED
+  [ Ahmon Dancy ]
+  * sync -> sync-world in warning message
+  * scap sync-world: Don't ask for confirmation
+  * Allow scap sync-world to work on a fresh deploy server
 
- -- Lars Wirzenius <lwirzenius@wikimedia.org>  Tue, 25 Aug 2020 20:40:33 +0300
+  [ Filippo Giunchedi ]
+  * log: add @cee: token for structured logging
+
+  [ Tyler Cipriani ]
+  * Blubber: use wikimedia-stretch base image
+  * Feature flag PHP L10n generation
+
+  [ Ahmon Dancy ]
+  * scap wikiversions-compile: Add --staging flag
+  * compile_wikiversions: Update comments to reflect the code
+  * update-wikiversions: Use staging dir wikiversions to update php link
+  * Make sync-world work when there are no proxies
+  * Allow scap command path to be overriden via environment var
+
+  [ Tyler Cipriani ]
+  * php_fpm: add feature flag to always restart
+
+  [ Ahmon Dancy ]
+  * get_realm_specific_filename doesn't handle datacenter correctly
+
+  [ Lars Wirzenius ]
+  * fix: find plugins again
+
+  [ Ahmon Dancy ]
+  * don't pass --verbose to mergeMessageFileList.php
+  * clarify what active_wikiversions returns
+  * scap/php_fpm.py: Clarify some code
+  * scap: Add support for ungraceful php-fpm restart
+  * scap: Update help text for --force option
+  * _restart_php: Print the exact command that will run on the target nodes
+  * scap: Add --skip-l10n-update to scap sync-world
+  * Allow default l10n language to be set by SCAP_MW_LANG environment var
+
+  [ Lars Wirzenius ]
+  * build scap.deb in Docker
+
+ -- Lars Wirzenius <lwirzenius@wikimedia.org>  Thu, 19 Nov 2020 16:17:15 +0200
 
 scap (3.15.0-1) unstable; urgency=low
 
