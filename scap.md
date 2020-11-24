@@ -147,8 +147,6 @@ then the exit code is 0
 then the output matches pattern ^\d+(\.\d+)+(-\S+)?$
 ~~~
 
-## There are some patches to list
-
 # Applying security patches for train
 
 [Train]: https://wikitech.wikimedia.org/wiki/Heterogeneous_deployment/Train_deploys#Apply_security_patches
