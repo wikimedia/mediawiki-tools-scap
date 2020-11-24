@@ -4,6 +4,9 @@
 - given: empty directory {pathname}
   function: mkdir
 
+- when: I run scap {subcommand} --help
+  function: run_scap_subcommand_help
+
 - when: I run scap version
   function: run_scap_version
 

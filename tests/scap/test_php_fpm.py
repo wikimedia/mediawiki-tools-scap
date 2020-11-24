@@ -8,7 +8,9 @@
 from __future__ import absolute_import
 
 
+import copy
 import pytest
+import sys
 
 from scap import php_fpm, ssh
 
@@ -36,6 +38,18 @@ def test_init(php_restart):
     assert php_restart.cmd == '/bin/foo php7.2-fpm 100'
 
 
+def test_init_unsafe(php_restart):
+    """Test php_restart initialization, unsafe mode"""
+    params = copy.deepcopy(PHPRESTART_PARAMS)
+    params['php_fpm_unsafe_restart_script'] = '/bin/foo-unsafe'
+    pr = php_fpm.PHPRestart(
+        params,
+        ssh.Job(),
+        True
+    )
+    assert pr.cmd == '/bin/foo-unsafe --force'
+
+
 def test_build_job(php_restart):
     """
     Test build job
@@ -44,6 +58,20 @@ def test_build_job(php_restart):
     assert php_restart.job._hosts == ['x']
     assert php_restart.job._command == \
         '/usr/bin/sudo -u root -- /bin/foo php7.2-fpm 100'
+
+
+def test_always_restart():
+    """
+    Test feature flag for unconditional php-fpm restarts
+    """
+    params = copy.deepcopy(PHPRESTART_PARAMS)
+    params['php_fpm_always_restart'] = True
+    php_restart = php_fpm.PHPRestart(
+        params,
+        ssh.Job()
+    )
+
+    assert str(sys.maxsize) in php_restart.cmd
 
 
 def test_build_job_raises():

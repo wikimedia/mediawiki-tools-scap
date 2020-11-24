@@ -2,6 +2,7 @@ from __future__ import absolute_import
 
 import os
 import sys
+import tempfile
 
 try:
     import mock
@@ -10,7 +11,7 @@ except ImportError:
 
 import pytest
 
-from scap import arg, cli, lock
+from scap import arg, cli, lock, utils
 
 
 @cli.command('dummy')
@@ -156,15 +157,52 @@ def test_announce(app, mocker):
     announcer.info.assert_called_with('test', 'bar')
 
 
+def test_get_get_realm_specific_filename():
+    prefix = "get_realm_specific_filename_test"
+
+    with tempfile.NamedTemporaryFile(prefix=prefix) as t1:
+        tmpfile_no_realm = t1.name + ".json"
+        tmpfile_with_realm = t1.name + "-testrealm.json"
+
+        # Create empty files.  The contents don't matter
+        for filename in (tmpfile_no_realm, tmpfile_with_realm):
+            open(filename, "w").close()
+
+        try:
+            # Verify realm-specific filename is selected since it exists
+            res = utils.get_realm_specific_filename(tmpfile_no_realm,
+                                                    "testrealm")
+            assert res == tmpfile_with_realm
+
+            os.remove(tmpfile_with_realm)
+            # Now it doesn't exist, so we should get the no-realm file.
+            res = utils.get_realm_specific_filename(tmpfile_no_realm,
+                                                    "testrealm")
+            assert res == tmpfile_no_realm
+
+            os.remove(tmpfile_no_realm)
+            # If no file is found get_realm_specific_filename returns the
+            # input filename.
+            res = utils.get_realm_specific_filename(tmpfile_no_realm,
+                                                    "testrealm")
+            assert res == tmpfile_no_realm
+
+        finally:
+            # Just in case.
+            for filename in (tmpfile_no_realm, tmpfile_with_realm):
+                if os.path.exists(filename):
+                    os.remove(filename)
+
+
 def test_active_wikiversions(app, mocker):
     app.config = {'deploy_dir': 'dir',
                   'wmf_realm': 'realm', 'datacenter': 'dc'}
     ga = mocker.patch('scap.utils.get_active_wikiversions')
     app.active_wikiversions()
-    ga.assert_called_with('dir', 'realm', 'dc')
+    ga.assert_called_with('dir', 'realm')
     app.config['pinkunicorn_dir'] = 'pinkunicorn'
     app.active_wikiversions('pinkunicorn')
-    ga.assert_called_with('pinkunicorn', 'realm', 'dc')
+    ga.assert_called_with('pinkunicorn', 'realm')
 
 
 def test_process_arguments_error(app):

@@ -35,6 +35,16 @@ Alternatively, you can specify python environments against which to run the
 test suite by selecting a custom envlist in ``tox`` via the ``-e`` option,
 i.e., ``tox -e py27``.
 
+Building a .deb
+===============
+
+Run this command to build a scap.deb package under Docker, for your
+own use (not for SRE to install on production hosts):
+
+  ./build-deb-in-docker ~/tmp/scap-deb
+
+The directory given as an argument must exist. The resulting package
+files will be put into that directory.
 
 Reporting Issues
 ================

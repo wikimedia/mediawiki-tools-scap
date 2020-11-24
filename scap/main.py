@@ -66,7 +66,9 @@ class AbstractSync(cli.Application):
         self.include = None
         self.om = None
 
-    @cli.argument('--force', action='store_true', help='Skip canary checks')
+    @cli.argument('--force', action='store_true',
+                  help='Skip canary checks, '
+                  'performs ungraceful php-fpm restarts')
     @cli.argument('message', nargs='*', help='Log message for SAL')
     def main(self, *extra_args):
         """Perform a sync operation to the cluster."""
@@ -76,9 +78,10 @@ class AbstractSync(cli.Application):
         with lock.Lock(self.get_lock_file(), self.arguments.message):
             self._check_sync_flag()
             if not self.arguments.force:
-                self.get_logger().info(
-                    'Checking for new runtime errors locally')
-                self._check_fatals()
+                if self._can_run_check_fatals():
+                    self.get_logger().info(
+                        'Checking for new runtime errors locally')
+                    self._check_fatals()
             else:
                 self.get_logger().warning('check_fatals Skipped by --force')
             self._before_cluster_sync()
@@ -135,7 +138,14 @@ class AbstractSync(cli.Application):
                 if not self.arguments.force:
                     update_apaches.exclude_hosts(canaries)
                 update_apaches.shuffle()
-                update_apaches.command(self._apache_sync_command(proxies))
+                if proxies:
+                    targets = proxies
+                else:
+                    # scap pull will try to rsync from localhost if it doesn't
+                    # get a list of deploy servers, so use the list of
+                    # masters if there no proxies.
+                    targets = self.get_master_list()
+                update_apaches.command(self._apache_sync_command(targets))
                 update_apaches.progress(
                     log.reporter(
                         'sync-apaches',
@@ -187,6 +197,19 @@ class AbstractSync(cli.Application):
         with log.Timer('cache_git_info', self.get_stats()):
             for version, wikidb in self.active_wikiversions().items():
                 tasks.cache_git_info(version, self.config)
+
+    def _can_run_check_fatals(self):
+        """
+        _check_fatals will not succeed if /srv/mediawiki/wikiversions.php
+        hasn't been prepared yet. This will be the case if 'scap
+        sync-world' has never been run.  Running 'scap sync-world'
+        will fix everything up.
+        """
+        wikiversionsphp = os.path.join(
+            self.config['deploy_dir'],
+            utils.get_realm_specific_filename("wikiversions.php",
+                                              self.config['wmf_realm']))
+        return os.path.exists(wikiversionsphp)
 
     def _check_fatals(self):
         mwscript = sh.Command('mwscript')
@@ -482,9 +505,23 @@ class AbstractSync(cli.Application):
 
     def _restart_php(self):
         """
-        Check if php-fpm opcache is full, if so restart php-fpm
+        On all dsh groups referenced by the mw_web_clusters config parameter:
+
+        Check if php-fpm opcache is full, if so restart php-fpm.  If
+        the php_fpm_always_restart config parameter is true, the
+        opcache is treated as always full, so php-fpm will always
+        restart.
+
+        If the operator invoked scap with the --force flag, restart
+        php-fpm unsafely (i.e., without depooling and repooling
+        around the service restart).  T243009
+
         """
-        self.get_logger().info('Check php-fpm cache...')
+
+        # mw_web_clusters is expected to be a comma-separated string naming dsh
+        # groups.
+        # target_groups will be a list of objects representing representing
+        # each group.
         target_groups = targets.DirectDshTargetList(
             'mw_web_clusters',
             self.config
@@ -496,20 +533,28 @@ class AbstractSync(cli.Application):
             ssh.Job(
                 key=self.get_keyholder_key(),
                 user=self.config['ssh_user']
-            )
+            ),
+            self.arguments.force,
+            self.get_logger()
         )
 
-        group_hosts = []
-        for group in target_groups.groups.values():
-            group_hosts.append(group.targets)
+        if php_fpm.INSTANCE.cmd:
+            self.get_logger().info("Running '{}' on {} host(s)".format(
+                php_fpm.INSTANCE.cmd, len(target_groups.all)))
 
-        results = pool.map(php_fpm.restart_helper, group_hosts)
-        for _, failed in results:
-            if failed:
-                self.get_logger().warning(
-                    '%d hosts had failures restarting php-fpm',
-                    failed
-                )
+            # Convert the list of group objects into a
+            # list of lists of targets.
+            group_hosts = []
+            for group in target_groups.groups.values():
+                group_hosts.append(group.targets)
+
+            results = pool.map(php_fpm.restart_helper, group_hosts)
+            for _, failed in results:
+                if failed:
+                    self.get_logger().warning(
+                        '%d hosts had failures restarting php-fpm',
+                        failed
+                    )
 
 
 @cli.command('security-check')
@@ -532,10 +577,17 @@ class SecurityPatchCheck(cli.Application):
 class CompileWikiversions(cli.Application):
     """Compile wikiversions.json to wikiversions.php."""
 
+    @cli.argument('--staging', action='store_true',
+                  help='Compile wikiversions in staging directory')
     def main(self, *extra_args):
-        self._run_as('mwdeploy')
-        self._assert_current_user('mwdeploy')
-        tasks.compile_wikiversions('deploy', self.config)
+        if self.arguments.staging:
+            source_tree = 'stage'
+        else:
+            source_tree = 'deploy'
+            self._run_as('mwdeploy')
+            self._assert_current_user('mwdeploy')
+
+        tasks.compile_wikiversions(source_tree, self.config)
         return 0
 
 
@@ -656,12 +708,16 @@ class ScapWorld(AbstractSync):
     #. Rolling invalidation of all opcache for php 7.x
     """
 
-    @cli.argument('--force', action='store_true', help='Skip canary checks')
+    @cli.argument('--force', action='store_true',
+                  help='Skip canary checks, '
+                  'performs ungraceful php-fpm restarts')
     @cli.argument('-w', '--canary-wait-time', dest='canary_wait_time',
                   type=int,
                   help='Define how long new code will run on the '
                        'canary servers (default is 20s)',
                   metavar='<time in secs>')
+    @cli.argument('--skip-l10n-update', action='store_true',
+                  dest='skip_l10n_update', help='Skip update of l10n files')
     @cli.argument('message', nargs='*', help='Log message for SAL')
     def main(self, *extra_args):
         # If we're running interactively then warn people: this is not the
@@ -710,10 +766,14 @@ class ScapWorld(AbstractSync):
 
         # Update list of extension message files and regenerate the
         # localisation cache.
-        with log.Timer('l10n-update', self.get_stats()):
-            for version, wikidb in self.active_wikiversions().items():
-                tasks.update_localization_cache(
-                    version, wikidb, self.verbose, self.config)
+
+        if self.arguments.skip_l10n_update:
+            self.get_logger().warn('Skipping l10n-update')
+        else:
+            with log.Timer('l10n-update', self.get_stats()):
+                for version, wikidb in self.active_wikiversions().items():
+                    tasks.update_localization_cache(
+                        version, wikidb, self.verbose, self.config)
 
     def _after_cluster_sync(self):
         target_hosts = self._get_target_list()

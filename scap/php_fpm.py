@@ -8,6 +8,7 @@
 from __future__ import absolute_import
 
 import math
+import sys
 
 from scap import log
 from scap import utils
@@ -19,21 +20,43 @@ class PHPRestart(object):
     """
     Handle PHP fpm restarts if needed.
     """
-    CHECK_FMT = 'Checking if {phpfpm} opcache restart needed for "{host}"'
 
-    def __init__(self, cfg, job=None):
+    def __init__(self, cfg, job=None, unsafe=False, logger=None):
         """
         :param cfg: dict - scap configuration
+        :param unsafe: boolean - If true, an unsafe service restart
+                       (no depool/repool) will be performed.
+        :param logger: logger - logger to use to report problems
+
+        Prepares self.cmd for later use by _build_job.
         """
         self.cmd = None
+        self.job = job
 
-        if cfg.get('php_fpm_restart_script'):
+        if unsafe:
+            script = cfg.get('php_fpm_unsafe_restart_script')
+            if script:
+                self.cmd = "{} --force".format(script)
+            else:
+                if logger:
+                    logger.warn("Unsafe mode requested but "
+                                "php_fpm_unsafe_restart_script "
+                                "not defined in config")
+
+        elif cfg.get('php_fpm_restart_script'):
+            threshold = cfg['php_fpm_opcache_threshold']
+
+            # Override opcache threshold in cases we always want to restart
+            if cfg.get('php_fpm_always_restart'):
+                threshold = sys.maxsize
+
             self.cmd = "{} {} {}".format(
                 cfg['php_fpm_restart_script'],
                 cfg['php_fpm'],
-                str(cfg['php_fpm_opcache_threshold'])
+                str(threshold)
             )
-        self.job = job
+        elif logger:
+            logger.warn("php_fpm_restart_script not defined in config")
 
     def _build_job(self, targets):
         """
@@ -54,7 +77,7 @@ class PHPRestart(object):
         Run php-fpm restart on the localhost
 
         If the restart fails, we still want to continue the sync
-        :return: boolean -- has and error
+        :return: boolean -- True if an exception was caught.
         """
         if not self.cmd:
             return False
@@ -95,11 +118,11 @@ def get_batch_size(targets, percentage=10.0):
     return int(math.ceil(len(targets) * percentage/100.0))
 
 
-def restart_helper(groups):
+def restart_helper(targets):
     """
     Wrapper to make pickling with multiprocessing work
 
-    :param groups: list of target groups
+    :param targets: list of targets
     :return: tuple -- (# of successful, # of failed)
     """
     if not isinstance(INSTANCE, PHPRestart):
@@ -107,4 +130,4 @@ def restart_helper(groups):
             'Attempting to use php_fpm.restart_helper before populating '
             'INSTANCE!'
         )
-    return INSTANCE.restart_all(groups)
+    return INSTANCE.restart_all(targets)

@@ -191,14 +191,14 @@ def compile_wikiversions(source_tree, cfg, logger=None):
     """
     Validate and compile the wikiversions.json file.
 
-    1. Find the realm specific filename for wikiversions.json in staging area
+    1. Find the realm specific filename for wikiversions.json in specified tree
+       (deploy or staging)
     2. Validate that all versions mentioned in the json exist as directories
-       in the staging area
-    3. Validate that all wikis listed in the realm specific all.dblist exist
-       in the json
-    4. Create a temporary CDB file from the json contents
-    5. Create a temporary php file from the json contents
-    6. Atomically rename the temporary php to the realm specific
+       in the specified tree.
+    3. Validate that all wikis in the json file are members of (realm-specific)
+       dblists/all.dblist.
+    4. Create a temporary php file from the json contents
+    5. Atomically rename the temporary php to the realm specific
        wikiversions.php filename
 
     :param source_tree: Source tree to read file from: 'deploy' or 'stage'
@@ -210,7 +210,7 @@ def compile_wikiversions(source_tree, cfg, logger=None):
     # Find the realm specific wikiversions file names
     base_file = os.path.join(working_dir, 'wikiversions.json')
     json_file = utils.get_realm_specific_filename(
-        base_file, cfg['wmf_realm'], cfg['datacenter'])
+        base_file, cfg['wmf_realm'])
     base_name = os.path.splitext(json_file)[0]
     php_file = base_name + '.php'
 
@@ -221,19 +221,23 @@ def compile_wikiversions(source_tree, cfg, logger=None):
     for dbname, version in wikiversions.items():
         version_dir = os.path.join(working_dir, version)
         if not os.path.isdir(version_dir):
-            raise IOError(errno.ENOENT, 'Invalid version dir', version_dir)
+            raise IOError(errno.ENOENT,
+                          'Invalid/unavailable version dir',
+                          version_dir)
 
     # Get the list of all wikis
     all_dblist_file = utils.get_realm_specific_filename(
         os.path.join(working_dir, 'dblists', 'all.dblist'),
-        cfg['wmf_realm'], cfg['datacenter'])
+        cfg['wmf_realm'])
     all_dbs = set(line.strip() for line in open(all_dblist_file))
 
-    # Validate that all wikis are in the json file
+    # Validate that all wikis in the json file are members of (realm-specific)
+    # dblists/all.dblist
     missing_dbs = [db for db in wikiversions.keys() if db not in all_dbs]
     if missing_dbs:
-        raise KeyError('Missing %d expected dbs in %s: %s' % (
-            len(missing_dbs), json_file, ', '.join(missing_dbs)))
+        raise KeyError('%d dbs from %s are missing from %s: %s' % (
+            len(missing_dbs), json_file, all_dblist_file,
+            ', '.join(missing_dbs)))
 
     # Build the php version
     php_code = '<?php\nreturn array(\n%s\n);\n' % json.dumps(
@@ -508,7 +512,8 @@ def update_l10n_cdb_wrapper(args, logger=None):
 
 
 def _call_rebuildLocalisationCache(
-        wikidb, out_dir, use_cores=1, lang=None, force=False, quiet=False):
+        wikidb, out_dir, use_cores=1,
+        php_l10n=False, lang=None, force=False, quiet=False):
     """
     Helper for update_localization_cache.
 
@@ -519,6 +524,12 @@ def _call_rebuildLocalisationCache(
     :param force: Whether to pass --force
     :param quiet: Whether to pass --quiet
     """
+
+    # Allow the default l10n language to be controlled by
+    # the SCAP_MW_LANG environment variable.
+    if lang is None:
+        # lang will remain None if SCAP_MW_LANG is not defined.
+        lang = os.getenv("SCAP_MW_LANG")
 
     with utils.sudo_temp_dir('www-data', 'scap_l10n_') as temp_dir:
         # Seed the temporary directory with the current CDB files
@@ -551,6 +562,10 @@ def _call_rebuildLocalisationCache(
                 'temp_dir': temp_dir,
                 'out_dir': out_dir
             })
+
+    # PHP l10n generation feature flag
+    if not php_l10n:
+        return
 
     # Doing it all over again, with php array instead.
     # The cdb calls will be gone soon: T99740
@@ -624,7 +639,13 @@ def update_localization_cache(version, wikidb, verbose, cfg, logger=None):
         # mergeMessageFileList.php needs a l10n file
         logger.info('Bootstrapping l10n cache for %s', version)
         _call_rebuildLocalisationCache(
-            wikidb, cache_dir, use_cores, lang='en', quiet=True)
+            wikidb,
+            cache_dir,
+            use_cores,
+            cfg['php_l10n'],
+            lang='en',
+            quiet=True
+        )
         # Force subsequent cache rebuild to overwrite bootstrap version
         force_rebuild = True
 
@@ -644,8 +665,8 @@ def update_localization_cache(version, wikidb, verbose, cfg, logger=None):
         'www-data',
         '/usr/local/bin/mwscript mergeMessageFileList.php '
         '--wiki="%s" --list-file="%s" '
-        '--output="%s" %s' % (
-            wikidb, ext_list, new_extension_messages, verbose_messagelist))
+        '--output="%s"' % (
+            wikidb, ext_list, new_extension_messages))
 
     utils.sudo_check_call('www-data',
                           'chmod 0664 "%s"' % new_extension_messages)
@@ -669,7 +690,13 @@ def update_localization_cache(version, wikidb, verbose, cfg, logger=None):
         'Updating LocalisationCache for %s '
         'using %s thread(s)' % (version, use_cores))
     _call_rebuildLocalisationCache(
-        wikidb, cache_dir, use_cores, force=force_rebuild, quiet=quiet_rebuild)
+        wikidb,
+        cache_dir,
+        use_cores,
+        php_l10n=cfg['php_l10n'],
+        force=force_rebuild,
+        quiet=quiet_rebuild
+    )
 
     # Include JSON versions of the CDB files and add MD5 files
     logger.info('Generating JSON versions and md5 files')

@@ -274,40 +274,24 @@ def get_env_specific_filename(path, env=None):
     return path
 
 
-def get_realm_specific_filename(filename, realm, datacenter):
+def get_realm_specific_filename(filename, realm):
     """
-    Find the most specific file for the given realm and datacenter.
-
-    The extension is separated from the filename and then recombined with the
-    realm and datacenter:
-    - base-realm-datacenter.ext
-    - base-realm.ext
-    - base-datacenter.ext
+    If a realm-specific version of 'filename' exists, return it,
+    otherwise return 'filename'.  To construct the realm-specific
+    filename, "-REALM" is inserted before the file extension.  For
+    example, "wikiversions.json" becomes "wikiversions-REALM.json".
     """
     base, ext = os.path.splitext(filename)
 
+    # FIXME: Why should an extensionless file not undergo the same treatment?
     if ext == '':
         return filename
 
-    parts = {
-        'base': base,
-        'realm': realm,
-        'datacenter': datacenter,
-        'ext': ext,
-    }
-
-    possible = (
-        '%(base)s-%(realm)s-%(datacenter)%(ext)s',
-        '%(base)s-%(realm)s%(ext)s',
-        '%(base)s-%(datacenter)%(ext)s',
-    )
-
-    for new_filename in (p % parts for p in possible):
-        if os.path.isfile(new_filename):
-            return new_filename
-
-    # If all else fails, return the original filename
-    return filename
+    realm_specific = '%s-%s%s' % (base, realm, ext)
+    if os.path.isfile(realm_specific):
+        return realm_specific
+    else:
+        return filename
 
 
 def get_username(user=None):
@@ -669,15 +653,18 @@ def move_symlink(source, dest):
         os.symlink(rsource, rdest)
 
 
-def get_active_wikiversions(directory, realm, datacenter):
+def get_active_wikiversions(directory, realm):
     """
     Get an ordered collection of active MediaWiki versions.
 
     :returns: collections.OrderedDict of {version:wikidb} values sorted by
-                version number in ascending order
+              version number in ascending order.  'wikidb' will be the
+              first-seen wikidb for 'version'.  This can be used by
+              operations that need a db but don't care which wiki's db is
+              used.
     """
     path = get_realm_specific_filename(
-        os.path.join(directory, 'wikiversions.json'), realm, datacenter)
+        os.path.join(directory, 'wikiversions.json'), realm)
 
     with open(path) as f:
         wikiversions = json.load(f)
@@ -688,8 +675,8 @@ def get_active_wikiversions(directory, realm, datacenter):
         if version not in versions:
             versions[version] = wikidb
 
-    # Convert to list of (version, db) tuples sorted by version number
-    # and then convert that list to an OrderedDict
+    # Convert to list of (version, representative-db) tuples sorted by version
+    # number and then convert that list to an OrderedDict
     sorted_versions = collections.OrderedDict(
         sorted(versions.items(),
                key=lambda v: distutils.version.LooseVersion(v[0])))

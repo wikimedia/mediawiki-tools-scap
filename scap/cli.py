@@ -94,7 +94,9 @@ class Application(object):
 
     def get_script_path(self):
         """Qualify the path to the scap script."""
-        return os.path.join(os.path.dirname(sys.argv[0]), 'scap')
+
+        scap = os.path.join(os.path.dirname(sys.argv[0]), 'scap')
+        return os.environ.get('SCAP', scap)
 
     def get_keyholder_key(self):
         """Get the public key for IdentityFile use in ssh."""
@@ -150,12 +152,16 @@ class Application(object):
         Get an ordered collection of active MediaWiki versions.
 
         :param source_tree: Source tree to read file from: 'deploy' or 'stage'
-        :returns: collections.OrderedDict of {version:wikidb} values sorted by
-                  version number in ascending order
+
+       :returns: collections.OrderedDict of {version:wikidb} values sorted by
+                 version number in ascending order.  'wikidb' will be the
+                 first-seen wikidb for 'version'.  This can be used by
+                 operations that need a db but don't care which wiki's db is
+                 used.
         """
         return utils.get_active_wikiversions(
             self.config[source_tree + '_dir'],
-            self.config['wmf_realm'], self.config['datacenter'])
+            self.config['wmf_realm'])
 
     def _process_arguments(self, args, extra_args):
         """
@@ -414,7 +420,8 @@ def all_commands():
     COMMAND_REGISTRY.clear()
     all_commands = builtin_commands.copy()
 
-    scap.plugins.load_plugins()
+    plugin_dir = os.path.dirname(scap.plugins.__file__)
+    scap.plugins.load_plugins(plugin_dir=plugin_dir)
 
     for key in COMMAND_REGISTRY.keys():
         if key in builtin_commands:
