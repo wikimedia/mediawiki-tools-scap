@@ -31,60 +31,60 @@ import scap.utils as utils
 
 
 DEFAULT_CONFIG = {
-    'canary_dashboard_url': (
+    "canary_dashboard_url": (
         str,
-        'https://logstash.wikimedia.org/goto/3888cca979647b9381a7739b0bdbc88e'
+        "https://logstash.wikimedia.org/goto/3888cca979647b9381a7739b0bdbc88e",
     ),
-    'canary_threshold': (float, 10.0),
-    'canary_service': (str, 'mediawiki'),
-    'canary_wait_time': (int, 20),
-    'deploy_dir': (str, '/srv/mediawiki'),
-    'failure_limit': (str, '0%'),
-    'fancy_progress': (bool, False),
-    'php_version': (str, 'php'),
-    'keyholder_key': (str, None),
-    'stage_dir': (str, '/srv/mediawiki-staging'),
-    'lock_file': (str, None),
-    'log_json': (bool, False),
-    'logstash_host': (str, 'logstash1001.eqiad.wmnet:9200'),
-    'mw_web_clusters': (str, 'jobrunner,appserver,appserver_api,testserver'),
-    'master_rsync': (str, 'localhost'),
-    'statsd_host': (str, '127.0.0.1'),
-    'statsd_port': (str, '2003'),
-    'tcpircbot_host': (str, None),
-    'tcpircbot_port': (str, '9200'),
-    'udp2log_host': (str, None),
-    'udp2log_port': (str, '8420'),
-    'wmf_realm': (str, 'production'),
-    'ssh_user': (str, getpass.getuser()),
-    'datacenter': (str, 'eqiad'),
-    'dsh_targets': (str, 'mediawiki-installation'),
-    'dsh_masters': (str, 'scap-masters'),
-    'dsh_proxies': (str, 'scap-proxies'),
-    'group_size': (int, None),
-    'git_deploy_dir': (str, '/srv/deployment'),
-    'git_fat': (bool, False),
-    'git_binary_manager': (str, None),
-    'git_server': (str, 'deploy1001.eqiad.wmnet'),
-    'git_scheme': (str, 'http'),
-    'git_submodules': (bool, False),
-    'git_upstream_submodules': (bool, False),
-    'config_deploy': (bool, False),
-    'mediawiki_canary_swagger_url': (str, 'http://en.wikipedia.org'),
-    'mediawiki_canary_swagger_spec_path': (str, '/spec.yaml'),
-    'nrpe_dir': (str, '/etc/nagios/nrpe.d'),
-    'require_valid_service': (bool, False),
-    'scap3_mediawiki': (bool, False),
-    'service_timeout': (float, 120.0),
-    'tags_to_keep': (int, 20),
-    'perform_checks': (bool, True),
-    'patch_path': (str, "/srv/patches"),
-    'php7_admin_port': (int, None),
-    'php_fpm_opcache_threshold': (int, 100),
-    'php_fpm_always_restart': (bool, False),
-    'php_l10n': (bool, False),  # Feature flag for PHP l10n file generation
-    'cache_revs': (int, 5),
-    'use_syslog': (bool, False),
+    "canary_threshold": (float, 10.0),
+    "canary_service": (str, "mediawiki"),
+    "canary_wait_time": (int, 20),
+    "deploy_dir": (str, "/srv/mediawiki"),
+    "failure_limit": (str, "0%"),
+    "fancy_progress": (bool, False),
+    "php_version": (str, "php"),
+    "keyholder_key": (str, None),
+    "stage_dir": (str, "/srv/mediawiki-staging"),
+    "lock_file": (str, None),
+    "log_json": (bool, False),
+    "logstash_host": (str, "logstash1001.eqiad.wmnet:9200"),
+    "mw_web_clusters": (str, "jobrunner,appserver,appserver_api,testserver"),
+    "master_rsync": (str, "localhost"),
+    "statsd_host": (str, "127.0.0.1"),
+    "statsd_port": (str, "2003"),
+    "tcpircbot_host": (str, None),
+    "tcpircbot_port": (str, "9200"),
+    "udp2log_host": (str, None),
+    "udp2log_port": (str, "8420"),
+    "wmf_realm": (str, "production"),
+    "ssh_user": (str, getpass.getuser()),
+    "datacenter": (str, "eqiad"),
+    "dsh_targets": (str, "mediawiki-installation"),
+    "dsh_masters": (str, "scap-masters"),
+    "dsh_proxies": (str, "scap-proxies"),
+    "group_size": (int, None),
+    "git_deploy_dir": (str, "/srv/deployment"),
+    "git_fat": (bool, False),
+    "git_binary_manager": (str, None),
+    "git_server": (str, "deploy1001.eqiad.wmnet"),
+    "git_scheme": (str, "http"),
+    "git_submodules": (bool, False),
+    "git_upstream_submodules": (bool, False),
+    "config_deploy": (bool, False),
+    "mediawiki_canary_swagger_url": (str, "http://en.wikipedia.org"),
+    "mediawiki_canary_swagger_spec_path": (str, "/spec.yaml"),
+    "nrpe_dir": (str, "/etc/nagios/nrpe.d"),
+    "require_valid_service": (bool, False),
+    "scap3_mediawiki": (bool, False),
+    "service_timeout": (float, 120.0),
+    "tags_to_keep": (int, 20),
+    "perform_checks": (bool, True),
+    "patch_path": (str, "/srv/patches"),
+    "php7_admin_port": (int, None),
+    "php_fpm_opcache_threshold": (int, 100),
+    "php_fpm_always_restart": (bool, False),
+    "php_l10n": (bool, False),  # Feature flag for PHP l10n file generation
+    "cache_revs": (int, 5),
+    "use_syslog": (bool, False),
 }
 
 
@@ -122,7 +122,7 @@ def load(cfg_file=None, environment=None, overrides=None):
     :param overrides: Dict of configuration values
     :returns: dict of configuration values
     """
-    local_cfg = os.path.join(os.getcwd(), 'scap')
+    local_cfg = os.path.join(os.getcwd(), "scap")
 
     parser = ConfigParser()
     if cfg_file:
@@ -132,23 +132,24 @@ def load(cfg_file=None, environment=None, overrides=None):
             # Assume that cfg_file is already an open file
             pass
 
-        if hasattr(parser, 'read_file'):
+        if hasattr(parser, "read_file"):
             parser.read_file(cfg_file)
         else:
             parser.readfp(cfg_file)
     else:
-        parser.read([
-            '/etc/scap.cfg',
-            os.path.join(local_cfg, 'scap.cfg'),
-            utils.get_env_specific_filename(
-                os.path.join(local_cfg, 'scap.cfg'),
-                environment
-            )
-        ])
+        parser.read(
+            [
+                "/etc/scap.cfg",
+                os.path.join(local_cfg, "scap.cfg"),
+                utils.get_env_specific_filename(
+                    os.path.join(local_cfg, "scap.cfg"), environment
+                ),
+            ]
+        )
 
-    fqdn = socket.getfqdn().split('.')
-    sections = ['global']
-    sections += ['.'.join(fqdn[x:]) for x in range(0, len(fqdn))][::-1]
+    fqdn = socket.getfqdn().split(".")
+    sections = ["global"]
+    sections += [".".join(fqdn[x:]) for x in range(0, len(fqdn))][::-1]
 
     config = {key: value for key, (_, value) in DEFAULT_CONFIG.items()}
 
@@ -162,10 +163,10 @@ def load(cfg_file=None, environment=None, overrides=None):
 
     config = override_config(config, overrides)
 
-    if not environment and config.get('environment', None):
-        return load(cfg_file, config.get('environment'), overrides)
+    if not environment and config.get("environment", None):
+        return load(cfg_file, config.get("environment"), overrides)
 
-    config['environment'] = environment
+    config["environment"] = environment
     return config
 
 
@@ -191,9 +192,9 @@ def coerce_value(key, value):
             lower = value.lower()
 
             # Accept the same bool values accepted by ConfigParser
-            if lower in ['1', 'yes', 'true', 'on']:
+            if lower in ["1", "yes", "true", "on"]:
                 return True
-            elif lower in ['0', 'no', 'false', 'off']:
+            elif lower in ["0", "no", "false", "off"]:
                 return False
             else:
                 msg = "invalid boolean value '{}'".format(value)
@@ -211,5 +212,5 @@ def multi_value(str_value):
 
     :param str_value: Random thing the user typed in config
     """
-    comma_list = [x.strip() for x in str_value.split(',')]
+    comma_list = [x.strip() for x in str_value.split(",")]
     return comma_list

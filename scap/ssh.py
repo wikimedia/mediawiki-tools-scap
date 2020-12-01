@@ -38,19 +38,23 @@ import scap.cmd as cmd
 CONNECTION_FAILURE = 255
 DEFAULT_BATCH_SIZE = 80
 SSH = cmd.Command(
-    '/usr/bin/ssh', '-oBatchMode=yes',
-    '-oSetupTimeout=10',
-    cmd.arg('verbose', '-v'),
-    '-F/dev/null', cmd.arg('user', '-oUser={}'))
+    "/usr/bin/ssh",
+    "-oBatchMode=yes",
+    "-oSetupTimeout=10",
+    cmd.arg("verbose", "-v"),
+    "-F/dev/null",
+    cmd.arg("user", "-oUser={}"),
+)
 SSH_WITH_KEY = cmd.Command(
-    '/usr/bin/ssh',
-    '-oBatchMode=yes',
-    '-oSetupTimeout=10',
-    '-oIdentitiesOnly=yes',
-    '-F/dev/null',
-    cmd.arg('verbose', '-v'),
-    cmd.arg('user', '-oUser={}'),
-    cmd.arg('key', '-oIdentityFile={}'))
+    "/usr/bin/ssh",
+    "-oBatchMode=yes",
+    "-oSetupTimeout=10",
+    "-oIdentitiesOnly=yes",
+    "-F/dev/null",
+    cmd.arg("verbose", "-v"),
+    cmd.arg("user", "-oUser={}"),
+    cmd.arg("key", "-oIdentityFile={}"),
+)
 
 
 class OutputHandler(object):
@@ -61,7 +65,7 @@ class OutputHandler(object):
     """
 
     host = None
-    output = ''
+    output = ""
 
     def __init__(self, host):
         self.host = host
@@ -79,8 +83,8 @@ class JSONOutputHandler(OutputHandler):
 
     def __init__(self, host):
         super(JSONOutputHandler, self).__init__(host)
-        self._logger = utils.get_logger().getChild('target').getChild(host)
-        self._partial = ''
+        self._logger = utils.get_logger().getChild("target").getChild(host)
+        self._partial = ""
 
     def accept(self, output):
         """
@@ -89,7 +93,7 @@ class JSONOutputHandler(OutputHandler):
         Any non-JSON is stored in self.output.
         """
         for line in self.lines(output):
-            if line.startswith('{'):
+            if line.startswith("{"):
                 try:
                     record = log.JSONFormatter.make_record(line)
                 except (ValueError, TypeError):
@@ -98,7 +102,7 @@ class JSONOutputHandler(OutputHandler):
 
                 if record is not None:
                     # qualify the record name according to our prefix
-                    record.name = self._logger.name + '.' + record.name
+                    record.name = self._logger.name + "." + record.name
 
                     # amend the record with the host name
                     record.host = self.host
@@ -124,15 +128,17 @@ class JSONOutputHandler(OutputHandler):
                 break
 
             yield self._partial + output[0:pos]
-            output = output[pos + 1:]
-            self._partial = ''
+            output = output[pos + 1 :]
+            self._partial = ""
 
 
 class Job(object):
     """Execute a job on a group of remote hosts via ssh."""
-    @utils.log_context('ssh.job')
-    def __init__(self, hosts=None, command=None, user=None,
-                 logger=None, key=None, verbose=False):
+
+    @utils.log_context("ssh.job")
+    def __init__(
+        self, hosts=None, command=None, user=None, logger=None, key=None, verbose=False
+    ):
         self.hosts(hosts or [])
         self._command = command
         self._reporter = None
@@ -159,8 +165,7 @@ class Job(object):
 
     def exclude_hosts(self, exclude):
         exclude = [socket.getfqdn(h) for h in exclude]
-        self.hosts(
-            [h for h in self._hosts if socket.getfqdn(h) not in exclude])
+        self.hosts([h for h in self._hosts if socket.getfqdn(h) not in exclude])
 
     def command(self, command):
         """Set command to run."""
@@ -199,7 +204,7 @@ class Job(object):
         :raises: RuntimeError if command has not been set
         """
         if not self._command:
-            raise RuntimeError('Command must be provided')
+            raise RuntimeError("Command must be provided")
 
         if not self._reporter:
             self._reporter = log.reporter(self._command)
@@ -209,21 +214,26 @@ class Job(object):
             self._reporter.start()
 
             for host, status, ohandler in cluster_ssh(
-                    self._hosts,
-                    self._command,
-                    self._user,
-                    self._key,
-                    batch_size,
-                    self.max_failure,
-                    self.output_handler,
-                    self.verbose):
+                self._hosts,
+                self._command,
+                self._user,
+                self._key,
+                batch_size,
+                self.max_failure,
+                self.output_handler,
+                self.verbose,
+            ):
 
                 if status == 0:
                     self._reporter.add_success()
                 else:
                     self.get_logger().warning(
-                        '%s on %s returned [%d]: %s',
-                        self._command, host, status, ohandler.output)
+                        "%s on %s returned [%d]: %s",
+                        self._command,
+                        host,
+                        status,
+                        ohandler.output,
+                    )
                     self._reporter.add_failure()
 
                 yield host, status
@@ -231,12 +241,20 @@ class Job(object):
             self._reporter.finish()
         else:
             self.get_logger().warning(
-                'Job %s called with an empty host list.', self._command)
+                "Job %s called with an empty host list.", self._command
+            )
 
 
 def cluster_ssh(
-        hosts, command, user=None, key=None, limit=DEFAULT_BATCH_SIZE,
-        max_fail=None, output_handler=None, verbose=False):
+    hosts,
+    command,
+    user=None,
+    key=None,
+    limit=DEFAULT_BATCH_SIZE,
+    max_fail=None,
+    output_handler=None,
+    verbose=False,
+):
     """Run a command via SSH on multiple hosts concurrently."""
     hosts = set(hosts)
     # Ensure a minimum batch size of 1
@@ -267,8 +285,10 @@ def cluster_ssh(
 
                 proc = subprocess.Popen(
                     ssh_cmd,
-                    stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-                    preexec_fn=os.setsid)
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.STDOUT,
+                    preexec_fn=os.setsid,
+                )
 
                 procs[proc.pid] = (proc, host)
                 poll.register(proc.stdout, select.EPOLLIN)

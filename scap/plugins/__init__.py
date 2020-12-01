@@ -44,7 +44,7 @@ from .say import Say
 
 THIS_MODULE = sys.modules[__name__]
 LOADED_PLUGINS = {}
-__all__ = ['Say']
+__all__ = ["Say"]
 
 
 def find_plugins(plugin_dirs):
@@ -64,7 +64,7 @@ def find_plugins(plugin_dirs):
 
         try:
             for f in file_list:
-                if not f.startswith('_') and f.endswith('.py'):
+                if not f.startswith("_") and f.endswith(".py"):
                     plugins.append(f[:-3])
 
         except OSError:
@@ -83,7 +83,7 @@ def load_plugins(plugin_dir=None):
     module namespace.
     """
 
-    if os.getenv('SCAP_DISABLE_PLUGINS'):
+    if os.getenv("SCAP_DISABLE_PLUGINS"):
         return
 
     if LOADED_PLUGINS:
@@ -92,8 +92,8 @@ def load_plugins(plugin_dir=None):
 
     plugin_dirs = [
         plugin_dir,
-        os.path.join(os.getcwd(), 'scap', 'plugins'),
-        os.path.join(os.path.expanduser('~'), '.scap', 'plugins')
+        os.path.join(os.getcwd(), "scap", "plugins"),
+        os.path.join(os.path.expanduser("~"), ".scap", "plugins"),
     ]
 
     plugins = find_plugins(plugin_dirs)
@@ -116,7 +116,7 @@ def load_plugins(plugin_dir=None):
                 if isinstance(obj, type) and issubclass(obj, Application):
                     if objname in LOADED_PLUGINS:
                         # duplicate: another plugin already used the same name
-                        msg = 'Duplicate plugin named %s, skipping.'
+                        msg = "Duplicate plugin named %s, skipping."
                         logging.getLogger().warning(msg, objname)
                         continue
                     # copy the class into the scap.plugins namespace
@@ -124,8 +124,8 @@ def load_plugins(plugin_dir=None):
                     LOADED_PLUGINS[objname] = obj
                     __all__.append(objname)
         except Exception as e:
-            msg = 'Problem loading plugins from module: scap.plugins.%s (%s)'
-            err_msg = type(e).__name__ + ':' + str(e)
+            msg = "Problem loading plugins from module: scap.plugins.%s (%s)"
+            err_msg = type(e).__name__ + ":" + str(e)
             logging.getLogger().warning(msg, plugin, err_msg)
 
     # Restore the original setting

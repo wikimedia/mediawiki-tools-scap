@@ -59,7 +59,7 @@ def register(script, script_path):
     _SCRIPTS[script] = script_path
 
 
-@checks.checktype('script')
+@checks.checktype("script")
 class ScriptCheck(checks.Check):
     """Represent a loaded 'script' check."""
 

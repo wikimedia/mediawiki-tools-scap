@@ -8,12 +8,11 @@ from scap import ssh
 
 
 class JSONOutputHandlerTest(unittest.TestCase):
-
     def setUp(self):
-        host = 'host1'
+        host = "host1"
         self.output_handler = ssh.JSONOutputHandler(host)
 
-        self.logger = logging.getLogger('target.' + host)
+        self.logger = logging.getLogger("target." + host)
         self.logger.setLevel(logging.INFO)
 
         for log_handler in self.logger.handlers:
@@ -28,18 +27,18 @@ class JSONOutputHandlerTest(unittest.TestCase):
 
     def test_lines_buffers_partial_lines(self):
         lines = self.output_handler.lines("one\ntwo\nthre")
-        assert ['one', 'two'] == list(lines)
+        assert ["one", "two"] == list(lines)
 
         lines = self.output_handler.lines("e\nfour\n")
-        assert ['three', 'four'] == list(lines)
+        assert ["three", "four"] == list(lines)
 
     def test_accept_parses_and_logs_json_messages(self):
-        self.output_handler.accept("{ \"msg\": \"foo\" }\n")
+        self.output_handler.accept('{ "msg": "foo" }\n')
         self.assert_logged("foo\n")
 
     def test_accept_ignores_bad_json(self):
-        self.output_handler.accept('invalid json')
-        self.assert_logged('')
+        self.output_handler.accept("invalid json")
+        self.assert_logged("")
 
     def tearDown(self):
         self.logger.removeHandler(self.log_handler)

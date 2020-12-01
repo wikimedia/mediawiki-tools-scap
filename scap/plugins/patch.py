@@ -27,9 +27,10 @@ class PatchError(Exception):
         return self.msg
 
 
-@cli.command('patch')
+@cli.command("patch")
 class SecurityPatchManager(cli.Application):
     """ Scap sub-command to manage mediawiki security patches """
+
     def __init__(self, exe_name):
         super(SecurityPatchManager, self).__init__(exe_name)
         self.branchdir = None
@@ -38,9 +39,10 @@ class SecurityPatchManager(cli.Application):
     def _process_arguments(self, args, extra_args):
         return args, extra_args
 
-    @cli.argument('--check-only', action='store_true',
-                  help='Just check if patches apply cleanly.')
-    @cli.argument('branch', help='The name of the branch to operate on.')
+    @cli.argument(
+        "--check-only", action="store_true", help="Just check if patches apply cleanly."
+    )
+    @cli.argument("branch", help="The name of the branch to operate on.")
     def main(self, *extra_args):
         """ Apply security patches """
 
@@ -48,21 +50,21 @@ class SecurityPatchManager(cli.Application):
 
         branch = self.arguments.branch
 
-        if branch.startswith('php-'):
+        if branch.startswith("php-"):
             branch = branch[4:]
 
-        branch = branch.rstrip('/')
-        stage_dir = self.config.get('stage_dir', './')
+        branch = branch.rstrip("/")
+        stage_dir = self.config.get("stage_dir", "./")
 
-        self.patchdir = os.path.join('/srv/patches/', branch)
-        self.checkdir('patch', self.patchdir)
+        self.patchdir = os.path.join("/srv/patches/", branch)
+        self.checkdir("patch", self.patchdir)
 
-        self.branchdir = os.path.join(stage_dir, 'php-%s' % branch)
-        self.checkdir('branch', self.branchdir)
+        self.branchdir = os.path.join(stage_dir, "php-%s" % branch)
+        self.checkdir("branch", self.branchdir)
 
         with utils.cd(self.branchdir):
             for base, path, filename in self.get_patches():
-                repo_dir = './' if path == 'core' else os.path.join('./', path)
+                repo_dir = "./" if path == "core" else os.path.join("./", path)
                 patchfile = os.path.join(base, path, filename)
                 try:
                     self.apply_patch(patchfile, repo_dir)
@@ -77,35 +79,35 @@ class SecurityPatchManager(cli.Application):
             self.get_logger().error(msg)
             raise ValueError(msg)
 
-    def get_patches(self, path=''):
+    def get_patches(self, path=""):
         """Get patches in a directory"""
         patchdir = os.path.join(self.patchdir, path)
         prefix_length = len(self.patchdir) + 1
         for folder, _, files in os.walk(patchdir):
             for filename in files:
-                if filename.endswith('.failed'):
-                    self.get_logger().warning('Skipping failed patch: %s/%s',
-                                              folder, filename)
+                if filename.endswith(".failed"):
+                    self.get_logger().warning(
+                        "Skipping failed patch: %s/%s", folder, filename
+                    )
                 else:
                     yield self.patchdir, folder[prefix_length:], filename
 
     def check_patch(self, patch):
         """Check if a patch file is ok"""
         try:
-            subprocess.check_call(['git', 'apply', '--check', '-3', patch])
+            subprocess.check_call(["git", "apply", "--check", "-3", patch])
         except subprocess.CalledProcessError as ex:
-            msg = 'Patch %s failed to apply: %s' % (patch, ex.output)
+            msg = "Patch %s failed to apply: %s" % (patch, ex.output)
             raise PatchError(msg, patch)
 
-    def apply_patch(self, patch, repo_dir='./'):
+    def apply_patch(self, patch, repo_dir="./"):
         """Apply a patch"""
         with utils.cd(repo_dir):
             self.check_patch(patch)
             if not self.arguments.check_only:
-                self.get_logger().info(
-                    'In %s, Applying patch: %s' % (repo_dir, patch))
+                self.get_logger().info("In %s, Applying patch: %s" % (repo_dir, patch))
                 try:
-                    subprocess.check_call(['git', 'am', '-3', patch])
+                    subprocess.check_call(["git", "am", "-3", patch])
                 except subprocess.CalledProcessError as ex:
-                    msg = 'Patch %s failed to apply: %s' % (patch, ex.output)
+                    msg = "Patch %s failed to apply: %s" % (patch, ex.output)
                     raise PatchError(msg, patch)

@@ -50,18 +50,18 @@ import scap.utils as utils
 # Format string for log messages. Interpolates LogRecord attributes.
 # See <http://docs.python.org/2/library/logging.html#logrecord-attributes>
 # for attribute names you can include here.
-CONSOLE_LOG_FORMAT = '%(asctime)s %(levelname)-8s - %(message)s'
+CONSOLE_LOG_FORMAT = "%(asctime)s %(levelname)-8s - %(message)s"
 
 
 class AnsiColorFormatter(logging.Formatter):
     """Colorize output according to logging level."""
 
     colors = {
-        'CRITICAL': '41;37',  # white on red
-        'ERROR': '31',        # red
-        'WARNING': '33',      # yellow
-        'INFO': '32',         # green
-        'DEBUG': '36',        # cyan
+        "CRITICAL": "41;37",  # white on red
+        "ERROR": "31",  # red
+        "WARNING": "33",  # yellow
+        "INFO": "32",  # green
+        "DEBUG": "36",  # cyan
     }
 
     def __init__(self, fmt=None, datefmt=None, colors=None):
@@ -78,8 +78,8 @@ class AnsiColorFormatter(logging.Formatter):
 
     def format(self, record):
         msg = super(AnsiColorFormatter, self).format(record)
-        color = self.colors.get(record.levelname, '0')
-        return '\x1b[%sm%s\x1b[0m' % (color, msg)
+        color = self.colors.get(record.levelname, "0")
+        return "\x1b[%sm%s\x1b[0m" % (color, msg)
 
 
 class DiffLogFormatter(AnsiColorFormatter):
@@ -94,10 +94,9 @@ class DiffLogFormatter(AnsiColorFormatter):
 
     def format(self, record):
 
-        if getattr(record, 'type', None) == 'config_diff':
+        if getattr(record, "type", None) == "config_diff":
             if self.lex:
-                return pygments.highlight(record.output, self.lex,
-                                          self.formatter)
+                return pygments.highlight(record.output, self.lex, self.formatter)
             return record.output
         return super(DiffLogFormatter, self).format(record)
 
@@ -124,10 +123,11 @@ class IRCSocketHandler(logging.Handler):
         self.timeout = timeout
 
     def emit(self, record):
-        message = '!log %s@%s %s' % (
+        message = "!log %s@%s %s" % (
             utils.get_real_username(),
             socket.gethostname(),
-            record.getMessage())
+            record.getMessage(),
+        )
         try:
             sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             sock.settimeout(self.timeout)
@@ -147,20 +147,21 @@ class JSONFormatter(logging.Formatter):
     """
 
     DEFAULTS = [
-        ('name', ''),
-        ('levelno', logging.INFO),
-        ('filename', None),
-        ('lineno', None),
-        ('msg', ''),
-        ('args', ()),
-        ('exc_info', None),
-        ('funcName', None)]
+        ("name", ""),
+        ("levelno", logging.INFO),
+        ("filename", None),
+        ("lineno", None),
+        ("msg", ""),
+        ("args", ()),
+        ("exc_info", None),
+        ("funcName", None),
+    ]
 
     # LogRecord fields that we omit because we can't reliably serialize them
-    UNSERIALIZABLE = {'exc_info'}
+    UNSERIALIZABLE = {"exc_info"}
 
     # Native fields that we propagate as is
-    PRESERVED = {'created', 'msecs', 'relativeCreated', 'exc_text'}
+    PRESERVED = {"created", "msecs", "relativeCreated", "exc_text"}
 
     # Extrapolate efficient sets of mapped and built-in LogRecord attributes
     FIELDS = ({k for k, _ in DEFAULTS} | PRESERVED) - UNSERIALIZABLE
@@ -173,7 +174,7 @@ class JSONFormatter(logging.Formatter):
         for k, v in JSONFormatter.DEFAULTS:
             val = fields.get(k, v)
 
-            if k == 'args':
+            if k == "args":
                 val = tuple(val)
 
             args.append(val)
@@ -191,13 +192,13 @@ class JSONFormatter(logging.Formatter):
         fields = {k: rec[k] for k in rec if self._isvalid(k)}
 
         # We can't serialize `exc_info` so preserve it as a formatted string
-        if rec.get('exc_info', None):
-            fields['exc_text'] = self.formatException(rec['exc_info'])
+        if rec.get("exc_info", None):
+            fields["exc_text"] = self.formatException(rec["exc_info"])
 
         def serialize_obj(obj):
-            if hasattr(obj, 'getvalue'):
+            if hasattr(obj, "getvalue"):
                 return obj.getvalue()
-            elif hasattr(obj, '__dict__'):
+            elif hasattr(obj, "__dict__"):
                 return obj.__dict__
             return None
 
@@ -212,8 +213,7 @@ class LogstashFormatter(logging.Formatter):
 
     converter = time.gmtime
 
-    def __init__(self, fmt=None, datefmt='%Y-%m-%dT%H:%M:%SZ',
-                 log_type='scap'):
+    def __init__(self, fmt=None, datefmt="%Y-%m-%dT%H:%M:%SZ", log_type="scap"):
         """
         :param fmt: Message format string (not used)
         :param datefmt: Time format string
@@ -230,16 +230,16 @@ class LogstashFormatter(logging.Formatter):
         fields = record.__dict__.copy()
 
         # Rename fields
-        fields['channel'] = fields.pop('name', 'unnamed')
-        fields['@timestamp'] = self.formatTime(record, self.datefmt)
+        fields["channel"] = fields.pop("name", "unnamed")
+        fields["@timestamp"] = self.formatTime(record, self.datefmt)
 
         # Ensure message is populated
-        if 'message' not in fields:
+        if "message" not in fields:
             try:
-                if 'args' in fields and fields['args']:
-                    fields['message'] = fields['msg'] % fields['args']
+                if "args" in fields and fields["args"]:
+                    fields["message"] = fields["msg"] % fields["args"]
                 else:
-                    fields['message'] = fields['msg']
+                    fields["message"] = fields["msg"]
             except TypeError as typee:
                 # This sometimes happens if the fields['msg'] has a
                 # '%<something>' in it some place.
@@ -249,41 +249,39 @@ class LogstashFormatter(logging.Formatter):
                 # error than the output, "not enough arguments for format
                 # string"
                 raise TypeError(
-                    'error: ({}); '
-                    'format string: ({}); '
-                    'arguments: ({})'.format(
-                        str(typee),
-                        fields['msg'],
-                        fields['args']))
+                    "error: ({}); "
+                    "format string: ({}); "
+                    "arguments: ({})".format(str(typee), fields["msg"], fields["args"])
+                )
 
         # Format exception
-        if 'exc_info' in fields and fields['exc_info']:
-            fields['exception'] = self.formatException(fields['exc_info'])
+        if "exc_info" in fields and fields["exc_info"]:
+            fields["exception"] = self.formatException(fields["exc_info"])
 
         # Remove fields
         remove_fields = [
-            'args',
-            'asctime',
-            'created',
-            'exc_info',
-            'exc_text',
-            'levelno',
-            'msecs',
-            'msg',
-            'processName',
-            'relativeCreated',
-            'thread',
-            'threadName',
+            "args",
+            "asctime",
+            "created",
+            "exc_info",
+            "exc_text",
+            "levelno",
+            "msecs",
+            "msg",
+            "processName",
+            "relativeCreated",
+            "thread",
+            "threadName",
         ]
         for field in remove_fields:
             fields.pop(field, None)
 
         logstash_record = {
-            '@version': 1,
-            'type': self.type,
-            'host': self.host,
-            'script': self.script,
-            'user': self.user,
+            "@version": 1,
+            "type": self.type,
+            "host": self.host,
+            "script": self.script,
+            "user": self.user,
         }
         logstash_record.update(fields)
 
@@ -293,15 +291,12 @@ class LogstashFormatter(logging.Formatter):
         """Format the given exception as a dict."""
         ex_type, ex_value, ex_traceback = exc_info
         return {
-            'class': ex_type.__name__,
-            'message': '%s' % ex_value,
-            'stacktrace': [{
-                'file': fname,
-                'line': line,
-                'function': func,
-                'text': text,
-            } for fname, line, func, text in traceback.extract_tb(
-                ex_traceback)]
+            "class": ex_type.__name__,
+            "message": "%s" % ex_value,
+            "stacktrace": [
+                {"file": fname, "line": line, "function": func, "text": text}
+                for fname, line, func, text in traceback.extract_tb(ex_traceback)
+            ],
         }
 
 
@@ -310,7 +305,7 @@ class SyslogFormatter(LogstashFormatter):
         # Add the 'cee cookie' to signal json-in-syslog
         # The cookie is recognized by rsyslog for json parsing:
         # https://www.rsyslog.com/doc/v8-stable/configuration/modules/mmjsonparse.html
-        return 'scap: @cee: ' + super(SyslogFormatter, self).format(record)
+        return "scap: @cee: " + super(SyslogFormatter, self).format(record)
 
 
 def reporter(message, fancy=False):
@@ -379,7 +374,7 @@ class ProgressReporter(object):
     def finish(self):
         """Finish tracking progress."""
         self._progress()
-        self._fd.write('\n')
+        self._fd.write("\n")
 
     def add_success(self):
         """Record a sucessful task completion."""
@@ -395,20 +390,23 @@ class ProgressReporter(object):
 
     def _progress(self):
         if sys.stdout.isatty():
-            fmt = '%-80s\r'
+            fmt = "%-80s\r"
         else:
-            fmt = '%-80s\n'
+            fmt = "%-80s\n"
         self._fd.write(fmt % self._output())
 
     def _output(self):
-        return '%s: %3.0f%% (ok: %d; fail: %d; left: %d)' % (
-            self._name, self.percent_complete,
-            self.ok, self.failed, self.remaining)
+        return "%s: %3.0f%% (ok: %d; fail: %d; left: %d)" % (
+            self._name,
+            self.percent_complete,
+            self.ok,
+            self.failed,
+            self.remaining,
+        )
 
 
 class FancyProgressReporter(ProgressReporter):
-
-    def __init__(self, name='', expect=0, fd=sys.stderr):
+    def __init__(self, name="", expect=0, fd=sys.stderr):
         TERM.scroll_region(0, TERM.height - 3)
         TERM.scroll_forward(1)
         TERM.register_cleanup_callback(self.cleanup)
@@ -418,21 +416,19 @@ class FancyProgressReporter(ProgressReporter):
         """Finish tracking progress."""
         self._progress()
 
-        message = "Finished: %s (%s failed) " % \
-            (self._name, self._failed)
+        message = "Finished: %s (%s failed) " % (self._name, self._failed)
         width = min((TERM.width, 80)) - len(message)
         bars = width - 4
-        prog_bar = '=' * bars
+        prog_bar = "=" * bars
         self.cleanup()
-        TERM.fg(7).write(message) \
-            .fg(4).write(prog_bar).nl()
+        TERM.fg(7).write(message).fg(4).write(prog_bar).nl()
 
     def cleanup(self, term=TERM):
         height = term.height
         term.save()
-        term.move(height - 2, 0).clear_eol() \
-            .move(height - 1, 0).clear_eol() \
-            .move(height, 0).clear_eol()
+        term.move(height - 2, 0).clear_eol().move(height - 1, 0).clear_eol().move(
+            height, 0
+        ).clear_eol()
         term.scroll_region(0, height)
         term.reset_colors()
         term.restore()
@@ -444,7 +440,7 @@ class FancyProgressReporter(ProgressReporter):
         scale = int(width / 2)
         scale = min(width - label_width, scale)
         scale = max(scale, 15)
-        partial_bar = (' ', '▎', '▎', '▍', '▌', '▋', '▊', '▉', '▉', '█')
+        partial_bar = (" ", "▎", "▎", "▍", "▌", "▋", "▊", "▉", "▉", "█")
         pct = float(self.percent_complete) / 100
         progress = scale * pct
         filled_bars = int(progress)
@@ -452,39 +448,41 @@ class FancyProgressReporter(ProgressReporter):
         if filled_bars > 0 and progress > filled_bars:
             remain = int((progress % filled_bars) * 10)
 
-        prog_bar = '█' * int(filled_bars)
+        prog_bar = "█" * int(filled_bars)
         prog_bar = prog_bar + partial_bar[remain]
 
-        TERM.save() \
-            .move(bottom - 1, 0) \
-            .fg(15).write("| ok: ") \
-            .fg(2).write(str(self.ok)) \
-            .fg(15).write(" | fail: ") \
-            .fg(1).write(str(self.failed)) \
-            .fg(15).write(" | remain: ") \
-            .fg(7).write(str(self.remaining), ' | ') \
-            .clear_eol()
+        TERM.save().move(bottom - 1, 0).fg(15).write("| ok: ").fg(2).write(
+            str(self.ok)
+        ).fg(15).write(" | fail: ").fg(1).write(str(self.failed)).fg(15).write(
+            " | remain: "
+        ).fg(
+            7
+        ).write(
+            str(self.remaining), " | "
+        ).clear_eol()
 
-        TERM.move(bottom - 2, 0) \
-            .fg(15).write('| ') \
-            .fg(7).write(self._name) \
-            .fg(15).write(" | ") \
-            .write(self.percent_complete, '% ') \
-            .fg(4).write(prog_bar) \
-            .clear_eol()
+        TERM.move(bottom - 2, 0).fg(15).write("| ").fg(7).write(self._name).fg(
+            15
+        ).write(" | ").write(self.percent_complete, "% ").fg(4).write(
+            prog_bar
+        ).clear_eol()
 
         TERM.restore().flush()
 
     def _output(self):
-        return '%s: %3.0f%% (ok: %d; fail: %d; left: %d)' % (
-            self._name, self.percent_complete,
-            self.ok, self.failed, self.remaining)
+        return "%s: %3.0f%% (ok: %d; fail: %d; left: %d)" % (
+            self._name,
+            self.percent_complete,
+            self.ok,
+            self.failed,
+            self.remaining,
+        )
 
 
 class MuteReporter(ProgressReporter):
     """A report that declines to report anything."""
 
-    def __init__(self, name='', expect=0, fd=sys.stderr):
+    def __init__(self, name="", expect=0, fd=sys.stderr):
         super(MuteReporter, self).__init__(name)
 
     def _progress(self):
@@ -498,7 +496,7 @@ class DeployLogFormatter(JSONFormatter):
     """Ensure that all `deploy.log` records contain a host attribute."""
 
     def format(self, record):
-        if not hasattr(record, 'host'):
+        if not hasattr(record, "host"):
             record.host = socket.gethostname()
 
         return super(DeployLogFormatter, self).format(record)
@@ -535,9 +533,9 @@ class Filter(object):
         Filter.loads('name == *.target.*', invert=False)
     """
 
-    OPERATORS = {'=', '==', '~', '>', '>=', '<', '<='}
-    COMPARISONS = {'>': 'gt', '>=': 'ge', '<': 'lt', '<=': 'le'}
-    LOG_LEVELS = ['CRITICAL', 'ERROR', 'WARNING', 'INFO', 'DEBUG']
+    OPERATORS = {"=", "==", "~", ">", ">=", "<", "<="}
+    COMPARISONS = {">": "gt", ">=": "ge", "<": "lt", "<=": "le"}
+    LOG_LEVELS = ["CRITICAL", "ERROR", "WARNING", "INFO", "DEBUG"]
 
     @staticmethod
     def loads(expression, invert=True):
@@ -550,7 +548,7 @@ class Filter(object):
         criteria = []
 
         for lhs, op, rhs in Filter.parse(expression):
-            if lhs == 'levelno' and rhs in Filter.LOG_LEVELS:
+            if lhs == "levelno" and rhs in Filter.LOG_LEVELS:
                 criterion = getattr(logging, rhs)
             elif rhs.isdigit():
                 criterion = int(rhs)
@@ -562,7 +560,7 @@ class Filter(object):
                 # e.g. foo < 10 becomes `operator.lt(foo, 10)`
                 func = getattr(operator, Filter.COMPARISONS[op])
                 criterion = partial(lambda f, c, v: f(v, c), func, criterion)
-            elif op == '~':
+            elif op == "~":
                 criterion = re.compile(criterion)
 
             criteria.append((lhs, criterion))
@@ -587,7 +585,7 @@ class Filter(object):
             raise ValueError("invalid expression '{}'".format(expression))
 
         for i in range(0, len(parts), 3):
-            lhs, op, rhs = parts[i:i + 3]
+            lhs, op, rhs = parts[i : i + 3]
 
             if op not in Filter.OPERATORS:
                 raise ValueError("invalid operator '{}'".format(op))
@@ -607,7 +605,7 @@ class Filter(object):
         :type criteria: iter
         """
 
-        if hasattr(criteria, 'items'):
+        if hasattr(criteria, "items"):
             criteria = criteria.items()
 
         # Normalize all globs into regexs into lambdas
@@ -615,7 +613,7 @@ class Filter(object):
             if isinstance(criterion, str):
                 criterion = re.compile(fnmatch.translate(criterion))
 
-            if not hasattr(criterion, '__call__'):
+            if not hasattr(criterion, "__call__"):
                 criterion = partial(lambda c, v: c.search(v), criterion)
 
             self.criteria.append((attr, criterion))
@@ -658,7 +656,7 @@ class Stats(object):
     See <https://github.com/etsy/statsd/wiki/Protocol> for details.
     """
 
-    @utils.log_context('stats')
+    @utils.log_context("stats")
     def __init__(self, host, port, logger=None):
         self.logger = logger
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -666,12 +664,12 @@ class Stats(object):
 
     def timing(self, name, milliseconds):
         """Report a timing measurement in milliseconds."""
-        metric = '%s:%s|ms' % (name, int(round(milliseconds)))
+        metric = "%s:%s|ms" % (name, int(round(milliseconds)))
         self._send_metric(metric)
 
     def increment(self, name, value=1):
         """Increment a measurement."""
-        metric = '%s:%s|c' % (name, value)
+        metric = "%s:%s|c" % (name, value)
         self._send_metric(metric)
 
     def _send_metric(self, metric):
@@ -703,7 +701,7 @@ class Timer(object):
     ...     y = t.mark('copy phase 2')
     """
 
-    @utils.log_context('timer')
+    @utils.log_context("timer")
     def __init__(self, label, stats=None, logger=None):
         """
         :param label: Label for block (e.g. 'scap' or 'rsync')
@@ -738,7 +736,7 @@ class Timer(object):
         """
         self.start = time.time()
         self.mark_start = self.start
-        self.logger.info('Started %s' % self.label)
+        self.logger.info("Started %s" % self.label)
         return self
 
     def __exit__(self, exc_type, exc_value, traceback):
@@ -754,17 +752,18 @@ class Timer(object):
         :param elapsed: Elapsed duration
         :type elapsed: float
         """
-        self.logger.info('Finished %s (duration: %s)',
-                         label, utils.human_duration(elapsed))
+        self.logger.info(
+            "Finished %s (duration: %s)", label, utils.human_duration(elapsed)
+        )
         if self.stats:
-            label = re.sub(r'\W', '_', label.lower())
-            self.stats.timing('scap.%s' % label, elapsed * 1000)
+            label = re.sub(r"\W", "_", label.lower())
+            self.stats.timing("scap.%s" % label, elapsed * 1000)
 
 
 class Udp2LogHandler(logging.handlers.DatagramHandler):
     """Log handler for udp2log."""
 
-    def __init__(self, host, port, prefix='scap'):
+    def __init__(self, host, port, prefix="scap"):
         """
         :param host: Hostname or ip address
         :param port: Port
@@ -787,11 +786,11 @@ class Udp2LogHandler(logging.handlers.DatagramHandler):
         """
         text = self.format(record)
         if self.prefix:
-            text = re.sub(r'^', self.prefix + ' ', text, flags=re.MULTILINE)
+            text = re.sub(r"^", self.prefix + " ", text, flags=re.MULTILINE)
         if len(text) > 65506:
             text = text[:65506]
-        if text[-1] != '\n':
-            text = text + '\n'
+        if text[-1] != "\n":
+            text = text + "\n"
         return text
 
 
@@ -811,42 +810,43 @@ def setup_loggers(cfg, console_level=logging.INFO, handlers=None):
 
     # The INFO level for scap.sh is pretty verbose
     if console_level == logging.DEBUG:
-        logging.getLogger('scap.sh').setLevel(logging.INFO)
+        logging.getLogger("scap.sh").setLevel(logging.INFO)
 
     # Set logger levels
     logging.root.setLevel(logging.DEBUG)
     logging.root.handlers[0].setLevel(console_level)
 
     # Filter target output from the main handler
-    logging.root.handlers[0].addFilter(Filter({'name': 'target.*'}))
+    logging.root.handlers[0].addFilter(Filter({"name": "target.*"}))
 
-    if cfg['log_json']:
+    if cfg["log_json"]:
         logging.root.handlers[0].setFormatter(JSONFormatter())
     else:
         # Colorize log messages sent to stderr
-        logging.root.handlers[0].setFormatter(DiffLogFormatter(
-            '%(asctime)s %(message)s', '%H:%M:%S'))
+        logging.root.handlers[0].setFormatter(
+            DiffLogFormatter("%(asctime)s %(message)s", "%H:%M:%S")
+        )
 
-    if cfg['udp2log_host']:
+    if cfg["udp2log_host"]:
         # Send a copy of all logs to the udp2log relay
-        udp_handler = Udp2LogHandler(
-            cfg['udp2log_host'], int(cfg['udp2log_port']))
+        udp_handler = Udp2LogHandler(cfg["udp2log_host"], int(cfg["udp2log_port"]))
         udp_handler.setLevel(logging.DEBUG)
         udp_handler.setFormatter(LogstashFormatter())
         logging.root.addHandler(udp_handler)
 
-    if cfg['use_syslog']:
+    if cfg["use_syslog"]:
         # Send a copy of all logs to local syslog
-        syslog_handler = logging.handlers.SysLogHandler('/dev/log')
+        syslog_handler = logging.handlers.SysLogHandler("/dev/log")
         syslog_handler.setLevel(logging.DEBUG)
         syslog_handler.setFormatter(SyslogFormatter())
         logging.root.addHandler(syslog_handler)
 
-    if cfg['tcpircbot_host']:
+    if cfg["tcpircbot_host"]:
         # Send 'scap.announce' messages to irc relay
-        irc_logger = logging.getLogger('scap.announce')
-        irc_logger.addHandler(IRCSocketHandler(
-            cfg['tcpircbot_host'], int(cfg['tcpircbot_port'])))
+        irc_logger = logging.getLogger("scap.announce")
+        irc_logger.addHandler(
+            IRCSocketHandler(cfg["tcpircbot_host"], int(cfg["tcpircbot_port"]))
+        )
 
     if handlers is not None:
         for handler in handlers:

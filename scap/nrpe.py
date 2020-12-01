@@ -54,10 +54,10 @@ def load(config):
     for line in config.splitlines():
         line = line.strip()
 
-        if line.startswith('#'):
+        if line.startswith("#"):
             continue
 
-        match = re.match(r'command\[(.+)\] *= *(.+)$', line)
+        match = re.match(r"command\[(.+)\] *= *(.+)$", line)
 
         if match:
             yield match.group(1), match.group(2)
@@ -79,7 +79,7 @@ def load_directory(config_dir):
             if not os.path.isfile(config_file):
                 continue
 
-            with open(config_file, 'r') as cfg:
+            with open(config_file, "r") as cfg:
                 for name, command in load(cfg.read()):
                     yield name, command
 
@@ -93,7 +93,7 @@ def register(commands):
     _COMMANDS.update(commands)
 
 
-@checks.checktype('nrpe')
+@checks.checktype("nrpe")
 class NRPECheck(checks.Check):
     """Represent a loaded 'nrpe' check."""
 

@@ -40,10 +40,10 @@ import pygments.formatters
 
 
 BRANCH_RE = re.compile(
-    r'(?P<major>\d{1}).'
-    r'(?P<minor>\d{1,2}).'
-    r'(?P<patch>\d{1,2})'
-    r'-wmf.(?P<prerelease>\d{1,2})'
+    r"(?P<major>\d{1})."
+    r"(?P<minor>\d{1,2})."
+    r"(?P<patch>\d{1,2})"
+    r"-wmf.(?P<prerelease>\d{1,2})"
 )
 
 
@@ -67,7 +67,7 @@ def isclose(a, b, rel_tol=1e-9, abs_tol=0.0):
         return True
 
     if rel_tol < 0.0 or abs_tol < 0.0:
-        raise ValueError('error tolerances must be non-negative')
+        raise ValueError("error tolerances must be non-negative")
 
     # use cmath so it will work with complex ot float
     if math.isinf(abs(a)) or math.isinf(abs(b)):
@@ -77,9 +77,9 @@ def isclose(a, b, rel_tol=1e-9, abs_tol=0.0):
         return False
     diff = abs(b - a)
 
-    return (
-        ((diff <= abs(rel_tol * b)) or (diff <= abs(rel_tol * a))) or
-        (diff <= abs_tol))
+    return ((diff <= abs(rel_tol * b)) or (diff <= abs(rel_tol * a))) or (
+        diff <= abs_tol
+    )
 
 
 def eintr_retry(func, *args):
@@ -116,14 +116,13 @@ def ask(question, default, choices=None):
         return default
 
     if choices is None:
-        choices = '[{}]'.format(default)
+        choices = "[{}]".format(default)
 
-    ans = _input('{} {}: '.format(question, choices)).strip()
+    ans = _input("{} {}: ".format(question, choices)).strip()
     return ans.lower() if ans else default
 
 
-def confirm(question='Continue?', default=False, on_fulfilled=None,
-            on_rejected=None):
+def confirm(question="Continue?", default=False, on_fulfilled=None, on_rejected=None):
     """
     Ask for confirmation from the user if possible, otherwise return default
     when stdin is not attached to a terminal.
@@ -146,20 +145,20 @@ def confirm(question='Continue?', default=False, on_fulfilled=None,
                         to bail when execution is not attached to a terminal.
 
     """
-    yes = ['y', 'yes']
-    no = ['n', 'no']
+    yes = ["y", "yes"]
+    no = ["n", "no"]
 
     if default:
-        choices = '[Y/n]'
+        choices = "[Y/n]"
     else:
-        choices = '[y/N]'
+        choices = "[y/N]"
 
     # in case stdin is not a tty or the user accepts the default answer, then
     # the result will be default.
     result = default
 
     if sys.stdout.isatty():
-        ans = _input('{} {}: '.format(question, choices)).strip().lower()
+        ans = _input("{} {}: ".format(question, choices)).strip().lower()
         if ans in yes:
             result = True
         elif ans in no:
@@ -211,8 +210,7 @@ def find_nearest_host(hosts, port=22, timeout=1):
         for host, info in random.sample(host_map.items(), len(host_map)):
             family, sock_type, proto, _, addr = info
             s = socket.socket(family, sock_type, proto)
-            s.setsockopt(
-                socket.IPPROTO_IP, socket.IP_TTL, struct.pack('I', ttl))
+            s.setsockopt(socket.IPPROTO_IP, socket.IP_TTL, struct.pack("I", ttl))
             s.settimeout(timeout)
             try:
                 s.connect(addr)
@@ -251,7 +249,7 @@ def get_user_fullname(name=None):
     if name is None:
         name = get_username()
 
-    return pwd.getpwnam(name).pw_gecos.split(',')[0]
+    return pwd.getpwnam(name).pw_gecos.split(",")[0]
 
 
 def get_env_specific_filename(path, env=None):
@@ -262,11 +260,11 @@ def get_env_specific_filename(path, env=None):
     base = os.path.dirname(path)
     filename = os.path.basename(path)
 
-    if base.endswith('/templates'):
+    if base.endswith("/templates"):
         base = os.path.dirname(base)
-        filename = os.path.join('templates', filename)
+        filename = os.path.join("templates", filename)
 
-    env_filename = os.path.join(base, 'environments', env, filename)
+    env_filename = os.path.join(base, "environments", env, filename)
 
     if os.path.isfile(env_filename):
         return env_filename
@@ -284,10 +282,10 @@ def get_realm_specific_filename(filename, realm):
     base, ext = os.path.splitext(filename)
 
     # FIXME: Why should an extensionless file not undergo the same treatment?
-    if ext == '':
+    if ext == "":
         return filename
 
-    realm_specific = '%s-%s%s' % (base, realm, ext)
+    realm_specific = "%s-%s%s" % (base, realm, ext)
     if os.path.isfile(realm_specific):
         return realm_specific
     else:
@@ -312,7 +310,7 @@ def human_duration(elapsed):
     >>> human_duration(60*30+11)
     '30m 11s'
     """
-    return '%02dm %02ds' % divmod(elapsed, 60)
+    return "%02dm %02ds" % divmod(elapsed, 60)
 
 
 def iterate_subdirectories(root):
@@ -363,6 +361,7 @@ def log_context(context_name):
 
     The logger is passed to the function via a kwarg named 'logger'.
     """
+
     def arg_wrapper(func):
         @wraps(func)
         def context_wrapper(*args, **kwargs):
@@ -373,21 +372,23 @@ def log_context(context_name):
 
             # Check if logger was passed as a positional argument
             try:
-                logger = args[argspec.args.index('logger')]
+                logger = args[argspec.args.index("logger")]
             except IndexError:
                 logger = None
 
             # Check if logger was passed as a keyword argument
             if logger is None:
-                logger = kwargs.get('logger', None)
+                logger = kwargs.get("logger", None)
 
             if logger is not None:
                 return func(*args, **kwargs)
 
             with context_logger(context_name) as logger:
-                kwargs['logger'] = logger
+                kwargs["logger"] = logger
                 return func(*args, **kwargs)
+
         return context_wrapper
+
     return arg_wrapper
 
 
@@ -421,9 +422,9 @@ def md5_file(path):
     :returns: hexdigest of md5 checksum
     """
     crc = hashlib.md5()
-    with open(path, 'rb') as f:
+    with open(path, "rb") as f:
         # Digest file in 1M chunks just in case it's huge
-        for block in iter(lambda: f.read(1048576), b''):
+        for block in iter(lambda: f.read(1048576), b""):
             crc.update(block)
     return crc.hexdigest()
 
@@ -440,12 +441,10 @@ def make_sudo_check_call_env(env):
         val = os.environ.get(key)
         if val:
             envvars[key] = val
-    return ' '.join(
-        ['{}="{}"'.format(k, v) for k, v in envvars.items()]
-    )
+    return " ".join(['{}="{}"'.format(k, v) for k, v in envvars.items()])
 
 
-@log_context('sudo_check_call')
+@log_context("sudo_check_call")
 def sudo_check_call(user, cmd, logger=None):
     """
     Run a command as a specific user.
@@ -462,11 +461,12 @@ def sudo_check_call(user, cmd, logger=None):
     if user == get_username():
         fullCmd = cmd
     else:
-        cmd_env = make_sudo_check_call_env(['PHP'])
-        fullCmd = 'sudo -u %s -n %s -- %s' % (user, cmd_env, cmd)
+        cmd_env = make_sudo_check_call_env(["PHP"])
+        fullCmd = "sudo -u %s -n %s -- %s" % (user, cmd_env, cmd)
 
     proc = subprocess.Popen(
-        fullCmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, shell=True)
+        fullCmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, shell=True
+    )
 
     fullOut = []
     while proc.poll() is None:
@@ -480,25 +480,19 @@ def sudo_check_call(user, cmd, logger=None):
     map(logger.debug, leftover)
 
     if proc.returncode:
-        logger.error("Last output:\n" + '\n'.join(fullOut + leftover))
+        logger.error("Last output:\n" + "\n".join(fullOut + leftover))
         raise subprocess.CalledProcessError(proc.returncode, cmd)
 
 
 def check_file_exists(path, message=False):
     if path is None or not os.path.isfile(path):
-        raise IOError(
-            errno.ENOENT,
-            message or 'Error: %s is not a file.' % path,
-            path
-        )
+        raise IOError(errno.ENOENT, message or "Error: %s is not a file." % path, path)
 
 
 def check_dir_exists(path, message=False):
     if path is None or not os.path.isdir(path):
         raise IOError(
-            errno.ENOTDIR,
-            message or 'Error: %s is not a directory.' % path,
-            path
+            errno.ENOTDIR, message or "Error: %s is not a directory." % path, path
         )
 
 
@@ -515,7 +509,8 @@ def sudo_temp_dir(owner, prefix):
     while True:
         dirname = os.path.join(
             tempfile.gettempdir(),
-            prefix + str(random.SystemRandom().randint(0, 0xffffffff)))
+            prefix + str(random.SystemRandom().randint(0, 0xFFFFFFFF)),
+        )
         if not os.path.exists(dirname):
             break
     # Yes, there is a small race condition here in theory. In practice it
@@ -535,10 +530,10 @@ def is_initsystem(to_test):
     :param to_test: init system to test
     :returns: boolean
     """
-    if to_test == 'systemd':
-        return os.path.isdir('/run/systemd/system')
-    elif to_test == 'upstart':
-        return os.path.isfile('/sbin/initctl')
+    if to_test == "systemd":
+        return os.path.isdir("/run/systemd/system")
+    elif to_test == "upstart":
+        return os.path.isfile("/sbin/initctl")
     else:
         raise NotImplementedError("Only systemd and upstart are supported")
 
@@ -549,28 +544,27 @@ def is_service_running(service):
 
     :param service: Service name
     """
-    if is_initsystem('systemd'):
-        service_name = '{}.service'.format(service)
+    if is_initsystem("systemd"):
+        service_name = "{}.service".format(service)
         systemctl_exit_code = subprocess.call(
-            ['/bin/systemctl', '--quiet', 'is-active', service_name]
+            ["/bin/systemctl", "--quiet", "is-active", service_name]
         )
 
         return systemctl_exit_code == 0
-    elif is_initsystem('upstart'):
-        status = subprocess.check_output(
-            ['/sbin/status', service]).rstrip().split(' ')
-        if not status[1].startswith('start/running'):
+    elif is_initsystem("upstart"):
+        status = subprocess.check_output(["/sbin/status", service]).rstrip().split(" ")
+        if not status[1].startswith("start/running"):
             return False
         return True
     else:
-        raise NotImplementedError('Only  upstart or systemd are supported')
+        raise NotImplementedError("Only  upstart or systemd are supported")
 
 
 def systemd_service_exists(service):
     """
     Systemd service unit exists
     """
-    state_cmd = ['/bin/systemctl', 'show', '--property', 'LoadState', service]
+    state_cmd = ["/bin/systemctl", "show", "--property", "LoadState", service]
     try:
         loaded_state = subprocess.check_output(state_cmd).strip()
     except subprocess.CalledProcessError:
@@ -579,31 +573,29 @@ def systemd_service_exists(service):
     # Newer versions of systemctl have the --value flag, which means you don't
     # have to split output on '='. That'd sure be nice, but this throws an
     # error on older systemctl versions.
-    if '=' not in loaded_state:
+    if "=" not in loaded_state:
         return False
 
     # Should contain something like LoadState=loaded
-    state = loaded_state.split('=')[1]
+    state = loaded_state.split("=")[1]
 
     # not-found does not, in fact, exit non-zero as one might expect
     # - <3 systemd
-    return state not in ['masked', 'not-found']
+    return state not in ["masked", "not-found"]
 
 
 def upstart_service_exists(service):
     """
     Upstart service exists
     """
-    return os.path.exists(
-        os.path.join('/etc/init/', '{}.conf'.format(service)))
+    return os.path.exists(os.path.join("/etc/init/", "{}.conf".format(service)))
 
 
 def sysv_service_exists(service):
     """
     Determine if a sysvinit script exists for a service.
     """
-    return os.path.exists(
-        os.path.join('/etc/init.d', service))
+    return os.path.exists(os.path.join("/etc/init.d", service))
 
 
 def service_exists(service):
@@ -612,10 +604,10 @@ def service_exists(service):
     """
     sysv_exists = sysv_service_exists(service)
 
-    if is_initsystem('upstart'):
+    if is_initsystem("upstart"):
         upstart_exists = upstart_service_exists(service)
 
-    if is_initsystem('systemd'):
+    if is_initsystem("systemd"):
         systemd_exists = systemd_service_exists(service)
         # Return early for systemd systems because we want to obey the "masked"
         # property of systemd which isn't taken into account in sysv_exists or
@@ -664,7 +656,8 @@ def get_active_wikiversions(directory, realm):
               used.
     """
     path = get_realm_specific_filename(
-        os.path.join(directory, 'wikiversions.json'), realm)
+        os.path.join(directory, "wikiversions.json"), realm
+    )
 
     with open(path) as f:
         wikiversions = json.load(f)
@@ -678,8 +671,8 @@ def get_active_wikiversions(directory, realm):
     # Convert to list of (version, representative-db) tuples sorted by version
     # number and then convert that list to an OrderedDict
     sorted_versions = collections.OrderedDict(
-        sorted(versions.items(),
-               key=lambda v: distutils.version.LooseVersion(v[0])))
+        sorted(versions.items(), key=lambda v: distutils.version.LooseVersion(v[0]))
+    )
 
     return sorted_versions
 
@@ -727,7 +720,7 @@ def join_path(*fragments):
     path = []
     for p in fragments:
         if path:
-            p = p.strip('\t\r\n/')
+            p = p.strip("\t\r\n/")
         if p:
             path.append(p)
 
@@ -746,18 +739,18 @@ def get_patches(sub_dirs, root_dir):
     patches = {}
     for sub_dir in sub_dirs:
         sorted_patches = sorted(
-            glob.glob(os.path.join(root_dir, sub_dir, '*.patch')),
-            reverse=True
+            glob.glob(os.path.join(root_dir, sub_dir, "*.patch")), reverse=True
         )
         for patch_file in sorted_patches:
-            with open(patch_file, 'r') as f:
+            with open(patch_file, "r") as f:
                 patches.setdefault(sub_dir, []).append(f.read())
 
     return patches
 
 
-def ordered_load(stream, Loader=yaml.SafeLoader,
-                 object_pairs_hook=collections.OrderedDict):
+def ordered_load(
+    stream, Loader=yaml.SafeLoader, object_pairs_hook=collections.OrderedDict
+):
     """
     Load yaml files and keeping order.
 
@@ -767,6 +760,7 @@ def ordered_load(stream, Loader=yaml.SafeLoader,
     :param loader yaml.SafeLoader or its subclasses
     :object_pairs_hook type of return
     :return OrderedDict object with the same order of the yaml file"""
+
     class OrderedLoader(Loader):
         pass
 
@@ -775,17 +769,18 @@ def ordered_load(stream, Loader=yaml.SafeLoader,
         return object_pairs_hook(loader.construct_pairs(node))
 
     OrderedLoader.add_constructor(
-        yaml.resolver.BaseResolver.DEFAULT_MAPPING_TAG,
-        construct_mapping)
+        yaml.resolver.BaseResolver.DEFAULT_MAPPING_TAG, construct_mapping
+    )
     return yaml.load(stream, OrderedLoader)
 
 
 class VarDumpJSONEncoder(JSONEncoder):
-    ''' encode python objects to json '''
+    """ encode python objects to json """
+
     def default(self, o):
-        if hasattr(o, '__dump__'):
+        if hasattr(o, "__dump__"):
             return o.__dump__()
-        if hasattr(o, '__dict__'):
+        if hasattr(o, "__dict__"):
             return o.__dict__
         try:
             return JSONEncoder.default(self, o)
@@ -794,7 +789,7 @@ class VarDumpJSONEncoder(JSONEncoder):
 
 
 def var_dump(*args, **kwargs):
-    ''' dump an object to the console as pretty-printed json'''
+    """ dump an object to the console as pretty-printed json"""
 
     lexer = pygments.lexers.JsonLexer()
     formatter = pygments.formatters.TerminalFormatter()
@@ -827,9 +822,9 @@ def find_regular_files(dirname):
 
 def _listfiles(dirname):
     """Generate each pathname for each regular file under dirname"""
-    prefix = dirname + '/'
+    prefix = dirname + "/"
     for parent, _, filenames in os.walk(dirname):
         for filename in filenames:
             pathname = os.path.join(parent, filename)
             if os.path.isfile(pathname):
-                yield pathname[len(prefix):]
+                yield pathname[len(prefix) :]

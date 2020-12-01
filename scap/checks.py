@@ -60,6 +60,7 @@ def checktype(type_of_check):
 
     :param type_of_check: type name
     """
+
     def decorator(klass):
         register_type(type_of_check, klass)
         return klass
@@ -126,8 +127,8 @@ def execute(checks, logger, concurrency=1):
                         handle_failure(job, msg, kill=False)
                     else:
                         msg = "Check '{}' completed, output: {}".format(
-                            job.check.name,
-                            job.output)
+                            job.check.name, job.output
+                        )
                         logger.debug(msg)
                         handle_done(job)
                         success += 1
@@ -159,21 +160,19 @@ def load(cfg, environment=None):
     :param environment: environment in which to execute checks
     """
     checks = collections.OrderedDict()
-    if cfg and cfg.get('checks', None):
-        for name, options in cfg['checks'].items():
-            check_type = options.get('type', 'command')
+    if cfg and cfg.get("checks", None):
+        for name, options in cfg["checks"].items():
+            check_type = options.get("type", "command")
 
             if not options:
-                check_type = 'override'
+                check_type = "override"
 
             if check_type not in _TYPES:
                 msg = "unknown check type '{}'".format(check_type)
                 raise CheckInvalid(msg)
 
             checks[name] = _TYPES[check_type](
-                name=name,
-                environment=environment,
-                **options
+                name=name, environment=environment, **options
             )
 
     return checks
@@ -190,7 +189,7 @@ def register_type(check_type, factory):
     _TYPES[check_type] = factory
 
 
-@checktype('command')
+@checktype("command")
 class Check(object):
     """
     Represent a loaded 'command' check.
@@ -203,8 +202,16 @@ class Check(object):
     :param command: check command to run
     """
 
-    def __init__(self, name, stage, environment=None, group=None, timeout=30.0,
-                 command='', **opts):
+    def __init__(
+        self,
+        name,
+        stage,
+        environment=None,
+        group=None,
+        timeout=30.0,
+        command="",
+        **opts
+    ):
         self.name = name
         self.environment = environment
         self.stage = stage
@@ -247,11 +254,11 @@ class CheckJob(object):
             shlex.split(check.command),
             env=check.environment,
             stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT
+            stderr=subprocess.STDOUT,
         )
         self.fd = self.proc.stdout.fileno()
         self.stream = self.proc.stdout
-        self.output = ''
+        self.output = ""
 
         self.started = time.time()
         self.ended = None
@@ -281,9 +288,7 @@ class CheckJob(object):
         `checks.execute`.
         """
 
-        self.output += utils.eintr_retry(
-            os.read, self.fd, 1048576
-        ).decode('utf-8')
+        self.output += utils.eintr_retry(os.read, self.fd, 1048576).decode("utf-8")
         result = utils.eintr_retry(self.proc.poll)
 
         if result is not None:
@@ -307,10 +312,10 @@ class CheckJob(object):
 
         for output in self.proc.communicate():
             if output is not None:
-                self.output += output.decode('utf-8')
+                self.output += output.decode("utf-8")
 
 
-@checktype('override')
+@checktype("override")
 class OverrideCheck(object):
     """Represent a loaded 'override' check."""
 
@@ -321,8 +326,5 @@ class OverrideCheck(object):
 
     @property
     def stage(self):
-        utils.get_logger().info(
-            'Check %s is empty and will not be run',
-            self.name
-        )
+        utils.get_logger().info("Check %s is empty and will not be run", self.name)
         return None

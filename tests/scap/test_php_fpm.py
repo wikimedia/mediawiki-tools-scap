@@ -16,9 +16,9 @@ from scap import php_fpm, ssh
 
 
 PHPRESTART_PARAMS = {
-    'php_fpm_restart_script': '/bin/foo',
-    'php_fpm': 'php7.2-fpm',
-    'php_fpm_opcache_threshold': 100,
+    "php_fpm_restart_script": "/bin/foo",
+    "php_fpm": "php7.2-fpm",
+    "php_fpm_opcache_threshold": 100,
 }
 
 
@@ -27,37 +27,31 @@ def php_restart():
     """
     Build a PHPRestartObject
     """
-    return php_fpm.PHPRestart(
-        PHPRESTART_PARAMS,
-        ssh.Job()
-    )
+    return php_fpm.PHPRestart(PHPRESTART_PARAMS, ssh.Job())
 
 
 def test_init(php_restart):
     """Test php_restart initialization"""
-    assert php_restart.cmd == '/bin/foo php7.2-fpm 100'
+    assert php_restart.cmd == "/bin/foo php7.2-fpm 100"
 
 
 def test_init_unsafe(php_restart):
     """Test php_restart initialization, unsafe mode"""
     params = copy.deepcopy(PHPRESTART_PARAMS)
-    params['php_fpm_unsafe_restart_script'] = '/bin/foo-unsafe'
-    pr = php_fpm.PHPRestart(
-        params,
-        ssh.Job(),
-        True
-    )
-    assert pr.cmd == '/bin/foo-unsafe --force'
+    params["php_fpm_unsafe_restart_script"] = "/bin/foo-unsafe"
+    pr = php_fpm.PHPRestart(params, ssh.Job(), True)
+    assert pr.cmd == "/bin/foo-unsafe --force"
 
 
 def test_build_job(php_restart):
     """
     Test build job
     """
-    php_restart._build_job(['x'])
-    assert php_restart.job._hosts == ['x']
-    assert php_restart.job._command == \
-        '/usr/bin/sudo -u root -- /bin/foo php7.2-fpm 100'
+    php_restart._build_job(["x"])
+    assert php_restart.job._hosts == ["x"]
+    assert (
+        php_restart.job._command == "/usr/bin/sudo -u root -- /bin/foo php7.2-fpm 100"
+    )
 
 
 def test_always_restart():
@@ -65,11 +59,8 @@ def test_always_restart():
     Test feature flag for unconditional php-fpm restarts
     """
     params = copy.deepcopy(PHPRESTART_PARAMS)
-    params['php_fpm_always_restart'] = True
-    php_restart = php_fpm.PHPRestart(
-        params,
-        ssh.Job()
-    )
+    params["php_fpm_always_restart"] = True
+    php_restart = php_fpm.PHPRestart(params, ssh.Job())
 
     assert str(sys.maxsize) in php_restart.cmd
 
@@ -78,7 +69,7 @@ def test_build_job_raises():
     """Ensure that php_fpm raises AttributeError if no job is set"""
     php_restart_no_job = php_fpm.PHPRestart(PHPRESTART_PARAMS)
     with pytest.raises(AttributeError):
-        php_restart_no_job._build_job(['x'])
+        php_restart_no_job._build_job(["x"])
 
 
 def test_get_batch_size():

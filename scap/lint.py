@@ -34,9 +34,9 @@ def check_valid_syntax(paths, procs=1):
     if isinstance(paths, str):
         paths = [paths]
     elif not isinstance(paths, list):
-        raise ValueError('paths must be a path or list of paths')
+        raise ValueError("paths must be a path or list of paths")
 
-    logger = logging.getLogger('check_php_syntax')
+    logger = logging.getLogger("check_php_syntax")
     quoted_paths = ["'%s'" % x for x in paths]
     cmd = (
         "find "
@@ -45,8 +45,8 @@ def check_valid_syntax(paths, procs=1):
         "-not -type d "  # makes no sense to lint a dir named 'less.php'
         "-name '*.php' -not -name 'autoload_static.php' "
         " -or -name '*.inc' | xargs -n1 -P%d -exec php -l >/dev/null 2>&1"
-    ) % (' '.join(quoted_paths), procs)
-    logger.debug('Running command: `%s`', cmd)
+    ) % (" ".join(quoted_paths), procs)
+    logger.debug("Running command: `%s`", cmd)
     subprocess.check_call(cmd, shell=True)
     # Check for anything that isn't a shebang before <?php (T92534)
     for path in paths:
@@ -64,13 +64,13 @@ def check_valid_json_file(path):
     :param path: Location of file
     :raises: ValueError for an invalid file
     """
-    if not path.endswith('.json'):
+    if not path.endswith(".json"):
         return
     with open(path) as json_file:
         try:
             json.load(json_file)
         except ValueError:
-            raise ValueError('%s is an invalid JSON file' % path)
+            raise ValueError("%s is an invalid JSON file" % path)
 
 
 def check_php_opening_tag(path):
@@ -82,7 +82,7 @@ def check_php_opening_tag(path):
     :param path: Location of file
     :raises: ValueError on invalid file
     """
-    if not path.endswith(('.php', '.inc')):
+    if not path.endswith((".php", ".inc")):
         return
     with open(path) as php_file:
         text = php_file.read()
@@ -92,23 +92,24 @@ def check_php_opening_tag(path):
             return
 
         # Best case scenario to begin with the php open tag
-        if text.lower().startswith('<?php'):
+        if text.lower().startswith("<?php"):
             return
 
         # Also reasonable to start with a doctype declaration
-        if text.startswith('<!DOCTYPE'):
+        if text.startswith("<!DOCTYPE"):
             return
 
         # If the first line is a shebang and the
         # second has <?php, that's ok
         lines = text.splitlines()
 
-        if (len(lines) > 1 and
-                lines[0].startswith('#!') and
-                lines[1].lower().startswith('<?php')):
+        if (
+            len(lines) > 1
+            and lines[0].startswith("#!")
+            and lines[1].lower().startswith("<?php")
+        ):
             return
 
         # None of the return conditions matched, the file must contain <?php
         # but with some content preceeding it.
-        raise ValueError(
-            '%s has content before opening <?php tag' % path)
+        raise ValueError("%s has content before opening <?php tag" % path)

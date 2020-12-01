@@ -63,7 +63,7 @@ def esc(*args):
     :param args: ANSI attributes
     :returns: str
     """
-    return '\x1b[%sm' % ';'.join(str(arg) for arg in sorted(args))
+    return "\x1b[%sm" % ";".join(str(arg) for arg in sorted(args))
 
 
 def format_ansi(*args):
@@ -127,50 +127,53 @@ def logo(eyes=None, color=True, **colors):
     .. [#] http://www.jave.de/figlet/fonts/details/speed.html
     """
     pallet = {
-        'pig': reset() + esc(FG_MAGENTA, BRIGHT),
-        'nose': reset() + esc(FG_MAGENTA, BRIGHT),
-        'mouth': reset() + esc(FG_MAGENTA, BRIGHT),
-        'goggles': reset() + esc(FG_YELLOW),
-        'brand': reset(),
-        'hoof': reset() + esc(FG_BLUE),
-        'wing': reset() + esc(FG_CYAN),
-        'speed': reset() + esc(FG_WHITE),
-        'text': reset() + esc(FG_GREEN),
-        'signature': reset() + esc(FG_BLUE),
-        'reset': reset(),
+        "pig": reset() + esc(FG_MAGENTA, BRIGHT),
+        "nose": reset() + esc(FG_MAGENTA, BRIGHT),
+        "mouth": reset() + esc(FG_MAGENTA, BRIGHT),
+        "goggles": reset() + esc(FG_YELLOW),
+        "brand": reset(),
+        "hoof": reset() + esc(FG_BLUE),
+        "wing": reset() + esc(FG_CYAN),
+        "speed": reset() + esc(FG_WHITE),
+        "text": reset() + esc(FG_GREEN),
+        "signature": reset() + esc(FG_BLUE),
+        "reset": reset(),
     }
     pallet.update(colors)
 
     if not color:
         for key, _ in pallet.items():
-            pallet[key] = ''
+            pallet[key] = ""
 
     if not eyes:
-        eyes = 'OO'
+        eyes = "OO"
 
     eyes = eyes[:2]
-    pallet['eyes'] = eyes.encode('utf-8')
-    pallet['newline'] = '\n'
+    pallet["eyes"] = eyes.encode("utf-8")
+    pallet["newline"] = "\n"
 
-    return ''.join(line % pallet for line in [
-        r'''           %(wing)s___%(reset)s %(wing)s____%(reset)s''',
-        r'''%(newline)s         %(wing)s⎛   ⎛ ,----%(reset)s%(newline)s''',
-        r'''          %(wing)s\  //==--'%(reset)s%(newline)s''',
-        r'''     %(pig)s_//|,.·%(wing)s//==--'%(reset)s    ''',
-        r'''%(speed)s______%(text)s____''',
-        r'''%(speed)s_%(text)s____''',
-        r'''%(speed)s___%(text)s____''',
-        r'''%(speed)s__%(text)s____%(reset)s%(newline)s''',
-        r'''    %(pig)s_%(goggles)s%(eyes)s≣=-%(pig)s ''',
-        r''' %(wing)s︶%(pig)s %(brand)sᴹw%(pig)s ⎞_§%(reset)s ''',
-        r'''%(speed)s______%(text)s  ___\ ___\ ,\__ \/ __ \%(reset)s''',
-        r'''%(newline)s   %(pig)s(%(nose)s∞%(pig)s)%(mouth)s_,''',
-        r'''%(pig)s )  (     |%(reset)s''',
-        r'''  %(speed)s______%(text)s/__  \/ /__ / /_/ / /_/ /%(reset)s''',
-        r'''%(newline)s     %(pig)s¨--¨|| |- (  /%(reset)s''',
-        r''' %(speed)s______%(text)s\____/ \___/ \__^_/  .__/%(reset)s''',
-        r'''%(newline)s         %(hoof)s««%(pig)s_/%(reset)s''',
-        r'''  %(hoof)s«%(pig)s_/%(reset)s''',
-        r''' %(signature)sjgs/bd808%(reset)s''',
-        r'''                %(text)s/_/%(reset)s%(newline)s''',
-    ])
+    return "".join(
+        line % pallet
+        for line in [
+            r"""           %(wing)s___%(reset)s %(wing)s____%(reset)s""",
+            r"""%(newline)s         %(wing)s⎛   ⎛ ,----%(reset)s%(newline)s""",
+            r"""          %(wing)s\  //==--'%(reset)s%(newline)s""",
+            r"""     %(pig)s_//|,.·%(wing)s//==--'%(reset)s    """,
+            r"""%(speed)s______%(text)s____""",
+            r"""%(speed)s_%(text)s____""",
+            r"""%(speed)s___%(text)s____""",
+            r"""%(speed)s__%(text)s____%(reset)s%(newline)s""",
+            r"""    %(pig)s_%(goggles)s%(eyes)s≣=-%(pig)s """,
+            r""" %(wing)s︶%(pig)s %(brand)sᴹw%(pig)s ⎞_§%(reset)s """,
+            r"""%(speed)s______%(text)s  ___\ ___\ ,\__ \/ __ \%(reset)s""",
+            r"""%(newline)s   %(pig)s(%(nose)s∞%(pig)s)%(mouth)s_,""",
+            r"""%(pig)s )  (     |%(reset)s""",
+            r"""  %(speed)s______%(text)s/__  \/ /__ / /_/ / /_/ /%(reset)s""",
+            r"""%(newline)s     %(pig)s¨--¨|| |- (  /%(reset)s""",
+            r""" %(speed)s______%(text)s\____/ \___/ \__^_/  .__/%(reset)s""",
+            r"""%(newline)s         %(hoof)s««%(pig)s_/%(reset)s""",
+            r"""  %(hoof)s«%(pig)s_/%(reset)s""",
+            r""" %(signature)sjgs/bd808%(reset)s""",
+            r"""                %(text)s/_/%(reset)s%(newline)s""",
+        ]
+    )

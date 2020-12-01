@@ -25,10 +25,8 @@ from __future__ import absolute_import
 import jinja2
 import yaml
 
-VALID_OUTPUT_FORMATS = ['yaml', 'yml']
-OUTPUT_ALIASES = {
-    'yml': 'yaml'
-}
+VALID_OUTPUT_FORMATS = ["yaml", "yml"]
+OUTPUT_ALIASES = {"yml": "yaml"}
 
 
 def yaml_finalize(value):
@@ -36,13 +34,13 @@ def yaml_finalize(value):
     Output yaml values rather than pythonic values
     """
     if value is None:
-        return 'null'
+        return "null"
 
     if value is True:
-        return 'true'
+        return "true"
 
     if value is False:
-        return 'false'
+        return "false"
 
     return value
 
@@ -51,13 +49,13 @@ def guess_format(fn):
     """
     Guess the output format based on config file extension.
     """
-    if '.' not in fn:
+    if "." not in fn:
         return None
 
-    parts = fn.split('.')
+    parts = fn.split(".")
 
     # if the file ends in j2, drop the j2
-    if parts[::-1][0] == 'j2':
+    if parts[::-1][0] == "j2":
         parts = parts[:-1]
 
     fmt = parts[::-1][0]
@@ -71,13 +69,21 @@ def get_output_formatter(fmt):
     """
     Get output formatter based on desired output format.
     """
-    return globals()['{}_finalize'.format(OUTPUT_ALIASES.get(fmt, fmt))]
+    return globals()["{}_finalize".format(OUTPUT_ALIASES.get(fmt, fmt))]
 
 
 class Template(object):
     """Adapter class that wraps jinja2 templates."""
-    def __init__(self, name, loader, erb_syntax=False, var_file=None,
-                 overrides=None, output_format=None):
+
+    def __init__(
+        self,
+        name,
+        loader,
+        erb_syntax=False,
+        var_file=None,
+        overrides=None,
+        output_format=None,
+    ):
         env_args = self._make_env_args(loader, erb_syntax, output_format)
         self._env = jinja2.Environment(**env_args)
         self._template = self._env.get_template(name)
@@ -86,25 +92,25 @@ class Template(object):
 
     def _make_env_args(self, loader, erb_syntax, output_format):
         """Generate properties to pass to the jinja template."""
-        loader = {n: f.decode('utf-8') for n, f in loader.items()}
+        loader = {n: f.decode("utf-8") for n, f in loader.items()}
         loader = jinja2.DictLoader(loader)
-        env_args = {
-            'loader': loader,
-        }
+        env_args = {"loader": loader}
 
         if output_format in VALID_OUTPUT_FORMATS:
             finalize_func = get_output_formatter(output_format)
-            env_args['finalize'] = finalize_func
+            env_args["finalize"] = finalize_func
 
         if erb_syntax:
-            env_args.update({
-                'block_start_string': '<%',
-                'block_end_string': '%>',
-                'variable_start_string': '<%=',
-                'variable_end_string': '%>',
-                'comment_start_string': '<%#',
-                'comment_end_string': '%>',
-            })
+            env_args.update(
+                {
+                    "block_start_string": "<%",
+                    "block_end_string": "%>",
+                    "variable_start_string": "<%=",
+                    "variable_end_string": "%>",
+                    "comment_start_string": "<%#",
+                    "comment_end_string": "%>",
+                }
+            )
 
         return env_args
 
@@ -117,7 +123,7 @@ class Template(object):
         if not self.var_file:
             return {}
 
-        with open(self.var_file, 'r') as variables:
+        with open(self.var_file, "r") as variables:
             return yaml.safe_load(variables.read())
 
     def render(self):
@@ -132,4 +138,4 @@ class Template(object):
             overrides = self._overrides
             overrides.update(template_vars)
             template_vars = overrides
-        return self._template.render(template_vars).encode('utf-8')
+        return self._template.render(template_vars).encode("utf-8")

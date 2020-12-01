@@ -95,8 +95,7 @@ class HostContext(Context):
         paths = []
 
         if self.environment:
-            paths.append(
-                self.scap_path('environments', self.environment, *relpaths))
+            paths.append(self.scap_path("environments", self.environment, *relpaths))
 
         paths.append(self.scap_path(*relpaths))
 
@@ -105,7 +104,7 @@ class HostContext(Context):
     def log_path(self, *relpaths):
         """Qualify the given log path."""
 
-        return self.scap_path('log', *relpaths)
+        return self.scap_path("log", *relpaths)
 
     def setup(self):
         """
@@ -123,10 +122,10 @@ class HostContext(Context):
     def scap_path(self, *relpaths):
         """Qualify path relative to the ``scap`` directory."""
 
-        return self.path('scap', *relpaths)
+        return self.path("scap", *relpaths)
 
     def temp_config_path(self, *relpaths):
-        return self.path('.git', 'config-files', *relpaths)
+        return self.path(".git", "config-files", *relpaths)
 
 
 class TargetContext(Context):
@@ -136,13 +135,13 @@ class TargetContext(Context):
     def cache_dir(self):
         """Path to the cached repo clone."""
 
-        return self.path('cache')
+        return self.path("cache")
 
     @property
     def current_link(self):
         """Symlink that points to the currently deployed revision."""
 
-        return self.path('current')
+        return self.path("current")
 
     @property
     def current_rev_dir(self):
@@ -163,7 +162,7 @@ class TargetContext(Context):
     @property
     def local_config(self):
         """Local target file that has a copy of the last-deployed config."""
-        return self.path('.config')
+        return self.path(".config")
 
     def find_old_rev_dirs(self, cache_revs=5):
         """
@@ -174,10 +173,9 @@ class TargetContext(Context):
         """
 
         rev_dirs = map(
-            lambda d: os.path.join(self.revs_dir, d),
-            next(os.walk(self.revs_dir))[1])
-        rev_dirs_by_ctime = sorted(
-            rev_dirs, key=os.path.getctime, reverse=True)
+            lambda d: os.path.join(self.revs_dir, d), next(os.walk(self.revs_dir))[1]
+        )
+        rev_dirs_by_ctime = sorted(rev_dirs, key=os.path.getctime, reverse=True)
 
         off_limits = [self.current_rev_dir, self.done_rev_dir]
 
@@ -193,7 +191,7 @@ class TargetContext(Context):
         # Backup any file/directory that exists at the given path
         if backup and os.path.exists(path) and not os.path.islink(path):
             date = datetime.utcnow().isoformat()
-            os.rename(path, '{}.{}'.format(path, date))
+            os.rename(path, "{}.{}".format(path, date))
 
         utils.move_symlink(self.rev_path(rev), path)
 
@@ -252,11 +250,11 @@ class TargetContext(Context):
     def revs_dir(self):
         """Context directory that stores revisions."""
 
-        return self.path('revs')
+        return self.path("revs")
 
     def scripts_dir(self, rev):
         """Path to scripts for a given rev."""
-        return self.rev_path(rev, 'scap', 'scripts')
+        return self.rev_path(rev, "scap", "scripts")
 
     def setup(self):
         """
@@ -272,11 +270,11 @@ class TargetContext(Context):
 
     @property
     def _done_link(self):
-        return self.path('.done')
+        return self.path(".done")
 
     @property
     def _progress_link(self):
-        return self.path('.in-progress')
+        return self.path(".in-progress")
 
     def _rev_from_path(self, path):
         realpath = os.path.realpath(path)

@@ -64,17 +64,19 @@ class Application(object):
     def get_stats(self):
         if self._stats is None:
             self._stats = log.Stats(
-                self.config['statsd_host'], int(self.config['statsd_port']))
+                self.config["statsd_host"], int(self.config["statsd_port"])
+            )
         return self._stats
 
     def get_lock_file(self):
         """Get the path to scap.lock"""
-        if self.config['lock_file'] is not None:
-            return self.config['lock_file']
+        if self.config["lock_file"] is not None:
+            return self.config["lock_file"]
         else:
             try:
-                return '/var/lock/scap.%s.lock' % (
-                    self.config['git_repo'].replace('/', '_'))
+                return "/var/lock/scap.%s.lock" % (
+                    self.config["git_repo"].replace("/", "_")
+                )
             except KeyError:
                 # `scap sync*` can run from anywhere on the file system and
                 # doesn't actually use the value of `git_repo`. In contrast,
@@ -82,7 +84,7 @@ class Application(object):
                 # set. If we're attempting to create a lock file, and there is
                 # no git_repo, then it's likely for a sync* command and the
                 # correct git_repo is operations/mediawiki-config.
-                return '/var/lock/scap.operations_mediawiki-config.lock'
+                return "/var/lock/scap.operations_mediawiki-config.lock"
 
     @property
     def verbose(self):
@@ -95,30 +97,29 @@ class Application(object):
     def get_script_path(self):
         """Qualify the path to the scap script."""
 
-        scap = os.path.join(os.path.dirname(sys.argv[0]), 'scap')
-        return os.environ.get('SCAP', scap)
+        scap = os.path.join(os.path.dirname(sys.argv[0]), "scap")
+        return os.environ.get("SCAP", scap)
 
     def get_keyholder_key(self):
         """Get the public key for IdentityFile use in ssh."""
-        key_dir = '/etc/keyholder.d'
-        key_safe_name = re.sub(r'\W', '_', self.config['ssh_user'])
-        key_name = self.config.get('keyholder_key')
+        key_dir = "/etc/keyholder.d"
+        key_safe_name = re.sub(r"\W", "_", self.config["ssh_user"])
+        key_name = self.config.get("keyholder_key")
         if key_name is None:
             key_name = key_safe_name
-        key_path = os.path.join(key_dir, '{}.pub'.format(key_name))
+        key_path = os.path.join(key_dir, "{}.pub".format(key_name))
 
         if os.path.exists(key_path):
-            self.get_logger().debug('Using key: %s', key_path)
+            self.get_logger().debug("Using key: %s", key_path)
             return key_path
 
-        self.get_logger().debug(
-            'Unable to find keyholder key for %s', key_safe_name)
+        self.get_logger().debug("Unable to find keyholder key for %s", key_safe_name)
         return None
 
     def get_master_list(self):
         """Get list of deploy master hostnames that should be updated before
         the rest of the cluster."""
-        return targets.get('dsh_masters', self.config).all
+        return targets.get("dsh_masters", self.config).all
 
     def announce(self, *args):
         """
@@ -134,20 +135,21 @@ class Application(object):
         though `self.get_logger().info()` was used instead of
         `self.announce()`.
         """
-        env_check = True if 'DOLOGMSGNOLOG' in os.environ else False
+        env_check = True if "DOLOGMSGNOLOG" in os.environ else False
         if self.arguments.no_log_message or env_check:
             if env_check:
                 self.get_logger().warning(
-                    'DOLOGMSGNOLOG has been deprecated, use --no-log-message')
+                    "DOLOGMSGNOLOG has been deprecated, use --no-log-message"
+                )
             # Do not log to the announce logger, but do log the event for the
             # console and other non-broadcast log collectors.
             self.get_logger().info(*args)
         else:
             if self._announce_logger is None:
-                self._announce_logger = logging.getLogger('scap.announce')
+                self._announce_logger = logging.getLogger("scap.announce")
             self._announce_logger.info(*args)
 
-    def active_wikiversions(self, source_tree='deploy'):
+    def active_wikiversions(self, source_tree="deploy"):
         """
         Get an ordered collection of active MediaWiki versions.
 
@@ -160,8 +162,8 @@ class Application(object):
                  used.
         """
         return utils.get_active_wikiversions(
-            self.config[source_tree + '_dir'],
-            self.config['wmf_realm'])
+            self.config[source_tree + "_dir"], self.config["wmf_realm"]
+        )
 
     def _process_arguments(self, args, extra_args):
         """
@@ -173,12 +175,10 @@ class Application(object):
         :returns: Tuple of (args, extra_args) after processing
         """
         if extra_args:
-            self._argparser.error('extra arguments found: %s' %
-                                  ' '.join(extra_args))
+            self._argparser.error("extra arguments found: %s" % " ".join(extra_args))
 
-        if hasattr(args, 'message'):
-            args.message = (' '.join(args.message) or
-                            '(no justification provided)')
+        if hasattr(args, "message"):
+            args.message = " ".join(args.message) or "(no justification provided)"
 
         return args, extra_args
 
@@ -190,7 +190,7 @@ class Application(object):
         self.config = config.load(
             cfg_file=self.arguments.conf_file,
             environment=self.arguments.environment,
-            overrides=defines
+            overrides=defines,
         )
 
     def _setup_loggers(self):
@@ -199,12 +199,12 @@ class Application(object):
 
     def _setup_environ(self):
         """Setup shell environment."""
-        auth_sock = self.config.get('ssh_auth_sock')
-        php_version = self.config.get('php_version')
+        auth_sock = self.config.get("ssh_auth_sock")
+        php_version = self.config.get("php_version")
         if php_version is not None:
-            os.environ['PHP'] = php_version
+            os.environ["PHP"] = php_version
         if auth_sock is not None and self.arguments.shared_authsock:
-            os.environ['SSH_AUTH_SOCK'] = auth_sock
+            os.environ["SSH_AUTH_SOCK"] = auth_sock
 
     def main(self, *extra_args):
         """
@@ -224,10 +224,13 @@ class Application(object):
 
         :returns: exit status
         """
-        self.announce('{} aborted: {} (duration: {})'.format(
-                      self.program_name,
-                      self.arguments.message,
-                      utils.human_duration(self.get_duration())))
+        self.announce(
+            "{} aborted: {} (duration: {})".format(
+                self.program_name,
+                self.arguments.message,
+                utils.human_duration(self.get_duration()),
+            )
+        )
         return 130
 
     def _handle_exception(self, ex):
@@ -239,13 +242,13 @@ class Application(object):
         logger = self.get_logger()
         exception_type = type(ex).__name__
         backtrace = True
-        message = '%s failed: <%s> %s'
+        message = "%s failed: <%s> %s"
 
         if isinstance(ex, lock.LockFailedError):
             backtrace = False
 
         if backtrace:
-            logger.warning('Unhandled error:', exc_info=True)
+            logger.warning("Unhandled error:", exc_info=True)
 
         logger.error(message, self.program_name, exception_type, ex)
         return 70
@@ -270,22 +273,19 @@ class Application(object):
     def _run_as(self, user):
         """Ensure that this program is run as the given user."""
         if utils.get_username() != user:
-            self.get_logger().info(
-                '%s must be run as user %s', self.program_name, user)
+            self.get_logger().info("%s must be run as user %s", self.program_name, user)
             # Replace the current process with a sudo call to the same script
-            os.execvp('sudo', ['sudo', '-u', user, '-n', '--'] + sys.argv)
+            os.execvp("sudo", ["sudo", "-u", user, "-n", "--"] + sys.argv)
 
     def _assert_current_user(self, user):
         """Assert that this program is run as the given user."""
         if utils.get_username() != user:
-            raise RuntimeError(
-                '%s must be run as user %s' % (self.program_name, user))
+            raise RuntimeError("%s must be run as user %s" % (self.program_name, user))
 
     def _assert_auth_sock(self):
         """Assert that SSH_AUTH_SOCK is present in the environment."""
-        if 'SSH_AUTH_SOCK' not in os.environ:
-            raise RuntimeError(
-                '%s requires SSH agent forwarding' % self.program_name)
+        if "SSH_AUTH_SOCK" not in os.environ:
+            raise RuntimeError("%s requires SSH agent forwarding" % self.program_name)
 
     @staticmethod
     def factory(argv=None):
@@ -315,27 +315,28 @@ class Application(object):
         logging.basicConfig(
             level=logging.INFO,
             format=log.CONSOLE_LOG_FORMAT,
-            datefmt='%H:%M:%S',
-            stream=sys.stdout)
+            datefmt="%H:%M:%S",
+            stream=sys.stdout,
+        )
 
         # Silence noisy loggers early
-        logging.getLogger('urllib3').setLevel(logging.WARNING)
-        logging.getLogger('scap.sh').setLevel(logging.WARNING)
+        logging.getLogger("urllib3").setLevel(logging.WARNING)
+        logging.getLogger("scap.sh").setLevel(logging.WARNING)
 
         # Setup instance for logger access
-        app = cls('scap')
+        app = cls("scap")
 
         exit_status = 0
         try:
             app = Application.factory()
 
             if os.geteuid() == 0:
-                raise OSError(errno.EPERM, 'Scap should not be run as root')
+                raise OSError(errno.EPERM, "Scap should not be run as root")
 
             # Let each application handle `extra_args`
             app.arguments, app.extra_arguments = app._process_arguments(
-                app.arguments,
-                app.extra_arguments)
+                app.arguments, app.extra_arguments
+            )
 
             app._load_config()
             app._setup_loggers()
@@ -362,7 +363,7 @@ class Application(object):
 
         # Make a beep
         if exit_status != 0:
-            sys.stdout.write('\a')
+            sys.stdout.write("\a")
             sys.stdout.flush()
 
         # Exit
@@ -396,11 +397,13 @@ def argument(*args, **kwargs):
     :param nargs: The number of values accepted by this argument.
     :type nargs: int, str
     """
+
     def wrapper(func):
         arguments = getattr(func, arg.ATTR_ARGUMENTS, [])
         arguments.append(dict(_flags=args, **kwargs))
         setattr(func, arg.ATTR_ARGUMENTS, arguments)
         return func
+
     return wrapper
 
 
@@ -426,8 +429,10 @@ def all_commands():
     for key in COMMAND_REGISTRY.keys():
         if key in builtin_commands:
             logger = logging.getLogger()
-            msg = 'Plugin (%s) attempted to overwrite builtin command: %s' % (
-                COMMAND_REGISTRY[key], key)
+            msg = "Plugin (%s) attempted to overwrite builtin command: %s" % (
+                COMMAND_REGISTRY[key],
+                key,
+            )
             logger.warning(msg)
         else:
             all_commands[key] = COMMAND_REGISTRY[key]
@@ -462,19 +467,21 @@ def command(*args, **kwargs):
                     print('Hello, world.')
 
     """
+
     def wrapper(cls):
         global COMMAND_REGISTRY
         name = args[0]
         if name in COMMAND_REGISTRY:
             err = 'Duplicate: A command named "%s" already exists.' % name
             raise ValueError(err)
-        has_subcommands = kwargs.pop('subcommands', False)
+        has_subcommands = kwargs.pop("subcommands", False)
         if has_subcommands:
             setattr(cls, arg.ATTR_SUBPARSER, True)
 
         cmd = dict(name=name, cls=cls, args=args, kwargs=kwargs)
         COMMAND_REGISTRY[name] = cmd
         return cls
+
     return wrapper
 
 
@@ -503,9 +510,11 @@ def subcommand(name=None):
                 print('hello world')
 
     """
+
     def wrapper(func):
         subcommand_name = func.__name__ if name is None else name
         setattr(func, arg.ATTR_SUBCOMMAND, subcommand_name)
         setattr(func, arg.ATTR_ARGUMENTS, [])
         return func
+
     return wrapper

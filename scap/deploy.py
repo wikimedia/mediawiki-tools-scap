@@ -52,13 +52,13 @@ import scap.tasks as tasks
 import scap.utils as utils
 import scap.git as git
 
-FINALIZE = 'finalize'
-RESTART = 'restart_service'
-ROLLBACK = 'rollback'
-CONFIG_DIFF = 'config_diff'
-PROMOTE = 'promote'
-CONFIG_DEPLOY = 'config_deploy'
-FETCH = 'fetch'
+FINALIZE = "finalize"
+RESTART = "restart_service"
+ROLLBACK = "rollback"
+CONFIG_DIFF = "config_diff"
+PROMOTE = "promote"
+CONFIG_DEPLOY = "config_deploy"
+FETCH = "fetch"
 
 STAGES = [FETCH, CONFIG_DEPLOY, PROMOTE]
 EX_STAGES = [RESTART, ROLLBACK, CONFIG_DIFF, FINALIZE]
@@ -66,10 +66,11 @@ EX_STAGES = [RESTART, ROLLBACK, CONFIG_DIFF, FINALIZE]
 
 class DeployGroupFailure(RuntimeError):
     """Signal that a particular deploy group failed"""
+
     pass
 
 
-@cli.command('deploy-local', help=argparse.SUPPRESS)
+@cli.command("deploy-local", help=argparse.SUPPRESS)
 class DeployLocal(cli.Application):
     """
     Command that runs on target hosts.
@@ -104,10 +105,11 @@ class DeployLocal(cli.Application):
         #         /srv/deployment/[repo]
         #
         # Might prove to be a better way to do this.
-        self.final_path = os.path.join(self.config['git_deploy_dir'],
-                                       self.arguments.repo)
+        self.final_path = os.path.join(
+            self.config["git_deploy_dir"], self.arguments.repo
+        )
 
-        root = '{}-cache'.format(self.final_path)
+        root = "{}-cache".format(self.final_path)
         self.context = context.TargetContext(root)
         self.context.setup()
 
@@ -117,22 +119,29 @@ class DeployLocal(cli.Application):
 
         config.override_config(self.config, overrides)
 
-    @cli.argument('-g', '--group',
-                  help='Group of which this local machine is a part')
-    @cli.argument('stage', metavar='STAGE', choices=STAGES + EX_STAGES,
-                  nargs='?', help='Stage of the deployment to execute')
-    @cli.argument('-f', '--force', action='store_true',
-                  help='force stage even when noop detected')
-    @cli.argument('-r', '--repo',
-                  help='repo that you are deploying')
-    @cli.argument('--refresh-config', action='store_true',
-                  help='fetch a new version of a config from the deploy '
-                       'server rather than using the locally cached config')
+    @cli.argument("-g", "--group", help="Group of which this local machine is a part")
+    @cli.argument(
+        "stage",
+        metavar="STAGE",
+        choices=STAGES + EX_STAGES,
+        nargs="?",
+        help="Stage of the deployment to execute",
+    )
+    @cli.argument(
+        "-f", "--force", action="store_true", help="force stage even when noop detected"
+    )
+    @cli.argument("-r", "--repo", help="repo that you are deploying")
+    @cli.argument(
+        "--refresh-config",
+        action="store_true",
+        help="fetch a new version of a config from the deploy "
+        "server rather than using the locally cached config",
+    )
     def main(self, *extra_args):
-        self.rev = self.config['git_rev']
+        self.rev = self.config["git_rev"]
         # only supports http from deployment server for the moment
-        url = os.path.normpath('{git_server}/{git_repo}'.format(**self.config))
-        self.server_url = 'http://{0}'.format(url)
+        url = os.path.normpath("{git_server}/{git_repo}".format(**self.config))
+        self.server_url = "http://{0}".format(url)
 
         if self.arguments.stage:
             self.stages = [self.arguments.stage]
@@ -146,7 +155,7 @@ class DeployLocal(cli.Application):
 
             getattr(self, stage)()
 
-            if not self.noop and self.config['perform_checks']:
+            if not self.noop and self.config["perform_checks"]:
                 status = self._execute_checks(stage, group)
 
             if status != 0:
@@ -162,31 +171,30 @@ class DeployLocal(cli.Application):
         renders the final template inside the repo-cache's tmp directory.
         """
         logger = self.get_logger()
-        if not self.config['config_deploy']:
-            logger.info('config_deploy is not enabled in scap.cfg, skipping.')
+        if not self.config["config_deploy"]:
+            logger.info("config_deploy is not enabled in scap.cfg, skipping.")
             return 0
 
-        config_files = self.config.get('config_files')
+        config_files = self.config.get("config_files")
         if not config_files:
-            raise IOError(errno.ENOENT, 'No config_files found!')
+            raise IOError(errno.ENOENT, "No config_files found!")
 
-        overrides = config_files.get('override_vars', {})
+        overrides = config_files.get("override_vars", {})
 
-        source_basepath = self.context.rev_path(
-            self.rev, '.git', 'config-files')
-        logger.debug('Source basepath: {}'.format(source_basepath))
+        source_basepath = self.context.rev_path(self.rev, ".git", "config-files")
+        logger.debug("Source basepath: {}".format(source_basepath))
         utils.mkdir_p(source_basepath)
 
-        for config_file in config_files['files']:
-            filename = config_file['name']
+        for config_file in config_files["files"]:
+            filename = config_file["name"]
 
             tmpl = template.Template(
                 name=filename,
-                loader={filename: config_file['template']},
-                erb_syntax=config_file.get('erb_syntax', False),
-                var_file=config_file.get('remote_vars', None),
-                output_format=config_file.get('output_format', None),
-                overrides=overrides
+                loader={filename: config_file["template"]},
+                erb_syntax=config_file.get("erb_syntax", False),
+                var_file=config_file.get("remote_vars", None),
+                output_format=config_file.get("output_format", None),
+                overrides=overrides,
             )
 
             if self.rev in os.path.realpath(filename):
@@ -194,70 +202,71 @@ class DeployLocal(cli.Application):
 
             if self.noop and not self.arguments.force:
                 logger.info(
-                    '{} is already linked to current rev'
-                    '(use --force to override)'.format(filename))
+                    "{} is already linked to current rev"
+                    "(use --force to override)".format(filename)
+                )
                 return 0
 
             # Checks should run if the --force argument is used
             self.noop = False
 
-            if filename.startswith('/'):
+            if filename.startswith("/"):
                 filename = filename[1:]
 
-            utils.mkdir_p(os.path.join(
-                source_basepath, os.path.dirname(filename)))
+            utils.mkdir_p(os.path.join(source_basepath, os.path.dirname(filename)))
 
             source = os.path.join(source_basepath, filename)
-            logger.info('Rendering config_file: {}'.format(source))
+            logger.info("Rendering config_file: {}".format(source))
 
-            with open(source, 'w+') as f:
+            with open(source, "w+") as f:
                 output_file = tmpl.render()
                 f.write(output_file)
         return 0
 
     def config_diff(self):
-        '''
+        """
         Render config files from DEPLOY_HEAD and compare each file to the
         deployed version. This is called by scap deploy --dry-run
-        '''
+        """
         logger = self.get_logger()
-        if not self.config['config_deploy']:
-            logger.info('config_deploy is not enabled in scap.cfg, skipping.')
+        if not self.config["config_deploy"]:
+            logger.info("config_deploy is not enabled in scap.cfg, skipping.")
             return
 
-        config_files = self.config.get('config_files')
+        config_files = self.config.get("config_files")
         if not config_files:
-            raise IOError(errno.ENOENT, 'No config_files found!')
+            raise IOError(errno.ENOENT, "No config_files found!")
 
-        overrides = config_files.get('override_vars', {})
+        overrides = config_files.get("override_vars", {})
 
-        for config_file in config_files['files']:
-            filename = config_file['name']
+        for config_file in config_files["files"]:
+            filename = config_file["name"]
 
             tmpl = template.Template(
                 name=filename,
-                loader={filename: config_file['template']},
-                erb_syntax=config_file.get('erb_syntax', False),
-                var_file=config_file.get('remote_vars', None),
-                output_format=config_file.get('output_format', None),
-                overrides=overrides
+                loader={filename: config_file["template"]},
+                erb_syntax=config_file.get("erb_syntax", False),
+                var_file=config_file.get("remote_vars", None),
+                output_format=config_file.get("output_format", None),
+                overrides=overrides,
             )
 
             with tempfile.NamedTemporaryFile() as cfg:
                 cfg.write(tmpl.render())
                 cfg.delete = False
 
-            logger.info('Diff for %s:', filename)
+            logger.info("Diff for %s:", filename)
 
             try:
-                diff_cmd = ['/usr/bin/diff', '-u', filename, cfg.name]
+                diff_cmd = ["/usr/bin/diff", "-u", filename, cfg.name]
                 subprocess.check_output(diff_cmd)
             except subprocess.CalledProcessError as result:
-                logger.info('{type}: {output}', extra={
-                    'type': 'config_diff',
-                    'output': result.output})
+                logger.info(
+                    "{type}: {output}",
+                    extra={"type": "config_diff", "output": result.output},
+                )
             else:
-                logger.info('no differences')
+                logger.info("no differences")
             os.unlink(cfg.name)
 
     def fetch(self):
@@ -272,30 +281,32 @@ class DeployLocal(cli.Application):
         """
         logger = self.get_logger()
 
-        has_submodules = self.config['git_submodules']
+        has_submodules = self.config["git_submodules"]
         git_binary_manager = None
-        if self.config['git_fat']:
+        if self.config["git_fat"]:
             logger.warning(
-                'Using deprecated git_fat config, swap to git_binary_manager')
+                "Using deprecated git_fat config, swap to git_binary_manager"
+            )
             git_binary_manager = [git.FAT]
-        elif self.config['git_binary_manager']:
-            git_binary_manager = config.multi_value(
-                self.config['git_binary_manager'])
+        elif self.config["git_binary_manager"]:
+            git_binary_manager = config.multi_value(self.config["git_binary_manager"])
 
         rev_dir = self.context.rev_path(self.rev)
 
-        git_remote = os.path.join(self.server_url, '.git')
-        logger.info('Fetch from: {}'.format(git_remote))
+        git_remote = os.path.join(self.server_url, ".git")
+        logger.info("Fetch from: {}".format(git_remote))
 
         # clone/fetch from the repo to the cache directory
         git.fetch(self.context.cache_dir, git_remote)
 
         if has_submodules:
-            upstream_submodules = self.config['git_upstream_submodules']
-            logger.info('Update submodules')
-            git.update_submodules(location=self.context.cache_dir,
-                                  git_remote=git_remote,
-                                  use_upstream=upstream_submodules)
+            upstream_submodules = self.config["git_upstream_submodules"]
+            logger.info("Update submodules")
+            git.update_submodules(
+                location=self.context.cache_dir,
+                git_remote=git_remote,
+                use_upstream=upstream_submodules,
+            )
 
         # If the rev_dir already exists AND the currently checked-out HEAD is
         # already at the revision specified by ``self.rev`` then you can assume
@@ -306,11 +317,11 @@ class DeployLocal(cli.Application):
         #
         # Set the noop flag and return
         if os.path.isdir(rev_dir) and not self.arguments.force:
-            rev = git.sha(rev_dir, 'HEAD')
+            rev = git.sha(rev_dir, "HEAD")
             if rev == self.rev:
                 logger.info(
-                    'Revision directory already exists '
-                    '(use --force to override)')
+                    "Revision directory already exists " "(use --force to override)"
+                )
                 self.noop = True
                 self.context.mark_rev_in_progress(self.rev)
                 return
@@ -319,23 +330,29 @@ class DeployLocal(cli.Application):
             # if lfs is enabled and this is the first time cloning this repo,
             # then we need to run `git lfs install`` before `git clone`
             if git_binary_manager and git.LFS in git_binary_manager:
-                git.lfs_install('--global')
+                git.lfs_install("--global")
 
         # clone/fetch from the local cache directory to the revision directory
-        git.fetch(rev_dir, self.context.cache_dir,
-                  reference=self.context.cache_dir,
-                  dissociate=False,
-                  recurse_submodules=False)
+        git.fetch(
+            rev_dir,
+            self.context.cache_dir,
+            reference=self.context.cache_dir,
+            dissociate=False,
+            recurse_submodules=False,
+        )
 
-        logger.info('Checkout rev: {}'.format(self.rev))
+        logger.info("Checkout rev: {}".format(self.rev))
 
         # checkout the given revision
         git.checkout(rev_dir, self.rev)
 
         if has_submodules:
-            git.update_submodules(location=rev_dir, git_remote=git_remote,
-                                  use_upstream=upstream_submodules,
-                                  reference=self.context.cache_dir)
+            git.update_submodules(
+                location=rev_dir,
+                git_remote=git_remote,
+                use_upstream=upstream_submodules,
+                reference=self.context.cache_dir,
+            )
 
         if git_binary_manager:
             for manager in git_binary_manager:
@@ -343,8 +360,7 @@ class DeployLocal(cli.Application):
                 if manager in [git.FAT, git.LFS]:
                     git.largefile_pull(rev_dir, manager)
                 else:
-                    logger.warning("Passed unrecognized binary manager %s",
-                                   manager)
+                    logger.warning("Passed unrecognized binary manager %s", manager)
 
         self.context.mark_rev_in_progress(self.rev)
 
@@ -365,32 +381,29 @@ class DeployLocal(cli.Application):
         if rev_dir is None:
             rev_dir = self.context.rev_path(rev)
 
-        config_deploy = config_deploy and self.config['config_deploy']
+        config_deploy = config_deploy and self.config["config_deploy"]
 
         logger = self.get_logger()
 
-        if (self.context.current_rev_dir == rev_dir and
-                not self.arguments.force):
+        if self.context.current_rev_dir == rev_dir and not self.arguments.force:
 
-            logger.info(
-                '{} is already live (use --force to override)'.format(rev_dir))
+            logger.info("{} is already live (use --force to override)".format(rev_dir))
             self.noop = True
             return
 
         if config_deploy:
             # Move the rendered config files from their temporary location
             # into a .git/config-files subdirectory of the rev directory
-            config_dest = self.context.rev_path(rev, '.git', 'config-files')
+            config_dest = self.context.rev_path(rev, ".git", "config-files")
 
-            logger.info('Linking config files at: {}'.format(config_dest))
+            logger.info("Linking config files at: {}".format(config_dest))
 
             for dir_path, _, conf_files in os.walk(config_dest):
                 for conf_file in conf_files:
-                    full_path = os.path.normpath(
-                        '{}/{}'.format(dir_path, conf_file))
+                    full_path = os.path.normpath("{}/{}".format(dir_path, conf_file))
 
                     rel_path = os.path.relpath(full_path, config_dest)
-                    final_path = os.path.join('/', rel_path)
+                    final_path = os.path.join("/", rel_path)
                     utils.move_symlink(full_path, final_path)
 
         self.context.mark_rev_current(rev)
@@ -414,28 +427,27 @@ class DeployLocal(cli.Application):
 
         self.context.rm_in_progress()
 
-        cache_revs = self.config.get('cache_revs', 5)
+        cache_revs = self.config.get("cache_revs", 5)
 
         for rev_dir in self.context.find_old_rev_dirs(cache_revs):
-            logger.info('Removing old revision {}'.format(rev_dir))
+            logger.info("Removing old revision {}".format(rev_dir))
             shutil.rmtree(rev_dir)
 
     def restart_service(self):
         """
         Restart or reload service and check port based on configuration.
         """
-        service = self.config.get('service_name', None)
+        service = self.config.get("service_name", None)
         if not service:
             return
 
-        tasks.handle_services(
-            service, self.config.get('require_valid_service', False))
+        tasks.handle_services(service, self.config.get("require_valid_service", False))
 
-        port = self.config.get('service_port', None)
+        port = self.config.get("service_port", None)
         if not port:
             return
 
-        service_timeout = self.config['service_timeout']
+        service_timeout = self.config["service_timeout"]
         tasks.check_port(int(port), timeout=service_timeout)
 
     def rollback(self):
@@ -455,16 +467,16 @@ class DeployLocal(cli.Application):
         rollback_to = self.context.rev_done
 
         if not rollback_to:
-            raise RuntimeError('there is no previous revision to rollback to')
+            raise RuntimeError("there is no previous revision to rollback to")
 
         logger.info(
-            'Rolling back from revision {} to {}'.format(
-                rollback_from, rollback_to))
+            "Rolling back from revision {} to {}".format(rollback_from, rollback_to)
+        )
 
         rev_dir = self.context.done_rev_dir
 
         if not os.path.isdir(rev_dir):
-            msg = 'rollback failed due to missing rev directory {}'
+            msg = "rollback failed due to missing rev directory {}"
             raise RuntimeError(msg.format(rev_dir))
 
         # Promote the previous rev and skip config re-evaluation as it's no
@@ -472,7 +484,7 @@ class DeployLocal(cli.Application):
         self.promote(rollback_to, rev_dir, config_deploy=False)
         self.finalize(rollback=True, rev=rollback_to)
 
-    @utils.log_context('checks')
+    @utils.log_context("checks")
     def _execute_checks(self, stage, group=None, logger=None):
         """
         Fetch and executes all checks configured for the given stage.
@@ -482,20 +494,18 @@ class DeployLocal(cli.Application):
         """
         # Primarily for use in script checks
         check_environment = os.environ.copy()
-        check_environment['SCAP_FINAL_PATH'] = self.final_path
-        check_environment['SCAP_REV_PATH'] = self.context.rev_path(self.rev)
+        check_environment["SCAP_FINAL_PATH"] = self.final_path
+        check_environment["SCAP_REV_PATH"] = self.context.rev_path(self.rev)
 
         # Load NRPE checks
-        if os.path.isdir(self.config['nrpe_dir']):
-            nrpe.register(nrpe.load_directory(self.config['nrpe_dir']))
+        if os.path.isdir(self.config["nrpe_dir"]):
+            nrpe.register(nrpe.load_directory(self.config["nrpe_dir"]))
 
         # Load script checks
         script.register_directory(self.context.scripts_dir(self.rev))
 
         chks = checks.load(self.config, check_environment)
-        chks = [
-            chk for chk in chks.values() if self._valid_chk(chk, stage, group)
-        ]
+        chks = [chk for chk in chks.values() if self._valid_chk(chk, stage, group)]
 
         success, done = checks.execute(chks, logger=logger)
         failed = [job.check.name for job in done if job.isfailure()]
@@ -507,8 +517,7 @@ class DeployLocal(cli.Application):
     def _valid_chk(self, chk, stage, group):
         """Make sure a check is valid for our current group."""
         if group is not None:
-            return chk.stage == stage and (chk.group == group or
-                                           chk.group is None)
+            return chk.stage == stage and (chk.group == group or chk.group is None)
         return chk.stage == stage
 
     def _get_config_overrides(self):
@@ -525,10 +534,11 @@ class DeployLocal(cli.Application):
         deployment server has changed, but a particular target has not yet been
         updated.
         """
-        if (self.arguments.refresh_config or
-                not os.path.exists(self.context.local_config)):
+        if self.arguments.refresh_config or not os.path.exists(
+            self.context.local_config
+        ):
             config = self._get_remote_overrides()
-            with open(self.context.local_config, 'w') as cfg:
+            with open(self.context.local_config, "w") as cfg:
                 cfg.write(yaml.dump(config, default_flow_style=False))
 
         with open(self.context.local_config) as cfg:
@@ -537,17 +547,17 @@ class DeployLocal(cli.Application):
     def _get_remote_overrides(self):
         """Grab remote config from git_server."""
         cfg_url = os.path.join(
-            self.config['git_server'], self.arguments.repo,
-            '.git', 'DEPLOY_HEAD')
+            self.config["git_server"], self.arguments.repo, ".git", "DEPLOY_HEAD"
+        )
 
-        r = requests.get('{}://{}'.format(self.config['git_scheme'], cfg_url))
+        r = requests.get("{}://{}".format(self.config["git_scheme"], cfg_url))
         if r.status_code != requests.codes.ok:
-            raise IOError(errno.ENOENT, 'Config file not found', cfg_url)
+            raise IOError(errno.ENOENT, "Config file not found", cfg_url)
 
         return yaml.load(r.text)
 
 
-@cli.command('deploy', help='[SCAP 3] Sync new service code across cluster')
+@cli.command("deploy", help="[SCAP 3] Sync new service code across cluster")
 class Deploy(cli.Application):
     """
     Sync new service code across cluster.
@@ -560,25 +570,25 @@ class Deploy(cli.Application):
     MAX_FAILURES = 0
 
     DEPLOY_CONF = [
-        'cache_revs',
-        'config_deploy',
-        'config_files',
-        'environment',
-        'git_deploy_dir',
-        'git_fat',
-        'git_binary_manager',
-        'git_server',
-        'git_scheme',
-        'git_repo',
-        'git_rev',
-        'git_submodules',
-        'git_upstream_submodules',
-        'nrpe_dir',
-        'perform_checks',
-        'require_valid_service',
-        'service_name',
-        'service_port',
-        'service_timeout',
+        "cache_revs",
+        "config_deploy",
+        "config_files",
+        "environment",
+        "git_deploy_dir",
+        "git_fat",
+        "git_binary_manager",
+        "git_server",
+        "git_scheme",
+        "git_repo",
+        "git_rev",
+        "git_submodules",
+        "git_upstream_submodules",
+        "nrpe_dir",
+        "perform_checks",
+        "require_valid_service",
+        "service_name",
+        "service_port",
+        "service_timeout",
     ]
 
     continue_all = False
@@ -592,87 +602,107 @@ class Deploy(cli.Application):
         self.deploy_groups = None
         self.deploy_info = {}
 
-    @cli.argument('-r', '--rev', help='Specify the revision to deploy')
-    @cli.argument('-s', '--stages', choices=STAGES,
-                  help='Execute specific deployment stages (For testing)')
-    @cli.argument('-l', '--limit-hosts', default='all',
-                  help='Limit actions to hosts matching expression')
-    @cli.argument('-f', '--force', action='store_true',
-                  help='Force fetch and checkout even if nothing changed.')
-    @cli.argument('--dry-run', action='store_true', dest='dry_run',
-                  help='Compile and deploy config files to a temp location '
-                       'and output a diff against the previously deployed '
-                       'config files.')
-    @cli.argument('--service-restart', action='store_true',
-                  help='Skip deployment, just restart the service.')
-    @cli.argument('-i', '--init', action='store_true',
-                  help='Setup a repo for initial deployment')
-    @cli.argument('message', nargs='*', help='Log message for SAL')
+    @cli.argument("-r", "--rev", help="Specify the revision to deploy")
+    @cli.argument(
+        "-s",
+        "--stages",
+        choices=STAGES,
+        help="Execute specific deployment stages (For testing)",
+    )
+    @cli.argument(
+        "-l",
+        "--limit-hosts",
+        default="all",
+        help="Limit actions to hosts matching expression",
+    )
+    @cli.argument(
+        "-f",
+        "--force",
+        action="store_true",
+        help="Force fetch and checkout even if nothing changed.",
+    )
+    @cli.argument(
+        "--dry-run",
+        action="store_true",
+        dest="dry_run",
+        help="Compile and deploy config files to a temp location "
+        "and output a diff against the previously deployed "
+        "config files.",
+    )
+    @cli.argument(
+        "--service-restart",
+        action="store_true",
+        help="Skip deployment, just restart the service.",
+    )
+    @cli.argument(
+        "-i", "--init", action="store_true", help="Setup a repo for initial deployment"
+    )
+    @cli.argument("message", nargs="*", help="Log message for SAL")
     def main(self, *extra_args):
         logger = self.get_logger()
 
-        self.repo = self.config['git_repo']
+        self.repo = self.config["git_repo"]
 
         if self.arguments.stages:
-            stages = self.arguments.stages.split(',')
+            stages = self.arguments.stages.split(",")
         else:
             stages = STAGES
 
         if self.arguments.service_restart:
             stages = [RESTART]
-            if not self.config.get('service_name'):
+            if not self.config.get("service_name"):
                 raise RuntimeError(
-                    '--service-restart flag requires a `service_name` in '
-                    'the config'
+                    "--service-restart flag requires a `service_name` in " "the config"
                 )
 
         if self.arguments.dry_run:
-            stages = ['config_diff']
+            stages = ["config_diff"]
 
         restart_only = False
         if len(stages) == 1 and stages[0] == RESTART:
             restart_only = True
 
         if not git.is_dir(self.context.root):
-            raise RuntimeError(errno.EPERM, 'Script must be run from git repo')
+            raise RuntimeError(errno.EPERM, "Script must be run from git repo")
 
         self._build_deploy_groups()
 
         if not self.all_targets:
-            logger.warning('No targets selected, check limits and dsh_targets')
+            logger.warning("No targets selected, check limits and dsh_targets")
             return 1
 
-        short_sha1 = git.info(self.context.root)['headSHA1'][:7]
+        short_sha1 = git.info(self.context.root)["headSHA1"][:7]
         if not short_sha1:
-            short_sha1 = 'UNKNOWN'
+            short_sha1 = "UNKNOWN"
 
-        deploy_name = 'deploy'
+        deploy_name = "deploy"
 
         if self.arguments.init:
-            deploy_name = 'setup'
+            deploy_name = "setup"
         elif restart_only:
-            deploy_name = 'restart'
+            deploy_name = "restart"
 
-        display_name = '{} [{}@{}]'.format(deploy_name, self.repo, short_sha1)
+        display_name = "{} [{}@{}]".format(deploy_name, self.repo, short_sha1)
 
-        environment_name = self.config['environment']
+        environment_name = self.config["environment"]
 
         if environment_name is not None:
-            display_name = '{} ({})'.format(display_name, environment_name)
+            display_name = "{} ({})".format(display_name, environment_name)
 
         rev = self.arguments.rev
 
         # No revision passed on the command line, let's check the config
         if not rev:
-            rev = self.config.get('git_rev')
+            rev = self.config.get("git_rev")
             if rev:
-                use_upstream = self.config.get(
-                    'git_upstream_submodules', False)
-                if rev.startswith('origin/') and not use_upstream:
-                    logger.warning('You have set `git_rev` to "%s" without ' +
-                                   'setting `git_upstream_submodules=True`. ' +
-                                   'This could lead to unexpected behavior.',
-                                   rev)
+                use_upstream = self.config.get("git_upstream_submodules", False)
+                if rev.startswith("origin/") and not use_upstream:
+                    logger.warning(
+                        'You have set `git_rev` to "%s" without '
+                        + "setting `git_upstream_submodules=True`. "
+                        + "This could lead to unexpected behavior.",
+                        rev,
+                    )
 
         # No revision from the config or cli
         # AND we're not running a stage that we want to deploy new code
@@ -681,62 +711,68 @@ class Deploy(cli.Application):
             if last_deploy_tag is not None:
                 # This is what we want to pass to rev-parse to get the sha1 of
                 # the annotated commit, rather than the sha1 of the annotation.
-                rev = '%s^{}' % last_deploy_tag
+                rev = "%s^{}" % last_deploy_tag
 
         # We must be trying to deploy the latest and greatest
         if not rev:
-            rev = 'HEAD'
+            rev = "HEAD"
 
         with lock.Lock(self.get_lock_file(), self.arguments.message):
             with log.Timer(display_name):
                 timestamp = datetime.utcnow()
                 tag = git.next_deploy_tag(location=self.context.root)
                 commit = git.sha(location=self.context.root, rev=rev)
-                logger.info('Deploying Rev: {} = {}'.format(rev, commit))
+                logger.info("Deploying Rev: {} = {}".format(rev, commit))
 
                 self.config_deploy_setup(commit)
                 self.checks_setup()
-                self.config['git_rev'] = commit
+                self.config["git_rev"] = commit
 
-                self.deploy_info.update({
-                    'tag': tag,
-                    'commit': commit,
-                    'user': utils.get_username(),
-                    'timestamp': timestamp.isoformat(),
-                })
+                self.deploy_info.update(
+                    {
+                        "tag": tag,
+                        "commit": commit,
+                        "user": utils.get_username(),
+                        "timestamp": timestamp.isoformat(),
+                    }
+                )
 
                 # Handle JSON output from deploy-local
-                self.deploy_info['log_json'] = True
+                self.deploy_info["log_json"] = True
 
-                self.get_logger().debug('Update DEPLOY_HEAD')
+                self.get_logger().debug("Update DEPLOY_HEAD")
 
-                self.deploy_info.update({
-                    key: self.config.get(key)
-                    for key in self.DEPLOY_CONF
-                    if self.config.get(key) is not None
-                })
+                self.deploy_info.update(
+                    {
+                        key: self.config.get(key)
+                        for key in self.DEPLOY_CONF
+                        if self.config.get(key) is not None
+                    }
+                )
 
                 git.update_deploy_head(self.deploy_info, self.context.root)
 
                 git.tag_repo(self.deploy_info, location=self.context.root)
 
                 # Remove old tags
-                git.clean_tags(self.context.root, self.config['tags_to_keep'])
+                git.clean_tags(self.context.root, self.config["tags_to_keep"])
 
                 # Run git update-server-info because git repo is a dumb
                 # apache server
-                git.update_server_info(self.config['git_submodules'])
+                git.update_server_info(self.config["git_submodules"])
 
                 if self.arguments.init:
                     return 0
 
-                self.announce('Started %s: %s', display_name,
-                              self.arguments.message)
+                self.announce("Started %s: %s", display_name, self.arguments.message)
                 exec_result = self._execute_for_groups(stages)
                 if not restart_only:
-                    self.announce('Finished %s: %s (duration: %s)',
-                                  display_name, self.arguments.message,
-                                  utils.human_duration(self.get_duration()))
+                    self.announce(
+                        "Finished %s: %s (duration: %s)",
+                        display_name,
+                        self.arguments.message,
+                        utils.human_duration(self.get_duration()),
+                    )
                 return exec_result
         return 0
 
@@ -749,16 +785,12 @@ class Deploy(cli.Application):
 
         # If we're only running a quick --dry-run or a --restart, we don't
         # want to update the SHA1
-        return not (
-            len(stages) == 1 and
-            stages[0] in [CONFIG_DIFF, RESTART]
-        )
+        return not (len(stages) == 1 and stages[0] in [CONFIG_DIFF, RESTART])
 
     def _display_group_info(self, group, targets):
-        self.get_logger().info('\n== {0} ==\n:* {1}'.format(
-            group.upper(),
-            '\n:* '.join(targets)
-        ))
+        self.get_logger().info(
+            "\n== {0} ==\n:* {1}".format(group.upper(), "\n:* ".join(targets))
+        )
 
     def _execute_for_groups(self, stages):
         logger = self.get_logger()
@@ -773,11 +805,10 @@ class Deploy(cli.Application):
         except DeployGroupFailure as failure:
             logger.error(str(failure))
 
-            if utils.confirm('Rollback all deployed groups?', default=True):
+            if utils.confirm("Rollback all deployed groups?", default=True):
                 # Rollback groups in reverse order
                 for group in attempted_groups[::-1]:
-                    self._execute_for_group([ROLLBACK], group,
-                                            ignore_failure=True)
+                    self._execute_for_group([ROLLBACK], group, ignore_failure=True)
 
             return 1
 
@@ -790,8 +821,9 @@ class Deploy(cli.Application):
 
         return 0
 
-    def _execute_for_group(self, stages, group, ignore_failure=False,
-                           prompt_user=False):
+    def _execute_for_group(
+        self, stages, group, ignore_failure=False, prompt_user=False
+    ):
         """
         Executes the given stages across targets of the given group's
         subgroups.
@@ -821,9 +853,7 @@ class Deploy(cli.Application):
             subgroup_failed = 0
 
             for stage in stages:
-                executor = self.execute_stage_on_group(stage,
-                                                       group.name,
-                                                       targets)
+                executor = self.execute_stage_on_group(stage, group.name, targets)
                 for host, status in executor:
                     if status > 0:
                         # Record failed host and remove it from targets
@@ -832,9 +862,11 @@ class Deploy(cli.Application):
                         targets.remove(host)
 
                         if status == ssh.CONNECTION_FAILURE:
-                            msg = (('connection to %s failed and future '
-                                    'stages will not be attempted for this '
-                                    'target') % host)
+                            msg = (
+                                "connection to %s failed and future "
+                                "stages will not be attempted for this "
+                                "target"
+                            ) % host
                             logger.warning(msg)
                             group.exclude(host)
 
@@ -845,28 +877,34 @@ class Deploy(cli.Application):
             failed += subgroup_failed
 
             if subgroup_failed > 0:
-                logger.warning('%d targets failed' % subgroup_failed)
+                logger.warning("%d targets failed" % subgroup_failed)
 
                 if not ignore_failure and failed > group.failure_limit:
-                    msg = ('%d of %d %s targets failed, exceeding limit'
-                           % (failed, group.original_size, label))
+                    msg = "%d of %d %s targets failed, exceeding limit" % (
+                        failed,
+                        group.original_size,
+                        label,
+                    )
                     raise DeployGroupFailure(msg)
 
-            if prompt_user and not self.continue_all \
-                    and not self._last_subgroup(group, label):
+            if (
+                prompt_user
+                and not self.continue_all
+                and not self._last_subgroup(group, label)
+            ):
 
-                prompt = '%s deploy successful. Continue?' % label
-                choices = '[y]es/[n]o/[c]ontinue all groups'
+                prompt = "%s deploy successful. Continue?" % label
+                choices = "[y]es/[n]o/[c]ontinue all groups"
 
                 while True:
-                    answer = utils.ask(prompt, 'y', choices)
-                    if answer in ['y', 'n', 'c']:
+                    answer = utils.ask(prompt, "y", choices)
+                    if answer in ["y", "n", "c"]:
                         break
 
-                if answer == 'c':
+                if answer == "c":
                     self.continue_all = True
-                elif answer == 'n':
-                    raise DeployGroupFailure('deployment aborted')
+                elif answer == "n":
+                    raise DeployGroupFailure("deployment aborted")
 
     def _last_subgroup(self, group, subgroup):
         last_group = next(reversed(self.deploy_groups))
@@ -886,96 +924,97 @@ class Deploy(cli.Application):
         """
         logger = self.get_logger()
 
-        if not self.config['config_deploy']:
+        if not self.config["config_deploy"]:
             return
 
-        logger.debug('Prepare config deploy')
+        logger.debug("Prepare config deploy")
 
-        cfg_file = self.context.env_specific_path('config-files.y*ml')
+        cfg_file = self.context.env_specific_path("config-files.y*ml")
 
-        logger.debug('Config deploy file: {}'.format(cfg_file))
+        logger.debug("Config deploy file: {}".format(cfg_file))
 
         if not cfg_file:
             return
 
         tmp_cfg = {}
 
-        with open(cfg_file, 'r') as cf:
+        with open(cfg_file, "r") as cf:
             config_files = yaml.load(cf.read())
 
-        tmp_cfg['files'] = []
+        tmp_cfg["files"] = []
         # Get an environment specific template
         for config_file in config_files:
             f = {}
-            f['name'] = config_file
+            f["name"] = config_file
             template_attrs = config_files[config_file]
-            template_name = template_attrs['template']
+            template_name = template_attrs["template"]
 
             template_output_format = template_attrs.get(
-                'output_format', template.guess_format(config_file))
+                "output_format", template.guess_format(config_file)
+            )
 
-            if template_output_format is not None \
-                    and template_output_format not in \
-                    template.VALID_OUTPUT_FORMATS:
+            if (
+                template_output_format is not None
+                and template_output_format not in template.VALID_OUTPUT_FORMATS
+            ):
                 raise RuntimeError(
                     "Invalid output_format: '{}' for template '{}'".format(
-                        template_output_format,
-                        template_name
-                    ))
+                        template_output_format, template_name
+                    )
+                )
 
-            f['output_format'] = template_output_format
+            f["output_format"] = template_output_format
 
-            template_path = self.context.env_specific_path(
-                'templates', template_name)
+            template_path = self.context.env_specific_path("templates", template_name)
 
-            with open(template_path, 'r') as tmp:
-                f['template'] = tmp.read()
+            with open(template_path, "r") as tmp:
+                f["template"] = tmp.read()
 
             # Remote var file is optional
-            if template_attrs.get('remote_vars', None):
-                f['remote_vars'] = template_attrs['remote_vars']
+            if template_attrs.get("remote_vars", None):
+                f["remote_vars"] = template_attrs["remote_vars"]
 
-            f['erb_syntax'] = template_attrs.get('erb_syntax', False)
+            f["erb_syntax"] = template_attrs.get("erb_syntax", False)
 
-            tmp_cfg['files'].append(f)
+            tmp_cfg["files"].append(f)
 
-        tmp_cfg['override_vars'] = {}
+        tmp_cfg["override_vars"] = {}
 
         # Build vars to override remote
-        search = self.context.env_specific_paths('vars.yaml')
+        search = self.context.env_specific_paths("vars.yaml")
         for vars_file in reversed(search):
-            with open(vars_file, 'r') as vf:
-                tmp_cfg['override_vars'].update(yaml.load(vf.read()))
+            with open(vars_file, "r") as vf:
+                tmp_cfg["override_vars"].update(yaml.load(vf.read()))
 
-        self.config['config_files'] = tmp_cfg
+        self.config["config_files"] = tmp_cfg
 
     def checks_setup(self):
         """Build info to run checks."""
         checks_dict = collections.OrderedDict()
-        checks_paths = self.context.env_specific_paths('checks.y*ml')
+        checks_paths = self.context.env_specific_paths("checks.y*ml")
 
         # Reverse checks_paths so that paths are overwritten with more
         # environment-specific checks
         for check_path in reversed(checks_paths):
             with open(check_path) as f:
-                checks = utils.ordered_load(f, Loader=yaml.Loader)['checks']
+                checks = utils.ordered_load(f, Loader=yaml.Loader)["checks"]
                 checks_dict.update(checks)
 
         if not checks_dict.keys():
-            self.deploy_info['perform_checks'] = False
+            self.deploy_info["perform_checks"] = False
             return
 
-        self.deploy_info['checks'] = checks_dict
+        self.deploy_info["checks"] = checks_dict
 
     def _build_deploy_groups(self):
         """
         Build server groups based on configuration `server_groups` variable
         """
         target_obj = targets.get(
-            'dsh_targets',
+            "dsh_targets",
             self.config,
             self.arguments.limit_hosts,
-            self.context.env_specific_paths()
+            self.context.env_specific_paths(),
         )
 
         self.all_targets = target_obj.all
@@ -992,33 +1031,35 @@ class Deploy(cli.Application):
         """
 
         logger = self.get_logger()
-        deploy_local_cmd = [self.get_script_path(), 'deploy-local']
+        deploy_local_cmd = [self.get_script_path(), "deploy-local"]
         batch_size = self._get_batch_size(stage)
 
-        deploy_local_cmd.append('-v')
+        deploy_local_cmd.append("-v")
 
-        deploy_local_cmd += ['--repo', self.config['git_repo']]
+        deploy_local_cmd += ["--repo", self.config["git_repo"]]
 
         if self.arguments.force:
-            deploy_local_cmd.append('--force')
+            deploy_local_cmd.append("--force")
 
-        deploy_local_cmd += ['-g', group, stage]
-        deploy_local_cmd.append('--refresh-config')
+        deploy_local_cmd += ["-g", group, stage]
+        deploy_local_cmd.append("--refresh-config")
 
-        logger.debug('Running remote deploy cmd {}'.format(deploy_local_cmd))
+        logger.debug("Running remote deploy cmd {}".format(deploy_local_cmd))
 
         deploy_stage = ssh.Job(
             hosts=targets,
-            user=self.config['ssh_user'],
+            user=self.config["ssh_user"],
             key=self.get_keyholder_key(),
-            verbose=self.verbose)
+            verbose=self.verbose,
+        )
         deploy_stage.output_handler = ssh.JSONOutputHandler
         deploy_stage.max_failure = self.MAX_FAILURES
         deploy_stage.command(deploy_local_cmd)
         display_name = self._get_stage_name(stage)
-        progress_message = '{}: {} stage(s)'.format(self.repo, display_name)
+        progress_message = "{}: {} stage(s)".format(self.repo, display_name)
         deploy_stage.progress(
-            log.reporter(progress_message, self.config['fancy_progress']))
+            log.reporter(progress_message, self.config["fancy_progress"])
+        )
 
         failed = 0
         for host, status in deploy_stage.run_with_status(batch_size):
@@ -1027,41 +1068,43 @@ class Deploy(cli.Application):
             yield host, status
 
         if failed:
-            logger.warning('%d targets had deploy errors', failed)
+            logger.warning("%d targets had deploy errors", failed)
 
     def _get_stage_name(self, stage):
         """Map a stage name to a stage display name."""
-        if stage == PROMOTE and self.config.get('service_name') is not None:
-            return 'promote and restart_service'
+        if stage == PROMOTE and self.config.get("service_name") is not None:
+            return "promote and restart_service"
 
         return stage
 
     def _get_batch_size(self, stage):
-        default = self.config.get('batch_size', self.MAX_BATCH_SIZE)
-        size = int(self.config.get('{}_batch_size'.format(stage), default))
+        default = self.config.get("batch_size", self.MAX_BATCH_SIZE)
+        size = int(self.config.get("{}_batch_size".format(stage), default))
         return min(size, self.MAX_BATCH_SIZE)
 
     def _load_config(self):
         """Set the host directory after the config has been loaded."""
 
         super(Deploy, self)._load_config()
-        env = self.config['environment']
+        env = self.config["environment"]
         self.context = context.HostContext(os.getcwd(), environment=env)
         self.context.setup()
 
     def _setup_loggers(self):
         """Set up additional logging to `scap/deploy.log`."""
 
-        basename = git.describe(self.context.root).replace('/', '-')
-        log_file = self.context.log_path('{}.log'.format(basename))
+        basename = git.describe(self.context.root).replace("/", "-")
+        log_file = self.context.log_path("{}.log".format(basename))
         log.setup_loggers(
-            self.config, self.arguments.loglevel,
-            handlers=[log.DeployLogHandler(log_file)])
+            self.config,
+            self.arguments.loglevel,
+            handlers=[log.DeployLogHandler(log_file)],
+        )
 
 
 @cli.command(
-    'deploy-log',
-    help='[SCAP 3] Tail/filter/output events from the deploy logs')
+    "deploy-log", help="[SCAP 3] Tail/filter/output events from the deploy logs"
+)
 class DeployLog(cli.Application):
     """
     Tail/filter/output events from the deploy logs.
@@ -1074,22 +1117,32 @@ class DeployLog(cli.Application):
         deploy-log 'levelno >= WARNING host == scap-target-*'
     """
 
-    DATE_FORMAT = '%H:%M:%S'
+    DATE_FORMAT = "%H:%M:%S"
     DIR_SCAN_DELAY = 1
-    FORMAT = '%(asctime)s [%(host)s] %(message)s'
+    FORMAT = "%(asctime)s [%(host)s] %(message)s"
 
-    @cli.argument('expr', metavar='EXPR', nargs='?', default='',
-                  help='Filter expression.')
-    @cli.argument('-f', '--file', metavar='FILE', default=None,
-                  help='Parse and filter an existing log file')
-    @cli.argument('-l', '--latest', action='store_true',
-                  help='Parse and filter the latest log file')
+    @cli.argument(
+        "expr", metavar="EXPR", nargs="?", default="", help="Filter expression."
+    )
+    @cli.argument(
+        "-f",
+        "--file",
+        metavar="FILE",
+        default=None,
+        help="Parse and filter an existing log file",
+    )
+    @cli.argument(
+        "-l",
+        "--latest",
+        action="store_true",
+        help="Parse and filter the latest log file",
+    )
     def main(self, *extra_args):
         ctx = context.HostContext(os.getcwd())
         ctx.setup()
 
         def latest_log_file():
-            log_glob = ctx.log_path('*.log')
+            log_glob = ctx.log_path("*.log")
 
             try:
                 return max(glob.iglob(log_glob), key=os.path.getmtime)
@@ -1103,14 +1156,13 @@ class DeployLog(cli.Application):
 
         logfilter = log.Filter.loads(self.arguments.expr, invert=False)
 
-        if not logfilter.isfiltering('levelno'):
-            logfilter.append(
-                {'levelno': lambda v: v >= self.arguments.loglevel})
+        if not logfilter.isfiltering("levelno"):
+            logfilter.append({"levelno": lambda v: v >= self.arguments.loglevel})
 
         formatter = log.DiffLogFormatter(self.FORMAT, self.DATE_FORMAT)
 
         cur_log_path = given_log
-        cur_log_file = open(given_log, 'r') if given_log else None
+        cur_log_file = open(given_log, "r") if given_log else None
         last_scan = 0
 
         # How we do:
@@ -1149,7 +1201,7 @@ class DeployLog(cli.Application):
                         if cur_log_file:
                             cur_log_file.close()
 
-                        cur_log_file = open(cur_log_path, 'r')
+                        cur_log_file = open(cur_log_path, "r")
                 else:
                     time.sleep(0.1)
 
@@ -1162,7 +1214,7 @@ class DeployLog(cli.Application):
         pass
 
 
-@cli.command('deploy-mediawiki', help=argparse.SUPPRESS)
+@cli.command("deploy-mediawiki", help=argparse.SUPPRESS)
 class DeployMediaWiki(cli.Application):
     """
     Deploy mediawiki via scap3.
@@ -1173,26 +1225,24 @@ class DeployMediaWiki(cli.Application):
     keep this command
     """
 
-    @cli.argument('message', nargs='*', help='Log message for git')
+    @cli.argument("message", nargs="*", help="Log message for git")
     def main(self, *extra_args):
         """Run deploy-mediawiki."""
         # Flatten local into git repo
-        self.get_logger().info('scap deploy-mediawiki')
-        git.default_ignore(self.config['deploy_dir'])
+        self.get_logger().info("scap deploy-mediawiki")
+        git.default_ignore(self.config["deploy_dir"])
 
-        git.add_all(self.config['deploy_dir'], message=self.arguments.message)
+        git.add_all(self.config["deploy_dir"], message=self.arguments.message)
 
-        git.garbage_collect(self.config['deploy_dir'])
+        git.garbage_collect(self.config["deploy_dir"])
 
         scap = self.get_script_path()
-        options = {
-            'git_repo': self.config['deploy_dir'],
-        }
+        options = {"git_repo": self.config["deploy_dir"]}
 
-        option_list = ['-D{}:{}'.format(x, y) for x, y in options.items()]
-        cmd = [scap, 'deploy', '-v']
+        option_list = ["-D{}:{}".format(x, y) for x, y in options.items()]
+        cmd = [scap, "deploy", "-v"]
         cmd += option_list
-        cmd += ['--init']
+        cmd += ["--init"]
 
-        with utils.cd(self.config['deploy_dir']):
+        with utils.cd(self.config["deploy_dir"]):
             subprocess.check_call(cmd)

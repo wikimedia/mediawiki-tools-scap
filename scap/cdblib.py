@@ -25,6 +25,7 @@ import sys
 
 
 if sys.version_info.major == 2:
+
     def py_djb_hash(s):
         u"""
         Return the value of DJB's hash function for the given 8-bit string.
@@ -38,9 +39,12 @@ if sys.version_info.major == 2:
         """
         h = 5381
         for c in s:
-            h = (((h << 5) + h) ^ ord(c)) & 0xffffffff
+            h = (((h << 5) + h) ^ ord(c)) & 0xFFFFFFFF
         return h
+
+
 else:
+
     def py_djb_hash(s):
         u"""
         Return the value of DJB's hash function for the given 8-bit string.
@@ -53,16 +57,16 @@ else:
         193278953
         """
         h = 5381
-        for c in s.encode('UTF-8'):
-            h = (((h << 5) + h) ^ c) & 0xffffffff
+        for c in s.encode("UTF-8"):
+            h = (((h << 5) + h) ^ c) & 0xFFFFFFFF
         return h
 
 
 # 2014-03-04 bd808: removed try block for importing C hash implementation
 DJB_HASH = py_djb_hash
 
-READ_2_LE4 = Struct('<LL').unpack
-WRITE_2_LE4 = Struct('<LL').pack
+READ_2_LE4 = Struct("<LL").unpack
+WRITE_2_LE4 = Struct("<LL").pack
 
 
 class Reader(object):
@@ -86,12 +90,12 @@ class Reader(object):
         <scap.cdblib.Reader object at 0x...>
         """
         if len(data) < 2048:
-            raise OSError('CDB too small')
+            raise OSError("CDB too small")
 
         self.data = data
         self.hashfn = hashfn
 
-        self.index = [READ_2_LE4(data[i:i + 8]) for i in range(0, 2048, 8)]
+        self.index = [READ_2_LE4(data[i : i + 8]) for i in range(0, 2048, 8)]
         self.table_start = min(p[0] for p in self.index)
         # Assume load load factor is 0.5 like official CDB.
         self.length = sum(p[1] >> 1 for p in self.index)
@@ -100,13 +104,13 @@ class Reader(object):
         """Like dict.iteritems(). Items are returned in insertion order."""
         pos = 2048
         while pos < self.table_start:
-            klen, dlen = READ_2_LE4(self.data[pos:pos + 8])
+            klen, dlen = READ_2_LE4(self.data[pos : pos + 8])
             pos += 8
 
-            key = self.data[pos:pos + klen]
+            key = self.data[pos : pos + klen]
             pos += klen
 
-            data = self.data[pos:pos + dlen]
+            data = self.data[pos : pos + dlen]
             pos += dlen
 
             yield key, data
@@ -134,10 +138,10 @@ class Writer(object):
         self.fp = fp
         self.hashfn = hashfn
 
-        fp.write(b'\x00' * 2048)
+        fp.write(b"\x00" * 2048)
         self._unordered = [[] for i in range(256)]
 
-    def put(self, key, value=''):
+    def put(self, key, value=""):
         """Write a string key/value pair to the output file."""
         assert isinstance(key, str) and isinstance(value, str)
 
@@ -146,8 +150,8 @@ class Writer(object):
         self.fp.write(key)
         self.fp.write(value)
 
-        h = self.hashfn(key) & 0xffffffff
-        self._unordered[h & 0xff].append((h, pos))
+        h = self.hashfn(key) & 0xFFFFFFFF
+        self._unordered[h & 0xFF].append((h, pos))
 
     def finalize(self):
         """Write the final hash tables to the output file, and write out its

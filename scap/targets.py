@@ -61,11 +61,11 @@ def limit_target_hosts(pattern, hosts):
     :param hosts: list of hosts to search against
     """
     # Return early if there's no special pattern
-    if pattern == '*' or pattern == 'all':
+    if pattern == "*" or pattern == "all":
         return hosts
 
     # If pattern is a regex, handle that and return
-    if pattern[0] == '~':
+    if pattern[0] == "~":
         regex = re.compile(pattern[1:])
         return [target for target in hosts if regex.match(target)]
 
@@ -73,24 +73,25 @@ def limit_target_hosts(pattern, hosts):
     rpattern = pattern
 
     # Handle replacements of anything like [*:*] in pattern
-    while 0 <= rpattern.find('[') < rpattern.find(':') < rpattern.find(']'):
-        head, nrange, tail = rpattern.replace(
-            '[', '|', 1).replace(']', '|', 1).split('|')
+    while 0 <= rpattern.find("[") < rpattern.find(":") < rpattern.find("]"):
+        head, nrange, tail = (
+            rpattern.replace("[", "|", 1).replace("]", "|", 1).split("|")
+        )
 
-        beg, end = nrange.split(':')
-        zfill = len(end) if (beg and beg.startswith('0')) else 0
+        beg, end = nrange.split(":")
+        zfill = len(end) if (beg and beg.startswith("0")) else 0
 
         if (zfill != 0 and len(beg) != len(end)) or beg > end:
             raise ValueError("Host range incorrectly specified")
 
         try:
             asc = string.ascii_letters
-            seq = asc[asc.index(beg):asc.index(end) + 1]
+            seq = asc[asc.index(beg) : asc.index(end) + 1]
         except ValueError:  # numeric range
             seq = range(int(beg), int(end) + 1)
 
-        patterns = [''.join([head, str(i).zfill(zfill), tail]) for i in seq]
-        rpattern = rpattern[rpattern.find(']') + 1:]
+        patterns = ["".join([head, str(i).zfill(zfill), tail]) for i in seq]
+        rpattern = rpattern[rpattern.find("]") + 1 :]
 
     # If there weren't range replacements, make pattern an array
     if not patterns:
@@ -99,23 +100,23 @@ def limit_target_hosts(pattern, hosts):
     targets = []
     for a_pattern in patterns:
         # remove any leading '!'
-        test_pattern = a_pattern.lstrip('!')
+        test_pattern = a_pattern.lstrip("!")
 
         # change '.' to literal period
-        test_pattern = test_pattern.replace('.', r'\.')
+        test_pattern = test_pattern.replace(".", r"\.")
 
         # convert '*' to match a-Z, 0-9, _, -, or .
-        test_pattern = test_pattern.replace('*', r'[\w\.-]*')
+        test_pattern = test_pattern.replace("*", r"[\w\.-]*")
 
         # Add beginning and end marks
-        test_pattern = '^{}$'.format(test_pattern)
+        test_pattern = "^{}$".format(test_pattern)
 
         regex = re.compile(test_pattern)
 
         targets.extend([host for host in hosts if regex.match(host)])
 
     # handle regation of patterns by inverting
-    if pattern.startswith('!'):
+    if pattern.startswith("!"):
         targets = list(set(targets) ^ set(hosts))
 
     return targets
@@ -142,12 +143,12 @@ class TargetList(object):
         self.deploy_groups = {}
 
     def _get_failure_limit(self, group):
-        key = '{}_failure_limit'.format(group)
-        return self.config.get(key, self.config.get('failure_limit', None))
+        key = "{}_failure_limit".format(group)
+        return self.config.get(key, self.config.get("failure_limit", None))
 
     def _get_group_size(self, group):
-        key = '{}_group_size'.format(group)
-        size = self.config.get(key, self.config.get('group_size', None))
+        key = "{}_group_size".format(group)
+        size = self.config.get(key, self.config.get("group_size", None))
 
         return int(size) if size is not None else None
 
@@ -157,23 +158,23 @@ class TargetList(object):
         return a hash {group_name: file_name} for the dsh groups
         """
         groups = collections.OrderedDict()
-        server_groups = self.config.get('server_groups')
+        server_groups = self.config.get("server_groups")
         if server_groups is None:
-            server_groups = ['default']
+            server_groups = ["default"]
         else:
-            server_groups = server_groups.split(',')
+            server_groups = server_groups.split(",")
 
         for group in server_groups:
             group = group.strip()
-            if group == 'default':
+            if group == "default":
                 cfg_key = self.primary_key
             else:
-                cfg_key = group + '_' + self.primary_key
+                cfg_key = group + "_" + self.primary_key
             try:
                 groups[group] = self.config[cfg_key]
             except KeyError:
                 raise RuntimeError(
-                    'Could not find config setting `{0}`'.format(cfg_key)
+                    "Could not find config setting `{0}`".format(cfg_key)
                 )
         return groups
 
@@ -209,21 +210,20 @@ class TargetList(object):
                 size = self._get_group_size(group)
                 failure_limit = self._get_failure_limit(group)
 
-                groups[group] = DeployGroup(group, targets,
-                                            size=size,
-                                            failure_limit=failure_limit)
+                groups[group] = DeployGroup(
+                    group, targets, size=size, failure_limit=failure_limit
+                )
 
-        self.deploy_groups = {'all_targets': all_hosts,
-                              'deploy_groups': groups}
+        self.deploy_groups = {"all_targets": all_hosts, "deploy_groups": groups}
         return self.deploy_groups
 
     @property
     def groups(self):
-        return self.get_deploy_groups()['deploy_groups']
+        return self.get_deploy_groups()["deploy_groups"]
 
     @property
     def all(self):
-        return self.get_deploy_groups()['all_targets']
+        return self.get_deploy_groups()["all_targets"]
 
 
 class DshTargetList(TargetList):
@@ -241,7 +241,7 @@ class DshTargetList(TargetList):
         if self.extra_paths is not None:
             search_path = self.extra_paths
         # Historical reasons :p
-        search_path.append('/etc/dsh/group')
+        search_path.append("/etc/dsh/group")
         hosts_file = None
 
         if os.path.isabs(filename):
@@ -257,7 +257,7 @@ class DshTargetList(TargetList):
 
         try:
             with open(hosts_file) as f:
-                return re.findall(r'^[\w\.\-]+', f.read(), re.MULTILINE)
+                return re.findall(r"^[\w\.\-]+", f.read(), re.MULTILINE)
         except IOError as e:
             raise IOError(e.errno, e.strerror, hosts_file)
 
@@ -276,7 +276,7 @@ class DirectDshTargetList(DshTargetList):
         if server_groups is None:
             return {}
         else:
-            return {k: k.strip() for k in server_groups.split(',')}
+            return {k: k.strip() for k in server_groups.split(",")}
 
 
 class DeployGroup(object):
@@ -293,13 +293,13 @@ class DeployGroup(object):
         self.size = len(targets) if size is None else size
 
         if len(self.targets) < 1 or self.size < 1:
-            raise ValueError('a deploy group must have at least one target')
+            raise ValueError("a deploy group must have at least one target")
 
         if failure_limit is None:
             failure_limit = 1
         elif isinstance(failure_limit, str):
             # Convert percentage strings (e.g. '30%') to number of targets
-            if failure_limit.endswith('%'):
+            if failure_limit.endswith("%"):
                 failure_limit = float(failure_limit[:-1]) / 100
                 failure_limit *= self.original_size
 
@@ -331,7 +331,7 @@ class DeployGroup(object):
             if len(targets) > self.size:
                 label = self.name + str((i // self.size) + 1)
 
-            yield label, targets[i:i + self.size]
+            yield label, targets[i : i + self.size]
 
     @property
     def original_size(self):

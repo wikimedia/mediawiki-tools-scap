@@ -10,55 +10,61 @@ import scap.main as main
 import scap.utils as utils
 
 
-@cli.command('update-interwiki-cache')
+@cli.command("update-interwiki-cache")
 class UpdateInterwikiCache(main.SyncFile):
     """Scap sub-command to update and sync the interwiki cache."""
 
-    @cli.argument('--force', action='store_true', help='Skip canary checks')
+    @cli.argument("--force", action="store_true", help="Skip canary checks")
     @cli.argument(
-        '--beta',
-        action='store_true',
-        help='Update the beta interwiki cache file')
+        "--beta", action="store_true", help="Update the beta interwiki cache file"
+    )
     def main(self, *extra_args):
         """Update the latest interwiki cache."""
-        self.arguments.message = 'Update interwiki cache'
-        interwiki_file = 'interwiki.php'
+        self.arguments.message = "Update interwiki cache"
+        interwiki_file = "interwiki.php"
         if self.arguments.beta:
-            self.arguments.message = 'Update interwiki cache for Beta Cluster'
-            interwiki_file = 'interwiki-labs.php'
-        self.arguments.file = os.path.join('wmf-config', interwiki_file)
+            self.arguments.message = "Update interwiki cache for Beta Cluster"
+            interwiki_file = "interwiki-labs.php"
+        self.arguments.file = os.path.join("wmf-config", interwiki_file)
         return super(UpdateInterwikiCache, self).main(*extra_args)
 
     def _before_cluster_sync(self):
-        interwikifile = os.path.join(
-            self.config['stage_dir'], self.arguments.file)
+        interwikifile = os.path.join(self.config["stage_dir"], self.arguments.file)
         if not os.path.exists(interwikifile):
-            raise IOError(
-                errno.ENOENT, 'File/directory not found', interwikifile)
+            raise IOError(errno.ENOENT, "File/directory not found", interwikifile)
 
-        relpath = os.path.relpath(interwikifile, self.config['stage_dir'])
+        relpath = os.path.relpath(interwikifile, self.config["stage_dir"])
         self.include = relpath
 
-        with open(interwikifile, 'w') as outfile:
+        with open(interwikifile, "w") as outfile:
             subprocess.check_call(
-                ['/usr/local/bin/mwscript',
-                 'extensions/WikimediaMaintenance/dumpInterwiki.php'],
-                stdout=outfile
+                [
+                    "/usr/local/bin/mwscript",
+                    "extensions/WikimediaMaintenance/dumpInterwiki.php",
+                ],
+                stdout=outfile,
             )
 
         # This shouldn't happen, but let's be safe
         lint.check_valid_syntax(interwikifile)
 
-        subprocess.check_call(['/usr/bin/git', 'add', interwikifile])
-        subprocess.check_call(['/usr/bin/git', 'commit', '-q', '-m',
-                               self.arguments.message])
+        subprocess.check_call(["/usr/bin/git", "add", interwikifile])
+        subprocess.check_call(
+            ["/usr/bin/git", "commit", "-q", "-m", self.arguments.message]
+        )
 
-        subprocess.check_call(['/usr/bin/git', 'push', '-q', 'origin',
-                               'HEAD:refs/for/master%l=Code-Review+2'])
+        subprocess.check_call(
+            [
+                "/usr/bin/git",
+                "push",
+                "-q",
+                "origin",
+                "HEAD:refs/for/master%l=Code-Review+2",
+            ]
+        )
 
-        if not utils.confirm('Has your change merged yet?'):
-            subprocess.check_call(['/usr/bin/git', 'reset', '--hard',
-                                   'origin/master'])
-            raise RuntimeError('Aborting, you should not sync unmerged code')
+        if not utils.confirm("Has your change merged yet?"):
+            subprocess.check_call(["/usr/bin/git", "reset", "--hard", "origin/master"])
+            raise RuntimeError("Aborting, you should not sync unmerged code")
 
-        subprocess.check_call(['/usr/bin/git', 'pull', '-q'])
+        subprocess.check_call(["/usr/bin/git", "pull", "-q"])

@@ -34,26 +34,26 @@ class PHPRestart(object):
         self.job = job
 
         if unsafe:
-            script = cfg.get('php_fpm_unsafe_restart_script')
+            script = cfg.get("php_fpm_unsafe_restart_script")
             if script:
                 self.cmd = "{} --force".format(script)
             else:
                 if logger:
-                    logger.warn("Unsafe mode requested but "
-                                "php_fpm_unsafe_restart_script "
-                                "not defined in config")
+                    logger.warn(
+                        "Unsafe mode requested but "
+                        "php_fpm_unsafe_restart_script "
+                        "not defined in config"
+                    )
 
-        elif cfg.get('php_fpm_restart_script'):
-            threshold = cfg['php_fpm_opcache_threshold']
+        elif cfg.get("php_fpm_restart_script"):
+            threshold = cfg["php_fpm_opcache_threshold"]
 
             # Override opcache threshold in cases we always want to restart
-            if cfg.get('php_fpm_always_restart'):
+            if cfg.get("php_fpm_always_restart"):
                 threshold = sys.maxsize
 
             self.cmd = "{} {} {}".format(
-                cfg['php_fpm_restart_script'],
-                cfg['php_fpm'],
-                str(threshold)
+                cfg["php_fpm_restart_script"], cfg["php_fpm"], str(threshold)
             )
         elif logger:
             logger.warn("php_fpm_restart_script not defined in config")
@@ -67,7 +67,7 @@ class PHPRestart(object):
         if self.job is None:
             raise AttributeError('php_fpm member "job" is not set')
         self.job.hosts(targets)
-        sudo_cmd = '/usr/bin/sudo -u root -- {}'.format(self.cmd)
+        sudo_cmd = "/usr/bin/sudo -u root -- {}".format(self.cmd)
         self.job.command(sudo_cmd)
         self.job.progress(log.MuteReporter())
         return self.job
@@ -83,7 +83,7 @@ class PHPRestart(object):
             return False
 
         try:
-            utils.sudo_check_call(cmd=self.cmd, user='root')
+            utils.sudo_check_call(cmd=self.cmd, user="root")
             return False
         except Exception:
             return True
@@ -113,9 +113,9 @@ def get_batch_size(targets, percentage=10.0):
     num_targets = len(targets)
 
     if not num_targets:
-        raise ValueError('php_fpm expected targets, 0 given')
+        raise ValueError("php_fpm expected targets, 0 given")
 
-    return int(math.ceil(len(targets) * percentage/100.0))
+    return int(math.ceil(len(targets) * percentage / 100.0))
 
 
 def restart_helper(targets):
@@ -127,7 +127,6 @@ def restart_helper(targets):
     """
     if not isinstance(INSTANCE, PHPRestart):
         raise RuntimeError(
-            'Attempting to use php_fpm.restart_helper before populating '
-            'INSTANCE!'
+            "Attempting to use php_fpm.restart_helper before populating " "INSTANCE!"
         )
     return INSTANCE.restart_all(targets)

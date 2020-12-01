@@ -3,6 +3,9 @@
 
 set -eu
 
+echo "Check formatting first, as it's fast"
+black --quiet --check .
+
 echo "Run unit and other automated local tests"
 tox
 echo "Nice, tox tests passed successfully"

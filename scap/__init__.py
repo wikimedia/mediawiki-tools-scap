@@ -43,30 +43,26 @@ from scap.main import (
 
 from scap.version import __version__
 
-from scap.deploy import (
-    Deploy,
-    DeployLocal,
-    DeployLog,
-)
+from scap.deploy import Deploy, DeployLocal, DeployLog
 
 __all__ = [
-    'CompileWikiversions',
-    'Deploy',
-    'DeployLocal',
-    'DeployLog',
-    'LockManager',
-    'MWVersionsInUse',
-    'RebuildCdbs',
-    'RefreshCdbJsonFiles',
-    'Scap',
-    'SecurityPatchCheck',
-    'SyncCommon',
-    'SyncFile',
-    'SyncL10n',
-    'SyncMaster',
-    'SyncWikiversions',
-    'Version',
-    '__version__',
+    "CompileWikiversions",
+    "Deploy",
+    "DeployLocal",
+    "DeployLog",
+    "LockManager",
+    "MWVersionsInUse",
+    "RebuildCdbs",
+    "RefreshCdbJsonFiles",
+    "Scap",
+    "SecurityPatchCheck",
+    "SyncCommon",
+    "SyncFile",
+    "SyncL10n",
+    "SyncMaster",
+    "SyncWikiversions",
+    "Version",
+    "__version__",
 ]
 
 
@@ -79,21 +75,24 @@ def all_applications():
     return apps
 
 
-any((
-    CompileWikiversions,
-    Deploy,
-    DeployLocal,
-    DeployLog,
-    LockManager,
-    MWVersionsInUse,
-    RebuildCdbs,
-    RefreshCdbJsonFiles,
-    Scap,
-    SecurityPatchCheck,
-    SyncCommon,
-    SyncFile,
-    SyncMaster,
-    SyncL10n,
-    SyncWikiversions,
-    Version,
-    __version__))  # Ignore unused import warning
+any(
+    (
+        CompileWikiversions,
+        Deploy,
+        DeployLocal,
+        DeployLog,
+        LockManager,
+        MWVersionsInUse,
+        RebuildCdbs,
+        RefreshCdbJsonFiles,
+        Scap,
+        SecurityPatchCheck,
+        SyncCommon,
+        SyncFile,
+        SyncMaster,
+        SyncL10n,
+        SyncWikiversions,
+        Version,
+        __version__,
+    )
+)  # Ignore unused import warning

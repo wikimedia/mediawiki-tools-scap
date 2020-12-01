@@ -43,8 +43,7 @@ def scroll_region_context(term, top=1, bottom=100):
         term.save().scroll_region(top, bottom)
         yield term
     finally:
-        term.flush().scroll_region(1, term.height) \
-            .flush().restore()
+        term.flush().scroll_region(1, term.height).flush().restore()
 
 
 class TerminalIO(io.TextIOBase):
@@ -80,43 +79,43 @@ SOFTWARE.
 """
 
     _sugar = dict(
-        save='sc',
-        restore='rc',
+        save="sc",
+        restore="rc",
         # 'clear' clears the whole screen.
-        clear_eol='el',
-        clear_bol='el1',
-        clear_eos='ed',
-        position='cup',  # deprecated
-        enter_fullscreen='smcup',
-        exit_fullscreen='rmcup',
-        move='cup',
-        move_x='hpa',
-        move_y='vpa',
-        move_left='cub1',
-        move_right='cuf1',
-        move_up='cuu1',
-        move_down='cud1',
-        hide_cursor='civis',
-        normal_cursor='cnorm',
-        reset_colors='op',  # oc doesn't work on my OS X terminal.
-        normal='sgr0',
-        reverse='rev',
-        italic='sitm',
-        no_italic='ritm',
-        shadow='sshm',
-        no_shadow='rshm',
-        standout='smso',
-        no_standout='rmso',
-        subscript='ssubm',
-        no_subscript='rsubm',
-        superscript='ssupm',
-        no_superscript='rsupm',
-        underline='smul',
-        no_underline='rmul',
-        cursor_report='u6',
-        cursor_request='u7',
-        terminal_answerback='u8',
-        terminal_enquire='u9',
+        clear_eol="el",
+        clear_bol="el1",
+        clear_eos="ed",
+        position="cup",  # deprecated
+        enter_fullscreen="smcup",
+        exit_fullscreen="rmcup",
+        move="cup",
+        move_x="hpa",
+        move_y="vpa",
+        move_left="cub1",
+        move_right="cuf1",
+        move_up="cuu1",
+        move_down="cud1",
+        hide_cursor="civis",
+        normal_cursor="cnorm",
+        reset_colors="op",  # oc doesn't work on my OS X terminal.
+        normal="sgr0",
+        reverse="rev",
+        italic="sitm",
+        no_italic="ritm",
+        shadow="sshm",
+        no_shadow="rshm",
+        standout="smso",
+        no_standout="rmso",
+        subscript="ssubm",
+        no_subscript="rsubm",
+        superscript="ssupm",
+        no_superscript="rsupm",
+        underline="smul",
+        no_underline="rmul",
+        cursor_report="u6",
+        cursor_request="u7",
+        terminal_answerback="u8",
+        terminal_enquire="u9",
     )
 
     def __init__(self, out=None, autoflush=True):
@@ -128,13 +127,16 @@ SOFTWARE.
         self.autoflush = autoflush
 
         try:
-            stream_fd = (out.fileno() if hasattr(out, 'fileno') and
-                         callable(out.fileno) else None)
+            stream_fd = (
+                out.fileno()
+                if hasattr(out, "fileno") and callable(out.fileno)
+                else None
+            )
         except io.UnsupportedOperation:
             stream_fd = None
 
         self._out = out
-        self._kind = os.environ.get('TERM', 'unknown')
+        self._kind = os.environ.get("TERM", "unknown")
 
         self._is_a_tty = stream_fd is not None and os.isatty(stream_fd)
         self._does_styling = self._is_a_tty
@@ -154,7 +156,7 @@ SOFTWARE.
 
     def write(self, *args):
         if not self._out:
-            raise IOError('Cannot write to closed terminal stream.')
+            raise IOError("Cannot write to closed terminal stream.")
 
         for i in args:
             i = str(i)
@@ -166,20 +168,20 @@ SOFTWARE.
 
     def writeln(self, *args):
         self.write(*args)
-        self._out.write('\r\n')
+        self._out.write("\r\n")
         self._out.flush()
         return self
 
     def close(self):
         if not self._out:
-            raise IOError('Already closed')
+            raise IOError("Already closed")
 
         self.cleanup()
         self._out.flush()
         self._out = None
 
     def cleanup(self):
-        ''' call cleanup callbacks registered by other modules '''
+        """ call cleanup callbacks registered by other modules """
         for cb in self.cleanup_callbacks:
             cb(self)
 
@@ -190,7 +192,7 @@ SOFTWARE.
         return self
 
     def nl(self):
-        return self.write('\n')
+        return self.write("\n")
 
     def cr(self):
         return self.move_y(0)
@@ -212,15 +214,11 @@ SOFTWARE.
     def scroll_region(self, top, bottom):
         self.region_top = max((top, 0))
         self.region_bottom = min((bottom, self.height))
-        self.csr(top, bottom) \
-            .move(bottom, 0)
+        self.csr(top, bottom).move(bottom, 0)
         return self
 
     def scroll_forward(self, count=1):
-        self.save() \
-            .move(self.bottom, 0) \
-            .write("\n" * count) \
-            .restore()
+        self.save().move(self.bottom, 0).write("\n" * count).restore()
         return self
 
     def scroll_reverse(self, count=1):
@@ -237,7 +235,7 @@ SOFTWARE.
             if capstr is None:
                 return self
             val = tparm(capstr, *args)
-            val = val.decode('latin1')
+            val = val.decode("latin1")
             self.write(val)
             return self
 
@@ -307,10 +305,12 @@ SOFTWARE.
             except IOError:
                 pass
 
-        return WINSZ(ws_row=int(os.getenv('LINES', '25')),
-                     ws_col=int(os.getenv('COLUMNS', '80')),
-                     ws_xpixel=None,
-                     ws_ypixel=None)
+        return WINSZ(
+            ws_row=int(os.getenv("LINES", "25")),
+            ws_col=int(os.getenv("COLUMNS", "80")),
+            ws_xpixel=None,
+            ws_ypixel=None,
+        )
 
     @staticmethod
     def _winsize(fd):
@@ -334,8 +334,9 @@ SOFTWARE.
         return WINSZ(*struct.unpack(WINSZ._FMT, data))
 
 
-class WINSZ(collections.namedtuple('WINSZ', (
-        'ws_row', 'ws_col', 'ws_xpixel', 'ws_ypixel'))):
+class WINSZ(
+    collections.namedtuple("WINSZ", ("ws_row", "ws_col", "ws_xpixel", "ws_ypixel"))
+):
     """
     Structure represents return value of :const:`termios.TIOCGWINSZ`.
     .. py:attribute:: ws_row rows, in characters
@@ -343,14 +344,14 @@ class WINSZ(collections.namedtuple('WINSZ', (
     .. py:attribute:: ws_xpixel horizontal size, pixels
     .. py:attribute:: ws_ypixel vertical size, pixels
     """
+
     #: format of termios structure
-    _FMT = 'hhhh'
+    _FMT = "hhhh"
     #: buffer of termios structure appropriate for ioctl argument
-    _BUF = '\x00' * struct.calcsize(_FMT)
+    _BUF = "\x00" * struct.calcsize(_FMT)
 
 
 class Region(object):
-
     def __init__(self, stream, top=0, height=None):
         self.top = top
         self.height = height

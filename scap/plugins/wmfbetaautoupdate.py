@@ -12,7 +12,7 @@ import scap.cli as cli
 import scap.utils as utils
 
 
-@cli.command('wmf-beta-autoupdate')
+@cli.command("wmf-beta-autoupdate")
 class BetaUpdate(cli.Application):
     """Scap subcommand for auto-updating a beta cluster."""
 
@@ -24,19 +24,29 @@ class BetaUpdate(cli.Application):
         # php-master is like php-1.xx.y-wmf.z we use in production but is
         # tracking...master ;-)
         pull_paths = [
-            '',
-            'php-master',
-            'php-master/extensions',
-            'php-master/skins',
-            'php-master/vendor',
+            "",
+            "php-master",
+            "php-master/extensions",
+            "php-master/skins",
+            "php-master/vendor",
         ]
-        stage_dir = self.config['stage_dir']
+        stage_dir = self.config["stage_dir"]
 
         for path in pull_paths:
             with utils.cd(os.path.join(stage_dir, path)):
-                subprocess.check_call(['/usr/bin/git', 'pull'])
-                subprocess.check_call(['/usr/bin/git', 'submodule', 'update',
-                                       '--init', '--recursive', '--jobs', '8',
-                                       '--rebase'])
-        subprocess.check_call(['/usr/bin/git', 'submodule', 'update',
-                               '--remote', 'portals'])
+                subprocess.check_call(["/usr/bin/git", "pull"])
+                subprocess.check_call(
+                    [
+                        "/usr/bin/git",
+                        "submodule",
+                        "update",
+                        "--init",
+                        "--recursive",
+                        "--jobs",
+                        "8",
+                        "--rebase",
+                    ]
+                )
+        subprocess.check_call(
+            ["/usr/bin/git", "submodule", "update", "--remote", "portals"]
+        )

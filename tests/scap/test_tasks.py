@@ -20,15 +20,16 @@ def test_get_old_wikiversions():
     # would like to keep their static assets (wmf.2 & wmf.3).  The
     # remaining version is 10 weeks old, that should be removed entirely
     versions = [
-        ('php-1.29.0-wmf.4', now),
-        ('php-1.29.0-wmf.3', one_week_ago),
-        ('php-1.29.0-wmf.2', two_weeks_ago),
-        ('php-1.29.0-wmf.1', ten_weeks_ago),
-        ('php-1.29.0-wmf.5', three_weeks_ago)]
+        ("php-1.29.0-wmf.4", now),
+        ("php-1.29.0-wmf.3", one_week_ago),
+        ("php-1.29.0-wmf.2", two_weeks_ago),
+        ("php-1.29.0-wmf.1", ten_weeks_ago),
+        ("php-1.29.0-wmf.5", three_weeks_ago),
+    ]
 
     remove, remove_static = tasks.get_old_wikiversions(versions)
 
-    assert remove == ['php-1.29.0-wmf.1']
+    assert remove == ["php-1.29.0-wmf.1"]
 
     # Returns versions to remove in reverse order
-    assert remove_static == ['php-1.29.0-wmf.3', 'php-1.29.0-wmf.2']
+    assert remove_static == ["php-1.29.0-wmf.3", "php-1.29.0-wmf.2"]
