@@ -507,6 +507,7 @@ title: Scap for deploying at WMF
 author: WMF Release Engineering
 bindings: scap.yaml
 functions: scap.python
+template: python
 documentclass: report
 classes:
 - php
