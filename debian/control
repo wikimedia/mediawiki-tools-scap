@@ -24,7 +24,7 @@ Build-Depends:
   python-psutil,
   tox | python-tox,
   flake8 | python-flake8
-Standards-Version: 3.9.6
+Standards-Version: 4.5.1
 X-Python-Version: >= 2.7
 
 Package: scap

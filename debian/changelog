@@ -17,7 +17,7 @@ scap (3.16.0-1) unstable; urgency=low
   * compile_wikiversions: Update comments to reflect the code
   * update-wikiversions: Use staging dir wikiversions to update php link
   * Make sync-world work when there are no proxies
-  * Allow scap command path to be overriden via environment var
+  * Allow scap command path to be overridden via environment var
 
   [ Tyler Cipriani ]
   * php_fpm: add feature flag to always restart
