@@ -34,7 +34,6 @@ import sys
 import time
 
 from scap import ansi
-from scap.sh import ErrorReturnCode
 import scap.arg as arg
 import scap.cli as cli
 import scap.lint as lint
@@ -42,17 +41,12 @@ import scap.lock as lock
 import scap.log as log
 import scap.opcache_manager as opcache_manager
 import scap.php_fpm as php_fpm
-import scap.sh as sh
 import scap.ssh as ssh
 import scap.targets as targets
 import scap.tasks as tasks
 import scap.utils as utils
 import scap.version as scapversion
-
-try:
-    from StringIO import StringIO
-except ImportError:
-    from io import StringIO
+from scap.runcmd import git, mwscript, FailedCommand
 
 
 class AbstractSync(cli.Application):
@@ -212,23 +206,21 @@ class AbstractSync(cli.Application):
         return os.path.exists(wikiversionsphp)
 
     def _check_fatals(self):
-        mwscript = sh.Command("mwscript")
-        errbuf = StringIO()
         errmsg = "Scap failed!: Call to mwscript eval.php {}: {}"
+
         try:
-            mwscript("eval.php", "--wiki", "enwiki", _in="1", _err=errbuf)
-            errout = errbuf.getvalue().strip()
-            if errout:
-                self.announce(errmsg.format("stderr", "not empty"))
-                raise RuntimeError(errmsg.format("stderr", errout))
-        except ErrorReturnCode as e:
-            self.announce(errmsg.format("returned", e.exit_code))
+            stderr = mwscript("eval.php", "--wiki", "enwiki")
+        except FailedCommand as e:
+            self.announce(errmsg.format("returned", e.exitcode))
             if e.stdout:
                 self.announce("stdout: {}".format(e.stdout))
-            self.announce("stderr: {}".format(errbuf.getvalue().strip()))
+            self.announce("stderr: {}".format(stderr))
             raise RuntimeError(errmsg.format("returned", e.exit_code))
-        finally:
-            errbuf.close()
+
+        stderr = stderr.strip()
+        if stderr:
+            self.announce(errmsg.format("stderr", "not empty"))
+            raise RuntimeError(errmsg.format("stderr", stderr))
 
     def _check_sync_flag(self):
         sync_flag = os.path.join(self.config["stage_dir"], "sync.flag")
@@ -1299,16 +1291,12 @@ class PatchBase(cli.Application):
 
     def git_apply_check(self, patchfile, dirname):
         """Check if a patch applies cleanly"""
-        with utils.cd(dirname):
-            return sh.git("apply", "--no-3way", "--check", patchfile)
+        git("apply", "--no-3way", "--check", patchfile, cwd=dirname)
 
     def git_am(self, patchfile, dirname):
         """Apply a patch"""
-        with utils.cd(dirname):
-            ret = sh.git("apply", "--no-3way", "--check", patchfile)
-            if ret.exit_code != 0:
-                return ret
-            return sh.git("am", "--no-3way", patchfile)
+        git("apply", "--no-3way", "--check", patchfile, cwd=dirname)
+        git("am", "--no-3way", patchfile, cwd=dirname)
 
 
 @cli.command("list-patches", help="List pending security patches for train")

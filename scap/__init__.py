@@ -45,6 +45,8 @@ from scap.version import __version__
 
 from scap.deploy import Deploy, DeployLocal, DeployLog
 
+import scap.runcmd
+
 __all__ = [
     "CompileWikiversions",
     "Deploy",
@@ -63,6 +65,7 @@ __all__ = [
     "SyncWikiversions",
     "Version",
     "__version__",
+    "runcmd",
 ]
 
 
