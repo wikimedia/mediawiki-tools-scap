@@ -14,6 +14,11 @@ class JSONOutputHandlerTest(unittest.TestCase):
 
         self.logger = logging.getLogger("target." + host)
         self.logger.setLevel(logging.INFO)
+        # The log records are json blobs which must not be handled by other
+        # loggers. pytest injects a root logger with LogCapture which relies on
+        # extrafields such as filename or fileno when formatting the message
+        # which is invalid for our custom records.
+        self.logger.propagate = False
 
         for log_handler in self.logger.handlers:
             self.logger.removeHandler(log_handler)
