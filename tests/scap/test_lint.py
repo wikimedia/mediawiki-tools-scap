@@ -45,6 +45,17 @@ def test_check_valid_syntax__invalid_php_file_raise_exception():
 
 
 @pytest.mark.skipif(sys.platform == "darwin", reason="Requires GNU find")
+def test_check_valid_syntax__invalid_json_file_raise_exception():
+    """Make sure we raise exceptions when passed a single bad JSON file (T272756)"""
+    with tempfile.NamedTemporaryFile(suffix=".json") as json_file:
+        json_file.write(b"{")
+        json_file.flush()
+        with pytest.raises(ValueError) as ve:
+            lint.check_valid_syntax(json_file.name)
+        assert "is an invalid JSON file" in str(ve.value)
+
+
+@pytest.mark.skipif(sys.platform == "darwin", reason="Requires GNU find")
 def test_check_valid_syntax__skip_dir_matching_name_predicate():
     """Make sure that we skip directories that look like php files"""
     with tempfile.NamedTemporaryFile(suffix=".php") as php_file:

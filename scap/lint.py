@@ -4,7 +4,7 @@
     ~~~~~~~~~
     Stuff about linting
 
-    Copyright © 2014-2017 Wikimedia Foundation and Contributors.
+    Copyright © 2014-2017, 2021 Wikimedia Foundation and Contributors.
 
     This file is part of Scap.
 
@@ -48,13 +48,19 @@ def check_valid_syntax(paths, procs=1):
     ) % (" ".join(quoted_paths), procs)
     logger.debug("Running command: `%s`", cmd)
     subprocess.check_call(cmd, shell=True)
-    # Check for anything that isn't a shebang before <?php (T92534)
+    # Check validity of PHP and JSON files being synced
     for path in paths:
-        for root, _, files in os.walk(path):
-            for filename in files:
-                abspath = os.path.join(root, filename)
-                check_php_opening_tag(abspath)
-                check_valid_json_file(abspath)
+        if os.path.isfile(path):
+            abspath = os.path.abspath(path)
+            check_php_opening_tag(abspath)
+            check_valid_json_file(abspath)
+        else:
+            # Walk the directory
+            for root, _, files in os.walk(path):
+                for filename in files:
+                    abspath = os.path.join(root, filename)
+                    check_php_opening_tag(abspath)
+                    check_valid_json_file(abspath)
 
 
 def check_valid_json_file(path):
@@ -77,7 +83,7 @@ def check_php_opening_tag(path):
     """
     Check a PHP file to make sure nothing is before the opening <?php.
 
-    Except for shebangs.
+    Except for shebangs. (T92534)
 
     :param path: Location of file
     :raises: ValueError on invalid file
