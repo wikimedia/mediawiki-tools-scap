@@ -548,75 +548,48 @@ def _call_rebuildLocalisationCache(
         # lang will remain None if SCAP_MW_LANG is not defined.
         lang = os.getenv("SCAP_MW_LANG")
 
-    with utils.sudo_temp_dir("www-data", "scap_l10n_") as temp_dir:
-        # Seed the temporary directory with the current CDB files
-        if glob.glob("%s/*.cdb" % out_dir):
+    def _rebuild(store_class, file_extension):
+        with utils.sudo_temp_dir("www-data", "scap_l10n_" + store_class) as temp_dir:
+            existing_files_pattern = "%s/*.%s" % (out_dir, file_extension)
+
+            # Seed the temporary directory with the current files (if any)
+            if glob.glob(existing_files_pattern):
+                utils.sudo_check_call(
+                    "www-data",
+                    "cp '%(existing_files_pattern)s '%(temp_dir)s'"
+                    % {"existing_files_pattern": existing_files_pattern,
+                       "out_dir": out_dir},
+                )
+            # Generate the files into a temporary directory as www-data
             utils.sudo_check_call(
                 "www-data",
-                "cp '%(out_dir)s/'*.cdb '%(temp_dir)s'"
+                "/usr/local/bin/mwscript rebuildLocalisationCache.php "
+                '--wiki="%(wikidb)s" --outdir="%(temp_dir)s" '
+                "--store-class=%(store_class)s "
+                "--threads=%(use_cores)s %(lang)s %(force)s %(quiet)s"
+                % {
+                    "wikidb": wikidb,
+                    "temp_dir": temp_dir,
+                    "store_class": store_class,
+                    "use_cores": use_cores,
+                    "lang": "--lang " + lang if lang else "",
+                    "force": "--force" if force else "",
+                    "quiet": "--quiet" if quiet else "",
+                }
+            )
+
+            # Copy the files into the real directory as l10nupdate
+            utils.sudo_check_call(
+                "l10nupdate",
+                'cp -r "%(temp_dir)s"/* "%(out_dir)s"'
                 % {"temp_dir": temp_dir, "out_dir": out_dir},
             )
-        # Generate the files into a temporary directory as www-data
-        utils.sudo_check_call(
-            "www-data",
-            "/usr/local/bin/mwscript rebuildLocalisationCache.php "
-            '--wiki="%(wikidb)s" --outdir="%(temp_dir)s" '
-            "--store-class=LCStoreCDB "
-            "--threads=%(use_cores)s %(lang)s %(force)s %(quiet)s"
-            % {
-                "wikidb": wikidb,
-                "temp_dir": temp_dir,
-                "use_cores": use_cores,
-                "lang": "--lang " + lang if lang else "",
-                "force": "--force" if force else "",
-                "quiet": "--quiet" if quiet else "",
-            },
-        )
 
-        # Copy the files into the real directory as l10nupdate
-        utils.sudo_check_call(
-            "l10nupdate",
-            'cp -r "%(temp_dir)s"/* "%(out_dir)s"'
-            % {"temp_dir": temp_dir, "out_dir": out_dir},
-        )
+    _rebuild("LCStoreCDB", "cdb")
 
     # PHP l10n generation feature flag
-    if not php_l10n:
-        return
-
-    # Doing it all over again, with php array instead.
-    # The cdb calls will be gone soon: T99740
-    with utils.sudo_temp_dir("www-data", "scap_l10n_array_") as temp_dir:
-        # Seed the temporary directory with the current php files
-        if glob.glob("%s/*.php" % out_dir):
-            utils.sudo_check_call(
-                "www-data",
-                "cp '%(out_dir)s/'*.php '%(temp_dir)s'"
-                % {"temp_dir": temp_dir, "out_dir": out_dir},
-            )
-        # Generate the files into a temporary directory as www-data
-        utils.sudo_check_call(
-            "www-data",
-            "/usr/local/bin/mwscript rebuildLocalisationCache.php "
-            '--wiki="%(wikidb)s" --outdir="%(temp_dir)s" '
-            "--store-class=LCStoreStaticArray "
-            "--threads=%(use_cores)s %(lang)s %(force)s %(quiet)s"
-            % {
-                "wikidb": wikidb,
-                "temp_dir": temp_dir,
-                "use_cores": use_cores,
-                "lang": "--lang " + lang if lang else "",
-                "force": "--force" if force else "",
-                "quiet": "--quiet" if quiet else "",
-            },
-        )
-
-        # Copy the files into the real directory as l10nupdate
-        utils.sudo_check_call(
-            "l10nupdate",
-            'cp -r "%(temp_dir)s"/* "%(out_dir)s"'
-            % {"temp_dir": temp_dir, "out_dir": out_dir},
-        )
+    if php_l10n:
+        _rebuild("LCStoreStaticArray", "php")
 
 
 @utils.log_context("update_localization_cache")
