@@ -557,8 +557,10 @@ def _call_rebuildLocalisationCache(
                 utils.sudo_check_call(
                     "www-data",
                     "cp '%(existing_files_pattern)s '%(temp_dir)s'"
-                    % {"existing_files_pattern": existing_files_pattern,
-                       "out_dir": out_dir},
+                    % {
+                        "existing_files_pattern": existing_files_pattern,
+                        "out_dir": out_dir,
+                    },
                 )
             # Generate the files into a temporary directory as www-data
             utils.sudo_check_call(
@@ -575,7 +577,7 @@ def _call_rebuildLocalisationCache(
                     "lang": "--lang " + lang if lang else "",
                     "force": "--force" if force else "",
                     "quiet": "--quiet" if quiet else "",
-                }
+                },
             )
 
             # Copy the files into the real directory as l10nupdate
