@@ -16,17 +16,16 @@ import subprocess
 import yaml
 
 
-from scap.sh.contrib import git
-from scap.sh import ErrorReturnCode
+from scap.runcmd import git, FailedCommand
 import scap.utils as utils
-import scap.sh as sh
+import scap
 
 
 def version():
     try:
-        version_numbers = git("version").split(" ")[2]
+        version_numbers = git("version", cwd=".").split(" ")[2]
         return tuple(int(n) for n in version_numbers.split(".")[:4] if n.isdigit())
-    except (ErrorReturnCode, KeyError):
+    except (FailedCommand, KeyError):
         return (1, 9, 0)
 
 
@@ -60,15 +59,13 @@ def info_filename(directory, install_path, cache_path):
 def sha(location, rev):
     """Returns SHA1 for things like HEAD or HEAD~~"""
     ensure_dir(location)
-    with utils.cd(location):
-        return git("rev-parse", "--verify", rev).strip()
+    return git("rev-parse", "--verify", rev, cwd=location).strip()
 
 
 def describe(location):
     """Returns a convenient label for the current state of the git repo."""
     ensure_dir(location)
-    with utils.cd(location):
-        return git.describe("--always").strip()
+    return git("describe", "--always", cwd=location).strip()
 
 
 def init(location):
@@ -78,27 +75,23 @@ def init(location):
     if not os.path.isdir(location):
         raise IOError(errno.ENOENT, "Location is not a directory", location)
 
-    with utils.cd(location):
-        return git.init().strip()
+    return git("init", cwd=location).strip()
 
 
 def fat_init(location):
     """Initializes the given directory for git-fat use."""
 
-    with utils.cd(location):
-        git.fat("init")
+    git("fat", "init", cwd=location)
 
 
 def fat_isinitialized(location):
     """Returns whether git-fat has been initialized for the given directory."""
 
-    with utils.cd(location):
-        with open(os.devnull, "w") as devnull:
-            try:
-                git.config("--local", "--get", "filter.fat.smudge", _out=devnull)
-                return True
-            except ErrorReturnCode:
-                return False
+    try:
+        git("config", "--local", "--get", "filter.fat.smudge", cwd=location)
+        return True
+    except FailedCommand:
+        return False
 
 
 def largefile_pull(location, implementor):
@@ -107,14 +100,13 @@ def largefile_pull(location, implementor):
     :param location: Repository to work in
     :param implementor: What implementation to pull with (git-lfs, git-fat)
     """
-    with utils.cd(location):
-        if implementor == LFS:
-            git.lfs("pull")
-        elif implementor == FAT:
-            fat_init(location)
-            git.fat("pull")
-        else:
-            raise ValueError("Must be passed one of lfs or fat")
+    if implementor == LFS:
+        git("lfs", "pull", cwd=location)
+    elif implementor == FAT:
+        fat_init(location)
+        git("fat", "pull", cwd=location)
+    else:
+        raise ValueError("Must be passed one of lfs or fat")
 
 
 def lfs_install(*args):
@@ -153,17 +145,15 @@ def info(directory):
 
     head_sha1 = get_disclosable_head(directory, branch)
     if head_sha1:
-        with sh.pushd(git_dir):
-            commit_date = git.show("-s", "--format=%ct", head_sha1).strip()
+        commit_date = git("show", "-s", "--format=%ct", head_sha1).strip()
     else:
         commit_date = ""
 
     # Requires git v1.7.5+
     try:
-        with sh.pushd(git_dir):
-            remote_url = git("ls-remote", "--get-url").strip()
+        remote_url = git("ls-remote", "--get-url", cwd=directory).strip()
 
-    except ErrorReturnCode:
+    except FailedCommand:
         remote_url = ""
         utils.get_logger().info("Unable to find remote URL for %s", git_dir)
 
@@ -181,95 +171,97 @@ def remove_all_ignores(location):
     """
     Remove .gitignore files under a location.
     """
-    find = sh.Command("find")
-    with sh.pushd(location):
-        find(".", "-name", ".gitignore", "-delete")
+    scap.runcmd.delete_file_in_tree(location, ".gitignore")
 
 
 def default_ignore(location):
     """Create a default .gitignore file."""
     remove_all_ignores(location)
     ignore = "\n".join(DEFAULT_IGNORE)
-    with utils.cd(location):
-        with open(".gitignore", "w+") as gitignore:
-            gitignore.write(ignore)
+    filename = os.path.join(location, ".gitignore")
+    with open(filename, "w+") as gitignore:
+        gitignore.write(ignore)
 
 
 def clean_tags(location, max_tags):
     """Make sure there aren't more than max_tags."""
 
     ensure_dir(location)
-    with utils.cd(location):
-        tags = git(
-            "for-each-ref", "--sort=taggerdate", "--format=%(refname)", "refs/tags"
-        ).splitlines()
 
-        old_tags = []
-        while len(tags) > max_tags:
-            tag = tags.pop(0)
-            if tag.startswith("refs/tags/"):
-                tag = tag[10:]
+    tags = git(
+        "for-each-ref",
+        "--sort=taggerdate",
+        "--format=%(refname)",
+        "refs/tags",
+        cwd=location,
+    ).splitlines()
 
-            # Don't delete tags that aren't ours
-            if not tag.startswith(TAG_PREFIX):
-                continue
+    old_tags = []
+    while len(tags) > max_tags:
+        tag = tags.pop(0)
+        if tag.startswith("refs/tags/"):
+            tag = tag[10:]
 
-            old_tags.append(tag)
+        # Don't delete tags that aren't ours
+        if not tag.startswith(TAG_PREFIX):
+            continue
 
-        # if there aren't any old tags, bail early
-        if not old_tags:
-            return
+        old_tags.append(tag)
 
-        git.tag("-d", *old_tags)
+    # if there aren't any old tags, bail early
+    if not old_tags:
+        return
+
+    git("tag", "-d", *old_tags, cwd=location)
 
 
 def garbage_collect(location):
     """Clean up a repo."""
 
     ensure_dir(location)
-    with sh.pushd(location):
-        git.gc("--quiet", "--auto")
+    git("gc", "--quiet", "--auto", cwd=location)
 
 
 def add_all(location, message="Update"):
     """Add everything to repo at location as user."""
 
-    with sh.pushd(location):
-        # Initialize repo if it isn't already
-        if not is_dir(location):
-            git.init()
+    # Initialize repo if it isn't already
+    if not is_dir(location):
+        git("init", cwd=location)
 
-        git.add("--all")
+    git("add", "--all", cwd=location)
 
-        # None of these values can be unset or empty strings because we use
-        # them as git envvars below. Unset values and empty strings will
-        # cause git to shout about ident errors.
-        host = socket.getfqdn() or "localhost"
-        euid = utils.get_username() or "unknown"
-        ruid = utils.get_real_username() or "unknown"
-        ename = utils.get_user_fullname() or "Unknown User"
-        rname = utils.get_real_user_fullname() or "Unknown User"
+    # None of these values can be unset or empty strings because we use
+    # them as git envvars below. Unset values and empty strings will
+    # cause git to shout about ident errors.
+    host = socket.getfqdn() or "localhost"
+    euid = utils.get_username() or "unknown"
+    ruid = utils.get_real_username() or "unknown"
+    ename = utils.get_user_fullname() or "Unknown User"
+    rname = utils.get_real_user_fullname() or "Unknown User"
 
-        os.environ["GIT_COMMITTER_EMAIL"] = "{}@{}".format(euid, host)
-        os.environ["GIT_AUTHOR_EMAIL"] = "{}@{}".format(ruid, host)
+    os.environ["GIT_COMMITTER_EMAIL"] = "{}@{}".format(euid, host)
+    os.environ["GIT_AUTHOR_EMAIL"] = "{}@{}".format(ruid, host)
 
-        os.environ["GIT_COMMITTER_NAME"] = ename
-        os.environ["GIT_AUTHOR_NAME"] = rname
+    os.environ["GIT_COMMITTER_NAME"] = ename
+    os.environ["GIT_AUTHOR_NAME"] = rname
 
-        try:
-            git.commit("--quiet", "-m", message)
-        except ErrorReturnCode:
-            pass  # ignore errors
+    try:
+        git("commit", "--quiet", "-m", message, cwd=location)
+    except FailedCommand:
+        pass  # ignore errors
 
 
 def last_deploy_tag(location):
     """Finds the last tag to use for this deployment"""
     ensure_dir(location)
-    with utils.cd(location):
-        tags = git.tag("--list", os.path.join(TAG_PREFIX, "*")).splitlines()
-        tags = sorted(tags, reverse=True)
-        if tags:
-            return tags[0]
+
+    tags = git(
+        "tag", "--list", os.path.join(TAG_PREFIX, "*"), cwd=location
+    ).splitlines()
+    tags = sorted(tags, reverse=True)
+    if tags:
+        return tags[0]
 
     return None
 
@@ -277,15 +269,14 @@ def last_deploy_tag(location):
 def next_deploy_tag(location):
     """Calculates the scap/sync/{date}/{n} tag to use for this deployment"""
     ensure_dir(location)
-    with sh.pushd(location):
-        timestamp = datetime.utcnow()
-        date = timestamp.strftime("%F")
-        args = ["--list"]
-        tag_fmt = os.path.join(TAG_PREFIX, "{}", "*")
-        args.append(tag_fmt.format(date))
-        seq = len(git.tag(*args).splitlines()) + 1
-        tag_fmt = os.path.join(TAG_PREFIX, "{0}", "{1:04d}")
-        return tag_fmt.format(date, seq)
+    timestamp = datetime.utcnow()
+    date = timestamp.strftime("%F")
+    args = ["--list"]
+    tag_fmt = os.path.join(TAG_PREFIX, "{}", "*")
+    args.append(tag_fmt.format(date))
+    seq = len(git("tag", *args, cwd=location).splitlines()) + 1
+    tag_fmt = os.path.join(TAG_PREFIX, "{0}", "{1:04d}")
+    return tag_fmt.format(date, seq)
 
 
 def ensure_dir(location):
@@ -318,10 +309,9 @@ def remote_exists(location, remote):
 def remote_set(location, repo, remote="origin"):
     """set the remote at location to repo"""
     ensure_dir(location)
-    with sh.pushd(location):
-        if remote_exists(location, remote):
-            git.remote("rm", remote)
-        git.remote("add", remote, repo)
+    if remote_exists(location, remote):
+        git("remote", "rm", remote, cwd=location)
+    git("remote", "add", remote, repo, cwd=location)
 
 
 def fetch(
@@ -340,15 +330,14 @@ def fetch(
 
     if is_dir(location):
         remote_set(location, repo)
-        with sh.pushd(location):
-            cmd = append_jobs_arg(["--tags"])
-            if recurse_submodules:
-                cmd.append("--recurse-submodules")
-            else:
-                cmd.append("--no-recurse-submodules")
-            git.fetch(*cmd)
-            for name, value in config.items():
-                git.config(name, value)
+        cmd = append_jobs_arg(["--tags"])
+        if recurse_submodules:
+            cmd.append("--recurse-submodules")
+        else:
+            cmd.append("--no-recurse-submodules")
+        git("fetch", *cmd, cwd=location)
+        for name, value in config.items():
+            git("config", name, value, cwd=location)
     else:
         cmd = append_jobs_arg([])
         if shallow:
@@ -389,9 +378,8 @@ def checkout(location, rev):
 
     logger = utils.get_logger()
 
-    with sh.pushd(location):
-        logger.debug("Checking out rev: %s at location: %s", rev, location)
-        git.checkout("--force", "--quiet", rev)
+    logger.debug("Checking out rev: %s at location: %s", rev, location)
+    git("checkout", "--force", "--quiet", rev, cwd=location)
 
 
 def sync_submodules(location):
@@ -401,9 +389,8 @@ def sync_submodules(location):
 
     logger = utils.get_logger()
 
-    with sh.pushd(location):
-        logger.debug("Syncing out submodules")
-        git.submodule("sync", "--recursive")
+    logger.debug("Syncing out submodules")
+    git("submodule", "sync", "--recursive", cwd=location)
 
 
 def update_submodules(location, git_remote=None, use_upstream=False, reference=None):
@@ -440,13 +427,17 @@ def update_submodules(location, git_remote=None, use_upstream=False, reference=N
 def update_server_info(has_submodules=False, location=os.getcwd(), logger=None):
     """runs git update-server-info and tags submodules"""
 
-    with sh.pushd(location):
+    logger.debug("Update server info")
+    git("update-server-info", cwd=location)
 
-        logger.debug("Update server info")
-        git("update-server-info")
-
-        if has_submodules:
-            git.submodule("foreach", "--recursive", "git update-server-info")
+    if has_submodules:
+        git(
+            "submodule",
+            "foreach",
+            "--recursive",
+            "git update-server-info",
+            cwd=location,
+        )
 
 
 def update_deploy_head(deploy_info, location):
@@ -534,45 +525,42 @@ def remap_submodules(location, server):
 
     logger = utils.get_logger()
 
-    with sh.pushd(location):
-        gitmodule = os.path.join(location, ".gitmodules")
-        if not os.path.isfile(gitmodule):
-            logger.warning(
-                "Unable to rewrite_submodules: No .gitmodules in %s", location
-            )
-            return
+    gitmodule = os.path.join(location, ".gitmodules")
+    if not os.path.isfile(gitmodule):
+        logger.warning("Unable to rewrite_submodules: No .gitmodules in %s", location)
+        return
 
-        logger.info("Updating .gitmodule: %s", os.path.dirname(gitmodule))
+    logger.info("Updating .gitmodule: %s", os.path.dirname(gitmodule))
 
-        # ensure we're working with a non-modified .gitmodules file
-        git.checkout(".gitmodules")
+    # ensure we're working with a non-modified .gitmodules file
+    git("checkout", ".gitmodules", cwd=location)
 
-        # get .gitmodule info
-        modules = git.config("--list", "--file", ".gitmodules")
+    # get .gitmodule info
+    modules = git.config("--list", "--file", ".gitmodules")
 
-        submodules = {}
-        for line in modules.split("\n"):
-            if not line.startswith("submodule."):
-                continue
+    submodules = {}
+    for line in modules.split("\n"):
+        if not line.startswith("submodule."):
+            continue
 
-            module_conf = line.split("=")
-            module_name = module_conf[0].strip()
+        module_conf = line.split("=")
+        module_name = module_conf[0].strip()
 
-            if module_name.endswith(".path"):
-                name = module_name[len("submodule.") : -len(".path")]
-                submodules[name] = module_conf[1].strip()
+        if module_name.endswith(".path"):
+            name = module_name[len("submodule.") : -len(".path")]
+            submodules[name] = module_conf[1].strip()
 
-        with open(gitmodule, "w") as module:
-            for submodule_name, submodule_path in submodules.items():
-                # Since we're using a non-bare http remote, map the submodule
-                # to the submodule path under $GIT_DIR/modules subdirectory of
-                # the superproject (git documentation: https://git.io/v4W9F).
-                remote_path = "{}/modules/{}".format(server, submodule_name)
-                module.write('[submodule "{}"]\n'.format(submodule_name))
-                module.write("\tpath = {}\n".format(submodule_path))
-                module.write("\turl = {}\n".format(remote_path))
+    with open(gitmodule, "w") as module:
+        for submodule_name, submodule_path in submodules.items():
+            # Since we're using a non-bare http remote, map the submodule
+            # to the submodule path under $GIT_DIR/modules subdirectory of
+            # the superproject (git documentation: https://git.io/v4W9F).
+            remote_path = "{}/modules/{}".format(server, submodule_name)
+            module.write('[submodule "{}"]\n'.format(submodule_name))
+            module.write("\tpath = {}\n".format(submodule_path))
+            module.write("\turl = {}\n".format(remote_path))
 
-        sync_submodules(location)
+    sync_submodules(location)
 
 
 def get_disclosable_head(repo_directory, remote_thing):
@@ -629,8 +617,7 @@ def list_submodules(repo):
     ensure_dir(repo)
     submodules = []
 
-    with sh.pushd(repo):
-        res = git.submodule("status")
+    res = git("submodule", "status", cwd=repo)
 
     for line in res.splitlines():
         submodules.append(re.sub(r"-[a-f0-9]{40} ", "", line))
