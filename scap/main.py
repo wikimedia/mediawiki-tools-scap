@@ -46,7 +46,7 @@ import scap.targets as targets
 import scap.tasks as tasks
 import scap.utils as utils
 import scap.version as scapversion
-from scap.runcmd import git, mwscript, FailedCommand
+from scap.runcmd import gitcmd, mwscript, FailedCommand
 
 
 class AbstractSync(cli.Application):
@@ -215,7 +215,7 @@ class AbstractSync(cli.Application):
             if e.stdout:
                 self.announce("stdout: {}".format(e.stdout))
             self.announce("stderr: {}".format(stderr))
-            raise RuntimeError(errmsg.format("returned", e.exit_code))
+            raise RuntimeError(errmsg.format("returned", e.exitcode))
 
         stderr = stderr.strip()
         if stderr:
@@ -1291,12 +1291,12 @@ class PatchBase(cli.Application):
 
     def git_apply_check(self, patchfile, dirname):
         """Check if a patch applies cleanly"""
-        git("apply", "--no-3way", "--check", patchfile, cwd=dirname)
+        gitcmd("apply", "--no-3way", "--check", patchfile, cwd=dirname)
 
     def git_am(self, patchfile, dirname):
         """Apply a patch"""
-        git("apply", "--no-3way", "--check", patchfile, cwd=dirname)
-        git("am", "--no-3way", patchfile, cwd=dirname)
+        gitcmd("apply", "--no-3way", "--check", patchfile, cwd=dirname)
+        gitcmd("am", "--no-3way", patchfile, cwd=dirname)
 
 
 @cli.command("list-patches", help="List pending security patches for train")

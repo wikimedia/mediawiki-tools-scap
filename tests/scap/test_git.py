@@ -61,10 +61,10 @@ class GitTest(unittest.TestCase):
     def test_clean_tags(self):
         for _ in range(10):
             nexttag = git.next_deploy_tag(TEMPDIR)
-            scap.runcmd.git("tag", nexttag, cwd=TEMPDIR)
+            scap.runcmd.gitcmd("tag", nexttag, cwd=TEMPDIR)
 
         git.clean_tags(TEMPDIR, 2)
-        tags = scap.runcmd.git("tag", "--list", cwd=TEMPDIR).splitlines()
+        tags = scap.runcmd.gitcmd("tag", "--list", cwd=TEMPDIR).splitlines()
         assert tags is not None, "After clean_tags(2), no tags remain"
         assert len(tags) == 2, "There should only be 2 tags rmaining"
 

@@ -556,10 +556,10 @@ def _call_rebuildLocalisationCache(
             if glob.glob(existing_files_pattern):
                 utils.sudo_check_call(
                     "www-data",
-                    "cp '%(existing_files_pattern)s '%(temp_dir)s'"
+                    "cp %(existing_files_pattern)s '%(temp_dir)s'"
                     % {
                         "existing_files_pattern": existing_files_pattern,
-                        "out_dir": out_dir,
+                        "temp_dir": temp_dir,
                     },
                 )
             # Generate the files into a temporary directory as www-data

@@ -16,14 +16,14 @@ import subprocess
 import yaml
 
 
-from scap.runcmd import git, FailedCommand
+from scap.runcmd import gitcmd, FailedCommand
 import scap.utils as utils
 import scap
 
 
 def version():
     try:
-        version_numbers = git("version", cwd=".").split(" ")[2]
+        version_numbers = gitcmd("version", cwd=".").split(" ")[2]
         return tuple(int(n) for n in version_numbers.split(".")[:4] if n.isdigit())
     except (FailedCommand, KeyError):
         return (1, 9, 0)
@@ -59,13 +59,13 @@ def info_filename(directory, install_path, cache_path):
 def sha(location, rev):
     """Returns SHA1 for things like HEAD or HEAD~~"""
     ensure_dir(location)
-    return git("rev-parse", "--verify", rev, cwd=location).strip()
+    return gitcmd("rev-parse", "--verify", rev, cwd=location).strip()
 
 
 def describe(location):
     """Returns a convenient label for the current state of the git repo."""
     ensure_dir(location)
-    return git("describe", "--always", cwd=location).strip()
+    return gitcmd("describe", "--always", cwd=location).strip()
 
 
 def init(location):
@@ -75,20 +75,20 @@ def init(location):
     if not os.path.isdir(location):
         raise IOError(errno.ENOENT, "Location is not a directory", location)
 
-    return git("init", cwd=location).strip()
+    return gitcmd("init", cwd=location).strip()
 
 
 def fat_init(location):
     """Initializes the given directory for git-fat use."""
 
-    git("fat", "init", cwd=location)
+    gitcmd("fat", "init", cwd=location)
 
 
 def fat_isinitialized(location):
     """Returns whether git-fat has been initialized for the given directory."""
 
     try:
-        git("config", "--local", "--get", "filter.fat.smudge", cwd=location)
+        gitcmd("config", "--local", "--get", "filter.fat.smudge", cwd=location)
         return True
     except FailedCommand:
         return False
@@ -101,10 +101,10 @@ def largefile_pull(location, implementor):
     :param implementor: What implementation to pull with (git-lfs, git-fat)
     """
     if implementor == LFS:
-        git("lfs", "pull", cwd=location)
+        gitcmd("lfs", "pull", cwd=location)
     elif implementor == FAT:
         fat_init(location)
-        git("fat", "pull", cwd=location)
+        gitcmd("fat", "pull", cwd=location)
     else:
         raise ValueError("Must be passed one of lfs or fat")
 
@@ -118,7 +118,7 @@ def lfs_install(*args):
         args = ["--global"]
     lfsargs = ["install"] + list(args)
     # run `git lfs install $args`
-    git.lfs(*lfsargs)
+    gitcmd("lfs", *lfsargs, cwd=".")
 
 
 def info(directory):
@@ -145,13 +145,15 @@ def info(directory):
 
     head_sha1 = get_disclosable_head(directory, branch)
     if head_sha1:
-        commit_date = git("show", "-s", "--format=%ct", head_sha1).strip()
+        commit_date = gitcmd(
+            "show", "-s", "--format=%ct", head_sha1, cwd=directory
+        ).strip()
     else:
         commit_date = ""
 
     # Requires git v1.7.5+
     try:
-        remote_url = git("ls-remote", "--get-url", cwd=directory).strip()
+        remote_url = gitcmd("ls-remote", "--get-url", cwd=directory).strip()
 
     except FailedCommand:
         remote_url = ""
@@ -188,7 +190,7 @@ def clean_tags(location, max_tags):
 
     ensure_dir(location)
 
-    tags = git(
+    tags = gitcmd(
         "for-each-ref",
         "--sort=taggerdate",
         "--format=%(refname)",
@@ -212,14 +214,14 @@ def clean_tags(location, max_tags):
     if not old_tags:
         return
 
-    git("tag", "-d", *old_tags, cwd=location)
+    gitcmd("tag", "-d", *old_tags, cwd=location)
 
 
 def garbage_collect(location):
     """Clean up a repo."""
 
     ensure_dir(location)
-    git("gc", "--quiet", "--auto", cwd=location)
+    gitcmd("gc", "--quiet", "--auto", cwd=location)
 
 
 def add_all(location, message="Update"):
@@ -227,9 +229,9 @@ def add_all(location, message="Update"):
 
     # Initialize repo if it isn't already
     if not is_dir(location):
-        git("init", cwd=location)
+        gitcmd("init", cwd=location)
 
-    git("add", "--all", cwd=location)
+    gitcmd("add", "--all", cwd=location)
 
     # None of these values can be unset or empty strings because we use
     # them as git envvars below. Unset values and empty strings will
@@ -247,7 +249,7 @@ def add_all(location, message="Update"):
     os.environ["GIT_AUTHOR_NAME"] = rname
 
     try:
-        git("commit", "--quiet", "-m", message, cwd=location)
+        gitcmd("commit", "--quiet", "-m", message, cwd=location)
     except FailedCommand:
         pass  # ignore errors
 
@@ -256,7 +258,7 @@ def last_deploy_tag(location):
     """Finds the last tag to use for this deployment"""
     ensure_dir(location)
 
-    tags = git(
+    tags = gitcmd(
         "tag", "--list", os.path.join(TAG_PREFIX, "*"), cwd=location
     ).splitlines()
     tags = sorted(tags, reverse=True)
@@ -274,7 +276,7 @@ def next_deploy_tag(location):
     args = ["--list"]
     tag_fmt = os.path.join(TAG_PREFIX, "{}", "*")
     args.append(tag_fmt.format(date))
-    seq = len(git("tag", *args, cwd=location).splitlines()) + 1
+    seq = len(gitcmd("tag", *args, cwd=location).splitlines()) + 1
     tag_fmt = os.path.join(TAG_PREFIX, "{0}", "{1:04d}")
     return tag_fmt.format(date, seq)
 
@@ -310,8 +312,8 @@ def remote_set(location, repo, remote="origin"):
     """set the remote at location to repo"""
     ensure_dir(location)
     if remote_exists(location, remote):
-        git("remote", "rm", remote, cwd=location)
-    git("remote", "add", remote, repo, cwd=location)
+        gitcmd("remote", "rm", remote, cwd=location)
+    gitcmd("remote", "add", remote, repo, cwd=location)
 
 
 def fetch(
@@ -335,9 +337,9 @@ def fetch(
             cmd.append("--recurse-submodules")
         else:
             cmd.append("--no-recurse-submodules")
-        git("fetch", *cmd, cwd=location)
+        gitcmd("fetch", *cmd, cwd=location)
         for name, value in config.items():
-            git("config", name, value, cwd=location)
+            gitcmd("config", name, value, cwd=location)
     else:
         cmd = append_jobs_arg([])
         if shallow:
@@ -361,7 +363,7 @@ def fetch(
                 cmd.append("{}={}".format(name, value))
         cmd.append(repo)
         cmd.append(location)
-        git.clone(*cmd)
+        gitcmd("clone", *cmd, cwd=".")
 
 
 def append_jobs_arg(cmd):
@@ -379,7 +381,7 @@ def checkout(location, rev):
     logger = utils.get_logger()
 
     logger.debug("Checking out rev: %s at location: %s", rev, location)
-    git("checkout", "--force", "--quiet", rev, cwd=location)
+    gitcmd("checkout", "--force", "--quiet", rev, cwd=location)
 
 
 def sync_submodules(location):
@@ -390,7 +392,7 @@ def sync_submodules(location):
     logger = utils.get_logger()
 
     logger.debug("Syncing out submodules")
-    git("submodule", "sync", "--recursive", cwd=location)
+    gitcmd("submodule", "sync", "--recursive", cwd=location)
 
 
 def update_submodules(location, git_remote=None, use_upstream=False, reference=None):
@@ -420,7 +422,7 @@ def update_submodules(location, git_remote=None, use_upstream=False, reference=N
             cmd.append("--reference")
             cmd.append(reference)
 
-        git.submodule(*cmd)
+        gitcmd("submodule", *cmd, cwd=location)
 
 
 @utils.log_context("git_update_server_info")
@@ -428,10 +430,10 @@ def update_server_info(has_submodules=False, location=os.getcwd(), logger=None):
     """runs git update-server-info and tags submodules"""
 
     logger.debug("Update server info")
-    git("update-server-info", cwd=location)
+    gitcmd("update-server-info", cwd=location)
 
     if has_submodules:
-        git(
+        gitcmd(
             "submodule",
             "foreach",
             "--recursive",
@@ -533,10 +535,10 @@ def remap_submodules(location, server):
     logger.info("Updating .gitmodule: %s", os.path.dirname(gitmodule))
 
     # ensure we're working with a non-modified .gitmodules file
-    git("checkout", ".gitmodules", cwd=location)
+    gitcmd("checkout", ".gitmodules", cwd=location)
 
     # get .gitmodule info
-    modules = git.config("--list", "--file", ".gitmodules")
+    modules = gitcmd("config", "--list", "--file", ".gitmodules", cwd=location)
 
     submodules = {}
     for line in modules.split("\n"):
@@ -617,7 +619,7 @@ def list_submodules(repo):
     ensure_dir(repo)
     submodules = []
 
-    res = git("submodule", "status", cwd=repo)
+    res = gitcmd("submodule", "status", cwd=repo)
 
     for line in res.splitlines():
         submodules.append(re.sub(r"-[a-f0-9]{40} ", "", line))
@@ -633,4 +635,4 @@ def reflog(repo, fmt="oneline", branch=None):
     if branch is not None:
         cmd.append(branch)
 
-    return git(*cmd).splitlines()
+    return gitcmd(*cmd, cwd=repo).splitlines()

@@ -76,7 +76,7 @@ def _runcmd(argv, **kwargs):
     return stdout
 
 
-def git(subcommand, *args, **kwargs):
+def gitcmd(subcommand, *args, **kwargs):
     """Run a git subcommand, return its stdout"""
     assert "cwd" in kwargs
     return _runcmd(["git", subcommand] + list(args), **kwargs)
@@ -106,4 +106,4 @@ def which(name):
 
 def mwscript(phpfile, *args, **kwargs):
     """Run the mwcript command on a PHP file, return its stderr"""
-    _runcmd(["mwscript", phpfile] + list(args), _want_stderr=True, **kwargs)
+    return _runcmd(["mwscript", phpfile] + list(args), _want_stderr=True, **kwargs)
