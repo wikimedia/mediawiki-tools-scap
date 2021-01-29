@@ -567,6 +567,7 @@ def _call_rebuildLocalisationCache(
                 "www-data",
                 "/usr/local/bin/mwscript rebuildLocalisationCache.php "
                 '--wiki="%(wikidb)s" --outdir="%(temp_dir)s" '
+                "--offline "
                 "--store-class=%(store_class)s "
                 "--threads=%(use_cores)s %(lang)s %(force)s %(quiet)s"
                 % {
