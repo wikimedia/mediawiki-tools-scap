@@ -23,10 +23,13 @@ import scap
 
 def version():
     try:
-        version_numbers = gitcmd("version", cwd=".").split(" ")[2]
-        return tuple(int(n) for n in version_numbers.split(".")[:4] if n.isdigit())
+        v = gitcmd("version", cwd=".")
     except (FailedCommand, KeyError):
         return (1, 9, 0)
+
+    v = v.decode("UTF-8")
+    version_numbers = v.split(" ")[2]
+    return tuple(int(n) for n in version_numbers.split(".")[:4] if n.isdigit())
 
 
 # All tags created by scap use this prefix
@@ -196,7 +199,9 @@ def clean_tags(location, max_tags):
         "--format=%(refname)",
         "refs/tags",
         cwd=location,
-    ).splitlines()
+    )
+    tags = tags.decode("UTF-8")
+    tags = tags.splitlines()
 
     old_tags = []
     while len(tags) > max_tags:

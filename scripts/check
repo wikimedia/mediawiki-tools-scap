@@ -3,18 +3,19 @@
 
 set -eu
 
-echo "Check formatting first, as it's fast"
-black --quiet --check .
-
-echo "Run unit and other automated local tests"
-tox
-echo "Nice, tox tests passed successfully"
+if command -v black > /dev/null
+then
+    echo "Check code formatting first, as it's fast"
+    black --check . bin/*
+fi
 
 if command -v sp-codegen > /dev/null
 then
     echo
     echo "Verify acceptance criteria automatically"
-    sp-codegen scap.md -o test.py --run
+    sp-codegen scap.md -o test.py
+    python3 test.py --log test.log
+    rm test.py
     echo "Nice, acceptance tests passed successfully!"
 fi
 
