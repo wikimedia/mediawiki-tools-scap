@@ -1,9 +1,24 @@
+# A Blubber spec file for a Docker container, based on Debian 9
+# (stretch), where the Scap automated test suite can be run. This uses
+# Debian packages to provide Scap dependencies, as those are what are
+# used in production as well.
+#
+# Note that the package lists should match those in debian/control in
+# the Scap source tree.
+
 version: v4
 base: docker-registry.wikimedia.org/wikimedia-stretch
 apt:
-  packages: [python2.7, git, php-cli]
-python:
-  version: python2.7
+  packages:
+    - git
+    - php-cli
+    - python-concurrent.futures
+    - python-configparser
+    - python-dev
+    - python-jinja2
+    - python-requests
+    - python-yaml
+    - python2.7
 runs:
   environment:
     LANG: C.UTF-8
@@ -14,6 +29,7 @@ variants:
     copies: [local]
     apt:
       packages:
+        - bash-completion
         - build-essential
         - ca-certificates
         - openssl
@@ -22,10 +38,20 @@ variants:
         - python-setuptools
         - zlib1g-dev
         - libjpeg-dev
+        - flake8
+        - python-coverage
+        - python-mock
+        - python-psutil
+        - python-pygments
+        - python-sphinx
+        - python-sphinxcontrib.actdiag
+        - python-sphinxcontrib.blockdiag
+        - python-sphinxcontrib.programoutput
+        - python-pytest
+        - python-pytest-cov
+        - python-pytest-mock
   test:
     includes: [build]
-    python:
-      requirements: [requirements.txt, test-requirements.txt, docs/requirements.txt]
-    entrypoint: [python2.7, -m, tox]
+    entrypoint: [scripts/check]
     runs:
       insecurely: True

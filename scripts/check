@@ -1,23 +1,46 @@
-#!/bin/sh
+#!/bin/bash
+
+set -euo pipefail
+
+title()
+{
+    echo
+    echo =============================================================================
+    echo "$@"
+    echo
+}
+
+got()
+{
+    command -v "$1" > /dev/null
+}
 
 
-set -eu
+title "pytest (unit and other functional tests)"
+python -m pytest -q
 
-if command -v black > /dev/null
+title "flake8 (coding style checks)"
+flake8 --count --show-source --statistics \
+       --ignore=W503,W605,E501,E203 \
+       --exclude=.git,.tox,__pycache__,build,docs,dist,scap/sh.py,bin .
+
+if got black
 then
-    echo "Check code formatting first, as it's fast"
+    title "black (code formatting)"
     black --check . bin/*
 fi
 
-if command -v sp-codegen > /dev/null
+if got sp-codegen
 then
-    echo
-    echo "Verify acceptance criteria automatically"
+    title "Subplot (acceptance criteria)"
     sp-codegen scap.md -o test.py
     python3 test.py --log test.log
     rm test.py
-    echo "Nice, acceptance tests passed successfully!"
 fi
 
-echo
-echo "Oh happy day: all tests pass OK!"
+title "sphinx (documentation)"
+sphinx-build -q -W -b html docs/ docs/_build/html
+
+
+title "Oh happy day: all tests pass OK!"
+exit 0

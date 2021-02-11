@@ -17,23 +17,22 @@ code and configuration on production web servers.
 Running tests
 =============
 
-Scap comes with a unit test suite implemented using pytest and invoked
-using tox.
+Scap comes with an automated suite invoked via scripts/check. It
+requires the various dependencies of Scap to be installed, via Debian
+packages. They're not installed by the check script, and testing is
+done directly on the host, not in virtual environments, to match what
+happens in production. tox and pip are not used.
 
-On Debian 10 (buster) you need the following packages installed to run
-the test suite:
+For a list of packages needed, see debian/control or
+.pipeline/blubber.yaml, which should have matching lists of Debian
+packages.
 
-   build-essential locales-all git python2 python3 python-all-dev
-   python3-all-dev tox php
+To generate a Docker container and run tests in that, run the
+following command:
 
-After this, run the ``tox`` command on the command line to run the
-tests. It uses the tox.ini file to know what to do. Edit that file to
-drop any Python3 versions you don't have installed from the
-``envlist`` line.
-
-Alternatively, you can specify python environments against which to run the
-test suite by selecting a custom envlist in ``tox`` via the ``-e`` option,
-i.e., ``tox -e py27``.
+  blubber .pipeline/blubber.yaml test > Dockerfile.tests
+  docker build -f Dockerfile.tests --iidfile id .
+  docker run --rm "$(cat id)"
 
 Building a .deb
 ===============
@@ -66,7 +65,7 @@ figlet font [#speedfont]_.
 License
 =======
 
-|    Copyright 2014-2017 Wikimedia Foundation & Contributors.
+|    Copyright 2014-2021 Wikimedia Foundation & Contributors.
 |
 |    Scap is free software: you can redistribute it and/or modify
 |    it under the terms of the GNU General Public License as published by
