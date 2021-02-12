@@ -1,1 +1,1 @@
-extend-diff-ignore = "((^|/)\.tox|(^|/)docs/_build|.*\.pyc|\.coverage|(^|/)cover/)"
+extend-diff-ignore = "((^|/)\.tox|(^|/)docs/_build|.*\.pyc|\.coverage|(^|/)cover/|(^|/htmlcov/))"
