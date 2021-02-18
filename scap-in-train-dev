@@ -1,0 +1,156 @@
+#!/usr/bin/python3
+#
+# Test scap from the current working directory under train-dev. Assume there is
+# a host where train-dev is already available. Build the train-dev VM if
+# needed. The script assumes train-dev actually runs on a different host, over
+# SSH.
+#
+# Usage:
+#
+# python3 scap-in-train-dev --host=train-dev --port=5555 --train 1.36.0-wmf.31
+#
+# This requires there to be a host (e.g., a virtual machine) called
+# "train-dev", that you can log into via ssh, and that a train-dev instance is
+# running on the host, accessible over port 5555.
+
+import argparse
+import os
+import shlex
+import subprocess
+import sys
+
+
+def ssh(target, argv, **kwargs):
+    ssh_argv = ["ssh"]
+
+    tty = kwargs.pop("tty", None)
+    if tty:
+        ssh_argv.append("-tt")
+    elif tty is False:
+        ssh_argv.append("-T")
+
+    more_options = kwargs.pop("ssh_options", [])
+    ssh_argv.extend(list(map(shlex.quote, more_options)))
+
+    ssh_argv.append(target)
+    ssh_argv.append("--")
+
+    remote_cwd = kwargs.pop("remote_cwd", None)
+    if remote_cwd:
+        ssh_argv.extend(
+            list(
+                map(
+                    shlex.quote,
+                    ["sh", "-c", 'cd "$1" && shift && exec "$@"', "-", remote_cwd],
+                )
+            )
+        )
+
+    local_argv = ssh_argv + list(map(shlex.quote, argv))
+
+    check = kwargs.pop("check", True)
+
+    try:
+        p = subprocess.run(local_argv, check=check, **kwargs)
+    except subprocess.CalledProcessError as e:
+        sys.stderr.write(stringify(e.stdout))
+        sys.stderr.write(stringify(e.stderr))
+        sys.exit(f"command on {target} failed: {argv}")
+    return p.returncode
+
+
+def stringify(b):
+    if b is None:
+        return ""
+    return b.decode("UTF-8")
+
+
+def train_dev(settings, *args):
+    print("train-dev", *args)
+    ssh(
+        settings["target"],
+        ["./train-dev"] + list(args),
+        remote_cwd=settings["dir"],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
+
+
+def train_dev_is_running(settings):
+    ret = ssh(
+        settings["target"],
+        ["pgrep", "-f", "qemu-system.*-name train-dev"],
+        stdout=subprocess.DEVNULL,
+        check=False,
+    )
+    return ret == 0
+
+
+def rsync_scap(settings):
+    print("rsync . to train-dev host")
+    ssh(settings["target"], ["mkdir", "-p", "scap"])
+    subprocess.run(
+        ["rsync", "-a", "--del", ".", f"{settings['host']}:scap/."], check=True
+    )
+
+
+def parse_args():
+    """Parse command line arguments, return dict with desired settings"""
+    username = os.getenv("USER")
+
+    p = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    p.add_argument("--user", default=username, help="user on train-dev host")
+    p.add_argument(
+        "--host", default="localhost", help="address or name of the train-dev host"
+    )
+    p.add_argument(
+        "--home",
+        default=f"/home/{username}",
+        help="full path on train-dev host to user's home dir",
+    )
+    p.add_argument(
+        "--dir",
+        default="train-dev",
+        help="directory on train-dev host where train-dev is",
+    )
+    p.add_argument(
+        "--workspace",
+        default="/workspace",
+        help="directory on train-dev host that is the workspace",
+    )
+    p.add_argument(
+        "--port",
+        type=int,
+        default=8888,
+        help="port on the train-dev host to access the VM",
+    )
+    p.add_argument(
+        "--train",
+        default="1.35.0-wmf.34",
+        help="version of train (MediaWiki) to deploy",
+    )
+    args = p.parse_args()
+
+    settings = {
+        "user": args.user,
+        "host": args.host,
+        "home": args.home,
+        "target": f"{args.user}@{args.host}",
+        "dir": args.dir,
+        "build_dir": args.workspace,
+        "port": args.port,
+        "train": args.train,
+    }
+
+    return settings
+
+
+settings = parse_args()
+if train_dev_is_running(settings):
+    train_dev(settings, "reset")
+else:
+    train_dev(settings, "build", settings["build_dir"], str(settings["port"]))
+
+rsync_scap(settings)
+train_dev(settings, "copy", f"{settings['home']}/scap", "scap")
+train_dev(settings, "deploy", settings["train"])
