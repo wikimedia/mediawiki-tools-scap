@@ -56,7 +56,7 @@ def _runcmd(argv, **kwargs):
         kwargs["stdin"] = devnull
 
         # Invoke the commmand.
-        logging.info(
+        logging.debug(
             "Running {argv!r} with {kwargs!r}".format(argv=argv, kwargs=kwargs)
         )
         p = subprocess.Popen(argv, **kwargs)
