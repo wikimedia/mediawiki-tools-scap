@@ -214,7 +214,7 @@ File an issue in Phabricator:
 * title: Deploy Scap version VERS-1
 * description: The release branch of scap has tags for VERS-1. Please
   build the package and deploy it. Instructions at
-  https://wikitech.wikimedia.org/wiki/Scap3#Production_update
+  https://wikitech.wikimedia.org/wiki/Scap3#Production_Upgrade
 
   Thank you.
 * tagged: scap serviceops release-engineering-team-todo
