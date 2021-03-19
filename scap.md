@@ -505,8 +505,11 @@ then stderr contains "scap failed: RuntimeError sync-world requires SSH agent fo
 ---
 title: Scap for deploying at WMF
 author: WMF Release Engineering
-bindings: scap.yaml
-functions: scap.python
+bindings: 
+- subplot/scap.yaml
+functions: 
+- subplot/scap.py
+- subplot/vendored/runcmd.py
 template: python
 documentclass: report
 classes:

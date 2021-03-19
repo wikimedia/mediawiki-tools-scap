@@ -22,7 +22,7 @@ python -m pytest -q
 title "flake8 (coding style checks)"
 flake8 --count --show-source --statistics \
        --ignore=W503,W605,E501,E203 \
-       --exclude=.git,.tox,__pycache__,build,docs,dist,scap/sh.py,bin .
+       --exclude=.git,.tox,__pycache__,build,docs,dist,scap/sh.py,bin,subplot .
 
 if got black
 then
