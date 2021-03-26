@@ -27,6 +27,7 @@ class FailedCommand(Exception):
         )
         self.exitcode = exitcode
         self.stdout = stdout
+        self.stderr = stderr
 
 
 def _runcmd(argv, **kwargs):

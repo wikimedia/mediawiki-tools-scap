@@ -31,17 +31,17 @@ then
     # differently. So we only check formatting if we have a new Black.
     if black --version | grep -q 20
     then
-	title "black (code formatting)"
-	black --check --diff . bin/*
+        title "black (code formatting)"
+        black --check --diff . bin/*
     fi
 fi
 
 if got sp-codegen
 then
     title "Subplot (acceptance criteria)"
+    rm -f test.log test.py
     sp-codegen scap.md -o test.py
-    python3 test.py --log test.log
-    rm test.py
+    python3 test.py --log test.log --save-on-failure fail.tar.gz
 fi
 
 title "sphinx (documentation)"

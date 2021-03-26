@@ -1,10 +1,13 @@
 - given: a built scap
   function: nop
 
+- given: an installed scap
+  function: nop
+
 - given: empty directory {pathname}
   function: mkdir
 
-- when: I run scap {subcommand} --help
+- then: I can run scap {subcommand} --help
   function: run_scap_subcommand_help
 
 - when: I run scap version
@@ -16,13 +19,25 @@
 - when: I run scap sync-world
   function: run_scap_sync_world
 
+- when: I invoke, in {dirname}, git am {filename}
+  function: git_am
+
+- when: I run, in {dirname}, git am --abort
+  function: git_am_abort
+
+- when: I replace {filename} with {embedded}
+  function: file_from
+
 - then: the exit code is {exit_code}
   function: exit_code_is
 
 - then: the output is empty
   function: stdout_is_empty
 
-- then: the output matches pattern (?P<pattern>.+)
+- then: the output contains "{pattern:text}"
+  function: stdout_matches
+
+- then: the output matches pattern "(?P<pattern>.+)"
   regex: true
   function: stdout_matches
 
@@ -43,6 +58,9 @@
 - given: file {filename} from {source} committed in {pathname}
   function: git_commit_file_from
 
+- given: file {filename} from {source}
+  function: file_from
+
 - when: I run scap list-patches -Dpatch_path:{patches} --train {train}
   function: run_scap_list_patches
 
@@ -51,6 +69,9 @@
 
 - when: I run scap apply-patches -Dstage_dir:{code} -Dpatch_path:{patches} --train {train}
   function: run_scap_apply_patches
+
+- when: I remove {filename}
+  function: remove_file
 
 - then: the {pathname} checkout is clean and committed
   function: git_working_tree_is_clean
@@ -67,3 +88,12 @@
 - then: stderr contains "(?P<pattern>.+)"
   regex: true
   function: nop
+
+- then: git repository {pathname} is clean
+  function: git_working_tree_is_clean
+
+- then: git repository {pathname} is dirty
+  function: git_working_tree_is_dirty
+
+- then: git repository {pathname} is in the middle of git am
+  function: git_am_in_progress

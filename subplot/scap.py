@@ -7,6 +7,7 @@
 # functions as keyword arguments. The step functions "declare" what they expect
 # with 'foo=None' in the function definition.
 
+import logging
 import os
 import random
 import re
@@ -18,6 +19,18 @@ def nop(ctx, *args, **kwargs):
 
 def mkdir(ctx, pathname=None):
     os.makedirs(pathname)
+
+
+def file_from(ctx, filename=None, source=None):
+    get_file = globals()["get_file"]
+
+    dirname = os.path.dirname(filename) or "."
+    logging.debug("file_from: filename=%s", filename)
+    logging.debug("file_from: dirname=%s", dirname)
+    if not os.path.exists(dirname):
+        os.makedirs("./" + dirname)
+
+    _write(filename, get_file(source) + b"\n")
 
 
 def git_init(ctx, pathname=None):
@@ -53,8 +66,25 @@ def git_commit_file_from(ctx, filename=None, source=None, pathname=None):
     _save_git_tip(ctx, pathname, "master")
 
 
+def git_am(ctx, dirname=None, filename=None):
+    _runcmd(ctx, ["git", "am", filename], cwd=dirname)
+
+
+def git_am_abort(ctx, dirname=None):
+    _runcmd(ctx, ["git", "am", "--abort"], cwd=dirname)
+
+
+def git_am_in_progress(ctx, pathname=None):
+    _runcmd(ctx, ["git", "am", "--abort"], cwd=pathname)
+    stdout = ctx["stdout"]
+    assert ctx["exit"] != 0
+    assert "git am" in stdout
+
+
 def run_scap_subcommand_help(ctx, subcommand=None):
     _scap(ctx, [subcommand, "--help"])
+    runcmd_exit_code_is = globals()["runcmd_exit_code_is"]
+    runcmd_exit_code_is(ctx, 0)
 
 
 def run_scap_version(ctx):
@@ -97,13 +127,29 @@ def run_scap_list_patches(ctx, patches=None, train=None):
 
 def git_working_tree_is_clean(ctx, pathname=None):
     assert_eq = globals()["assert_eq"]
-    runcmd_get_stdout = globals()["runcmd_get_stdout"]
+    exit, lines = git_working_tree_status(ctx, pathname=pathname)
+    assert_eq(exit, 0)
+    for line in lines:
+        assert "You are in the middle of an am session." not in line
 
-    _runcmd(ctx, ["git", "status", "--porcelain"], cwd=pathname)
+
+def git_working_tree_is_dirty(ctx, pathname=None):
+    assert_ne = globals()["assert_ne"]
+    exit, lines = git_working_tree_status(ctx, pathname=pathname)
+    assert_ne(lines, [])
+
+
+def git_working_tree_status(ctx, pathname=None):
+    runcmd_get_stdout = globals()["runcmd_get_stdout"]
+    runcmd_get_exit_code = globals()["runcmd_get_exit_code"]
+
+    _runcmd(ctx, ["git", "status", "--ignore-submodules"], cwd=pathname)
+    exit = runcmd_get_exit_code(ctx)
     stdout = runcmd_get_stdout(ctx)
     lines = stdout.splitlines()
     lines = [x for x in lines if x != "?? extensions/"]
-    assert_eq(lines, [])
+    logging.debug("tree status: %r", lines)
+    return exit, lines
 
 
 def repo_has_changed(ctx, pathname=None):
@@ -155,7 +201,10 @@ def stdout_matches(ctx, pattern=None):
     runcmd_get_stdout = globals()["runcmd_get_stdout"]
 
     stdout = runcmd_get_stdout(ctx)
-    m = re.search(pattern, stdout)
+    m = re.search(pattern, stdout, flags=re.M)
+    if not m:
+        logging.debug("stdout: %r" % repr(stdout))
+        logging.debug("pattern: %r" % repr(pattern))
     assert_ne(m, None)
 
 
@@ -209,6 +258,7 @@ def _runcmd(ctx, argv, cwd=None, env=None, input=""):
     if env is None:
         env = {}
     runcmd_run = globals()["runcmd_run"]
+    logging.debug("_runcmd: cwd={}".format(cwd))
     runcmd_run(ctx, argv, cwd=cwd, env=env)
 
 
@@ -242,3 +292,7 @@ def _get_git_tip(pathname, ref):
 def _remembered_tip(ctx, pathname):
     ret = ctx["tips"][pathname]
     return ret
+
+
+def remove_file(ctx, filename=None):
+    os.remove(filename)
