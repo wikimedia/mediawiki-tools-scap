@@ -113,7 +113,7 @@ def largefile_pull(location, implementor):
 
 
 def lfs_install(*args):
-    """ Run git-lfs-install with provided arguments.
+    """Run git-lfs-install with provided arguments.
 
     If no args are provided, defaults to `git lfs install --global`
     """
@@ -379,8 +379,7 @@ def append_jobs_arg(cmd):
 
 
 def checkout(location, rev):
-    """Checkout a git repo sha at a location
-    """
+    """Checkout a git repo sha at a location"""
     ensure_dir(location)
 
     logger = utils.get_logger()

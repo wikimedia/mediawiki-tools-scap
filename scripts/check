@@ -26,8 +26,14 @@ flake8 --count --show-source --statistics \
 
 if got black
 then
-    title "black (code formatting)"
-    black --check . bin/*
+    # Black v18 is on Debian 10 (buster), but Lars develops on Debian
+    # 11 (bullseye), which has a newer Black, which formats things
+    # differently. So we only check formatting if we have a new Black.
+    if black --version | grep -q 20
+    then
+	title "black (code formatting)"
+	black --check --diff . bin/*
+    fi
 fi
 
 if got sp-codegen

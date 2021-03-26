@@ -98,7 +98,7 @@ class GerritEndpoint(object):
         self._path = path
 
     def _url(self, **kwargs):
-        """ Builds the url for http requests to this endpoint.
+        """Builds the url for http requests to this endpoint.
         This is done by combining api_uri with self._path and then replacing
         variable placeholders in the url with values from self.__dict__
 
@@ -275,16 +275,16 @@ class gerrit_encoder(JSONEncoder):
 
 
 class AttrDict(dict):
-    """ A class for accessing dict keys as attributes.
-        The gerrit api returns json object trees which are decoded into python
-        dictionary objects, then wrapped in AttrDict to allow easy access to
-        nested attributes within the data structure.
+    """A class for accessing dict keys as attributes.
+    The gerrit api returns json object trees which are decoded into python
+    dictionary objects, then wrapped in AttrDict to allow easy access to
+    nested attributes within the data structure.
 
-        For example, this allows the following:
-            change.data.labels.Verified
-        Instead of:
-            change.data['labels']['Verified']
-     """
+    For example, this allows the following:
+        change.data.labels.Verified
+    Instead of:
+        change.data['labels']['Verified']
+    """
 
     def __init__(self, *args, **kwargs):
         super(AttrDict, self).__init__(*args, **kwargs)

@@ -40,7 +40,7 @@ _SCRIPTS = {}
 
 
 def register_directory(scripts_path):
-    """"
+    """ "
     Load available executable checks scripts from a given path
 
     :param scripts_path: directory in which to look for check scripts
