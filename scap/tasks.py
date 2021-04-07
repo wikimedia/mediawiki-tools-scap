@@ -562,12 +562,13 @@ def _call_rebuildLocalisationCache(
                         "temp_dir": temp_dir,
                     },
                 )
-            # Generate the files into a temporary directory as www-data
+            # Generate the files into a temporary directory as www-data.
+            # Passing --skip-message-purge for T263872
             utils.sudo_check_call(
                 "www-data",
                 "/usr/local/bin/mwscript rebuildLocalisationCache.php "
                 '--wiki="%(wikidb)s" --outdir="%(temp_dir)s" '
-                "--offline "
+                "--skip-message-purge "
                 "--store-class=%(store_class)s "
                 "--threads=%(use_cores)s %(lang)s %(force)s %(quiet)s"
                 % {
@@ -849,7 +850,7 @@ def clear_message_blobs(logger=None):
     utils.sudo_check_call(
         "www-data",
         "/usr/local/bin/mwscript "
-        "extensions/WikimediaMaintenance/refreshMessageBlobs.php",
+        "purgeMessageBlobStore.php",
     )
 
 
