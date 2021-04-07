@@ -1,16 +1,19 @@
 # Introduction
 
-Scap is a tool for deploying MediaWiki, MediaWiki extensions, and
+*Scap* is a tool for deploying MediaWiki, MediaWiki extensions, and
 supporting software, to servers at the Wikimedia Foundation (WMF).
 It's meant to be used by the WMF release engineering and SRE teams,
-and trusted other parties.
+and trusted other parties. In other words, Scap updates the software
+that runs Wikipedia.
 
 This document describes some of the acceptance criteria for Scap, and
-how they can be verified automatically.
+how they can be verified automatically. As the document is written
+many years after the software, it doesn't capture all the acceptance
+criteria. New criteria are mostly added as the software is changed, to
+cover the changed part.
 
 Note that this document describes version 2 of Scap, not version 3,
-which is a whole different code base. At least for now, this may
-change later.
+which is a whole different code base.
 
 
 ## Scap documentation
@@ -26,7 +29,9 @@ following sources.
   - version 3: <https://wikitech.wikimedia.org/wiki/Scap3>
 
 
-# All expected subcommands exist
+# Acceptance criteria
+
+## Expected subcommands exist
 
 This scenario verifies that every Scap subcommand that should exist,
 does exist, by running it with the `--help` option. This means that the
@@ -35,105 +40,39 @@ they're provided by a plugin, that the plugin can be found.
 
 ~~~scenario
 given a built scap
-
-when I run scap apply-patches --help
-then the exit code is 0
-
-when I run scap cdb-json-refresh --help
-then the exit code is 0
-
-when I run scap cdb-rebuild --help
-then the exit code is 0
-
-when I run scap clean --help
-then the exit code is 0
-
-when I run scap deploy --help
-then the exit code is 0
-
-when I run scap deploy-local --help
-then the exit code is 0
-
-when I run scap deploy-log --help
-then the exit code is 0
-
-when I run scap deploy-mediawiki --help
-then the exit code is 0
-
-when I run scap fortune --help
-then the exit code is 0
-
-when I run scap list-patches --help
-then the exit code is 0
-
-when I run scap lock --help
-then the exit code is 0
-
-when I run scap patch --help
-then the exit code is 0
-
-when I run scap prep --help
-then the exit code is 0
-
-when I run scap pull --help
-then the exit code is 0
-
-when I run scap pull-master --help
-then the exit code is 0
-
-when I run scap say --help
-then the exit code is 0
-
-when I run scap security-check --help
-then the exit code is 0
-
-when I run scap sync --help
-then the exit code is 0
-
-when I run scap sync-canary --help
-then the exit code is 0
-
-when I run scap sync-dir --help
-then the exit code is 0
-
-when I run scap sync-file --help
-then the exit code is 0
-
-when I run scap sync-l10n --help
-then the exit code is 0
-
-when I run scap sync-wikiversions --help
-then the exit code is 0
-
-when I run scap sync-world --help
-then the exit code is 0
-
-when I run scap test-patches --help
-then the exit code is 0
-
-when I run scap test-progress --help
-then the exit code is 0
-
-when I run scap update-interwiki-cache --help
-then the exit code is 0
-
-when I run scap update-wikiversions --help
-then the exit code is 0
-
-when I run scap version --help
-then the exit code is 0
-
-when I run scap wikiversions-compile --help
-then the exit code is 0
-
-when I run scap wikiversions-inuse --help
-then the exit code is 0
-
-when I run scap wmf-beta-autoupdate --help
-then the exit code is 0
+then I can run scap apply-patches --help
+then I can run scap cdb-json-refresh --help
+then I can run scap cdb-rebuild --help
+then I can run scap clean --help
+then I can run scap deploy --help
+then I can run scap deploy-local --help
+then I can run scap deploy-log --help
+then I can run scap deploy-mediawiki --help
+then I can run scap fortune --help
+then I can run scap lock --help
+then I can run scap patch --help
+then I can run scap prep --help
+then I can run scap pull --help
+then I can run scap pull-master --help
+then I can run scap say --help
+then I can run scap security-check --help
+then I can run scap sync --help
+then I can run scap sync-canary --help
+then I can run scap sync-dir --help
+then I can run scap sync-file --help
+then I can run scap sync-l10n --help
+then I can run scap sync-wikiversions --help
+then I can run scap sync-world --help
+then I can run scap test-progress --help
+then I can run scap update-interwiki-cache --help
+then I can run scap update-wikiversions --help
+then I can run scap version --help
+then I can run scap wikiversions-compile --help
+then I can run scap wikiversions-inuse --help
+then I can run scap wmf-beta-autoupdate --help
 ~~~
 
-# scap version
+## scap version
 
 This is a smoke test: if `scap version` runs, outputs something that
 looks like a version number, and exits with a zero code, we're
@@ -144,30 +83,28 @@ Scap or the test setup.
 given a built scap
 when I run scap version
 then the exit code is 0
-then the output matches pattern ^\d+(\.\d+)+(-\S+)?$
+then the output matches pattern "^\d+(\.\d+)+(-\S+)?$"
 ~~~
 
 
-# Applying security patches for train
+## Applying security patches for train
 
 [Train]: https://wikitech.wikimedia.org/wiki/Heterogeneous_deployment/Train_deploys#Apply_security_patches
 
 [Train][] is the weekly manual deployment process at the Wikimedia
-Foundation. WMF is in the process of automating more of it. Scap has a
-plugin that adds the `apply-patches` subcommand that implements the
-application of security patches as part of the train deployment
-process. This section explains the process as done manually, and then
-how the plugin's behaviour is verified.
+Foundation. Scap has an `apply-patches` subcommand that applies
+security patches as part of the train deployment process. This section
+explains the process as done manually, and then how the plugin's
+behaviour is verified.
 
-## The old manual process
+### The old manual process
 
 This all needs to be run on the deployment server, as that's where the
 security patches live. Security patches are sensitive and embargoed,
 and can't be made public.
 
 Source code for MediaWiki and its extensions is checked out as part of
-the earlier "branch cut" part of the train process. The tree looks
-like:
+earlier "scap prep" part of the train process. The tree looks like:
 
 ```
 /srv/mediawiki-staging/php-1.35.0-wmf.30
@@ -214,265 +151,276 @@ The `git apply --check` command verifies that the patch can be
 applied. The `git am` command actually applies the patch. If either
 command fails, the train should stop until the problem can be fixed.
 
-## Verifying the patching process
+### Applying security patches automatically
 
-Scap has two subcommands for the patching process:
+Scap has a subcommand, `scap apply-patches`, which attempts to apply
+the patches. The command can be run many times, and it reports what
+the outcome of applying each patch is. Any problems need to be fixed
+by the person using Scap, as the software does not try to fix any
+problems automatically.
 
-* `scap list-patches` lists all the patches for a given train
-* `scap test-patches` tests all the patches for a given train apply
-  cleanly
-* `scap apply-patches` actually applies the patches, if they can all
-  be applied
+This scenario constructs several git repositories, for MediaWiki core,
+an extension, and a skin, all of which consist of
+a file `file.php`, which contains several lines of text. There are
+also patches for each repository: two good ones that change different
+parts of the file, and one that expects a different content in the
+file. See below for actual file contents.
 
-Note a caveat about **test-patches**: if a patch changes code changed
-by a previous patch, test-patches will fail, since it checks the
-patches apply against the clean source files in git. This means it's
-possibly that test-patches fails even though apply-patches would
-succeed. This has historically been a rare thing, but it's possible it
-will happen. (The fix for this would be for test-patches to actually
-apply the patches, which is somewhat complicated; if this starts
-happening, we will make the fix, but it's not worth it if it happens
-very rarely.)
+First we set up the repository that pretends to be MediaWiki core,
+and the patches for it.
 
-We verify the patching process by creating dummy git repositories for
-MW core and extensions, and dummy patches, and then verifying that the
-subcommands work.
+~~~scenario
+given an empty git repository at php-wmf.30
+given file file.patch from file.patch
+when I invoke, in php-wmf.30, git am ../file.patch
+then the exit code is 0
+then git repository php-wmf.30 is clean
 
-### Data files for testing
+given file patches/wmf.30/core/01-first.patch from good-patch-1
+given file patches/wmf.30/core/02-second.patch from bad-patch
+given file patches/wmf.30/core/03-third.patch from good-patch-2
+~~~
 
-These files are used to construct the dummy git repositories and patch
-sets. Their contents doesn't really matter, except for the following:
+Note that we populate the repository by applying a patch. This is so
+that the version history matches what the patches have.
 
-* `code.php` is the unpatched file
-* `patch` applies to the unpatched file
-* `conflict` doesn't apply to the unpatched file due to a conflict
+We then do the same for a mock extension: repository for the extension
+and patches for it.
 
-```{.file #code.php .php .numberLines add-newline=no}
-<?php
-/* Pretend this is some PHP code. */
-```
+~~~scenario
+given an empty git repository at php-wmf.30/extensions/Foo
+when I invoke, in php-wmf.30/extensions/Foo, git am ../../../file.patch
+then the exit code is 0
+then git repository php-wmf.30/extensions/Foo is clean
 
-```{.file #patch .patch .numberLines}
-From 640e813fdba8ea7ae27b088e36574889c293d758 Mon Sep 17 00:00:00 2001
+given file patches/wmf.30/extensions/Foo/01-first.patch from good-patch-1
+given file patches/wmf.30/extensions/Foo/02-second.patch from bad-patch
+given file patches/wmf.30/extensions/Foo/03-third.patch from good-patch-2
+~~~
+
+We do the same for a mock skin: repository for the extension and
+patches for it.
+
+~~~scenario
+given an empty git repository at php-wmf.30/skins/Bar
+when I invoke, in php-wmf.30/skins/Bar, git am ../../../file.patch
+then the exit code is 0
+then git repository php-wmf.30/skins/Bar is clean
+
+given file patches/wmf.30/skins/Bar/01-first.patch from good-patch-1
+given file patches/wmf.30/skins/Bar/02-second.patch from bad-patch
+given file patches/wmf.30/skins/Bar/03-third.patch from good-patch-2
+~~~
+
+Then we run `scap apply-patches`. This fails, because one of the
+patches is bad, but we verify that the output is as expected and that
+the repositories are left in the expected state.
+
+~~~scenario
+given an installed scap
+when I run scap apply-patches -Dstage_dir:. -Dpatch_path:patches --train wmf.30
+then the exit code is 1
+then the output matches pattern "^\[APPLIED\] /.*/patches/wmf.30/core/01-first.patch"
+then the output matches pattern "^\[FAILED\] /.*/patches/wmf.30/core/02-second.patch"
+then the output matches pattern "^\[SKIPPED\] /.*/patches/wmf.30/core/03-third.patch"
+then the output matches pattern "^\[APPLIED\] /.*/patches/wmf.30/extensions/Foo/01-first.patch"
+then the output matches pattern "^\[FAILED\] /.*/patches/wmf.30/extensions/Foo/02-second.patch"
+then the output matches pattern "^\[SKIPPED\] /.*/patches/wmf.30/extensions/Foo/03-third.patch"
+then the output matches pattern "^\[APPLIED\] /.*/patches/wmf.30/skins/Bar/01-first.patch"
+then the output matches pattern "^\[FAILED\] /.*/patches/wmf.30/skins/Bar/02-second.patch"
+then the output matches pattern "^\[SKIPPED\] /.*/patches/wmf.30/skins/Bar/03-third.patch"
+then git repository php-wmf.30 is dirty
+then git repository php-wmf.30/extensions/Foo is dirty
+then git repository php-wmf.30/skins/Bar is dirty
+~~~
+
+
+If we run `scap apply-patches` at this point, it won't do anything,
+and will tell us there is a problem. Being able to re-run the command
+is useful: it tells you what patches have problems.
+
+~~~scenario
+when I run scap apply-patches -Dstage_dir:. -Dpatch_path:patches --train wmf.30
+then the exit code is 1
+then the output matches pattern "^\[FAILED\] /.*/patches/wmf.30/core/01-first.patch"
+then the output matches pattern "^\[SKIPPED\] /.*/patches/wmf.30/core/02-second.patch"
+then the output matches pattern "^\[SKIPPED\] /.*/patches/wmf.30/core/03-third.patch"
+then the output matches pattern "^\[FAILED\] /.*/patches/wmf.30/extensions/Foo/01-first.patch"
+then the output matches pattern "^\[SKIPPED\] /.*/patches/wmf.30/extensions/Foo/02-second.patch"
+then the output matches pattern "^\[SKIPPED\] /.*/patches/wmf.30/extensions/Foo/03-third.patch"
+then the output matches pattern "^\[FAILED\] /.*/patches/wmf.30/skins/Bar/01-first.patch"
+then the output matches pattern "^\[SKIPPED\] /.*/patches/wmf.30/skins/Bar/02-second.patch"
+then the output matches pattern "^\[SKIPPED\] /.*/patches/wmf.30/skins/Bar/03-third.patch"
+then git repository php-wmf.30 is dirty
+then git repository php-wmf.30/extensions/Foo is dirty
+then git repository php-wmf.30/skins/Bar is dirty
+~~~
+
+If we fix the problem, by terminating the in-progress `git am` in each
+troubled git repository, and removing the offending patch, things can
+progress. Note that in real life, it would be better to modify the
+offending patch to keep the security fix, and not just blindly drop
+it. However, that is hard to do in automated tests, so we just remove
+it.
+
+~~~scenario
+when I run, in php-wmf.30, git am --abort
+when I run, in php-wmf.30/extensions/Foo, git am --abort
+when I run, in php-wmf.30/skins/Bar, git am --abort
+when I remove patches/wmf.30/core/02-second.patch
+when I remove patches/wmf.30/extensions/Foo/02-second.patch
+when I remove patches/wmf.30/skins/Bar/02-second.patch
+then git repository php-wmf.30 is clean
+then git repository php-wmf.30/extensions/Foo is clean
+then git repository php-wmf.30/skins/Bar is clean
+~~~
+
+We can now run `scap apply-patches` again and it succeeds.
+
+~~~scenario
+when I run scap apply-patches -Dstage_dir:. -Dpatch_path:patches --train wmf.30
+then the exit code is 0
+then the output matches pattern "\[OK\] /.*/patches/wmf.30/core/01-first.patch"
+then the output matches pattern "\[APPLIED\] /.*/patches/wmf.30/core/03-third.patch"
+then the output matches pattern "\[OK\] /.*/patches/wmf.30/extensions/Foo/01-first.patch"
+then the output matches pattern "\[APPLIED\] /.*/patches/wmf.30/extensions/Foo/03-third.patch"
+then the output matches pattern "\[OK\] /.*/patches/wmf.30/skins/Bar/01-first.patch"
+then the output matches pattern "\[APPLIED\] /.*/patches/wmf.30/skins/Bar/03-third.patch"
+then git repository php-wmf.30 is clean
+then git repository php-wmf.30/extensions/Foo is clean
+then git repository php-wmf.30/skins/Bar is clean
+~~~
+
+If we run `scap apply-patches` yet again, after all patches are
+already applied, it's a benign operation.
+
+~~~scenario
+when I run scap apply-patches -Dstage_dir:. -Dpatch_path:patches --train wmf.30
+then the exit code is 0
+then the output matches pattern "\[OK\] /.*/patches/wmf.30/core/01-first.patch"
+then the output matches pattern "\[OK\] /.*/patches/wmf.30/core/03-third.patch"
+then the output matches pattern "\[OK\] /.*/patches/wmf.30/extensions/Foo/01-first.patch"
+then the output matches pattern "\[OK\] /.*/patches/wmf.30/extensions/Foo/03-third.patch"
+then the output matches pattern "\[OK\] /.*/patches/wmf.30/skins/Bar/01-first.patch"
+then the output matches pattern "\[OK\] /.*/patches/wmf.30/skins/Bar/03-third.patch"
+then git repository php-wmf.30 is clean
+then git repository php-wmf.30/extensions/Foo is clean
+then git repository php-wmf.30/skins/Bar is clean
+~~~
+
+All is well. The train can continue securely.
+
+
+~~~{#file.patch .file}
+From 3b67b77a40d48ef3b60bde6911e4b3eb581d011b Mon Sep 17 00:00:00 2001
 From: Lars Wirzenius <lwirzenius@wikimedia.org>
-Date: Tue, 17 Mar 2020 14:45:11 +0200
-Subject: [PATCH] ok
+Date: Wed, 24 Mar 2021 15:41:30 +0200
+Subject: [PATCH] file.php
 
 ---
- code.php | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ file.php | 9 +++++++++
+ 1 file changed, 9 insertions(+)
+ create mode 100644 file.php
 
-diff --git a/code.php b/code.php
-index fe577c7..acc4d52 100644
---- a/code.php
-+++ b/code.php
-@@ -1,2 +1,2 @@
- <?php
--/* Pretend this is some PHP code. */
-+/* This is some updated PHP code */
+diff --git a/file.php b/file.php
+new file mode 100644
+index 0000000..8675b0b
+--- /dev/null
++++ b/file.php
+@@ -0,0 +1,9 @@
++This is line 1
++This is line 2
++This is line 3
++This is line 4
++This is line 5
++This is line 6
++This is line 7
++This is line 8
++This is line 9
 -- 
-2.20.1
-```
+2.30.2
+~~~
 
-```{.file #conflict .patch .numberLines}
-From 640e813fdba8ea7ae27b088e36574889c293d758 Mon Sep 17 00:00:00 2001
+~~~{#good-patch-1 .file .patch}
+From 053ebb53a0a1fb1660f9e210984c589c696da474 Mon Sep 17 00:00:00 2001
 From: Lars Wirzenius <lwirzenius@wikimedia.org>
-Date: Tue, 17 Mar 2020 14:45:11 +0200
-Subject: [PATCH] conflict
+Date: Wed, 24 Mar 2021 15:42:21 +0200
+Subject: [PATCH] p1
 
 ---
- code.php | 2 +-
+ file.php | 2 +-
  1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/code.php b/code.php
-index fe577c7..acc4d52 100644
---- a/code.php
-+++ b/code.php
-@@ -1,2 +1,2 @@
- <?php
--/* This line doesn't exist in the unpatched file. */
-+/* This is some updated PHP code */
+diff --git a/file.php b/file.php
+index 8675b0b..367ef35 100644
+--- a/file.php
++++ b/file.php
+@@ -1,4 +1,4 @@
+-This is line 1
++This is modified line 1
+ This is line 2
+ This is line 3
+ This is line 4
 -- 
-2.20.1
+2.30.2
+
+~~~
+
+~~~{#good-patch-2 .file .patch}
+From e417a4bcd9e2229828c144cbf815f25b189341b2 Mon Sep 17 00:00:00 2001
+From: Lars Wirzenius <lwirzenius@wikimedia.org>
+Date: Wed, 24 Mar 2021 15:43:00 +0200
+Subject: [PATCH] p2
+
+---
+ file.php | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/file.php b/file.php
+index 8675b0b..699a993 100644
+--- a/file.php
++++ b/file.php
+@@ -6,4 +6,4 @@ This is line 5
+ This is line 6
+ This is line 7
+ This is line 8
+-This is line 9
++This is modified line 9
+-- 
+2.30.2
+
+~~~
+
+~~~{#bad-patch .file .patch}
+From 4e140c14ea23d56e27e8a4fee86ba05c1197125d Mon Sep 17 00:00:00 2001
+From: Lars Wirzenius <lwirzenius@wikimedia.org>
+Date: Mon, 15 Mar 2021 16:32:10 +0200
+Subject: [PATCH 2/2] line 5 to 100
+
+---
+ file.php | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/file.php b/file.php
+index 04eddf6..41b6c63 100644
+--- a/file.php
++++ b/file.php
+@@ -2,7 +2,7 @@ This is line 1
+ This is line 2
+ This is line 3
+ This is line 4
+-This is line 42
++This is line 100
+ This is line 6
+ This is line 7
+ This is line 8
+-- 
+2.30.2
+
+~~~
 ```
 
-## There are no patches to list
-
-This is the simplest case: there are no patches at all. In this
-scenario, we only check `list-patches`
-
-~~~scenario
-given an empty git repository at patches
-and empty directory patches/wmf.30
-when I run scap list-patches -Dpatch_path:patches --train wmf.30
-then the exit code is 0
-and the output is empty
-~~~
-
-## There are some patches to list
-
-In this case, there are some patches, and they all apply cleanly. We
-check for the core and extension case. In this scenario, we only check
-`list-patches`
-
-~~~scenario
-given an empty git repository at patches
-and file wmf.30/core/01-T123.patch from patch committed in patches
-and file wmf.30/core/02-T123.patch from patch committed in patches
-and file wmf.30/extensions/fooext/01-T789.patch from patch committed in patches
-when I run scap list-patches -Dpatch_path:patches --train wmf.30
-then the exit code is 0
-and the output matches first core/01-T123.patch and later core/02-T123.patch
-and the output matches pattern extensions/fooext/01-T789.patch
-and the output does not match T456
-and the output does not match T999
-~~~
-
-## There are badly named patch files when listing
-
-In this case there's a file in the patches tree that is badly named.
-We should get an error message, but no actual patches.
-
-~~~scenario
-given an empty git repository at patches
-and file 1.35.0-wmf.30/core/01-T123.patch from patch committed in patches
-and file 1.35.0-wmf.30/core/02-T456.patch.failed from patch committed in patches
-and file 1.35.0-wmf.30/core/03-T789.patch.failed from patch committed in patches
-when I run scap list-patches -Dpatch_path:patches --train 1.35.0-wmf.30
-then the exit code is 1
-and the output does not match T123
-and stderr contains "Bad filename for patch:.*T456"
-and stderr contains "Bad filename for patch:.*T789"
-~~~
-
-## There are no patches to apply
-
-If there are no patches, the core and extension repositories should
-not be changed when apply-patches is run.
-
-~~~scenario
-given an empty git repository at staging/php-wmf.30
-and empty directory patches/wmf.30
-and file code.php committed in staging/php-wmf.30
-and an empty git repository at staging/php-wmf.30/extensions/fooext
-and file code.php committed in staging/php-wmf.30/extensions/fooext
-and an empty git repository at patches
-~~~
-
-The rest of the scenario applies patches and verifies nothing is
-changed, since there weren't any patches.
-
-~~~ scenario
-when I run scap apply-patches -Dstage_dir:staging -Dpatch_path:patches --train wmf.30
-then the exit code is 0
-then repository staging/php-wmf.30 is not changed
-then repository staging/php-wmf.30/extensions/fooext is not changed
-
-when I run scap test-patches -Dstage_dir:staging -Dpatch_path:patches --train wmf.30
-then the exit code is 0
-~~~
-
-
-## Apply a good patch for core
-
-If there's a patch for core, it gets applied, but extensions are not
-touched.
-
-~~~scenario
-given an empty git repository at staging/php-wmf.30
-and file code.php committed in staging/php-wmf.30
-and an empty git repository at staging/php-wmf.30/extensions/fooext
-and file code.php committed in staging/php-wmf.30/extensions/fooext
-and an empty git repository at patches
-and file wmf.30/core/01-T123.patch from patch committed in patches
-
-when I run scap test-patches -Dstage_dir:staging -Dpatch_path:patches --train wmf.30
-then the exit code is 0
-
-when I run scap apply-patches -Dstage_dir:staging -Dpatch_path:patches --train wmf.30
-then the exit code is 0
-and the staging/php-wmf.30 checkout is clean and committed
-then the change in staging/php-wmf.30 matches patch
-then repository staging/php-wmf.30/extensions/fooext is not changed
-~~~
-
-
-## Apply a good patch for an extension
-
-If there's a patch for an extension, it gets applied, but core is not
-touched.
-
-~~~scenario
-given an empty git repository at staging/php-wmf.30
-and file code.php committed in staging/php-wmf.30
-and an empty git repository at staging/php-wmf.30/extensions/fooext
-and file code.php committed in staging/php-wmf.30/extensions/fooext
-and an empty git repository at patches
-and file wmf.30/extensions/fooext/01-T123.patch from patch committed in patches
-
-when I run scap test-patches -Dstage_dir:staging -Dpatch_path:patches --train wmf.30
-then the exit code is 0
-
-when I run scap apply-patches -Dstage_dir:staging -Dpatch_path:patches --train wmf.30
-then the exit code is 0
-and repository staging/php-wmf.30 is not changed
-and the staging/php-wmf.30/extensions/fooext checkout is clean and committed
-and the change in staging/php-wmf.30/extensions/fooext matches patch
-~~~
-
-
-## There is also badly named file among patches
-
-If there's a good patch, as above, but also an extra file, nothing is
-applied. We use a file named `.failed` since there's an old plugin for
-scap that renames patches it can't apply, and we'd like those to be
-cleaned up before deployment, so that a known security hole isn't
-accidentally deployed without its patch.
-
-~~~scenario
-given an empty git repository at staging/php-wmf.30
-and file code.php committed in staging/php-wmf.30
-and an empty git repository at patches
-and file wmf.30/core/01-T123.patch from patch committed in patches
-and file wmf.30/core/01-T456.patch.failed from patch committed in patches
-
-when I run scap test-patches -Dstage_dir:staging -Dpatch_path:patches --train wmf.30
-then the exit code is 1
-then stderr contains "Unknown file in patches"
-
-when I run scap apply-patches -Dstage_dir:staging -Dpatch_path:patches --train wmf.30
-then the exit code is 1
-then stderr contains "Unknown file in patches"
-then repository staging/php-wmf.30 is not changed
-~~~
-
-
-## There is a bad patch to apply
-
-In this case, all patches are named OK, but one of them fails to
-apply correctly. Nothing should be applied.
-
-~~~scenario
-given an empty git repository at staging/php-wmf.30
-and file code.php committed in staging/php-wmf.30
-and an empty git repository at staging/php-wmf.30/extensions/fooext
-and file code.php committed in staging/php-wmf.30/extensions/fooext
-and an empty git repository at patches
-and file wmf.30/extensions/fooext/01-T123.patch from conflict committed in patches
-
-when I run scap test-patches -Dstage_dir:staging -Dpatch_path:patches --train wmf.30
-then the exit code is 70
-then stderr contains "patch does not apply"
-
-when I run scap apply-patches -Dstage_dir:staging -Dpatch_path:patches --train wmf.30
-then the exit code is 70
-then stderr contains "patch does not apply"
-and repository staging/php-wmf.30 is not changed
-and repository staging/php-wmf.30/extensions/fooext is not changed
-~~~
-
-
-# scap sync fails
+## scap sync fails
 
 The `scap sync` command is being renamed to `scap sync-world`. The old
 command now gives an error.
@@ -486,9 +434,9 @@ then stderr contains "scap sync-world"
 
 
 
-# scap sync-world without --canary-wait-time works
+## scap sync-world without --canary-wait-time works
 
-The `scap sync` command takes an optional `--canary-wait-time` option.
+The `scap sync-world` command takes an optional `--canary-wait-time` option.
 Make sure it works without the option or rather fails in the right way.
 
 ~~~scenario
@@ -502,8 +450,10 @@ then stderr contains "scap failed: RuntimeError sync-world requires SSH agent fo
 
 <!-- document metadata at end to not confuse Emacs syntax highlighting -->
 
+
 ---
-title: Scap for deploying at WMF
+title: Scap
+subtitle: Tool for deploying MediaWiki at WMF
 author: WMF Release Engineering
 bindings: 
 - subplot/scap.yaml
