@@ -79,7 +79,6 @@ def _runcmd(argv, **kwargs):
 
 def gitcmd(subcommand, *args, **kwargs):
     """Run a git subcommand, return its stdout"""
-    assert "cwd" in kwargs
     return _runcmd(["git", subcommand] + list(args), **kwargs)
 
 

@@ -23,7 +23,7 @@ import scap
 
 def version():
     try:
-        v = gitcmd("version", cwd=".")
+        v = gitcmd("version")
     except (FailedCommand, KeyError):
         return (1, 9, 0)
 
@@ -121,7 +121,7 @@ def lfs_install(*args):
         args = ["--global"]
     lfsargs = ["install"] + list(args)
     # run `git lfs install $args`
-    gitcmd("lfs", *lfsargs, cwd=".")
+    gitcmd("lfs", *lfsargs)
 
 
 def info(directory):
@@ -368,7 +368,7 @@ def fetch(
                 cmd.append("{}={}".format(name, value))
         cmd.append(repo)
         cmd.append(location)
-        gitcmd("clone", *cmd, cwd=".")
+        gitcmd("clone", *cmd)
 
 
 def append_jobs_arg(cmd):
