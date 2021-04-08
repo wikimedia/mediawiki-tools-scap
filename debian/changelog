@@ -1,9 +1,30 @@
+scap (3.17.0-1) unstable; urgency=medium
+
+  [ Lars Wirzenius ]
+  * debian/control: Bumped Standards-Version to be more current. No other
+    changes.
+  * The apply-patches subcommand is rewritten and should work better now.
+    The test-patches and list-patches subcommands have been removed.
+
+  [ Kunal Mehta ]
+  * Improve linting of individual files.
+
+  [ Ahmon Dancy ]
+  * sync -> sync-world in warning message
+  * scap sync-world: Don't ask for confirmation
+  * The above changes didn't actually get included in the previous release.
+    They are now.
+  * Pass --offline to rebuildLocalisationCache.php.
+	
+ -- Lars Wirzenius <liw@liw.fi>  Thu, 08 Apr 2021 19:01:00 +0300
+
 scap (3.16.0-1) unstable; urgency=low
 
   [ Ahmon Dancy ]
   * sync -> sync-world in warning message
   * scap sync-world: Don't ask for confirmation
   * Allow scap sync-world to work on a fresh deploy server
+  * These were not actually included because Lars fumbled the release process.
 
   [ Filippo Giunchedi ]
   * log: add @cee: token for structured logging
