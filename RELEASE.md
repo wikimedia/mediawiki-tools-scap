@@ -99,8 +99,7 @@ You MUST have the following access:
 
 * ssh to **deployment-deploy01.deployment-prep.eqiad.wmflabs** (called
   "deploy01" below)
-* ssh to **deployment-cumin02.deployment-prep.eqiad.wmflabs** (called
-  "cumin02" below); also you must have sudo there
+* ssh to **deployment-cumin.deployment-prep.eqiad.wmflabs**; also you must have sudo there
 * login on <https://integration.wikimedia.org/ci> and the right to
   trigger jobs
 
@@ -123,7 +122,7 @@ To build the Debian package for the beta cluster:
 
     * on the #wikimedia-operations IRC channel, say you're testing
       Scap: `!log testing upcoming Scap release on beta`
-    * log into the cumin02 host
+    * ssh deployment-cumin.deployment-prep.eqiad.wmflabs
     * run: `sudo LC_ALL=C apt-get update && apt-cache policy scap`
     * find version of new package and fix it in the command line below
     * run: `sudo cumin 'O{project:deployment-prep}' 'command -v scap &&
