@@ -127,6 +127,7 @@ To build the Debian package for the beta cluster:
     * run: `sudo LC_ALL=C apt-get update && apt-cache policy scap`
     * find version of new package and fix it in the command line below
     * run: `sudo cumin 'O{project:deployment-prep}' 'command -v scap &&
+      apt-get update &&
       apt-get install -y --allow-downgrades scap=VERSION || echo "no
       scap"'`
     * this seems to usually fail on a small number of nodes; you can
