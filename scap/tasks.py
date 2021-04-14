@@ -844,7 +844,7 @@ def clear_message_blobs(logger=None):
 
     :param logger: logger instance
     """
-    logger.info("Running refreshMessageBlobs.php for each wiki")
+    logger.info("Running mwscript purgeMessageBlobStore.php")
 
     # This script is wiki-agnostic (affects all wikis)
     utils.sudo_check_call(
