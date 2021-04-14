@@ -38,6 +38,7 @@ DEFAULT_CONFIG = {
     "canary_threshold": (float, 10.0),
     "canary_service": (str, "mediawiki"),
     "canary_wait_time": (int, 20),
+    "delay_messageblobstore_purge": (bool, False),
     "deploy_dir": (str, "/srv/mediawiki"),
     "failure_limit": (str, "0%"),
     "fancy_progress": (bool, False),
