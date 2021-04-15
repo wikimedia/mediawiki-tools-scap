@@ -36,11 +36,13 @@ then
     fi
 fi
 
-if got sp-codegen
+if got subplot
 then
     title "Subplot (acceptance criteria)"
     rm -f test.log test.py
-    sp-codegen scap.md -o test.py
+    subplot docgen scap.md -o scap.html
+    subplot docgen scap.md -o scap.pdf
+    subplot codegen scap.md -o test.py
     python3 test.py --log test.log --save-on-failure fail.tar.gz
 fi
 
