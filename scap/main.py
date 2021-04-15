@@ -786,7 +786,7 @@ class ScapWorld(AbstractSync):
             self.get_logger().warning("%d hosts had sync_wikiversions errors", failed)
             self.soft_errors = True
 
-        tasks.clear_message_blobs()
+        tasks.clear_message_blobs(self.config)
         self._invalidate_opcache()
         self._restart_php()
 
@@ -1024,7 +1024,7 @@ class SyncL10n(AbstractSync):
                     "%d hosts had scap-cdb-rebuild errors", failed
                 )
                 self.soft_errors = True
-        tasks.clear_message_blobs()
+        tasks.clear_message_blobs(self.config)
         # Globally invalidate opcache. TODO: is this needed?
         self._invalidate_opcache(target_hosts)
         self._restart_php()

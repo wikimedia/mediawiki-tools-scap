@@ -529,7 +529,8 @@ def update_l10n_cdb_wrapper(args, logger=None):
 
 
 def _call_rebuildLocalisationCache(
-    wikidb, out_dir, use_cores=1, php_l10n=False, lang=None, force=False, quiet=False
+    wikidb, out_dir, use_cores=1, php_l10n=False, lang=None, force=False, quiet=False,
+    delay_messageblobstore_purge=False,
 ):
     """
     Helper for update_localization_cache.
@@ -563,14 +564,14 @@ def _call_rebuildLocalisationCache(
                     },
                 )
             # Generate the files into a temporary directory as www-data.
-            # Passing --skip-message-purge for T263872
+            # Passing --skip-message-purge for T263872 (if delay_messageblobstore_purge feature
+            # flag is enabled).
             utils.sudo_check_call(
                 "www-data",
                 "/usr/local/bin/mwscript rebuildLocalisationCache.php "
                 '--wiki="%(wikidb)s" --outdir="%(temp_dir)s" '
-                "--skip-message-purge "
                 "--store-class=%(store_class)s "
-                "--threads=%(use_cores)s %(lang)s %(force)s %(quiet)s"
+                "--threads=%(use_cores)s %(lang)s %(force)s %(quiet)s %(skip_message_purge)s"
                 % {
                     "wikidb": wikidb,
                     "temp_dir": temp_dir,
@@ -579,6 +580,7 @@ def _call_rebuildLocalisationCache(
                     "lang": "--lang " + lang if lang else "",
                     "force": "--force" if force else "",
                     "quiet": "--quiet" if quiet else "",
+                    "skip_message_purge": "--skip-message-purge" if delay_messageblobstore_purge else "",
                 },
             )
 
@@ -683,6 +685,7 @@ def update_localization_cache(version, wikidb, verbose, cfg, logger=None):
         php_l10n=cfg["php_l10n"],
         force=force_rebuild,
         quiet=quiet_rebuild,
+        delay_messageblobstore_purge=cfg["delay_messageblobstore_purge"],
     )
 
     # Include JSON versions of the CDB files and add MD5 files
@@ -838,20 +841,24 @@ def reload_service(service, logger=None):
 
 
 @utils.log_context("clear_message_blobs")
-def clear_message_blobs(logger=None):
+def clear_message_blobs(cfg, logger=None):
     """
     Clear MessageBlobStore cache on all wikis
 
+    :param cfg: Scap configuration dict
     :param logger: logger instance
     """
-    logger.info("Running mwscript purgeMessageBlobStore.php")
+    if cfg["delay_messageblobstore_purge"]:
+        script = "purgeMessageBlobStore.php"  # T263872
+    else:
+        script = "extensions/WikimediaMaintenance/refreshMessageBlobs.php"
 
-    # This script is wiki-agnostic (affects all wikis)
-    utils.sudo_check_call(
-        "www-data",
-        "/usr/local/bin/mwscript "
-        "purgeMessageBlobStore.php",
-    )
+    cmd = "/usr/local/bin/mwscript {}".format(script)
+
+    logger.info("Running {}".format(cmd))
+
+    # The script affects all wikis
+    utils.sudo_check_call("www-data", cmd)
 
 
 @utils.log_context("port_check")
