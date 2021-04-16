@@ -44,5 +44,5 @@ lintian --allow-root ../*.changes
 
 # Set ownerships of the whole tree so it's not owned by root. Copy the
 # ownership of the $build directory to everything in it.
-chown -R --reference "$build" "$build" "$build/src"
+chown -R --reference "$build" "$build"
 
