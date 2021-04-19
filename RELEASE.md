@@ -125,7 +125,7 @@ To build the Debian package for the beta cluster:
     * ssh deployment-cumin.deployment-prep.eqiad.wmflabs
     * run: `sudo LC_ALL=C apt-get update && apt-cache policy scap`
     * find version of new package and fix it in the command line below
-    * run: `sudo cumin 'O{project:deployment-prep}' 'if command -v scap; then apt-get update && apt-get install -y --allow-downgrades scap=VERSION; else echo "no scap"; fi'
+    * run: `sudo cumin 'O{project:deployment-prep}' 'if command -v scap; then apt-get update && apt-get install -y --allow-downgrades scap=VERSION; else echo "no scap"; fi'`
 
 * run the following Jenkins job (click "Build now") or wait for it to
   run automatically (runs every ten minutes):
