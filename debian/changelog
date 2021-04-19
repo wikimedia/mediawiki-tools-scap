@@ -1,3 +1,13 @@
+scap (3.17.1-1) unstable; urgency=medium
+
+  [ Ahmon Dancy ]
+  * Use --skip-message-purge instead of --offline.
+  * Don't pass cwd="." to gitcmd().
+  * Update log message for clear_message_blobs().
+  * Feature flag for T263872.
+
+ -- Lars Wirzenius <liw@liw.fi>  Mon, 19 Apr 2021 19:10:55 +0300
+
 scap (3.17.0-1) unstable; urgency=medium
 
   [ Lars Wirzenius ]
@@ -15,16 +25,10 @@ scap (3.17.0-1) unstable; urgency=medium
   * The above changes didn't actually get included in the previous release.
     They are now.
   * Pass --offline to rebuildLocalisationCache.php.
-	
+
  -- Lars Wirzenius <liw@liw.fi>  Thu, 08 Apr 2021 19:01:00 +0300
 
 scap (3.16.0-1) unstable; urgency=low
-
-  [ Ahmon Dancy ]
-  * sync -> sync-world in warning message
-  * scap sync-world: Don't ask for confirmation
-  * Allow scap sync-world to work on a fresh deploy server
-  * These were not actually included because Lars fumbled the release process.
 
   [ Filippo Giunchedi ]
   * log: add @cee: token for structured logging
