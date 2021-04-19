@@ -125,33 +125,13 @@ To build the Debian package for the beta cluster:
     * ssh deployment-cumin.deployment-prep.eqiad.wmflabs
     * run: `sudo LC_ALL=C apt-get update && apt-cache policy scap`
     * find version of new package and fix it in the command line below
-    * run: `sudo cumin 'O{project:deployment-prep}' 'command -v scap &&
-      apt-get update &&
-      apt-get install -y --allow-downgrades scap=VERSION || echo "no
-      scap"'`
-    * this seems to usually fail on a small number of nodes; you can
-      ignore that
+    * run: `sudo cumin 'O{project:deployment-prep}' 'if command -v scap; then apt-get update && apt-get install -y --allow-downgrades scap=VERSION; else echo "no scap"; fi'
 
 * run the following Jenkins job (click "Build now") or wait for it to
   run automatically (runs every ten minutes):
 
-    * <https://integration.wikimedia.org/ci/job/beta-scap-eqiad/>
-    * if it fails, see the console output to see what the problem is;
-      it might look like the following, for example:
-
-~~~
-18:24:32 + /usr/bin/scap sync 'beta-scap-eqiad (build #293131)'
-18:24:33 16:24:33 Unhandled error:
-18:24:33 Traceback (most recent call last):
-18:24:33   File "/usr/lib/python2.7/dist-packages/scap/cli.py", line 341, in run
-18:24:33     exit_status = app.main(app.extra_arguments)
-18:24:33   File "/usr/lib/python2.7/dist-packages/scap/main.py", line 646, in main
-18:24:33     raise ValueError('Canary must be between 20 and 90 seconds')
-18:24:33 ValueError: Canary must be between 20 and 90 seconds
-18:24:33 16:24:33 scap failed: ValueError Canary must be between 20 and 90 seconds (duration: 00m 00s)
-~~~
-
-    * in this case, it's a bug in scap; to revert back to the
+    * <https://integration.wikimedia.org/ci/job/beta-scap-sync-world/>
+    * if it fails (and it wasn't failing before), it's probably a new bug in scap; to revert back to the
       previous, working version, run the cumin command above with the
       previous version number for the package
 
