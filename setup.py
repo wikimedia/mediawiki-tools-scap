@@ -1,4 +1,4 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
     Base setup stuff for packaging of scap. Version numbers, authors, all that
@@ -47,7 +47,7 @@ setup(
     name="Scap",
     version=VERSION["__version__"],
     description="Deployment toolchain for Wikimedia projects",
-    long_description=open("README.rst").read(),
+    long_description=open("README.rst", "rb").read().decode("UTF8"),
     author=", ".join([name for name, _ in AUTHORS]),
     author_email=", ".join([email for _, email in AUTHORS]),
     license="GNU GPLv3",
@@ -57,7 +57,6 @@ setup(
     packages=["scap", "scap.plugins"],
     package_dir={"scap": "scap"},
     scripts=["bin/scap"],
-    install_requires=[line.strip() for line in open("requirements.txt")],
     keywords=["deploy", "deployment", "scap", "scap2", "scap3"],
     classifiers=[
         "Operating System :: POSIX :: Linux",

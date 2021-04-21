@@ -6,7 +6,7 @@ scap (3.17.1-1) unstable; urgency=medium
   * Update log message for clear_message_blobs().
   * Feature flag for T263872.
 
- -- Lars Wirzenius <liw@liw.fi>  Mon, 19 Apr 2021 19:10:55 +0300
+ -- Lars Wirzenius <lwirzenius@wikimedia.org>  Mon, 19 Apr 2021 19:10:55 +0300
 
 scap (3.17.0-1) unstable; urgency=medium
 

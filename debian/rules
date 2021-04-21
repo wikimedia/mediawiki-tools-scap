@@ -5,8 +5,13 @@ export DEB_BUILD_OPTIONS=nocheck
 PKG_VERSION = $(shell dpkg-parsechangelog --show-field Version)
 
 %:
-	dh $@ --with python2,bash-completion --buildsystem=pybuild
+	dh $@ --with python3,bash-completion --buildsystem=pybuild
 
 override_dh_auto_configure:
 	dh_auto_configure
 	echo "__version__ = '$(PKG_VERSION)'" > scap/version.py
+
+override_dh_auto_install:
+	dh_auto_install
+	find debian -name "*.pyc" -delete
+	find debian -name __pycache__ -delete

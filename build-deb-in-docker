@@ -36,7 +36,7 @@ mkdir -p "$builddir/src"
 builddir="$(cd "$builddir" && pwd)"
 
 $hideok docker build --iidfile "$tmp" .
-$hideok docker run --rm \
+docker run --rm \
        --mount type=bind,source="$builddir",target=/build \
        --mount type=bind,source="$(pwd)",target=/build/src \
        "$(cat "$tmp")"

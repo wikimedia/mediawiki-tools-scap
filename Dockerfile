@@ -9,20 +9,22 @@ RUN apt-get install -y \
   lintian \
   debhelper \
   dh-python \
-  python-all \
-  python-setuptools \
-  python-concurrent.futures \
-  python-jinja2 \
-  python-pygments \
-  python-yaml \
-  python-requests \
+  python3 \
+  python3-jinja2 \
+  python3-pygments \
+  python3-pytest \
+  python3-pytest-mock \
+  python3-requests \
+  python3-sphinx \
+  python3-sphinxcontrib.actdiag \
+  python3-sphinxcontrib.blockdiag \
+  python3-sphinxcontrib.programoutput \
+  python3-yaml \
+  flake8 \
   git \
   bash-completion \
-  python-six \
-  python-configparser \
-  python-psutil \
-  tox \
-  flake8 
+  sudo
+RUN apt-get purge -y python
 
 # Build stage: This builds on the base stage. The source tree and
 # place where build results are stored get bind mounted into the

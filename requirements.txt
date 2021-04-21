@@ -1,8 +1,7 @@
-configparser
 jinja2
-psutil
+pytest
+pytest-mock
 pyaml
 requests
-six
 pygments
-futures;python_version<"3"
+pytest

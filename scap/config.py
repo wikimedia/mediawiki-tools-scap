@@ -25,7 +25,7 @@ from __future__ import absolute_import
 import getpass
 import os
 import socket
-from six.moves.configparser import ConfigParser
+from configparser import ConfigParser
 
 import scap.utils as utils
 

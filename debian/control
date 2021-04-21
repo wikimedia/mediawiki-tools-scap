@@ -4,37 +4,44 @@ Uploaders: Tyler Cipriani <tcipriani@wikimedia.org>,
            Dan Duvall <dduvall@wikimedia.org>,
            Mukunda Modell <mmodell@wikimedia.org>,
            Antoine Musso <hashar@free.fr>,
-           Lars Wirzenius <lwirzenius@wikimedia.org>
+           Lars Wirzenius <lwirzenius@wikimedia.org>,
+           Ahmon Dancy <adancy@wikimedia.org>
 Section: python
 Priority: optional
-Build-Depends:
-  debhelper (>= 9),
+Build-Depends: debhelper (>= 9),
   dh-python (>= 1.2014),
-  python-all (>= 2.7),
-  python-setuptools,
-  python-concurrent.futures,
-  python-jinja2,
-  python-pygments,
-  python-yaml,
-  python-requests,
+  python3,
+  python3-jinja2,
+  python3-pygments,
+  python3-pytest,
+  python3-pytest-mock,
+  python3-requests,
+  python3-sphinx,
+  python3-sphinxcontrib.actdiag,
+  python3-sphinxcontrib.blockdiag,
+  python3-sphinxcontrib.programoutput,
+  python3-yaml,
   git,
   bash-completion,
-  python-six,
-  python-configparser,
-  python-psutil,
-  tox | python-tox,
-  flake8 | python-flake8
+  flake8
 Standards-Version: 4.5.1
 X-Python-Version: >= 2.7
 
 Package: scap
 Architecture: all
-Depends: ${python:Depends}, ${shlibs:Depends}, ${misc:Depends},
-  python-concurrent.futures, python-jinja2, python-psutil, python-pygments,
-  python-yaml, python-requests, git, python-six,
-  python-configparser
-Breaks: ${python:Breaks}
-Provides: ${python:Provides}
+Depends: ${python3:Depends}, ${misc:Depends},
+  git,
+  python3,
+  python3-jinja2,
+  python3-pygments,
+  python3-pytest,
+  python3-pytest-mock,
+  python3-requests,
+  python3-sphinx,
+  python3-sphinxcontrib.actdiag,
+  python3-sphinxcontrib.blockdiag,
+  python3-sphinxcontrib.programoutput,
+  python3-yaml
 Suggests: git-fat, php5-cli | php-cli | hhvm
 Description: Deployment toolchain for Wikimedia projects
  Scap is a tool that was originally designed to deploy MediaWiki code on
@@ -44,5 +51,3 @@ Description: Deployment toolchain for Wikimedia projects
  project, with additional support for serial deployment groups, templated
  configuration deployment, rolling or highly concurrent execution, service
  restart, intermediate checks, and automated rollback.
- .
- This is the Python 2 version of the package.

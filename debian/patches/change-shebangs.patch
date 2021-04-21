@@ -1,9 +1,0 @@
-Description: Use absolute path to python2 interpreter for bins
-Author: Wikimedia Release Engineering <releng@wikimedia.org>
---- b/bin/scap
-+++ a/bin/scap
-@@ -1,3 +1,3 @@
--#!/usr/bin/env python2
-+#!/usr/bin/python2
- # -*- coding: utf-8 -*-
- """

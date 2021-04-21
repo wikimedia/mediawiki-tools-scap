@@ -30,8 +30,6 @@ import random
 import sys
 import textwrap
 
-from six import text_type
-
 from .. import ansi
 from .. import cli
 
@@ -131,7 +129,7 @@ class Say(cli.Application):
     """Scap propaganda of the lowest order."""
 
     @cli.argument("-W", "--width", type=int, help="Column width for message box")
-    @cli.argument("-e", "--eyes", type=lambda s: text_type(s, "utf8"), help="Eyes")
+    @cli.argument("-e", "--eyes", type=str, help="Eyes")
     @cli.argument("-n", "--no-wrap", action="store_true", help="No Wordwrap")
     @cli.argument("-c", "--color", action="store_true", help="Color logo")
     @cli.argument("propaganda", nargs="*", help="Message to print")
