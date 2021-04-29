@@ -36,7 +36,9 @@ class UpdateWikiversions(cli.Application):
         new_dir = "php-%s" % self.arguments.branch
 
         if not os.path.isdir(os.path.join(self.config["stage_dir"], new_dir)):
-            raise ValueError("Invalid version specifier: %s" % new_dir)
+            raise ValueError("Train branch %s has not been checked out yet.\n"
+                             "Try running 'scap prep %s' first." %
+                             (self.arguments.branch, self.arguments.branch))
 
         if os.path.exists(json_path):
             with open(json_path) as json_in:
