@@ -330,6 +330,7 @@ def fetch(
     shallow=False,
     bare=False,
     config=None,
+    branch=None,
 ):
     """Fetch a git repo to a location"""
     if config is None:
@@ -342,6 +343,9 @@ def fetch(
             cmd.append("--recurse-submodules")
         else:
             cmd.append("--no-recurse-submodules")
+        if branch:
+            cmd.append("origin")
+            cmd.append(branch)
         gitcmd("fetch", *cmd, cwd=location)
         for name, value in config.items():
             gitcmd("config", name, value, cwd=location)
@@ -362,6 +366,9 @@ def fetch(
                 cmd.append("--shallow-submodules")
         if bare:
             cmd.append("--bare")
+        if branch:
+            cmd.append("-b")
+            cmd.append(branch)
         if config:
             for name, value in config.items():
                 cmd.append("--config")

@@ -132,7 +132,7 @@ class CheckoutMediaWiki(cli.Application):
             return 0
 
         self.get_logger().info("Fetching core to {}".format(dest_dir))
-        git.fetch(dest_dir, SOURCE_URL + "mediawiki/core", reference_dir)
+        git.fetch(dest_dir, SOURCE_URL + "mediawiki/core", reference_dir, branch=checkout_version)
 
         with utils.cd(dest_dir):
             if (
