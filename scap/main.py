@@ -564,8 +564,17 @@ class MWVersionsInUse(cli.Application):
         action="store_true",
         help="Add `=wikidb` with some wiki using the version.",
     )
+    @cli.argument(
+        "--staging",
+        action="store_true",
+        help="Compile wikiversions in staging directory",
+    )
     def main(self, *extra_args):
-        versions = self.active_wikiversions()
+        if self.arguments.staging:
+            source_tree = "stage"
+        else:
+            source_tree = "deploy"
+        versions = self.active_wikiversions(source_tree)
 
         if self.arguments.withdb:
             output = [
