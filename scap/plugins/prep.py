@@ -10,6 +10,7 @@ import subprocess
 from scap import cli
 from scap import git
 from scap import utils
+from scap.runcmd import FailedCommand
 
 SOURCE_URL = "https://gerrit.wikimedia.org/r/"
 
@@ -132,7 +133,13 @@ class CheckoutMediaWiki(cli.Application):
             return 0
 
         self.get_logger().info("Fetching core to {}".format(dest_dir))
-        git.fetch(dest_dir, SOURCE_URL + "mediawiki/core", reference_dir, branch=checkout_version)
+        try:
+            git.fetch(dest_dir, SOURCE_URL + "mediawiki/core", reference_dir, branch=checkout_version)
+        except FailedCommand as e:
+            # Don't print a backtrace for git clone problems.  The error message has all of
+            # the information needed to tell what happened.
+            e._scap_no_backtrace = True
+            raise e
 
         with utils.cd(dest_dir):
             if (

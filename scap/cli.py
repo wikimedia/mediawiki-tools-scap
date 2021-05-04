@@ -244,7 +244,7 @@ class Application(object):
         backtrace = True
         message = "%s failed: <%s> %s"
 
-        if isinstance(ex, lock.LockFailedError):
+        if isinstance(ex, lock.LockFailedError) or getattr(ex, "_scap_no_backtrace", False):
             backtrace = False
 
         if backtrace:
