@@ -542,7 +542,7 @@ class DeployLocal(cli.Application):
                 cfg.write(yaml.dump(config, default_flow_style=False))
 
         with open(self.context.local_config) as cfg:
-            return yaml.load(cfg.read())
+            return yaml.safe_load(cfg.read())
 
     def _get_remote_overrides(self):
         """Grab remote config from git_server."""
@@ -554,7 +554,7 @@ class DeployLocal(cli.Application):
         if r.status_code != requests.codes.ok:
             raise IOError(errno.ENOENT, "Config file not found", cfg_url)
 
-        return yaml.load(r.text)
+        return yaml.safe_load(r.text)
 
 
 @cli.command("deploy", help="[SCAP 3] Sync new service code across cluster")
@@ -939,7 +939,7 @@ class Deploy(cli.Application):
         tmp_cfg = {}
 
         with open(cfg_file, "r") as cf:
-            config_files = yaml.load(cf.read())
+            config_files = yaml.safe_load(cf.read())
 
         tmp_cfg["files"] = []
         # Get an environment specific template
@@ -984,7 +984,7 @@ class Deploy(cli.Application):
         search = self.context.env_specific_paths("vars.yaml")
         for vars_file in reversed(search):
             with open(vars_file, "r") as vf:
-                tmp_cfg["override_vars"].update(yaml.load(vf.read()))
+                tmp_cfg["override_vars"].update(yaml.safe_load(vf.read()))
 
         self.config["config_files"] = tmp_cfg
 
@@ -997,7 +997,7 @@ class Deploy(cli.Application):
         # environment-specific checks
         for check_path in reversed(checks_paths):
             with open(check_path) as f:
-                checks = utils.ordered_load(f, Loader=yaml.Loader)["checks"]
+                checks = utils.ordered_load(f, Loader=yaml.SafeLoader)["checks"]
                 checks_dict.update(checks)
 
         if not checks_dict.keys():
