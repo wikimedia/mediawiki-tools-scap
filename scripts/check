@@ -46,11 +46,7 @@ then
     python3 test.py --log test.log --save-on-failure fail.tar.gz
 fi
 
-# Try to build docs. It's OK if it fails. It fails on Debian 9
-# (stretch), because building docs somehow involves Python 2 and we
-# don't support that anymore.
 title "sphinx (documentation)"
-dpkg -l '*sphinx*'
 sphinx-build -q -W -b html docs/ docs/_build/html
 
 title "Oh happy day: all tests pass OK!"
