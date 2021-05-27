@@ -149,7 +149,6 @@ class Patch:
 
         sys.stdout.write("\n")
 
-        output = output.decode("UTF8")
         if "already applied" in output:
             return OK
         return APPLIED
@@ -162,7 +161,6 @@ def valid_patch_filename(filename):
 
 def git_is_clean(dirname):
     output = gitcmd("status", "--ignore-submodules", cwd=dirname)
-    output = output.decode("UTF8")
     if "Changes not staged" in output:
         return False
     if "You are in the middle of an am session." in output:

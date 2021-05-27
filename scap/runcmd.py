@@ -78,8 +78,11 @@ def _runcmd(argv, **kwargs):
 
 
 def gitcmd(subcommand, *args, **kwargs):
-    """Run a git subcommand, return its stdout"""
-    return _runcmd(["git", subcommand] + list(args), **kwargs)
+    """Run a git subcommand, return its stdout
+
+    Return the output of git as a Unicode string.
+    """
+    return _runcmd(["git", subcommand] + list(args), **kwargs).decode("UTF8")
 
 
 def delete_file_in_tree(dirname, basename):

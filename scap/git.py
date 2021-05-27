@@ -27,7 +27,6 @@ def version():
     except (FailedCommand, KeyError):
         return (1, 9, 0)
 
-    v = v.decode("UTF-8")
     version_numbers = v.split(" ")[2]
     return tuple(int(n) for n in version_numbers.split(".")[:4] if n.isdigit())
 
@@ -200,7 +199,6 @@ def clean_tags(location, max_tags):
         "refs/tags",
         cwd=location,
     )
-    tags = tags.decode("UTF-8")
     tags = tags.splitlines()
 
     old_tags = []
