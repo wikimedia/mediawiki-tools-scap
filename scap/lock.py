@@ -34,9 +34,6 @@ class Lock(object):  # pylint: disable=too-few-public-methods
 
     def __init__(self, filename, reason="No reason given", group_write=False):
         self.filename = filename
-        if isinstance(reason, bytes):
-            reason = reason.encode("UTF-8")
-        assert isinstance(reason, bytes)
         self.reason = reason
         self.lock_fd = None
 
