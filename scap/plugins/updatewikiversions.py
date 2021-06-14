@@ -65,16 +65,24 @@ class UpdateWikiversions(cli.Application):
                 migrated += 1
             version_rows[dbname] = new_dir
 
-        with open(json_path, "w") as json_out:
-            json.dump(
-                version_rows,
-                json_out,
-                ensure_ascii=False,
-                indent=4,
-                separators=(",", ": "),
-                sort_keys=True,
-            )
-            json_out.write("\n")
+        tmp = json_path + ".tmp"
+
+        try:
+            with open(tmp, "w") as json_out:
+                json.dump(
+                    version_rows,
+                    json_out,
+                    ensure_ascii=False,
+                    indent=4,
+                    separators=(",", ": "),
+                    sort_keys=True,
+                )
+                json_out.write("\n")
+            os.rename(tmp, json_path)
+        except:
+            if os.path.exists(tmp):
+                os.remove(tmp)
+            raise
 
         self.get_logger().info(
             "Updated %s: %s inserted, %s migrated." % (json_path, inserted, migrated)
