@@ -24,6 +24,8 @@
 
 from __future__ import absolute_import
 
+import sys
+
 import scap.plugins
 
 from scap.main import (
@@ -100,3 +102,5 @@ any(
         __version__,
     )
 )  # Ignore unused import warning
+
+assert sys.version_info > (3,)
