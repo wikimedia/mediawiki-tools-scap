@@ -32,7 +32,7 @@ class UpdateWikiversions(cli.Application):
         script = os.path.join(
             self.config["stage_dir"], "multiversion", "bin", "expanddblist"
         )
-        dblist = subprocess.check_output([script, db_list_name]).splitlines()
+        dblist = subprocess.check_output([script, db_list_name]).decode().splitlines()
 
         new_dir = "php-%s" % self.arguments.branch
 

@@ -468,7 +468,7 @@ def sudo_check_call(user, cmd, logger=None):
 
     fullOut = []
     while proc.poll() is None:
-        line = proc.stdout.readline().strip()
+        line = proc.stdout.readline().decode().strip()
         if line:
             logger.debug(line)
             fullOut.append(line)
@@ -550,7 +550,7 @@ def is_service_running(service):
 
         return systemctl_exit_code == 0
     elif is_initsystem("upstart"):
-        status = subprocess.check_output(["/sbin/status", service]).rstrip().split(" ")
+        status = subprocess.check_output(["/sbin/status", service]).decode().rstrip().split(" ")
         if not status[1].startswith("start/running"):
             return False
         return True
@@ -564,7 +564,7 @@ def systemd_service_exists(service):
     """
     state_cmd = ["/bin/systemctl", "show", "--property", "LoadState", service]
     try:
-        loaded_state = subprocess.check_output(state_cmd).strip()
+        loaded_state = subprocess.check_output(state_cmd).decode().strip()
     except subprocess.CalledProcessError:
         return False
 
