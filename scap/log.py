@@ -794,7 +794,7 @@ class Udp2LogHandler(logging.handlers.DatagramHandler):
             text = text[:65506]
         if text[-1] != "\n":
             text = text + "\n"
-        return text
+        return text.encode()
 
 
 def setup_loggers(cfg, console_level=logging.INFO, handlers=None):
