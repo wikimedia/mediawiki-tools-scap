@@ -97,7 +97,7 @@ class Reader(object):
 
         self.index = [READ_2_LE4(data[i : i + 8]) for i in range(0, 2048, 8)]
         self.table_start = min(p[0] for p in self.index)
-        # Assume load load factor is 0.5 like official CDB.
+        # Assume load factor is 0.5 like official CDB.
         self.length = sum(p[1] >> 1 for p in self.index)
 
     def iteritems(self):
@@ -112,6 +112,9 @@ class Reader(object):
 
             data = self.data[pos : pos + dlen]
             pos += dlen
+
+            key = key.decode('UTF-8')
+            data = data.decode('UTF-8')
 
             yield key, data
 
@@ -147,8 +150,8 @@ class Writer(object):
 
         pos = self.fp.tell()
         self.fp.write(WRITE_2_LE4(len(key), len(value)))
-        self.fp.write(key)
-        self.fp.write(value)
+        self.fp.write(key.encode('UTF-8'))
+        self.fp.write(value.encode('UTF-8'))
 
         h = self.hashfn(key) & 0xFFFFFFFF
         self._unordered[h & 0xFF].append((h, pos))

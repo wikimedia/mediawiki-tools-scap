@@ -71,6 +71,8 @@ class OutputHandler(object):
         self.host = host
 
     def accept(self, output):
+        if isinstance(output, bytes):
+            output = output.decode()
         self.output += output
 
 

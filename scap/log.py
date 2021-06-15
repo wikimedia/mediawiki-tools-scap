@@ -674,6 +674,9 @@ class Stats(object):
 
     def _send_metric(self, metric):
         try:
+            if isinstance(metric, str):
+                metric = metric.encode("UTF-8")
+            assert isinstance(metric, bytes)
             self.socket.sendto(metric, self.address)
         except Exception:
             self.logger.exception('Failed to send metric "%s"', metric)

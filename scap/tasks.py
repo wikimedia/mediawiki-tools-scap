@@ -295,7 +295,7 @@ def merge_cdb_updates(directory, pool_size, trust_mtime=False, mute=False, logge
 
     l10n_update_pool = pool.imap_unordered(
         update_l10n_cdb_wrapper,
-        itertools.izip(
+        zip(
             itertools.repeat(cache_dir), files, itertools.repeat(trust_mtime)
         ),
     )
@@ -497,7 +497,7 @@ def update_l10n_cdb(cache_dir, cdb_file, trust_mtime=False, logger=None):
         with open(tmp_cdb_path, "wb") as fp:
             writer = cdblib.Writer(fp)
             for key, value in data.items():
-                writer.put(key.encode("utf-8"), value.encode("utf-8"))
+                writer.put(key, value)
             writer.finalize()
             utils.eintr_retry(os.fsync, fp.fileno())
 
@@ -643,7 +643,7 @@ def update_localization_cache(version, wikidb, verbose, cfg, logger=None):
     logger.info("Updating ExtensionMessages-%s.php", version)
     new_extension_messages = subprocess.check_output(
         "sudo -u www-data -n -- /bin/mktemp", shell=True
-    ).strip()
+    ).decode().strip()
 
     # attempt to read extension-list from the branch instead of wmf-config
     ext_list = os.path.join(cfg["stage_dir"], "php-%s" % version, "extension-list")
@@ -762,7 +762,7 @@ def refresh_cdb_json_file(file_path):
         pass
 
     tmp_json = tempfile.NamedTemporaryFile(delete=False)
-    with open(file_path, "r") as fp:
+    with open(file_path, "rb") as fp:
         reader = cdblib.Reader(fp.read())
 
     out = collections.OrderedDict()
@@ -781,7 +781,7 @@ def refresh_cdb_json_file(file_path):
     # Remove final newline
     json_data = "".join(json_data.rsplit("\n", 1))
 
-    tmp_json.write(json_data)
+    tmp_json.write(json_data.encode())
     tmp_json.close()
     os.chmod(tmp_json.name, 0o644)
     shutil.move(tmp_json.name, upstream_json)

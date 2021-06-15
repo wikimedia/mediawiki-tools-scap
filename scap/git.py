@@ -597,12 +597,12 @@ def get_disclosable_head(repo_directory, remote_thing):
                 ("/usr/bin/git", "rev-list", "-1", "@{upstream}"),
                 cwd=repo_directory,
                 stderr=dev_null,
-            ).strip()
+            ).decode().strip()
         except subprocess.CalledProcessError:
             try:
                 remote = subprocess.check_output(
                     ("/usr/bin/git", "remote"), cwd=repo_directory, stderr=dev_null
-                ).strip()
+                ).decode().strip()
 
                 # If the branch is not a SHA1, combine with remote name
                 if not re.match("[a-f0-9]{40}", remote_thing):
@@ -615,7 +615,7 @@ def get_disclosable_head(repo_directory, remote_thing):
                     ("/usr/bin/git", "merge-base", "HEAD", remote_thing),
                     cwd=repo_directory,
                     stderr=dev_null,
-                ).strip()
+                ).decode().strip()
             except subprocess.CalledProcessError:
                 utils.get_logger().info(
                     "Unable to find remote tracking branch/tag for %s", repo_directory
