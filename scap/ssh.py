@@ -230,8 +230,9 @@ class Job(object):
                     self._reporter.add_success()
                 else:
                     self.get_logger().warning(
-                        "%s on %s returned [%d]: %s",
+                        "%s (ran as %s@%s) returned [%d]: %s",
                         self._command,
+                        self._user,
                         host,
                         status,
                         ohandler.output,
