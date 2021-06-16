@@ -86,6 +86,18 @@ then the exit code is 0
 then the output matches pattern "^\d+(\.\d+)+(-\S+)?$"
 ~~~
 
+## scap without arguments
+
+This is a smoke test: if `scap` without any arguments runs, and exits
+with an exit code of one, it's good. At times, the exit code is other,
+and there's a stack trace.
+
+~~~scenario
+given a built scap
+when I run scap
+then the exit code is 1
+~~~
+
 
 ## Applying security patches for train
 

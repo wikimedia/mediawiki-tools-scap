@@ -244,7 +244,9 @@ class Application(object):
         backtrace = True
         message = "%s failed: <%s> %s"
 
-        if isinstance(ex, lock.LockFailedError) or getattr(ex, "_scap_no_backtrace", False):
+        if isinstance(ex, lock.LockFailedError) or getattr(
+            ex, "_scap_no_backtrace", False
+        ):
             backtrace = False
 
         if backtrace:
@@ -291,6 +293,8 @@ class Application(object):
     def factory(argv=None):
         parser = arg.build_parser()
         args, extra_args = parser.parse_known_args(argv)
+        if not hasattr(args, "which"):
+            sys.exit("MUST provide subcommand, run with --help for a list")
         app = args.which(args.command)
         app._argparser = parser
         app.arguments = args

@@ -87,6 +87,10 @@ def run_scap_subcommand_help(ctx, subcommand=None):
     runcmd_exit_code_is(ctx, 0)
 
 
+def run_scap(ctx):
+    _scap(ctx, [])
+
+
 def run_scap_version(ctx):
     _scap(ctx, ["version"])
 

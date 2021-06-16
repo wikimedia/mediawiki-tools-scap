@@ -10,6 +10,9 @@
 - then: I can run scap {subcommand} --help
   function: run_scap_subcommand_help
 
+- when: I run scap
+  function: run_scap
+
 - when: I run scap version
   function: run_scap_version
 

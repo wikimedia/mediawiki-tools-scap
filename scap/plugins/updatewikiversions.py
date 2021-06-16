@@ -24,7 +24,7 @@ class UpdateWikiversions(cli.Application):
         """Change all the requested dblist entries to the new version."""
         json_path = utils.get_realm_specific_filename(
             os.path.join(self.config["stage_dir"], "wikiversions.json"),
-            self.config["wmf_realm"]
+            self.config["wmf_realm"],
         )
 
         db_list_name = os.path.basename(os.path.splitext(self.arguments.dblist)[0])
@@ -37,9 +37,11 @@ class UpdateWikiversions(cli.Application):
         new_dir = "php-%s" % self.arguments.branch
 
         if not os.path.isdir(os.path.join(self.config["stage_dir"], new_dir)):
-            raise ValueError("Train branch %s has not been checked out yet.\n"
-                             "Try running 'scap prep %s' first." %
-                             (self.arguments.branch, self.arguments.branch))
+            raise ValueError(
+                "Train branch %s has not been checked out yet.\n"
+                "Try running 'scap prep %s' first."
+                % (self.arguments.branch, self.arguments.branch)
+            )
 
         if os.path.exists(json_path):
             with open(json_path) as json_in:
@@ -79,7 +81,7 @@ class UpdateWikiversions(cli.Application):
                 )
                 json_out.write("\n")
             os.rename(tmp, json_path)
-        except:
+        except BaseException:
             if os.path.exists(tmp):
                 os.remove(tmp)
             raise
