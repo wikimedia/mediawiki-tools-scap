@@ -312,7 +312,7 @@ def cluster_ssh(
 
                 for fd, event in utils.eintr_retry(poll.poll, 0.01):
                     output = utils.eintr_retry(os.read, fd, 1048576)
-                    output_handlers[fd].accept(output)
+                    output_handlers[fd].accept(output.decode("UTF-8"))
 
                 if pid:
                     status = -(status & 255) or (status >> 8)
