@@ -31,6 +31,7 @@ import glob
 import os
 import shutil
 import subprocess
+import sys
 import tempfile
 import time
 import yaml
@@ -641,7 +642,12 @@ class Deploy(cli.Application):
     def main(self, *extra_args):
         logger = self.get_logger()
 
-        self.repo = self.config["git_repo"]
+        repo = self.config.get("git_repo", None)
+
+        if repo is None:
+            sys.exit("Incomplete setup: git_repo must be defined in the configuration")
+
+        self.repo = repo
 
         if self.arguments.stages:
             stages = self.arguments.stages.split(",")
