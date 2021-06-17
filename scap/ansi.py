@@ -149,7 +149,7 @@ def logo(eyes=None, color=True, **colors):
         eyes = "OO"
 
     eyes = eyes[:2]
-    pallet["eyes"] = eyes.encode("utf-8")
+    pallet["eyes"] = eyes
     pallet["newline"] = "\n"
 
     return "".join(
