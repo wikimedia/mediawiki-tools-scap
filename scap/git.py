@@ -464,6 +464,12 @@ def update_deploy_head(deploy_info, location):
         deploy_file = os.path.join(location, ".git", "DEPLOY_HEAD")
         logger.debug("Creating %s", deploy_file)
         with open(deploy_file, "w+") as deployfile:
+            # Note that part of deploy_info may be an OrderedDict (xref
+            # deploy.py:checks_setup) which requires non-safe yaml load in
+            # deploy.py:_get_remote_overrides and _get_config_overrides.  If
+            # we settle on Python 3.7 as the minimum supported version, we
+            # could just use regular dicts which are defined to retain their
+            # insertion order.
             deployfile.write(yaml.dump(deploy_info, default_flow_style=False))
             deployfile.close()
 

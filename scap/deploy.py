@@ -543,7 +543,9 @@ class DeployLocal(cli.Application):
                 cfg.write(yaml.dump(config, default_flow_style=False))
 
         with open(self.context.local_config) as cfg:
-            return yaml.safe_load(cfg.read())
+            # Note: Not using safe_load here because the config may
+            # contain an OrderedDict that we want.
+            return yaml.load(cfg.read())
 
     def _get_remote_overrides(self):
         """Grab remote config from git_server."""
@@ -555,7 +557,9 @@ class DeployLocal(cli.Application):
         if r.status_code != requests.codes.ok:
             raise IOError(errno.ENOENT, "Config file not found", cfg_url)
 
-        return yaml.safe_load(r.text)
+        # Note: Not using safe_load here because the config may
+        # contain an OrderedDict that we want.
+        return yaml.load(r.text)
 
 
 @cli.command("deploy", help="[SCAP 3] Sync new service code across cluster")
