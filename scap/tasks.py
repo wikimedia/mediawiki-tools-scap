@@ -642,7 +642,7 @@ def update_localization_cache(version, wikidb, verbose, cfg, logger=None):
 
     logger.info("Updating ExtensionMessages-%s.php", version)
     new_extension_messages = subprocess.check_output(
-        "sudo -u www-data -n -- /bin/mktemp", shell=True
+        ["sudo", "-u", "www-data", "-n", "--", "/bin/mktemp"]
     ).decode().strip()
 
     # attempt to read extension-list from the branch instead of wmf-config

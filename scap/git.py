@@ -307,8 +307,8 @@ def remote_exists(location, remote):
     """Check if remote exists in location"""
     ensure_dir(location)
     with utils.cd(location):
-        cmd = "/usr/bin/git config --local --get remote.{}.url".format(remote)
-        return subprocess.call(cmd, shell=True) == 0
+        argv = ["git", "config", "--local", "--get", "remote.{}.url".format(remote)]
+        return subprocess.call(argv) == 0
 
 
 def remote_set(location, repo, remote="origin"):
@@ -479,18 +479,15 @@ def tag_repo(deploy_info, location=os.getcwd()):
 
     ensure_dir(location)
     with utils.cd(location):
-        cmd = """
-        /usr/bin/git tag -fa \\
-                -m 'user {0}' \\
-                -m 'timestamp {1}' -- \\
-                {2} {3}
-        """.format(
-            deploy_info["user"],
-            deploy_info["timestamp"],
+        gitcmd(
+            "tag",
+            "-fa",
+            "-muser {}".format(deploy_info["user"]),
+            "-mtimestamp {}".format(deploy_info["timestamp"]),
+            "--",
             deploy_info["tag"],
             deploy_info["commit"],
         )
-        subprocess.check_call(cmd, shell=True)
 
 
 def resolve_gitdir(directory):
