@@ -148,12 +148,18 @@ class Writer(object):
         """Write a string key/value pair to the output file."""
         assert isinstance(key, str) and isinstance(value, str)
 
+        # Compute the hash of the key while it is still a string
+        h = self.hashfn(key) & 0xFFFFFFFF
+
+        # Convert key/value strings to bytes
+        key = key.encode('UTF-8')
+        value = value.encode('UTF-8')
+
         pos = self.fp.tell()
         self.fp.write(WRITE_2_LE4(len(key), len(value)))
-        self.fp.write(key.encode('UTF-8'))
-        self.fp.write(value.encode('UTF-8'))
+        self.fp.write(key)
+        self.fp.write(value)
 
-        h = self.hashfn(key) & 0xFFFFFFFF
         self._unordered[h & 0xFF].append((h, pos))
 
     def finalize(self):
