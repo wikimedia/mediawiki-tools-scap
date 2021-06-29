@@ -131,7 +131,7 @@ def test_get_master_list(app, mocker):
     tl.assert_called_with("dsh_masters", app.config)
 
 
-def fixme_test_announce(app, mocker):
+def test_announce(app, mocker):
     # Case 1: no_log_message is set
     app.arguments = mock.MagicMock()
     app.arguments.no_log_message = True
@@ -140,13 +140,15 @@ def fixme_test_announce(app, mocker):
     app.announce("test")
     logger.info.assert_called_with("test")
     logger.warning.assert_not_called()
+
     # Case 2: DOLOGMSGNNOLOG env variable set, no_log_message is false
     os.environ["DOLOGMSGNOLOG"] = "0"  # yes, we only check it exists...
     app.arguments.no_log_message = False
     logger.info.reset_mock()
     app.announce("test")
     logger.info.assert_called_with("test")
-    logger.warning.assert_called()
+    logger.warning.assert_called_once_with("DOLOGMSGNOLOG has been deprecated, use --no-log-message")
+
     # Case 3: neither is set
     del os.environ["DOLOGMSGNOLOG"]
     get_log = mocker.patch("logging.getLogger")
@@ -267,10 +269,10 @@ def test_setup_environ_no_auth_sock(cmd):
     assert "SSH_AUTH_SOCK" not in os.environ
 
 
-def fixme_test_handle_keyboard_interrupt(cmd):
+def test_handle_keyboard_interrupt(cmd):
     cmd.announce = mock.MagicMock(spec=cli.Application.announce)
     cmd.handle_keyboard_interrupt()
-    cmd.announce.assert_called()
+    assert cmd.announce.call_count == 1
 
 
 def test_main_not_implemented(app):
@@ -278,13 +280,13 @@ def test_main_not_implemented(app):
         app.main()
 
 
-def fixme_test_handle_exception(app):
+def test_handle_exception(app):
     app.get_logger = mock.MagicMock()
     log = app.get_logger.return_value
     assert app._handle_exception(ValueError("test")) == 70
     # Full Backtrace
-    log.warning.assert_called()
-    log.error.assert_called()
+    assert log.warning.call_count == 1
+    assert log.error.call_count == 1
     # No backtrace
     log.warning.reset_mock()
     assert app._handle_exception(lock.LockFailedError("test")) == 70
@@ -320,7 +322,7 @@ def test_factory(cmd):
     assert isinstance(cmd, cli.Application)
 
 
-def fixme_test_run(cmd, mocker):
+def test_run(cmd, mocker):
     # Application.run is indecent enough to exit on us.
     # Tell them no.
     ex = mocker.patch("sys.exit")
@@ -337,7 +339,7 @@ def fixme_test_run(cmd, mocker):
     uid.return_value = 0
     cli.Application.run()
     ex.assert_called_with(70)
-    factory.assert_called()
+    assert factory.call_count == 1
     cmd._load_config.assert_not_called()
     # Reaction to KeyboardInterrupt
     uid.return_value = 1000
