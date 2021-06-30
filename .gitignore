@@ -9,6 +9,7 @@
 cover/
 /dist
 /docs/_build
+/Dockerfile.tests
 /.pybuild
 /html
 /docs/html
