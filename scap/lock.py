@@ -10,6 +10,8 @@ from __future__ import absolute_import
 import errno
 import fcntl
 import os
+import signal
+import sys
 
 import scap.utils as utils
 
@@ -59,6 +61,8 @@ class Lock(object):  # pylint: disable=too-few-public-methods
             )
             fcntl.lockf(self.lock_fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
             os.write(self.lock_fd, self.reason)
+            signal.signal(signal.SIGTERM, self._sig_handler)
+            signal.signal(signal.SIGINT, self._sig_handler)
         except OSError as ose:
             if ose.errno is errno.EEXIST:
                 details = get_lock_excuse(self.filename)
@@ -73,10 +77,18 @@ class Lock(object):  # pylint: disable=too-few-public-methods
             os.umask(orig_umask)
 
     def __exit__(self, *args):
+        self.clear_lock()
+
+    def _sig_handler(self, signum, *args):
+        self.clear_lock()
+        sys.exit(128 + signum)
+
+    def clear_lock(self):
         # Return the umask
         if self.lock_fd:
             fcntl.lockf(self.lock_fd, fcntl.LOCK_UN)
             os.close(self.lock_fd)
+            self.lock_fd = None
             if os.path.exists(self.filename):
                 try:
                     os.unlink(self.filename)
