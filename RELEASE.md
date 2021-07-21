@@ -103,29 +103,17 @@ You MUST have the following access:
 * login on <https://integration.wikimedia.org/ci> and the right to
   trigger jobs
 
-To build the Debian package for the beta cluster:
-
-* go to the scap-beta-deb Jenkins project
-  (<https://integration.wikimedia.org/ci/job/scap-beta-deb/>), and
-  trigger it manually by clicking "Build with Parameters", entering
-  the following parameters:
-
-  * ZUUL_URL: https://gerrit.wikimedia.org/r
-  * ZUUL_PROJECT: mediawiki/tools/scap.git
-  * ZUUL_REF: master
-  * ZUUL_VOTING: 0
-
-* if scap-beta-deb finishes successfully, it triggers the
-  beta-publish-deb job, which publishes the newly built Debian package
-
 * install new package on all beta hosts with Scap already installed
 
+    * wait for https://integration.wikimedia.org/ci/view/Beta/job/beta-publish-deb to finish, if it is running.
     * on the #wikimedia-operations IRC channel, say you're testing
       Scap: `!log testing upcoming Scap release on beta`
-    * ssh deployment-cumin.deployment-prep.eqiad.wmflabs
-    * run: `sudo LC_ALL=C apt-get update && apt-cache policy scap`
-    * find version of new package and fix it in the command line below
-    * run: `sudo cumin 'O{project:deployment-prep}' 'if command -v scap; then apt-get update && apt-get install -y --allow-downgrades scap=VERSION; else echo "no scap"; fi'`
+    * `ssh deployment-cumin.deployment-prep.eqiad.wmflabs`
+    * run: `sudo cumin --no-progress --force 'O{project:deployment-prep}' 'if command -v scap >/dev/null; then dpkg -l scap; fi'` to determine the version(s) of scap that are currently deployed in beta cluster.  Ideally there will just be one version but there have been cases where not all hosts carried the same version.  In that case you must select one of the versions to use as the "old" version in case you need to roll back.
+    * run: `sudo apt-get update`
+    * run: `VERSION=$(sudo LC_ALL=C apt-cache policy scap | grep 'Candidate:' | awk '{print $2}')` to determine the latest version of scap that has been published by the beta-publish-deb job.
+    * run: `echo $VERSION` to verify that the selected version looks ok.  It should be something like `3.17.1-1+0~20210702164127.42~1.gbp7a6076`.
+    * run: `sudo cumin 'O{project:deployment-prep}' "if command -v scap; then apt-get update && apt-get install -y --allow-downgrades scap=$VERSION; else echo no scap; fi"`
 
 * run the following Jenkins job (click "Build now") or wait for it to
   run automatically (runs every ten minutes):
