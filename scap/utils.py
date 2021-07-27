@@ -462,23 +462,26 @@ def sudo_check_call(user, cmd, logger=None):
         cmd_env = make_sudo_check_call_env(["PHP"])
         fullCmd = "sudo -u %s -n %s -- %s" % (user, cmd_env, cmd)
 
+    # We're using universal_newlines=True to put the stdout pipe into
+    # text mode for simpler processing.  We don't actually care about
+    # the universal newline behavior.  Python 3.7 makes this clearer
+    # by providing an argument named 'text' as an alias for
+    # universal_newlines.
     proc = subprocess.Popen(
-        fullCmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, shell=True
+        fullCmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, shell=True,
+        universal_newlines=True,
     )
 
     fullOut = []
-    while proc.poll() is None:
-        line = proc.stdout.readline().decode().strip()
-        if line:
-            logger.debug(line)
-            fullOut.append(line)
-
-    # Consumes rest of stdout
-    leftover = proc.stdout.readlines()
-    map(logger.debug, leftover)
+    for line in proc.stdout:
+        line = line.strip()
+        logger.debug(line)
+        fullOut.append(line)
+    # stdout has been read entirely by this point.
+    proc.wait()
 
     if proc.returncode:
-        logger.error("Last output:\n" + "\n".join(fullOut + leftover))
+        logger.error("Last output:\n" + "\n".join(fullOut))
         raise subprocess.CalledProcessError(proc.returncode, cmd)
 
 
