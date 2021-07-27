@@ -41,7 +41,8 @@ Depends: ${python3:Depends}, ${misc:Depends},
   python3-sphinxcontrib.actdiag,
   python3-sphinxcontrib.blockdiag,
   python3-sphinxcontrib.programoutput,
-  python3-yaml
+  python3-yaml,
+  python3-prettytable
 Suggests: git-fat, php5-cli | php-cli | hhvm
 Description: Deployment toolchain for Wikimedia projects
  Scap is a tool that was originally designed to deploy MediaWiki code on

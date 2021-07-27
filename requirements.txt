@@ -5,3 +5,4 @@ pyaml
 requests
 pygments
 pytest
+prettytable
