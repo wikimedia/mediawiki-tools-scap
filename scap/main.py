@@ -808,7 +808,16 @@ class ScapWorld(AbstractSync):
         self.increment_stat("scap")
 
     def _handle_exception(self, ex):
-        self.get_logger().warning("Unhandled error:", exc_info=True)
+        # Logic copied from cli.py:_handle_exception.  FIXME: There has to be a better
+        # way to do this.
+        if isinstance(ex, lock.LockFailedError) or getattr(
+                ex, "_scap_no_backtrace", False
+        ):
+            backtrace = False
+
+        if backtrace:
+            self.get_logger().warning("Unhandled error:", exc_info=True)
+
         self.announce(
             "scap failed: %s %s (duration: %s)",
             type(ex).__name__,
