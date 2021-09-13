@@ -391,7 +391,7 @@ class AbstractSync(cli.Application):
 
         if failed > max_failed_canaries:
             canary_fail_msg = (
-                "Scap failed!: {}/{} canaries failed their endpoint checks" "({})"
+                "Scap failed!: {}/{} canaries failed their endpoint checks" "({}).  WARNING: canaries have not been rolled back."
             ).format(failed, len(canaries), swagger_url)
             self.announce(canary_fail_msg)
             raise RuntimeError(canary_fail_msg)
