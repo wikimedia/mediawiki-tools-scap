@@ -1,3 +1,27 @@
+scap (4.0.0-1) unstable; urgency=medium
+
+  * Port to Python 3, drop support for Python 2
+  * Clarify the need to roll back if canary checks fail
+  * scap sync-world: don't backtrace on LockFailedError
+  * scap backport command (incomplete)
+  * Delete lock file on SIGTERM/SIGINT
+  * Fix Scappy's eyes in logo output
+  * Better error message if a dsh file cannot be found
+  * Mention user and hostname when an ssh error occurs
+  * scap deploy: Better error message if scap.cfg is underconfigured
+  * fix: scap without arguments should not give a traceback
+  * updatewikiversions: Don't update wikiversions.json in place
+  * scap update-wikiversions always operates on staging wikiversions file
+  * use yaml.safe_load instead of yaml.load, for security (in most places)
+  * feat: Don't print backtrace if git clone fails during scap prep
+  * Make "scap prep" use staging wikiversions
+  * feat: Add --staging flag to scap wikiversions-inuse
+  * feat: Fail fast if non-existent version is passed to scap prep
+  * fix: improve scap update-wikiversions error reporting
+  * avoid duplicate plugin directories
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Tue, 14 Sep 2021 12:32:42 -0700
+
 scap (3.17.1-1) unstable; urgency=medium
 
   [ Ahmon Dancy ]
