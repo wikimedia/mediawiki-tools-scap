@@ -46,3 +46,7 @@ lintian --allow-root ../*.changes
 # ownership of the $build directory to everything in it.
 chown -R --reference "$build" "$build"
 
+set +x
+echo Generated files:
+ls -l "$build"
+echo "Deb build completed!"
