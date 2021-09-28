@@ -1,3 +1,9 @@
+scap (4.0.1-1) unstable; urgency=medium
+
+  * Fix irc logging for python3
+
+ -- Giuseppe Lavagetto <glavagetto@wikimedia.org>  Tue, 28 Sep 2021 13:13:33 +0200
+
 scap (4.0.0-1) unstable; urgency=medium
 
   * Port to Python 3, drop support for Python 2
@@ -215,7 +221,7 @@ scap (3.7.4-2) unstable; urgency=medium
 scap (3.7.4-1) unstable; urgency=medium
 
   * Disk usage: Cache submodules and use --reference to save space
-    
+
   * Logging: Don't lie when sync-wikiversions actually failed
 
   * Premium Feature: New scap sayings
