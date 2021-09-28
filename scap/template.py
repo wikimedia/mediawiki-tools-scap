@@ -21,6 +21,7 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """
 from __future__ import absolute_import
+from typing import Dict
 
 import jinja2
 import yaml
@@ -90,11 +91,10 @@ class Template(object):
         self._overrides = overrides
         self.var_file = var_file
 
-    def _make_env_args(self, loader, erb_syntax, output_format):
+    def _make_env_args(self, loader: Dict[str, str], erb_syntax, output_format):
         """Generate properties to pass to the jinja template."""
-        loader = {n: f.decode("utf-8") for n, f in loader.items()}
-        loader = jinja2.DictLoader(loader)
-        env_args = {"loader": loader}
+
+        env_args = {"loader": jinja2.DictLoader(loader)}
 
         if output_format in VALID_OUTPUT_FORMATS:
             finalize_func = get_output_formatter(output_format)
@@ -126,7 +126,7 @@ class Template(object):
         with open(self.var_file, "r") as variables:
             return yaml.safe_load(variables.read())
 
-    def render(self):
+    def render(self) -> bytes:
         """
         Renders the templates specified by `self.name`.
 

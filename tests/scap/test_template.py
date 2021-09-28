@@ -36,7 +36,7 @@ def test_render_utf8_vars():
         os.path.dirname(__file__), "template-data", "vars-utf8.yaml"
     )
 
-    with open(template_path, "rb") as f:
+    with open(template_path, "r") as f:
         template_data = f.read()
 
     tmp = template.Template(
@@ -53,7 +53,7 @@ def test_render_utf8_template():
         os.path.dirname(__file__), "template-data", "test-utf8.yaml"
     )
 
-    with open(template_path, "rb") as f:
+    with open(template_path, "r") as f:
         template_data = f.read()
 
     tmp = template.Template(name=test_file, loader={test_file: template_data})
