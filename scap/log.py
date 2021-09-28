@@ -132,7 +132,7 @@ class IRCSocketHandler(logging.Handler):
             sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             sock.settimeout(self.timeout)
             sock.connect(self.addr)
-            sock.sendall(message)
+            sock.sendall(message.encode("utf-8"))
             sock.close()
         except (socket.timeout, socket.error, socket.gaierror):
             self.handleError(record)
