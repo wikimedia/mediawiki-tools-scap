@@ -219,9 +219,8 @@ class DeployLocal(cli.Application):
             source = os.path.join(source_basepath, filename)
             logger.info("Rendering config_file: {}".format(source))
 
-            with open(source, "w+") as f:
-                output_file = tmpl.render()
-                f.write(output_file)
+            with open(source, "w") as f:
+                f.write(tmpl.render())
         return 0
 
     def config_diff(self):
@@ -252,9 +251,8 @@ class DeployLocal(cli.Application):
                 overrides=overrides,
             )
 
-            with tempfile.NamedTemporaryFile() as cfg:
+            with tempfile.NamedTemporaryFile(mode="w", delete=False) as cfg:
                 cfg.write(tmpl.render())
-                cfg.delete = False
 
             logger.info("Diff for %s:", filename)
 

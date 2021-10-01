@@ -126,7 +126,7 @@ class Template(object):
         with open(self.var_file, "r") as variables:
             return yaml.safe_load(variables.read())
 
-    def render(self) -> bytes:
+    def render(self) -> str:
         """
         Renders the templates specified by `self.name`.
 
@@ -138,4 +138,4 @@ class Template(object):
             overrides = self._overrides
             overrides.update(template_vars)
             template_vars = overrides
-        return self._template.render(template_vars).encode("utf-8")
+        return self._template.render(template_vars)

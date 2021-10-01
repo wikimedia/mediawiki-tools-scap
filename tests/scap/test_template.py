@@ -43,7 +43,7 @@ def test_render_utf8_vars():
         name=test_file, loader={test_file: template_data}, var_file=override_path
     )
 
-    assert u"❤".encode("utf-8") in tmp.render()
+    assert "❤" in tmp.render()
 
 
 def test_render_utf8_template():
@@ -57,4 +57,4 @@ def test_render_utf8_template():
         template_data = f.read()
 
     tmp = template.Template(name=test_file, loader={test_file: template_data})
-    assert u"⚡".encode("utf-8") in tmp.render()
+    assert "⚡" in tmp.render()
