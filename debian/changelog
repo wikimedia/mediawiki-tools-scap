@@ -1,3 +1,9 @@
+scap (4.0.2-1) UNRELEASED; urgency=medium
+
+  * Fix templating code for Python 3
+
+ -- Ahmon Dancy <dancy@dancysoft.com>  Fri, 01 Oct 2021 09:03:23 -0700
+
 scap (4.0.1-1) unstable; urgency=medium
 
   * Fix irc logging for python3
