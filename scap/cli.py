@@ -227,7 +227,7 @@ class Application(object):
         self.announce(
             "{} aborted: {} (duration: {})".format(
                 self.program_name,
-                self.arguments.message,
+                getattr(self.arguments, "message", ""),
                 utils.human_duration(self.get_duration()),
             )
         )
