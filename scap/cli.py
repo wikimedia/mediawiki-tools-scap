@@ -287,7 +287,9 @@ class Application(object):
     def _assert_auth_sock(self):
         """Assert that SSH_AUTH_SOCK is present in the environment."""
         if "SSH_AUTH_SOCK" not in os.environ:
-            raise RuntimeError("%s requires SSH agent forwarding" % self.program_name)
+            e = RuntimeError("%s requires SSH agent forwarding" % self.program_name)
+            e._scap_no_backtrace = True
+            raise e
 
     @staticmethod
     def factory(argv=None):
