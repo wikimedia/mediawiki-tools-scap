@@ -498,24 +498,25 @@ class AbstractSync(cli.Application):
         )
 
         if php_fpm.INSTANCE.cmd:
-            self.get_logger().info(
-                "Running '{}' on {} host(s)".format(
-                    php_fpm.INSTANCE.cmd, len(target_groups.all)
-                )
-            )
-
-            # Convert the list of group objects into a
-            # list of lists of targets.
-            group_hosts = []
-            for group in target_groups.groups.values():
-                group_hosts.append(group.targets)
-
-            results = pool.map(php_fpm.restart_helper, group_hosts)
-            for _, failed in results:
-                if failed:
-                    self.get_logger().warning(
-                        "%d hosts had failures restarting php-fpm", failed
+            with log.Timer("php-fpm-restarts", self.get_stats()):
+                self.get_logger().info(
+                    "Running '{}' on {} host(s)".format(
+                        php_fpm.INSTANCE.cmd, len(target_groups.all)
                     )
+                )
+
+                # Convert the list of group objects into a
+                # list of lists of targets.
+                group_hosts = []
+                for group in target_groups.groups.values():
+                    group_hosts.append(group.targets)
+
+                results = pool.map(php_fpm.restart_helper, group_hosts)
+                for _, failed in results:
+                    if failed:
+                        self.get_logger().warning(
+                            "%d hosts had failures restarting php-fpm", failed
+                        )
 
 
 @cli.command("security-check")
