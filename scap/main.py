@@ -810,6 +810,7 @@ class ScapWorld(AbstractSync):
     def _handle_exception(self, ex):
         # Logic copied from cli.py:_handle_exception.  FIXME: There has to be a better
         # way to do this.
+        backtrace = True
         if isinstance(ex, lock.LockFailedError) or getattr(
                 ex, "_scap_no_backtrace", False
         ):
