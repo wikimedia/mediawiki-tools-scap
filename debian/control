@@ -34,13 +34,7 @@ Depends: ${python3:Depends}, ${misc:Depends},
   python3,
   python3-jinja2,
   python3-pygments,
-  python3-pytest,
-  python3-pytest-mock,
   python3-requests,
-  python3-sphinx,
-  python3-sphinxcontrib.actdiag,
-  python3-sphinxcontrib.blockdiag,
-  python3-sphinxcontrib.programoutput,
   python3-yaml,
   python3-prettytable
 Suggests: git-fat, php5-cli | php-cli | hhvm
