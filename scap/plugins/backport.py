@@ -1,20 +1,10 @@
 # -*- coding: utf-8 -*-
 
 """Scap plugin for listing, applying, and rolling back backports."""
-import json
-import requests
-
-from scap import cli
 from prettytable import PrettyTable
 
-
-def get_backports(versions):
-    query = "status:open(" + "+OR+".join(["branch:wmf/{}".format(v) for v in versions]) + ")"
-    response = requests.get('https://gerrit.wikimedia.org/r/changes/?q=' + query)
-
-    response.raise_for_status()
-
-    return json.loads(response.text[4:] if response.text.startswith(')]}\'') else response.text)
+from scap import cli
+from scap.plugins.gerrit import GerritSession
 
 
 def make_table(backports):
@@ -31,6 +21,8 @@ def make_table(backports):
 class Backport(cli.Application):
     """Doing things with backports."""
 
+    gerrit = None
+
     @cli.argument(
         "--list",
         help='list the available backports and prompts for change numbers to backport',
@@ -39,12 +31,13 @@ class Backport(cli.Application):
     @cli.argument("change_numbers", nargs="*", help="Change numbers to backport")
     def main(self, *extra_args):
         change_numbers = self.arguments.change_numbers
+        self.gerrit = GerritSession(url=self.config['gerrit_url'])
 
         if self.arguments.list:
             versions = self.active_wikiversions("stage").keys()
 
             if len(versions) > 0:
-                backports = get_backports(versions)
+                backports = self.get_backports(versions)
 
                 if len(backports) > 0:
                     backports_table = make_table(backports)
@@ -74,3 +67,7 @@ class Backport(cli.Application):
             print("No change url supplied to backport")
 
         return 0
+
+    def get_backports(self, versions):
+        query = "status:open(" + "+OR+".join(["branch:wmf/{}".format(v) for v in versions]) + ")"
+        return self.gerrit.changes().get(q=query)

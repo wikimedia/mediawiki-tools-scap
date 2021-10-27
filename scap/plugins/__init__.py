@@ -39,6 +39,7 @@ import importlib
 import logging
 import os
 import sys
+import traceback
 from ..cli import Application
 from .say import Say
 
@@ -130,6 +131,7 @@ def load_plugins(plugin_dir=None):
         except Exception as e:
             msg = "Problem loading plugins from module: scap.plugins.%s (%s)"
             err_msg = type(e).__name__ + ":" + str(e)
+            traceback.print_exc()
             logging.getLogger().warning(msg, plugin, err_msg)
 
     # Restore the original setting

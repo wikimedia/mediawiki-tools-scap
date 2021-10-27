@@ -42,6 +42,7 @@ DEFAULT_CONFIG = {
     "deploy_dir": (str, "/srv/mediawiki"),
     "failure_limit": (str, "0%"),
     "fancy_progress": (bool, False),
+    "gerrit_url": (str, "https://gerrit.wikimedia.org/r/"),
     "php_version": (str, "php"),
     "keyholder_key": (str, None),
     "stage_dir": (str, "/srv/mediawiki-staging"),

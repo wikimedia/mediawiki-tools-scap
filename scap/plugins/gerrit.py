@@ -8,7 +8,6 @@ from __future__ import print_function, unicode_literals
 
 from json import JSONEncoder
 from requests import Session
-from requests.auth import HTTPDigestAuth
 from requests.utils import get_netrc_auth
 from string import Template
 from pygments import highlight
@@ -17,46 +16,12 @@ from pygments.formatters import TerminalFormatter
 
 import json
 import logging
-import re
 
 try:
     from urllib.parse import quote
 except ImportError:
     # Python 2
     from urllib import quote
-
-
-gerrit_session = None
-gerrit_uri = "https://gerrit.wikimedia.org"
-api_uri = "%s/r/a" % gerrit_uri
-
-
-def session(requests_session=None, uri=None):
-    global gerrit_session
-    global api_uri
-
-    if requests_session:
-        gerrit_session = requests_session
-
-    if uri:
-        api_uri = uri
-
-    if gerrit_session is None:
-        gerrit_session = Session()
-        # get credentials from .netrc:
-        (user, password) = get_netrc_auth(api_uri)
-        # Gerrit uses HTTP Digest authentication instead of basic:
-        gerrit_session.auth = HTTPDigestAuth(user, password)
-
-    return gerrit_session
-
-
-def parse_gerrit_uri(text):
-    pattern = "%s/.*/([0-9]+)/.*" % gerrit_uri
-    parsed = re.split(pattern, text)
-    if len(parsed) > 1:
-        return parsed[1]
-    return text
 
 
 def debug_log(msg, *args):
@@ -82,19 +47,69 @@ class urlencode_map(object):
         raise KeyError('Key "%s" not found' % key)
 
 
+class GerritSession(object):
+    """Opens and tracks a session with a Gerrit instance and provides methods
+    for making API calls."""
+
+    def __init__(self, url="https://gerrit.wikimedia.org/r/"):
+        self.url = url
+
+        if url[-1] == '/':
+            self.api_url = url + 'a'
+        else:
+            self.api_url = url + '/a'
+
+        self.session = Session()
+
+        # get credentials from .netrc if one exists
+        self.session.auth = get_netrc_auth(self.api_uri)
+
+    def endpoint(self, path="/"):
+        return GerritEndpoint(session=self, path=path)
+
+    def changes(self):
+        return Changes(session=self)
+
+    def change(self, changeid, **kwargs):
+        return Change(changeid, session=self, **kwargs)
+
+    def change_detail(self, changeid, **kwargs):
+        return ChangeDetail(changeid, session=self, **kwargs)
+
+    def change_revisions(self, changeid, **kwargs):
+        return ChangeRevisions(changeid, session=self, **kwargs)
+
+    def project_branch(self, project, branch, **kwargs):
+        return ProjectBranch(project, branch, session=self, **kwargs)
+
+    def project_branches(self, project, **kwargs):
+        return ProjectBranches(project, session=self, **kwargs)
+
+    def get(self, *args, **kwargs):
+        return self.session.get(*args, **kwargs)
+
+    def post(self, *args, **kwargs):
+        return self.session.post(*args, **kwargs)
+
+
 class GerritEndpoint(object):
     """ base class for gerrit api endpoints """
 
     # derived classes override the path section of the uri for each endpoint
     _path = "/"
     _uri_template = None
+    _session = None
 
-    def __init__(self, path="/"):
+    def __init__(self, session=None, path="/"):
         """
         Create a generic endpoint instance with the specified path.
         The path template should be a string with placeholder ${variables}
         for the dynamic parts of the path component of the api url.
         """
+        if session is None:
+            session = GerritSession()
+
+        self._session = session
         self._path = path
 
     def _url(self, **kwargs):
@@ -106,7 +121,7 @@ class GerritEndpoint(object):
         keyword arguments which will take precedence over values from __dict__
         """
         if self._uri_template is None:
-            self._uri_template = Template("/".join((api_uri, self._path)))
+            self._uri_template = Template("/".join((self._session.api_uri, self._path)))
 
         return self._uri_template.safe_substitute(urlencode_map(self.__dict__, kwargs))
 
@@ -117,7 +132,7 @@ class GerritEndpoint(object):
 
         debug_log("uri: %s", uri)
         debug_log("_path: %s", self._path)
-        res = session().get(uri, params=params, timeout=30)
+        res = self._session.get(uri, params=params, timeout=30)
         return self.load(res)
 
     def load(self, res):
@@ -145,7 +160,7 @@ class GerritEndpoint(object):
         debug_log("POST to: %s", uri)
         debug_log("POST Data: %s", data)
         dump_json(data)
-        res = session().post(uri, json=data, timeout=30)
+        res = self._session.post(uri, json=data, timeout=30)
         debug_log("Response: %s", res.text)
         return self.load(res)
 
@@ -155,7 +170,7 @@ class GerritEndpoint(object):
         debug_log("PUT to: %s", uri)
         debug_log("PUT Data: %s", data)
         dump_json(data)
-        res = session().put(uri, json=data, timeout=30)
+        res = self._session.put(uri, json=data, timeout=30)
         debug_log("Response: %s", res.text)
         return self.load(res)
 
@@ -172,7 +187,7 @@ class GerritEndpoint(object):
         """
         _path = self._path
         _path = "/".join((_path, path))
-        new_instance = GerritEndpoint(_path)
+        new_instance = GerritEndpoint(path=_path, session=self._session)
         for k in self.__dict__:
             if k[0] == "_":
                 continue
@@ -189,8 +204,8 @@ class GerritEndpoint(object):
 class Changes(GerritEndpoint):
     """ Query Gerrit changes """
 
-    def __init__(self):
-        self._path = "changes/"
+    def __init__(self, **kwargs):
+        super().__init__(path="changes/", **kwargs)
 
     def query(self, q="status:open", n=10):
         return self.get(params={"q": q, "n": n})
@@ -199,53 +214,56 @@ class Changes(GerritEndpoint):
 class Change(GerritEndpoint):
     """ get details for a gerrit change """
 
-    _path = "changes/${changeid}"
     changeid = None
     revisionid = "current"
 
-    def __init__(self, changeid, revisionid="current"):
+    def __init__(self, changeid, revisionid="current", **kwargs):
+        super().__init__(path='changes/%s' % changeid, **kwargs)
         self.changeid = changeid
-        self.revision = ChangeRevisions(changeid, revisionid)
+        self.revision = ChangeRevisions(changeid, revisionid=revisionid,
+                                        session=self._session)
 
 
 class ChangeDetail(GerritEndpoint):
     """ get details for a gerrit change """
 
-    _path = "changes/${changeid}/detail"
     changeid = None
     revisionid = "current"
 
-    def __init__(self, changeid, revisionid="current"):
+    def __init__(self, changeid, revisionid="current", **kwargs):
+        super().__init__(path='changes/%s/detail' % changeid, **kwargs)
         self.changeid = changeid
-        self.revision = ChangeRevisions(changeid, revisionid)
+        self.revision = ChangeRevisions(changeid, revisionid,
+                                        session=self._session)
 
 
 class ChangeRevisions(GerritEndpoint):
-    _path = "changes/${changeid}/revisions/${revisionid}"
     revisionid = "current"
 
-    def __init__(self, changeid, revisionid="current"):
+    def __init__(self, changeid, revisionid="current", **kwargs):
+        super().__init__(path='changes/%s/revisions/%s' % (changeid, revisionid),
+                         **kwargs)
         self.changeid = changeid
         self.revisionid = revisionid
 
 
 class ProjectBranch(GerritEndpoint):
-    _path = "projects/${project}/branches/${name}"
-
-    def __init__(self, project, name):
+    def __init__(self, project, branch, **kwargs):
+        super().__init__(path='projects/%s/branches/%s' % (project, branch),
+                         **kwargs)
         self.project = project
-        self.name = name
+        self.branch = branch
 
 
 class ProjectBranches(GerritEndpoint):
-    _path = "projects/${project}/branches"
     project = None
 
-    def __init__(self, project):
+    def __init__(self, project, **kwargs):
+        super().__init__(path='projects/%s/branches' % (project), **kwargs)
         self.project = project
 
-    def create(self, name, revision):
-        newbranch = ProjectBranch(self.project, name)
+    def create(self, branch, revision):
+        newbranch = ProjectBranch(self.project, branch, session=self._session)
         data = {"revision": revision}
         return newbranch.put(data=data)
 
