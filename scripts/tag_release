@@ -4,4 +4,4 @@ VERSION="$(dpkg-parsechangelog --show-field Version)"
 echo "__version__ = '$VERSION'" > ./scap/version.py
 git add ./scap/version.py
 git commit -m "Bump version to $VERSION"
-git tag -a debian/$VERSION -m "Release $VERSION"
+git tag -a "debian/$VERSION" -m "Release $VERSION"

@@ -53,6 +53,7 @@ variants:
         - python3-sphinxcontrib.programoutput
         - python3-yaml
         - zlib1g-dev
+        - shellcheck
   test:
     includes: [build]
     entrypoint: [scripts/check]

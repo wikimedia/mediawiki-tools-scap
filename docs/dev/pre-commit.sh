@@ -3,15 +3,13 @@
 # before each commit, aborting the commit if there is a lint error.
 
 
-lint=`tox -e flake8 2>&1`
-if [ $? != 0 ]; then
-    echo $lint
+if ! lint=$(tox -e flake8 2>&1); then
+    echo "$lint"
     exit 1
 fi
 
 # Remove the remaining code if you don't want to rebuild docs on each commit
-tox=`tox -e doc 2>&1`
-if [ $? != 0 ]; then
-    echo $tox
-    exit $?
+if ! tox=$(tox -e doc 2>&1); then
+    echo "$tox"
+    exit 1
 fi

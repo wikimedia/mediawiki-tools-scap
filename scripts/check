@@ -15,6 +15,9 @@ got()
     command -v "$1" > /dev/null
 }
 
+title "shellcheck"
+# shellcheck disable=SC2046
+shellcheck $(find . -type f | egrep -v '^\./(\.git|\.tox|docs/_build)' | xargs grep -l '^#!/bin/.*sh')
 
 title "pytest (unit and other functional tests)"
 python3 -m pytest -q
@@ -22,7 +25,7 @@ python3 -m pytest -q
 title "flake8 (coding style checks)"
 flake8 --count --show-source --statistics \
        --ignore=W503,W605,E501,E203 \
-       --exclude=.git,.tox,__pycache__,build,docs,dist,scap/sh.py,bin,subplot .
+       --exclude=.git,.tox,__pycache__,build,docs,dist,bin,subplot .
 
 if got black
 then

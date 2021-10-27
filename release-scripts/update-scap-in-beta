@@ -20,7 +20,8 @@ scriptdir=$(dirname "$0")
 VERSION=
 
 function get_latest_beta_and_confirm {
-    local version=$($scriptdir/get-latest-beta-deb)
+    local version
+    version=$("$scriptdir/get-latest-beta-deb")
     local answer
 
     read -r -p "Update scap to $version? " answer
@@ -59,9 +60,10 @@ encoded_remote_cmd=$(echo "$remote_cmd" | base64 -w0)
 
 # FIXME: Add IRC notification.
 
+# shellcheck disable=SC2029
 ssh deployment-cumin.deployment-prep.eqiad.wmflabs \
     sudo cumin \
     --no-progress \
     --force \
-    O{project:deployment-prep} \
-    "'echo $encoded_remote_cmd | base64 -d | bash'" 
+    'O{project:deployment-prep}' \
+    "'echo $encoded_remote_cmd | base64 -d | bash'"
