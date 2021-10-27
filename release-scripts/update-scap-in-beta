@@ -1,0 +1,67 @@
+#!/bin/bash
+
+set -eu -o pipefail
+
+function usage {
+    cat <<EOF
+Usage: $0 [ version ]
+
+Updates scap to the specified version on all deployment-prep hosts
+that already have scap installed.  If the version is not supplied, the
+latest version will be determined and you will be prompted for
+confirmation.
+
+EOF
+    exit 1
+}
+
+scriptdir=$(dirname "$0")
+
+VERSION=
+
+function get_latest_beta_and_confirm {
+    local version=$($scriptdir/get-latest-beta-deb)
+    local answer
+
+    read -r -p "Update scap to $version? " answer
+
+    case "$answer" in
+        y*)
+            VERSION="$version"
+            return
+            ;;
+        *)
+            echo "Cancelled"
+            exit 1
+            ;;
+    esac
+}
+
+
+if [ $# -eq 0 ]; then
+    get_latest_beta_and_confirm
+elif [ $# -eq 1 ]; then
+    case "$1" in
+        -h|--help)
+            usage
+            ;;
+        *)
+            VERSION="$1"
+            ;;
+    esac
+else
+    usage
+fi
+
+remote_cmd="if command -v scap >/dev/null; then export DEBIAN_FRONTEND=noninteractive && apt-get update && apt-get install -y --allow-downgrades scap=$VERSION; else echo no scap; fi"
+
+encoded_remote_cmd=$(echo "$remote_cmd" | base64 -w0)
+
+# FIXME: Add IRC notification.
+
+ssh deployment-cumin.deployment-prep.eqiad.wmflabs \
+    sudo cumin \
+    --no-progress \
+    --force \
+    O{project:deployment-prep} \
+    "'echo $encoded_remote_cmd | base64 -d | bash'" 

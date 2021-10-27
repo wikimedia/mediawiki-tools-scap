@@ -1,0 +1,45 @@
+#!/bin/bash
+
+# Prints information about what versions of the scap deb are installed on
+# deployment-prep hosts.
+
+set -eu -o pipefail
+
+remote_cmd='
+if command -v scap >/dev/null; then 
+   dpkg-query --show --showformat \${Version}\\n scap ;
+fi
+'
+
+encoded_remote_cmd=$(echo "$remote_cmd" | base64 -w0)
+
+format=brief
+
+case "$format" in
+    verbose)
+        ssh deployment-cumin.deployment-prep.eqiad.wmflabs \
+            sudo cumin \
+            --no-progress \
+            --force \
+            O{project:deployment-prep} \
+            "'echo $encoded_remote_cmd | base64 -d | bash'"
+        ;;
+    brief)
+        # Alternate output which just shows all versions in use, w/o
+        # the hostnames
+        ssh deployment-cumin.deployment-prep.eqiad.wmflabs \
+            sudo cumin \
+            --no-progress \
+            --force \
+            -o json \
+            O{project:deployment-prep} \
+            "'echo $encoded_remote_cmd | base64 -d | bash'" \
+            | fgrep -v "_____FORMATTED_OUTPUT_____" | jq -r '.[]' | sort -u --version-sort
+        ;;
+    *)
+        echo "Unknown format: $format"
+        exit 1
+        ;;
+esac
+
+        
