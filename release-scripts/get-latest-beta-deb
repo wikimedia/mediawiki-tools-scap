@@ -1,0 +1,8 @@
+#!/bin/bash
+
+# Prints the version of the most recently build scap deb in beta
+
+set -eu -o pipefail
+
+curl -fsS https://integration.wikimedia.org/ci/view/Beta/job/beta-publish-deb/lastSuccessfulBuild/artifact/VERSION
+

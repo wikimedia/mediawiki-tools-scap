@@ -6,6 +6,68 @@ to be followed by a member of the Release Engineering team.
 This document assumes that the codebase has already undergone manual
 and automated testing.
 
+## Test latest Scap code using the Beta Cluster
+
+Before you make a new release you should verify that the latest Scap
+code works in beta cluster.
+
+Whenever a Scap commit is merged, the
+[beta-build-scap-deb](https://integration.wikimedia.org/ci/view/Beta/job/beta-build-scap-deb/)
+Jenkins job builds a new deb file and triggers the
+[beta-publish-deb](https://integration.wikimedia.org/ci/view/Beta/job/beta-publish-deb/)
+to publish it.  These debs are not automatically installed on beta
+cluster hosts.  To install the latest deb on beta hosts, perform the following steps:
+
+(For these steps to work you must have ssh access to and sudo
+privileges on **deployment-cumin.deployment-prep.eqiad.wmflabs**)
+
+1. Run `release-scripts/scaps-installed-in-beta`.  It will print a
+list of the versions of Scap that are installed on beta hosts.  Save
+this information in case a rollback is needed.  Ideally there will
+just be one version reported but sometimes (read: frequently)
+situations arise on beta cluster that result in mismatches.
+
+1. Run `release-scripts/update-scap-in-beta`.  This will retrieve the
+latest available version of Scap, prompt you for confirmation, and (if
+you answer `y` or `yes`) install it on beta hosts that already have
+Scap installed.
+
+### Test the Scap deployment
+
+* Run the
+  [beta-scap-sync-world Jenkins job](https://integration.wikimedia.org/ci/job/beta-scap-sync-world/)
+  (click "Build now") or wait for it to run automatically
+  (runs every ten minutes)
+
+* If it fails (and it wasn't failing before), it's probably a new bug
+  in scap.  Revert back to the previous working version by running
+  `release-scripts/update-scap-in-beta OLDVERSION`, replacing
+  OLDVERSION with the version saved in earlier steps.
+
+* Manually run a deployment from deployment-deploy01 *(FIXME: This needs to be replaced by pre-release automated testing)*
+
+    * `ssh deployment-deploy01.deployment-prep.eqiad.wmflabs`
+    * `cd /srv/deployment/integration/slave-scripts`
+    * make a dummy change to README and commit it
+    * run: `scap version && dpkg -l scap`
+    * check the version numbers are correct
+    * run: `scap deploy -v 'testing scap3'`
+    * run: `scap deploy-log`
+    * kill that with control-C if it looks good
+    * output from 'scap deploy' might mention a host like
+      deployment-mediawiki-07.deployment-prep.eqiad.wmflabs; log in
+      there and check that
+      /srv/deployment/integration/slave-scripts-cache has a current
+      symlinked to a refs/... directory and that
+      /srv/deployment/integration/slave-scripts is a symlink to the
+      same revs directory: 
+      `ls -l /srv/deployment/integration/slave-scripts-cache /srv/deployment/integration/slave-scripts`
+
+### Let the release marinate in beta cluster for a while
+
+Let the new scap deb operate for some amount of time in beta cluster.
+How long is up to you.  When you are satisfied, move on with the remaining steps.
+
 ## Pick version number
 
 Pick a new version number, called VERS in these instructions.  A
@@ -13,7 +75,7 @@ version number might be, for example `1.2.3`.  Replace every instance
 of `VERS` in examples below with the version number. If the example
 says `VERS-1` that would result in `1.2.3-1`.
 
-* Edit `scap/version.py` and set the new version.
+* Edit `scap/version.py` and set the new version. *(FIXME: Automate)*
 
 ## Update debian changelog
 
@@ -43,69 +105,7 @@ $ git push origin HEAD:refs/for/master
 
 Someone will need to +2 the change to merge it.
 
-## Test deb package on the beta cluster
-
-You MUST have the following access:
-
-* ssh to **deployment-deploy01.deployment-prep.eqiad.wmflabs**
-* ssh to **deployment-cumin.deployment-prep.eqiad.wmflabs**; also you must have sudo there
-* login on <https://integration.wikimedia.org/ci> and the right to
-  trigger jobs
-
-Steps:
-
-* When the version-bumping commit has been merged, the
-  `beta-build-scap-deb` Jenkins job will be triggered.  Wait for the job
-  to finish.  When it finishes it will trigger the `beta-publish-deb`
-  job.  That job finishes within a few seconds.  Everything is now set
-  up for deploying the new deb to beta.
-
-* Install new package on all beta hosts with Scap already installed
-
-    * `ssh deployment-cumin.deployment-prep.eqiad.wmflabs`
-    * run: `sudo cumin --no-progress --force 'O{project:deployment-prep}' 'if command -v scap >/dev/null; then dpkg -l scap; fi'` to determine the version(s) of scap that are currently deployed in beta cluster.  Ideally there will just be one version but there have been cases where not all hosts carried the same version.  In that case you must select one of the versions to use as the "old" version in case you need to roll back.
-    * run: `sudo apt-get update`
-    * run: `VERSION=$(sudo LC_ALL=C apt-cache policy scap | grep 'Candidate:' | awk '{print $2}')` to determine the latest version of scap that has been published by the beta-publish-deb job.
-    * run: `echo $VERSION` to verify that the selected version looks ok.  It should be something like `4.0.0-1+0~20210914200047.52~1.gbp65cf53`.
-    * on the #wikimedia-operations IRC channel, say you're testing
-      Scap: `!log testing upcoming Scap release on beta`
-    * run: `sudo cumin -p90 'O{project:deployment-prep}' "if command -v scap; then apt-get update && apt-get install -y --allow-downgrades scap=$VERSION; else echo no scap; fi"`
-    * Unfortunately there are often a small number of hosts in the
-      beta cluster that are broken (e.g., full filesystem) and might
-      fail to install the new scap deb.  You will have to wade through
-      the cumin output to figure out what went wrong.
-
-* Run the following Jenkins job (click "Build now") or wait for it to
-  run automatically (runs every ten minutes):
-
-    * <https://integration.wikimedia.org/ci/job/beta-scap-sync-world/>
-    * If it fails (and it wasn't failing before), it's probably a new bug in scap; to revert back to the
-      previous, working version, run the cumin command above with the
-      previous version number for the package
-
-* Manually run a deployment from deployment-deploy01
-
-    * `ssh deployment-deploy01.deployment-prep.eqiad.wmflabs`
-    * `cd /srv/deployment/integration/slave-scripts`
-    * make a dummy change to README and commit it
-    * run: `scap version && dpkg -l scap`
-    * check the version numbers are correct
-    * run: `scap deploy -v 'testing scap3'`
-    * run: `scap deploy-log`
-    * kill that with control-C if it looks good
-    * output from 'scap deploy' might mention a host like
-      deployment-mediawiki-07.deployment-prep.eqiad.wmflabs; log in
-      there and check that
-      /srv/deployment/integration/slave-scripts-cache has a current
-      symlinked to a refs/... directory and that
-      /srv/deployment/integration/slave-scripts is a symlink to the
-      same revs directory: 
-      `ls -l /srv/deployment/integration/slave-scripts-cache /srv/deployment/integration/slave-scripts`
-
-## Let the release marinate in beta cluster for a while
-
-Let the new scap deb operate for some amount of time in beta cluster.
-How long is up to you.  
+After the merge, run `git pull --rebase`
 
 ## Tag the release in git
 
@@ -131,4 +131,4 @@ Please build and deploy the version 4.0.0 of scap using the instructions in http
 <other details that may be relevant>
 Thanks in advance!
 ```
-* tagged: scap serviceops release-engineering-team
+* tags: scap serviceops release-engineering-team
