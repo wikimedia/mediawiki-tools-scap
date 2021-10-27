@@ -7,31 +7,9 @@
 # the Scap source tree.
 
 version: v4
-base: docker-registry.wikimedia.org/wikimedia-stretch
-apt:
-  packages:
-    - bash-completion
-    - flake8
-    - git
-    - php-cli
-    - python3
-    - python3-jinja2
-    - python3-pygments
-    - python3-pytest
-    - python3-pytest-mock
-    - python3-requests
-    - python3-sphinx
-    - python3-sphinxcontrib.actdiag
-    - python3-sphinxcontrib.blockdiag
-    - python3-sphinxcontrib.programoutput
-    - python3-yaml
-runs:
-  environment:
-    LANG: C.UTF-8
-
-
 variants:
-  build:
+  test:
+    base: docker-registry.wikimedia.org/wikimedia-stretch
     copies: [local]
     apt:
       packages:
@@ -39,8 +17,10 @@ variants:
         - build-essential
         - ca-certificates
         - flake8
+        - git
         - libjpeg-dev
         - openssl
+        - php-cli
         - python3
         - python3-jinja2
         - python3-pygments
@@ -54,8 +34,8 @@ variants:
         - python3-yaml
         - zlib1g-dev
         - shellcheck
-  test:
-    includes: [build]
     entrypoint: [scripts/check]
     runs:
       insecurely: True
+      environment:
+        LANG: C.UTF-8
