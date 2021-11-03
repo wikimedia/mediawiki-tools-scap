@@ -1,3 +1,19 @@
+scap (4.0.3-1) unstable; urgency=medium
+
+  * Refactor scap.plugins.gerrit for use with backport command
+  * Simplify blubber.yaml
+  * Add shellcheck to scripts/check
+  * Remove obsolete scap-in-train-dev script
+  * Start of release process improvements
+  * debian: Remove outdated Suggests
+  * debian: Remove build dependencies from scap binary package
+  * don't backtrace on xxx requires SSH agent forwarding error
+  * Fix: Avoid accessing an undefine variable
+  * Report how long php-fpm restarts take
+  * Avoid cascading exception in handle_keyboard_interrupt()
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Wed, 03 Nov 2021 11:30:07 -0700
+
 scap (4.0.2-1) UNRELEASED; urgency=medium
 
   * Fix templating code for Python 3
