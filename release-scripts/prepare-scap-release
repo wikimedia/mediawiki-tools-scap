@@ -1,0 +1,44 @@
+#!/bin/bash
+
+# This script is expected to be run by a member of the Release
+# Engineering team in preparation for making a request to SRE build
+# and deploy a new Scap deb.
+
+set -eu -o pipefail
+
+function usage {
+    cat <<EOF
+Usage: $0 new-version
+EOF
+    exit 1
+}
+
+if [ "$#" -ne 1 ]; then
+    usage
+fi
+
+new_version="$1"
+old_version=$(sed -r -e 's/.*\"(.*)-.*\".*/\1/' scap/version.py)
+
+cat <<EOF
+Old version: $old_version
+New version: $new_version
+EOF
+
+read -r -p "Ready to proceed? " answer
+if [ "$answer" != "y" ]; then
+    echo Aborted.
+    exit 1
+fi
+
+cat <<EOF > scap/version.py
+__version__ = "${new_version}-1"
+EOF
+
+echo Updated scap/version.py
+cat scap/version.py
+
+"$(dirname "$0")/generate-changelog" "$old_version" "$new_version"
+
+git commit -m "Release ${new_version}-1" scap/version.py debian/changelog
+echo Completed

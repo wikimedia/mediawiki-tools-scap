@@ -75,22 +75,14 @@ version number might be, for example `1.2.3`.  Replace every instance
 of `VERS` in examples below with the version number. If the example
 says `VERS-1` that would result in `1.2.3-1`.
 
-* Edit `scap/version.py` and set the new version. *(FIXME: Automate)*
+## Update scap/version.py and debian/changelog
 
-## Update debian changelog
+Run `release-scripts/prepare-scap-release VERS`.  This will
+automatically update and commit `scap/version.py` and
+`debian/changelog`, prompting you for confirmation along the way.
 
-Install the `devscripts` package if not already installed (for the `dch` command).
-
-* Run `dch -v VERS-1`.  This will spawn an editor with a copy of
-  debian/changelog with a new changelog entry.  Populate the entry
-  with a list of changes from the prior release.  `debian/changelog`
-  will be updated when you exit the editor.
-
-* Run `DEBEMAIL=youraccount@wikimedia.org dch -r --distribution
-  unstable`.  This will spawn an editor.  Just save and exit.
-
-* Commit the changed files using git, using commit message summary
-  `Release VERS-1`.
+At this point you are welcome to further modify `debian/changelog` and
+update the commit.
 
 ## Perform a local deb build (optional)
 

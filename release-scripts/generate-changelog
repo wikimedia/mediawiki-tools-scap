@@ -1,0 +1,48 @@
+#!/bin/bash
+
+# This is a helper script used by prepare-scap-release
+
+set -eu -o pipefail
+
+function usage {
+    cat <<EOF
+Usage: $0 old-version new-version
+EOF
+    exit 1
+}
+
+if [ "$#" -ne 2 ]; then
+    usage
+fi
+
+old_version="$1"
+new_version="$2"
+
+tmp=$(mktemp)
+trap 'rm -f $tmp' EXIT
+
+cat <<EOF > "$tmp"
+scap (${new_version}-1) unstable; urgency=medium
+
+EOF
+git log --pretty='tformat:  * %s' --no-merges --no-decorate "$old_version.." >> "$tmp"
+cat <<EOF >> "$tmp"
+
+ -- $(git config user.name) <$(git config user.email)>  $(date -R)
+
+EOF
+
+echo "Proposed new changelog entry:"
+cat "$tmp"
+
+read -r -p "OK to update debian/changelog? " answer
+if [ "$answer" != "y" ]; then
+    echo Aborted.
+    exit 1
+fi
+
+cat debian/changelog >> "$tmp"
+cat "$tmp" > debian/changelog
+
+echo Done
+
