@@ -14,6 +14,7 @@ from pygments import highlight
 from pygments.lexers import JsonLexer
 from pygments.formatters import TerminalFormatter
 
+import re
 import json
 import logging
 
@@ -62,7 +63,7 @@ class GerritSession(object):
         self.session = Session()
 
         # get credentials from .netrc if one exists
-        self.session.auth = get_netrc_auth(self.api_uri)
+        self.session.auth = get_netrc_auth(self.api_url)
 
     def endpoint(self, path="/"):
         return GerritEndpoint(session=self, path=path)
@@ -75,6 +76,23 @@ class GerritSession(object):
 
     def change_detail(self, changeid, **kwargs):
         return ChangeDetail(changeid, session=self, **kwargs)
+
+    def change_number_from_url(self, url):
+        """Parses and returns the change number from the given URL."""
+
+        # verify URL is pointing at this Gerrit instance
+        if not url.startswith(self.url):
+            return None
+
+        # match either:
+        # {project-name}/+/{change-id}
+        # {project-name}/+/{change-id}/{revision}
+        match = re.search('/\+/(\d+)(?:/\d+)*$', url)
+
+        if match is None:
+            return None
+
+        return match.group(1)
 
     def change_revisions(self, changeid, **kwargs):
         return ChangeRevisions(changeid, session=self, **kwargs)
@@ -114,14 +132,14 @@ class GerritEndpoint(object):
 
     def _url(self, **kwargs):
         """Builds the url for http requests to this endpoint.
-        This is done by combining api_uri with self._path and then replacing
+        This is done by combining api_url with self._path and then replacing
         variable placeholders in the url with values from self.__dict__
 
         Variables can be overridden by calling this method with arbitrary
         keyword arguments which will take precedence over values from __dict__
         """
         if self._uri_template is None:
-            self._uri_template = Template("/".join((self._session.api_uri, self._path)))
+            self._uri_template = Template("/".join((self._session.api_url, self._path)))
 
         return self._uri_template.safe_substitute(urlencode_map(self.__dict__, kwargs))
 
@@ -159,7 +177,7 @@ class GerritEndpoint(object):
         uri = self._url()
         debug_log("POST to: %s", uri)
         debug_log("POST Data: %s", data)
-        dump_json(data)
+        debug_dump_json(data)
         res = self._session.post(uri, json=data, timeout=30)
         debug_log("Response: %s", res.text)
         return self.load(res)
@@ -169,7 +187,7 @@ class GerritEndpoint(object):
         uri = self._url()
         debug_log("PUT to: %s", uri)
         debug_log("PUT Data: %s", data)
-        dump_json(data)
+        debug_dump_json(data)
         res = self._session.put(uri, json=data, timeout=30)
         debug_log("Response: %s", res.text)
         return self.load(res)
@@ -268,15 +286,17 @@ class ProjectBranches(GerritEndpoint):
         return newbranch.put(data=data)
 
 
-def dump_json(data):
-    """ dump an object to the console as pretty-printed json"""
-    try:
-        json_str = gerrit_encoder(indent=2).encode(data)
-        output = highlight(json_str, JsonLexer(), TerminalFormatter())
-        print(output)
-    except Exception as e:
-        print(e)
-        print(data)
+def debug_dump_json(data):
+    """dump an object to the debug logger as pretty-printed json"""
+    logger = logging.getLogger()
+    if logger.isEnabledFor(logging.DEBUG):
+        try:
+            json_str = gerrit_encoder(indent=2).encode(data)
+            output = highlight(json_str, JsonLexer(), TerminalFormatter())
+            logger.debug(output)
+        except Exception as e:
+            logger.debug(e)
+            logger.debug(data)
 
 
 class gerrit_encoder(JSONEncoder):
