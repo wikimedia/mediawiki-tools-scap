@@ -206,21 +206,13 @@ class AbstractSync(cli.Application):
         return os.path.exists(wikiversionsphp)
 
     def _check_fatals(self):
-        errmsg = "Scap failed!: Call to mwscript eval.php {}: {}"
-
         try:
             stderr = mwscript("eval.php", "--wiki", "enwiki")
+            if stderr:
+                raise SystemExit("'mwscript eval.php --wiki enwiki' generated unexpected output: {}".format(stderr))
         except FailedCommand as e:
-            self.announce(errmsg.format("returned", e.exitcode))
-            if e.stdout:
-                self.announce("stdout: {}".format(e.stdout))
-            self.announce("stderr: {}".format(stderr))
-            raise RuntimeError(errmsg.format("returned", e.exitcode))
-
-        stderr = stderr.strip()
-        if stderr:
-            self.announce(errmsg.format("stderr", "not empty"))
-            raise RuntimeError(errmsg.format("stderr", stderr))
+            e._scap_no_backtrace = True
+            raise e
 
     def _check_sync_flag(self):
         sync_flag = os.path.join(self.config["stage_dir"], "sync.flag")
