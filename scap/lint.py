@@ -25,7 +25,7 @@ from __future__ import absolute_import
 import json
 import logging
 import os
-import subprocess
+import scap
 
 
 def check_valid_syntax(paths, procs=1):
@@ -44,10 +44,15 @@ def check_valid_syntax(paths, procs=1):
         "%s "
         "-not -type d "  # makes no sense to lint a dir named 'less.php'
         "-name '*.php' -not -name 'autoload_static.php' "
-        " -or -name '*.inc' | xargs -n1 -P%d -exec php -l >/dev/null 2>&1"
+        " -or -name '*.inc' | xargs -n1 -P%d -exec php -l 2>&1"
     ) % (" ".join(quoted_paths), procs)
     logger.debug("Running command: `%s`", cmd)
-    subprocess.check_call(cmd, shell=True)
+    try:
+        scap.runcmd._runcmd(cmd, shell=True)
+    except scap.runcmd.FailedCommand as e:
+        cleaned = clean_lint_output(e.stdout)
+        raise SystemExit("php lint failed:\n{}".format(cleaned))
+
     # Check validity of PHP and JSON files being synced
     for path in paths:
         if os.path.isfile(path):
@@ -61,6 +66,19 @@ def check_valid_syntax(paths, procs=1):
                     abspath = os.path.join(root, filename)
                     check_php_opening_tag(abspath)
                     check_valid_json_file(abspath)
+
+
+def clean_lint_output(output: str) -> str:
+    """
+    Returns a version of 'output' with lines that begin
+    with "No syntax errors detected in " or "xargs: php: exited with status"
+    removed.
+    """
+    return "\n".join([
+        line for line in output.splitlines()
+        if not line.startswith("No syntax errors detected in ")
+        and not line.startswith("xargs: php: exited with status")
+    ])
 
 
 def check_valid_json_file(path):
