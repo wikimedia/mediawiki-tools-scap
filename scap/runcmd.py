@@ -30,7 +30,7 @@ class FailedCommand(Exception):
         self.stderr = stderr
 
 
-def _runcmd(argv, **kwargs):
+def _runcmd(argv, **kwargs) -> str:
     """Run an external command, return its stdout
 
     Raises FailedCommand if command exit code is not zero.
@@ -49,6 +49,8 @@ def _runcmd(argv, **kwargs):
     # Set keyword arguments to capture stdout and stderr.
     kwargs["stdout"] = subprocess.PIPE
     kwargs["stderr"] = subprocess.PIPE
+    # Enable text mode
+    kwargs["universal_newlines"] = True
 
     # Open /dev/null so stdin can be redirected to come from there. This way,
     # if a command is accidentally invoked in a way that it reads from stdin,
@@ -77,12 +79,12 @@ def _runcmd(argv, **kwargs):
     return stdout
 
 
-def gitcmd(subcommand, *args, **kwargs):
+def gitcmd(subcommand, *args, **kwargs) -> str:
     """Run a git subcommand, return its stdout
 
     Return the output of git as a Unicode string.
     """
-    return _runcmd(["git", subcommand] + list(args), **kwargs).decode("UTF8")
+    return _runcmd(["git", subcommand] + list(args), **kwargs)
 
 
 def delete_file_in_tree(dirname, basename):
