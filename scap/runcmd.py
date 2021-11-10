@@ -19,10 +19,15 @@ class FailedCommand(Exception):
     """
 
     def __init__(self, command, exitcode, stdout, stderr):
+        if isinstance(command, str):
+            pass
+        elif isinstance(command, list):
+            command = " ".join(command)
+
         Exception.__init__(
             self,
-            "Command '{command}' failed with exit code {exitcode}; stderr:\n{stderr}".format(
-                command=command, exitcode=exitcode, stderr=stderr
+            "Command '{command}' failed with exit code {exitcode};\nstdout:\n{stdout}\nstderr:\n{stderr}".format(
+                command=command, exitcode=exitcode, stdout=stdout, stderr=stderr
             ),
         )
         self.exitcode = exitcode
@@ -71,7 +76,7 @@ def _runcmd(argv, **kwargs) -> str:
 
     # Check if command failed.
     if p.returncode != 0:
-        raise FailedCommand(" ".join(argv), p.returncode, stdout, stderr)
+        raise FailedCommand(argv, p.returncode, stdout, stderr)
 
     # All good, return captured stdout or stderr.
     if want_stderr:
