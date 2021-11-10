@@ -14,8 +14,8 @@ import subprocess
 class FailedCommand(Exception):
     """Exception for when a command fails (exits non-zero)
 
-    Exception attributes exitcode and stdout hold the command's exit
-    code and captured standard output.
+    Exception attributes exitcode, stdout, and stderr hold the command's exit
+    code, captured standard output, and captured standard error.
     """
 
     def __init__(self, command, exitcode, stdout, stderr):
