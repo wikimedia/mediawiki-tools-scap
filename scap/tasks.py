@@ -333,7 +333,7 @@ def sync_master(cfg, master, verbose=False, logger=None):
     # Execute rsync fetch locally via sudo and wrapper script
     rsync = ["sudo", "-n", "--", "/usr/local/bin/scap-master-sync", master]
 
-    logger.info("Copying from %s to %s", master, socket.getfqdn())
+    logger.info("Copying from %s to %s:/srv/mediawiki-staging", master, socket.getfqdn())
     logger.debug("Running rsync command: `%s`", " ".join(rsync))
     stats = log.Stats(cfg["statsd_host"], int(cfg["statsd_port"]))
     with log.Timer("rsync master", stats):
@@ -413,7 +413,7 @@ def sync_common(
     rsync.append("%s::common" % server)
     rsync.append(cfg["deploy_dir"])
 
-    logger.info("Copying from %s to %s", server, socket.getfqdn())
+    logger.info("Copying from %s:/srv/mediawiki-staging to %s:%s", server, socket.getfqdn(), cfg["deploy_dir"])
     logger.debug("Running rsync command: `%s`", " ".join(rsync))
     stats = log.Stats(cfg["statsd_host"], int(cfg["statsd_port"]))
     with log.Timer("rsync common", stats):
