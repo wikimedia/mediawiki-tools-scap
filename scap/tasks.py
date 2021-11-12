@@ -31,6 +31,7 @@ import json
 import logging
 import multiprocessing
 import os
+import pwd
 import shutil
 import socket
 import subprocess
@@ -550,46 +551,42 @@ def _call_rebuildLocalisationCache(
         lang = os.getenv("SCAP_MW_LANG")
 
     def _rebuild(store_class, file_extension):
-        with utils.sudo_temp_dir("www-data", "scap_l10n_" + store_class) as temp_dir:
-            existing_files_pattern = "%s/*.%s" % (out_dir, file_extension)
+        logging.info("Running rebuildLocalisationCache.php as www-data")
 
-            # Seed the temporary directory with the current files (if any)
-            if glob.glob(existing_files_pattern):
-                utils.sudo_check_call(
-                    "www-data",
-                    "cp %(existing_files_pattern)s '%(temp_dir)s'"
-                    % {
-                        "existing_files_pattern": existing_files_pattern,
-                        "temp_dir": temp_dir,
-                    },
-                )
-            # Generate the files into a temporary directory as www-data.
-            # Passing --skip-message-purge for T263872 (if delay_messageblobstore_purge feature
-            # flag is enabled).
-            utils.sudo_check_call(
-                "www-data",
-                "/usr/local/bin/mwscript rebuildLocalisationCache.php "
-                '--wiki="%(wikidb)s" --outdir="%(temp_dir)s" '
-                "--store-class=%(store_class)s "
-                "--threads=%(use_cores)s %(lang)s %(force)s %(quiet)s %(skip_message_purge)s"
-                % {
-                    "wikidb": wikidb,
-                    "temp_dir": temp_dir,
-                    "store_class": store_class,
-                    "use_cores": use_cores,
-                    "lang": "--lang " + lang if lang else "",
-                    "force": "--force" if force else "",
-                    "quiet": "--quiet" if quiet else "",
-                    "skip_message_purge": "--skip-message-purge" if delay_messageblobstore_purge else "",
-                },
-            )
+        www_data_uid = pwd.getpwnam("www-data").pw_uid
+        l10nupdate_uid = pwd.getpwnam("l10nupdate").pw_uid
 
-            # Copy the files into the real directory as l10nupdate
-            utils.sudo_check_call(
-                "l10nupdate",
-                'cp -r "%(temp_dir)s"/* "%(out_dir)s"'
-                % {"temp_dir": temp_dir, "out_dir": out_dir},
-            )
+        cache_dir_owner = os.stat(out_dir).st_uid
+
+        if cache_dir_owner == www_data_uid:
+            pass
+        elif cache_dir_owner == l10nupdate_uid:
+            # Deal with legacy setup where cache/l10n dir and files are
+            # owned by l10nupdate.   This code can be deleted once the legacy
+            # setup is removed (xref scap prep).
+            logging.warn("Blasting legacy L10N cache {} owned by l10nupdate".format(out_dir))
+            utils.sudo_check_call("l10nupdate", "rm -fr {}".format(out_dir))
+        else:
+            raise RuntimeError("{} is owned by unexpected uid {}".format(out_dir, cache_dir_owner))
+
+        # Passing --skip-message-purge for T263872 (if delay_messageblobstore_purge feature
+        # flag is enabled).
+        utils.sudo_check_call(
+            "www-data",
+            "/usr/local/bin/mwscript rebuildLocalisationCache.php "
+            '--wiki="%(wikidb)s" '
+            "--store-class=%(store_class)s "
+            "--threads=%(use_cores)s %(lang)s %(force)s %(quiet)s %(skip_message_purge)s"
+            % {
+                "wikidb": wikidb,
+                "store_class": store_class,
+                "use_cores": use_cores,
+                "lang": "--lang " + lang if lang else "",
+                "force": "--force" if force else "",
+                "quiet": "--quiet" if quiet else "",
+                "skip_message_purge": "--skip-message-purge" if delay_messageblobstore_purge else "",
+            },
+        )
 
     _rebuild("LCStoreCDB", "cdb")
 
@@ -689,10 +686,12 @@ def update_localization_cache(version, wikidb, verbose, cfg, logger=None):
     )
 
     # Include JSON versions of the CDB files and add MD5 files
-    logger.info("Generating JSON versions and md5 files")
+    cache_dir_owner = pwd.getpwuid(os.stat(cache_dir).st_uid).pw_name
     scap_path = os.path.join(os.path.dirname(sys.argv[0]), "scap")
+
+    logger.info("Generating JSON versions and md5 files (as {})".format(cache_dir_owner))
     utils.sudo_check_call(
-        "l10nupdate",
+        cache_dir_owner,
         "%s cdb-json-refresh "
         '--directory="%s" --threads=%s %s'
         % (scap_path, cache_dir, use_cores, verbose_messagelist),
