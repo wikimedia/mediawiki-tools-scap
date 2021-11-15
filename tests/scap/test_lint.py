@@ -24,12 +24,33 @@ from __future__ import absolute_import
 
 import os
 import tempfile
-from subprocess import CalledProcessError
 import sys
 
 import pytest
 
 from scap import lint
+
+
+def test_clean_lint_output():
+    output = """
+No syntax errors detected in /srv/mediawiki-staging/wmf-config/filebackend.php
+No syntax errors detected in /srv/mediawiki-staging/wmf-config/mc-labs.php
+No syntax errors detected in /srv/mediawiki-staging/wmf-config/abusefilter.php
+PHP Parse error:  syntax error, unexpected 'if' (T_IF) in /srv/mediawiki-staging/wmf-config/CommonSettings.php on line 52
+Errors parsing /srv/mediawiki-staging/wmf-config/CommonSettings.php
+No syntax errors detected in /srv/mediawiki-staging/wmf-config/wikitech.php
+No syntax errors detected in /srv/mediawiki-staging/wmf-config/db-codfw.php
+No syntax errors detected in /srv/mediawiki-staging/wmf-config/Wikibase.php
+No syntax errors detected in /srv/mediawiki-staging/wmf-config/PoolCounterSettings.php
+xargs: php: exited with status 255; aborting
+No syntax errors detected in /srv/mediawiki-staging/wmf-config/InitialiseSettings.php
+No syntax errors detected in /srv/mediawiki-staging/wmf-config/mc.php
+No syntax errors detected in /srv/mediawiki-staging/wmf-config/profiler.php
+No syntax errors detected in /srv/mediawiki-staging/wmf-config/trusted-xff.php
+"""
+    assert lint.clean_lint_output(output) == """
+PHP Parse error:  syntax error, unexpected 'if' (T_IF) in /srv/mediawiki-staging/wmf-config/CommonSettings.php on line 52
+Errors parsing /srv/mediawiki-staging/wmf-config/CommonSettings.php"""
 
 
 @pytest.mark.skipif(sys.platform == "darwin", reason="Requires GNU find")
@@ -38,10 +59,8 @@ def test_check_valid_syntax__invalid_php_file_raise_exception():
     with tempfile.NamedTemporaryFile(suffix=".php") as php_file:
         php_file.write(b"<?php blba")
         php_file.flush()
-        with pytest.raises(CalledProcessError) as cpe:
+        with pytest.raises(SystemExit):
             lint.check_valid_syntax(php_file.name)
-        exc = cpe.value
-        assert exc.returncode == 124, "php -l command exited with status 255"
 
 
 @pytest.mark.skipif(sys.platform == "darwin", reason="Requires GNU find")
