@@ -340,22 +340,20 @@ def sync_master(cfg, master, verbose=False, logger=None):
     with log.Timer("rsync master", stats):
         subprocess.check_call(rsync)
 
-    # Rebuild the CDB files from the JSON versions
+    # Rebuild the CDB files
+    use_cores = utils.cpus_for_jobs()
+    versions = utils.get_active_wikiversions(cfg["stage_dir"], cfg["wmf_realm"])
+
     with log.Timer("rebuild CDB staging files", stats):
-        subprocess.check_call(
-            [
-                "sudo",
-                "-u",
-                "l10nupdate",
-                "-n",
-                "--",
-                os.path.join(os.path.dirname(sys.argv[0]), "scap"),
-                "cdb-rebuild",
-                "--no-progress",
-                "--staging",
-                "--verbose",
-            ]
-        )
+        for version, wikidb in versions.items():
+            cache_dir = os.path.join(cfg["stage_dir"], "php-%s" % version, "cache", "l10n")
+            _call_rebuildLocalisationCache(
+                wikidb,
+                cache_dir,
+                use_cores,
+                php_l10n=cfg["php_l10n"],
+                delay_messageblobstore_purge=cfg["delay_messageblobstore_purge"],
+            )
 
 
 @utils.log_context("sync_common")
@@ -571,6 +569,10 @@ def _call_rebuildLocalisationCache(
 
         # Passing --skip-message-purge for T263872 (if delay_messageblobstore_purge feature
         # flag is enabled).
+        # Note: mwscript runs maintenance scripts from /srv/mediawiki-staging if it exists,
+        # otherwise it falls back to /srv/mediawiki.  If rebuildLocalisationCache.php is run
+        # from /srv/mediawiki-staging (the usual case), it will update files in
+        # /srv/mediawiki-staging/php-<vers>/cache/l10n
         utils.sudo_check_call(
             "www-data",
             "/usr/local/bin/mwscript rebuildLocalisationCache.php "

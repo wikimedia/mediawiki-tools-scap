@@ -279,6 +279,9 @@ class AbstractSync(cli.Application):
         if self.verbose:
             cmd.append("--verbose")
         cmd.append(socket.getfqdn())
+        lang = os.getenv("SCAP_MW_LANG")
+        if lang:
+            cmd = ["env", "SCAP_MW_LANG={}".format(lang)] + cmd
         return cmd
 
     def _proxy_sync_command(self):
