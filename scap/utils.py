@@ -664,8 +664,10 @@ def get_active_wikiversions(directory, realm):
         wikiversions = json.load(f)
 
     versions = {}
-    for wikidb, version in wikiversions.items():
-        version = version[4:]  # trim 'php-' from version
+    # Process keys in sorted order to ensure that we always use the same
+    # representative wikidb for a given version.
+    for wikidb in sorted(wikiversions.keys()):
+        version = wikiversions[wikidb][4:]  # trim 'php-' from version
         if version not in versions:
             versions[version] = wikidb
 
