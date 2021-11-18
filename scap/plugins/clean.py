@@ -51,7 +51,7 @@ class Clean(main.AbstractSync):
         Given a branch, go through the cleanup proccess on the master.
 
         (1) Remove l10nupdate cache
-        (2) Remove files owned by l10nupdate
+        (2) Remove files owned by l10nupdate and www-data
         (3) Remove <staging>/wmf-config/ExtensionMessages-<branch>.php file
         (4) Prune git branches [if --delete-gerrit-branch is supplied]
         (5) Remove all branch files
@@ -65,10 +65,11 @@ class Clean(main.AbstractSync):
                 "www-data", "rm -fR /var/lib/l10nupdate/caches/cache-%s" % branch
             )
 
-        with log.Timer("clean-l10nupdate-owned-files", self.get_stats()):
-            utils.sudo_check_call(
-                "l10nupdate", "find %s -user l10nupdate -delete" % self.branch_stage_dir
-            )
+        for user in ["l10nupdate", "www-data"]:
+            with log.Timer("clean-{}-owned-files".format(user), self.get_stats()):
+                utils.sudo_check_call(
+                    user, "find %s -user %s -delete" % (self.branch_stage_dir, user)
+                )
 
         with log.Timer("clean-ExtensionMessages"):
             ext_msg = os.path.join(

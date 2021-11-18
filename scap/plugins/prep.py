@@ -174,12 +174,9 @@ class CheckoutMediaWiki(cli.Application):
         self.get_logger().info("Creating LocalSettings.php stub")
         write_settings_stub(os.path.join(dest_dir, "LocalSettings.php"))
 
-        self.get_logger().info("Creating l10n cache dir")
+        self.get_logger().info("Creating cache dir")
         cache_dir = os.path.join(dest_dir, "cache")
         os.chmod(cache_dir, 0o777)
-        utils.sudo_check_call(
-            "l10nupdate", 'mkdir "%s"' % os.path.join(cache_dir, "l10n")
-        )
 
         self.get_logger().info(
             "MediaWiki %s successfully checked out." % checkout_version

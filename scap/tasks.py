@@ -551,21 +551,22 @@ def _call_rebuildLocalisationCache(
     def _rebuild(store_class, file_extension):
         logging.info("Running rebuildLocalisationCache.php as www-data")
 
-        www_data_uid = pwd.getpwnam("www-data").pw_uid
-        l10nupdate_uid = pwd.getpwnam("l10nupdate").pw_uid
+        # Deal with legacy setup where cache/l10n dir and files are
+        # owned by l10nupdate.  This block of code can be removed once
+        # a few trains have completed using the new code.
+        if os.path.exists(out_dir):
+            www_data_uid = pwd.getpwnam("www-data").pw_uid
+            l10nupdate_uid = pwd.getpwnam("l10nupdate").pw_uid
 
-        cache_dir_owner = os.stat(out_dir).st_uid
+            cache_dir_owner = os.stat(out_dir).st_uid
 
-        if cache_dir_owner == www_data_uid:
-            pass
-        elif cache_dir_owner == l10nupdate_uid:
-            # Deal with legacy setup where cache/l10n dir and files are
-            # owned by l10nupdate.   This code can be deleted once the legacy
-            # setup is removed (xref scap prep).
-            logging.warn("Blasting legacy L10N cache {} owned by l10nupdate".format(out_dir))
-            utils.sudo_check_call("l10nupdate", "rm -fr {}".format(out_dir))
-        else:
-            raise RuntimeError("{} is owned by unexpected uid {}".format(out_dir, cache_dir_owner))
+            if cache_dir_owner == www_data_uid:
+                pass
+            elif cache_dir_owner == l10nupdate_uid:
+                logging.warn("Blasting legacy L10N cache {} owned by l10nupdate".format(out_dir))
+                utils.sudo_check_call("l10nupdate", "rm -fr {}".format(out_dir))
+            else:
+                raise RuntimeError("{} is owned by unexpected uid {}".format(out_dir, cache_dir_owner))
 
         # Passing --skip-message-purge for T263872 (if delay_messageblobstore_purge feature
         # flag is enabled).
