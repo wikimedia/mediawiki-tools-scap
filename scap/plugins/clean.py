@@ -11,19 +11,6 @@ from scap import main
 from scap import ssh
 from scap import utils
 
-# basically everything except extensions, languages, resources and skins
-DELETABLE_DIRS = [
-    "cache",
-    "docs",
-    "images",
-    "includes",
-    "maintenance",
-    "mw-config",
-    "serialized",
-    "tests",
-    "vendor",
-]
-
 
 @cli.command("clean")
 class Clean(main.AbstractSync):
@@ -33,7 +20,7 @@ class Clean(main.AbstractSync):
     @cli.argument(
         "--delete",
         action="store_true",
-        help="Delete everything (not just static assets).",
+        help="Delete everything.  This is a legacy option which does not need to be supplied.",
     )
     @cli.argument(
         "--delete-gerrit-branch",
@@ -43,8 +30,6 @@ class Clean(main.AbstractSync):
     def main(self, *extra_args):
         """Clean old branches from the cluster for space savings."""
         self.arguments.message = "Pruned MediaWiki: %s" % self.arguments.branch
-        if not self.arguments.delete:
-            self.arguments.message += " [keeping static files]"
         self.arguments.force = False
         self.branch_stage_dir = os.path.join(
             self.config["stage_dir"], "php-%s" % self.arguments.branch
@@ -59,18 +44,18 @@ class Clean(main.AbstractSync):
             raise SystemExit(
                 'Branch "%s" is still in use, aborting' % self.arguments.branch
             )
-        self.cleanup_branch(self.arguments.branch, self.arguments.delete)
+        self.cleanup_branch(self.arguments.branch)
 
-    def cleanup_branch(self, branch, delete):
+    def cleanup_branch(self, branch):
         """
         Given a branch, go through the cleanup proccess on the master.
 
-        (1) Prune git branches [if deletion]
-        (2) Remove l10nupdate cache
-        (3) Remove l10n cache
-        (4) Remove l10n bootstrap file
-        (5) Remove some branch files [all if deletion]
-        (6) Remove security patches [if deletion]
+        (1) Remove l10nupdate cache
+        (2) Remove files owned by l10nupdate
+        (3) Remove <staging>/wmf-config/ExtensionMessages-<branch>.php file
+        (4) Prune git branches [if --delete-gerrit-branch is supplied]
+        (5) Remove all branch files
+        (6) Remove security patches
         """
         if not os.path.isdir(self.branch_stage_dir):
             raise SystemExit("No such branch exists, aborting")
@@ -95,37 +80,32 @@ class Clean(main.AbstractSync):
 
         logger = self.get_logger()
 
-        if delete:
-            # Moved behind a feature flag until T218750 is resolved
-            if self.arguments.delete_gerrit_branch:
-                git_prune_cmd = [
-                    "git",
-                    "push",
-                    "origin",
-                    "--quiet",
-                    "--delete",
-                    "wmf/%s" % branch,
-                ]
-                with log.Timer("prune-git-branches", self.get_stats()):
-                    # Prune all the submodules' remote branches
-                    with utils.cd(self.branch_stage_dir):
-                        submodule_cmd = 'git submodule foreach "{} ||:"'.format(
-                            " ".join(git_prune_cmd)
-                        )
-                        subprocess.check_output(submodule_cmd, shell=True)
-                        if subprocess.call(git_prune_cmd) != 0:
-                            logger.info("Failed to prune core branch")
-            with log.Timer("removing-local-copy"):
-                self._maybe_delete(self.branch_stage_dir)
-            with log.Timer("cleaning-unused-patches", self.get_stats()):
-                patch_base_dir = "/srv/patches"
-                self._maybe_delete(os.path.join(patch_base_dir, branch))
-                srv_patches_git_message = 'Scap clean for "{}"'.format(branch)
-                git.add_all(patch_base_dir, message=srv_patches_git_message)
-        else:
-            with log.Timer("cleaning-unused-files", self.get_stats()):
-                for rmdir in DELETABLE_DIRS:
-                    self._maybe_delete(os.path.join(self.branch_stage_dir, rmdir))
+        # Moved behind a feature flag until T218750 is resolved
+        if self.arguments.delete_gerrit_branch:
+            git_prune_cmd = [
+                "git",
+                "push",
+                "origin",
+                "--quiet",
+                "--delete",
+                "wmf/%s" % branch,
+            ]
+            with log.Timer("prune-git-branches", self.get_stats()):
+                # Prune all the submodules' remote branches
+                with utils.cd(self.branch_stage_dir):
+                    submodule_cmd = 'git submodule foreach "{} ||:"'.format(
+                        " ".join(git_prune_cmd)
+                    )
+                    subprocess.check_output(submodule_cmd, shell=True)
+                    if subprocess.call(git_prune_cmd) != 0:
+                        logger.info("Failed to prune core branch")
+        with log.Timer("removing-local-copy"):
+            self._maybe_delete(self.branch_stage_dir)
+        with log.Timer("cleaning-unused-patches", self.get_stats()):
+            patch_base_dir = "/srv/patches"
+            self._maybe_delete(os.path.join(patch_base_dir, branch))
+            srv_patches_git_message = 'Scap clean for "{}"'.format(branch)
+            git.add_all(patch_base_dir, message=srv_patches_git_message)
 
     def _after_cluster_sync(self):
         """
