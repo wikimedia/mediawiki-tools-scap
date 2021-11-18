@@ -56,7 +56,7 @@ class Clean(main.AbstractSync):
 
     def _before_cluster_sync(self):
         if self.arguments.branch in self.active_wikiversions():
-            raise ValueError(
+            raise SystemExit(
                 'Branch "%s" is still in use, aborting' % self.arguments.branch
             )
         self.cleanup_branch(self.arguments.branch, self.arguments.delete)
