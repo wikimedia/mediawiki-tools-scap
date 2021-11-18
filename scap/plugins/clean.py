@@ -73,7 +73,7 @@ class Clean(main.AbstractSync):
         (6) Remove security patches [if deletion]
         """
         if not os.path.isdir(self.branch_stage_dir):
-            raise ValueError("No such branch exists, aborting")
+            raise SystemExit("No such branch exists, aborting")
 
         with log.Timer("clean-l10nupdate-cache", self.get_stats()):
             utils.sudo_check_call(
