@@ -1,4 +1,4 @@
-scap (4.0.3-1) unstable; urgency=medium
+scap (4.0.3-2) unstable; urgency=medium
 
   * Refactor scap.plugins.gerrit for use with backport command
   * Simplify blubber.yaml
