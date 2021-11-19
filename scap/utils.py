@@ -443,7 +443,7 @@ def make_sudo_check_call_env(env):
 
 
 @log_context("sudo_check_call")
-def sudo_check_call(user, cmd, logger=None):
+def sudo_check_call(user, cmd, logger=None, logLevel=logging.DEBUG):
     """
     Run a command as a specific user.
 
@@ -475,7 +475,7 @@ def sudo_check_call(user, cmd, logger=None):
     fullOut = []
     for line in proc.stdout:
         line = line.strip()
-        logger.debug(line)
+        logger.log(logLevel, line)
         fullOut.append(line)
     # stdout has been read entirely by this point.
     proc.wait()
