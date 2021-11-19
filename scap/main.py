@@ -846,7 +846,7 @@ class SyncMaster(cli.Application):
     help="Sync local MediaWiki deployment directory with "
     "deploy server state (formerly sync-common)",
 )
-class SyncCommon(cli.Application):
+class SyncPull(cli.Application):
     """Sync local MediaWiki deployment directory with deploy server state."""
 
     @cli.argument(
