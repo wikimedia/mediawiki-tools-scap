@@ -44,9 +44,9 @@ Scap installed.
   `release-scripts/update-scap-in-beta OLDVERSION`, replacing
   OLDVERSION with the version saved in earlier steps.
 
-* Manually run a deployment from deployment-deploy01 *(FIXME: This needs to be replaced by pre-release automated testing)*
+* Manually run a deployment from deployment-deploy03 *(FIXME: This needs to be replaced by pre-release automated testing)*
 
-    * `ssh deployment-deploy01.deployment-prep.eqiad.wmflabs`
+    * `ssh deployment-deploy03.deployment-prep.eqiad1.wikimedia.cloud`
     * `cd /srv/deployment/integration/slave-scripts`
     * make a dummy change to README and commit it
     * run: `scap version && dpkg -l scap`
