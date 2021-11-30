@@ -627,15 +627,15 @@ def get_disclosable_head(repo_directory, remote_thing):
                 return ""
 
 
-def list_submodules(repo):
+def list_submodules(repo, args):
     """List all of the submodules of a given respository"""
     ensure_dir(repo)
     submodules = []
 
-    res = gitcmd("submodule", "status", cwd=repo)
+    res = gitcmd("submodule", "status", args, cwd=repo)
 
     for line in res.splitlines():
-        submodules.append(re.sub(r"-[a-f0-9]{40} ", "", line))
+        submodules.append(line.split()[1])
     return submodules
 
 
