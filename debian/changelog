@@ -1,3 +1,22 @@
+scap (4.1.0-1) unstable; urgency=medium
+
+  * scap clean / scap prep mods for T295304
+  * scap clean: Make --delete flag optional
+  * scap clean: Don't backtrace if in-use branch is supplied
+  * scap clean: No backtrace if non-existent branch is supplied
+  * get_active_wikiversions: Sort wikiversions keys before scanning
+  * sync_master: Use same CDB rebuild technique as main deploy server
+  * lint.py: Supply useful output on lint fail
+  * Avoid copying L10N files to/from /tmp on deploy server
+  * Clarify some scap messages
+  * Improve _check_fatals error reporting
+  * runcmd/FailedCommand error reporting improvements
+  * Make _runcmd and gitcmd return strings, not bytes
+  * Update FailedCommand documentation
+  * backport: Approve selected/given changes
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Wed, 01 Dec 2021 09:27:22 -0800
+
 scap (4.0.3-2) unstable; urgency=medium
 
   * Refactor scap.plugins.gerrit for use with backport command
