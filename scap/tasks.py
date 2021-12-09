@@ -149,6 +149,27 @@ def endpoint_canary_checks(canaries, url, spec_path="/spec.yaml", cores=2):
     return (len(done) - len(failed), len(failed))
 
 
+def cache_git_info_helper(subdir, branch_dir, cache_dir):
+    try:
+        new_info = git.info(subdir)
+    except IOError:
+        return
+
+    cache_file = git.info_filename(subdir, branch_dir, cache_dir)
+
+    old_info = None
+
+    if os.path.exists(cache_file):
+        with open(cache_file, "r") as f:
+            old_info = json.load(f)
+
+    if new_info == old_info:
+        return
+
+    with open(cache_file, "w") as f:
+        json.dump(new_info, f)
+
+
 def cache_git_info(version, cfg):
     """
     Create JSON cache files of git branch information.
@@ -167,24 +188,17 @@ def cache_git_info(version, cfg):
     if not os.path.isdir(cache_dir):
         os.mkdir(cache_dir)
 
-    # Create cache for branch
-    info = git.info(branch_dir)
-    cache_file = git.info_filename(branch_dir, branch_dir, cache_dir)
-    with open(cache_file, "w") as f:
-        json.dump(info, f)
+    inputs = []
 
-    # Create cache for each extension and skin
+    inputs.append((branch_dir, branch_dir, cache_dir))
     for dirname in ["extensions", "skins"]:
         full_dir = os.path.join(branch_dir, dirname)
         for subdir in utils.iterate_subdirectories(full_dir):
-            try:
-                info = git.info(subdir)
-            except IOError:
-                pass
-            else:
-                cache_file = git.info_filename(subdir, branch_dir, cache_dir)
-                with open(cache_file, "w") as f:
-                    json.dump(info, f)
+            inputs.append((subdir, branch_dir, cache_dir))
+
+    # Create cache for core and each extension and skin
+    with multiprocessing.Pool(utils.cpus_for_jobs()) as p:
+        p.starmap(cache_git_info_helper, inputs)
 
 
 @utils.log_context("compile_wikiversions")
