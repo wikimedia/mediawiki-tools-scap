@@ -57,7 +57,6 @@ DEFAULT_RSYNC_ARGS = [
     "--compress",
     "--new-compress",
     "--delete",
-    "--exclude=**/cache/l10n/*.cdb",
     "--exclude=*.swp",
     "--no-perms",
 ]
@@ -276,6 +275,7 @@ def compile_wikiversions(source_tree, cfg, logger=None):
     logger.info("Compiled %s to %s", json_file, php_file)
 
 
+# Called by scap cdb-rebuild (main.py) if "rsync_cdbs" is False
 @utils.log_context("merge_cdb_updates")
 def merge_cdb_updates(directory, pool_size, trust_mtime=False, mute=False, logger=None):
     """
@@ -346,7 +346,10 @@ def sync_master(cfg, master, verbose=False, logger=None):
         )
 
     # Execute rsync fetch locally via sudo and wrapper script
-    rsync = ["sudo", "-n", "--", "/usr/local/bin/scap-master-sync", master]
+    rsync = ["sudo", "-n", "--", "/usr/local/bin/scap-master-sync"]
+    if cfg["rsync_cdbs"] is True:
+        rsync.append("-c")
+    rsync.append(master)
 
     logger.info("Copying from %s to %s:/srv/mediawiki-staging", master, socket.getfqdn())
     logger.debug("Running rsync command: `%s`", " ".join(rsync))
@@ -354,22 +357,24 @@ def sync_master(cfg, master, verbose=False, logger=None):
     with log.Timer("rsync master", stats):
         subprocess.check_call(rsync)
 
-    # Rebuild the CDB files
-    use_cores = utils.cpus_for_jobs()
-    versions = utils.get_active_wikiversions(cfg["stage_dir"], cfg["wmf_realm"])
+    if cfg["rsync_cdbs"] is False:
+        # Rebuild the CDB files
+        use_cores = utils.cpus_for_jobs()
+        versions = utils.get_active_wikiversions(cfg["stage_dir"], cfg["wmf_realm"])
 
-    with log.Timer("rebuild CDB staging files", stats):
-        for version, wikidb in versions.items():
-            cache_dir = os.path.join(cfg["stage_dir"], "php-%s" % version, "cache", "l10n")
-            _call_rebuildLocalisationCache(
-                wikidb,
-                cache_dir,
-                use_cores,
-                php_l10n=cfg["php_l10n"],
-                delay_messageblobstore_purge=cfg["delay_messageblobstore_purge"],
-            )
+        with log.Timer("rebuild CDB staging files", stats):
+            for version, wikidb in versions.items():
+                cache_dir = os.path.join(cfg["stage_dir"], "php-%s" % version, "cache", "l10n")
+                _call_rebuildLocalisationCache(
+                    wikidb,
+                    cache_dir,
+                    use_cores,
+                    php_l10n=cfg["php_l10n"],
+                    delay_messageblobstore_purge=cfg["delay_messageblobstore_purge"],
+                )
 
 
+# Called via "scap pull"
 @utils.log_context("sync_common")
 def sync_common(
     cfg, include=None, sync_from=None, verbose=False, logger=None, rsync_args=None
@@ -411,6 +416,10 @@ def sync_common(
     rsync = ["sudo", "-u", "mwdeploy", "-n", "--"] + DEFAULT_RSYNC_ARGS
     # Exclude .git metadata
     rsync.append("--exclude=**/.git")
+
+    if cfg["rsync_cdbs"] is False:
+        rsync.append("--exclude=**/cache/l10n/*.cdb")
+
     if verbose:
         rsync.append("--verbose")
 
@@ -465,6 +474,7 @@ def sync_wikiversions(hosts, cfg, key=None):
         ).run()
 
 
+# Called by update_l10n_cdb_wrapper (below)
 @utils.log_context("update_l10n_cdb")
 def update_l10n_cdb(cache_dir, cdb_file, trust_mtime=False, logger=None):
     """
@@ -526,6 +536,7 @@ def update_l10n_cdb(cache_dir, cdb_file, trust_mtime=False, logger=None):
     return False
 
 
+# Called by merge_cdb_updates
 @utils.log_context("update_l10n_cdb_wrapper")
 def update_l10n_cdb_wrapper(args, logger=None):
     """Wrapper for update_l10n_cdb to be used in contexts where only a single
@@ -702,17 +713,23 @@ def update_localization_cache(version, wikidb, verbose, cfg, logger=None):
         delay_messageblobstore_purge=cfg["delay_messageblobstore_purge"],
     )
 
-    # Include JSON versions of the CDB files and add MD5 files
     cache_dir_owner = pwd.getpwuid(os.stat(cache_dir).st_uid).pw_name
-    scap_path = os.path.join(os.path.dirname(sys.argv[0]), "scap")
 
-    logger.info("Generating JSON versions and md5 files (as {})".format(cache_dir_owner))
-    utils.sudo_check_call(
-        cache_dir_owner,
-        "%s cdb-json-refresh "
-        '--directory="%s" --threads=%s %s'
-        % (scap_path, cache_dir, use_cores, verbose_messagelist),
-    )
+    if cfg["rsync_cdbs"]:
+        upstream_dir = os.path.join(cache_dir, "upstream")
+        if os.path.exists(upstream_dir):
+            logger.info("Deleting {}".format(upstream_dir))
+            utils.sudo_check_call(cache_dir_owner, "rm -fr {}".format(upstream_dir))
+    else:
+        # Include JSON versions of the CDB files and add MD5 files
+        scap_path = os.path.join(os.path.dirname(sys.argv[0]), "scap")
+        logger.info("Generating JSON versions and md5 files (as {})".format(cache_dir_owner))
+        utils.sudo_check_call(
+            cache_dir_owner,
+            "%s cdb-json-refresh "
+            '--directory="%s" --threads=%s %s'
+            % (scap_path, cache_dir, use_cores, verbose_messagelist),
+        )
 
 
 def refresh_cdb_json_files(in_dir, pool_size, verbose):

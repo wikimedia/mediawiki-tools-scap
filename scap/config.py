@@ -87,6 +87,7 @@ DEFAULT_CONFIG = {
     "php_l10n": (bool, False),  # Feature flag for PHP l10n file generation
     "cache_revs": (int, 5),
     "use_syslog": (bool, False),
+    "rsync_cdbs": (bool, False),
 }
 
 

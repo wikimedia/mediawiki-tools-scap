@@ -275,7 +275,8 @@ class AbstractSync(cli.Application):
 
     def _master_sync_command(self):
         """Synchronization command to run on the master hosts."""
-        cmd = [self.get_script_path(), "pull-master"]
+        cmd = [self.get_script_path(), "pull-master",
+               "-D", "rsync_cdbs:{}".format(self.config["rsync_cdbs"])]
         if self.verbose:
             cmd.append("--verbose")
         cmd.append(socket.getfqdn())
@@ -286,7 +287,8 @@ class AbstractSync(cli.Application):
 
     def _proxy_sync_command(self):
         """Synchronization command to run on the proxy hosts."""
-        cmd = [self.get_script_path(), "pull", "--no-php-restart", "--no-update-l10n"]
+        cmd = [self.get_script_path(), "pull", "--no-php-restart", "--no-update-l10n",
+               "-D", "rsync_cdbs:{}".format(self.config["rsync_cdbs"])]
         if self.verbose:
             cmd.append("--verbose")
         return cmd
@@ -764,24 +766,26 @@ class ScapWorld(AbstractSync):
 
     def _after_cluster_sync(self):
         target_hosts = self._get_target_list()
-        # Ask apaches to rebuild l10n CDB files
-        with log.Timer("scap-cdb-rebuild", self.get_stats()):
-            rebuild_cdbs = ssh.Job(
-                target_hosts, user=self.config["ssh_user"], key=self.get_keyholder_key()
-            )
-            rebuild_cdbs.shuffle()
-            rebuild_cdbs.command(
-                "sudo -u mwdeploy -n -- %s cdb-rebuild" % self.get_script_path()
-            )
-            rebuild_cdbs.progress(
-                log.reporter("scap-cdb-rebuild", self.config["fancy_progress"])
-            )
-            succeeded, failed = rebuild_cdbs.run()
-            if failed:
-                self.get_logger().warning(
-                    "%d hosts had scap-cdb-rebuild errors", failed
+
+        if self.config["rsync_cdbs"] is False:
+            # Ask apaches to rebuild l10n CDB files
+            with log.Timer("scap-cdb-rebuild", self.get_stats()):
+                rebuild_cdbs = ssh.Job(
+                    target_hosts, user=self.config["ssh_user"], key=self.get_keyholder_key()
                 )
-                self.soft_errors = True
+                rebuild_cdbs.shuffle()
+                rebuild_cdbs.command(
+                    "sudo -u mwdeploy -n -- %s cdb-rebuild" % self.get_script_path()
+                )
+                rebuild_cdbs.progress(
+                    log.reporter("scap-cdb-rebuild", self.config["fancy_progress"])
+                )
+                succeeded, failed = rebuild_cdbs.run()
+                if failed:
+                    self.get_logger().warning(
+                        "%d hosts had scap-cdb-rebuild errors", failed
+                    )
+                    self.soft_errors = True
 
         # Update and sync wikiversions.php
         succeeded, failed = tasks.sync_wikiversions(
@@ -887,7 +891,8 @@ class SyncPull(cli.Application):
             verbose=self.verbose,
             rsync_args=rsync_args,
         )
-        if self.arguments.update_l10n:
+
+        if self.config["rsync_cdbs"] is False and self.arguments.update_l10n:
             with log.Timer("scap-cdb-rebuild", self.get_stats()):
                 utils.sudo_check_call(
                     "mwdeploy", self.get_script_path() + " cdb-rebuild --no-progress"
@@ -949,7 +954,8 @@ class SyncFile(AbstractSync):
         self._restart_php()
 
     def _proxy_sync_command(self):
-        cmd = [self.get_script_path(), "pull", "--no-update-l10n", "--no-php-restart"]
+        cmd = [self.get_script_path(), "pull", "--no-update-l10n", "--no-php-restart",
+               "-D", "rsync_cdbs:{}".format(self.config["rsync_cdbs"])]
 
         if "/" in self.include:
             parts = self.include.split("/")
@@ -1005,7 +1011,8 @@ class SyncL10n(AbstractSync):
         self.include = "%s/***" % relpath
 
     def _proxy_sync_command(self):
-        cmd = [self.get_script_path(), "pull", "--no-update-l10n", "--no-php-restart"]
+        cmd = [self.get_script_path(), "pull", "--no-update-l10n", "--no-php-restart",
+               "-D", "rsync_cdbs:{}".format(self.config["rsync_cdbs"])]
 
         parts = self.include.split("/")
         for i in range(1, len(parts)):
@@ -1022,23 +1029,24 @@ class SyncL10n(AbstractSync):
     def _after_cluster_sync(self):
         # Rebuild l10n CDB files
         target_hosts = self._get_target_list()
-        with log.Timer("scap-cdb-rebuild", self.get_stats()):
-            rebuild_cdbs = ssh.Job(
-                target_hosts, user=self.config["ssh_user"], key=self.get_keyholder_key()
-            )
-            rebuild_cdbs.shuffle()
-            cdb_cmd = "sudo -u mwdeploy -n -- {} cdb-rebuild --version {}"
-            cdb_cmd = cdb_cmd.format(self.get_script_path(), self.arguments.version)
-            rebuild_cdbs.command(cdb_cmd)
-            rebuild_cdbs.progress(
-                log.reporter("scap-cdb-rebuild", self.config["fancy_progress"])
-            )
-            succeeded, failed = rebuild_cdbs.run()
-            if failed:
-                self.get_logger().warning(
-                    "%d hosts had scap-cdb-rebuild errors", failed
+        if self.config["rsync_cdbs"] is False:
+            with log.Timer("scap-cdb-rebuild", self.get_stats()):
+                rebuild_cdbs = ssh.Job(
+                    target_hosts, user=self.config["ssh_user"], key=self.get_keyholder_key()
                 )
-                self.soft_errors = True
+                rebuild_cdbs.shuffle()
+                cdb_cmd = "sudo -u mwdeploy -n -- {} cdb-rebuild --version {}"
+                cdb_cmd = cdb_cmd.format(self.get_script_path(), self.arguments.version)
+                rebuild_cdbs.command(cdb_cmd)
+                rebuild_cdbs.progress(
+                    log.reporter("scap-cdb-rebuild", self.config["fancy_progress"])
+                )
+                succeeded, failed = rebuild_cdbs.run()
+                if failed:
+                    self.get_logger().warning(
+                        "%d hosts had scap-cdb-rebuild errors", failed
+                    )
+                    self.soft_errors = True
         tasks.clear_message_blobs(self.config)
         # Globally invalidate opcache. TODO: is this needed?
         self._invalidate_opcache(target_hosts)
@@ -1146,6 +1154,9 @@ class RefreshCdbJsonFiles(cli.Application):
         cdb_dir = os.path.realpath(self.arguments.directory)
         upstream_dir = os.path.join(cdb_dir, "upstream")
         use_cores = self.arguments.threads
+
+        if self.config["rsync_cdbs"]:
+            raise SystemExit("scap cdb-json-refresh is incompatible with rsync_cdbs:True")
 
         if not os.path.isdir(cdb_dir):
             raise IOError(errno.ENOENT, "Directory does not exist", cdb_dir)
