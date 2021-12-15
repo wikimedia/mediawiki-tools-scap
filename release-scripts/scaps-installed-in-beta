@@ -5,6 +5,30 @@
 
 set -eu -o pipefail
 
+function usage {
+    cat <<EOF
+Usage: $0 [ -v ]
+
+-v: Enable verbose output
+
+EOF
+    exit 1
+}
+
+format=brief
+
+while getopts "v" o; do
+    case "${o}" in
+        v)
+            format=verbose
+            ;;
+        *)
+            usage
+            ;;
+    esac
+done
+shift $((OPTIND-1))
+
 # shellcheck disable=SC2016
 remote_cmd='
 if command -v scap >/dev/null; then
@@ -13,8 +37,6 @@ fi
 '
 
 encoded_remote_cmd=$(echo "$remote_cmd" | base64 -w0)
-
-format=brief
 
 case "$format" in
     verbose)
