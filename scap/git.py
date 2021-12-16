@@ -315,8 +315,9 @@ def remote_set(location, repo, remote="origin"):
     """set the remote at location to repo"""
     ensure_dir(location)
     if remote_exists(location, remote):
-        gitcmd("remote", "rm", remote, cwd=location)
-    gitcmd("remote", "add", remote, repo, cwd=location)
+        gitcmd("remote", "set-url", remote, repo, cwd=location)
+    else:
+        gitcmd("remote", "add", remote, repo, cwd=location)
 
 
 def fetch(
