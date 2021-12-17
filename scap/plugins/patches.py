@@ -131,23 +131,21 @@ class Patch:
 
     def apply(self, srcroot):
         srcdir = os.path.join(srcroot, self._relative)
-        sys.stdout.write("\nApplying patch %s in %s\n" % (self.path(), srcroot))
+        print("Applying patch %s in %s" % (self.path(), srcroot))
 
         try:
             if not git_is_clean(srcdir):
-                sys.stderr.write("ERROR: git is not clean: %s\n\n" % srcdir)
+                print("ERROR: git is not clean: %s" % srcdir)
                 return FAILED
         except FailedCommand as e:
-            sys.stderr.write("ERROR: git is clean: %s\n\n" % e.stderr)
+            print("ERROR: git is clean: %s" % e.stderr)
             return FAILED
 
         try:
             output = gitcmd("am", "--3way", self.path(), cwd=srcdir)
         except FailedCommand as e:
-            sys.stderr.write("ERROR: git am: %s\n\n" % e.stderr)
+            print("ERROR: git am: %s" % e.stderr)
             return FAILED
-
-        sys.stdout.write("\n")
 
         if "already applied" in output:
             return ALREADY_APPLIED
