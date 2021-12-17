@@ -43,7 +43,7 @@ def write_settings_stub(dest):
         + "# Managed by scap (mediawiki-config:/scap/plugins/prep.py)\n"
         + "# WARNING: This file is publically viewable on the web. "
         + "Do not put private data here.\n"
-        + 'require __DIR__ . "/../wmf-config/CommonSettings.php";'
+        + 'require __DIR__ . "/../wmf-config/CommonSettings.php";\n'
     )
     with open(dest, "w+") as destfile:
         destfile.write(file_stub)
