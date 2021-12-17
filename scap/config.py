@@ -74,6 +74,7 @@ DEFAULT_CONFIG = {
     "config_deploy": (bool, False),
     "mediawiki_canary_swagger_url": (str, "http://en.wikipedia.org"),
     "mediawiki_canary_swagger_spec_path": (str, "/spec.yaml"),
+    "operations_mediawiki_config_branch": (str, "master"),
     "nrpe_dir": (str, "/etc/nagios/nrpe.d"),
     "require_valid_service": (bool, False),
     "scap3_mediawiki": (bool, False),
