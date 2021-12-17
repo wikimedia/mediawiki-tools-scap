@@ -10,13 +10,13 @@ from scap import cli
 from scap.runcmd import gitcmd, FailedCommand
 
 APPLIED = 1
-OK = 2
+ALREADY_APPLIED = 2
 FAILED = 3
 SKIPPED = 4
 
 KNOWN_RESULTS = {
     APPLIED: "APPLIED",
-    OK: "OK",
+    ALREADY_APPLIED: "ALREADY APPLIED",
     FAILED: "FAILED",
     SKIPPED: "SKIPPED",
 }
@@ -150,7 +150,7 @@ class Patch:
         sys.stdout.write("\n")
 
         if "already applied" in output:
-            return OK
+            return ALREADY_APPLIED
         return APPLIED
 
 
