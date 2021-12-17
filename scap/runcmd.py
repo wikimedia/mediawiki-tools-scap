@@ -60,14 +60,13 @@ def _runcmd(argv, **kwargs) -> str:
     # Open /dev/null so stdin can be redirected to come from there. This way,
     # if a command is accidentally invoked in a way that it reads from stdin,
     # it won't get stuck.
-    with open("/dev/null", "rb") as devnull:
-        kwargs["stdin"] = devnull
+    kwargs["stdin"] = subprocess.DEVNULL
 
-        # Invoke the commmand.
-        logging.debug(
-            "Running {argv!r} with {kwargs!r}".format(argv=argv, kwargs=kwargs)
-        )
-        p = subprocess.Popen(argv, **kwargs)
+    # Invoke the commmand.
+    logging.debug(
+        "Running {argv!r} with {kwargs!r}".format(argv=argv, kwargs=kwargs)
+    )
+    p = subprocess.Popen(argv, **kwargs)
 
     # Wait for command to finish.
     (stdout, stderr) = p.communicate()
