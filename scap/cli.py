@@ -149,20 +149,25 @@ class Application(object):
                 self._announce_logger = logging.getLogger("scap.announce")
             self._announce_logger.info(*args)
 
-    def active_wikiversions(self, source_tree="deploy"):
+    def active_wikiversions(self, source_tree="deploy", return_type=list):
         """
-         Get an ordered collection of active MediaWiki versions.
+         Get an ordered list or dictionary of active MediaWiki versions.
 
-         :param source_tree: Source tree to read file from: 'deploy' or 'stage'
+        :param source_tree: Source tree to read file from: 'deploy' or 'stage'
 
-        :returns: collections.OrderedDict of {version:wikidb} values sorted by
-                  version number in ascending order.  'wikidb' will be the
-                  first-seen wikidb for 'version'.  This can be used by
-                  operations that need a db but don't care which wiki's db is
-                  used.
+        :param return_type: One of list or dict.
+
+        :returns: If return_type is list (the default), returns a list of
+                  version strings (like "1.38.0-wmf.4") in ascending order.
+
+                  If return_type is dict, returns a collections.OrderedDict of
+                  {version:wikidb} values sorted by version number in ascending
+                  order.  'wikidb' will be the first-seen wikidb for 'version'.
+                  This can be used by operations that need a db but don't care
+                  which wiki's db is used.
         """
         return utils.get_active_wikiversions(
-            self.config[source_tree + "_dir"], self.config["wmf_realm"]
+            self.config[source_tree + "_dir"], self.config["wmf_realm"], return_type
         )
 
     def _process_arguments(self, args, extra_args):

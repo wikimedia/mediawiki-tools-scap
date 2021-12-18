@@ -197,10 +197,10 @@ def test_active_wikiversions(app, mocker):
     app.config = {"deploy_dir": "dir", "wmf_realm": "realm", "datacenter": "dc"}
     ga = mocker.patch("scap.utils.get_active_wikiversions")
     app.active_wikiversions()
-    ga.assert_called_with("dir", "realm")
+    ga.assert_called_with("dir", "realm", list)
     app.config["pinkunicorn_dir"] = "pinkunicorn"
     app.active_wikiversions("pinkunicorn")
-    ga.assert_called_with("pinkunicorn", "realm")
+    ga.assert_called_with("pinkunicorn", "realm", list)
 
 
 def test_process_arguments_error(app):

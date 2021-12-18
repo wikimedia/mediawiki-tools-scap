@@ -646,11 +646,15 @@ def move_symlink(source, dest):
         os.symlink(rsource, rdest)
 
 
-def get_active_wikiversions(directory, realm):
+def get_active_wikiversions(directory, realm, return_type=list):
     """
     Get an ordered collection of active MediaWiki versions.
 
-    :returns: collections.OrderedDict of {version:wikidb} values sorted by
+    :returns: If 'return_type' is list (the default), returns a list of
+              versions, sorted in ascending order.
+
+              If 'return_type' is dict (the default), returns a
+              collections.OrderedDict of {version:wikidb} values sorted by
               version number in ascending order.  'wikidb' will be the
               first-seen wikidb for 'version'.  This can be used by
               operations that need a db but don't care which wiki's db is
@@ -677,7 +681,13 @@ def get_active_wikiversions(directory, realm):
         sorted(versions.items(), key=lambda v: distutils.version.LooseVersion(v[0]))
     )
 
-    return sorted_versions
+    if return_type == dict:
+        return sorted_versions
+
+    if return_type == list:
+        return list(sorted_versions.keys())
+
+    raise ValueError("Unexpected return_type: {}".format(return_type))
 
 
 def find_upwards(name, starting_point=os.getcwd()):

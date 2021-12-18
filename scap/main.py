@@ -187,7 +187,7 @@ class AbstractSync(cli.Application):
 
         # Compute git version information
         with log.Timer("cache_git_info", self.get_stats()):
-            for version, wikidb in self.active_wikiversions().items():
+            for version in self.active_wikiversions():
                 tasks.cache_git_info(version, self.config)
 
     def _can_run_check_fatals(self):
@@ -572,7 +572,7 @@ class MWVersionsInUse(cli.Application):
             source_tree = "stage"
         else:
             source_tree = "deploy"
-        versions = self.active_wikiversions(source_tree)
+        versions = self.active_wikiversions(source_tree, return_type=dict)
 
         if self.arguments.withdb:
             output = [
@@ -628,11 +628,11 @@ class RebuildCdbs(cli.Application):
             if version not in versions:
                 raise IOError(errno.ENOENT, "Version not active", version)
 
-            # Replace dict of active versions with the single version selected
-            versions = {version: versions[version]}
+            # Replace list of active versions with the single version selected
+            versions = [version]
 
         # Rebuild the CDB files from the JSON versions
-        for version in versions.keys():
+        for version in versions:
             cache_dir = os.path.join(root_dir, "php-%s" % version, "cache", "l10n")
             tasks.merge_cdb_updates(cache_dir, use_cores, True, self.arguments.mute)
 
@@ -759,7 +759,7 @@ class ScapWorld(AbstractSync):
             self.get_logger().warn("Skipping l10n-update")
         else:
             with log.Timer("l10n-update", self.get_stats()):
-                for version, wikidb in self.active_wikiversions().items():
+                for version, wikidb in self.active_wikiversions(return_type=dict).items():
                     tasks.update_localization_cache(
                         version, wikidb, self.verbose, self.config
                     )
@@ -1083,7 +1083,7 @@ class SyncWikiversions(AbstractSync):
         for every branch of mediawiki that is referenced in wikiversions.json
         to avoid syncing a branch that is lacking these critical files.
         """
-        for version in self.active_wikiversions().keys():
+        for version in self.active_wikiversions():
             ext_msg = os.path.join(
                 self.config["stage_dir"],
                 "wmf-config",

@@ -34,7 +34,7 @@ class Backport(cli.Application):
         change_numbers = [self.change_number(n) for n in self.arguments.change_numbers]
 
         if self.arguments.list:
-            versions = self.active_wikiversions("stage").keys()
+            versions = self.active_wikiversions("stage")
 
             if len(versions) > 0:
                 backports = self.get_backports(versions)
