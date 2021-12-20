@@ -39,7 +39,7 @@ class ApplyPatches(cli.Application):
             os.path.join(self.config["stage_dir"], "php-%s" % train)
         )
         patch_path = os.path.abspath(
-            os.path.join(self.config["patch_path"], self.arguments.train)
+            os.path.join(self.config["patch_path"], train)
         )
 
         patches = SecurityPatches(patch_path)
