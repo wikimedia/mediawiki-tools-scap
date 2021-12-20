@@ -92,7 +92,7 @@ class UpdateWikiversions(cli.Application):
 
     def update_branch_pointer(self):
         """Swap the php symlink over to the new version as well, if needed."""
-        cur_version = self.active_wikiversions("stage").popitem()[0]
+        cur_version = self.active_wikiversions("stage")[-1]  # Get the most recent active version
 
         real_path = os.path.join(self.config["stage_dir"], "php-%s" % cur_version)
         symlink = os.path.join(self.config["stage_dir"], "php")

@@ -360,7 +360,7 @@ def sync_master(cfg, master, verbose=False, logger=None):
     if cfg["rsync_cdbs"] is False:
         # Rebuild the CDB files
         use_cores = utils.cpus_for_jobs()
-        versions = utils.get_active_wikiversions(cfg["stage_dir"], cfg["wmf_realm"])
+        versions = utils.get_active_wikiversions(cfg["stage_dir"], cfg["wmf_realm"], return_type=dict)
 
         with log.Timer("rebuild CDB staging files", stats):
             for version, wikidb in versions.items():
