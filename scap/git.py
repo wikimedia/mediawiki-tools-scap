@@ -405,7 +405,7 @@ def sync_submodules(location):
     gitcmd("submodule", "sync", "--recursive", cwd=location)
 
 
-def update_submodules(location, git_remote=None, use_upstream=False, reference=None):
+def update_submodules(location, git_remote=None, use_upstream=False, reference=None, checkout=False, force=False):
     """Update git submodules on target machines"""
 
     if not use_upstream and git_remote is None:
@@ -425,6 +425,11 @@ def update_submodules(location, git_remote=None, use_upstream=False, reference=N
 
         cmd = ["update", "--init", "--recursive"]
         cmd = append_jobs_arg(cmd)
+
+        if checkout:
+            cmd.append("--checkout")
+        if force:
+            cmd.append("--force")
 
         if reference is not None and GIT_VERSION[0] > 1:
             logger.debug("Using --reference repository: %s", reference)
