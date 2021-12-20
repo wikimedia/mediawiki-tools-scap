@@ -497,6 +497,14 @@ def check_dir_exists(path, message=False):
         )
 
 
+def dir_is_empty(path):
+    """
+    Returns True if 'path' is an empty directory, otherwise returns False.
+    Raises an error if 'path' does not name a directory.
+    """
+    return len(os.listdir(path)) == 0
+
+
 @contextlib.contextmanager
 def sudo_temp_dir(owner, prefix):
     """
