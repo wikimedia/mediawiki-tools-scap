@@ -3,6 +3,7 @@
 """Scap plugin for listing, applying, and rolling back backports."""
 from prettytable import PrettyTable
 
+import time
 from scap import cli, git
 from scap.plugins.gerrit import GerritSession
 
@@ -49,6 +50,7 @@ class Backport(cli.Application):
         self.validate_changes(change_numbers, versions)
         self.confirm_changes(change_numbers)
         self.approve_changes(change_numbers)
+        self.wait_for_changes_to_be_merged(change_numbers)
         # TODO: trigger pipeline job? done automatically?
         # TODO: listen for promote on deployment-charts
         # TODO: +2 deployment-charts
@@ -130,3 +132,25 @@ class Backport(cli.Application):
         approval = input("Backport the changes %s? (y/N) " % change_numbers)
         if approval.lower() != "y":
             raise SystemExit("Backport cancelled.")
+
+    def wait_for_changes_to_be_merged(self, change_numbers):
+        interval = 5
+
+        self.get_logger().info('Waiting for changes to be merged')
+
+        finished = False
+
+        while not finished:
+            finished = True  # optimism
+            for number in change_numbers:
+                info = self.gerrit.change(number).get()
+                status = info['status']
+                mergeable = getattr(info, 'mergeable', None)  # Want this to be True. We can probably stop polling immediately if this becomes false
+                print("Change {} status: {}, mergeable: {}".format(number, status, mergeable))
+                if status != 'MERGED':
+                    finished = False
+
+            if not finished:
+                time.sleep(interval)
+
+        self.get_logger().info('All changes have been merged')
