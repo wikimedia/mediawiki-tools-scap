@@ -141,6 +141,11 @@ def load(cfg_file=None, environment=None, overrides=None):
         else:
             parser.readfp(cfg_file)
     else:
+        if environment and not os.path.exists(
+            os.path.join(local_cfg, "environments", environment)
+        ):
+            raise RuntimeError("Environment {} does not exist!".format(environment))
+
         parser.read(
             [
                 "/etc/scap.cfg",
