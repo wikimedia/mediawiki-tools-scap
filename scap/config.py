@@ -203,11 +203,10 @@ def coerce_value(key, value):
             # Accept the same bool values accepted by ConfigParser
             if lower in ["1", "yes", "true", "on"]:
                 return True
-            elif lower in ["0", "no", "false", "off"]:
+            if lower in ["0", "no", "false", "off"]:
                 return False
-            else:
-                msg = "invalid boolean value '{}'".format(value)
-                raise ValueError(msg)
+            msg = "invalid boolean value '{}'".format(value)
+            raise ValueError(msg)
 
         else:
             return default_type(value)

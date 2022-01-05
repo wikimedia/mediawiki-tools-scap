@@ -119,7 +119,7 @@ class Backport(cli.Application):
             if status != "NEW":
                 self.get_logger().warn("Change '%s' is not open!" % change_number)
                 raise SystemExit(1)
-            elif project == "operations/mediawiki-config" and branch == self.config_branch:
+            if project == "operations/mediawiki-config" and branch == self.config_branch:
                 self.get_logger().info("Change '%s' valid for backport" % change_number)
             elif branch not in versions:
                 self.get_logger().warn("Change '%s' branch '%s' not valid for any deployed wikiversion. Deployed wikiversions: %s" % (change_number, branch, list(versions)))

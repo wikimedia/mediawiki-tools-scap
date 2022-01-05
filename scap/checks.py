@@ -325,4 +325,3 @@ class OverrideCheck(object):
     @property
     def stage(self):
         utils.get_logger().info("Check %s is empty and will not be run", self.name)
-        return None

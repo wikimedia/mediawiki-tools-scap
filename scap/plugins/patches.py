@@ -68,7 +68,7 @@ class ApplyPatches(cli.Application):
         for (ret, patch) in results:
             print("[{}] {}".format(KNOWN_RESULTS[ret], patch.path()))
 
-        any_failed = any([ret == FAILED for (ret, _) in results])
+        any_failed = any(ret == FAILED for (ret, _) in results)
         if any_failed:
             sys.exit("At least one patch failed to apply")
 
