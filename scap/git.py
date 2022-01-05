@@ -415,29 +415,28 @@ def update_submodules(location, git_remote=None, use_upstream=False, reference=N
 
     logger = utils.get_logger()
 
-    with utils.cd(location):
-        logger.debug("Fetch submodules")
-        if not use_upstream:
-            logger.debug("Remapping submodule %s to %s", location, git_remote)
-            remap_submodules(location, git_remote)
-        else:
-            logger.debug("Using upstream submodules")
+    logger.debug("Fetch submodules")
+    if not use_upstream:
+        logger.debug("Remapping submodule %s to %s", location, git_remote)
+        remap_submodules(location, git_remote)
+    else:
+        logger.debug("Using upstream submodules")
 
-        cmd = ["update", "--init", "--recursive"]
-        cmd = append_jobs_arg(cmd)
+    cmd = ["update", "--init", "--recursive"]
+    cmd = append_jobs_arg(cmd)
 
-        if checkout:
-            cmd.append("--checkout")
-        if force:
-            cmd.append("--force")
+    if checkout:
+        cmd.append("--checkout")
+    if force:
+        cmd.append("--force")
 
-        if reference is not None and GIT_VERSION[0] > 1:
-            logger.debug("Using --reference repository: %s", reference)
-            ensure_dir(reference)
-            cmd.append("--reference")
-            cmd.append(reference)
+    if reference is not None and GIT_VERSION[0] > 1:
+        logger.debug("Using --reference repository: %s", reference)
+        ensure_dir(reference)
+        cmd.append("--reference")
+        cmd.append(reference)
 
-        gitcmd("submodule", *cmd, cwd=location)
+    gitcmd("submodule", *cmd, cwd=location)
 
 
 @utils.log_context("git_update_server_info")
