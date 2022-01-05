@@ -33,6 +33,12 @@ class ApplyPatches(cli.Application):
         metavar="TRAIN",
         required=True,
     )
+    @cli.argument(
+        "--abort-git-am-on-fail",
+        action="store_true",
+        help='Run "git am --abort" if patch application fails',
+        required=False,
+    )
     def main(self, *extra_args):
         train = self.arguments.train
         srcroot = os.path.abspath(
@@ -55,7 +61,7 @@ class ApplyPatches(cli.Application):
                 curdir = patch.dirname()
 
             if apply_in_curdir:
-                ret = patch.apply(srcroot)
+                ret = patch.apply(srcroot, self.arguments.abort_git_am_on_fail)
                 if ret not in KNOWN_RESULTS:
                     sys.exit("Patch.apply returned unknown value {!r}".format(ret))
                 if ret == FAILED:
@@ -129,7 +135,7 @@ class Patch:
     def path(self):
         return self._filename
 
-    def apply(self, srcroot):
+    def apply(self, srcroot, abort_git_am_on_fail):
         srcdir = os.path.join(srcroot, self._relative)
         print("Applying patch %s in %s" % (self.path(), srcroot))
 
@@ -145,6 +151,11 @@ class Patch:
             output = gitcmd("am", "--3way", self.path(), cwd=srcdir)
         except FailedCommand as e:
             print("ERROR: git am: %s" % e.stderr)
+            if abort_git_am_on_fail:
+                try:
+                    gitcmd("am", "--abort", cwd=srcdir)
+                except:
+                    pass
             return FAILED
 
         if "already applied" in output:
