@@ -726,7 +726,7 @@ def update_localization_cache(version, wikidb, verbose, cfg, logger=None):
         logger.info("Generating JSON versions and md5 files (as {})".format(cache_dir_owner))
         utils.sudo_check_call(
             cache_dir_owner,
-            "%s cdb-json-refresh "
+            "%s cdb-json-refresh -Drsync_cdbs:False "
             '--directory="%s" --threads=%s %s'
             % (scap_path, cache_dir, use_cores, verbose_messagelist),
         )
