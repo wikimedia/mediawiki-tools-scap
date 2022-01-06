@@ -72,19 +72,18 @@ class Application(object):
         """Get the path to scap.lock"""
         if self.config["lock_file"] is not None:
             return self.config["lock_file"]
-        else:
-            try:
-                return "/var/lock/scap.%s.lock" % (
-                    self.config["git_repo"].replace("/", "_")
-                )
-            except KeyError:
-                # `scap sync*` can run from anywhere on the file system and
-                # doesn't actually use the value of `git_repo`. In contrast,
-                # `scap deploy` will fail almost instantly without a `git_repo`
-                # set. If we're attempting to create a lock file, and there is
-                # no git_repo, then it's likely for a sync* command and the
-                # correct git_repo is operations/mediawiki-config.
-                return "/var/lock/scap.operations_mediawiki-config.lock"
+        try:
+            return "/var/lock/scap.%s.lock" % (
+                self.config["git_repo"].replace("/", "_")
+            )
+        except KeyError:
+            # `scap sync*` can run from anywhere on the file system and
+            # doesn't actually use the value of `git_repo`. In contrast,
+            # `scap deploy` will fail almost instantly without a `git_repo`
+            # set. If we're attempting to create a lock file, and there is
+            # no git_repo, then it's likely for a sync* command and the
+            # correct git_repo is operations/mediawiki-config.
+            return "/var/lock/scap.operations_mediawiki-config.lock"
 
     @property
     def verbose(self):
@@ -135,7 +134,7 @@ class Application(object):
         though `self.get_logger().info()` was used instead of
         `self.announce()`.
         """
-        env_check = True if "DOLOGMSGNOLOG" in os.environ else False
+        env_check = "DOLOGMSGNOLOG" in os.environ
         if self.arguments.no_log_message or env_check:
             if env_check:
                 self.get_logger().warning(

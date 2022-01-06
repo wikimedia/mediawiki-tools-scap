@@ -170,7 +170,7 @@ def confirm(question="Continue?", default=False, on_fulfilled=None, on_rejected=
         # no
         if isinstance(on_rejected, Exception):
             raise on_rejected
-        elif callable(on_rejected):
+        if callable(on_rejected):
             on_rejected()
 
     return result
@@ -286,8 +286,7 @@ def get_realm_specific_filename(filename, realm):
     realm_specific = "%s-%s%s" % (base, realm, ext)
     if os.path.isfile(realm_specific):
         return realm_specific
-    else:
-        return filename
+    return filename
 
 
 def get_username(user=None):
@@ -541,10 +540,9 @@ def is_initsystem(to_test):
     """
     if to_test == "systemd":
         return os.path.isdir("/run/systemd/system")
-    elif to_test == "upstart":
+    if to_test == "upstart":
         return os.path.isfile("/sbin/initctl")
-    else:
-        raise NotImplementedError("Only systemd and upstart are supported")
+    raise NotImplementedError("Only systemd and upstart are supported")
 
 
 def is_service_running(service):
@@ -560,13 +558,12 @@ def is_service_running(service):
         )
 
         return systemctl_exit_code == 0
-    elif is_initsystem("upstart"):
+    if is_initsystem("upstart"):
         status = subprocess.check_output(["/sbin/status", service]).decode().rstrip().split(" ")
         if not status[1].startswith("start/running"):
             return False
         return True
-    else:
-        raise NotImplementedError("Only  upstart or systemd are supported")
+    raise NotImplementedError("Only  upstart or systemd are supported")
 
 
 def systemd_service_exists(service):
@@ -720,7 +717,7 @@ def find_upwards(name, starting_point=os.getcwd()):
             return search
 
         parent = os.path.dirname(current)
-        if parent == current or parent == "/":
+        if parent in (current, "/"):
             return None
         current = parent
 

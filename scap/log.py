@@ -198,7 +198,7 @@ class JSONFormatter(logging.Formatter):
         def serialize_obj(obj):
             if hasattr(obj, "getvalue"):
                 return obj.getvalue()
-            elif hasattr(obj, "__dict__"):
+            if hasattr(obj, "__dict__"):
                 return obj.__dict__
             return None
 
@@ -641,11 +641,7 @@ class Filter(object):
     def isfiltering(self, attribute):
         """Whether the filter has criteria for the given attribute."""
 
-        for attr, _ in self.criteria:
-            if attr == attribute:
-                return True
-
-        return False
+        return any(attr == attribute for attr, _ in self.criteria)
 
 
 class Stats(object):

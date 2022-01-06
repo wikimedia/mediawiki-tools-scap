@@ -21,10 +21,9 @@ def version_parser(ver):
 
     if match:
         return match.group(0)
-    else:
-        raise argparse.ArgumentTypeError(
-            "Branch '%s' does not match required format" % ver
-        )
+    raise argparse.ArgumentTypeError(
+        "Branch '%s' does not match required format" % ver
+    )
 
 
 def update_update_strategy(path):

@@ -61,7 +61,7 @@ def limit_target_hosts(pattern, hosts):
     :param hosts: list of hosts to search against
     """
     # Return early if there's no special pattern
-    if pattern == "*" or pattern == "all":
+    if pattern in ("*", "all"):
         return hosts
 
     # If pattern is a regex, handle that and return
@@ -279,8 +279,7 @@ class DirectDshTargetList(DshTargetList):
         server_groups = self.config.get(self.primary_key, None)
         if server_groups is None:
             return {}
-        else:
-            return {k: k.strip() for k in server_groups.split(",")}
+        return {k: k.strip() for k in server_groups.split(",")}
 
 
 class DeployGroup(object):
