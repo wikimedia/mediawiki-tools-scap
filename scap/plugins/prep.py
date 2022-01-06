@@ -113,7 +113,7 @@ class CheckoutMediaWiki(cli.Application):
             reference_dir = None
             if os.path.exists(old_branch_dir):
                 reference_dir = old_branch_dir
-            patch_base_dir = "/srv/patches"
+            patch_base_dir = self.config["patch_path"]
             patch_path = os.path.join(patch_base_dir, self.arguments.branch)
             if not os.path.exists(patch_path):
                 if os.path.exists(os.path.join(patch_base_dir, old_branch)):

@@ -56,7 +56,7 @@ class SecurityPatchManager(cli.Application):
         branch = branch.rstrip("/")
         stage_dir = self.config.get("stage_dir", "./")
 
-        self.patchdir = os.path.join("/srv/patches/", branch)
+        self.patchdir = os.path.join(self.config.get("patch_path"), branch)
         self.checkdir("patch", self.patchdir)
 
         self.branchdir = os.path.join(stage_dir, "php-%s" % branch)

@@ -131,7 +131,7 @@ class Clean(main.AbstractSync):
         with log.Timer("removing-local-copy"):
             self._maybe_delete(branch_dir)
         with log.Timer("cleaning-unused-patches", self.get_stats()):
-            patch_base_dir = "/srv/patches"
+            patch_base_dir = self.config["patch_path"]
             self._maybe_delete(os.path.join(patch_base_dir, branch))
             srv_patches_git_message = 'Scap clean for "{}"'.format(branch)
             git.add_all(patch_base_dir, message=srv_patches_git_message)
