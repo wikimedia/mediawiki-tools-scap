@@ -1,22 +1,30 @@
 # -*- coding: utf-8 -*-
 """For cleaning up old MediaWiki."""
+from datetime import datetime, timedelta
 import os
+import re
 import shutil
 import subprocess
+import sys
 
 from scap import cli
 from scap import git
 from scap import log
 from scap import main
 from scap import ssh
+from scap import tasks
 from scap import utils
+
+# Inactive train branches created more than this number of days will be selected when
+# 'auto' is supplied as the branch name on the command line.
+AUTO_CLEAN_THRESHOLD = 8
 
 
 @cli.command("clean")
 class Clean(main.AbstractSync):
     """Scap sub-command to clean old branches."""
 
-    @cli.argument("branch", help="The name of the branch to clean.")
+    @cli.argument("branch", help="The name of the branch to clean.  Specify 'auto' to select all inactive branches that were created more than {} days ago.".format(AUTO_CLEAN_THRESHOLD))
     @cli.argument(
         "--delete",
         action="store_true",
@@ -27,28 +35,39 @@ class Clean(main.AbstractSync):
         action="store_true",
         help="Delete the branch on gerrit as well.",
     )
+    @cli.argument(
+        "--no-logo",
+        action="store_false",
+        help="Do not print the Scap logo",
+        dest="logo",
+    )
     def main(self, *extra_args):
         """Clean old branches from the cluster for space savings."""
-        self.arguments.message = "Pruned MediaWiki: %s" % self.arguments.branch
+
+        self.logo = self.arguments.logo
+
+        if self.arguments.branch == "auto":
+            self.branches_to_remove = self._autoselect_versions_to_remove()
+
+            if not self.branches_to_remove:
+                self.get_logger().info("No eligible versions to remove.")
+                sys.exit()
+
+        else:
+            self.branches_to_remove = [self.arguments.branch]
+
+        self.get_logger().info("Cleaning branch(es): {}".format(", ".join(self.branches_to_remove)))
+        self.arguments.message = "Pruned MediaWiki: {}".format(", ".join(self.branches_to_remove))
         self.arguments.force = False
-        self.branch_stage_dir = os.path.join(
-            self.config["stage_dir"], "php-%s" % self.arguments.branch
-        )
-        self.branch_deploy_dir = os.path.join(
-            self.config["deploy_dir"], "php-%s" % self.arguments.branch
-        )
-        return super(Clean, self).main(*extra_args)
+        return super().main(*extra_args)
 
     def _before_cluster_sync(self):
-        if self.arguments.branch in self.active_wikiversions():
-            raise SystemExit(
-                'Branch "%s" is still in use, aborting' % self.arguments.branch
-            )
-        self.cleanup_branch(self.arguments.branch)
+        for branch in self.branches_to_remove:
+            self.cleanup_branch(branch)
 
     def cleanup_branch(self, branch):
         """
-        Given a branch, go through the cleanup proccess on the master.
+        Given a branch, go through the cleanup process on the master.
 
         (1) Remove l10nupdate cache
         (2) Remove files owned by l10nupdate and www-data
@@ -57,8 +76,17 @@ class Clean(main.AbstractSync):
         (5) Remove all branch files
         (6) Remove security patches
         """
-        if not os.path.isdir(self.branch_stage_dir):
+        branch_dir = os.path.join(
+            self.config["stage_dir"], "php-%s" % branch
+        )
+
+        if not os.path.isdir(branch_dir):
             raise SystemExit("No such branch exists, aborting")
+
+        if branch in self.active_wikiversions():
+            raise SystemExit(
+                'Branch "%s" is still in use, aborting' % branch
+            )
 
         with log.Timer("clean-l10nupdate-cache", self.get_stats()):
             utils.sudo_check_call(
@@ -68,7 +96,7 @@ class Clean(main.AbstractSync):
         for user in ["l10nupdate", "www-data"]:
             with log.Timer("clean-{}-owned-files".format(user), self.get_stats()):
                 utils.sudo_check_call(
-                    user, "find %s -user %s -delete" % (self.branch_stage_dir, user)
+                    user, "find %s -user %s -delete" % (branch_dir, user)
                 )
 
         with log.Timer("clean-ExtensionMessages"):
@@ -93,7 +121,7 @@ class Clean(main.AbstractSync):
             ]
             with log.Timer("prune-git-branches", self.get_stats()):
                 # Prune all the submodules' remote branches
-                with utils.cd(self.branch_stage_dir):
+                with utils.cd(branch_dir):
                     submodule_cmd = 'git submodule foreach "{} ||:"'.format(
                         " ".join(git_prune_cmd)
                     )
@@ -101,7 +129,7 @@ class Clean(main.AbstractSync):
                     if subprocess.call(git_prune_cmd) != 0:
                         logger.info("Failed to prune core branch")
         with log.Timer("removing-local-copy"):
-            self._maybe_delete(self.branch_stage_dir)
+            self._maybe_delete(branch_dir)
         with log.Timer("cleaning-unused-patches", self.get_stats()):
             patch_base_dir = "/srv/patches"
             self._maybe_delete(os.path.join(patch_base_dir, branch))
@@ -110,11 +138,18 @@ class Clean(main.AbstractSync):
 
     def _after_cluster_sync(self):
         """
-        Need to remove cache dir manually after sync
+        Need to remove cache dirs manually after sync
         """
-        branch_cache = os.path.join(self.branch_deploy_dir, "cache")
+
+        cache_dirs = [
+            os.path.join(self.config["deploy_dir"],
+                         "php-%s" % branch,
+                         "cache")
+            for branch in self.branches_to_remove
+        ]
+
         target_hosts = self._get_target_list()
-        cmd = ["/bin/rm", "-rf", branch_cache]
+        cmd = ["/bin/rm", "-rf"] + cache_dirs
         with log.Timer("clean-remote-caches", self.get_stats()):
             remove_remote_dirs = ssh.Job(
                 target_hosts, user=self.config["ssh_user"], key=self.get_keyholder_key()
@@ -143,3 +178,17 @@ class Clean(main.AbstractSync):
             self.arguments.message
             + " (duration: %s)" % utils.human_duration(self.get_duration())
         )
+
+    def _autoselect_versions_to_remove(self):
+        # Inactive branches created before the cutoff will be selected
+        cutoff = datetime.utcnow() - timedelta(days=AUTO_CLEAN_THRESHOLD)
+
+        active = self.active_wikiversions()
+
+        versions_to_remove = []
+        for path, created in tasks.get_wikiversions_ondisk(self.config["stage_dir"]):
+            version = re.search(utils.BRANCH_RE, path)[0]
+            if version not in active and created < cutoff:
+                versions_to_remove.append(version)
+
+        return versions_to_remove
