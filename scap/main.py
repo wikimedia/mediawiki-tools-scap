@@ -59,6 +59,7 @@ class AbstractSync(cli.Application):
         super(AbstractSync, self).__init__(exe_name)
         self.include = None
         self.om = None
+        self.logo = True
 
     @cli.argument(
         "--force",
@@ -68,7 +69,9 @@ class AbstractSync(cli.Application):
     @cli.argument("message", nargs="*", help="Log message for SAL")
     def main(self, *extra_args):
         """Perform a sync operation to the cluster."""
-        print(ansi.logo())
+        if self.logo:
+            print(ansi.logo())
+
         self._assert_auth_sock()
 
         with lock.Lock(self.get_lock_file(), self.arguments.message):
