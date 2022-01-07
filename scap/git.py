@@ -652,3 +652,36 @@ def reflog(repo, fmt="oneline", branch=None):
         cmd.append(branch)
 
     return gitcmd(*cmd, cwd=repo).splitlines()
+
+
+def clone_or_update_repo(dir, repo, branch, logger, reference=None):
+    """
+    Clone or update the checkout of 'repo' in 'dir', using the specified
+    branch.   Note that existing repos are hard-reset to the match the
+    state of the origin.
+
+    Submodules are handled as well.
+    """
+    logger.info("Clone or update {}, branch: {}, dir: {}".format(
+        repo, branch, dir))
+
+    if not os.path.isdir(dir) or utils.dir_is_empty(dir):
+        logger.info("Fresh clone")
+        fetch(dir, repo, branch=branch, reference=reference)
+
+    logger.info("Fetching from origin")
+    fetch(dir, repo, branch=branch)
+
+    logger.info("Changes pulled down since last fetch:")
+    logger.info(gitcmd("log", "HEAD..@{upstream}", cwd=dir))
+
+    logger.info("Resetting checkout")
+    gitcmd("checkout", "--force", "-B", branch, "origin/{}".format(branch),
+           cwd=dir)
+    logger.info("{} checked out at commit {}".format(
+        repo, sha(dir, "HEAD")))
+
+    logger.info("Updating submodules")
+    update_submodules(dir, use_upstream=True, checkout=True, force=True)
+
+    logger.info("Done checking out {}\n".format(repo))
