@@ -306,9 +306,8 @@ def is_dir(path):
 def remote_exists(location, remote):
     """Check if remote exists in location"""
     ensure_dir(location)
-    with utils.cd(location):
-        argv = ["git", "config", "--local", "--get", "remote.{}.url".format(remote)]
-        return subprocess.call(argv) == 0
+    argv = ["git", "-C", location, "config", "--local", "--get", "remote.{}.url".format(remote)]
+    return subprocess.call(argv, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL) == 0
 
 
 def remote_set(location, repo, remote="origin"):
