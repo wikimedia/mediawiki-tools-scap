@@ -28,11 +28,9 @@ def version_parser(ver):
 
 def update_update_strategy(path):
     """For all submodules, update the merge strategy."""
-    with utils.cd(path):
-        base_cmd = "/usr/bin/git -C %s config " % path
-        base_cmd += "submodule.$name.update rebase"
-        cmd = "/usr/bin/git submodule foreach --recursive '%s'" % base_cmd
-        subprocess.call(cmd, shell=True)
+    base_cmd = "/usr/bin/git -C %s config " % path
+    base_cmd += "submodule.$name.update rebase"
+    git.gitcmd("submodule", "foreach", "--recursive", base_cmd, cwd=path)
 
 
 def write_settings_stub(dest):
