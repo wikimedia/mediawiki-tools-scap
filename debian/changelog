@@ -1,3 +1,34 @@
+scap (4.1.1-1) unstable; urgency=medium
+
+  * scap prep: Reduce submodule noise
+  * Redirect git.remote_exists() output to /dev/null
+  * /srv/patches -> config["patch_path"]
+  * scap clean: Add 'auto' mode
+  * Add --abort-git-am-on-fail option to scap apply-patches
+  * General small code cleanups
+  * update_submodules: Don't use utils.cd()
+  * rsync_cdbs fix
+  * config: Ensure environment exists before using it
+  * utils.py: add dir_is_empty function
+  * scap/plugins/patches.py: Very minor reuse of a variable
+  * git.py:update_submodules add checkout and force parameters
+  * scap backport: Wait for changes to be merged
+  * scap backport: validate changes
+  * scap apply-patches: Make output more compact
+  * git.py: Implement remote_set in a less destructive way
+  * change active_wikiversions interface
+  * use subprocess.DEVNULL instead of manual implementation
+  * write_settings_stub: Add a new line end of LocalSettings.php
+  * scap apply-patches: OK -> ALREADY_APPLIED
+  * config.py: Define operations_mediawiki_config_branch
+  * release-scripts/scaps-installed-in-beta: Add -v flag
+  * Add rsync_cdbs configuration parameter
+  * Use multiple processes to generate git_info cache
+  * sudo_check_call: Allow log level to be controlled
+  * Rename ScapCommon to ScapPull
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Tue, 11 Jan 2022 09:55:58 -0800
+
 scap (4.1.0-1) unstable; urgency=medium
 
   * scap clean / scap prep mods for T295304
