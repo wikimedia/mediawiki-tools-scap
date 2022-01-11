@@ -9,7 +9,6 @@ from __future__ import absolute_import
 
 from datetime import datetime
 import errno
-import re
 import os
 import socket
 import subprocess
@@ -145,7 +144,15 @@ def info(directory):
     else:
         branch = head
 
-    head_sha1 = get_disclosable_head(directory, branch)
+    # This information is used by https://<site>/wiki/Special:Version
+    # to construct a link to a commit in Gerrit (gitiles), so it must
+    # not refer to a local commit (i.e., a patch).  Use git merge-base
+    # to find the nearest public commit.
+    try:
+        head_sha1 = gitcmd("merge-base", "HEAD", "origin", cwd=directory).strip()
+    except FailedCommand:
+        head_sha1 = ""
+
     if head_sha1:
         commit_date = gitcmd(
             "show", "-s", "--format=%ct", head_sha1, cwd=directory
@@ -579,55 +586,6 @@ def remap_submodules(location, server):
             module.write("\turl = {}\n".format(remote_path))
 
     sync_submodules(location)
-
-
-def get_disclosable_head(repo_directory, remote_thing):
-    """
-    Get the SHA1 of the most recent commit that can be publicly disclosed.
-    If a commit only exists locally, it is considered private. This function
-    will try to get the tip of the remote tracking branch, and fall back to
-    the common ancestor of HEAD and the remote version of the local branch
-    we're ostensibly tracking.
-
-    :param repo_directory: Directory to look into
-    :param remote_thing: If you're not actively tracking a remote branch, you
-                         need to provide something remote for this function to
-                         look for a common ancestor with. Otherwise, this
-                         function has no way of knowing what common tree
-                         you could possibly care about. This could be a branch,
-                         a tag, or a plain sha1
-    :returns: str
-    """
-    with open(os.devnull, "wb") as dev_null:
-        try:
-            return subprocess.check_output(
-                ("/usr/bin/git", "rev-list", "-1", "@{upstream}"),
-                cwd=repo_directory,
-                stderr=dev_null,
-            ).decode().strip()
-        except subprocess.CalledProcessError:
-            try:
-                remote = subprocess.check_output(
-                    ("/usr/bin/git", "remote"), cwd=repo_directory, stderr=dev_null
-                ).decode().strip()
-
-                # If the branch is not a SHA1, combine with remote name
-                if not re.match("[a-f0-9]{40}", remote_thing):
-                    remote_thing = "%s/%s" % (remote, remote_thing)
-                # If the branch is a SHA1, count on remote HEAD being a
-                # symbolic-ref for the actual remote
-                else:
-                    remote_thing = remote
-                return subprocess.check_output(
-                    ("/usr/bin/git", "merge-base", "HEAD", remote_thing),
-                    cwd=repo_directory,
-                    stderr=dev_null,
-                ).decode().strip()
-            except subprocess.CalledProcessError:
-                utils.get_logger().info(
-                    "Unable to find remote tracking branch/tag for %s", repo_directory
-                )
-                return ""
 
 
 def list_submodules(repo, args):
