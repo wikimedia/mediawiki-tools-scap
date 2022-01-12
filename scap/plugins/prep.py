@@ -3,6 +3,7 @@
 import argparse
 import distutils
 import glob
+import json
 import os
 import re
 import shutil
@@ -83,10 +84,16 @@ This operation can be run as many times as needed.
         help="Directory prefix to checkout version to.",
     )
     @cli.argument(
+        "--fingerprint",
+        help="Check out according to the supplied fingerprint.  Only used in auto mode.",
+        required=False,
+        default=None,
+    )
+    @cli.argument(
         "branch",
         metavar="BRANCH",
         type=version_parser,
-        help="The name of the branch to operate on.  Specify 'auto' to check out operations/mediawiki-config and all active branches",
+        help="The name of the branch to operate on.  Specify 'auto' to check out operations/mediawiki-config and all active branches, and apply patches",
     )
     @cli.argument(
         "--copy-private-settings",
@@ -102,16 +109,25 @@ This operation can be run as many times as needed.
         with log.Timer("prep", self.get_stats()):
             if self.arguments.branch == "auto":
                 logger.info("auto mode")
+
+                fingerprint = self._decode_fingerprint(self.arguments.fingerprint)
+
                 self._clone_or_update_repo(os.path.join(SOURCE_URL, "operations/mediawiki-config"),
                                            self.config["operations_mediawiki_config_branch"],
                                            self.config["stage_dir"],
-                                           logger)
+                                           logger,
+                                           fingerprint=fingerprint,
+                                           )
 
                 if self.arguments.copy_private_settings:
                     self._copy_private_settings(self.arguments.copy_private_settings, logger)
 
                 for version in self.active_wikiversions("stage"):
-                    self._prep_mw_branch(version, logger, apply_patches=True)
+                    self._prep_mw_branch(version, logger, apply_patches=True,
+                                         fingerprint=fingerprint)
+
+                print("fingerprint:")
+                print(json.dumps(fingerprint, sort_keys=True))
             else:
                 self._prep_mw_branch(self.arguments.branch, logger)
 
@@ -121,7 +137,8 @@ This operation can be run as many times as needed.
         # copy2 preserves file mode and modification time
         shutil.copy2(src, dest)
 
-    def _prep_mw_branch(self, branch, logger, apply_patches=False):
+    def _prep_mw_branch(self, branch, logger, apply_patches=False,
+                        fingerprint=None):
         dest_dir = os.path.join(
             self.config["stage_dir"],
             "{}{}".format(self.arguments.prefix, branch),
@@ -141,10 +158,11 @@ This operation can be run as many times as needed.
                                    checkout_version,
                                    dest_dir,
                                    logger,
-                                   reference=reference_dir)
+                                   reference=reference_dir,
+                                   fingerprint=fingerprint)
 
         if checkout_version == "master":
-            self._master_stuff(dest_dir, logger)
+            self._master_stuff(dest_dir, logger, fingerprint)
 
         # This is only needed while people still do manual checkout
         # manipulation (a practice which needs to end).
@@ -229,12 +247,40 @@ This operation can be run as many times as needed.
         git.add_all(patch_base_dir, message='Scap prep for "{}"'.format(version))
         logger.info("Done setting patches for {}".format(version))
 
-    def _clone_or_update_repo(self, repo, branch, dir, logger, reference=None):
-        """Note that this discards any local commits (e.g., security patches)"""
-        with utils.suppress_backtrace():
-            git.clone_or_update_repo(dir, repo, branch, logger, reference)
+    def _clone_or_update_repo(self, repo, branch, dir, logger, reference=None,
+                              fingerprint=None):
+        """
+        Note that this discards any local commits (e.g., security patches)
+        """
 
-    def _master_stuff(self, branch_dir, logger):
+        ref = None
+        if isinstance(fingerprint, dict):
+            ref = self._lookup_fingerprint(fingerprint, repo, branch)
+
+        with utils.suppress_backtrace():
+            head = git.clone_or_update_repo(dir, repo, branch, logger, reference,
+                                            ref=ref)
+
+        if isinstance(fingerprint, dict):
+            self._update_fingerprint(fingerprint, repo, branch, head)
+
+    def _update_fingerprint(self, fingerprint, repo, branch, head):
+        branches = fingerprint.get(repo)
+        if branches is None:
+            branches = fingerprint[repo] = {}
+
+        branches[branch] = head
+
+    def _lookup_fingerprint(self, fingerprint, repo, branch):
+        return fingerprint.get(repo, {}).get(branch)
+
+    def _decode_fingerprint(self, thing):
+        if not isinstance(thing, str):
+            return {}
+
+        return json.loads(thing)
+
+    def _master_stuff(self, branch_dir, logger, fingerprint):
         # On train branches of mediawiki/core, extensions/vendors/skins are submodules.
         # On the master branch of mediawiki/core, they are not submodules and must be handled
         # specially.
@@ -259,7 +305,8 @@ This operation can be run as many times as needed.
             self._clone_or_update_repo(repo,
                                        "master",
                                        path,
-                                       logger)
+                                       logger,
+                                       fingerprint=fingerprint)
 
             with open(gitignore_path, "a") as f:
                 f.write("# Added by scap prep auto\n")
