@@ -72,6 +72,7 @@ def fortune():
             "S.C.A.P.: syntax: conjunction, article, pronoun",
             "S.C.A.P.: some cats and puppies",
             "S.C.A.P.: seriously cursed auxiliary program",
+            "S.C.A.P.: someone copying and pasting - xkcd.com/2565",
         ]
     )
 
