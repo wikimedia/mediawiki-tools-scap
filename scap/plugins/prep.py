@@ -129,6 +129,9 @@ This operation can be run as many times as needed.
                                    logger,
                                    reference=reference_dir)
 
+        if checkout_version == "master":
+            self._master_stuff(dest_dir, logger)
+
         # This is only needed while people still do manual checkout
         # manipulation (a practice which needs to end).
         update_update_strategy(dest_dir)
@@ -224,3 +227,24 @@ This operation can be run as many times as needed.
             # the information needed to tell what happened.
             e._scap_no_backtrace = True
             raise e
+
+    def _master_stuff(self, branch_dir, logger):
+        # On train branches of mediawiki/core, extensions/vendors/skins are submodules.
+        # On the master branch of mediawiki/core, they are not submodules and must be handled
+        # separately.
+
+        for type in ["extensions", "vendor", "skins"]:
+            # extensions and skins may be populated with a README file which needs to be blasted
+            # vendor may not exist.
+
+            repo = os.path.join(SOURCE_URL, "mediawiki/{}".format(type))
+            path = os.path.join(branch_dir, type)
+
+            if os.path.exists(path) and not git.is_dir(path):
+                logger.info("Deleting stock {} so it will be replaced with a clone of {}".format(path, repo))
+                shutil.rmtree(path)
+
+            self._clone_or_update_repo(repo,
+                                       "master",
+                                       path,
+                                       logger)
