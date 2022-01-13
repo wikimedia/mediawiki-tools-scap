@@ -32,7 +32,7 @@ class GitTest(unittest.TestCase):
         assert git.is_dir(TEMPDIR), "Failed to initialize git repo"
         desc = git.describe(TEMPDIR)
         assert len(desc) > 1, "git.describe value unexpected: %s" % desc
-        info = git.info(TEMPDIR)
+        info = git.info(TEMPDIR, remote=None)
         assert info is not None
         assert "head" in info, "missing git.info[head]"
 

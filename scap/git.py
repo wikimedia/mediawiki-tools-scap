@@ -122,7 +122,7 @@ def lfs_install(*args):
     gitcmd("lfs", *lfsargs)
 
 
-def info(directory):
+def info(directory, remote="origin"):
     """Compute git version information for a given directory that is
     compatible with MediaWiki's GitInfo class.
 
@@ -144,21 +144,18 @@ def info(directory):
     else:
         branch = head
 
-    # This information is used by https://<site>/wiki/Special:Version
-    # to construct a link to a commit in Gerrit (gitiles), so it must
-    # not refer to a local commit (i.e., a patch).  Use git merge-base
-    # to find the nearest public commit.
-    try:
-        head_sha1 = gitcmd("merge-base", "HEAD", "origin", cwd=directory).strip()
-    except FailedCommand:
-        head_sha1 = ""
-
-    if head_sha1:
-        commit_date = gitcmd(
-            "show", "-s", "--format=%ct", head_sha1, cwd=directory
-        ).strip()
+    if remote:
+        # This information is used by https://<site>/wiki/Special:Version
+        # to construct a link to a commit in Gerrit (gitiles), so it must
+        # not refer to a local commit (i.e., a patch).  Use git merge-base
+        # to find the nearest public commit.
+        head_sha1 = gitcmd("merge-base", "HEAD", "{}/{}".format(remote, branch), cwd=directory).strip()
     else:
-        commit_date = ""
+        head_sha1 = sha(directory, "HEAD")
+
+    commit_date = gitcmd(
+        "show", "-s", "--format=%ct", head_sha1, cwd=directory
+    ).strip()
 
     # Requires git v1.7.5+
     try:
