@@ -292,7 +292,6 @@ def get_global_parser():
         "--define",
         dest="defines",
         action="append",
-        type=lambda v: tuple(v.split(":")),
         help="Set a configuration value",
         metavar="<name>:<value>",
     )
