@@ -190,7 +190,13 @@ class Application(object):
         """Load configuration."""
         defines = None
         if self.arguments.defines:
-            defines = dict(self.arguments.defines)
+            res = []
+            for string in self.arguments.defines:
+                pair = string.split(":", 1)
+                if len(pair) != 2:
+                    raise SystemExit("Invalid configuration setting: {}\nSettings must be in 'key:value' format".format(string))
+                res.append(pair)
+            defines = dict(res)
         self.config = config.load(
             cfg_file=self.arguments.conf_file,
             environment=self.arguments.environment,
