@@ -1,11 +1,11 @@
 # -*- coding: utf-8 -*-
 """Scap plugin for setting up a new version of MediaWiki for deployment."""
 import argparse
-import multiprocessing
+import distutils
+import glob
 import os
 import re
 import shutil
-import subprocess
 
 from scap import cli
 from scap import git
@@ -37,41 +37,32 @@ def write_settings_stub(dest):
     """Write a silly little PHP file that includes another."""
     file_stub = (
         "<?php\n"
-        + "# Managed by scap (mediawiki-config:/scap/plugins/prep.py)\n"
+        + "# Managed by scap prep\n"
         + "# WARNING: This file is publically viewable on the web. "
         + "Do not put private data here.\n"
         + 'require __DIR__ . "/../wmf-config/CommonSettings.php";\n'
     )
+
+    if os.path.exists(dest):
+        with open(dest, "r") as destfile:
+            if destfile.read() == file_stub:
+                return
+
     with open(dest, "w+") as destfile:
         destfile.write(file_stub)
 
 
-def master_stuff(dest_dir):
-    """If we're operating on a master branch, do some extra weird stuff."""
-    repos = {
-        "extensions": "mediawiki/extensions",
-        "vendor": "mediawiki/vendor",
-        "skins": "mediawiki/skins",
-    }
-
-    for dest, upstream in repos.items():
-        path = os.path.join(dest_dir, dest)
-        url = SOURCE_URL + upstream
-
-        if os.path.exists(path):
-            with utils.cd(path):
-                subprocess.check_call(["/usr/bin/git", "init"])
-                subprocess.check_call(["/usr/bin/git", "remote", "add", "origin", url])
-
-        git.fetch(path, url)
-        git.checkout(path, "master")
-        git.update_submodules(path, use_upstream=True)
-        update_update_strategy(path)
-
-
 @cli.command("prep", help="Checkout MediaWiki version to staging")
 class CheckoutMediaWiki(cli.Application):
-    """Scap sub-command to manage checkout new MediaWiki versions."""
+    """Checkout a version of MediaWiki to staging.
+
+scap prep ensures that the specified version of MediaWiki (and
+submodules) is checked out into the staging directory.  The checkout
+will be updated to match origin.  Any previously applied security
+patches or local changes will be discarded.
+
+This operation can be run as many times as needed.
+    """
 
     @cli.argument(
         "-p",
@@ -90,6 +81,9 @@ class CheckoutMediaWiki(cli.Application):
     )
     def main(self, *extra_args):
         """Checkout next MediaWiki."""
+
+        logger = self.get_logger()
+
         dest_dir = os.path.join(
             self.config["stage_dir"],
             "{}{}".format(self.arguments.prefix, self.arguments.branch),
@@ -101,80 +95,94 @@ class CheckoutMediaWiki(cli.Application):
 
         reference_dir = None
         if checkout_version != "master":
-            # active_wikiversions() is already sorted by loose-version number,
-            # we want the latest version if there's more than 1
-            old_branch = self.active_wikiversions(source_tree="stage")[-1]
-            old_branch_dir = os.path.join(
-                self.config["stage_dir"],
-                "{}{}".format(self.arguments.prefix, old_branch),
-            )
-            reference_dir = None
-            if os.path.exists(old_branch_dir):
-                reference_dir = old_branch_dir
-            patch_base_dir = self.config["patch_path"]
-            patch_path = os.path.join(patch_base_dir, self.arguments.branch)
-            if not os.path.exists(patch_path):
-                if os.path.exists(os.path.join(patch_base_dir, old_branch)):
-                    shutil.copytree(
-                        os.path.join(patch_base_dir, old_branch),
-                        os.path.join(patch_path),
-                    )
+            reference_dir = self._select_reference_directory()
+            self._setup_patches(self.arguments.branch)
 
-                    srv_patches_git_message = 'Scap prep for "{}"'.format(
-                        self.arguments.branch
-                    )
-                    git.add_all(patch_base_dir, message=srv_patches_git_message)
-
-        if os.path.isdir(dest_dir):
-            self.get_logger().info("Version already checked out")
-            return 0
-
-        self.get_logger().info("Fetching core to {}".format(dest_dir))
         try:
-            git.fetch(dest_dir, SOURCE_URL + "mediawiki/core", reference_dir, branch=checkout_version)
+            # Note that this discards any local commits (e.g., security patches).
+            git.clone_or_update_repo(dest_dir,
+                                     os.path.join(SOURCE_URL, "mediawiki/core"),
+                                     checkout_version,
+                                     logger,
+                                     reference=reference_dir)
         except FailedCommand as e:
-            # Don't print a backtrace for git clone problems.  The error message has all of
+            # Don't print a backtrace for git problems.  The error message has all of
             # the information needed to tell what happened.
             e._scap_no_backtrace = True
             raise e
 
-        with utils.cd(dest_dir):
-            if (
-                subprocess.call(
-                    ["/usr/bin/git", "config", "branch.autosetuprebase", "always"]
-                )
-                != 0
-            ):
-                self.get_logger().warn("Unable to setup auto-rebase")
+        # This is only needed while people still do manual checkout
+        # manipulation (a practice which needs to end).
+        update_update_strategy(dest_dir)
 
-            num_procs = str(max(multiprocessing.cpu_count() // 2, 1))
-            if (
-                subprocess.call(
-                    ["/usr/bin/git", "config", "submodule.fetchJobs", num_procs]
-                )
-                != 0
-            ):
-                self.get_logger().warn("Unable to setup submodule fetch jobs")
-
-        self.get_logger().info("Checkout {} in {}".format(checkout_version, dest_dir))
-        git.checkout(dest_dir, checkout_version)
-
-        if checkout_version == "master":
-            # Specific to Beta Cluster
-            master_stuff(dest_dir)
-        else:
-            # Specific to production
-            self.get_logger().info("Update submodules for {}".format(dest_dir))
-            git.update_submodules(dest_dir, use_upstream=True)
-            update_update_strategy(dest_dir)
-
-        self.get_logger().info("Creating LocalSettings.php stub")
+        logger.info("Creating LocalSettings.php stub")
         write_settings_stub(os.path.join(dest_dir, "LocalSettings.php"))
 
-        self.get_logger().info("Creating cache dir")
+        logger.info("Making cache dir world writable")
         cache_dir = os.path.join(dest_dir, "cache")
         os.chmod(cache_dir, 0o777)
 
-        self.get_logger().info(
+        logger.info(
             "MediaWiki %s successfully checked out." % checkout_version
         )
+
+    def _select_reference_directory(self):
+        """
+        Find the latest /srv/mediawiki-staging/php-<version> directory to use as a reference
+        when cloning a new mediawiki checkout.
+
+        Returns None if unavailable.
+        """
+        candidates = glob.glob(os.path.join(self.config["stage_dir"], "php-*"))
+
+        if not candidates:
+            return None
+
+        return sorted(candidates, key=distutils.version.LooseVersion)[-1]
+
+    def _select_reference_patches(self):
+        """
+        Find the latest /srv/patches/<version> directory to copy
+        to set up a new version.
+
+        Returns None if unavailable.
+        """
+
+        patch_base_dir = self.config["patch_path"]
+
+        candidates = [
+            name
+            for name in os.listdir(patch_base_dir)
+            if re.match(utils.BRANCH_RE, name)
+        ]
+
+        if not candidates:
+            return None
+
+        latest_patches_vers = sorted(candidates, key=distutils.version.LooseVersion)[-1]
+
+        return os.path.join(patch_base_dir, latest_patches_vers)
+
+    def _setup_patches(self, version):
+        logger = self.get_logger()
+
+        logger.info("Setting up patches for {}".format(version))
+
+        patch_base_dir = self.config["patch_path"]
+        patch_path = os.path.join(patch_base_dir, version)
+        if os.path.exists(patch_path):
+            logger.info("Patches already set up for {}".format(version))
+            return
+
+        reference_patches = self._select_reference_patches()
+
+        if not reference_patches:
+            logger.warn("No reference patches available to copy")
+            return
+
+        logger.info("Copying patches from {} to {}".format(reference_patches, patch_path))
+        shutil.copytree(reference_patches, patch_path)
+
+        # This also commits.
+        git.add_all(patch_base_dir, message='Scap prep for "{}"'.format(version))
+        logger.info("Done setting patches for {}".format(version))
