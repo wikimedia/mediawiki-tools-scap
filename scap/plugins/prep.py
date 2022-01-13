@@ -150,7 +150,7 @@ This operation can be run as many times as needed.
         if apply_patches:
             try:
                 subprocess.check_call([self.get_script_path(), "apply-patches",
-                                       "-Dstage_dir={}".format(self.config["stage_dir"]),
+                                       "-Dstage_dir:{}".format(self.config["stage_dir"]),
                                        "--abort-git-am-on-fail",
                                        "--train", branch])
             except subprocess.CalledProcessError as e:
