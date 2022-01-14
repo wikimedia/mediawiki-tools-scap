@@ -144,13 +144,17 @@ def info(directory, remote="origin"):
     else:
         branch = head
 
-    if remote:
-        # This information is used by https://<site>/wiki/Special:Version
-        # to construct a link to a commit in Gerrit (gitiles), so it must
-        # not refer to a local commit (i.e., a patch).  Use git merge-base
-        # to find the nearest public commit.
-        head_sha1 = gitcmd("merge-base", "HEAD", "{}/{}".format(remote, branch), cwd=directory).strip()
-    else:
+    # This information is used by https://<site>/wiki/Special:Version
+    # to construct a link to a commit in Gerrit (gitiles), so it must
+    # not refer to a local commit (i.e., a patch).  Use git merge-base
+    # to find the nearest public commit.
+    try:
+        head_sha1 = gitcmd("merge-base", "HEAD", "{}".format(remote), cwd=directory).strip()
+    except Exception as e:
+        # The git merge-base command won't work if origin doesn't have
+        # a HEAD reference (such as when
+        # https://gerrit.wikimedia.org/r/mediawiki/extensions/NaylorAMS
+        # is checked out as a submodule).
         head_sha1 = sha(directory, "HEAD")
 
     commit_date = gitcmd(
