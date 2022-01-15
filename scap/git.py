@@ -152,9 +152,7 @@ def info(directory, remote="origin"):
         head_sha1 = gitcmd("merge-base", "HEAD", "{}".format(remote), cwd=directory).strip()
     except Exception as e:
         # The git merge-base command won't work if origin doesn't have
-        # a HEAD reference (such as when
-        # https://gerrit.wikimedia.org/r/mediawiki/extensions/NaylorAMS
-        # is checked out as a submodule).
+        # a HEAD reference (which points to the default branch).
         head_sha1 = sha(directory, "HEAD")
 
     commit_date = gitcmd(
