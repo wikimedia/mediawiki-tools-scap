@@ -543,7 +543,7 @@ class DeployLocal(cli.Application):
         with open(self.context.local_config) as cfg:
             # Note: Not using safe_load here because the config may
             # contain an OrderedDict that we want.
-            return yaml.load(cfg.read())
+            return yaml.load(cfg.read(), yaml.loader.Loader)
 
     def _get_remote_overrides(self):
         """Grab remote config from git_server."""
@@ -557,7 +557,7 @@ class DeployLocal(cli.Application):
 
         # Note: Not using safe_load here because the config may
         # contain an OrderedDict that we want.
-        return yaml.load(r.text)
+        return yaml.load(r.text, yaml.loader.Loader)
 
 
 @cli.command("deploy", help="[SCAP 3] Sync new service code across cluster")
