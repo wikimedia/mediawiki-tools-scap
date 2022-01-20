@@ -231,20 +231,36 @@ This operation can be run as many times as needed.
     def _master_stuff(self, branch_dir, logger):
         # On train branches of mediawiki/core, extensions/vendors/skins are submodules.
         # On the master branch of mediawiki/core, they are not submodules and must be handled
-        # separately.
+        # specially.
+
+        gitignore_path = os.path.join(branch_dir, ".gitignore")
 
         for type in ["extensions", "vendor", "skins"]:
-            # extensions and skins may be populated with a README file which needs to be blasted
-            # vendor may not exist.
 
             repo = os.path.join(SOURCE_URL, "mediawiki/{}".format(type))
             path = os.path.join(branch_dir, type)
 
+            # If mediawiki/core has just been freshly cloned, the
+            # extensions/ and skins/ directories will be populated
+            # with a few placeholder files (including .gitignore).  We
+            # need the directories to be empty or non-existent so that
+            # we can clone the corresponding mediawiki/<repo>.
+
             if os.path.exists(path) and not git.is_dir(path):
-                logger.info("Deleting stock {} so it will be replaced with a clone of {}".format(path, repo))
+                logger.info("Deleting placeholder {} so it will be replaced with a clone of {}".format(path, repo))
                 shutil.rmtree(path)
 
             self._clone_or_update_repo(repo,
                                        "master",
                                        path,
                                        logger)
+
+            with open(gitignore_path, "a") as f:
+                f.write("# Added by scap prep auto\n")
+                f.write("/{}\n".format(type))
+
+        # After checking out extensions/skins, some of the placeholder
+        # files from mediawiki/core will have been replaced.  This
+        # add_all captures any of those differences so that we end up
+        # with a clean checkout.
+        git.add_all(branch_dir, "scap prep auto setup")  # This commits
