@@ -15,6 +15,8 @@ class UpdateWikiversions(cli.Application):
 
     @cli.argument("dblist", help="The dblist file to use as input for migrating.")
     @cli.argument("branch", help="The name of the branch to migrate to.")
+    @cli.argument("--no-check", help="Don't check that the branch is already checked out",
+                  action='store_false', dest='check')
     def main(self, *extra_args):
         """Update the json file, maybe update the branch symlink."""
         self.update_wikiversions_json()
@@ -36,10 +38,10 @@ class UpdateWikiversions(cli.Application):
 
         new_dir = "php-%s" % self.arguments.branch
 
-        if not os.path.isdir(os.path.join(self.config["stage_dir"], new_dir)):
-            raise ValueError(
+        if self.arguments.check and not os.path.isdir(os.path.join(self.config["stage_dir"], new_dir)):
+            raise SystemExit(
                 "Train branch %s has not been checked out yet.\n"
-                "Try running 'scap prep %s' first."
+                "Try running 'scap prep %s' first, or run update-wikiversions with --no-check."
                 % (self.arguments.branch, self.arguments.branch)
             )
 
