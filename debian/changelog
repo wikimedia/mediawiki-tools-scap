@@ -1,3 +1,11 @@
+scap (4.2.1-1) unstable; urgency=medium
+
+  * Fix for T300177: deploy: Don't call dict() on self.arguments.defines
+  * updateinterwikicache: Do not commit+sync
+  * scap update-wikiversions: Add --no-check flag
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Wed, 26 Jan 2022 11:37:59 -0800
+
 scap (4.2.0-1) unstable; urgency=medium
 
   * scap prep auto: mods for master branch handling
