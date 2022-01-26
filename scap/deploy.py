@@ -116,7 +116,7 @@ class DeployLocal(cli.Application):
 
         overrides = self._get_config_overrides()
         if self.arguments.defines:
-            overrides.update(dict(self.arguments.defines))
+            overrides.update(self.arguments.defines)
 
         config.override_config(self.config, overrides)
 
