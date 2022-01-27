@@ -26,7 +26,6 @@ from __future__ import print_function
 import argparse
 from concurrent.futures import ProcessPoolExecutor
 import errno
-import logging
 import os
 import pwd
 import select
@@ -292,6 +291,7 @@ class AbstractSync(cli.Application):
     def _proxy_sync_command(self):
         """Synchronization command to run on the proxy hosts."""
         cmd = [self.get_script_path(), "pull", "--no-php-restart", "--no-update-l10n",
+               "--exclude-wikiversions.php",
                "-D", "rsync_cdbs:{}".format(self.config["rsync_cdbs"])]
         if self.verbose:
             cmd.append("--verbose")
@@ -306,7 +306,11 @@ class AbstractSync(cli.Application):
         return self._proxy_sync_command() + proxies
 
     def _sync_common(self):
-        """Sync stage_dir to deploy_dir on the deployment host."""
+        """Compile wikiversions.json to wikiversions.php in stage_dir,
+           then sync stage_dir to deploy_dir on the deployment host."""
+
+        tasks.compile_wikiversions("stage", self.config)
+
         includes = None
 
         if self.include is not None:
@@ -750,11 +754,11 @@ class ScapWorld(AbstractSync):
         )
 
     def _after_sync_common(self):
-        super(ScapWorld, self)._after_sync_common()
+        super()._after_sync_common()  # git_repo and cache_git_info stuff
 
-        # Create /srv/mediawiki/wikiversions.php from /srv/mediawiki/wikiversions.json
-        cmd = "{} wikiversions-compile".format(self.get_script_path())
-        utils.sudo_check_call("mwdeploy", cmd, logLevel=logging.INFO)
+        # rsync-common (i.e., /srv/mediawiki-staging to
+        # /srv/mediawiki) has completed, so it is safe to use mwscript
+        # (which tasks.update_localization_cache does).
 
         # Update list of extension message files and regenerate the
         # localisation cache.
@@ -864,6 +868,12 @@ class SyncPull(cli.Application):
         help="Do not update l10n cache files.",
     )
     @cli.argument(
+        "--exclude-wikiversions.php",
+        action="store_true",
+        dest="exclude_wikiversions_php",
+        help="Do not rsync wikiversions.php.",
+    )
+    @cli.argument(
         "-i",
         "--include",
         default=None,
@@ -894,6 +904,7 @@ class SyncPull(cli.Application):
             sync_from=self.arguments.servers,
             verbose=self.verbose,
             rsync_args=rsync_args,
+            exclude_wikiversionsphp=self.arguments.exclude_wikiversions_php,
         )
 
         if self.config["rsync_cdbs"] is False and self.arguments.update_l10n:
