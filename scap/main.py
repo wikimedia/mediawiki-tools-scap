@@ -26,6 +26,7 @@ from __future__ import print_function
 import argparse
 from concurrent.futures import ProcessPoolExecutor
 import errno
+import logging
 import os
 import pwd
 import select
@@ -751,9 +752,9 @@ class ScapWorld(AbstractSync):
     def _after_sync_common(self):
         super(ScapWorld, self)._after_sync_common()
 
-        # Bug 63659: Compile deploy_dir/wikiversions.json to cdb
+        # Create /srv/mediawiki/wikiversions.php from /srv/mediawiki/wikiversions.json
         cmd = "{} wikiversions-compile".format(self.get_script_path())
-        utils.sudo_check_call("mwdeploy", cmd)
+        utils.sudo_check_call("mwdeploy", cmd, logLevel=logging.INFO)
 
         # Update list of extension message files and regenerate the
         # localisation cache.
