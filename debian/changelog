@@ -1,3 +1,10 @@
+scap (4.2.2-1) unstable; urgency=medium
+
+  * scap deploy: Fix -D option handling (really this time)
+  * scap sync-world: Make wikiversions-compile phase verbose
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Fri, 28 Jan 2022 10:19:02 -0800
+
 scap (4.2.1-1) unstable; urgency=medium
 
   * Fix for T300177: deploy: Don't call dict() on self.arguments.defines
