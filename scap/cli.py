@@ -48,6 +48,9 @@ class Application(object):
     _stats = None
     arguments = None
     config = None
+    # Dictionary representing configuration options that were
+    # specified using -D on the command line.  Populated by _load_config().
+    cli_defines = {}
 
     def __init__(self, exe_name):
         if self.program_name is None:
@@ -188,7 +191,9 @@ class Application(object):
 
     def _load_config(self):
         """Load configuration."""
-        defines = None
+
+        self.cli_defines = {}
+
         if self.arguments.defines:
             res = []
             for string in self.arguments.defines:
@@ -196,12 +201,15 @@ class Application(object):
                 if len(pair) != 2:
                     raise SystemExit("Invalid configuration setting: {}\nSettings must be in 'key:value' format".format(string))
                 res.append(pair)
-            defines = dict(res)
+            self.cli_defines = dict(res)
+
         self.config = config.load(
             cfg_file=self.arguments.conf_file,
             environment=self.arguments.environment,
-            overrides=defines,
+            overrides=self.cli_defines,
         )
+        # self.cli_defines remains available for other code (such as
+        # deploy.py) to use.
 
     def _setup_loggers(self):
         """Setup logging."""
