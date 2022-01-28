@@ -553,8 +553,7 @@ class DeployLocal(cli.Application):
                                        self.config["git_server"], self.arguments.repo,
                                        ".git", "DEPLOY_HEAD"))
         r = requests.get(cfg_url)
-        if r.status_code != requests.codes.ok:
-            r.raise_for_status()
+        r.raise_for_status()
 
         # Note: Not using safe_load here because the config may
         # contain an OrderedDict that we want.
