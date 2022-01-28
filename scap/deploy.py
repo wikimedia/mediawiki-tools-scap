@@ -131,7 +131,8 @@ class DeployLocal(cli.Application):
     @cli.argument(
         "-f", "--force", action="store_true", help="force stage even when noop detected"
     )
-    @cli.argument("-r", "--repo", help="repo that you are deploying")
+    @cli.argument("-r", "--repo", help="repo that you are deploying",
+                  required=True)
     @cli.argument(
         "--refresh-config",
         action="store_true",
@@ -547,13 +548,13 @@ class DeployLocal(cli.Application):
 
     def _get_remote_overrides(self):
         """Grab remote config from git_server."""
-        cfg_url = os.path.join(
-            self.config["git_server"], self.arguments.repo, ".git", "DEPLOY_HEAD"
-        )
-
-        r = requests.get("{}://{}".format(self.config["git_scheme"], cfg_url))
+        cfg_url = "{}://{}".format(self.config["git_scheme"],
+                                   os.path.join(
+                                       self.config["git_server"], self.arguments.repo,
+                                       ".git", "DEPLOY_HEAD"))
+        r = requests.get(cfg_url)
         if r.status_code != requests.codes.ok:
-            raise IOError(errno.ENOENT, "Config file not found", cfg_url)
+            r.raise_for_status()
 
         # Note: Not using safe_load here because the config may
         # contain an OrderedDict that we want.
