@@ -60,7 +60,7 @@ Scap installed.
       /srv/deployment/integration/slave-scripts-cache has a current
       symlinked to a refs/... directory and that
       /srv/deployment/integration/slave-scripts is a symlink to the
-      same revs directory: 
+      same revs directory:
       `ls -l /srv/deployment/integration/slave-scripts-cache /srv/deployment/integration/slave-scripts`
 
 ### Let the release marinate in beta cluster for a while
@@ -70,14 +70,17 @@ How long is up to you.  When you are satisfied, move on with the remaining steps
 
 ## Pick version number
 
-Pick a new version number, called VERS in these instructions.  A
+Pick a new version number, called $VERS in these instructions.  A
 version number might be, for example `1.2.3`.  Replace every instance
-of `VERS` in examples below with the version number. If the example
-says `VERS-1` that would result in `1.2.3-1`.
+of `$VERS` in examples below with the version number.  Run
+```sh
+VERS=1.2.3 # Replace with new version
+```
+in your shell to make the following commands simpler.
 
 ## Update scap/version.py and debian/changelog
 
-Run `release-scripts/prepare-scap-release VERS`.  This will
+Run `release-scripts/prepare-scap-release $VERS`.  This will
 automatically update and commit `scap/version.py` and
 `debian/changelog`, prompting you for confirmation along the way.
 
@@ -107,15 +110,15 @@ happen in a clone of the Scap git repository.
 * Make sure the workspace is clean and has no uncommitted changes or
   unwanted files: `git status`
 * Use `git log` to locate the version-changing commit that you merged earlier
-  in this process.  
-* Tag version: `git tag --sign -m "Release VERS" VERS <commit>`
-* Push the tag to Gerrit: `git push --tags origin VERS`
+  in this process.
+* Tag version: `git tag --sign -m "Release $VERS" $VERS HEAD`
+* Push the tag to Gerrit: `git push --tags origin $VERS`
 
 ## Ask SRE to build and install a new Debian package
 
 File a task in Phabricator:
 
-* title: Deploy Scap version VERS
+* title: Deploy Scap version $VERS
 * description:
 ```
 Dear SRE team,
