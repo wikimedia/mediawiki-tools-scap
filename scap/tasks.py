@@ -377,7 +377,8 @@ def sync_master(cfg, master, verbose=False, logger=None):
 # Called via "scap pull"
 @utils.log_context("sync_common")
 def sync_common(
-    cfg, include=None, sync_from=None, verbose=False, logger=None, rsync_args=None
+        cfg, include=None, sync_from=None, verbose=False, logger=None, rsync_args=None,
+        exclude_wikiversionsphp=False,
 ):
     """
     Sync local deploy dir with upstream rsync server's copy.
@@ -416,6 +417,15 @@ def sync_common(
     rsync = ["sudo", "-u", "mwdeploy", "-n", "--"] + DEFAULT_RSYNC_ARGS
     # Exclude .git metadata
     rsync.append("--exclude=**/.git")
+
+    if exclude_wikiversionsphp:
+        if rsync_args and "--delete-excluded" in rsync_args:
+            # --delete-excluded mode overrides exclude_wikiversionsphp because
+            # we can't allow have wikiversions.php to be deleted.
+            pass
+        else:
+            # Exclude wikiversions*.php.  This is rsync'd by sync_wikiversions later.
+            rsync.append("--exclude=/wikiversions*.php")
 
     if cfg["rsync_cdbs"] is False:
         rsync.append("--exclude=**/cache/l10n/*.cdb")
