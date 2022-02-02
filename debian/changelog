@@ -1,3 +1,11 @@
+scap (4.3.0-1) unstable; urgency=medium
+
+  * scap sync-*: Avoid warnings about empty host lists
+  * sync-world: Change handling of wikiversions.php
+  * scap deploy: misc internal tweaks
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Wed, 02 Feb 2022 13:38:58 -0800
+
 scap (4.2.2-1) unstable; urgency=medium
 
   * scap deploy: Fix -D option handling (really this time)
