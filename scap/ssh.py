@@ -224,6 +224,7 @@ class Job(object):
                 self.max_failure,
                 self.output_handler,
                 self.verbose,
+                self._reporter,
             ):
 
                 if status == 0:
@@ -257,6 +258,7 @@ def cluster_ssh(
     max_fail=None,
     output_handler=None,
     verbose=False,
+    reporter=None,
 ):
     """Run a command via SSH on multiple hosts concurrently."""
     hosts = set(hosts)
@@ -296,6 +298,9 @@ def cluster_ssh(
                 procs[proc.pid] = (proc, host)
                 poll.register(proc.stdout, select.EPOLLIN)
                 output_handlers[proc.stdout.fileno()] = output_handler(host)
+
+                if reporter:
+                    reporter.add_in_flight()
 
             elif procs:
                 try:
