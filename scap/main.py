@@ -93,11 +93,13 @@ class AbstractSync(cli.Application):
                 canaries = [
                     node for node in self._get_canary_list() if node in full_target_list
                 ]
-                with log.Timer("sync-check-canaries", self.get_stats()) as timer:
-                    self.sync_canary(canaries)
-                    timer.mark("Canaries Synced")
-                    self._invalidate_opcache(canaries)
-                    self.canary_checks(canaries, timer)
+
+                if len(canaries) > 0:
+                    with log.Timer("sync-check-canaries", self.get_stats()) as timer:
+                        self.sync_canary(canaries)
+                        timer.mark("Canaries Synced")
+                        self._invalidate_opcache(canaries)
+                        self.canary_checks(canaries, timer)
             else:
                 self.get_logger().warning("Canaries Skipped by --force")
 
@@ -106,22 +108,23 @@ class AbstractSync(cli.Application):
                 node for node in self._get_proxy_list() if node in full_target_list
             ]
 
-            with log.Timer("sync-proxies", self.get_stats()):
-                sync_cmd = self._apache_sync_command(self.get_master_list())
-                # Proxies should always use the current host as their sync
-                # origin server.
-                sync_cmd.append(socket.getfqdn())
-                update_proxies = ssh.Job(
-                    proxies, user=self.config["ssh_user"], key=self.get_keyholder_key()
-                )
-                update_proxies.command(sync_cmd)
-                update_proxies.progress(
-                    log.reporter("sync-proxies", self.config["fancy_progress"])
-                )
-                succeeded, failed = update_proxies.run()
-                if failed:
-                    self.get_logger().warning("%d proxies had sync errors", failed)
-                    self.soft_errors = True
+            if len(proxies) > 0:
+                with log.Timer("sync-proxies", self.get_stats()):
+                    sync_cmd = self._apache_sync_command(self.get_master_list())
+                    # Proxies should always use the current host as their sync
+                    # origin server.
+                    sync_cmd.append(socket.getfqdn())
+                    update_proxies = ssh.Job(
+                        proxies, user=self.config["ssh_user"], key=self.get_keyholder_key()
+                    )
+                    update_proxies.command(sync_cmd)
+                    update_proxies.progress(
+                        log.reporter("sync-proxies", self.config["fancy_progress"])
+                    )
+                    succeeded, failed = update_proxies.run()
+                    if failed:
+                        self.get_logger().warning("%d proxies had sync errors", failed)
+                        self.soft_errors = True
 
             # Update apaches
             with log.Timer("sync-apaches", self.get_stats()):
@@ -251,9 +254,14 @@ class AbstractSync(cli.Application):
         return list(set(self._get_api_canary_list()) | set(self._get_app_canary_list()))
 
     def _sync_masters(self):
-        """Sync the staging directory across all deploy master servers."""
-        self.master_only_cmd("sync-masters", self._master_sync_command())
-        self.master_only_cmd("sync-pull-masters", self._proxy_sync_command())
+        """Sync the staging directory across all other deploy master servers."""
+
+        us = socket.getfqdn()
+        other_masters = [master for master in self.get_master_list() if master != us]
+
+        if len(other_masters) > 0:
+            self.master_only_cmd("sync-masters", self._master_sync_command())
+            self.master_only_cmd("sync-pull-masters", self._proxy_sync_command())
 
     def master_only_cmd(self, timer, cmd):
         """
@@ -349,9 +357,6 @@ class AbstractSync(cli.Application):
 
         :param canaries: Iterable of canary servers to sync
         """
-        if not canaries:
-            return
-
         sync_cmd = self._apache_sync_command(self.get_master_list())
 
         # Go ahead and attempt to restart php for canaries

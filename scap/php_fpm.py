@@ -55,8 +55,6 @@ class PHPRestart(object):
             self.cmd = "{} {} {}".format(
                 cfg["php_fpm_restart_script"], cfg["php_fpm"], str(threshold)
             )
-        elif logger:
-            logger.warn("php_fpm_restart_script not defined in config")
 
     def _build_job(self, targets):
         """
