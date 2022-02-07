@@ -650,44 +650,6 @@ class RebuildCdbs(cli.Application):
             tasks.merge_cdb_updates(cache_dir, use_cores, True, self.arguments.mute)
 
 
-@cli.command("sync", help="Deploy MediaWiki to the cluster (formerly scap)")
-class Scap(AbstractSync):
-    """
-    This is getting renamed to scap sync-world. Use that instead.
-    """
-
-    @cli.argument("--force", action="store_true", help="Skip canary checks")
-    @cli.argument(
-        "-w",
-        "--canary-wait-time",
-        dest="canary_wait_time",
-        type=int,
-        help="Define how long new code will run on the "
-        "canary servers (default is 20s)",
-        metavar="<time in secs>",
-    )
-    @cli.argument("message", nargs="*", help="Log message for SAL")
-    def main(self, *extra_args):
-        msg = "".join(
-            [
-                ansi.esc(ansi.FG_RED, ansi.BRIGHT),
-                "[ERROR] ",
-                ansi.reset(),
-                ansi.esc(ansi.FG_BLUE),
-                '"scap sync"',
-                ansi.reset(),
-                ' has been renamed to "scap sync-world".\n' "Use ",
-                ansi.esc(ansi.FG_GREEN),
-                '"scap sync-world"',
-                ansi.reset(),
-                ' or "scap sync-file" instead,\n',
-                "depending on what you want to achieve.\n",
-            ]
-        )
-        sys.stderr.write(msg)
-        return 1
-
-
 @cli.command("sync-world", help="Deploy MediaWiki to the cluster")
 class ScapWorld(AbstractSync):
     """

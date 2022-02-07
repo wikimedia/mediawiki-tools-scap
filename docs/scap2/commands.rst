@@ -7,16 +7,16 @@ mediawiki config and wmf/* code branches from the deploy server to the
 production web servers. There are also commands to perform other related
 house-keeping tasks as described in the individual command descriptions.
 
-scap sync
----------
-:command:`scap sync` is the driver script for syncing the MediaWiki versions and
+scap sync-world
+---------------
+:command:`scap sync-world` is the driver script for syncing the MediaWiki versions and
 configuration files currently staged on the deploy server to the rest of the
 cluster.
 
-.. program-output:: ../bin/scap sync --help
+.. program-output:: ../bin/scap sync-world --help
 .. seealso::
-   * :func:`scap.Scap`
-   * :func:`scap.tasks.check_php_syntax`
+   * :func:`scap.ScapWorld`
+   * :func:`scap.tasks.check_valid_syntax`
    * :func:`scap.tasks.compile_wikiversions`
    * :func:`scap.tasks.sync_common`
    * :func:`scap.tasks.sync_wikiversions`
@@ -25,7 +25,7 @@ cluster.
 scap pull
 ---------
 :command:`scap pull` uses rsync to fetch MediaWiki code and configuration to the
-local host. It is typically called automatically on hosts during the execution of `scap sync`_.
+local host. It is typically called automatically on hosts during the execution of `scap sync-world`_.
 
 .. program-output:: ../bin/scap pull --help
 .. seealso::
