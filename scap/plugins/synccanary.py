@@ -67,8 +67,8 @@ class SyncCanary(AbstractSync):
             self.get_logger().info("Syncing canaries: %s", (synchosts))
 
             self._before_cluster_sync()
-            self._sync_common()
-            self._after_sync_common()
+            self._compile_wikiversions()
+            self._cache_git_info()
             self._sync_masters()
 
             sync_cmd = self._apache_sync_command(self.get_master_list())
