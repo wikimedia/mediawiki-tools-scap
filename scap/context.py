@@ -113,7 +113,7 @@ class HostContext(Context):
         See :class:``Context.setup`` for its additional operations.
         """
 
-        super(HostContext, self).setup()
+        super().setup()
 
         for d in [self.scap_path(), self.log_path(), self.temp_config_path()]:
             if not os.path.exists(d):
@@ -263,7 +263,7 @@ class TargetContext(Context):
         See :class:``Context.setup`` for its additional operations.
         """
 
-        super(TargetContext, self).setup()
+        super().setup()
 
         for d in [self.cache_dir, self.revs_dir]:
             utils.mkdir_p(d)

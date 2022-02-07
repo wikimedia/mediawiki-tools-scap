@@ -118,7 +118,7 @@ class TerminalIO(io.TextIOBase):
     )
 
     def __init__(self, out=None, autoflush=True):
-        super(TerminalIO, self).__init__()
+        super().__init__()
         if out is None:
             out = sys.__stdout__
 

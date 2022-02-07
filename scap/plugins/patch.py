@@ -32,7 +32,7 @@ class SecurityPatchManager(cli.Application):
     """ Scap sub-command to manage mediawiki security patches """
 
     def __init__(self, exe_name):
-        super(SecurityPatchManager, self).__init__(exe_name)
+        super().__init__(exe_name)
         self.branchdir = None
         self.patchdir = None
 

@@ -56,7 +56,7 @@ class AbstractSync(cli.Application):
     soft_errors = False
 
     def __init__(self, exe_name):
-        super(AbstractSync, self).__init__(exe_name)
+        super().__init__(exe_name)
         self.include = None
         self.om = None
         self.logo = True
@@ -183,7 +183,7 @@ class AbstractSync(cli.Application):
         if key:
             return key
 
-        return super(AbstractSync, self).get_keyholder_key()
+        return super().get_keyholder_key()
 
     def _before_cluster_sync(self):
         pass
@@ -744,7 +744,7 @@ class ScapWorld(AbstractSync):
         if wait is not None:
             self.config["canary_wait_time"] = wait
 
-        return super(ScapWorld, self).main(*extra_args)
+        return super().main(*extra_args)
 
     def _before_cluster_sync(self):
         self.announce("Started scap: %s", self.arguments.message)
@@ -947,7 +947,7 @@ class SyncFile(AbstractSync):
     @cli.argument("file", help="File/directory to sync")
     @cli.argument("message", nargs="*", help="Log message for SAL")
     def main(self, *extra_args):
-        return super(SyncFile, self).main(*extra_args)
+        return super().main(*extra_args)
 
     def _before_cluster_sync(self):
         # assert file exists
@@ -1010,7 +1010,7 @@ class SyncL10n(AbstractSync):
     )
     @cli.argument("message", nargs="*", help="Log message for SAL")
     def main(self, *extra_args):
-        return super(SyncL10n, self).main(*extra_args)
+        return super().main(*extra_args)
 
     def _before_cluster_sync(self):
         if self.arguments.version.startswith("php-"):

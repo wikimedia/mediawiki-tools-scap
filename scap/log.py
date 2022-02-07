@@ -72,12 +72,12 @@ class AnsiColorFormatter(logging.Formatter):
 
         .. seealso:: https://en.wikipedia.org/wiki/ANSI_escape_code
         """
-        super(AnsiColorFormatter, self).__init__(fmt, datefmt)
+        super().__init__(fmt, datefmt)
         if colors:
             self.colors.update(colors)
 
     def format(self, record):
-        msg = super(AnsiColorFormatter, self).format(record)
+        msg = super().format(record)
         color = self.colors.get(record.levelname, "0")
         return "\x1b[%sm%s\x1b[0m" % (color, msg)
 
@@ -90,7 +90,7 @@ class DiffLogFormatter(AnsiColorFormatter):
         if DiffLexer:
             self.lex = DiffLexer()
             self.formatter = TerminalFormatter()
-        super(DiffLogFormatter, self).__init__(fmt, datefmt, colors)
+        super().__init__(fmt, datefmt, colors)
 
     def format(self, record):
 
@@ -98,7 +98,7 @@ class DiffLogFormatter(AnsiColorFormatter):
             if self.lex:
                 return pygments.highlight(record.output, self.lex, self.formatter)
             return record.output
-        return super(DiffLogFormatter, self).format(record)
+        return super().format(record)
 
 
 class IRCSocketHandler(logging.Handler):
@@ -117,7 +117,7 @@ class IRCSocketHandler(logging.Handler):
         :param timeout: timeout for sending message
         :type timeout: float
         """
-        super(IRCSocketHandler, self).__init__()
+        super().__init__()
         self.addr = (host, port)
         self.level = logging.INFO
         self.timeout = timeout
@@ -219,7 +219,7 @@ class LogstashFormatter(logging.Formatter):
         :param datefmt: Time format string
         :param type: Logstash event type
         """
-        super(LogstashFormatter, self).__init__(fmt, datefmt)
+        super().__init__(fmt, datefmt)
         self.type = log_type
         self.host = socket.gethostname()
         self.script = sys.argv[0]
@@ -305,7 +305,7 @@ class SyslogFormatter(LogstashFormatter):
         # Add the 'cee cookie' to signal json-in-syslog
         # The cookie is recognized by rsyslog for json parsing:
         # https://www.rsyslog.com/doc/v8-stable/configuration/modules/mmjsonparse.html
-        return "scap: @cee: " + super(SyslogFormatter, self).format(record)
+        return "scap: @cee: " + super().format(record)
 
 
 def reporter(message, fancy=False):
@@ -410,7 +410,7 @@ class FancyProgressReporter(ProgressReporter):
         TERM.scroll_region(0, TERM.height - 3)
         TERM.scroll_forward(1)
         TERM.register_cleanup_callback(self.cleanup)
-        super(FancyProgressReporter, self).__init__(name, expect=expect, fd=fd)
+        super().__init__(name, expect=expect, fd=fd)
 
     def finish(self):
         """Finish tracking progress."""
@@ -483,7 +483,7 @@ class MuteReporter(ProgressReporter):
     """A report that declines to report anything."""
 
     def __init__(self, name="", expect=0, fd=sys.stderr):
-        super(MuteReporter, self).__init__(name)
+        super().__init__(name)
 
     def _progress(self):
         pass
@@ -499,14 +499,14 @@ class DeployLogFormatter(JSONFormatter):
         if not hasattr(record, "host"):
             record.host = socket.gethostname()
 
-        return super(DeployLogFormatter, self).format(record)
+        return super().format(record)
 
 
 class DeployLogHandler(logging.FileHandler):
     """Handler for `scap/deploy.log`."""
 
     def __init__(self, log_file):
-        super(DeployLogHandler, self).__init__(log_file)
+        super().__init__(log_file)
         self.setFormatter(DeployLogFormatter())
         self.setLevel(logging.DEBUG)
 
@@ -768,7 +768,7 @@ class Udp2LogHandler(logging.handlers.DatagramHandler):
         :param port: Port
         :param prefix: Line prefix (udp2log destination)
         """
-        super(Udp2LogHandler, self).__init__(host, port)
+        super().__init__(host, port)
         self.prefix = prefix
 
     def makePickle(self, record):

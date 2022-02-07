@@ -58,7 +58,7 @@ ATTR_SUBCOMMAND = "_app_subcmd_name"
 
 class _ScapAutoCompleteAction(argparse.Action):
     def __init__(self):
-        super(_ScapAutoCompleteAction, self).__init__(
+        super().__init__(
             option_strings=["--_completion"],
             dest="_completion",
             metavar="CMD_LINE",
@@ -106,7 +106,7 @@ class ScapArgParser(argparse.ArgumentParser):
         self._autocomplete_options = []
         if "conflict_handler" not in kwargs:
             kwargs["conflict_handler"] = "resolve"
-        super(ScapArgParser, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
         if "_COMPLETION" in os.environ:
             self._add_action(_ScapAutoCompleteAction())
 
@@ -220,7 +220,7 @@ class ScapHelpFormatter(argparse.HelpFormatter):
 
     def _format_action(self, action):
         if action.help != argparse.SUPPRESS:
-            return super(ScapHelpFormatter, self)._format_action(action)
+            return super()._format_action(action)
 
 
 def build_parser():

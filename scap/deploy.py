@@ -81,7 +81,7 @@ class DeployLocal(cli.Application):
     """
 
     def __init__(self, exe_name):
-        super(DeployLocal, self).__init__(exe_name)
+        super().__init__(exe_name)
         self.context = None
         self.final_path = None
         self.noop = False
@@ -91,7 +91,7 @@ class DeployLocal(cli.Application):
 
     def _load_config(self):
 
-        super(DeployLocal, self)._load_config()
+        super()._load_config()
 
         # FIXME: this makes the assumption that the git_deploy_dir specified on
         # the target machines in /etc/scap.cfg is correct. Currently, we have
@@ -599,7 +599,7 @@ class Deploy(cli.Application):
     targets = []
 
     def __init__(self, exe_name):
-        super(Deploy, self).__init__(exe_name)
+        super().__init__(exe_name)
         self.all_targets = None
         self.context = None
         self.deploy_groups = None
@@ -1093,7 +1093,7 @@ class Deploy(cli.Application):
     def _load_config(self):
         """Set the host directory after the config has been loaded."""
 
-        super(Deploy, self)._load_config()
+        super()._load_config()
         env = self.config["environment"]
         self.context = context.HostContext(os.getcwd(), environment=env)
         self.context.setup()
