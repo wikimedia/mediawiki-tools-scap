@@ -299,7 +299,6 @@ class AbstractSync(cli.Application):
     def _proxy_sync_command(self):
         """Synchronization command to run on the proxy hosts."""
         cmd = [self.get_script_path(), "pull", "--no-php-restart", "--no-update-l10n",
-               "--exclude-wikiversions.php",
                "-D", "rsync_cdbs:{}".format(self.config["rsync_cdbs"])]
         if self.verbose:
             cmd.append("--verbose")
@@ -776,6 +775,13 @@ class ScapWorld(AbstractSync):
                     tasks.update_localization_cache(
                         version, wikidb, self.verbose, self.config
                     )
+
+    def _proxy_sync_command(self):
+        cmd = super()._proxy_sync_command()
+        # We want to exclude wikiversions.php during the normal rsync.
+        # wikiversions.php is handled separately in _after_cluster_sync (below).
+        cmd.append("--exclude-wikiversions.php")
+        return cmd
 
     def _after_cluster_sync(self):
         target_hosts = self._get_target_list()
