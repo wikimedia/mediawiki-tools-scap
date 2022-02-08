@@ -256,6 +256,13 @@ def compile_wikiversions(source_tree, cfg, logger=None):
         wikiversions, separators=(",", " => "), sort_keys=True, indent=4
     ).strip("{}\n")
 
+    if os.path.exists(php_file):
+        with open(php_file) as p:
+            if p.read() == php_code:
+                # The existing file already has the desired contents,
+                # so we don't need to do anything else.
+                return
+
     tmp_php_file = "%s.tmp" % php_file
     try:
         os.unlink(tmp_php_file)
