@@ -123,3 +123,17 @@ def test__check_sync_flag(cmd, mocker, lock_exists):
     else:
         isthere.return_value = False
         cmd._check_sync_flag()
+
+
+def test_exclude_wikiversions():
+    sync_world_app = cli.Application.factory(["sync-world"])
+    sync_world_app._load_config()
+    sync_world_app._setup_loggers()
+
+    assert "--exclude-wikiversions.php" in sync_world_app._proxy_sync_command()
+
+    sync_wikiversions_app = cli.Application.factory(["sync-wikiversions"])
+    sync_wikiversions_app._load_config()
+    sync_wikiversions_app._setup_loggers()
+
+    assert "--exclude-wikiversions.php" not in sync_wikiversions_app._proxy_sync_command()
