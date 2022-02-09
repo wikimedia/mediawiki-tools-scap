@@ -77,14 +77,13 @@ class AbstractSync(cli.Application):
         with lock.Lock(self.get_lock_file(), self.arguments.message):
             self._check_sync_flag()
             if not self.arguments.force:
-                if self._can_run_check_fatals():
-                    self.get_logger().info("Checking for new runtime errors locally")
-                    self._check_fatals()
+                self.get_logger().info("Checking for new runtime errors locally")
+                self._check_fatals()
             else:
                 self.get_logger().warning("check_fatals Skipped by --force")
             self._before_cluster_sync()
-            self._sync_common()
-            self._after_sync_common()
+            self._compile_wikiversions()
+            self._cache_git_info()
             self._sync_masters()
 
             full_target_list = self._get_target_list()
@@ -188,28 +187,13 @@ class AbstractSync(cli.Application):
     def _before_cluster_sync(self):
         pass
 
-    def _after_sync_common(self):
+    def _cache_git_info(self):
         self._git_repo()
 
         # Compute git version information
         with log.Timer("cache_git_info", self.get_stats()):
-            for version in self.active_wikiversions():
+            for version in self.active_wikiversions("stage"):
                 tasks.cache_git_info(version, self.config)
-
-    def _can_run_check_fatals(self):
-        """
-        _check_fatals will not succeed if /srv/mediawiki/wikiversions.php
-        hasn't been prepared yet. This will be the case if 'scap
-        sync-world' has never been run.  Running 'scap sync-world'
-        will fix everything up.
-        """
-        wikiversionsphp = os.path.join(
-            self.config["deploy_dir"],
-            utils.get_realm_specific_filename(
-                "wikiversions.php", self.config["wmf_realm"]
-            ),
-        )
-        return os.path.exists(wikiversionsphp)
 
     def _check_fatals(self):
         try:
@@ -236,8 +220,7 @@ class AbstractSync(cli.Application):
     def _get_target_list(self):
         """Get list of hostnames that should be updated from the proxies."""
         return list(
-            set(self.get_master_list())
-            | set(self._get_proxy_list())
+            set(self._get_proxy_list())
             | set(targets.get("dsh_targets", self.config).all)
         )
 
@@ -312,28 +295,9 @@ class AbstractSync(cli.Application):
         """
         return self._proxy_sync_command() + proxies
 
-    def _sync_common(self):
-        """Compile wikiversions.json to wikiversions.php in stage_dir,
-           then sync stage_dir to deploy_dir on the deployment host."""
-
+    def _compile_wikiversions(self):
+        """Compile wikiversions.json to wikiversions.php in stage_dir"""
         tasks.compile_wikiversions("stage", self.config)
-
-        includes = None
-
-        if self.include is not None:
-            includes = []
-
-            parts = self.include.split("/")
-            for i in range(1, len(parts)):
-                # Include parent directories in sync command or the default
-                # exclude will block them and by extension block the target
-                # file.
-                includes.append("/".join(parts[:i]))
-
-            includes.append(self.include)
-            includes.append("php-*/cache/gitinfo")
-
-        tasks.sync_common(self.config, include=includes, verbose=self.verbose)
 
     def _git_repo(self):
         """Flatten deploy directory into shared git repo."""
@@ -693,17 +657,13 @@ class ScapWorld(AbstractSync):
     Deploy MediaWiki to the cluster.
 
     #. Validate php syntax of wmf-config and multiversion
-    #. Sync deploy directory on localhost with staging area
-    #. Create/update git repo in staging area
-    #. Compile wikiversions.json to php in deploy directory
+    #. Compile wikiversions.json to php in staging directory
     #. Update l10n files in staging area
     #. Compute git version information
-    #. Commit all changes to local git repo in deploy directory
     #. Ask scap masters to sync with current master
     #. Ask scap proxies to sync with master server
-    #. Ask apaches to sync with fastest rsync server
+    #. Ask apaches to sync with fastest rsync server (excluding wikiversions.php)
     #. Ask apaches to rebuild l10n CDB files
-    #. Update wikiversions.php on localhost
     #. Ask apaches to sync wikiversions.php
     #. Run refreshMessageBlobs.php
     #. Rolling invalidation of all opcache for php 7.x
@@ -757,12 +717,8 @@ class ScapWorld(AbstractSync):
             utils.cpus_for_jobs(),
         )
 
-    def _after_sync_common(self):
-        super()._after_sync_common()  # git_repo and cache_git_info stuff
-
-        # rsync-common (i.e., /srv/mediawiki-staging to
-        # /srv/mediawiki) has completed, so it is safe to use mwscript
-        # (which tasks.update_localization_cache does).
+    def _cache_git_info(self):
+        super()._cache_git_info()
 
         # Update list of extension message files and regenerate the
         # localisation cache.
@@ -771,7 +727,7 @@ class ScapWorld(AbstractSync):
             self.get_logger().warn("Skipping l10n-update")
         else:
             with log.Timer("l10n-update", self.get_stats()):
-                for version, wikidb in self.active_wikiversions(return_type=dict).items():
+                for version, wikidb in self.active_wikiversions("stage", return_type=dict).items():
                     tasks.update_localization_cache(
                         version, wikidb, self.verbose, self.config
                     )
@@ -1023,7 +979,7 @@ class SyncL10n(AbstractSync):
             self.arguments.version = self.arguments.version[4:]
 
         # Assert version is active
-        if self.arguments.version not in self.active_wikiversions():
+        if self.arguments.version not in self.active_wikiversions("stage"):
             raise IOError(errno.ENOENT, "Version not active", self.arguments.version)
 
         # Assert l10n cache dir for version exists
@@ -1086,15 +1042,12 @@ class SyncL10n(AbstractSync):
         )
         self.increment_stat("l10nupdate-sync")
 
-    def _after_sync_common(self):
-        self._git_repo()
-
 
 @cli.command("sync-wikiversions")
 class SyncWikiversions(AbstractSync):
     """Rebuild and sync wikiversions.php to the cluster."""
 
-    def _after_sync_common(self):
+    def _cache_git_info(self):
         """
         Skip this step.
 
@@ -1109,7 +1062,7 @@ class SyncWikiversions(AbstractSync):
         for every branch of mediawiki that is referenced in wikiversions.json
         to avoid syncing a branch that is lacking these critical files.
         """
-        for version in self.active_wikiversions():
+        for version in self.active_wikiversions("stage"):
             ext_msg = os.path.join(
                 self.config["stage_dir"],
                 "wmf-config",

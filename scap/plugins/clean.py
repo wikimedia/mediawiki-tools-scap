@@ -83,7 +83,7 @@ class Clean(main.AbstractSync):
         if not os.path.isdir(branch_dir):
             raise SystemExit("No such branch exists, aborting")
 
-        if branch in self.active_wikiversions():
+        if branch in self.active_wikiversions("stage"):
             raise SystemExit(
                 'Branch "%s" is still in use, aborting' % branch
             )
@@ -183,7 +183,7 @@ class Clean(main.AbstractSync):
         # Inactive branches created before the cutoff will be selected
         cutoff = datetime.utcnow() - timedelta(days=AUTO_CLEAN_THRESHOLD)
 
-        active = self.active_wikiversions()
+        active = self.active_wikiversions("stage")
 
         versions_to_remove = []
         for path, created in tasks.get_wikiversions_ondisk(self.config["stage_dir"]):

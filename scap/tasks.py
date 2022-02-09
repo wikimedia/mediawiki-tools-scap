@@ -584,8 +584,6 @@ def _call_rebuildLocalisationCache(
         lang = os.getenv("SCAP_MW_LANG")
 
     def _rebuild(store_class, file_extension):
-        logging.info("Running rebuildLocalisationCache.php as www-data")
-
         # Deal with legacy setup where cache/l10n dir and files are
         # owned by l10nupdate.  This block of code can be removed once
         # a few trains have completed using the new code.
@@ -603,6 +601,7 @@ def _call_rebuildLocalisationCache(
             else:
                 raise RuntimeError("{} is owned by unexpected uid {}".format(out_dir, cache_dir_owner))
 
+        logging.info("Running rebuildLocalisationCache.php as www-data")
         # Passing --skip-message-purge for T263872 (if delay_messageblobstore_purge feature
         # flag is enabled).
         # Note: mwscript runs maintenance scripts from /srv/mediawiki-staging if it exists,
@@ -698,16 +697,6 @@ def update_localization_cache(version, wikidb, verbose, cfg, logger=None):
     logger.debug("Copying %s to %s" % (new_extension_messages, extension_messages))
     shutil.copyfile(new_extension_messages, extension_messages)
     utils.sudo_check_call("www-data", 'rm "%s"' % new_extension_messages)
-
-    # Update ExtensionMessages-*.php in the local copy.
-    deploy_dir = os.path.realpath(cfg["deploy_dir"])
-    stage_dir = os.path.realpath(cfg["stage_dir"])
-    if stage_dir != deploy_dir:
-        logger.debug("Copying ExtensionMessages-*.php to local copy")
-        utils.sudo_check_call(
-            "mwdeploy",
-            'cp "%s" "%s/wmf-config/"' % (extension_messages, cfg["deploy_dir"]),
-        )
 
     # Rebuild all the CDB files for each language
     logger.info(
