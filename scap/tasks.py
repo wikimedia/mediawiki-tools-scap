@@ -173,7 +173,7 @@ def cache_git_info(version, cfg):
     """
     Create JSON cache files of git branch information.
 
-    :param version: MediaWiki version (eg '1.23wmf15')
+    :param version: MediaWiki version (eg '1.38.0-wmf.20')
     :param cfg: Dict of global configuration values
     :raises: :class:`IOError` if version directory is not found
     """
