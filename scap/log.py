@@ -341,6 +341,7 @@ class ProgressReporter(object):
         self._done = 0
         self._ok = 0
         self._failed = 0
+        self._in_flight = None
         self._fd = fd
 
     @property
@@ -376,16 +377,27 @@ class ProgressReporter(object):
         self._progress()
         self._fd.write("\n")
 
+    def add_in_flight(self):
+        if self._in_flight is None:
+            self._in_flight = 1
+        else:
+            self._in_flight += 1
+        self._progress()
+
     def add_success(self):
         """Record a sucessful task completion."""
         self._done += 1
         self._ok += 1
+        if self._in_flight is not None:
+            self._in_flight -= 1
         self._progress()
 
     def add_failure(self):
         """Record a failed task completion."""
         self._done += 1
         self._failed += 1
+        if self._in_flight is not None:
+            self._in_flight -= 1
         self._progress()
 
     def _progress(self):
@@ -396,9 +408,10 @@ class ProgressReporter(object):
         self._fd.write(fmt % self._output())
 
     def _output(self):
-        return "%s: %3.0f%% (ok: %d; fail: %d; left: %d)" % (
+        return "%s: %3.0f%% (%sok: %d; fail: %d; left: %d)" % (
             self._name,
             self.percent_complete,
+            "" if self._in_flight is None else "in-flight: {}, ".format(self._in_flight),
             self.ok,
             self.failed,
             self.remaining,
@@ -451,7 +464,10 @@ class FancyProgressReporter(ProgressReporter):
         prog_bar = "█" * int(filled_bars)
         prog_bar = prog_bar + partial_bar[remain]
 
-        TERM.save().move(bottom - 1, 0).fg(15).write("| ok: ").fg(2).write(
+        TERM.save().move(bottom - 1, 0)
+        if self._in_flight is not None:
+            TERM.fg(15).write("| in-flight: ").fg(7).write(str(self._in_flight)).write(" ")
+        TERM.fg(0).write("| ok: ").fg(2).write(
             str(self.ok)
         ).fg(15).write(" | fail: ").fg(1).write(str(self.failed)).fg(15).write(
             " | remain: "
@@ -468,15 +484,6 @@ class FancyProgressReporter(ProgressReporter):
         ).clear_eol()
 
         TERM.restore().flush()
-
-    def _output(self):
-        return "%s: %3.0f%% (ok: %d; fail: %d; left: %d)" % (
-            self._name,
-            self.percent_complete,
-            self.ok,
-            self.failed,
-            self.remaining,
-        )
 
 
 class MuteReporter(ProgressReporter):

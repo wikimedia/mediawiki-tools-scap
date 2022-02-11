@@ -44,6 +44,8 @@ class Test(cli.Application):
             logger = logging.getLogger()
             reporter.start()
             for i in range(0, steps):
+                reporter.add_in_flight()
+                time.sleep(0.2)
                 rand = random.randrange(0, 30, 2)
                 if rand == 0:
                     reporter.add_failure()
@@ -51,7 +53,5 @@ class Test(cli.Application):
                 else:
                     reporter.add_success()
                     logger.info("Success: %s of %s", i, steps)
-
-                time.sleep(0.2)
 
             reporter.finish()
