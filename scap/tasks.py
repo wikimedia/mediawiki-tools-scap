@@ -619,6 +619,7 @@ def _call_rebuildLocalisationCache(
             "www-data",
             "/usr/local/bin/mwscript rebuildLocalisationCache.php "
             '--wiki="%(wikidb)s" '
+            "--no-progress "
             "--store-class=%(store_class)s "
             "--threads=%(use_cores)s %(lang)s %(force)s %(quiet)s %(skip_message_purge)s"
             % {
@@ -656,10 +657,9 @@ def update_localization_cache(version, wikidb, verbose, cfg, logger=None):
 
     verbose_messagelist = ""
     force_rebuild = False
-    quiet_rebuild = True
+    quiet_rebuild = False
     if verbose:
         verbose_messagelist = "--verbose"
-        quiet_rebuild = False
 
     extension_messages = os.path.join(
         cfg["stage_dir"], "wmf-config", "ExtensionMessages-%s.php" % version
