@@ -89,6 +89,9 @@ DEFAULT_CONFIG = {
     "cache_revs": (int, 5),
     "use_syslog": (bool, False),
     "rsync_cdbs": (bool, False),
+    "build_mw_container_image": (bool, False),
+    "release_repo_dir": (str, None),
+    "release_repo_update_cmd": (str, None),
 }
 
 

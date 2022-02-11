@@ -30,6 +30,7 @@ import os
 import pwd
 import select
 import socket
+import subprocess
 import sys
 import time
 
@@ -85,6 +86,7 @@ class AbstractSync(cli.Application):
             self._compile_wikiversions()
             self._cache_git_info()
             self._sync_masters()
+            self._build_container_images()
 
             full_target_list = self._get_target_list()
 
@@ -490,6 +492,32 @@ class AbstractSync(cli.Application):
                         self.get_logger().warning(
                             "%d hosts had failures restarting php-fpm", failed
                         )
+
+    def _build_container_images(self):
+        if not self.config["build_mw_container_image"]:
+            return
+
+        release_repo_dir = self.config["release_repo_dir"]
+
+        if release_repo_dir is None:
+            raise SystemExit("release_repo_dir must be configured when build_mw_container_image is True")
+
+        release_repo_update_cmd = self.config["release_repo_update_cmd"]
+
+        if release_repo_update_cmd:
+            self.get_logger().info("Running {}".format(release_repo_update_cmd))
+            with utils.suppress_backtrace():
+                subprocess.run(release_repo_update_cmd, shell=True, check=True)
+
+        with log.Timer("build-container-images", self.get_stats()):
+            stage_dir = self.config["stage_dir"]
+
+            with utils.suppress_backtrace():
+                subprocess.run(["make",
+                                "-C", os.path.join(release_repo_dir, "make-container-image"),
+                                "build-mv-image",
+                                "workdir_volume={}".format(stage_dir)],
+                               check=True)
 
 
 @cli.command("security-check")
