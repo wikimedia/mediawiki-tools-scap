@@ -672,6 +672,10 @@ def update_localization_cache(version, wikidb, verbose, cfg, logger=None):
 
     cache_dir = os.path.join(cfg["stage_dir"], "php-%s" % version, "cache", "l10n")
 
+    if os.path.exists(cache_dir):
+        # Clean up cruft from any prior interrupted run.
+        utils.sudo_check_call("www-data", "rm -f {}".format(os.path.join(cache_dir, "*.tmp.*")))
+
     if not os.path.exists(os.path.join(cache_dir, "l10n_cache-en.cdb")):
         # mergeMessageFileList.php needs a l10n file
         logger.info("Bootstrapping l10n cache for %s", version)
