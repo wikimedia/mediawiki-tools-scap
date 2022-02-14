@@ -46,7 +46,7 @@ import scap.targets as targets
 import scap.tasks as tasks
 import scap.utils as utils
 import scap.version as scapversion
-from scap.runcmd import mwscript, FailedCommand
+from scap.runcmd import mwscript
 
 
 class AbstractSync(cli.Application):
@@ -196,13 +196,10 @@ class AbstractSync(cli.Application):
                 tasks.cache_git_info(version, self.config)
 
     def _check_fatals(self):
-        try:
+        with utils.suppress_backtrace():
             stderr = mwscript("eval.php", "--wiki", "enwiki")
             if stderr:
                 raise SystemExit("'mwscript eval.php --wiki enwiki' generated unexpected output: {}".format(stderr))
-        except FailedCommand as e:
-            e._scap_no_backtrace = True
-            raise e
 
     def _check_sync_flag(self):
         sync_flag = os.path.join(self.config["stage_dir"], "sync.flag")

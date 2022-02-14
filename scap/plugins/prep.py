@@ -12,7 +12,6 @@ from scap import cli
 from scap import git
 from scap import log
 from scap import utils
-from scap.runcmd import FailedCommand
 
 SOURCE_URL = "https://gerrit.wikimedia.org/r/"
 
@@ -148,14 +147,11 @@ This operation can be run as many times as needed.
         )
 
         if apply_patches:
-            try:
+            with utils.suppress_backtrace():
                 subprocess.check_call([self.get_script_path(), "apply-patches",
                                        "-Dstage_dir:{}".format(self.config["stage_dir"]),
                                        "--abort-git-am-on-fail",
                                        "--train", branch])
-            except subprocess.CalledProcessError as e:
-                e._scap_no_backtrace = True
-                raise
 
     def _select_reference_directory(self):
         """
@@ -220,13 +216,8 @@ This operation can be run as many times as needed.
 
     def _clone_or_update_repo(self, repo, branch, dir, logger, reference=None):
         """Note that this discards any local commits (e.g., security patches)"""
-        try:
+        with utils.suppress_backtrace():
             git.clone_or_update_repo(dir, repo, branch, logger, reference)
-        except FailedCommand as e:
-            # Don't print a backtrace for git problems.  The error message has all of
-            # the information needed to tell what happened.
-            e._scap_no_backtrace = True
-            raise e
 
     def _master_stuff(self, branch_dir, logger):
         # On train branches of mediawiki/core, extensions/vendors/skins are submodules.
