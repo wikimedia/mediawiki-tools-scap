@@ -396,6 +396,25 @@ def get_logger():
 
 
 @contextlib.contextmanager
+def suppress_backtrace():
+    """
+    Context manager that sets the "don't backtrace" flag on any exception
+    that occurs within context.
+
+    Example:
+       def my_function():
+           with suppress_backtrace():
+              some_function_that_may_reasonably_fail()
+    """
+    try:
+        yield
+    except Exception as e:
+        # This value is read by _handle_exception in cli.py and main.py.
+        e._scap_no_backtrace = True
+        raise
+
+
+@contextlib.contextmanager
 def cd(dirname):
     """
     Context manager. Cds to dirname.
