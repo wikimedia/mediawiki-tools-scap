@@ -705,9 +705,12 @@ def update_localization_cache(version, wikidb, verbose, cfg, logger=None):
     )
 
     utils.sudo_check_call("www-data", 'chmod 0664 "%s"' % new_extension_messages)
-    logger.debug("Copying %s to %s" % (new_extension_messages, extension_messages))
-    shutil.copyfile(new_extension_messages, extension_messages)
-    utils.sudo_check_call("www-data", 'rm "%s"' % new_extension_messages)
+
+    try:
+        with open(new_extension_messages) as f:
+            utils.write_file_if_needed(extension_messages, f.read())
+    finally:
+        utils.sudo_check_call("www-data", 'rm "%s"' % new_extension_messages)
 
     # Rebuild all the CDB files for each language
     logger.info(
