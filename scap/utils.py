@@ -865,3 +865,26 @@ def _listfiles(dirname):
             pathname = os.path.join(parent, filename)
             if os.path.isfile(pathname):
                 yield pathname[len(prefix) :]
+
+
+def write_file_if_needed(filename, data: str):
+    """Write 'data' to 'filename' if 'filename' doesn't already have that data in it
+
+    Note, the file is written in text mode.
+    """
+
+    if os.path.exists(filename):
+        with open(filename) as f:
+            if f.read() == data:
+                # Already set.  Bail out.
+                return
+
+    # Do the deed.
+    with tempfile.NamedTemporaryFile("w", dir=os.path.dirname(filename)) as f:
+        f.write(data)
+
+        if os.path.exists(filename):
+            os.unlink(filename)
+
+        os.chmod(f.name, 0o644)
+        os.link(f.name, filename)
