@@ -480,6 +480,7 @@ def sudo_check_call(user, cmd, logger=None, logLevel=logging.DEBUG):
         cmd_env = make_sudo_check_call_env(["PHP"])
         fullCmd = "sudo -u %s -n %s -- %s" % (user, cmd_env, cmd)
 
+    logger.debug("sudo_check_call running {}".format(fullCmd))
     # We're using universal_newlines=True to put the stdout pipe into
     # text mode for simpler processing.  We don't actually care about
     # the universal newline behavior.  Python 3.7 makes this clearer
