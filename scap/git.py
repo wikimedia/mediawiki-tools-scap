@@ -611,13 +611,17 @@ def reflog(repo, fmt="oneline", branch=None):
     return gitcmd(*cmd, cwd=repo).splitlines()
 
 
-def clone_or_update_repo(dir, repo, branch, logger, reference=None):
+# FIXME: reference and ref together are confusing.
+def clone_or_update_repo(dir, repo, branch, logger, reference=None,
+                         ref=None):
     """
     Clone or update the checkout of 'repo' in 'dir', using the specified
     branch.   Note that existing repos are hard-reset to the match the
     state of the origin.
 
     Submodules are handled as well.
+
+    Returns the sha1 of the checked out branch.
     """
     logger.info("Clone or update {}, branch: {}, dir: {}".format(
         repo, branch, dir))
@@ -633,12 +637,19 @@ def clone_or_update_repo(dir, repo, branch, logger, reference=None):
     logger.info(gitcmd("log", "HEAD..@{upstream}", cwd=dir))
 
     logger.info("Resetting checkout")
-    gitcmd("checkout", "--force", "-B", branch, "origin/{}".format(branch),
+
+    if ref is None:
+        ref = "origin/{}".format(branch)
+
+    gitcmd("checkout", "--force", "-B", branch, ref,
            cwd=dir)
+    head = sha(dir, "HEAD")
     logger.info("{} checked out at commit {}".format(
-        repo, sha(dir, "HEAD")))
+        repo, head))
 
     logger.info("Updating submodules")
     update_submodules(dir, use_upstream=True, checkout=True, force=True)
 
     logger.info("Done checking out {}\n".format(repo))
+
+    return head
