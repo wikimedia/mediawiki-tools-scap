@@ -15,7 +15,7 @@ def cmd(request):
 
     if not hasattr(request, "param"):
         app = cli.Application.factory(
-            ["sync", "--is-wrong", "pinkunicorns", "are", "real"]
+            ["sync-world", "--is-wrong", "pinkunicorns", "are", "real"]
         )
     else:
         app = cli.Application.factory(request.param)
@@ -35,14 +35,18 @@ def test_init():
 @pytest.mark.parametrize(
     "cmd",
     [
-        ["sync", "-w", "7"],
-        ["sync", "--canary-wait-time", "30"],
-        ["sync", "-w", "92"],
-        ["sync", "-D", "canary_wait_time:30"],
+        # Args ok
+        ["sync-world", "-w", "7"],
+        # Args ok
+        ["sync-world", "--canary-wait-time", "30"],
+        # Args ok
+        ["sync-world", "-w", "92"],
+        # Wrong way of specifying canary wait time
+        ["sync-world", "-D", "canary_wait_time:30"],
     ],
     indirect=True,
 )
-def test_scap_sync_flags(cmd, mocker):
+def test_scap_sync_world_flags(cmd, mocker):
     # Testing if we are parsing -w propertly. argparse makes sure cw
     # is int or exists if -w flag is set, so no need to test for those.
     isthere = mocker.patch("os.path.exists")
@@ -50,13 +54,12 @@ def test_scap_sync_flags(cmd, mocker):
     try:
         cmd.main(cmd.extra_arguments)
     except ValueError as ve:
-        if "seconds" in str(ve):
-            assert cmd.arguments.canary_wait_time in (7, 92)
-        elif "defined" in str(ve):
-            assert "canary_wait_time" in cmd.arguments.defines[0]
-        else:
-            assert 0, 'expected "seconds" or "defined" in ValueError, got: %s' % str(ve)
-    # if we get a RuntimeError, means our args are ok
+        assert "canary_wait_time" in cmd.arguments.defines[0]
+        assert "defined" in str(ve)
+    # If we get an AssertionError or a RuntimeError, means our args are ok. Both errors arise from
+    # a failed global lock attempt, which means the flag parsing succeeded
+    except AssertionError:
+        pass
     except RuntimeError as re:
         assert "scap-global-lock" in str(re)
 
