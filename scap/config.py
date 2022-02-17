@@ -89,9 +89,23 @@ DEFAULT_CONFIG = {
     "cache_revs": (int, 5),
     "use_syslog": (bool, False),
     "rsync_cdbs": (bool, False),
+
+    # Settings related to container image building
+    # xref AbstractSync._build_container_images() in main.py
     "build_mw_container_image": (bool, False),
+    "deploy_mw_container_image": (bool, False),
     "release_repo_dir": (str, None),
     "release_repo_update_cmd": (str, None),
+
+    # This command will run with the current directory set to
+    # {release_repo_dir}/make-container-image.  It will be passed some
+    # additional parameters.
+    "release_repo_build_and_push_images_cmd": (str, "make -f Makefile build-and-push-all-images"),
+
+    "docker_registry": (str, "docker-registry.discovery.wmnet"),
+    "mediawiki_image_name": (str, "restricted/mediawiki-multiversion"),
+    "webserver_image_name": (str, "restricted/mediawiki-webserver"),
+    # End settings related to image building
 }
 
 

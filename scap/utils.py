@@ -868,6 +868,15 @@ def _listfiles(dirname):
                 yield pathname[len(prefix) :]
 
 
+def read_first_line_from_file(filename) -> str:
+    """
+    Reads and returns the first line of the specified file.
+    Whitespace is stripped.
+    """
+    with open(filename) as f:
+        return f.readline().strip()
+
+
 def write_file_if_needed(filename, data: str):
     """Write 'data' to 'filename' if 'filename' doesn't already have that data in it
 
