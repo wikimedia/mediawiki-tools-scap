@@ -3,7 +3,6 @@
 import argparse
 import distutils
 import glob
-import json
 import os
 import re
 import shutil
@@ -11,6 +10,7 @@ import subprocess
 
 from scap import cli
 from scap import git
+from scap import history
 from scap import log
 from scap import utils
 
@@ -74,6 +74,9 @@ This operation can be run as many times as needed.
 
     """
 
+    replay_history = None
+    new_history = None
+
     @cli.argument(
         "-p",
         "--prefix",
@@ -84,10 +87,12 @@ This operation can be run as many times as needed.
         help="Directory prefix to checkout version to.",
     )
     @cli.argument(
-        "--fingerprint",
-        help="Check out according to the supplied fingerprint.  Only used in auto mode.",
-        required=False,
-        default=None,
+        "--history",
+        help=(
+            "Browse prep transaction history and choose a previous set of "
+            "refs to checkout. Only used in auto mode."
+        ),
+        action='store_true',
     )
     @cli.argument(
         "branch",
@@ -106,30 +111,50 @@ This operation can be run as many times as needed.
 
         logger = self.get_logger()
 
-        with log.Timer("prep", self.get_stats()):
-            if self.arguments.branch == "auto":
-                logger.info("auto mode")
+        self.new_history = history.Entry.now()
+        self.history_path = os.path.join(
+            self.config["stage_dir"],
+            "scap/log/history.log",
+        )
 
-                fingerprint = self._decode_fingerprint(self.arguments.fingerprint)
-
-                self._clone_or_update_repo(os.path.join(SOURCE_URL, "operations/mediawiki-config"),
-                                           self.config["operations_mediawiki_config_branch"],
-                                           self.config["stage_dir"],
-                                           logger,
-                                           fingerprint=fingerprint,
-                                           )
-
-                if self.arguments.copy_private_settings:
-                    self._copy_private_settings(self.arguments.copy_private_settings, logger)
-
-                for version in self.active_wikiversions("stage"):
-                    self._prep_mw_branch(version, logger, apply_patches=True,
-                                         fingerprint=fingerprint)
-
-                print("fingerprint:")
-                print(json.dumps(fingerprint, sort_keys=True))
+        if self.arguments.branch == "auto" and self.arguments.history:
+            display_repos = ['mediawiki/core', 'operations/mediawiki-config']
+            logger.info("Browsing history")
+            hist = history.load(self.history_path, display_repos=display_repos)
+            self.replay_history = hist.browse()
+            if self.replay_history is None:
+                logger.info("No history selected. Aborting.")
+                return
             else:
-                self._prep_mw_branch(self.arguments.branch, logger)
+                summary = self.replay_history.summary(display_repos)
+                prompt = "Replay checkouts from %s?" % summary
+                if not utils.prompt_user_for_confirmation(prompt):
+                    logger.info("Aborting.")
+                    return
+                logger.info("Replaying history: %s" % summary)
+
+        with log.Timer("prep", self.get_stats()):
+            try:
+                if self.arguments.branch == "auto":
+                    logger.info("Auto mode")
+
+                    self._clone_or_update_repo(os.path.join(SOURCE_URL, "operations/mediawiki-config"),
+                                               self.config["operations_mediawiki_config_branch"],
+                                               self.config["stage_dir"],
+                                               logger,
+                                               )
+
+                    if self.arguments.copy_private_settings:
+                        self._copy_private_settings(self.arguments.copy_private_settings, logger)
+
+                    for version in self.active_wikiversions("stage"):
+                        self._prep_mw_branch(version, logger, apply_patches=True)
+                else:
+                    self._prep_mw_branch(self.arguments.branch, logger)
+
+                self.new_history.completed = True
+            finally:
+                history.log(self.new_history, self.history_path)
 
     def _copy_private_settings(self, src, logger):
         dest = os.path.join(self.config["stage_dir"], "private", "PrivateSettings.php")
@@ -137,8 +162,7 @@ This operation can be run as many times as needed.
         # copy2 preserves file mode and modification time
         shutil.copy2(src, dest)
 
-    def _prep_mw_branch(self, branch, logger, apply_patches=False,
-                        fingerprint=None):
+    def _prep_mw_branch(self, branch, logger, apply_patches=False):
         dest_dir = os.path.join(
             self.config["stage_dir"],
             "{}{}".format(self.arguments.prefix, branch),
@@ -158,11 +182,10 @@ This operation can be run as many times as needed.
                                    checkout_version,
                                    dest_dir,
                                    logger,
-                                   reference=reference_dir,
-                                   fingerprint=fingerprint)
+                                   reference=reference_dir)
 
         if checkout_version == "master":
-            self._master_stuff(dest_dir, logger, fingerprint)
+            self._master_stuff(dest_dir, logger)
 
         # This is only needed while people still do manual checkout
         # manipulation (a practice which needs to end).
@@ -248,40 +271,22 @@ This operation can be run as many times as needed.
         git.add_all(patch_base_dir, message='Scap prep for "{}"'.format(version))
         logger.info("Done setting patches for {}".format(version))
 
-    def _clone_or_update_repo(self, repo, branch, dir, logger, reference=None,
-                              fingerprint=None):
+    def _clone_or_update_repo(self, repo, branch, dir, logger, reference=None):
         """
         Note that this discards any local commits (e.g., security patches)
         """
 
         ref = None
-        if isinstance(fingerprint, dict):
-            ref = self._lookup_fingerprint(fingerprint, repo, branch)
+        if self.replay_history is not None:
+            ref = self.replay_history.lookup(repo, branch, dir)
 
         with utils.suppress_backtrace():
             head = git.clone_or_update_repo(dir, repo, branch, logger, reference,
                                             ref=ref)
 
-        if isinstance(fingerprint, dict):
-            self._update_fingerprint(fingerprint, repo, branch, head)
+        self.new_history.update(repo, branch, dir, head)
 
-    def _update_fingerprint(self, fingerprint, repo, branch, head):
-        branches = fingerprint.get(repo)
-        if branches is None:
-            branches = fingerprint[repo] = {}
-
-        branches[branch] = head
-
-    def _lookup_fingerprint(self, fingerprint, repo, branch):
-        return fingerprint.get(repo, {}).get(branch)
-
-    def _decode_fingerprint(self, thing):
-        if not isinstance(thing, str):
-            return {}
-
-        return json.loads(thing)
-
-    def _master_stuff(self, branch_dir, logger, fingerprint):
+    def _master_stuff(self, branch_dir, logger):
         # On train branches of mediawiki/core, extensions/vendors/skins are submodules.
         # On the master branch of mediawiki/core, they are not submodules and must be handled
         # specially.
@@ -306,8 +311,7 @@ This operation can be run as many times as needed.
             self._clone_or_update_repo(repo,
                                        "master",
                                        path,
-                                       logger,
-                                       fingerprint=fingerprint)
+                                       logger)
 
             with open(gitignore_path, "a") as f:
                 f.write("# Added by scap prep auto\n")
