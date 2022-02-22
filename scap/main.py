@@ -24,11 +24,13 @@ from __future__ import absolute_import
 from __future__ import print_function
 
 import argparse
+import base64
 from concurrent.futures import ProcessPoolExecutor
 import errno
 import os
 import pwd
 import select
+import shlex
 import socket
 import subprocess
 import sys
@@ -524,18 +526,26 @@ class AbstractSync(cli.Application):
             make_container_image_dir = os.path.join(release_repo_dir, "make-container-image")
             registry = self.config["docker_registry"]
 
+            dev_ca_crt = ""
+
+            if self.config["mediawiki_image_extra_ca_cert"]:
+                with open(self.config["mediawiki_image_extra_ca_cert"], "rb") as f:
+                    dev_ca_crt = base64.b64encode(f.read()).decode("utf-8")
+
             make_parameters = {
                 "GIT_BASE": git_base,
                 "BRANCH": self.config["operations_mediawiki_config_branch"],
                 "workdir_volume": self.config["stage_dir"],
                 "mv_image_name": "{}/{}".format(registry, self.config["mediawiki_image_name"]),
                 "webserver_image_name": "{}/{}".format(registry, self.config["webserver_image_name"]),
+                "MV_BASE_PACKAGES": self.config["mediawiki_image_extra_packages"],
+                "MV_EXTRA_CA_CERT": dev_ca_crt,
             }
 
             with utils.suppress_backtrace():
                 cmd = "{} {}".format(
                     self.config["release_repo_build_and_push_images_cmd"],
-                    " ".join(["=".join(pair) for pair in make_parameters.items()]))
+                    " ".join([shlex.quote("=".join(pair)) for pair in make_parameters.items()]))
 
                 self.get_logger().info("Running {} in {}".format(cmd, make_container_image_dir))
                 subprocess.run(cmd, shell=True, check=True, cwd=make_container_image_dir)
