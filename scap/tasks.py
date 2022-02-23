@@ -639,6 +639,27 @@ def _call_rebuildLocalisationCache(
         _rebuild("LCStoreStaticArray", "php")
 
 
+def ensure_extension_messages_file(cfg, version, logger):
+    """
+    Ensure that <staging>/wmf-config/ExtensionMessages-<version>.php exists.
+    If it does not exist, create a blank file.
+
+    In either case, the path to the ExtensionMessages-<version>.php file is
+    returned.
+    """
+
+    extension_messages = os.path.join(
+        cfg["stage_dir"], "wmf-config", "ExtensionMessages-%s.php" % version
+    )
+
+    if not os.path.exists(extension_messages):
+        # Touch the extension_messages file to prevent php require errors
+        logger.info("Creating empty %s", extension_messages)
+        open(extension_messages, "a").close()
+
+    return extension_messages
+
+
 @utils.log_context("update_localization_cache")
 def update_localization_cache(version, wikidb, verbose, cfg, logger=None):
     """
@@ -661,14 +682,7 @@ def update_localization_cache(version, wikidb, verbose, cfg, logger=None):
         verbose_messagelist = "--verbose"
         quiet_rebuild = False
 
-    extension_messages = os.path.join(
-        cfg["stage_dir"], "wmf-config", "ExtensionMessages-%s.php" % version
-    )
-
-    if not os.path.exists(extension_messages):
-        # Touch the extension_messages file to prevent php require errors
-        logger.info("Creating empty %s", extension_messages)
-        open(extension_messages, "a").close()
+    extension_messages = ensure_extension_messages_file(cfg, version, logger)
 
     cache_dir = os.path.join(cfg["stage_dir"], "php-%s" % version, "cache", "l10n")
 
