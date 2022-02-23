@@ -33,6 +33,7 @@ import socket
 import subprocess
 import sys
 import time
+import yaml
 
 from scap import ansi
 import scap.arg as arg
@@ -87,6 +88,7 @@ class AbstractSync(cli.Application):
             self._cache_git_info()
             self._sync_masters()
             self._build_container_images()
+            self._deploy_container_images()
 
             full_target_list = self._get_target_list()
 
@@ -506,15 +508,93 @@ class AbstractSync(cli.Application):
             with utils.suppress_backtrace():
                 subprocess.run(release_repo_update_cmd, shell=True, check=True)
 
-        with log.Timer("build-container-images", self.get_stats()):
-            stage_dir = self.config["stage_dir"]
+        git_base = self.config["gerrit_url"]
+
+        if self.config["operations_mediawiki_config_branch"] == "train-dev":
+            # Filthy hacks because a docker container can't resolve the name "gerrit.traindev" even though
+            # it can access the IP address and port.
+            import urllib.parse
+            import socket
+            p = urllib.parse.urlparse(self.config["gerrit_url"])
+            # hack: Replace the hostname of the gerrit server with its IP address.
+            p = p._replace(netloc="{}:{}".format(socket.gethostbyname(p.hostname), p.port))
+            git_base = urllib.parse.urlunparse(p)
+
+        with log.Timer("build-and-push-container-images", self.get_stats()):
+            make_container_image_dir = os.path.join(release_repo_dir, "make-container-image")
+            registry = self.config["docker_registry"]
+
+            make_parameters = {
+                "GIT_BASE": git_base,
+                "BRANCH": self.config["operations_mediawiki_config_branch"],
+                "workdir_volume": self.config["stage_dir"],
+                "mv_image_name": "{}/{}".format(registry, self.config["mediawiki_image_name"]),
+                "webserver_image_name": "{}/{}".format(registry, self.config["webserver_image_name"]),
+            }
 
             with utils.suppress_backtrace():
-                subprocess.run(["make",
-                                "-C", os.path.join(release_repo_dir, "make-container-image"),
-                                "build-mv-image",
-                                "workdir_volume={}".format(stage_dir)],
-                               check=True)
+                cmd = "{} {}".format(
+                    self.config["release_repo_build_and_push_images_cmd"],
+                    " ".join(["=".join(pair) for pair in make_parameters.items()]))
+
+                self.get_logger().info("Running {} in {}".format(cmd, make_container_image_dir))
+                subprocess.run(cmd, shell=True, check=True, cwd=make_container_image_dir)
+
+    # Proof of concept.  Works in train-dev
+    def _deploy_container_images(self):
+        if not self.config["deploy_mw_container_image"]:
+            return
+
+        release_repo_dir = self.config["release_repo_dir"]
+
+        if release_repo_dir is None:
+            raise SystemExit("release_repo_dir must be configured when deploy_mw_container_image is True")
+
+        make_container_image_dir = os.path.join(release_repo_dir, "make-container-image")
+
+        mv_build_fqin = utils.read_first_line_from_file(os.path.join(make_container_image_dir, "last-build"))
+        httpd_image_fqin = utils.read_first_line_from_file(os.path.join(make_container_image_dir, "webserver", "last-build"))
+
+        self._update_helm_values(mv_build_fqin, httpd_image_fqin)
+        self._deploy_images()
+
+    def _update_helm_values(self, mv_build_fqin, httpd_image_fqin):
+        registry = self.config["docker_registry"]
+
+        def strip_registry(fqin):
+            registry_prefix = registry + "/"
+            if fqin.startswith(registry_prefix):
+                return fqin[len(registry_prefix):]
+
+            return fqin
+
+        values = {
+            "docker": {
+                "registry": registry,
+            },
+            "main_app": {
+                "image": strip_registry(mv_build_fqin),
+            },
+            "mw": {
+                "httpd": {
+                    "image_tag": strip_registry(httpd_image_fqin),
+                }
+            },
+        }
+
+        # FIXME: How will this work in production? Verify necessary write access
+        path = "/etc/helmfile-defaults/mediawiki/releases.yaml"
+        utils.write_file_if_needed(path, yaml.dump(values))
+
+    def _deploy_images(self):
+        with log.Timer("helmfile -e traindev apply", self.get_stats()):
+            with utils.suppress_backtrace():
+                # FIXME: This is very spammy
+                subprocess.run("helmfile -e traindev apply",
+                               shell=True,
+                               check=True,
+                               # FIXME: configurate
+                               cwd="/srv/deployment-charts/helmfile.d/services/mwdebug")
 
 
 @cli.command("security-check")

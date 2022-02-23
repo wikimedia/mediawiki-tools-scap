@@ -71,6 +71,7 @@ class SyncCanary(AbstractSync):
             self._cache_git_info()
             self._sync_masters()
             self._build_container_images()
+            self._deploy_container_images()
 
             sync_cmd = self._apache_sync_command(self.get_master_list())
             sync_cmd.append(socket.getfqdn())
