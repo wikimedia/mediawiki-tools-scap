@@ -58,7 +58,6 @@ __all__ = [
     "MWVersionsInUse",
     "RebuildCdbs",
     "RefreshCdbJsonFiles",
-    "Scap",
     "SecurityPatchCheck",
     "SyncPull",
     "SyncFile",

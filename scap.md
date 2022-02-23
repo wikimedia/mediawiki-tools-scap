@@ -57,7 +57,6 @@ then I can run scap pull-master --help
 then I can run scap say --help
 then I can run scap security-check --help
 then I can run scap sync-world --help
-then I can run scap sync-canary --help
 then I can run scap sync-dir --help
 then I can run scap sync-file --help
 then I can run scap sync-l10n --help

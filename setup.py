@@ -32,6 +32,8 @@ AUTHORS = [
     ("Mukunda Modell", "mmodell@wikimedia.org"),
     ("Ori Livneh", "ori@wikimedia.org"),
     ("Tyler Cipriani", "tcipriani@wikimedia.org"),
+    ("Ahmon Dancy", "adancy@wikimedia.org"),
+    ("Jaime Nuche", "jnuche@wikimedia.org"),
 ]
 
 
