@@ -189,12 +189,13 @@ class DeployLocal(cli.Application):
 
         for config_file in config_files["files"]:
             filename = config_file["name"]
+            var_file = config_file.get("remote_vars", None)
 
             tmpl = template.Template(
                 name=filename,
                 loader={filename: config_file["template"]},
                 erb_syntax=config_file.get("erb_syntax", False),
-                var_file=config_file.get("remote_vars", None),
+                var_file=var_file,
                 output_format=config_file.get("output_format", None),
                 overrides=overrides,
             )
@@ -218,7 +219,7 @@ class DeployLocal(cli.Application):
             utils.mkdir_p(os.path.join(source_basepath, os.path.dirname(filename)))
 
             source = os.path.join(source_basepath, filename)
-            logger.info("Rendering config_file: {}".format(source))
+            logger.info("Rendering config_file: {} using {}".format(source, var_file))
 
             with open(source, "w") as f:
                 f.write(tmpl.render())
