@@ -1,3 +1,26 @@
+scap (4.4.0-1) unstable; urgency=medium
+
+  * Add mediawiki_image_extra_packages and mediawiki_image_extra_ca_cert
+  * Allow _check_fatals to work under more circumstances
+  * deploy: Mention what vars file is being used to render a config file
+  * Add release_repo_build_and_push_images_cmd config parameter
+  * Remove obsolete "scap sync" command
+  * sudo_check_call: debug log the command to be run
+  * help output: align command descriptions
+  * scap prep auto: Add staging fingerprint support
+  * scap prep: Add --copy-private-settings flag
+  * Use utils.suppress_backtrace() everywhere
+  * Optionally build mw container image during scap sync-*
+  * Add utils.suppress_backtrace context manager
+  * Don't update wmf-config/ExtensionMessages* if unchanged
+  * tasks.update_localization_cache: Clean up tmp files from prior runs
+  * Don't update wikiversions.php if contents haven't changed
+  * Add test case for sync-world's use of --exclude-wikiversions.php
+  * Make sync-world, etc work without /srv/mediawiki on deploy server
+  * ProgressReporter: Report number of in-flight operations
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Wed, 23 Feb 2022 15:42:33 -0800
+
 scap (4.3.1-1) unstable; urgency=medium
 
   * Fix "sync-world: Change handling of wikiversions.php"
