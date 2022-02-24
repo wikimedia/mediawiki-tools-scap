@@ -41,14 +41,16 @@ class Backport(cli.Application):
         if self.arguments.list:
             self.list_backports(versions)
             change_numbers = input("Enter the change numbers (separated by a space) you wish to backport: ")
-            change_numbers = change_numbers.split()
+            change_numbers = [self.change_number(n) for n in change_numbers.split()]
 
         if not change_numbers:
             self.get_logger().warn("No change url supplied to backport!")
             return 1
 
+        change_details = list(map(lambda number: self.gerrit.change_detail(number).get(), change_numbers))
         print("Backport function not yet implemented!")
-        self.validate_changes(change_numbers, versions)
+        self.validate_changes(change_details, versions)
+        self.check_dependencies(change_details, change_numbers)
         self.confirm_changes(change_numbers)
         self.approve_changes(change_numbers)
         self.wait_for_changes_to_be_merged(change_numbers)
@@ -96,7 +98,7 @@ class Backport(cli.Application):
 
     def change_number(self, number_or_url):
         if number_or_url.isnumeric():
-            return number_or_url
+            return int(number_or_url)
 
         # Assume the non-numeric string is a URL and attempt to parse it
         number = self.gerrit.change_number_from_url(number_or_url)
@@ -105,14 +107,15 @@ class Backport(cli.Application):
             self.get_logger().warn("'%s' is not a valid change number or URL" % number_or_url)
             raise SystemExit(1)
 
-        return number
+        return int(number)
 
-    def validate_changes(self, change_numbers, versions):
+    def validate_changes(self, change_details, versions):
         mediawiki_location = self.config['stage_dir']
         config_submodules = ["core"] + git.list_submodules(mediawiki_location, "--recursive")
 
-        for change_number in change_numbers:
-            detail = self.gerrit.change_detail(change_number).get()
+        self.get_logger().info("Checking whether changes are in a branch and version deployed to production...")
+        for detail in change_details:
+            change_number = detail['_number']
             project = detail.project.replace("mediawiki/", "")
             branch = detail.branch.replace("wmf/", "")
             status = detail.status
@@ -123,11 +126,46 @@ class Backport(cli.Application):
             if project == "operations/mediawiki-config" and branch == self.config_branch:
                 self.get_logger().info("Change '%s' valid for backport" % change_number)
             elif branch not in versions:
-                self.get_logger().warn("Change '%s' branch '%s' not valid for any deployed wikiversion. Deployed wikiversions: %s" % (change_number, branch, list(versions)))
+                self.get_logger().warn(
+                    "Change '%s' branch '%s' not valid for any deployed wikiversion. Deployed wikiversions: %s" %
+                    (change_number, branch, list(versions)))
                 raise SystemExit(1)
-            elif project not in config_submodules + git.list_submodules(mediawiki_location + '/' + 'php-' + branch, "--recursive"):
-                self.get_logger().warn("Change '%s' project '%s' not valid for any production project/submodule" % (change_number, project))
+            elif project not in config_submodules + git.list_submodules(mediawiki_location + '/' + 'php-' +
+                                                                        branch, "--recursive"):
+                self.get_logger().warn("Change '%s' project '%s' not valid for any production project/submodule" %
+                                       (change_number, project))
                 raise SystemExit(1)
+
+    def check_dependencies(self, change_details, change_numbers):
+        self.get_logger().info("Checking for relation chains and Depends-Ons...")
+        for detail in change_details:
+            change_number = detail['_number']
+            project_branch_id = detail['id']
+            deps = self.gerrit.submitted_together(change_number).get().changes
+            deps += self.get_depends_ons(project_branch_id, change_number)
+
+            if len(deps) > 0:
+                deps_numbers = list(map(lambda dep: dep["_number"], deps))
+                unscheduled_dependencies = set(deps_numbers) - set(change_numbers)
+
+                if len(unscheduled_dependencies) > 0:
+                    raise SystemExit("The change '%s' cannot be merged because it has dependencies '%s' "
+                                     "which are not scheduled for backport." % (change_number, unscheduled_dependencies))
+
+    def get_depends_ons(self, project_branch_id, change_number):
+        crd = self.gerrit.crd(project_branch_id).get()
+        deps = []
+
+        if bool(crd.cycle) is True:
+            raise SystemExit("The change '%s' cannot be merged because a dependency cycle was detected." % change_number)
+
+        for change_id in crd.depends_on:
+            if change_id not in deps:
+                change_detail = self.gerrit.change_detail(change_id).get()
+                deps.append(change_detail)
+                deps += self.get_depends_ons(change_detail['id'], change_detail['_number'])
+
+        return deps
 
     def confirm_changes(self, change_numbers):
         approval = input("Backport the changes %s? (y/N) " % change_numbers)
@@ -137,18 +175,32 @@ class Backport(cli.Application):
     def wait_for_changes_to_be_merged(self, change_numbers):
         interval = 5
 
-        self.get_logger().info('Waiting for changes to be merged')
+        self.get_logger().info('Waiting for changes to be merged. '
+                               'This may take some time if there are long running tests.')
 
         finished = False
 
         while not finished:
             finished = True  # optimism
             for number in change_numbers:
-                info = self.gerrit.change(number).get()
-                status = info['status']
-                mergeable = getattr(info, 'mergeable', None)  # Want this to be True. We can probably stop polling immediately if this becomes false
+                detail = self.gerrit.change_detail(number).get()
+                status = detail['status']
+                verified = detail['labels']['Verified']
+                rejected = getattr(verified, 'rejected', None)
+                mergeable = getattr(detail, 'mergeable', None)
                 print("Change {} status: {}, mergeable: {}".format(number, status, mergeable))
+
                 if status != 'MERGED':
+                    if not mergeable:
+                        raise SystemExit("Gerrit could not merge the change '%s' as is and could require a rebase"
+                                         % number)
+
+                    if rejected:
+                        all_verified = getattr(verified, 'all', [])
+                        jenkins_rejected = [v for v in all_verified if v.username == 'jenkins-bot' and v.value == -1]
+                        if len(jenkins_rejected) > 0:
+                            raise SystemExit("The change '%s' failed build tests and could not be merged" % number)
+
                     finished = False
 
             if not finished:

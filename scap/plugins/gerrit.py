@@ -74,6 +74,12 @@ class GerritSession(object):
     def change(self, changeid, **kwargs):
         return Change(changeid, session=self, **kwargs)
 
+    def submitted_together(self, changeid, **kwargs):
+        return SubmittedTogether(changeid, session=self, **kwargs)
+
+    def crd(self, project_branch_changeid, **kwargs):
+        return Crd(project_branch_changeid, session=self, **kwargs)
+
     def change_detail(self, changeid, **kwargs):
         return ChangeDetail(changeid, session=self, **kwargs)
 
@@ -239,6 +245,30 @@ class Change(GerritEndpoint):
         super().__init__(path='changes/%s' % changeid, **kwargs)
         self.changeid = changeid
         self.revision = ChangeRevisions(changeid, revisionid=revisionid,
+                                        session=self._session)
+
+
+class SubmittedTogether(GerritEndpoint):
+    """ get the submitted together changes for a gerrit change"""
+    changeid = None
+    revisionid = "current"
+
+    def __init__(self, changeid, revisionid="current", **kwargs):
+        super().__init__(path='changes/%s/submitted_together?o=NON_VISIBLE_CHANGES' % changeid, **kwargs)
+        self.changeid = changeid
+        self.revision = ChangeRevisions(changeid, revisionid=revisionid,
+                                        session=self._session)
+
+
+class Crd(GerritEndpoint):
+    """ get the submitted together changes for a gerrit change"""
+    changeid = None
+    revisionid = "current"
+
+    def __init__(self, project_branch_changeid, revisionid="current", **kwargs):
+        super().__init__(path='changes/%s/revisions/current/crd' % project_branch_changeid, **kwargs)
+        self.changeid = project_branch_changeid
+        self.revision = ChangeRevisions(project_branch_changeid, revisionid=revisionid,
                                         session=self._session)
 
 
