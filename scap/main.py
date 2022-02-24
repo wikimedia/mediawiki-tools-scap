@@ -1165,8 +1165,7 @@ class SyncWikiversions(AbstractSync):
             err_msg = "l10n cache missing for %s" % version
             utils.check_file_exists(cache_file, err_msg)
 
-        # Compile mediawiki-staging wikiversions
-        tasks.compile_wikiversions("stage", self.config)
+        # Tell the remaining stages to only rsync wikiversions*.* files.
         self.include = "wikiversions*.*"
 
     def _after_lock_release(self):
