@@ -282,7 +282,7 @@ def compile_wikiversions(source_tree, cfg, logger=None):
     logger.info("Compiled %s to %s", json_file, php_file)
 
 
-# Called by scap cdb-rebuild (main.py) if "rsync_cdbs" is False
+# Called by scap cdb-rebuild (main.py)
 @utils.log_context("merge_cdb_updates")
 def merge_cdb_updates(directory, pool_size, trust_mtime=False, mute=False, logger=None):
     """
@@ -354,8 +354,6 @@ def sync_master(cfg, master, verbose=False, logger=None):
 
     # Execute rsync fetch locally via sudo and wrapper script
     rsync = ["sudo", "-n", "--", "/usr/local/bin/scap-master-sync"]
-    if cfg["rsync_cdbs"] is True:
-        rsync.append("-c")
     rsync.append(master)
 
     logger.info("Copying from %s to %s:/srv/mediawiki-staging", master, socket.getfqdn())
@@ -364,21 +362,20 @@ def sync_master(cfg, master, verbose=False, logger=None):
     with log.Timer("rsync master", stats):
         subprocess.check_call(rsync)
 
-    if cfg["rsync_cdbs"] is False:
-        # Rebuild the CDB files
-        use_cores = utils.cpus_for_jobs()
-        versions = utils.get_active_wikiversions(cfg["stage_dir"], cfg["wmf_realm"], return_type=dict)
+    # Rebuild the CDB files
+    use_cores = utils.cpus_for_jobs()
+    versions = utils.get_active_wikiversions(cfg["stage_dir"], cfg["wmf_realm"], return_type=dict)
 
-        with log.Timer("rebuild CDB staging files", stats):
-            for version, wikidb in versions.items():
-                cache_dir = os.path.join(cfg["stage_dir"], "php-%s" % version, "cache", "l10n")
-                _call_rebuildLocalisationCache(
-                    wikidb,
-                    cache_dir,
-                    use_cores,
-                    php_l10n=cfg["php_l10n"],
-                    delay_messageblobstore_purge=cfg["delay_messageblobstore_purge"],
-                )
+    with log.Timer("rebuild CDB staging files", stats):
+        for version, wikidb in versions.items():
+            cache_dir = os.path.join(cfg["stage_dir"], "php-%s" % version, "cache", "l10n")
+            _call_rebuildLocalisationCache(
+                wikidb,
+                cache_dir,
+                use_cores,
+                php_l10n=cfg["php_l10n"],
+                delay_messageblobstore_purge=cfg["delay_messageblobstore_purge"],
+            )
 
 
 # Called via "scap pull"
@@ -434,8 +431,7 @@ def sync_common(
             # Exclude wikiversions*.php.  This is rsync'd by sync_wikiversions later.
             rsync.append("--exclude=/wikiversions*.php")
 
-    if cfg["rsync_cdbs"] is False:
-        rsync.append("--exclude=**/cache/l10n/*.cdb")
+    rsync.append("--exclude=**/cache/l10n/*.cdb")
 
     if verbose:
         rsync.append("--verbose")
@@ -742,21 +738,15 @@ def update_localization_cache(version, wikidb, verbose, cfg, logger=None):
 
     cache_dir_owner = pwd.getpwuid(os.stat(cache_dir).st_uid).pw_name
 
-    if cfg["rsync_cdbs"]:
-        upstream_dir = os.path.join(cache_dir, "upstream")
-        if os.path.exists(upstream_dir):
-            logger.info("Deleting {}".format(upstream_dir))
-            utils.sudo_check_call(cache_dir_owner, "rm -fr {}".format(upstream_dir))
-    else:
-        # Include JSON versions of the CDB files and add MD5 files
-        scap_path = os.path.join(os.path.dirname(sys.argv[0]), "scap")
-        logger.info("Generating JSON versions and md5 files (as {})".format(cache_dir_owner))
-        utils.sudo_check_call(
-            cache_dir_owner,
-            "%s cdb-json-refresh -Drsync_cdbs:False "
-            '--directory="%s" --threads=%s %s'
-            % (scap_path, cache_dir, use_cores, verbose_messagelist),
-        )
+    # Include JSON versions of the CDB files and add MD5 files
+    scap_path = os.path.join(os.path.dirname(sys.argv[0]), "scap")
+    logger.info("Generating JSON versions and md5 files (as {})".format(cache_dir_owner))
+    utils.sudo_check_call(
+        cache_dir_owner,
+        "%s cdb-json-refresh "
+        '--directory="%s" --threads=%s %s'
+        % (scap_path, cache_dir, use_cores, verbose_messagelist),
+    )
 
 
 def refresh_cdb_json_files(in_dir, pool_size, verbose):
