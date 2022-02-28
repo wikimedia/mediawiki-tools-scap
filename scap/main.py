@@ -81,13 +81,13 @@ class AbstractSync(cli.Application):
         with lock.Lock(self.get_lock_file(), self.arguments.message):
             self._check_sync_flag()
             self._compile_wikiversions()
+            self._before_cluster_sync()
+            self._cache_git_info()
             if not self.arguments.force:
                 self.get_logger().info("Checking for new runtime errors locally")
                 self._check_fatals()
             else:
                 self.get_logger().warning("check_fatals Skipped by --force")
-            self._before_cluster_sync()
-            self._cache_git_info()
             self._sync_masters()
             self._build_container_images()
             self._deploy_container_images()
@@ -202,12 +202,9 @@ class AbstractSync(cli.Application):
                 tasks.cache_git_info(version, self.config)
 
     def _check_fatals(self):
-        cfg = self.config
         logger = self.get_logger()
 
         for version, wikidb in self.active_wikiversions("stage", return_type=dict).items():
-            # At least a blank ExtensionMessages file is required for eval.php to succeed.
-            tasks.ensure_extension_messages_file(cfg, version, logger)
             logger.debug("Testing eval.php with {}".format(wikidb))
             with utils.suppress_backtrace():
                 stderr = mwscript("eval.php", "--wiki", wikidb)
