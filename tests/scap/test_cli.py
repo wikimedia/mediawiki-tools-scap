@@ -350,3 +350,16 @@ def test_run(cmd, mocker):
     cmd._load_config.side_effect = None
     cli.Application.run()
     ex.assert_called_with(666)
+
+
+def test_format_passthrough_args(app):
+
+    assert app.format_passthrough_args() == []
+
+    app.cli_defines = {
+        "canary_dashboard_url": "https://somewhere.over.the.rainbow", "log_json": False
+    }
+    assert sorted(app.format_passthrough_args()) == sorted([
+        "-D", "canary_dashboard_url:https://somewhere.over.the.rainbow", "-D",
+        "log_json:False"
+    ])

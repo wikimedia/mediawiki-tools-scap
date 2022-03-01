@@ -181,10 +181,11 @@ This operation can be run as many times as needed.
 
         if apply_patches:
             with utils.suppress_backtrace():
-                subprocess.check_call([self.get_script_path(), "apply-patches",
-                                       "-Dstage_dir:{}".format(self.config["stage_dir"]),
-                                       "--abort-git-am-on-fail",
-                                       "--train", branch])
+                args = [
+                    self.get_script_path(), "apply-patches",
+                    "--abort-git-am-on-fail", "--train", branch
+                ] + self.format_passthrough_args()
+                subprocess.check_call(args)
 
     def _select_reference_directory(self):
         """

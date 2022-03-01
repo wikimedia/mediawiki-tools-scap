@@ -461,7 +461,7 @@ def make_sudo_check_call_env(env):
 
 
 @log_context("sudo_check_call")
-def sudo_check_call(user, cmd, logger=None, logLevel=logging.DEBUG):
+def sudo_check_call(user, cmd, logger=None, logLevel=logging.DEBUG, app=None):
     """
     Run a command as a specific user.
 
@@ -470,8 +470,18 @@ def sudo_check_call(user, cmd, logger=None, logLevel=logging.DEBUG):
     :param user: User to run command as
     :param cmd: Command to execute
     :param logger: Logger to send process output to
+    :param app: Application calling the function, required if the command is `scap`
     :raises: subprocess.CalledProcessError on non-zero process exit
+    :raises: ValueError if the command is `scap` and app was not specified
     """
+
+    # If command is `scap`, pass cli config args through
+    cmd_basename = os.path.basename(cmd.split()[0])
+    if "scap" == cmd_basename:
+        if app is None:
+            raise ValueError("When calling \"scap\" locally, the \"app\" parameter is required")
+
+        cmd += " " + " ".join(app.format_passthrough_args())
 
     # Only sudo when necessary
     if user == get_username():
