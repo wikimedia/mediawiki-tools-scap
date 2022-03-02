@@ -1,3 +1,12 @@
+scap (4.4.2-1) unstable; urgency=medium
+
+  * Don't exclude master hosts from sync-apaches phase
+  * cli config args: passthrough to local `scap` subprocess calls
+  * bin/scap: Move SCAP_SRC to the front of sys.path
+  * Scap backport: legacy deployment
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Wed, 02 Mar 2022 12:00:33 -0800
+
 scap (4.4.1-1) unstable; urgency=medium
 
   * Run _check_fatals after l10n is built
