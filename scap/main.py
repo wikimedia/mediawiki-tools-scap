@@ -139,7 +139,6 @@ class AbstractSync(cli.Application):
                     key=self.get_keyholder_key(),
                 )
                 update_apaches.exclude_hosts(proxies)
-                update_apaches.exclude_hosts(self.get_master_list())
                 if not self.arguments.force:
                     update_apaches.exclude_hosts(canaries)
                 update_apaches.shuffle()
