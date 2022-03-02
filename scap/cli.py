@@ -24,10 +24,13 @@ from __future__ import absolute_import
 
 import errno
 import logging
+import operator
 import os
 import re
 import sys
 import time
+from functools import reduce
+
 import scap.plugins
 
 from scap.terminal import TERM
@@ -250,6 +253,24 @@ class Application(object):
             )
         )
         return 130
+
+    def format_passthrough_args(self) -> list:
+        """
+        Returns a list with user-supplied cli config args in cli format. Makes it easy to pass along
+        config args to locally spawned `scap` processes.
+
+        For example, if the user passed config options `canary_dashboard_url` and `log_json` on the
+        command line, then the return value would be:
+
+          ["-D", "canary_dashboard_url:https://somewhere.over.the.rainbow", "-D", "log_json:false"]
+        """
+
+        cmd_line_args = [
+            ["-D", "%s:%s" % (cli_arg, self.cli_defines.get(cli_arg))]
+            for cli_arg in self.cli_defines.keys()
+        ]
+        # Flatten and return cli args
+        return reduce(operator.concat, cmd_line_args, [])
 
     def _handle_exception(self, ex):
         """

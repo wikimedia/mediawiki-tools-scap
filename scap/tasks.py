@@ -35,7 +35,6 @@ import pwd
 import shutil
 import socket
 import subprocess
-import sys
 import time
 import tempfile
 
@@ -657,15 +656,17 @@ def ensure_extension_messages_file(cfg, version, logger):
 
 
 @utils.log_context("update_localization_cache")
-def update_localization_cache(version, wikidb, verbose, cfg, logger=None):
+def update_localization_cache(version, wikidb, app, logger=None):
     """
     Update the localization cache for a given MW version.
 
     :param version: MediaWiki version
     :param wikidb: Wiki running given version
-    :param verbose: Provide verbose output
-    :param cfg: Global configuration
+    :param app: Application calling the function
     """
+
+    verbose = app.verbose
+    cfg = app.config
 
     # Calculate the number of parallel threads
     # Leave a couple of cores free for other stuff
@@ -739,13 +740,13 @@ def update_localization_cache(version, wikidb, verbose, cfg, logger=None):
     cache_dir_owner = pwd.getpwuid(os.stat(cache_dir).st_uid).pw_name
 
     # Include JSON versions of the CDB files and add MD5 files
-    scap_path = os.path.join(os.path.dirname(sys.argv[0]), "scap")
     logger.info("Generating JSON versions and md5 files (as {})".format(cache_dir_owner))
     utils.sudo_check_call(
-        cache_dir_owner,
-        "%s cdb-json-refresh "
+        user=cache_dir_owner,
+        cmd="%s cdb-json-refresh "
         '--directory="%s" --threads=%s %s'
-        % (scap_path, cache_dir, use_cores, verbose_messagelist),
+        % (app.get_script_path(), cache_dir, use_cores, verbose_messagelist),
+        app=app
     )
 
 

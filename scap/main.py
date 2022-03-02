@@ -807,9 +807,7 @@ class ScapWorld(AbstractSync):
         else:
             with log.Timer("l10n-update", self.get_stats()):
                 for version, wikidb in self.active_wikiversions("stage", return_type=dict).items():
-                    tasks.update_localization_cache(
-                        version, wikidb, self.verbose, self.config
-                    )
+                    tasks.update_localization_cache(version, wikidb, self)
 
     def _proxy_sync_command(self):
         cmd = super()._proxy_sync_command()
@@ -955,7 +953,9 @@ class SyncPull(cli.Application):
         if self.arguments.update_l10n:
             with log.Timer("scap-cdb-rebuild", self.get_stats()):
                 utils.sudo_check_call(
-                    "mwdeploy", self.get_script_path() + " cdb-rebuild --no-progress"
+                    user="mwdeploy",
+                    cmd=self.get_script_path() + " cdb-rebuild --no-progress",
+                    app=self
                 )
         # Invalidate opcache
         # TODO deduplicate this from AbstractSync._invalidate_opcache()
