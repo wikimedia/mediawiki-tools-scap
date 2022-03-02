@@ -1,10 +1,11 @@
 # -*- coding: utf-8 -*-
 
 """Scap plugin for listing, applying, and rolling back backports."""
-from prettytable import PrettyTable
-
+import subprocess
 import time
-from scap import cli, git
+
+from prettytable import PrettyTable
+from scap import cli, git, utils
 from scap.plugins.gerrit import GerritSession
 
 
@@ -51,12 +52,12 @@ class Backport(cli.Application):
         self.confirm_changes(change_numbers)
         self.approve_changes(change_numbers)
         self.wait_for_changes_to_be_merged(change_numbers)
-        # TODO: trigger pipeline job? done automatically?
-        # TODO: listen for promote on deployment-charts
-        # TODO: +2 deployment-charts
-        # TODO: unpack image into /srv/mediawiki/staging
-        # TODO: run helmfile apply
-        # TODO: scap sync
+        # TODO T295495 what are the commit hashes of the merged changes
+        # TODO option to sync files/order of sync?
+        with utils.suppress_backtrace():
+            subprocess.check_call([self.get_script_path(), "sync-world",
+                                   "Backport for %s" % change_numbers])
+
         return 0
 
     def list_backports(self, versions):
