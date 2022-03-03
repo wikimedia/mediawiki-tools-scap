@@ -354,7 +354,10 @@ class ProgressReporter(object):
 
     @property
     def remaining(self):
-        return self._expect - self._done
+        if self._in_flight is not None:
+            return self._expect - self._done - self._in_flight
+        else:
+            return self._expect - self._done
 
     @property
     def done(self):
