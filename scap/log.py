@@ -414,7 +414,7 @@ class ProgressReporter(object):
         return "%s: %3.0f%% (%sok: %d; fail: %d; left: %d)" % (
             self._name,
             self.percent_complete,
-            "" if self._in_flight is None else "in-flight: {}, ".format(self._in_flight),
+            "" if self._in_flight is None else "in-flight: {}; ".format(self._in_flight),
             self.ok,
             self.failed,
             self.remaining,
