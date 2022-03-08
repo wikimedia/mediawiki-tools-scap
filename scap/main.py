@@ -28,6 +28,7 @@ import base64
 from concurrent.futures import ProcessPoolExecutor
 import errno
 import os
+import pathlib
 import pwd
 import select
 import shlex
@@ -499,6 +500,8 @@ class AbstractSync(cli.Application):
         if not self.config["build_mw_container_image"]:
             return
 
+        logger = self.get_logger()
+
         release_repo_dir = self.config["release_repo_dir"]
 
         if release_repo_dir is None:
@@ -507,7 +510,7 @@ class AbstractSync(cli.Application):
         release_repo_update_cmd = self.config["release_repo_update_cmd"]
 
         if release_repo_update_cmd:
-            self.get_logger().info("Running {}".format(release_repo_update_cmd))
+            logger.info("Running {}".format(release_repo_update_cmd))
             with utils.suppress_backtrace():
                 subprocess.run(release_repo_update_cmd, shell=True, check=True)
 
@@ -548,8 +551,26 @@ class AbstractSync(cli.Application):
                     self.config["release_repo_build_and_push_images_cmd"],
                     " ".join([shlex.quote("=".join(pair)) for pair in make_parameters.items()]))
 
-                self.get_logger().info("Running {} in {}".format(cmd, make_container_image_dir))
-                subprocess.run(cmd, shell=True, check=True, cwd=make_container_image_dir)
+                build_logfile = os.path.join(pathlib.Path.home(), "scap-image-build-and-push-log")
+
+                logger.info("Container build/push output redirected to {}".format(build_logfile))
+
+                try:
+                    with open(build_logfile, "a") as logstream:
+                        log_file_position = logstream.tell()
+                        logger.debug("Running {} in {}".format(cmd, make_container_image_dir))
+                        subprocess.run(cmd, shell=True, check=True, cwd=make_container_image_dir,
+                                       stdout=logstream,
+                                       stderr=subprocess.STDOUT)
+                except subprocess.CalledProcessError as e:
+                    # Print the error message, which contains the command that was executed and its
+                    # exit status.
+                    logger.error(e)
+                    logger.error("Stdout/stderr follows:")
+                    with open(build_logfile) as logstream:
+                        logstream.seek(log_file_position)
+                        logger.error(logstream.read())
+                    raise
 
     # Proof of concept.  Works in train-dev
     def _deploy_container_images(self):
