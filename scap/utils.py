@@ -908,3 +908,16 @@ def write_file_if_needed(filename, data: str):
 
         os.chmod(f.name, 0o644)
         os.link(f.name, filename)
+
+
+def prompt_user_for_confirmation(prompt_message) -> bool:
+    """
+    Prompts user with `prompt_message` and expects yes/no answer. Default answer if enter is pressed
+    is "no"
+    """
+    while True:
+        answer = input(prompt_message + " y/N ")
+        if not answer or re.match(r"(?i)(n|no)$", answer):
+            return False
+        if re.match(r"(?i)(y|yes)$", answer):
+            return True
