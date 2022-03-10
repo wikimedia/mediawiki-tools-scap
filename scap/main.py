@@ -535,7 +535,7 @@ class AbstractSync(cli.Application):
 
             make_parameters = {
                 "GIT_BASE": git_base,
-                "BRANCH": self.config["operations_mediawiki_config_branch"],
+                "MW_CONFIG_BRANCH": self.config["operations_mediawiki_config_branch"],
                 "workdir_volume": self.config["stage_dir"],
                 "mv_image_name": "{}/{}".format(registry, self.config["mediawiki_image_name"]),
                 "webserver_image_name": "{}/{}".format(registry, self.config["webserver_image_name"]),
