@@ -82,7 +82,7 @@ class AbstractSync(cli.Application):
             self._check_sync_flag()
             self._compile_wikiversions()
             self._before_cluster_sync()
-            self._cache_git_info()
+            self._update_caches()
             if not self.arguments.force:
                 self.get_logger().info("Checking for new runtime errors locally")
                 self._check_fatals()
@@ -192,7 +192,7 @@ class AbstractSync(cli.Application):
     def _before_cluster_sync(self):
         pass
 
-    def _cache_git_info(self):
+    def _update_caches(self):
         self._git_repo()
 
         # Compute git version information
@@ -795,8 +795,8 @@ class ScapWorld(AbstractSync):
             utils.cpus_for_jobs(),
         )
 
-    def _cache_git_info(self):
-        super()._cache_git_info()
+    def _update_caches(self):
+        super()._update_caches()
 
         # Update list of extension message files and regenerate the
         # localisation cache.
@@ -1121,7 +1121,7 @@ class SyncL10n(AbstractSync):
 class SyncWikiversions(AbstractSync):
     """Rebuild and sync wikiversions.php to the cluster."""
 
-    def _cache_git_info(self):
+    def _update_caches(self):
         """
         Skip this step.
 
