@@ -49,6 +49,8 @@ from scap.deploy import Deploy, DeployLocal, DeployLog
 
 import scap.runcmd
 
+from scap.deploy_promote import DeployPromote
+
 __all__ = [
     "CompileWikiversions",
     "Deploy",
@@ -67,6 +69,7 @@ __all__ = [
     "Version",
     "__version__",
     "runcmd",
+    "DeployPromote",
 ]
 
 

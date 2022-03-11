@@ -27,6 +27,7 @@ import logging
 import operator
 import os
 import re
+import subprocess
 import sys
 import time
 from functools import reduce
@@ -271,6 +272,31 @@ class Application(object):
         ]
         # Flatten and return cli args
         return reduce(operator.concat, cmd_line_args, [])
+
+    def scap_check_call(self, scap_cmd: list):
+        """
+        Call scap subcommand
+
+        :raises CalledProcessError: if the subcommand fails
+        """
+
+        args = [self.get_script_path()] + scap_cmd + self.format_passthrough_args()
+        with utils.suppress_backtrace():
+            subprocess.run(args, check=True)
+
+    def scap_check_output(self, scap_cmd: list) -> str:
+        """
+        Call scap subcommand and return output as text
+
+        :returns: the output of `scap_cmd` as text
+        :raises CalledProcessError: if the subcommand fails
+        """
+
+        args = [self.get_script_path()] + scap_cmd + self.format_passthrough_args()
+        with utils.suppress_backtrace():
+            return subprocess.run(
+                args, check=True, stdout=subprocess.PIPE, universal_newlines=True
+            ).stdout.strip()
 
     def _handle_exception(self, ex):
         """
