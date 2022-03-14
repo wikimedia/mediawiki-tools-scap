@@ -136,6 +136,13 @@ class Clean(main.AbstractSync):
             srv_patches_git_message = 'Scap clean for "{}"'.format(branch)
             git.add_all(patch_base_dir, message=srv_patches_git_message)
 
+    # There's no need to build or deploy container images during scap clean
+    def _build_container_images():
+        pass
+
+    def _deploy_container_images():
+        pass
+
     def _after_cluster_sync(self):
         """
         Need to remove cache dirs manually after sync
