@@ -626,6 +626,7 @@ def _call_rebuildLocalisationCache(
                 "quiet": "--quiet" if quiet else "",
                 "skip_message_purge": "--skip-message-purge" if delay_messageblobstore_purge else "",
             },
+            logLevel=logging.INFO,
         )
 
     _rebuild("LCStoreCDB", "cdb")
