@@ -137,10 +137,10 @@ class Clean(main.AbstractSync):
             git.add_all(patch_base_dir, message=srv_patches_git_message)
 
     # There's no need to build or deploy container images during scap clean
-    def _build_container_images():
+    def _build_container_images(self):
         pass
 
-    def _deploy_container_images():
+    def _deploy_container_images(self):
         pass
 
     def _after_cluster_sync(self):
