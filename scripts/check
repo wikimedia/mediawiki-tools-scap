@@ -17,7 +17,7 @@ got()
 
 title "shellcheck"
 # shellcheck disable=SC2046
-shellcheck $(find . -type f | egrep -v '^\./(\.git|\.tox|docs/_build)' | xargs grep -l '^#!/bin/.*sh')
+shellcheck $(find . -type f | grep -vE '^\./(\.git|\.tox|docs/_build)' | xargs grep -l '^#!/bin/.*sh')
 
 title "pytest (unit and other functional tests)"
 python3 -m pytest -q

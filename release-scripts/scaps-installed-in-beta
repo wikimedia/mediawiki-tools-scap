@@ -59,7 +59,7 @@ case "$format" in
             -o json \
             'P{C:scap}' \
             "'echo $encoded_remote_cmd | base64 -d | bash'" \
-            | fgrep -v "_____FORMATTED_OUTPUT_____" | jq -r '.[]' | sort -u --version-sort
+            | grep -vF "_____FORMATTED_OUTPUT_____" | jq -r '.[]' | sort -u --version-sort
         ;;
     *)
         echo "Unknown format: $format"
