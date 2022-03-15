@@ -135,11 +135,11 @@ class DeployPromote(cli.Application):
 
     def _create_version_update_patch(self):
         with utils.cd(self.config["stage_dir"]):
-            self.logger.info("Pushing versions update patch")
-            self._commit_files()
-            self._push_patch()
-            self.logger.info("Running git pull")
-            gitcmd("pull")
+            if self._commit_files():
+                self.logger.info("Pushing versions update patch")
+                self._push_patch()
+                self.logger.info("Running git pull")
+                gitcmd("pull")
 
     def _set_update_message(self):
         phabricator_task_id = self._get_train_task()
@@ -149,14 +149,20 @@ class DeployPromote(cli.Application):
         self.update_message = \
             "%s wikis to %s%s" % (self.group, self.promote_version, task_id_message)
 
-    def _commit_files(self):
+    def _commit_files(self) -> bool:
+        """
+        Returns True if a commit was created, False if not.
+        """
         versions_file = \
             utils.get_realm_specific_filename("wikiversions.json", self.config["wmf_realm"])
         files_to_commit = [file for file in [versions_file, "php"] if _file_updated(file)]
 
-        if files_to_commit:
-            gitcmd("add", *files_to_commit)
-            gitcmd("commit", "-m", self.update_message)
+        if not files_to_commit:
+            return False
+
+        gitcmd("add", *files_to_commit)
+        gitcmd("commit", "-m", self.update_message)
+        return True
 
     def _push_patch(self):
         gitcmd("push", "origin", "HEAD:%s" % self._get_git_push_dest())
