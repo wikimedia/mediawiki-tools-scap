@@ -32,7 +32,6 @@ import logging
 import multiprocessing
 import os
 import pwd
-import shutil
 import socket
 import subprocess
 import time
@@ -781,7 +780,7 @@ def refresh_cdb_json_files(in_dir, pool_size, verbose):
     logger.info("Updated %s JSON file(s) in %s", updated, in_dir)
 
 
-def refresh_cdb_json_file(file_path):
+def refresh_cdb_json_file(file_path) -> bool:
     """
     Rebuild json file from cdb file.
 
@@ -791,6 +790,9 @@ def refresh_cdb_json_file(file_path):
     #. Change permissions on named temporary file
     #. Overwrite upstream json file
     #. Write upstream md5 file
+
+    Returns a boolean indicating whether or not a JSON file was
+    (re)created.
     """
     cdb_dir = os.path.dirname(file_path)
     file_name = os.path.basename(file_path)
@@ -809,11 +811,10 @@ def refresh_cdb_json_file(file_path):
         # If the cdb file matches the generated md5,
         # no changes are needed to the json
         if json_md5 == cdb_md5:
-            return True
+            return False
     except IOError:
         pass
 
-    tmp_json = tempfile.NamedTemporaryFile(delete=False)
     with open(file_path, "rb") as fp:
         reader = cdblib.Reader(fp.read())
 
@@ -833,14 +834,18 @@ def refresh_cdb_json_file(file_path):
     # Remove final newline
     json_data = "".join(json_data.rsplit("\n", 1))
 
+    tmp_json = tempfile.NamedTemporaryFile(delete=False, dir=upstream_dir)
     tmp_json.write(json_data.encode())
     tmp_json.close()
     os.chmod(tmp_json.name, 0o644)
-    shutil.move(tmp_json.name, upstream_json)
+    os.rename(tmp_json.name, upstream_json)
     logger.debug("Updated: %s", upstream_json)
 
-    with open(upstream_md5, "w") as md5:
-        md5.write(cdb_md5)
+    md5 = tempfile.NamedTemporaryFile(mode="w", delete=False, dir=upstream_dir)
+    md5.write(cdb_md5)
+    md5.close()
+    os.chmod(md5.name, 0o644)
+    os.rename(md5.name, upstream_md5)
 
     return True
 
