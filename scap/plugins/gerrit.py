@@ -77,8 +77,8 @@ class GerritSession(object):
     def submitted_together(self, changeid, **kwargs):
         return SubmittedTogether(changeid, session=self, **kwargs)
 
-    def crd(self, project_branch_changeid, **kwargs):
-        return Crd(project_branch_changeid, session=self, **kwargs)
+    def depends_ons(self, project_branch_changeid, **kwargs):
+        return DependsOns(project_branch_changeid, session=self, **kwargs)
 
     def change_detail(self, changeid, **kwargs):
         return ChangeDetail(changeid, session=self, **kwargs)
@@ -260,8 +260,8 @@ class SubmittedTogether(GerritEndpoint):
                                         session=self._session)
 
 
-class Crd(GerritEndpoint):
-    """ get the submitted together changes for a gerrit change"""
+class DependsOns(GerritEndpoint):
+    """ get the Depends-On changes for a gerrit change"""
     changeid = None
     revisionid = "current"
 

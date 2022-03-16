@@ -153,13 +153,13 @@ class Backport(cli.Application):
                                      "which are not scheduled for backport." % (change_number, unscheduled_dependencies))
 
     def get_depends_ons(self, project_branch_id, change_number):
-        crd = self.gerrit.crd(project_branch_id).get()
+        depends_ons = self.gerrit.depends_ons(project_branch_id).get()
         deps = []
 
-        if bool(crd.cycle) is True:
+        if bool(depends_ons.cycle) is True:
             raise SystemExit("The change '%s' cannot be merged because a dependency cycle was detected." % change_number)
 
-        for change_id in crd.depends_on:
+        for change_id in depends_ons.depends_on:
             if change_id not in deps:
                 change_detail = self.gerrit.change_detail(change_id).get()
                 deps.append(change_detail)
