@@ -31,7 +31,7 @@ LOG_GC_BYTE_LIMIT = 400 * (LOG_GC_TRUNCATE_TO_LINES * 2)
 def load(path, **kwargs):
     """Loads history from a given log file."""
     try:
-        with open(path, 'r') as f:
+        with utils.open_exclusively(path, 'r') as f:
             return History.load(f, **kwargs)
     except FileNotFoundError:
         return History(**kwargs)
@@ -43,28 +43,22 @@ def load(path, **kwargs):
 
 def log(entry, path):
     """
-    Appends the log with a new history entry.
+    Appends the log with a new history entry and performs garbage collection
+    when the log surpasses LOG_GC_BYTE_LIMIT in size.
     """
-    os.makedirs(os.path.dirname(path), exist_ok=True)
+    dirname = os.path.dirname(path)
+    if dirname:
+        os.makedirs(dirname, exist_ok=True)
 
-    needs_gc = False
-    with open(path, 'a') as f:
+    with utils.open_exclusively(path, 'a+') as f:
         f.write(entry.dumps() + "\n")
-        needs_gc = f.tell() >= LOG_GC_BYTE_LIMIT
 
-    if needs_gc:
-        log_gc(path)
-
-
-def log_gc(path):
-    """
-    Performs garbage collection of history log file entries.
-    """
-    with utils.open_exclusively(path, 'rb+') as f:
-        lines = f.readlines()[-LOG_GC_TRUNCATE_TO_LINES:]
-        f.seek(0)
-        f.writelines(lines)
-        f.truncate(sum([len(line) for line in lines]))
+        # perform garbage collection once the log size limit is reached
+        if f.tell() >= LOG_GC_BYTE_LIMIT:
+            lines = f.readlines()[-LOG_GC_TRUNCATE_TO_LINES:]
+            f.seek(0)
+            f.writelines(lines)
+            f.truncate(f.tell())
 
 
 def strip_common_dirname(paths):

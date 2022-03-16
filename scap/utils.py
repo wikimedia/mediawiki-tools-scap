@@ -927,17 +927,11 @@ def prompt_user_for_confirmation(prompt_message) -> bool:
 @contextlib.contextmanager
 def open_exclusively(*args, **kwargs):
     """
-    Opens the given file with an exclusive non-blocking lock and yields. Note
-    that if the lock is not acquirable, the given block will not be executed.
+    Opens the given file with an exclusive lock and yields.
     """
     with open(*args, **kwargs) as f:
         try:
-            try:
-                fcntl.lockf(f, fcntl.LOCK_EX | fcntl.LOCK_NB)
-            except OSError as e:
-                if e.errno in {errno.EACCES, errno.EAGAIN}:
-                    return
-                raise e
+            fcntl.lockf(f, fcntl.LOCK_EX)
             yield f
         finally:
             fcntl.lockf(f, fcntl.LOCK_UN)
