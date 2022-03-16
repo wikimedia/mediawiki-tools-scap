@@ -80,9 +80,6 @@ class Clean(main.AbstractSync):
             self.config["stage_dir"], "php-%s" % branch
         )
 
-        if not os.path.isdir(branch_dir):
-            raise SystemExit("No such branch exists, aborting")
-
         if branch in self.active_wikiversions("stage"):
             raise SystemExit(
                 'Branch "%s" is still in use, aborting' % branch
@@ -93,11 +90,12 @@ class Clean(main.AbstractSync):
                 "www-data", "rm -fR /var/lib/l10nupdate/caches/cache-%s" % branch
             )
 
-        for user in ["l10nupdate", "www-data"]:
-            with log.Timer("clean-{}-owned-files".format(user), self.get_stats()):
-                utils.sudo_check_call(
-                    user, "find %s -user %s -delete" % (branch_dir, user)
-                )
+        if os.path.exists(branch_dir):
+            for user in ["l10nupdate", "www-data"]:
+                with log.Timer("clean-{}-owned-files".format(user), self.get_stats()):
+                    utils.sudo_check_call(
+                        user, "find %s -user %s -delete" % (branch_dir, user)
+                    )
 
         with log.Timer("clean-ExtensionMessages"):
             ext_msg = os.path.join(
@@ -111,23 +109,26 @@ class Clean(main.AbstractSync):
 
         # Moved behind a feature flag until T218750 is resolved
         if self.arguments.delete_gerrit_branch:
-            git_prune_cmd = [
-                "git",
-                "push",
-                "origin",
-                "--quiet",
-                "--delete",
-                "wmf/%s" % branch,
-            ]
-            with log.Timer("prune-git-branches", self.get_stats()):
-                # Prune all the submodules' remote branches
-                with utils.cd(branch_dir):
-                    submodule_cmd = 'git submodule foreach "{} ||:"'.format(
-                        " ".join(git_prune_cmd)
-                    )
-                    subprocess.check_output(submodule_cmd, shell=True)
-                    if subprocess.call(git_prune_cmd) != 0:
-                        logger.info("Failed to prune core branch")
+            if not os.path.exists(branch_dir):
+                logger.warn("Cannot perform --delete-gerrit-branch because {} does not exist".format(branch_dir))
+            else:
+                git_prune_cmd = [
+                    "git",
+                    "push",
+                    "origin",
+                    "--quiet",
+                    "--delete",
+                    "wmf/%s" % branch,
+                ]
+                with log.Timer("prune-git-branches", self.get_stats()):
+                    # Prune all the submodules' remote branches
+                    with utils.cd(branch_dir):
+                        submodule_cmd = 'git submodule foreach "{} ||:"'.format(
+                            " ".join(git_prune_cmd)
+                        )
+                        subprocess.check_output(submodule_cmd, shell=True)
+                        if subprocess.call(git_prune_cmd) != 0:
+                            logger.info("Failed to prune core branch")
         with log.Timer("removing-local-copy"):
             self._maybe_delete(branch_dir)
         with log.Timer("cleaning-unused-patches", self.get_stats()):
