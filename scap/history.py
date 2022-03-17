@@ -31,7 +31,7 @@ LOG_GC_BYTE_LIMIT = 400 * (LOG_GC_TRUNCATE_TO_LINES * 2)
 def load(path, **kwargs):
     """Loads history from a given log file."""
     try:
-        with utils.open_exclusively(path, 'r') as f:
+        with utils.open_with_lock(path, 'r') as f:
             return History.load(f, **kwargs)
     except FileNotFoundError:
         return History(**kwargs)
@@ -50,7 +50,7 @@ def log(entry, path):
     if dirname:
         os.makedirs(dirname, exist_ok=True)
 
-    with utils.open_exclusively(path, 'a+') as f:
+    with utils.open_with_lock(path, 'a+') as f:
         f.write(entry.dumps() + "\n")
 
         # perform garbage collection once the log size limit is reached

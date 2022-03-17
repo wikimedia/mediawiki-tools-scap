@@ -925,13 +925,17 @@ def prompt_user_for_confirmation(prompt_message) -> bool:
 
 
 @contextlib.contextmanager
-def open_exclusively(*args, **kwargs):
+def open_with_lock(path, mode='r', *args, **kwargs):
     """
-    Opens the given file with an exclusive lock and yields.
+    Opens the given file and acquires an advisory lock using the open file
+    object. If the mode is read-only ('r' or 'rb'), the lock is acquired as
+    shared, and otherwise acquired as exclusive.
     """
-    with open(*args, **kwargs) as f:
+    lock_cmd = fcntl.LOCK_SH if mode in {'r', 'rb'} else fcntl.LOCK_EX
+
+    with open(path, mode, *args, **kwargs) as f:
         try:
-            fcntl.lockf(f, fcntl.LOCK_EX)
+            fcntl.lockf(f, lock_cmd)
             yield f
         finally:
             fcntl.lockf(f, fcntl.LOCK_UN)
