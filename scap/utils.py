@@ -939,3 +939,8 @@ def open_with_lock(path, mode='r', *args, **kwargs):
             yield f
         finally:
             fcntl.lockf(f, fcntl.LOCK_UN)
+
+
+def is_phabricator_task_id(string: str) -> bool:
+    """ Returns true if 'string' has the format of a phabricator task id """
+    return re.match(r"T\d+$", string) is not None

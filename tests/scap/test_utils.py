@@ -97,3 +97,13 @@ def _env(path, env="test"):
     if env is None:
         return utils.get_env_specific_filename(path)
     return utils.get_env_specific_filename(path, env)
+
+
+def test_is_phabricator_task_id():
+    assert utils.is_phabricator_task_id("T0") is True
+    assert utils.is_phabricator_task_id("T123") is True
+    assert utils.is_phabricator_task_id("") is False
+    assert utils.is_phabricator_task_id("T") is False
+    assert utils.is_phabricator_task_id("T123X") is False
+    assert utils.is_phabricator_task_id(" T1") is False
+    assert utils.is_phabricator_task_id("T1 ") is False

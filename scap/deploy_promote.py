@@ -108,15 +108,32 @@ class DeployPromote(cli.Application):
             _exit("""dblist "%s" does not exist""" % dblist_file)
 
     def _get_train_task(self) -> str:
+        """
+        Returns the Phabricator id of the current train task.  If this
+        information cannot be retrieved or decoded, or the response doesn't look
+        like a Phabricator task id, an empty string is returned.
+        """
+
+        api_url = "https://train-blockers.toolforge.org/api.php"
+
         try:
             proxy = {"http": "http://webproxy:8080"} if _on_real_deploy_server() else None
-            train_task_json = \
-                requests.get("https://train-blockers.toolforge.org/api.php", proxies=proxy).text
+            train_task_json = requests.get(api_url, proxies=proxy).text
         except RequestException as e:
             self.logger.warning("Failed to retrieve Phabricator train task:\n%s" % str(e))
             return ""
 
-        return json.loads(train_task_json)["current"]["task_id"]
+        try:
+            task = json.loads(train_task_json)["current"]["task_id"]
+        except json.decoder.JSONDecodeError as e:
+            self.logger.warning("Invalid JSON received from %s:\n%s" % (api_url, e))
+            return ""
+
+        if not utils.is_phabricator_task_id(task):
+            self.logger.warning("Unexpected Phabricator train task format received from %s: %s" % (api_url, task))
+            return ""
+
+        return task
 
     def _prompt_user_to_approve(self, prev_version) -> bool:
         prompt_message = "Promote %s from %s to %s" % (
