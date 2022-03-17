@@ -1,3 +1,24 @@
+scap (4.5.0-1) unstable; urgency=medium
+
+  * Fix all concurrent access to history log file
+  * gerrit plugin: Rename Crd class
+  * scap clean: Allow re-running even if branch dir doesn't exist
+  * scap clean: Don't do container stuff (fixed)
+  * Log rebuildLocalisationCache.php output at INFO level instead DEBUG
+  * Provide scap prep auto history browsing and replay
+  * scap clean: Don't do container stuff
+  * Exit if change is not mergeable
+  * scap deploy-promote: Make idempotent
+  * deploy-promote: integrate into `scap`
+  * main.py: Rename _cache_git_info to _update_caches
+  * image build: Use MW_CONFIG_BRANCH instead of BRANCH
+  * Redirect image build output to a file
+  * log: fix inconsistent separators
+  * progress reporter: Exclude 'in-flight' from 'left' count
+  * Show the summary of the normal rebuildLocalisationCache.php operation
+
+ -- Jaime Nuche <jnuche@wikimedia.org>  Thu, 17 Mar 2022 13:31:24 +0100
+
 scap (4.4.2-1) unstable; urgency=medium
 
   * Don't exclude master hosts from sync-apaches phase
