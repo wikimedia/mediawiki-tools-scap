@@ -39,6 +39,7 @@ CONNECTION_FAILURE = 255
 DEFAULT_BATCH_SIZE = 80
 SSH = cmd.Command(
     "/usr/bin/ssh",
+    "-n",
     "-oBatchMode=yes",
     "-oSetupTimeout=10",
     cmd.arg("verbose", "-v"),
@@ -47,6 +48,7 @@ SSH = cmd.Command(
 )
 SSH_WITH_KEY = cmd.Command(
     "/usr/bin/ssh",
+    "-n",
     "-oBatchMode=yes",
     "-oSetupTimeout=10",
     "-oIdentitiesOnly=yes",
