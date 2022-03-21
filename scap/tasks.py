@@ -780,7 +780,7 @@ def refresh_cdb_json_files(in_dir, pool_size, verbose):
     logger.info("Updated %s JSON file(s) in %s", updated, in_dir)
 
 
-def refresh_cdb_json_file(file_path) -> bool:
+def refresh_cdb_json_file(cdb_file_path) -> bool:
     """
     Rebuild json file from cdb file.
 
@@ -794,8 +794,8 @@ def refresh_cdb_json_file(file_path) -> bool:
     Returns a boolean indicating whether or not a JSON file was
     (re)created.
     """
-    cdb_dir = os.path.dirname(file_path)
-    file_name = os.path.basename(file_path)
+    cdb_dir = os.path.dirname(cdb_file_path)
+    file_name = os.path.basename(cdb_file_path)
     upstream_dir = os.path.join(cdb_dir, "upstream")
     upstream_md5 = os.path.join(upstream_dir, "{}.MD5".format(file_name))
     upstream_json = os.path.join(upstream_dir, "{}.json".format(file_name))
@@ -803,7 +803,7 @@ def refresh_cdb_json_file(file_path) -> bool:
     logger = utils.get_logger()
     logger.debug("Processing: %s", file_name)
 
-    cdb_md5 = utils.md5_file(file_path)
+    cdb_md5 = utils.md5_file(cdb_file_path)
     try:
         with open(upstream_md5, "r") as f:
             json_md5 = f.read()
@@ -815,7 +815,7 @@ def refresh_cdb_json_file(file_path) -> bool:
     except IOError:
         pass
 
-    with open(file_path, "rb") as fp:
+    with open(cdb_file_path, "rb") as fp:
         reader = cdblib.Reader(fp.read())
 
     out = collections.OrderedDict()
