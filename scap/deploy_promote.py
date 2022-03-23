@@ -117,7 +117,7 @@ class DeployPromote(cli.Application):
         api_url = "https://train-blockers.toolforge.org/api.php"
 
         try:
-            proxy = {"http": "http://webproxy:8080"} if _on_real_deploy_server() else None
+            proxy = {"https": "http://webproxy:8080"} if _on_real_deploy_server() else None
             train_task_json = requests.get(api_url, proxies=proxy).text
         except RequestException as e:
             self.logger.warning("Failed to retrieve Phabricator train task:\n%s" % str(e))
