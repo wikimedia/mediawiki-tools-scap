@@ -71,6 +71,11 @@ class AbstractSync(cli.Application):
         action="store_true",
         help="Skip canary checks, " "performs ungraceful php-fpm restarts",
     )
+    @cli.argument(
+        "--stop-before-sync",
+        action="store_true",
+        help="Perform all operations up to but not including rsyncing to any host",
+    )
     @cli.argument("message", nargs="*", help="Log message for SAL")
     def main(self, *extra_args):
         """Perform a sync operation to the cluster."""
@@ -89,9 +94,14 @@ class AbstractSync(cli.Application):
                 self._check_fatals()
             else:
                 self.get_logger().warning("check_fatals Skipped by --force")
-            self._sync_masters()
             self._build_container_images()
             self._deploy_container_images()
+
+            if self.arguments.stop_before_sync:
+                self.get_logger().info("Stopping before sync operations")
+                return 0
+
+            self._sync_masters()
 
             full_target_list = self._get_target_list()
 
@@ -787,6 +797,11 @@ class ScapWorld(AbstractSync):
         action="store_true",
         dest="skip_l10n_update",
         help="Skip update of l10n files",
+    )
+    @cli.argument(
+        "--stop-before-sync",
+        action="store_true",
+        help="Perform all operations up to but not including rsyncing to any host",
     )
     @cli.argument("message", nargs="*", help="Log message for SAL")
     def main(self, *extra_args):
