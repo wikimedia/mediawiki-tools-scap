@@ -28,8 +28,7 @@ def assert_clears_lock_on(sig):
     signaler.daemon = True
 
     locker = lock.Lock(lock_filename)
-    with mock.patch.object(locker, 'clear_lock',
-                           wraps=locker.clear_lock) as clear_lock:
+    with mock.patch.object(locker, '_clear_lock', wraps=locker._clear_lock) as clear_lock:
         with locker:
             with pytest.raises(SystemExit) as exit_info:
                 signaler.start()

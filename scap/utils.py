@@ -944,3 +944,10 @@ def open_with_lock(path, mode='r', *args, **kwargs):
 def is_phabricator_task_id(string: str) -> bool:
     """ Returns true if 'string' has the format of a phabricator task id """
     return re.match(r"T\d+$", string) is not None
+
+
+@contextlib.contextmanager
+def empty_file_mask():
+    orig_umask = os.umask(0)
+    yield
+    os.umask(orig_umask)

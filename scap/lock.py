@@ -8,7 +8,6 @@
 from __future__ import absolute_import
 
 import errno
-import fcntl
 import os
 import signal
 import sys
@@ -40,7 +39,6 @@ class Lock(object):  # pylint: disable=too-few-public-methods
             reason = reason.encode("UTF-8")
         assert isinstance(reason, bytes)
         self.reason = reason
-        self.lock_fd = None
 
         # If it's a global lock file, let the whole group write. Otherwise,
         # just the original deployer
@@ -53,14 +51,8 @@ class Lock(object):  # pylint: disable=too-few-public-methods
         if os.path.exists(GLOBAL_LOCK_FILE):
             raise LockFailedError(get_lock_excuse(GLOBAL_LOCK_FILE))
 
-        # Steal the umask for a bit, can't rely on system
-        orig_umask = os.umask(0)
         try:
-            self.lock_fd = os.open(
-                self.filename, os.O_WRONLY | os.O_CREAT | os.O_EXCL, self.lock_perms
-            )
-            fcntl.lockf(self.lock_fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
-            os.write(self.lock_fd, self.reason)
+            self._acquire_lock()
             signal.signal(signal.SIGTERM, self._sig_handler)
             signal.signal(signal.SIGINT, self._sig_handler)
         except OSError as ose:
@@ -72,33 +64,37 @@ class Lock(object):  # pylint: disable=too-few-public-methods
                     ose,
                 )
             raise LockFailedError(details)
-        finally:
-            # Return the umask
-            os.umask(orig_umask)
 
     def __exit__(self, *args):
-        self.clear_lock()
+        self._clear_lock()
+
+    def _acquire_lock(self):
+        lock_fd = None
+        try:
+            with utils.empty_file_mask():
+                lock_fd = os.open(
+                    self.filename, os.O_WRONLY | os.O_CREAT | os.O_EXCL, self.lock_perms
+                )
+            os.write(lock_fd, self.reason)
+        finally:
+            if lock_fd:
+                os.close(lock_fd)
 
     def _sig_handler(self, signum, *args):
-        self.clear_lock()
+        self._clear_lock()
         sys.exit(128 + signum)
 
-    def clear_lock(self):
-        # Return the umask
-        if self.lock_fd:
-            fcntl.lockf(self.lock_fd, fcntl.LOCK_UN)
-            os.close(self.lock_fd)
-            self.lock_fd = None
-            if os.path.exists(self.filename):
-                try:
-                    os.unlink(self.filename)
-                except OSError:
-                    # Someone else deleted the lock. Freaky, but we already
-                    # did our stuff so there's no point in halting execution
-                    utils.get_logger().warning(
-                        "Huh, lock file disappeared before deletion. "
-                        + "This is probably fine-ish :)"
-                    )
+    def _clear_lock(self):
+        if os.path.exists(self.filename):
+            try:
+                os.unlink(self.filename)
+            except OSError:
+                # Someone else deleted the lock. Freaky, but we already
+                # did our stuff so there's no point in halting execution
+                utils.get_logger().warning(
+                    "Huh, lock file disappeared before deletion. "
+                    + "This is probably fine-ish :)"
+                )
 
 
 def get_lock_excuse(lockfile):
