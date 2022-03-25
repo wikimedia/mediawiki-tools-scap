@@ -64,22 +64,23 @@ class AnsiColorFormatter(logging.Formatter):
         "DEBUG": "36",  # cyan
     }
 
-    def __init__(self, fmt=None, datefmt=None, colors=None):
+    def __init__(self, fmt=None, datefmt=None, colors=None, colorize=False):
         """
         :param fmt: Message format string
         :param datefmt: Time format string
         :param colors: Dict of {'levelname': ANSI SGR parameters}
+        :param colorize: Set to true to colorize messages based on log level
 
         .. seealso:: https://en.wikipedia.org/wiki/ANSI_escape_code
         """
         super().__init__(fmt, datefmt)
         if colors:
             self.colors.update(colors)
-        self.use_colors = sys.stderr.isatty()
+        self.colorize = colorize
 
     def format(self, record):
         msg = super().format(record)
-        if not self.use_colors:
+        if not self.colorize:
             return msg
 
         color = self.colors.get(record.levelname, "0")
@@ -90,11 +91,11 @@ class DiffLogFormatter(AnsiColorFormatter):
     lex = None
     formatter = None
 
-    def __init__(self, fmt=None, datefmt=None, colors=None):
+    def __init__(self, fmt=None, datefmt=None, colors=None, colorize=False):
         if DiffLexer:
             self.lex = DiffLexer()
             self.formatter = TerminalFormatter()
-        super().__init__(fmt, datefmt, colors)
+        super().__init__(fmt, datefmt, colors, colorize)
 
     def format(self, record):
 
@@ -811,7 +812,7 @@ def setup_loggers(cfg, console_level=logging.INFO, handlers=None):
     """
     Setup the logging system.
 
-    * Configure the root logger to use :class:`AnsiColorFormatter`
+    * Configure the root logger to use :class:`DiffLogFormatter`
     * Optionally add a :class:`Udp2LogHandler` to send logs to a udp2log server
     * Optional add a :class:`IRCSocketHandler` for the `scap.announce` log
       channel to send messages to a tcpircbot server
@@ -835,9 +836,9 @@ def setup_loggers(cfg, console_level=logging.INFO, handlers=None):
     if cfg["log_json"]:
         logging.root.handlers[0].setFormatter(JSONFormatter())
     else:
-        # Colorize log messages sent to stderr
         logging.root.handlers[0].setFormatter(
-            DiffLogFormatter("%(asctime)s %(message)s", "%H:%M:%S")
+            DiffLogFormatter("%(asctime)s %(message)s", "%H:%M:%S",
+                             colorize=sys.stderr.isatty())
         )
 
     if cfg["udp2log_host"]:

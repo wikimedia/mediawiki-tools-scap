@@ -1168,7 +1168,8 @@ class DeployLog(cli.Application):
         if not logfilter.isfiltering("levelno"):
             logfilter.append({"levelno": lambda v: v >= self.arguments.loglevel})
 
-        formatter = log.DiffLogFormatter(self.FORMAT, self.DATE_FORMAT)
+        formatter = log.DiffLogFormatter(self.FORMAT, self.DATE_FORMAT,
+                                         colorize=sys.stderr.isatty())
 
         cur_log_path = given_log
         cur_log_file = open(given_log, "r") if given_log else None
