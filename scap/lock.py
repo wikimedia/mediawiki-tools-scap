@@ -8,9 +8,11 @@
 from __future__ import absolute_import
 
 import errno
+import fcntl
 import os
 import signal
 import sys
+import time
 
 import scap.utils as utils
 
@@ -120,3 +122,77 @@ def get_lock_excuse(lockfile):
         bad_user,
         excuses,
     )
+
+
+class TimeoutLock:
+    """
+    File-based exclusive lock. It will block trying to acquire a lock on the file for the specified
+    amount of time before timing out
+    """
+
+    DEFAULT_TIMEOUT_IN_MINS = 10
+    MIN_TIMEOUT_IN_MINS = 1
+    MAX_TIMEOUT_IN_MINS = 60
+
+    def __init__(self, lock_file, name="exclusion", timeout=DEFAULT_TIMEOUT_IN_MINS):
+        self.logger = utils.get_logger()
+
+        self.lock_file = lock_file
+        self.name = name
+        self.timeout = timeout
+        self.lock_fd = None
+
+        self._ensure_sane_timeout()
+
+    def __enter__(self):
+        self.lock_fd = os.open(self.lock_file, os.O_WRONLY | os.O_CREAT)
+        try:
+            fcntl.lockf(self.lock_fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except OSError as e:
+            if e.errno in {errno.EAGAIN, errno.EACCES}:
+                self.logger.warning(
+                    "Could not acquire %s lock. Will wait up to %s minute(s) for the"
+                    " lock to be released" % (self.name, self.timeout)
+                )
+                self._wait_for_lock()
+
+    def __exit__(self, *args):
+        if self.lock_fd:
+            fcntl.lockf(self.lock_fd, fcntl.LOCK_UN)
+            os.close(self.lock_fd)
+            self.lock_fd = None
+
+    def _ensure_sane_timeout(self):
+        if not TimeoutLock.MIN_TIMEOUT_IN_MINS <= self.timeout <= TimeoutLock.MAX_TIMEOUT_IN_MINS:
+            self.timeout = TimeoutLock.DEFAULT_TIMEOUT_IN_MINS
+            self.logger.warning(
+                "Supplied timeout for %s lock needs to be in range [1, 60]. Timeout reset to %s"
+                " minutes" % (self.name, TimeoutLock.DEFAULT_TIMEOUT_IN_MINS)
+            )
+
+    def _wait_for_lock(self):
+        deadline_check_interval = self._get_deadline_check_interval()
+        deadline = self._get_deadline()
+
+        def deadline_check(*args):
+            if time.time() >= deadline:
+                print("", flush=True)
+                raise LockFailedError(
+                    "Could not acquire %s lock after waiting for %s minute(s)."
+                    " Aborting" % (self.name, self.timeout)
+                )
+            print(".", flush=True, end="")
+            signal.alarm(deadline_check_interval)
+
+        signal.signal(signal.SIGALRM, deadline_check)
+        signal.alarm(deadline_check_interval)
+        try:
+            fcntl.lockf(self.lock_fd, fcntl.LOCK_EX)
+        finally:
+            signal.alarm(0)
+
+    def _get_deadline_check_interval(self) -> int:
+        return 30
+
+    def _get_deadline(self) -> float:
+        return time.time() + self.timeout * 60

@@ -86,6 +86,7 @@ DEFAULT_CONFIG = {
     "php_fpm_opcache_threshold": (int, 100),
     "php_fpm_always_restart": (bool, False),
     "php_l10n": (bool, False),  # Feature flag for PHP l10n file generation
+    "prep_lock_file": (str, "/tmp/scap.prep.lock"),
     "cache_revs": (int, 5),
     "use_syslog": (bool, False),
 
