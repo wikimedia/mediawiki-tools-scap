@@ -75,9 +75,13 @@ class AnsiColorFormatter(logging.Formatter):
         super().__init__(fmt, datefmt)
         if colors:
             self.colors.update(colors)
+        self.use_colors = sys.stderr.isatty()
 
     def format(self, record):
         msg = super().format(record)
+        if not self.use_colors:
+            return msg
+
         color = self.colors.get(record.levelname, "0")
         return "\x1b[%sm%s\x1b[0m" % (color, msg)
 
