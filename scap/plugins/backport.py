@@ -3,6 +3,7 @@
 """Scap plugin for listing, applying, and rolling back backports."""
 import subprocess
 import time
+import urllib.parse
 
 from prettytable import PrettyTable
 from scap import cli, git, utils
@@ -25,6 +26,9 @@ class Backport(cli.Application):
 
     gerrit = None
     config_branch = None
+    mediawiki_location = None
+    versions = None
+    interval = None
 
     @cli.argument(
         "--list",
@@ -33,13 +37,17 @@ class Backport(cli.Application):
     )
     @cli.argument("change_numbers", nargs="*", help="Change numbers/URLs to backport")
     def main(self, *extra_args):
+        self.interval = 5
         self.gerrit = GerritSession(url=self.config['gerrit_url'])
         self.config_branch = self.config["operations_mediawiki_config_branch"]
+        self.mediawiki_location = self.config["stage_dir"]
+        self.versions = self.active_wikiversions("stage")
         change_numbers = [self.change_number(n) for n in self.arguments.change_numbers]
-        versions = self.active_wikiversions("stage")
+
+        self.check_ssh_auth()
 
         if self.arguments.list:
-            self.list_backports(versions)
+            self.list_backports()
             change_numbers = input("Enter the change numbers (separated by a space) you wish to backport: ")
             change_numbers = [self.change_number(n) for n in change_numbers.split()]
 
@@ -48,26 +56,40 @@ class Backport(cli.Application):
             return 1
 
         change_details = list(map(lambda number: self.gerrit.change_detail(number).get(), change_numbers))
-        print("Backport function not yet implemented!")
-        self.validate_changes(change_details, versions)
+
+        self.validate_changes(change_details)
         self.check_dependencies(change_details, change_numbers)
-        self.confirm_changes(change_numbers)
-        self.approve_changes(change_numbers)
+        self.prompt_for_approval_or_exit("Backport the changes %s? (y/N): " % change_numbers, "Backport cancelled.")
+        self.approve_changes(change_details)
         self.wait_for_changes_to_be_merged(change_numbers)
-        # TODO T295495 what are the commit hashes of the merged changes
-        # TODO option to sync files/order of sync?
-        with utils.suppress_backtrace():
-            subprocess.check_call([self.get_script_path(), "sync-world",
-                                   "Backport for %s" % change_numbers])
+        self.confirm_commits_to_sync(change_details)
+        self.scap_check_call(["prep", "auto"])
+        self.scap_check_call(["sync-world", "Backport for %s" % ",".join(
+            ["[[gerrit:%d]] %s" % (change["_number"], change["subject"]) for change in change_details])])
 
         return 0
 
-    def list_backports(self, versions):
-        if len(versions) <= 0:
+    def gerrit_ssh(self, gerrit_arguments):
+        gerrit_hostname = urllib.parse.urlparse(self.config['gerrit_url']).hostname
+
+        with utils.suppress_backtrace():
+            subprocess.check_call(['ssh', '-oBatchMode=yes', '-p', '29418', gerrit_hostname, 'gerrit'] +
+                                  gerrit_arguments, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
+    def check_ssh_auth(self):
+        try:
+            self.gerrit_ssh(['version'])
+        except subprocess.CalledProcessError as e:
+            self.get_logger().error("SSH to gerrit failed. "
+                                    "Please check your ssh configuration.")
+            raise SystemExit(e)
+
+    def list_backports(self):
+        if len(self.versions) <= 0:
             self.get_logger().warn("No active wikiversions!")
             raise SystemExit(1)
 
-        backports = self.get_backports(versions)
+        backports = self.get_backports()
 
         if len(backports) <= 0:
             self.get_logger().info("No open backports.")
@@ -76,26 +98,21 @@ class Backport(cli.Application):
         backports_table = make_table(backports)
         print(backports_table.get_string(sortby="Project"))
 
-    def get_backports(self, versions):
+    def get_backports(self):
         query = ("status:open AND ("
-                 + " OR ".join(["branch:wmf/{}".format(v) for v in versions])
+                 + " OR ".join(["branch:wmf/{}".format(v) for v in self.versions])
                  + " OR (project:operations/mediawiki-config AND branch:"
                  + self.config_branch + "))")
         return self.gerrit.changes().get(params={"q": query})
 
-    def approve_changes(self, change_numbers):
+    def approve_changes(self, change_details):
         """Approves the given changes by voting Code-Review+2"""
 
-        self.get_logger().info('Approving %s change(s)' % len(change_numbers))
-
-        for change in change_numbers:
-            self.gerrit.change(change).revision('review').post({
-                "message": "Approved via scap backport",
-                "labels": {
-                    "Code-Review": 2,
-                },
-            })
-            self.get_logger().info('Change %s approved' % change)
+        self.get_logger().info('Approving %s change(s)' % len(change_details))
+        for detail in change_details:
+            self.gerrit_ssh(['review', '--code-review', '+2', '-m', '"Approved via scap backport"',
+                             '%s' % detail['current_revision']])
+            self.get_logger().info('Change %s approved' % detail['_number'])
 
     def change_number(self, number_or_url):
         if number_or_url.isnumeric():
@@ -110,9 +127,8 @@ class Backport(cli.Application):
 
         return int(number)
 
-    def validate_changes(self, change_details, versions):
-        mediawiki_location = self.config['stage_dir']
-        config_submodules = ["core"] + git.list_submodules(mediawiki_location, "--recursive")
+    def validate_changes(self, change_details):
+        core_submodules = ["core"] + git.list_submodules(self.mediawiki_location, "--recursive")
 
         self.get_logger().info("Checking whether changes are in a branch and version deployed to production...")
         for detail in change_details:
@@ -121,18 +137,18 @@ class Backport(cli.Application):
             branch = detail.branch.replace("wmf/", "")
             status = detail.status
 
-            if status != "NEW":
-                self.get_logger().warn("Change '%s' is not open!" % change_number)
+            if status == "ABANDONED":
+                self.get_logger().warn("Change '%s' has been abandoned!" % change_number)
                 raise SystemExit(1)
             if project == "operations/mediawiki-config" and branch == self.config_branch:
                 self.get_logger().info("Change '%s' valid for backport" % change_number)
-            elif branch not in versions:
+            elif branch not in self.versions:
                 self.get_logger().warn(
                     "Change '%s' branch '%s' not valid for any deployed wikiversion. Deployed wikiversions: %s" %
-                    (change_number, branch, list(versions)))
+                    (change_number, branch, list(self.versions)))
                 raise SystemExit(1)
-            elif project not in config_submodules + git.list_submodules(mediawiki_location + '/' + 'php-'
-                                                                        + branch, "--recursive"):
+            elif project not in core_submodules + git.list_submodules(self.mediawiki_location + '/' + 'php-'
+                                                                      + branch, "--recursive"):
                 self.get_logger().warn("Change '%s' project '%s' not valid for any production project/submodule" %
                                        (change_number, project))
                 raise SystemExit(1)
@@ -168,14 +184,12 @@ class Backport(cli.Application):
 
         return deps
 
-    def confirm_changes(self, change_numbers):
-        approval = input("Backport the changes %s? (y/N) " % change_numbers)
+    def prompt_for_approval_or_exit(self, prompt_message, exit_message):
+        approval = input(prompt_message)
         if approval.lower() != "y":
-            raise SystemExit("Backport cancelled.")
+            raise SystemExit(exit_message)
 
     def wait_for_changes_to_be_merged(self, change_numbers):
-        interval = 5
-
         self.get_logger().info('Waiting for changes to be merged. '
                                'This may take some time if there are long running tests.')
 
@@ -205,6 +219,109 @@ class Backport(cli.Application):
                     finished = False
 
             if not finished:
-                time.sleep(interval)
+                time.sleep(self.interval)
 
         self.get_logger().info('All changes have been merged')
+
+    def fetch_git_changes(self, location):
+        with utils.suppress_backtrace():
+            subprocess.check_call(["git", "-C", location, "fetch"])
+
+    def grep_for_git_commit(self, directory, branch, search_string):
+        with utils.suppress_backtrace():
+            return subprocess.check_output(["git", "-C", directory, "rev-list", branch, "--grep", search_string],
+                                           text=True).strip("\n")
+
+    def collect_commit_fingerprints(self, change_details):
+        """
+        Returns commit fingerprints for backported changes for each production branch
+        including merge commits and submodule update commits
+
+        :param change_details:  list[object]: The change details for each backport
+
+        :returns: dict[str, set]: Dict with string directory as key and set of string
+                                  fingerprints for each active production branch
+        """
+        repo_commits = {
+            self.mediawiki_location: set()
+        }
+
+        self.get_logger().info('Fetching new changes...')
+        self.fetch_git_changes(self.mediawiki_location)
+
+        for version in self.versions:
+            repo_commits["%s/php-%s" % (self.mediawiki_location, version)] = set()
+            self.fetch_git_changes("%s/php-%s" % (self.mediawiki_location, version))
+
+        for detail in change_details:
+            change_id = detail["change_id"]
+            project = detail.project
+            branch = detail.branch
+
+            if project == "operations/mediawiki-config":
+                repo_location = self.mediawiki_location
+            else:
+                repo_location = "%s/php-%s" % (self.mediawiki_location, branch.replace("wmf/", ""))
+
+            self.get_logger().info('Collecting commit for %s...' % change_id)
+            # The submodule update commit will have the same change-id as the original commit to
+            # the submodule repo, so it can be searched for in the core repo using the change-id
+            commit = self.grep_for_git_commit(repo_location, "origin/%s" % branch, change_id)
+
+            # just to be safe in case submodule update commit has not landed yet
+            while not commit:
+                time.sleep(self.interval)
+                self.fetch_git_changes(repo_location)
+                commit = self.grep_for_git_commit(repo_location, "origin/%s" % branch, change_id)
+
+            repo_commits[repo_location].add(commit)
+
+            self.get_logger().info('Collecting merge commit for %s if it exists...' % change_id)
+            with utils.suppress_backtrace():
+                # The merge commit is the latest descendant in the chain between the original commit and upstream.
+                # It appears last in the list.
+                ancestors = subprocess.check_output(["git",
+                                                     "-C", repo_location, "rev-list", "%s..@{u}" % commit,
+                                                     "--ancestry-path", "--merges"], text=True).splitlines()
+            if ancestors:
+                merge_commit = ancestors[-1]
+                repo_commits[repo_location].add(merge_commit)
+                self.get_logger().info('Found merge commit %s' % merge_commit)
+            else:
+                self.get_logger().info('No merge commit found.')
+
+        return repo_commits
+
+    def confirm_commits_to_sync(self, change_details):
+        self.get_logger().info('Collecting commits to deploy...')
+        repo_commits = self.collect_commit_fingerprints(change_details)
+
+        for repo, commits in repo_commits.items():
+            with utils.suppress_backtrace():
+                # use the --left-only git option to list commits that are in upstream but not present on
+                # the local repo.
+                # This means local-only commits will be ignored.
+                new_commits = set(filter(None, subprocess.check_output(["git", "-C", repo, "rev-list", "--left-only",
+                                                                        "@{upstream}...HEAD"], text=True).splitlines()))
+
+            extra_commits = new_commits.difference(commits)
+
+            if extra_commits:
+                self.get_logger().warn('The following are unexpected commits pulled from origin for %s:' % repo)
+                with utils.suppress_backtrace():
+                    subprocess.check_call(["git", "-C", repo, "show", "-s"] + list(extra_commits))
+
+                check_diff = input('Would you like to see the diff? (y/N): ')
+                if check_diff.lower() == 'y':
+                    with utils.suppress_backtrace():
+                        subprocess.check_call(["git", "--no-pager", "-C", repo, "show"] + list(extra_commits))
+
+                self.prompt_for_approval_or_exit('There were unexpected commits pulled from origin for %s. '
+                                                 'Continue with backport? (y/N): ' % repo, "Backport cancelled.")
+
+            self.get_logger().info('Printing git status for %s for your reference...' % repo)
+            with utils.suppress_backtrace():
+                subprocess.check_call(["git", "-C", repo, "status"])
+
+        self.prompt_for_approval_or_exit('All live versions will be synced. Continue? (y/N): ',
+                                         "Sync cancelled.")

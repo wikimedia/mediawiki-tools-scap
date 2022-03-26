@@ -52,18 +52,22 @@ class GerritSession(object):
     """Opens and tracks a session with a Gerrit instance and provides methods
     for making API calls."""
 
-    def __init__(self, url="https://gerrit.wikimedia.org/r/"):
+    def __init__(self, url="https://gerrit.wikimedia.org/r/", use_auth=False):
         self.url = url
-
-        if url[-1] == '/':
-            self.api_url = url + 'a'
-        else:
-            self.api_url = url + '/a'
+        self.useAuth = use_auth
 
         self.session = Session()
 
-        # get credentials from .netrc if one exists
-        self.session.auth = get_netrc_auth(self.api_url)
+        if self.useAuth:
+            if url[-1] == '/':
+                self.api_url = url + 'a'
+            else:
+                self.api_url = url + '/a'
+
+            # get credentials from .netrc if one exists
+            self.session.auth = get_netrc_auth(self.api_url)
+        else:
+            self.api_url = url.rstrip('/')
 
     def endpoint(self, path="/"):
         return GerritEndpoint(session=self, path=path)
@@ -279,7 +283,10 @@ class ChangeDetail(GerritEndpoint):
     revisionid = "current"
 
     def __init__(self, changeid, revisionid="current", **kwargs):
-        super().__init__(path='changes/%s/detail' % changeid, **kwargs)
+        options = ''
+        if revisionid == 'current':
+            options = '?o=CURRENT_REVISION'
+        super().__init__(path='changes/%s/detail%s' % (changeid, options), **kwargs)
         self.changeid = changeid
         self.revision = ChangeRevisions(changeid, revisionid,
                                         session=self._session)
