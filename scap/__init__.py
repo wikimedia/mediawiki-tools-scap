@@ -50,6 +50,7 @@ from scap.deploy import Deploy, DeployLocal, DeployLog
 import scap.runcmd
 
 from scap.deploy_promote import DeployPromote
+from scap.stage_train import StageTrain
 
 __all__ = [
     "CompileWikiversions",
@@ -62,6 +63,7 @@ __all__ = [
     "RebuildCdbs",
     "RefreshCdbJsonFiles",
     "SecurityPatchCheck",
+    "StageTrain",
     "SyncPull",
     "SyncFile",
     "SyncL10n",
