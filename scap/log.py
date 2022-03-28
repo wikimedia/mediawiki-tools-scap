@@ -723,6 +723,7 @@ class Timer(object):
         self.logger = logger
         self.mark_start = None
         self.start = None
+        self.end = None
 
     def mark(self, label):
         """
@@ -745,12 +746,18 @@ class Timer(object):
         """
         self.start = time.time()
         self.mark_start = self.start
-        self.logger.info("Started %s" % self.label)
+        self.logger.info(
+            "Started %s" % self.label,
+            extra={
+                'event.action': self.label,
+                'event.start': int(self.start * pow(10, 3)),
+            })
         return self
 
     def __exit__(self, exc_type, exc_value, traceback):
         """Exit the runtime context."""
-        self._record_elapsed(self.label, time.time() - self.start)
+        self.end = time.time()
+        self._record_elapsed(self.label, self.end - self.start)
 
     def _record_elapsed(self, label, elapsed):
         """
@@ -761,8 +768,19 @@ class Timer(object):
         :param elapsed: Elapsed duration
         :type elapsed: float
         """
+
+        extras = {
+            'event.action': label,
+            'event.start': int(self.start * pow(10, 3)),
+            'event.duration': int(elapsed * pow(10, 9)),  # nanoseconds
+        }
+        if self.end is not None:
+            extras['event.end'] = int(self.end * pow(10, 3))
+
+        print("Logging with %s" % extras)
         self.logger.info(
-            "Finished %s (duration: %s)", label, utils.human_duration(elapsed)
+            "Finished %s (duration: %s)", label, utils.human_duration(elapsed),
+            extra=extras
         )
         if self.stats:
             label = re.sub(r"\W", "_", label.lower())
