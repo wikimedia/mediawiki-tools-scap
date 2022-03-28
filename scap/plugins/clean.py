@@ -59,6 +59,7 @@ class Clean(main.AbstractSync):
         self.get_logger().info("Cleaning branch(es): {}".format(", ".join(self.branches_to_remove)))
         self.arguments.message = "Pruned MediaWiki: {}".format(", ".join(self.branches_to_remove))
         self.arguments.force = False
+        self.arguments.stop_before_sync = False
         return super().main(*extra_args)
 
     def _before_cluster_sync(self):

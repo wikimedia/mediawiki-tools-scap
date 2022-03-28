@@ -1030,6 +1030,7 @@ class SyncFile(AbstractSync):
     @cli.argument("file", help="File/directory to sync")
     @cli.argument("message", nargs="*", help="Log message for SAL")
     def main(self, *extra_args):
+        self.arguments.stop_before_sync = False
         return super().main(*extra_args)
 
     def _before_cluster_sync(self):
@@ -1092,6 +1093,7 @@ class SyncL10n(AbstractSync):
     )
     @cli.argument("message", nargs="*", help="Log message for SAL")
     def main(self, *extra_args):
+        self.arguments.stop_before_sync = False
         return super().main(*extra_args)
 
     def _before_cluster_sync(self):
