@@ -56,6 +56,7 @@ __all__ = [
     "Deploy",
     "DeployLocal",
     "DeployLog",
+    "DeployPromote",
     "LockManager",
     "MWVersionsInUse",
     "RebuildCdbs",
@@ -69,7 +70,6 @@ __all__ = [
     "Version",
     "__version__",
     "runcmd",
-    "DeployPromote",
 ]
 
 

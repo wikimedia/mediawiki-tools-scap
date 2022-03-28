@@ -951,3 +951,7 @@ def empty_file_mask():
     orig_umask = os.umask(0)
     yield
     os.umask(orig_umask)
+
+
+def abort(message):
+    raise SystemExit("Aborting: %s" % message)

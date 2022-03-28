@@ -36,6 +36,7 @@ import re
 import socket
 import time
 from functools import partial
+from json import JSONDecodeError
 
 import requests
 from requests import RequestException, HTTPError
@@ -62,9 +63,9 @@ class DeployPromote(cli.Application):
     update_message = None
 
     @cli.argument(
-        "dblist",
-        help="existing dblist/group to which you'd like to deploy a new version (testwikis, group0,"
-             "group1, or all)."
+        "group",
+        help="existing group to which you'd like to deploy a new version (testwikis, group0, group1"
+             ", or all)."
     )
     @cli.argument(
         "version",
@@ -82,7 +83,7 @@ class DeployPromote(cli.Application):
     def main(self, *extra_args):
         self.logger = self.get_logger()
 
-        self.group = self.arguments.dblist
+        self.group = self.arguments.group
         self._check_group()
 
         sorted_versions = self.active_wikiversions("stage")
@@ -91,21 +92,21 @@ class DeployPromote(cli.Application):
             self.promote_version = self.arguments.version
         else:
             if len(sorted_versions) < 2:
-                _exit(
+                utils.abort(
                     "Cannot determine version to promote to. Current active version: %s"
                     % prev_version
                 )
             self.promote_version = sorted_versions[1]
 
         if not self.arguments.yes and not self._prompt_user_to_approve(prev_version):
-            _exit("Canceled by user")
+            utils.abort("Canceled by user")
 
         self._update_versions()
 
     def _check_group(self):
-        dblist_file = "%s/dblists/%s.dblist" % (self.config["stage_dir"], self.group)
-        if not os.path.isfile(dblist_file):
-            _exit("""dblist "%s" does not exist""" % dblist_file)
+        group_file = "%s/dblists/%s.dblist" % (self.config["stage_dir"], self.group)
+        if not os.path.isfile(group_file):
+            utils.abort("""group "%s" does not exist""" % group_file)
 
     def _get_train_task(self) -> str:
         """
@@ -125,7 +126,7 @@ class DeployPromote(cli.Application):
 
         try:
             task = json.loads(train_task_json)["current"]["task_id"]
-        except json.decoder.JSONDecodeError as e:
+        except (JSONDecodeError, TypeError) as e:
             self.logger.warning("Invalid JSON received from %s:\n%s" % (api_url, e))
             return ""
 
@@ -265,7 +266,3 @@ def _file_updated(file) -> bool:
 def _commit_arrived_to_remote(change_id) -> bool:
     gitcmd("fetch")
     return change_id in gitcmd("log", "HEAD..FETCH_HEAD")
-
-
-def _exit(message):
-    raise SystemExit("Aborting: %s" % message)
