@@ -803,6 +803,12 @@ class ScapWorld(AbstractSync):
         action="store_true",
         help="Perform all operations up to but not including rsyncing to any host",
     )
+    @cli.argument(
+        "--no-logo",
+        action="store_false",
+        help="Do not print the Scap logo",
+        dest="logo",
+    )
     @cli.argument("message", nargs="*", help="Log message for SAL")
     def main(self, *extra_args):
         try:
@@ -816,6 +822,8 @@ class ScapWorld(AbstractSync):
         wait = self.arguments.canary_wait_time
         if wait is not None:
             self.config["canary_wait_time"] = wait
+
+        self.logo = self.arguments.logo
 
         return super().main(*extra_args)
 
