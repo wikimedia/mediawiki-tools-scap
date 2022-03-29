@@ -1,7 +1,13 @@
 pipelines:
-  test:
+  stretch:
     blubberfile: blubber.yaml
     stages:
-      - name: test
-        build: test
-        run: true
+      - name: stretch
+  buster:
+    blubberfile: blubber.yaml
+    stages:
+      - name: buster
+  bullseye:
+    blubberfile: blubber.yaml
+    stages:
+      - name: bullseye
