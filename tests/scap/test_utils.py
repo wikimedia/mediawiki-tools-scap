@@ -107,3 +107,9 @@ def test_is_phabricator_task_id():
     assert utils.is_phabricator_task_id("T123X") is False
     assert utils.is_phabricator_task_id(" T1") is False
     assert utils.is_phabricator_task_id("T1 ") is False
+
+
+def test_list_intersection():
+    assert utils.list_intersection([1, 2, 3], [2, 3, 4]) == [2, 3]
+    assert utils.list_intersection([2, 3, 4], [1, 2, 3]) == [2, 3]
+    assert utils.list_intersection([1, 2], [3, 4]) == []
