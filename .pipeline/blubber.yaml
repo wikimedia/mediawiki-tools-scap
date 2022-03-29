@@ -18,7 +18,6 @@ variants:
         - bash-completion
         - build-essential
         - ca-certificates
-        - flake8
         - git
         - libjpeg-dev
         - openssl
