@@ -27,8 +27,6 @@ variants:
         - python3-jinja2
         - python3-prettytable
         - python3-pygments
-        - python3-pytest
-        - python3-pytest-mock
         - python3-requests
         - python3-sphinx
         - python3-sphinxcontrib.actdiag
@@ -37,6 +35,11 @@ variants:
         - python3-yaml
         - zlib1g-dev
         - shellcheck
+        - python3-pip
+    python:
+      version: python3
+      requirements:
+        - test-requirements.txt
     entrypoint: [scripts/check]
     runs:
       insecurely: True

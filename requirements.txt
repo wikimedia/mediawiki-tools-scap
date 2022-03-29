@@ -1,8 +1,5 @@
 jinja2
-pytest
-pytest-mock
 pyaml
 requests
 pygments
-pytest
 prettytable
