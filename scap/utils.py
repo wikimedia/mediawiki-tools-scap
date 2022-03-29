@@ -960,3 +960,52 @@ def abort(message):
 def list_intersection(list1, list2):
     """Returns a list containing the intersection (items in common) of list1 and list2"""
     return list(set(list1).intersection(set(list2)))
+
+
+def parse_rsync_stats(string: str) -> dict:
+    """
+    Scans the string looking for text like the following and
+    returns a dictionary with the extracted integer fields.
+
+    Note that if no such matching text is found an empty dictionary
+    will be returned.
+
+    Number of files: 184,935 (reg: 171,187, dir: 13,596, link: 152)
+    Number of created files: 0
+    Number of deleted files: 0
+    Number of regular files transferred: 1
+    Total file size: 8,756,954,367 bytes
+    Total transferred file size: 815,772 bytes
+    Literal data: 0 bytes
+    Matched data: 815,772 bytes
+    File list size: 4,744,396
+    File list generation time: 0.517 seconds
+    File list transfer time: 0.000 seconds
+    Total bytes sent: 5,603
+    Total bytes received: 4,744,454
+    """
+
+    # Keys are header names expected from rsync --stats output.
+    # Values are the names of the keys in 'res' that will be used.
+    integer_fields = {
+        "Number of files": "files",
+        "Number of created files": "files_created",
+        "Number of deleted files": "files_deleted",
+        "Number of regular files transferred": "regular_files_transferred",
+        "Total file size": "total_file_size",
+        "Total transferred file size": "total_transferred_file_size",
+        "Literal data": "literal_data",
+        "Matched data": "matched_data",
+        "File list size": "file_list_size",
+        "Total bytes sent": "total_bytes_sent",
+        "Total bytes received": "total_bytes_received",
+    }
+
+    res = {}
+
+    for header, key in integer_fields.items():
+        m = re.search(header + r": ([\d,]+)", string, re.MULTILINE)
+        if m:
+            res[key] = int(m.group(1).replace(",", ""))
+
+    return res

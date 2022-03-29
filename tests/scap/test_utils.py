@@ -113,3 +113,37 @@ def test_list_intersection():
     assert utils.list_intersection([1, 2, 3], [2, 3, 4]) == [2, 3]
     assert utils.list_intersection([2, 3, 4], [1, 2, 3]) == [2, 3]
     assert utils.list_intersection([1, 2], [3, 4]) == []
+
+
+def test_parse_rsync_stats():
+    test_string = """
+stuff before
+Number of files: 184,935 (reg: 171,187, dir: 13,596, link: 152)
+Number of created files: 0
+Number of deleted files: 0
+Number of regular files transferred: 1
+Total file size: 8,756,954,367 bytes
+Total transferred file size: 815,772 bytes
+Literal data: 0 bytes
+Matched data: 815,772 bytes
+File list size: 4,744,396
+File list generation time: 0.517 seconds
+File list transfer time: 0.000 seconds
+Total bytes sent: 5,603
+Total bytes received: 4,744,454
+stuff after
+    """
+
+    assert utils.parse_rsync_stats(test_string) == {
+        'files': 184935,
+        'files_created': 0,
+        'files_deleted': 0,
+        'regular_files_transferred': 1,
+        'total_file_size': 8756954367,
+        'total_transferred_file_size': 815772,
+        'literal_data': 0,
+        'matched_data': 815772,
+        'file_list_size': 4744396,
+        'total_bytes_sent': 5603,
+        'total_bytes_received': 4744454
+    }
