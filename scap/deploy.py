@@ -1071,10 +1071,10 @@ class Deploy(cli.Application):
         )
 
         failed = 0
-        for host, status in deploy_stage.run_with_status(batch_size):
-            if status != 0:
+        for jobresult in deploy_stage.run_with_status(batch_size):
+            if jobresult.status != 0:
                 failed += 1
-            yield host, status
+            yield jobresult.host, jobresult.status
 
         if failed:
             logger.warning("%d targets had deploy errors", failed)

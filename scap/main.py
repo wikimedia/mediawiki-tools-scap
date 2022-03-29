@@ -299,7 +299,11 @@ class AbstractSync(cli.Application):
             log.reporter("sync-{}".format(type), self.config["fancy_progress"])
         )
 
-        succeeded, failed = job.run()
+        jobresults = job.run(return_jobresults=True)
+        self.get_logger().info("Per-host sync duration: average {:.1f}s, median {:.1f}s".format(
+            jobresults.average_duration(),
+            jobresults.median_duration()))
+        failed = jobresults.num_failed
         if failed:
             self.get_logger().warning("%d %s had sync errors", failed, type)
             self.soft_errors = True
