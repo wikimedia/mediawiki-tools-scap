@@ -85,6 +85,7 @@ class DeployPromote(cli.Application):
 
         self.group = self.arguments.group
         self._check_group()
+        self._assert_auth_sock()
 
         sorted_versions = self.active_wikiversions("stage")
         prev_version = sorted_versions[0]
