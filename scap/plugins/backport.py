@@ -77,9 +77,10 @@ class Backport(cli.Application):
         print(backports_table.get_string(sortby="Project"))
 
     def get_backports(self, versions):
-        query = ("status:open AND (" + " OR ".join(["branch:wmf/{}".format(v) for v in versions]) +
-                 " OR (project:operations/mediawiki-config AND branch:" +
-                 self.config_branch + "))")
+        query = ("status:open AND ("
+                 + " OR ".join(["branch:wmf/{}".format(v) for v in versions])
+                 + " OR (project:operations/mediawiki-config AND branch:"
+                 + self.config_branch + "))")
         return self.gerrit.changes().get(params={"q": query})
 
     def approve_changes(self, change_numbers):
@@ -130,8 +131,8 @@ class Backport(cli.Application):
                     "Change '%s' branch '%s' not valid for any deployed wikiversion. Deployed wikiversions: %s" %
                     (change_number, branch, list(versions)))
                 raise SystemExit(1)
-            elif project not in config_submodules + git.list_submodules(mediawiki_location + '/' + 'php-' +
-                                                                        branch, "--recursive"):
+            elif project not in config_submodules + git.list_submodules(mediawiki_location + '/' + 'php-'
+                                                                        + branch, "--recursive"):
                 self.get_logger().warn("Change '%s' project '%s' not valid for any production project/submodule" %
                                        (change_number, project))
                 raise SystemExit(1)
