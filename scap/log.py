@@ -782,7 +782,6 @@ class Timer(object):
         if self.end is not None:
             extras['event.end'] = int(self.end * pow(10, 3))
 
-        print("Logging with %s" % extras)
         self.logger.info(
             "Finished %s (duration: %s)", label, utils.human_duration(elapsed),
             extra=extras
