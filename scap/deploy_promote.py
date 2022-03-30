@@ -117,6 +117,7 @@ class DeployPromote(cli.Application):
 
         api_url = "https://train-blockers.toolforge.org/api.php"
 
+        self.logger.info('Trying to retrieve Phabricator train task from "%s"' % api_url)
         try:
             proxy = {"https": "http://webproxy:8080"} if _on_real_deploy_server() else None
             train_task_json = requests.get(api_url, proxies=proxy).text
@@ -131,9 +132,12 @@ class DeployPromote(cli.Application):
             return ""
 
         if not utils.is_phabricator_task_id(task):
-            self.logger.warning("Unexpected Phabricator train task format received from %s: %s" % (api_url, task))
+            self.logger.warning(
+                "Unexpected Phabricator train task format received from %s: %s" % (api_url, task)
+            )
             return ""
 
+        self.logger.info("Phabricator task id is %s" % task)
         return task
 
     def _prompt_user_to_approve(self, prev_version) -> bool:
