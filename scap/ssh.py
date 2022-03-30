@@ -297,6 +297,9 @@ class JobResults(object):
 
         return statistics.median([jr.duration for jr in self.results])
 
+    def __iter__(self):
+        return iter(self.results)
+
 
 def cluster_ssh(
     hosts,

@@ -23,6 +23,7 @@
 from __future__ import absolute_import
 
 import errno
+import locale
 import logging
 import operator
 import os
@@ -61,6 +62,11 @@ class Application(object):
             self.program_name = os.path.basename(exe_name)
         self.exe_name = exe_name
         self.start = time.time()
+
+        try:
+            locale.setlocale(locale.LC_ALL, '')
+        except locale.Error:
+            pass
 
     def get_logger(self):
         """Lazy getter for a logger instance."""

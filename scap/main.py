@@ -27,6 +27,7 @@ import argparse
 import base64
 from concurrent.futures import ProcessPoolExecutor
 import errno
+import locale
 import os
 import pathlib
 import pwd
@@ -300,9 +301,15 @@ class AbstractSync(cli.Application):
         )
 
         jobresults = job.run(return_jobresults=True)
-        self.get_logger().info("Per-host sync duration: average {:.1f}s, median {:.1f}s".format(
-            jobresults.average_duration(),
-            jobresults.median_duration()))
+        self.get_logger().info("Per-host sync duration: average %ss, median %ss",
+                               locale.format("%.1f", jobresults.average_duration(), grouping=True),
+                               locale.format("%.1f", jobresults.median_duration(), grouping=True))
+
+        transferred = 0
+        for jobresult in jobresults:
+            transferred += utils.parse_rsync_stats(jobresult.output).get("total_transferred_file_size", 0)
+        self.get_logger().info("Rsync totals: Xfer: {:n} bytes".format(transferred))
+
         failed = jobresults.num_failed
         if failed:
             self.get_logger().warning("%d %s had sync errors", failed, type)

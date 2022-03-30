@@ -57,6 +57,7 @@ DEFAULT_RSYNC_ARGS = [
     "--delete",
     "--exclude=*.swp",
     "--no-perms",
+    "--stats",
 ]
 
 
