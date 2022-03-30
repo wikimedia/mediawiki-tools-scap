@@ -29,7 +29,9 @@ import random
 import select
 import shlex
 import socket
+import statistics
 import subprocess
+import time
 
 import scap.log as log
 import scap.utils as utils
@@ -181,30 +183,31 @@ class Job(object):
         self._reporter = reporter
         return self
 
-    def run(self, batch_size=DEFAULT_BATCH_SIZE):
+    def run(self, batch_size=DEFAULT_BATCH_SIZE, return_jobresults=False):
         """
-        Run the job, report progress, and return success/failed counts.
+        Run the job, report progress, and return success/failed counts
+        or a JobResults object if return_jobresults is truthy.
 
         :returns: (ok, failed) counts of successful/failed hosts
+                  or a JobResults object if return_jobresults is truthy.
         :raises: RuntimeError if command has not been set
         """
-        ok = 0
-        failed = 0
+        results = JobResults()
 
-        for host, status in self.run_with_status(batch_size):
-            if status == 0:
-                ok += 1
-            else:
-                failed += 1
+        for jobresult in self.run_with_status(batch_size):
+            results.add(jobresult)
 
-        return ok, failed
+        if return_jobresults:
+            return results
+
+        return results.num_ok, results.num_failed
 
     def run_with_status(self, batch_size=DEFAULT_BATCH_SIZE):
         """
-        Run the job, report progress, and yield host/status as execution
+        Run the job, report progress, and yield JobResult objects as execution
         completes.
 
-        :yields: (host, status)
+        :yields: JobResult
         :raises: RuntimeError if command has not been set
         """
         if not self._command:
@@ -217,7 +220,7 @@ class Job(object):
             self._reporter.expect(len(self._hosts))
             self._reporter.start()
 
-            for host, status, ohandler in cluster_ssh(
+            for jobresult in cluster_ssh(
                 self._hosts,
                 self._command,
                 self._user,
@@ -229,6 +232,9 @@ class Job(object):
                 self._reporter,
             ):
 
+                host = jobresult.host
+                status = jobresult.status
+                output = jobresult.output
                 if status == 0:
                     self._reporter.add_success()
                 else:
@@ -238,17 +244,58 @@ class Job(object):
                         self._user,
                         host,
                         status,
-                        ohandler.output,
+                        output,
                     )
                     self._reporter.add_failure()
 
-                yield host, status
+                yield jobresult
 
             self._reporter.finish()
         else:
             self.get_logger().warning(
                 "Job %s called with an empty host list.", self._command
             )
+
+
+class JobResult(object):
+    def __init__(self, proc: subprocess.Popen, host: str):
+        self.starttime = time.time()
+        self.proc = proc
+        self.host = host
+        self.duration = None
+        self.status = None
+        self.output = None
+
+    def finish(self, status: int, output: str):
+        self.duration = time.time() - self.starttime
+        self.status = status
+        self.output = output
+
+
+class JobResults(object):
+    def __init__(self):
+        self.results = []
+        self.num_ok = 0
+        self.num_failed = 0
+
+    def add(self, jobresult: JobResult):
+        self.results.append(jobresult)
+        if jobresult.status == 0:
+            self.num_ok += 1
+        else:
+            self.num_failed += 1
+
+    def average_duration(self):
+        if len(self.results) == 0:
+            return 0
+
+        return statistics.mean([jr.duration for jr in self.results])
+
+    def median_duration(self):
+        if len(self.results) == 0:
+            return 0
+
+        return statistics.median([jr.duration for jr in self.results])
 
 
 def cluster_ssh(
@@ -275,7 +322,9 @@ def cluster_ssh(
         pass
 
     failures = 0
+    # key is pid, value is a JobResult
     procs = {}
+    # key is file descriptor, value is an OutputHandler (or subclass) object
     output_handlers = {}
     poll = select.epoll()
     try:
@@ -297,7 +346,7 @@ def cluster_ssh(
                     preexec_fn=os.setsid,
                 )
 
-                procs[proc.pid] = (proc, host)
+                procs[proc.pid] = JobResult(proc, host)
                 poll.register(proc.stdout, select.EPOLLIN)
                 output_handlers[proc.stdout.fileno()] = output_handler(host)
 
@@ -326,13 +375,15 @@ def cluster_ssh(
                     status = -(status & 255) or (status >> 8)
                     if status != 0:
                         failures = failures + 1
-                    proc, host = procs.pop(pid)
+                    jobresult = procs.pop(pid)
+                    proc = jobresult.proc
                     poll.unregister(proc.stdout)
                     ohandler = output_handlers.pop(proc.stdout.fileno())
+                    jobresult.finish(status, ohandler.output)
                     if failures > max_failure:
                         hosts = []
-                    yield host, status, ohandler
+                    yield jobresult
     finally:
         poll.close()
-        for pid, (proc, host) in procs.items():
-            proc.kill()
+        for pid, jobresult in procs.items():
+            jobresult.proc.kill()
