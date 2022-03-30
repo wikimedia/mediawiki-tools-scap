@@ -150,7 +150,7 @@ def info(directory, remote="origin"):
     # to find the nearest public commit.
     try:
         head_sha1 = gitcmd("merge-base", "HEAD", "{}".format(remote), cwd=directory).strip()
-    except Exception as e:
+    except Exception:
         # The git merge-base command won't work if origin doesn't have
         # a HEAD reference (which points to the default branch).
         head_sha1 = sha(directory, "HEAD")

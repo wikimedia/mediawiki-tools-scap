@@ -154,7 +154,7 @@ class Patch:
             if abort_git_am_on_fail:
                 try:
                     gitcmd("am", "--abort", cwd=srcdir)
-                except:
+                except Exception:
                     pass
             return FAILED
 
