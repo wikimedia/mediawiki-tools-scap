@@ -65,6 +65,8 @@ class AbstractSync(cli.Application):
         self.include = None
         self.om = None
         self.logo = True
+        # A list of hostnames that have been processed by self._perform_sync
+        self.already_synced = []
 
     @cli.argument(
         "--force",
@@ -106,9 +108,7 @@ class AbstractSync(cli.Application):
             full_target_list = self._get_target_list()
 
             if not self.arguments.force:
-                canaries = [
-                    node for node in self._get_canary_list() if node in full_target_list
-                ]
+                canaries = utils.list_intersection(self._get_canary_list(), full_target_list)
 
                 if len(canaries) > 0:
                     with log.Timer("sync-check-canaries", self.get_stats()) as timer:
@@ -120,54 +120,20 @@ class AbstractSync(cli.Application):
                 self.get_logger().warning("Canaries Skipped by --force")
 
             # Update proxies
-            proxies = [
-                node for node in self._get_proxy_list() if node in full_target_list
-            ]
+            proxies = utils.list_intersection(self._get_proxy_list(), full_target_list)
 
             if len(proxies) > 0:
                 with log.Timer("sync-proxies", self.get_stats()):
                     sync_cmd = self._apache_sync_command(self.get_master_list())
-                    # Proxies should always use the current host as their sync
-                    # origin server.
                     sync_cmd.append(socket.getfqdn())
-                    update_proxies = ssh.Job(
-                        proxies, user=self.config["ssh_user"], key=self.get_keyholder_key()
-                    )
-                    update_proxies.command(sync_cmd)
-                    update_proxies.progress(
-                        log.reporter("sync-proxies", self.config["fancy_progress"])
-                    )
-                    succeeded, failed = update_proxies.run()
-                    if failed:
-                        self.get_logger().warning("%d proxies had sync errors", failed)
-                        self.soft_errors = True
+                    self._perform_sync("proxies", sync_cmd, proxies)
 
             # Update apaches
             with log.Timer("sync-apaches", self.get_stats()):
-                update_apaches = ssh.Job(
-                    full_target_list,
-                    user=self.config["ssh_user"],
-                    key=self.get_keyholder_key(),
-                )
-                update_apaches.exclude_hosts(proxies)
-                if not self.arguments.force:
-                    update_apaches.exclude_hosts(canaries)
-                update_apaches.shuffle()
-                if proxies:
-                    targets = proxies
-                else:
-                    # scap pull will try to rsync from localhost if it doesn't
-                    # get a list of deploy servers, so use the list of
-                    # masters if there no proxies.
-                    targets = self.get_master_list()
-                update_apaches.command(self._apache_sync_command(targets))
-                update_apaches.progress(
-                    log.reporter("sync-apaches", self.config["fancy_progress"])
-                )
-                succeeded, failed = update_apaches.run()
-                if failed:
-                    self.get_logger().warning("%d apaches had sync errors", failed)
-                    self.soft_errors = True
+                self._perform_sync("apaches",
+                                   self._apache_sync_command(proxies if proxies else self.get_master_list()),
+                                   full_target_list,
+                                   shuffle=True)
 
             self._after_cluster_sync()
 
@@ -310,6 +276,36 @@ class AbstractSync(cli.Application):
         """
         return self._proxy_sync_command() + proxies
 
+    def _perform_sync(self, type: str, command: list, targets: list, shuffle=False):
+        """
+        :param type: A string like "apaches" or "proxies" naming the type of target.
+        :param command: The command to run on the targets, specified as a list.
+        :param targets: A list of strings naming hosts to sync.
+        :param shuffle: If true, the target host list will be randomized.
+        """
+        job = ssh.Job(
+            targets,
+            command=command,
+            user=self.config["ssh_user"],
+            key=self.get_keyholder_key()
+        )
+
+        job.exclude_hosts(self.already_synced)
+
+        if shuffle:
+            job.shuffle()
+
+        job.progress(
+            log.reporter("sync-{}".format(type), self.config["fancy_progress"])
+        )
+
+        succeeded, failed = job.run()
+        if failed:
+            self.get_logger().warning("%d %s had sync errors", failed, type)
+            self.soft_errors = True
+
+        self.already_synced += targets
+
     def _compile_wikiversions(self):
         """Compile wikiversions.json to wikiversions.php in stage_dir"""
         tasks.compile_wikiversions("stage", self.config)
@@ -343,18 +339,7 @@ class AbstractSync(cli.Application):
 
         sync_cmd.append(socket.getfqdn())
 
-        update_canaries = ssh.Job(
-            canaries, user=self.config["ssh_user"], key=self.get_keyholder_key()
-        )
-        update_canaries.command(sync_cmd)
-        update_canaries.progress(
-            log.reporter("check-canaries", self.config["fancy_progress"])
-        )
-
-        succeeded, failed = update_canaries.run()
-        if failed:
-            self.get_logger().warning("%d canaries had sync errors", failed)
-            self.soft_errors = True
+        self._perform_sync("canaries", sync_cmd, canaries)
 
     def canary_checks(self, canaries=None, timer=None):
         """

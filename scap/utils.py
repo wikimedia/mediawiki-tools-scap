@@ -955,3 +955,8 @@ def empty_file_mask():
 
 def abort(message):
     raise SystemExit("Aborting: %s" % message)
+
+
+def list_intersection(list1, list2):
+    """Returns a list containing the intersection (items in common) of list1 and list2"""
+    return list(set(list1).intersection(set(list2)))
