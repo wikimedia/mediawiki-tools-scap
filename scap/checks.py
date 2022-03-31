@@ -96,7 +96,6 @@ def execute(checks, logger, concurrency=1):
                 pass
 
     def handle_done(job):
-        epoll.unregister(job.fd)
         if job.fd in doing:
             del doing[job.fd]
 
@@ -109,6 +108,10 @@ def execute(checks, logger, concurrency=1):
 
                 job = check.run()
                 doing[job.fd] = job
+
+                # Note: we do not call epoll.unregister() since the call to
+                # Proc.communicate() in CheckJob.wait() closes the file
+                # descriptor.
                 epoll.register(job.fd, select.EPOLLIN)
 
             # Poll for stdout events
@@ -308,6 +311,9 @@ class CheckJob(object):
         has exited.
         """
 
+        # Note: communicate() closes the file descriptor after reading from it.
+        # Closed file descriptors are automatically removed from the epoll set
+        # by the kernel.
         for output in self.proc.communicate():
             if output is not None:
                 self.output += output.decode("utf-8")
