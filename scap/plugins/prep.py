@@ -110,17 +110,14 @@ This operation can be run as many times as needed.
     @cli.argument(
         "--lock-timeout",
         type=int,
-        default=10,
         help="Timeout to wait for the prep concurrency lock to be released. In minutes",
     )
     def main(self, *extra_args):
         """Checkout next MediaWiki."""
 
-        with TimeoutLock(
-                self.config["prep_lock_file"],
-                name="concurrent prep",
-                timeout=self.arguments.lock_timeout
-        ):
+        lock_timeout = \
+            {"timeout": self.arguments.lock_timeout} if self.arguments.lock_timeout else {}
+        with TimeoutLock(self.config["prep_lock_file"], name="concurrent prep", **lock_timeout):
             logger = self.get_logger()
 
             self.new_history = history.Entry.now()
