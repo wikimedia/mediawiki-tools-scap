@@ -1,3 +1,37 @@
+scap (4.6.0-1) unstable; urgency=medium
+
+  * AbstractSync._perform_sync: Report total rsync data transfer
+  * scap prep: pass timeout to lock only if explicitly specified by user
+  * Small improvements to Makefile
+  * add utils.parse_rsync_stats()
+  * remove some leftover debug from https://gerrit.wikimedia.org/r/774483
+  * ssh.py: Use JobResult to hold subprocess information
+  * Update flake8: 3.7.9..3.9.2
+  * Update flake8: 3.2.1..3.7.9
+  * deploy-promote: check `ssh-agent` is available
+  * deploy-promote: add extra logging to _get_train_task
+  * log: add ecs logging events to Timer
+  * Add AbstractSync._perform_sync()
+  * blubber: drop flake8 from the image
+  * stage-train: integrate into `scap`
+  * scap prep: support for serialization of concurrent processes
+  * blubber: use `pip` to install Python test dependencies
+  * deploy-promote: small refactor
+  * stop_before_sync flag: add defaults
+  * Add --no-logo flag to scap sync-world
+  * AnsiColorFormatter: Don't use colors if stderr is not a TTY (update)
+  * scap sync-world: Add --stop-before-sync option
+  * lock: refactor to simplify code
+  * _call_rebuildLocalisationCache: move legacy setup handling outside of _rebuild
+  * AnsiColorFormatter: Don't use colors if stderr is not a TTY
+  * deploy_promote: fix https proxy definition
+  * refresh_cdb_json_file: Rename file_path to cdb_file_path
+  * ssh.py: Pass -n to ssh commands
+  * refresh_cdb_json_file fixups (never overwrite an existing file)
+  * Increase robustness of DeployPromote._get_train_task()
+
+ -- Jaime Nuche <jnuche@wikimedia.org>  Fri, 01 Apr 2022 16:17:40 +0200
+
 scap (4.5.0-1) unstable; urgency=medium
 
   * Fix all concurrent access to history log file
