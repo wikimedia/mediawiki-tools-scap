@@ -11,7 +11,11 @@ Core Application Infrastructure
    :exclude-members: __dict__,__weakref__
 
 .. automodule:: scap.cli
-   :exclude-members: __dict__,__weakref__
+   :exclude-members: __dict__,__weakref__,argument,command,subcommand
+
+.. autodecorator:: scap.cli.argument
+.. autodecorator:: scap.cli.command
+.. autodecorator:: scap.cli.subcommand
 
 .. automodule:: scap.arg
   :exclude-members: __dict__,__weakref__

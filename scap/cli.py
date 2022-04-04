@@ -447,14 +447,15 @@ class Application(object):
 
 
 def argument(*args, **kwargs):
-    """Decorator used to declare a command line argument on an
-    :class:`Application`
-
-    .. decorator:: argument(option_flags..[,action='store'][,nargs=1]\
+    """
+    argument(option_flags..[,action='store'][,nargs=1]\
        [,const=None][,default][,type=str][,choices][,required=False][,help]\
        [,dest])
 
-       Maps a command line argument to the decorated class or method.
+    Decorator used to declare a command line argument on an
+    :class:`Application`
+
+    Maps a command line argument to the decorated class or method.
 
     :param str option_flags: One or more option flags associated with this
                              argument, e.g. '-a', '--arg'
@@ -519,7 +520,7 @@ def all_commands():
 
 def command(*args, **kwargs):
     """
-    .. decorator:: command(command_name, help="help text",[subcommands=False])
+    command(command_name, help="help text",[subcommands=False])
 
     Map a `scap` sub-command to the decorated class.
 
@@ -563,7 +564,7 @@ def command(*args, **kwargs):
 
 def subcommand(name=None):
     """
-    .. decorator:: subcommand(command_name)
+    subcommand(command_name)
 
     Define an argparse subcommand by decorating a method on your
     cli.Application subclass.

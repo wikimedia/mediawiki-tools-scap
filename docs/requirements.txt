@@ -1,6 +1,5 @@
--r ../requirements.txt
 sphinx
 sphinx-autobuild
-sphinxcontrib-actdiag<2
-sphinxcontrib-blockdiag<2
+sphinxcontrib-actdiag
+sphinxcontrib-blockdiag
 sphinxcontrib-programoutput
