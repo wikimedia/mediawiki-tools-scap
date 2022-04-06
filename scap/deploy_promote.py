@@ -85,7 +85,7 @@ class DeployPromote(cli.Application):
 
         self.group = self.arguments.group
         self._check_group()
-        self._assert_auth_sock()
+        self._check_user_auth_sock()
 
         sorted_versions = self.active_wikiversions("stage")
         prev_version = sorted_versions[0]
@@ -188,7 +188,11 @@ class DeployPromote(cli.Application):
         return True
 
     def _push_patch(self):
-        gitcmd("push", "origin", "HEAD:%s" % self._get_git_push_dest())
+        # Overriding "SSH_AUTH_SOCK" is required until we implement a long-term solution for
+        # https://phabricator.wikimedia.org/T304557. At which point we can remove the override
+        user_env = os.environ.copy()
+        user_env["SSH_AUTH_SOCK"] = self.user_ssh_auth_sock
+        gitcmd("push", "origin", "HEAD:%s" % self._get_git_push_dest(), env=user_env)
 
         change_id = re.search(r"(?m)Change-Id:.+$", gitcmd("log", "-1")).group()
         gitcmd("reset", "--hard", "HEAD^")

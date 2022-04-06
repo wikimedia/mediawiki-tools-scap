@@ -62,6 +62,10 @@ class Application(object):
             self.program_name = os.path.basename(exe_name)
         self.exe_name = exe_name
         self.start = time.time()
+        # Property and related code should be removed once a long-term solution for
+        # https://phabricator.wikimedia.org/T304557 is implemented
+        self.user_ssh_auth_sock =\
+            os.environ["SSH_AUTH_SOCK"] if "SSH_AUTH_SOCK" in os.environ else None
 
         try:
             locale.setlocale(locale.LC_ALL, '')
@@ -360,6 +364,21 @@ class Application(object):
         if "SSH_AUTH_SOCK" not in os.environ:
             with utils.suppress_backtrace():
                 raise RuntimeError("%s requires SSH agent forwarding" % self.program_name)
+
+    def _check_user_auth_sock(self):
+        """
+        Similar to `_assert_auth_sock` method above. Unlike `_assert_auth_sock`, this method:
+         * Checks the original SSH_AUTH_SOCK provided in the environment by the user, before scap
+           potentially overrides it
+         * Is meant to be called during operations where a user-provided ssh-agent is required
+           (e.g. deploy-promote). It is not a global requirement of scap
+
+        """
+        if not self.user_ssh_auth_sock:
+            utils.abort(
+                "You need to provide access to your own ssh-agent\n"
+                "try: eval $(ssh-agent) && ssh-add"
+            )
 
     @staticmethod
     def factory(argv=None):

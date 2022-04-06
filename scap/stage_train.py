@@ -92,15 +92,8 @@ class StageTrain(cli.Application):
                     "\tSCREEN: screen -D -RR train"
                 )
 
-        def check_ssh_agent():
-            if os.environ.get("SSH_AUTH_SOCK") is None:
-                utils.abort(
-                    "No ssh-agent found in environment\n"
-                    "try: eval $(ssh-agent) && ssh-add ~/.ssh/id_ed25519"
-                )
-
         check_term_multplxr()
-        check_ssh_agent()
+        self._check_user_auth_sock()
 
         stages = STAGE_SEQUENCE[STAGE_SEQUENCE.index(self.arguments.start_from):]
         for i, stage in enumerate(stages, start=1):
