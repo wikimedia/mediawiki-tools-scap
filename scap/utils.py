@@ -928,6 +928,39 @@ def write_file_if_needed(filename, data: str):
         os.link(f.name, filename)
 
 
+@contextlib.contextmanager
+def temp_to_permanent_file(final_filename):
+    """
+    temp_to_permanent_file yields a text stream on a temporary file
+    that is open for writing.  If the context body completes without
+    exception, the temp file is renamed to `final_filename`,
+    atomically replacing any existing file of that name.  If an exception
+    is raised during the exception of the body, the temp file is deleted
+    and `final_filename` remains unaffected.
+
+    Example:
+
+    with temp_to_permanent_file("/tmp/important") as f:
+        f.write("Important information")
+
+    """
+
+    # Create the temp file in the same directory as the final filename
+    # so that os.rename() can atomically replace the destination file
+    # (if one exists)
+    with tempfile.NamedTemporaryFile("w", dir=os.path.dirname(final_filename), delete=False) as tmp:
+        try:
+            yield tmp
+        except BaseException as e:
+            os.unlink(tmp.name)
+            raise e
+
+    # Reach here on success
+    os.chmod(tmp.name, 0o644)
+    # This is atomic
+    os.rename(tmp.name, final_filename)
+
+
 def prompt_user_for_confirmation(prompt_message) -> bool:
     """
     Prompts user with `prompt_message` and expects yes/no answer. Default answer if enter is pressed

@@ -147,3 +147,35 @@ stuff after
         'total_bytes_sent': 5603,
         'total_bytes_received': 4744454
     }
+
+
+def test_temp_to_permanent_file():
+    testfile = "/tmp/test_temp_to_permanent_file"
+
+    try:
+        with utils.temp_to_permanent_file(testfile) as f:
+            f.write("Very important")
+
+        with open(testfile) as f:
+            assert f.read() == "Very important"
+
+        try:
+            with utils.temp_to_permanent_file(testfile) as f:
+                tmpname = f.name
+                f.write("Overwritten")
+                raise Exception("Failed operation")
+        except Exception:
+            pass
+
+        # Verify that the final file remains unchanged
+        with open(testfile) as f:
+            assert f.read() == "Very important"
+        import subprocess
+        subprocess.run("ls -l {}".format(tmpname), shell=True)
+        # Verify that the temp file was deleted
+        assert not os.path.exists(tmpname)
+
+    finally:
+        # Cleanup
+        if os.path.exists(testfile):
+            os.unlink(testfile)
