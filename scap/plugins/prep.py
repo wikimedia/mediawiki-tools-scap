@@ -203,9 +203,10 @@ This operation can be run as many times as needed.
         logger.info("Creating LocalSettings.php stub")
         write_settings_stub(os.path.join(dest_dir, "LocalSettings.php"))
 
-        logger.info("Making cache dir world writable")
         cache_dir = os.path.join(dest_dir, "cache")
-        os.chmod(cache_dir, 0o777)
+        if os.getuid == os.stat(cache_dir).st_uid:
+            logger.info("Making cache dir world writable")
+            os.chmod(cache_dir, 0o777)
 
         logger.info(
             "MediaWiki %s successfully checked out." % checkout_version
