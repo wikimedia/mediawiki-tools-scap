@@ -1,3 +1,13 @@
+scap (4.6.1-1) unstable; urgency=medium
+
+  * deploy-promote: create wikiversions update patch using user ssh-agent
+  * epoll.unregister() is unneeded once a fd has been closed
+  * Use `pip` to install Sphinx
+  * debian: remove flake8 from Build-Depends
+  * Makefile: switch to BuildKit
+
+ -- Jaime Nuche <jnuche@wikimedia.org>  Tue, 12 Apr 2022 15:50:41 +0200
+
 scap (4.6.0-1) unstable; urgency=medium
 
   * AbstractSync._perform_sync: Report total rsync data transfer
