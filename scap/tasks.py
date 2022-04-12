@@ -411,7 +411,7 @@ def sync_common(
 
     server = None
     if sync_from:
-        server = utils.find_nearest_host(sync_from)
+        server = utils.find_nearest_host(sync_from, "rsync")
     if server is None:
         server = cfg["master_rsync"]
     server = server.strip()

@@ -199,30 +199,47 @@ def find_nearest_host(hosts, port=22, timeout=1):
     host_map = {}
     for host in hosts:
         try:
-            host_map[host] = socket.getaddrinfo(host, port)[0]
+            host_map[host] = socket.getaddrinfo(host, port, proto=socket.IPPROTO_TCP)
         except socket.gaierror:
             continue
 
     for ttl in range(1, 30):
         if not host_map:
             break
-        for host, info in random.sample(host_map.items(), len(host_map)):
-            family, sock_type, proto, _, addr = info
-            s = socket.socket(family, sock_type, proto)
-            s.setsockopt(socket.IPPROTO_IP, socket.IP_TTL, struct.pack("I", ttl))
-            s.settimeout(timeout)
-            try:
-                s.connect(addr)
-            except socket.error as e:
-                if e.errno != errno.EHOSTUNREACH:
-                    del host_map[host]
-                continue
-            except socket.timeout:
-                continue
-            else:
-                return host
-            finally:
-                s.close()
+        for host, infos in random.sample(host_map.items(), len(host_map)):
+            for info in infos:
+                family, sock_type, proto, _, addr = info
+
+                if family == socket.AF_INET:
+                    setsockopt_level = socket.IPPROTO_IP
+                    setsockopt_option = socket.IP_TTL
+                elif family == socket.AF_INET6:
+                    setsockopt_level = socket.IPPROTO_IPV6
+                    setsockopt_option = socket.IPV6_UNICAST_HOPS
+                else:
+                    # Unsupported address family
+                    continue
+
+                s = socket.socket(family, sock_type, proto)
+                # Set the TTL (aka hop limit in IPv6)
+                s.setsockopt(setsockopt_level, setsockopt_option, struct.pack("I", ttl))
+                s.settimeout(timeout)
+                try:
+                    s.connect(addr)
+                except socket.error as e:
+                    # EHOSTUNREACH will occur if the TTL is too low.
+                    # ECONNREFUSED might happen if the host is only listening
+                    # on IPv4 or only IPv6 but we're tried the other address family.
+                    if e.errno != errno.EHOSTUNREACH and e.errno != errno.ECONNREFUSED:
+                        # Something unexpected.  Discard the host
+                        del host_map[host]
+                    continue
+                except socket.timeout:
+                    continue
+                else:
+                    return host
+                finally:
+                    s.close()
 
 
 def get_real_username():
