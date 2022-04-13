@@ -59,6 +59,7 @@ setup(
     packages=["scap", "scap.plugins"],
     package_dir={"scap": "scap"},
     scripts=["bin/scap"],
+    install_requires=[line.strip() for line in open("requirements.txt")],
     keywords=["deploy", "deployment", "scap", "scap2", "scap3"],
     classifiers=[
         "Operating System :: POSIX :: Linux",
