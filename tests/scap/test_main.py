@@ -133,10 +133,10 @@ def test_exclude_wikiversions():
     sync_world_app._load_config()
     sync_world_app._setup_loggers()
 
-    assert "--exclude-wikiversions.php" in sync_world_app._proxy_sync_command()
+    assert "--exclude-wikiversions.php" in sync_world_app._base_scap_pull_command()
 
     sync_wikiversions_app = cli.Application.factory(["sync-wikiversions"])
     sync_wikiversions_app._load_config()
     sync_wikiversions_app._setup_loggers()
 
-    assert "--exclude-wikiversions.php" not in sync_wikiversions_app._proxy_sync_command()
+    assert "--exclude-wikiversions.php" not in sync_wikiversions_app._base_scap_pull_command()

@@ -125,14 +125,14 @@ class AbstractSync(cli.Application):
 
             if len(proxies) > 0:
                 with log.Timer("sync-proxies", self.get_stats()):
-                    sync_cmd = self._apache_sync_command(self.get_master_list())
+                    sync_cmd = self._apache_sync_command()
                     sync_cmd.append(socket.getfqdn())
                     self._perform_sync("proxies", sync_cmd, proxies)
 
             # Update apaches
             with log.Timer("sync-apaches", self.get_stats()):
                 self._perform_sync("apaches",
-                                   self._apache_sync_command(proxies if proxies else self.get_master_list()),
+                                   self._apache_sync_command(proxies),
                                    full_target_list,
                                    shuffle=True)
 
@@ -228,7 +228,7 @@ class AbstractSync(cli.Application):
 
         if len(other_masters) > 0:
             self.master_only_cmd("sync-masters", self._master_sync_command())
-            self.master_only_cmd("sync-pull-masters", self._proxy_sync_command())
+            self.master_only_cmd("sync-pull-masters", self._base_scap_pull_command())
 
     def master_only_cmd(self, timer, cmd):
         """
@@ -262,20 +262,31 @@ class AbstractSync(cli.Application):
             cmd = ["env", "SCAP_MW_LANG={}".format(lang)] + cmd
         return cmd
 
-    def _proxy_sync_command(self):
-        """Synchronization command to run on the proxy hosts."""
+    def _base_scap_pull_command(self) -> list:
+        """
+        Returns (as a list) the basic scap pull command to run on a remote
+        target.  Note that no source servers are specified in the command
+        so scap pull will default to pull from whatever `master_rsync` is
+        defined to be in the scap configuration on the target.
+
+        Subclasses may override this method.
+        """
         cmd = [self.get_script_path(), "pull", "--no-php-restart", "--no-update-l10n"]
         if self.verbose:
             cmd.append("--verbose")
         return cmd
 
-    def _apache_sync_command(self, proxies):
+    def _apache_sync_command(self, proxies: list) -> list:
         """
-        Synchronization command to run on the apache hosts.
+        Returns (as a list) the scap pull command to run on mediawiki
+        installation targets.  This is comprised of the base scap pull command
+        (defined by _base_scap_pull_command) followed by the list of deployment
+        masters and the list of proxies.
 
-        :param proxies: List of proxy hostnames
+        :param proxies: A list of proxy hostnames that can be pulled from in addition
+                        to the deployment masters.
         """
-        return self._proxy_sync_command() + proxies
+        return self._base_scap_pull_command() + utils.list_union(self.get_master_list(), proxies)
 
     def _perform_sync(self, type: str, command: list, targets: list, shuffle=False):
         """
@@ -342,7 +353,7 @@ class AbstractSync(cli.Application):
 
         :param canaries: Iterable of canary servers to sync
         """
-        sync_cmd = self._apache_sync_command(self.get_master_list())
+        sync_cmd = self._apache_sync_command()
 
         # Go ahead and attempt to restart php for canaries
         if "--no-php-restart" in sync_cmd:
@@ -848,8 +859,8 @@ class ScapWorld(AbstractSync):
                 for version, wikidb in self.active_wikiversions("stage", return_type=dict).items():
                     tasks.update_localization_cache(version, wikidb, self)
 
-    def _proxy_sync_command(self):
-        cmd = super()._proxy_sync_command()
+    def _base_scap_pull_command(self):
+        cmd = super()._base_scap_pull_command()
         # We want to exclude wikiversions.php during the normal rsync.
         # wikiversions.php is handled separately in _after_cluster_sync (below).
         cmd.append("--exclude-wikiversions.php")
@@ -1053,7 +1064,7 @@ class SyncFile(AbstractSync):
         self._invalidate_opcache(None, self.arguments.file)
         self._restart_php()
 
-    def _proxy_sync_command(self):
+    def _base_scap_pull_command(self):
         cmd = [self.get_script_path(), "pull", "--no-update-l10n", "--no-php-restart"]
 
         if "/" in self.include:
@@ -1110,7 +1121,7 @@ class SyncL10n(AbstractSync):
         relpath = os.path.relpath(abspath, self.config["stage_dir"])
         self.include = "%s/***" % relpath
 
-    def _proxy_sync_command(self):
+    def _base_scap_pull_command(self):
         cmd = [self.get_script_path(), "pull", "--no-update-l10n", "--no-php-restart"]
 
         parts = self.include.split("/")

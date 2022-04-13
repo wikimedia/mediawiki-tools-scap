@@ -1012,6 +1012,11 @@ def list_intersection(list1, list2):
     return list(set(list1).intersection(set(list2)))
 
 
+def list_union(list1, list2):
+    """Returns a list containing the union of list1 and list2"""
+    return list(set(list1).union(set(list2)))
+
+
 def parse_rsync_stats(string: str) -> dict:
     """
     Scans the string looking for text like the following and
