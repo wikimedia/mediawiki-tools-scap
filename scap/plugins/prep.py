@@ -204,7 +204,7 @@ This operation can be run as many times as needed.
         write_settings_stub(os.path.join(dest_dir, "LocalSettings.php"))
 
         cache_dir = os.path.join(dest_dir, "cache")
-        if os.getuid == os.stat(cache_dir).st_uid:
+        if os.geteuid() == os.stat(cache_dir).st_uid:
             logger.info("Making cache dir world writable")
             os.chmod(cache_dir, 0o777)
 
