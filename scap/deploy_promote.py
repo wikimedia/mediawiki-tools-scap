@@ -188,11 +188,7 @@ class DeployPromote(cli.Application):
         return True
 
     def _push_patch(self):
-        # Overriding "SSH_AUTH_SOCK" is required until we implement a long-term solution for
-        # https://phabricator.wikimedia.org/T304557. At which point we can remove the override
-        user_env = os.environ.copy()
-        user_env["SSH_AUTH_SOCK"] = self.user_ssh_auth_sock
-        gitcmd("push", "origin", "HEAD:%s" % self._get_git_push_dest(), env=user_env)
+        gitcmd("push", "origin", "HEAD:%s" % self._get_git_push_dest(), env=self.get_user_ssh_env())
 
         change_id = re.search(r"(?m)Change-Id:.+$", gitcmd("log", "-1")).group()
         gitcmd("reset", "--hard", "HEAD^")

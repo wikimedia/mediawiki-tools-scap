@@ -292,7 +292,7 @@ class Application(object):
 
         args = [self.get_script_path()] + scap_cmd + self.format_passthrough_args()
         with utils.suppress_backtrace():
-            subprocess.run(args, check=True)
+            subprocess.run(args, check=True, env=self.get_user_ssh_env())
 
     def scap_check_output(self, scap_cmd: list) -> str:
         """
@@ -305,8 +305,27 @@ class Application(object):
         args = [self.get_script_path()] + scap_cmd + self.format_passthrough_args()
         with utils.suppress_backtrace():
             return subprocess.run(
-                args, check=True, stdout=subprocess.PIPE, universal_newlines=True
+                args,
+                check=True,
+                stdout=subprocess.PIPE,
+                universal_newlines=True,
+                env=self.get_user_ssh_env()
             ).stdout.strip()
+
+    def get_user_ssh_env(self) -> dict:
+        """
+        An environment with a user-supplied ssh agent socket (if one was provided). The override is
+        required until we implement a long-term solution for
+        https://phabricator.wikimedia.org/T304557, at which point we can remove this method
+
+        :returns: The current environment, where "SSH_AUTH_SOCK" is set to the user ssh agent socket
+                  , if provided
+        """
+
+        user_env = os.environ.copy()
+        if self.user_ssh_auth_sock:
+            user_env["SSH_AUTH_SOCK"] = self.user_ssh_auth_sock
+        return user_env
 
     def _handle_exception(self, ex):
         """
