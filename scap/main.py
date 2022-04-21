@@ -276,7 +276,7 @@ class AbstractSync(cli.Application):
             cmd.append("--verbose")
         return cmd
 
-    def _apache_sync_command(self, proxies: list) -> list:
+    def _apache_sync_command(self, proxies: list = ()) -> list:
         """
         Returns (as a list) the scap pull command to run on mediawiki
         installation targets.  This is comprised of the base scap pull command
@@ -284,7 +284,8 @@ class AbstractSync(cli.Application):
         masters and the list of proxies.
 
         :param proxies: A list of proxy hostnames that can be pulled from in addition
-                        to the deployment masters.
+                        to the deployment masters. Default is empty (as a tuple to prevent mutable
+                        list warning)
         """
         return self._base_scap_pull_command() + utils.list_union(self.get_master_list(), proxies)
 
