@@ -331,7 +331,7 @@ class DeployLocal(cli.Application):
             # if lfs is enabled and this is the first time cloning this repo,
             # then we need to run `git lfs install`` before `git clone`
             if git_binary_manager and git.LFS in git_binary_manager:
-                git.lfs_install("--global")
+                git.lfs_install()
 
         # clone/fetch from the local cache directory to the revision directory
         git.fetch(

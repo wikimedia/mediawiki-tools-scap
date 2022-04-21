@@ -112,11 +112,7 @@ def largefile_pull(location, implementor):
 
 def lfs_install(*args):
     """Run git-lfs-install with provided arguments.
-
-    If no args are provided, defaults to `git lfs install --global`
     """
-    if not args:
-        args = ["--global"]
     lfsargs = ["install"] + list(args)
     # run `git lfs install $args`
     gitcmd("lfs", *lfsargs)
