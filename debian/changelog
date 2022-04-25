@@ -1,3 +1,16 @@
+scap (4.7.0-1) unstable; urgency=medium
+
+  * main._apache_sync_command: add missing parameter default value
+  * followup fix: scap prep can try to chmod dir not owned by user
+  * sync-apaches: Include deploy servers as rsync sources
+  * scap update-interwiki-cache: Don't overwrite interwiki.php in place
+  * Add utils.temp_to_permanent_file
+  * Revive install_requires in setup.py
+  * Fix utils.find_nearest_host and its caller
+  * fix: scap prep can try to chmod dir not owned by user
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Mon, 25 Apr 2022 10:31:51 -0700
+
 scap (4.6.1-1) unstable; urgency=medium
 
   * deploy-promote: create wikiversions update patch using user ssh-agent
