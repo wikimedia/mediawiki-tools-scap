@@ -1,3 +1,10 @@
+scap (4.7.1-1) unstable; urgency=medium
+
+  * Remove the --global option from git lfs calls
+  * preserve user ssh env during Scap self-calls
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Wed, 27 Apr 2022 07:53:27 -0700
+
 scap (4.7.0-1) unstable; urgency=medium
 
   * main._apache_sync_command: add missing parameter default value
