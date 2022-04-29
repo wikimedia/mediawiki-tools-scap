@@ -41,6 +41,7 @@ class Lock(object):  # pylint: disable=too-few-public-methods
             reason = reason.encode("UTF-8")
         assert isinstance(reason, bytes)
         self.reason = reason
+        self.locker_pid = os.getpid()
 
         # If it's a global lock file, let the whole group write. Otherwise,
         # just the original deployer
@@ -56,7 +57,6 @@ class Lock(object):  # pylint: disable=too-few-public-methods
         try:
             self._acquire_lock()
             signal.signal(signal.SIGTERM, self._sig_handler)
-            signal.signal(signal.SIGINT, self._sig_handler)
         except OSError as ose:
             if ose.errno is errno.EEXIST:
                 details = get_lock_excuse(self.filename)
@@ -87,15 +87,16 @@ class Lock(object):  # pylint: disable=too-few-public-methods
         sys.exit(128 + signum)
 
     def _clear_lock(self):
-        if os.path.exists(self.filename):
+        # T307242: Only attempt to unlock if the current process is the
+        # one that created the lockfile.
+        if os.getpid() == self.locker_pid:
             try:
                 os.unlink(self.filename)
-            except OSError:
-                # Someone else deleted the lock. Freaky, but we already
-                # did our stuff so there's no point in halting execution
+            except FileNotFoundError:
+                # Someone else deleted the lock.
                 utils.get_logger().warning(
                     "Huh, lock file disappeared before deletion. "
-                    + "This is probably fine-ish :)"
+                    + "This should not happen!!!"
                 )
 
 

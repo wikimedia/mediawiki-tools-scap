@@ -50,10 +50,6 @@ def assert_clears_lock_on(sig):
             assert exit_info.value.args[0] == 128 + sig
 
 
-def test_clears_lock_on_sigint():
-    assert_clears_lock_on(signal.SIGINT)
-
-
 def test_clears_lock_on_sigterm():
     assert_clears_lock_on(signal.SIGTERM)
 
