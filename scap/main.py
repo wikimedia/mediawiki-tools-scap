@@ -317,10 +317,16 @@ class AbstractSync(cli.Application):
                                locale.format("%.1f", jobresults.average_duration(), grouping=True),
                                locale.format("%.1f", jobresults.median_duration(), grouping=True))
 
-        transferred = 0
+        num_hosts = 0
+        total_transferred = 0
+
         for jobresult in jobresults:
-            transferred += utils.parse_rsync_stats(jobresult.output).get("total_transferred_file_size", 0)
-        self.get_logger().info("Rsync totals: Xfer: {:n} bytes".format(transferred))
+            num_hosts += 1
+            total_transferred += utils.parse_rsync_stats(jobresult.output).get("total_transferred_file_size", 0)
+
+        average_transferred = total_transferred // num_hosts if num_hosts else 0
+
+        self.get_logger().info("rsync transfer: average {:n} bytes/host, total {:n} bytes".format(average_transferred, total_transferred))
 
         failed = jobresults.num_failed
         if failed:
