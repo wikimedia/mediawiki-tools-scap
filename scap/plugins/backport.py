@@ -29,10 +29,21 @@ class Backport(cli.Application):
     mediawiki_location = None
     versions = None
     interval = None
+    answer_yes = False
 
     @cli.argument(
         "--list",
         help='list the available backports and prompts for change numbers/URLs to backport',
+        action="store_true"
+    )
+    @cli.argument(
+        "--yes",
+        help='Skip all non-warning prompts.',
+        action="store_true"
+    )
+    @cli.argument(
+        "--stop-before-sync",
+        help='Stage backports without syncing. Useful for running tests',
         action="store_true"
     )
     @cli.argument("change_numbers", nargs="*", help="Change numbers/URLs to backport")
@@ -42,6 +53,7 @@ class Backport(cli.Application):
         self.config_branch = self.config["operations_mediawiki_config_branch"]
         self.mediawiki_location = self.config["stage_dir"]
         self.versions = self.active_wikiversions("stage")
+        self.answer_yes = self.arguments.yes
         change_numbers = [self.change_number(n) for n in self.arguments.change_numbers]
 
         self._assert_auth_sock()
@@ -60,11 +72,16 @@ class Backport(cli.Application):
 
         self.validate_changes(change_details)
         self.check_dependencies(change_details, change_numbers)
-        self.prompt_for_approval_or_exit("Backport the changes %s? (y/N): " % change_numbers, "Backport cancelled.")
+        if not self.answer_yes:
+            self.prompt_for_approval_or_exit("Backport the changes %s? (y/N): " % change_numbers, "Backport cancelled.")
         self.approve_changes(change_details)
         self.wait_for_changes_to_be_merged(change_numbers)
         self.confirm_commits_to_sync(change_details)
         self.scap_check_call(["prep", "auto"])
+
+        if self.arguments.stop_before_sync:
+            return 0
+
         self.scap_check_call(["sync-world", "Backport for %s" % ",".join(
             ["[[gerrit:%d]] %s" % (change["_number"], change["subject"]) for change in change_details])])
 
@@ -312,7 +329,10 @@ class Backport(cli.Application):
                 with utils.suppress_backtrace():
                     subprocess.check_call(["git", "-C", repo, "show", "-s"] + list(extra_commits))
 
-                check_diff = input('Would you like to see the diff? (y/N): ')
+                if self.answer_yes:
+                    check_diff = 'y'
+                else:
+                    check_diff = input('Would you like to see the diff? (y/N): ')
                 if check_diff.lower() == 'y':
                     with utils.suppress_backtrace():
                         subprocess.check_call(["git", "--no-pager", "-C", repo, "show"] + list(extra_commits))
@@ -324,5 +344,6 @@ class Backport(cli.Application):
             with utils.suppress_backtrace():
                 subprocess.check_call(["git", "-C", repo, "status"])
 
-        self.prompt_for_approval_or_exit('All live versions will be synced. Continue? (y/N): ',
-                                         "Sync cancelled.")
+        if not self.answer_yes:
+            self.prompt_for_approval_or_exit('All live versions will be synced. Continue? (y/N): ',
+                                             "Sync cancelled.")
