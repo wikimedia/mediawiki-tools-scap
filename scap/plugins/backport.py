@@ -44,6 +44,7 @@ class Backport(cli.Application):
         self.versions = self.active_wikiversions("stage")
         change_numbers = [self.change_number(n) for n in self.arguments.change_numbers]
 
+        self._assert_auth_sock()
         self.check_ssh_auth()
 
         if self.arguments.list:
@@ -73,7 +74,7 @@ class Backport(cli.Application):
         gerrit_hostname = urllib.parse.urlparse(self.config['gerrit_url']).hostname
 
         with utils.suppress_backtrace():
-            subprocess.check_call(['ssh', '-oBatchMode=yes', '-p', '29418', gerrit_hostname, 'gerrit'] +
+            subprocess.check_call(['ssh', '-p', '29418', gerrit_hostname, 'gerrit'] +
                                   gerrit_arguments, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
     def check_ssh_auth(self):
