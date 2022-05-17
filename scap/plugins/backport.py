@@ -176,11 +176,11 @@ class Backport(cli.Application):
         for detail in change_details:
             change_number = detail['_number']
             project_branch_id = detail['id']
-            deps = self.gerrit.submitted_together(change_number).get().changes
-            deps += self.get_depends_ons(project_branch_id, change_number)
+            deps_numbers = list(map(lambda change: change['_number'],
+                                    self.gerrit.submitted_together(change_number).get().changes))
+            deps_numbers += self.get_depends_ons(project_branch_id, change_number)
 
-            if len(deps) > 0:
-                deps_numbers = list(map(lambda dep: dep["_number"], deps))
+            if len(deps_numbers) > 0:
                 unscheduled_dependencies = set(deps_numbers) - set(change_numbers)
 
                 if len(unscheduled_dependencies) > 0:
@@ -194,11 +194,12 @@ class Backport(cli.Application):
         if bool(depends_ons.cycle) is True:
             raise SystemExit("The change '%s' cannot be merged because a dependency cycle was detected." % change_number)
 
-        for change_id in depends_ons.depends_on:
+        for change_info in depends_ons.depends_on_found:
+            change_id = change_info['change_id']
             if change_id not in deps:
-                change_detail = self.gerrit.change_detail(change_id).get()
-                deps.append(change_detail)
-                deps += self.get_depends_ons(change_detail['id'], change_detail['_number'])
+                change_number = change_info['_number']
+                deps.append(change_number)
+                deps += self.get_depends_ons(change_info['id'], change_number)
 
         return deps
 
@@ -286,14 +287,15 @@ class Backport(cli.Application):
 
             self.get_logger().info('Collecting commit for %s...' % change_id)
             # The submodule update commit will have the same change-id as the original commit to
-            # the submodule repo, so it can be searched for in the core repo using the change-id
-            commit = self.grep_for_git_commit(repo_location, "origin/%s" % branch, change_id)
+            # the submodule repo, so it can be searched for in the core repo using the change-id.
+            # Depends-on commits can also include the change-id, so make sure to prefix with 'Change-Id:'.
+            commit = self.grep_for_git_commit(repo_location, "origin/%s" % branch, "Change-Id: %s" % change_id)
 
             # just to be safe in case submodule update commit has not landed yet
             while not commit:
                 time.sleep(self.interval)
                 self.fetch_git_changes(repo_location)
-                commit = self.grep_for_git_commit(repo_location, "origin/%s" % branch, change_id)
+                commit = self.grep_for_git_commit(repo_location, "origin/%s" % branch, "Change-Id: %s" % change_id)
 
             repo_commits[repo_location].add(commit)
 
