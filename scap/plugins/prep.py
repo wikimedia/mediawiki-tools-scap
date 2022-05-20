@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 """Scap plugin for setting up a new version of MediaWiki for deployment."""
 import argparse
-import distutils
 import glob
 import os
 import re
@@ -232,7 +231,7 @@ This operation can be run as many times as needed.
         if not candidates:
             return None
 
-        return sorted(candidates, key=distutils.version.LooseVersion)[-1]
+        return sorted(candidates, key=utils.parse_wmf_version)[-1]
 
     def _select_reference_patches(self):
         """
@@ -253,7 +252,7 @@ This operation can be run as many times as needed.
         if not candidates:
             return None
 
-        latest_patches_vers = sorted(candidates, key=distutils.version.LooseVersion)[-1]
+        latest_patches_vers = sorted(candidates, key=utils.parse_wmf_version)[-1]
 
         return os.path.join(patch_base_dir, latest_patches_vers)
 

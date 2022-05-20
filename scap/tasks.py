@@ -23,7 +23,6 @@
 from __future__ import absolute_import
 
 import collections
-import distutils.version
 import errno
 import glob
 import itertools
@@ -1033,7 +1032,7 @@ def get_old_wikiversions(versions, keep=2, keep_static=5):
 
     def sort_versions(v):
         ver = os.path.basename(v[0])
-        return distutils.version.LooseVersion(ver[len("php-") :])
+        return utils.parse_wmf_version(ver[len("php-") :])
 
     sorted_versions = sorted(versions, key=sort_versions, reverse=True)
 

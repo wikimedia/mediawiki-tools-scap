@@ -10,7 +10,6 @@ from __future__ import print_function
 
 import collections
 import contextlib
-import distutils.version
 import errno
 import fcntl
 from functools import wraps
@@ -23,6 +22,7 @@ import logging
 import math
 import multiprocessing
 import os
+import packaging.version
 import pwd
 import random
 import re
@@ -731,7 +731,7 @@ def get_active_wikiversions(directory, realm, return_type=list):
     # Convert to list of (version, representative-db) tuples sorted by version
     # number and then convert that list to an OrderedDict
     sorted_versions = collections.OrderedDict(
-        sorted(versions.items(), key=lambda v: distutils.version.LooseVersion(v[0]))
+        sorted(versions.items(), key=lambda v: parse_wmf_version(v[0]))
     )
 
     if return_type == dict:
@@ -1064,3 +1064,14 @@ def parse_rsync_stats(string: str) -> dict:
             res[key] = int(m.group(1).replace(",", ""))
 
     return res
+
+
+def parse_wmf_version(version: str) -> packaging.version.Version:
+    """
+    Parses a string like "1.29.0-wmf.4" and returns a packaging.version.Version
+    object representing the version.  These objects can be compared using
+    <, <=, >, >=, ==.
+    """
+    # Strip all non-digit, non-dot characters from the version string, then
+    # parse it.
+    return packaging.version.Version(re.sub(r"[^.\d]", "", version))
