@@ -220,11 +220,14 @@ class Backport(cli.Application):
                 status = detail['status']
                 verified = detail['labels']['Verified']
                 rejected = getattr(verified, 'rejected', None)
+                # The "mergeable" field will only exist if Gerrit's config has
+                # change.mergeabilityComputationBehavior set to API_REF_UPDATED_AND_CHANGE_REINDEX.
                 mergeable = getattr(detail, 'mergeable', None)
                 print("Change {} status: {}, mergeable: {}".format(number, status, mergeable))
 
                 if status != 'MERGED':
-                    if not mergeable:
+                    # Specifically checking for false, since mergeable could be None
+                    if mergeable is False:
                         raise SystemExit("Gerrit could not merge the change '%s' as is and could require a rebase"
                                          % number)
 
