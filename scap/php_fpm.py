@@ -67,7 +67,7 @@ class PHPRestart(object):
         self.job.hosts(targets)
         sudo_cmd = "/usr/bin/sudo -u root -- {}".format(self.cmd)
         self.job.command(sudo_cmd)
-        self.job.progress(log.MuteReporter())
+        self.job.progress(log.reporter("php-fpm-restart"))
         return self.job
 
     def restart_self(self):
