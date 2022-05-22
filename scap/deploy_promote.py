@@ -60,7 +60,8 @@ class DeployPromote(cli.Application):
 
     group = None
     promote_version = None
-    update_message = None
+    announce_message = None
+    commit_message = None
 
     @cli.argument(
         "group",
@@ -148,7 +149,7 @@ class DeployPromote(cli.Application):
         return utils.prompt_user_for_confirmation(prompt_message)
 
     def _update_versions(self):
-        self._set_update_message()
+        self._set_messages()
 
         self.scap_check_call(
             ["update-wikiversions", "--no-check", self.group, self.promote_version]
@@ -164,13 +165,18 @@ class DeployPromote(cli.Application):
                 self.logger.info("Running git pull")
                 gitcmd("pull")
 
-    def _set_update_message(self):
+    def _set_messages(self):
+        """
+        Craft commit message and scap announcement message
+        """
+        header = '%s wikis to %s' % (self.group, self.promote_version)
+        self.commit_message = header
+        self.announce_message = header
+
         phabricator_task_id = self._get_train_task()
-        # Extra whitespace probably unnecessary; left in to mimic the behavior of the original
-        # shellscript implementation of `deploy-promote`
-        task_id_message = "  refs %s" % phabricator_task_id if phabricator_task_id else ""
-        self.update_message = \
-            "%s wikis to %s%s" % (self.group, self.promote_version, task_id_message)
+        if phabricator_task_id:
+            self.commit_message += "\n\nBug: %s" % phabricator_task_id
+            self.announce_message += "  refs %s" % phabricator_task_id
 
     def _commit_files(self) -> bool:
         """
@@ -184,7 +190,7 @@ class DeployPromote(cli.Application):
             return False
 
         gitcmd("add", *files_to_commit)
-        gitcmd("commit", "-m", self.update_message)
+        gitcmd("commit", "-m", self.commit_message)
         return True
 
     def _push_patch(self):
@@ -206,15 +212,15 @@ class DeployPromote(cli.Application):
             self.logger.info("Running scap prep auto")
             self.scap_check_call(["prep", "auto"])
             self.logger.info("Running scap sync-world")
-            self.scap_check_call(["sync-world", self.update_message])
+            self.scap_check_call(["sync-world", self.announce_message])
         else:
             self.logger.info("Running scap sync-wikiversions")
-            self.scap_check_call(["sync-wikiversions", self.update_message])
+            self.scap_check_call(["sync-wikiversions", self.announce_message])
 
         # Group1 day is also the day we sync the php symlink
         if self.group == "group1":
             self.logger.info("Running scap sync-file php")
-            self.scap_check_call(["sync-file", "php", self.update_message])
+            self.scap_check_call(["sync-file", "php", self.announce_message])
 
         self._check_versions()
 
