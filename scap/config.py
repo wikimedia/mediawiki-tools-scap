@@ -78,6 +78,7 @@ DEFAULT_CONFIG = {
     "nrpe_dir": (str, "/etc/nagios/nrpe.d"),
     "require_valid_service": (bool, False),
     "scap3_mediawiki": (bool, False),
+    "serializing_lock_file": (str, "/tmp/scap.serial.lock"),
     "service_timeout": (float, 120.0),
     "tags_to_keep": (int, 20),
     "perform_checks": (bool, True),
@@ -86,7 +87,6 @@ DEFAULT_CONFIG = {
     "php_fpm_opcache_threshold": (int, 100),
     "php_fpm_always_restart": (bool, False),
     "php_l10n": (bool, False),  # Feature flag for PHP l10n file generation
-    "prep_lock_file": (str, "/tmp/scap.prep.lock"),
     "cache_revs": (int, 5),
     "use_syslog": (bool, False),
 
@@ -109,6 +109,11 @@ DEFAULT_CONFIG = {
     # Path to a CA cert to inject into the image
     "mediawiki_image_extra_ca_cert": (str, None),
     # End settings related to image building
+
+    # Settings related to scap installation
+    "install_ssh_user": (str, "scap"),
+    "scap_source_dir": (str, "/srv/deployment/scap"),
+    "scap_targets": (str, "scap_targets"),
 }
 
 

@@ -51,6 +51,7 @@ import scap.runcmd
 
 from scap.deploy_promote import DeployPromote
 from scap.stage_train import StageTrain
+from scap.install_world import InstallWorld
 
 __all__ = [
     "CompileWikiversions",
@@ -58,6 +59,7 @@ __all__ = [
     "DeployLocal",
     "DeployLog",
     "DeployPromote",
+    "InstallWorld",
     "LockManager",
     "MWVersionsInUse",
     "RebuildCdbs",

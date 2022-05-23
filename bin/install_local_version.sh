@@ -6,7 +6,7 @@
 #    * Bootstrap/stage a scap installation on a deploy server
 #    * Allow a RelEng operator to create their own installation in their home
 #
-# The script can be used to install versions >4.7.1 of scap
+# The script can be used to install versions >4.8.0 of scap
 
 set -eu -o pipefail
 
@@ -56,13 +56,13 @@ function parseArgs {
         ;;
       *)
         usage
-        exit
+        exit 1
         ;;
     esac
   done
   shift $((OPTIND - 1))
 
-  (($# < 1)) && usage && exit
+  (($# < 1)) && usage && exit 1
 
   SCAP_SOURCE_DIR=$1
 
@@ -135,7 +135,7 @@ function create_scap_venv_for_user {
   fi
 
   $AS_USER python3 -m venv "$VENV_DIR"
-  $AS_USER "${VENV_DIR}"/bin/pip3 -v install wheel==0.37.1
+  $AS_USER "${VENV_DIR}"/bin/pip3 install wheel==0.37.1
   $AS_USER "${VENV_DIR}"/bin/pip3 install --upgrade "$SCAP_SOURCE_DIR"
 
   if [ -n "$TAG" ]; then

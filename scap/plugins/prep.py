@@ -116,7 +116,7 @@ This operation can be run as many times as needed.
 
         lock_timeout = \
             {"timeout": self.arguments.lock_timeout} if self.arguments.lock_timeout else {}
-        with TimeoutLock(self.config["prep_lock_file"], name="concurrent prep", **lock_timeout):
+        with TimeoutLock(self.config["serializing_lock_file"], name="concurrent prep", **lock_timeout):
             logger = self.get_logger()
 
             self.new_history = history.Entry.now()
