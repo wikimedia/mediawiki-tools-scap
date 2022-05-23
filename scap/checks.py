@@ -279,6 +279,7 @@ class CheckJob(object):
         """Kill the executing process."""
 
         self.proc.kill()
+        self.proc.communicate()
 
     def poll(self):
         """
