@@ -1070,8 +1070,12 @@ def parse_wmf_version(version: str) -> packaging.version.Version:
     """
     Parses a string like "1.29.0-wmf.4" and returns a packaging.version.Version
     object representing the version.  These objects can be compared using
-    <, <=, >, >=, ==.
+    <, <=, >, >=, ==.  The special case version of "master" will be treated as
+    a very large version number.
     """
+    if version == "master":
+        return packaging.version.Version(str(sys.maxsize))
+
     # Strip all non-digit, non-dot characters from the version string, then
     # parse it.
     return packaging.version.Version(re.sub(r"[^.\d]", "", version))
