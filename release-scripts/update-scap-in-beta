@@ -54,11 +54,14 @@ else
     usage
 fi
 
+cat <<EOF
+Use this log message in #wikimedia-releng IRC:
+!log Upgrading scap to $VERSION in beta cluster
+EOF
+
 remote_cmd="export DEBIAN_FRONTEND=noninteractive && apt-get update && apt-get install -y --allow-downgrades scap=$VERSION"
 
 encoded_remote_cmd=$(echo "$remote_cmd" | base64 -w0)
-
-# FIXME: Add IRC notification.
 
 # shellcheck disable=SC2029
 ssh deployment-cumin.deployment-prep.eqiad.wmflabs \
