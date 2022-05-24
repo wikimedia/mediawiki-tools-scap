@@ -1,3 +1,31 @@
+scap (4.8.0-1) unstable; urgency=medium
+
+  * update-scap-in-beta: Print suggested irc !log message
+  * deploy_promote: attach change to Phabricator task
+  * Make pytest error out on warnings
+  * checks: wait after kill
+  * parse_wmf_version: Handle "master"
+  * requirements: add missing dependency
+  * config: ensure file is closed before returning
+  * bootstrap: add script to install/update local version of scap
+  * Remove uses of deprecated distutils.version.LooseVersion
+  * Fix a regexp deprecation warning
+  * scap backport: zuul plugin payload changes update
+  * scap backport: Handle Gerrit that doesn't have change.mergeabilityComputationBehavior set right
+  * Add progress reporting to php-fpm-restarts
+  * requirements: pin dependency to compatible version
+  * backport: add get_user_ssh_env() to gerrit_ssh()
+  * pipeline: target Stretch, Buster and Bullseye
+  * scap backport: add options stop-before-sync, yes
+  * scap backport: some ssh changes
+  * ci: Provide basic `.pipeline/config.yaml`
+  * Report rsync averages and totals.
+  * backport: compare fetched commits with backports
+  * Fix bad interaction between multiprocessing.Pool and Lock
+  * requirements: pin deps to their versions currently on deploy server
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Tue, 24 May 2022 08:38:14 -0700
+
 scap (4.7.1-1) unstable; urgency=medium
 
   * Remove the --global option from git lfs calls
