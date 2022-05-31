@@ -253,8 +253,7 @@ class DshTargetList(TargetList):
                     hosts_file = os.path.abspath(candidate)
                     break
             if hosts_file is None:
-                with utils.suppress_backtrace():
-                    raise RuntimeError("Did not find a file named {} in search path: {}".format(filename, search_path))
+                raise RuntimeError("Did not find a file named {} in search path: {}".format(filename, search_path))
 
         utils.check_file_exists(hosts_file)
 
