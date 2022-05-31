@@ -456,19 +456,25 @@ class AbstractSync(cli.Application):
             )
 
     def _setup_php(self):
-        """Sets up the php_fpm instance if not already initialized."""
-        if php_fpm.INSTANCE is not None:
-            return
-        php_fpm.INSTANCE = php_fpm.PHPRestart(
-            self.config,
-            ssh.Job(key=self.get_keyholder_key(), user=self.config["ssh_user"]),
-            self.arguments.force,
-            self.get_logger(),
-        )
+        """
+        Sets up the php_fpm instance if not already initialized.
+
+        Returns True if php_fpm restart has been configured, or False if not.
+        """
+        if php_fpm.INSTANCE is None:
+            php_fpm.INSTANCE = php_fpm.PHPRestart(
+                self.config,
+                ssh.Job(key=self.get_keyholder_key(), user=self.config["ssh_user"]),
+                self.arguments.force,
+                self.get_logger(),
+            )
+        return php_fpm.INSTANCE.cmd is not None
 
     def _restart_php(self):
         """
-        On all dsh groups referenced by the mw_web_clusters config parameter:
+        If php_fpm_restart_script is set in the configuration then
+        on all dsh groups referenced by the mw_web_clusters config parameter
+        (but excluding canaries) do the following:
 
         Check if php-fpm opcache is full, if so restart php-fpm.  If
         the php_fpm_always_restart config parameter is true, the
@@ -480,6 +486,9 @@ class AbstractSync(cli.Application):
         around the service restart).  T243009
 
         """
+        if not self._setup_php():
+            return
+
         # mw_web_clusters is expected to be a comma-separated string naming dsh
         # groups.
         # target_groups will be a list of objects representing representing
@@ -496,12 +505,11 @@ class AbstractSync(cli.Application):
         self._restart_php_hostgroups(group_hosts)
 
     def _restart_php_hostgroups(self, target_hosts=None):
-        """Perform php restart for sets of hosts.
+        """Perform php restart for sets of hosts (if configured).
 
         Parameter target_hosts is a list of lists of hostnames.
         """
-        self._setup_php()
-        if not php_fpm.INSTANCE.cmd:
+        if not self._setup_php():
             return
         pool = ProcessPoolExecutor(max_workers=5)
         num_hosts = 0
