@@ -1,3 +1,11 @@
+scap (4.8.1-1) unstable; urgency=medium
+
+  * Don't attempt php fpm restart if not configured
+  * Don't suppress backtrace if DshTargetList._get_targets_for_key() fails
+  * Restart canaries before checking, remove the opcache invalidation function
+
+ -- Giuseppe Lavagetto <glavagetto@wikimedia.org>  Wed, 01 Jun 2022 13:35:37 +0200
+
 scap (4.8.0-1) unstable; urgency=medium
 
   * update-scap-in-beta: Print suggested irc !log message
