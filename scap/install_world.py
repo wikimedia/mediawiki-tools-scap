@@ -22,6 +22,7 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """
 import os
+import pathlib
 import random
 import re
 import socket
@@ -81,7 +82,26 @@ class InstallWorld(cli.Application):
         action="store_true",
         help="Answer yes to all prompts"
     )
+    @cli.argument(
+        "-s", "--sync-only",
+        action="store_true",
+        help="Do not select a scap version. Sync out using the version currently in the staging"
+             " area"
+    )
+    @cli.argument(
+        "-b", "--batch",
+        action="store_true",
+        help="Batch mode. Implies --yes and --sync-only. Useful to automate the priming of new scap"
+             " targets"
+    )
     def main(self, *extra_args):
+        if self.arguments.batch:
+            self.arguments.yes = True
+            self.arguments.sync_only = True
+            # This will prevent `announce` from notifying the IRC channel when running in batch
+            # mode. Messages will still be logged
+            self.arguments.no_log_message = True
+
         lock_timeout = \
             {"timeout": self.arguments.lock_timeout} if self.arguments.lock_timeout else {}
         # The TimeoutLock serializes potential scap operations running in parallel
@@ -103,8 +123,9 @@ class InstallWorld(cli.Application):
                     % (self.version, len(self.targets))
                 )
 
-                self._install_local_scap()
-                self._sync_masters_scap_installation()
+                if not self.arguments.sync_only:
+                    self._install_local_scap()
+                    self._sync_masters_scap_installation()
                 self._sync_targets_scap_installation()
                 # Filthy hack to have the lib dir automatically added to `sys.path` in targets
                 self._create_lib_dir_symlink_on_targets()
@@ -133,6 +154,33 @@ class InstallWorld(cli.Application):
             utils.abort("List of targets is empty")
 
     def _select_version(self):
+        if self.arguments.sync_only:
+            self._use_staged_version()
+        else:
+            self._use_version_from_args()
+
+    def _use_staged_version(self):
+        matches = list(
+            pathlib.Path(self.install_user_home, "scap", "lib").glob("**/scap/version.py")
+        )
+        if not matches:
+            if self.arguments.batch:
+                self._abort("No scap detected in staging area. Cannot proceed in batch mode")
+            else:
+                self.logger.warn("No scap detected in staging area. Falling back to regular install")
+                self._use_version_from_args()
+                self.arguments.sync_only = False
+        else:
+            if len(matches) > 1:
+                self._abort(
+                    "Somehow found multiple scap installations in staging area (?). Something is"
+                    " broken"
+                )
+
+            self.version = re.search(r"['\"](\d+\.\d+\.\d+)", matches[0].read_text()).group(1)
+            self.logger.info("""Using version "%s" found in staging area""" % self.version)
+
+    def _use_version_from_args(self):
         if self.arguments.version == "latest":
             self.version =\
                 gitcmd("tag", "--sort", "-taggerdate", cwd=self.config["scap_source_dir"]).split()[0]
@@ -185,8 +233,7 @@ class InstallWorld(cli.Application):
         masters_sync.progress(log.reporter("scap-sync-to-masters", self.config["fancy_progress"]))
         _, failed = masters_sync.run()
         if failed:
-            self.logger.error("%d masters failed to sync scap installation", failed)
-            utils.abort("Failed to sync scap installation to all masters")
+            self._abort("%d masters failed to sync scap installation" % failed)
 
     def _sync_targets_scap_installation(self):
         targets_by_master, targets_no_master = self._map_targets_to_master_by_dc()
@@ -226,8 +273,7 @@ class InstallWorld(cli.Application):
             )
             _, failed = targets_sync.run()
             if failed:
-                self.logger.error("%d targets failed to sync scap installation", failed)
-                utils.abort("Failed to sync scap installation to all targets")
+                self._abort("%d targets failed to sync scap installation" % failed)
 
     def _create_lib_dir_symlink_on_targets(self):
         """
@@ -250,13 +296,19 @@ class InstallWorld(cli.Application):
         )
         _, failed = lib_rename.run()
         if failed:
-            self.logger.error(
-                "%d targets failed to create symlink to scap installation lib dir", failed
+            self._abort(
+                "%d targets failed to create symlink to scap installation lib dir" % failed
             )
-            utils.abort("Failed to create lib dir symlink for all targets")
 
     def _get_ssh_job_for(self, hosts) -> ssh.Job:
         return ssh.Job(hosts, user=self.install_user, key=self.install_user_ssh_key)
+
+    def _abort(self, message):
+        self.logger.error(message)
+        if self.arguments.batch:
+            # Exit quietly to avoid the error bubbling up and affecting the caller (e.g. Puppet)
+            exit(0)
+        utils.abort("Install failed")
 
 
 def _get_scap_rsync_call_for(master, destination_dir):
