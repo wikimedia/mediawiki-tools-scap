@@ -20,9 +20,9 @@ then
     exit 1
 fi
 
-tmp="$(mktemp)"
+builder_image_id="$(mktemp)"
 
-trap 'rm -f "$tmp"' EXIT
+trap 'rm -f "$builder_image_id"' EXIT
 
 builddir="$1"
 
@@ -35,8 +35,8 @@ mkdir -p "$builddir/src"
 # Make builddir absolute.
 builddir="$(cd "$builddir" && pwd)"
 
-$hideok docker build --iidfile "$tmp" .
+$hideok docker build --iidfile "$builder_image_id" .
 docker run --rm \
        --mount type=bind,source="$builddir",target=/build \
        --mount type=bind,source="$(pwd)",target=/build/src \
-       "$(cat "$tmp")"
+       "$(cat "$builder_image_id")"
