@@ -1,3 +1,10 @@
+scap (4.8.2-1) unstable; urgency=medium
+
+  * Added python3-packaging to deb deps list
+  * build-deb-in-docker: Rename a variable
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Thu, 02 Jun 2022 08:36:38 -0700
+
 scap (4.8.1-1) unstable; urgency=medium
 
   * Don't attempt php fpm restart if not configured
