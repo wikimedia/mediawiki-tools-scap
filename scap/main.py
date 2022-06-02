@@ -181,7 +181,7 @@ class AbstractSync(cli.Application):
         logger = self.get_logger()
 
         for version, wikidb in self.active_wikiversions("stage", return_type=dict).items():
-            logger.debug("Testing eval.php with {}".format(wikidb))
+            logger.debug("Testing {} with eval.php using {}".format(version, wikidb))
             with utils.suppress_backtrace():
                 stderr = mwscript("eval.php", "--wiki", wikidb)
                 if stderr:
