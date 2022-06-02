@@ -27,6 +27,7 @@ Architecture: all
 Depends: ${python3:Depends}, ${misc:Depends},
   git,
   python3,
+  python3-packaging,
   python3-jinja2,
   python3-pygments,
   python3-requests,
