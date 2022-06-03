@@ -98,21 +98,21 @@ class InstallWorld(cli.Application):
                 ):
                     utils.abort("Canceled by user")
 
-                self.announce(
-                    """Installing scap version "%s" for %d hosts"""
-                    % (self.version, len(self.targets))
-                )
+                # self.announce(
+                #     """Installing scap version "%s" for %d hosts"""
+                #     % (self.version, len(self.targets))
+                # )
 
-                self._install_local_scap()
+                # self._install_local_scap()
                 self._sync_masters_scap_installation()
                 self._sync_targets_scap_installation()
                 # Filthy hack to have the lib dir automatically added to `sys.path` in targets
                 self._create_lib_dir_symlink_on_targets()
 
-                self.announce(
-                    """Installation of scap version "%s" completed for %d hosts"""
-                    % (self.version, len(self.targets))
-                )
+                # self.announce(
+                #     """Installation of scap version "%s" completed for %d hosts"""
+                #     % (self.version, len(self.targets))
+                # )
 
     def _initialize_from_config(self):
         self.masters = self.get_master_list()
