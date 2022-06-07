@@ -24,6 +24,12 @@
 import os
 import sys
 
+if sys.prefix == sys.base_prefix:
+    print(
+        "WARN: Not running from a virtual environment. Scap will fail to start unless its"
+        " dependencies have been installed on the system"
+    )
+
 # Add scap package to search path
 SCRIPT = os.path.realpath(sys.argv[0])
 SCAP_SRC = os.path.dirname(os.path.dirname(SCRIPT))
