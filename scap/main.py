@@ -78,6 +78,11 @@ class AbstractSync(cli.Application):
         action="store_true",
         help="Perform all operations up to but not including rsyncing to any host",
     )
+    @cli.argument(
+        "--pause-after-testserver-sync",
+        action="store_true",
+        help="Pause after syncing testservers and prompt the user to confirm to continue syncing",
+    )
     @cli.argument("message", nargs="*", help="Log message for SAL")
     def main(self, *extra_args):
         """Perform a sync operation to the cluster."""
@@ -108,10 +113,20 @@ class AbstractSync(cli.Application):
             full_target_list = self._get_target_list()
 
             if not self.arguments.force:
+                testservers = utils.list_intersection(self._get_testserver_list(), full_target_list)
+                if len(testservers) > 0:
+                    self.get_logger().info("Syncing to testservers")
+                    self.sync_target(testservers, "testservers")
+
+                    if self.arguments.pause_after_testserver_sync:
+                        utils.prompt_for_approval_or_exit('Changes synced to: %s.\nPlease do any necessary checks '
+                                                          'before continuing.\n' % ', '.join(testservers) +
+                                                          'Continue with sync? (y/N): ', "Sync cancelled.")
+
                 canaries = utils.list_intersection(self._get_canary_list(), full_target_list)
                 if len(canaries) > 0:
                     with log.Timer("sync-check-canaries", self.get_stats()) as timer:
-                        self.sync_canary(canaries)
+                        self.sync_target(canaries, "canaries")
                         timer.mark("Canaries Synced")
                         # We need a list of lists here.
                         self._restart_php_hostgroups([canaries])
@@ -206,6 +221,10 @@ class AbstractSync(cli.Application):
             set(self._get_proxy_list())
             | set(targets.get("dsh_targets", self.config).all)
         )
+
+    def _get_testserver_list(self):
+        """ Get list of Mediawiki testservers."""
+        return targets.get("dsh_testservers", self.config).all
 
     def _get_api_canary_list(self):
         """Get list of MediaWiki api canaries."""
@@ -353,11 +372,13 @@ class AbstractSync(cli.Application):
     def _after_lock_release(self):
         pass
 
-    def sync_canary(self, canaries=None):
+    def sync_target(self, targets=None, type=None):
         """
-        Sync canary hosts
+        Sync targets
 
-        :param canaries: Iterable of canary servers to sync
+        :param targets: Iterable of target servers to sync
+
+        :param type: A string like "apaches" or "proxies" naming the type of target.
         """
         sync_cmd = self._apache_sync_command()
 
@@ -367,7 +388,7 @@ class AbstractSync(cli.Application):
 
         sync_cmd.append(socket.getfqdn())
 
-        self._perform_sync("canaries", sync_cmd, canaries)
+        self._perform_sync(type, sync_cmd, targets)
 
     def canary_checks(self, canaries=None, timer=None):
         """
@@ -830,6 +851,11 @@ class ScapWorld(AbstractSync):
         action="store_false",
         help="Do not print the Scap logo",
         dest="logo",
+    )
+    @cli.argument(
+        "--pause-after-testserver-sync",
+        action="store_true",
+        help="Pause after syncing testservers and prompt the user to confirm to continue syncing",
     )
     @cli.argument("message", nargs="*", help="Log message for SAL")
     def main(self, *extra_args):
