@@ -181,6 +181,8 @@ class InstallWorld(cli.Application):
             self.logger.info("""Using version "%s" found in staging area""" % self.version)
 
     def _use_version_from_args(self):
+        gitcmd("fetch", "--prune", cwd=self.config["scap_source_dir"])
+
         if self.arguments.version == "latest":
             self.version =\
                 gitcmd("tag", "--sort", "-taggerdate", cwd=self.config["scap_source_dir"]).split()[0]
