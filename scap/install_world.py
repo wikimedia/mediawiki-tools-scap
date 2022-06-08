@@ -46,7 +46,7 @@ class InstallWorld(cli.Application):
     Scap sub-command to install scap version on targets
     """
 
-    LATEST_NON_SUPPORTED_VERSION = packaging.version.Version('4.8.0')
+    MIN_VERSION = packaging.version.Version('4.9.1')
 
     def __init__(self, exe_name):
         super().__init__(exe_name)
@@ -191,7 +191,7 @@ class InstallWorld(cli.Application):
 
         try:
             requested_version = packaging.version.Version(self.version)
-            if requested_version <= InstallWorld.LATEST_NON_SUPPORTED_VERSION:
+            if requested_version < InstallWorld.MIN_VERSION:
                 utils.abort(
                     """Self-install not supported for version "%s" """ % self.arguments.version
                 )
