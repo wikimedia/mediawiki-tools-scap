@@ -1,3 +1,11 @@
+scap (4.9.2-1) unstable; urgency=medium
+
+  * install-world: remove concurrency lock
+  * Revert "Add progress reporting to php-fpm-restarts"
+  * install-world: update minimum selectable version for install
+
+ -- Jaime Nuche <jnuche@wikimedia.org>  Tue, 14 Jun 2022 17:50:34 +0200
+
 scap (4.9.1-1) unstable; urgency=medium
 
   * install-world: ensure repo tags are fetched before selecting version
