@@ -293,6 +293,12 @@ This operation can be run as many times as needed.
             head = git.clone_or_update_repo(dir, repo, branch, logger, reference,
                                             ref=ref)
 
+            # Ensure all repositories have a ssh push url
+            repo_name = os.path.relpath(repo, SOURCE_URL)
+            git.gitcmd("remote", "set-url", "--push", "origin",
+                       os.path.join(self.config["gerrit_push_url"], repo_name),
+                       cwd=dir)
+
         self.new_history.update(repo, branch, dir, head)
 
     def _master_stuff(self, branch_dir, logger):
