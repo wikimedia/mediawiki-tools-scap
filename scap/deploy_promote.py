@@ -130,7 +130,7 @@ class DeployPromote(cli.Application):
         try:
             task = json.loads(train_task_json)["current"]["task_id"]
         except (JSONDecodeError, TypeError) as e:
-            self.logger.warning("Invalid JSON received from %s:\n%s" % (api_url, e))
+            self.logger.warning("Invalid JSON received from %s:\n%s\n%s" % (api_url, train_task_json, e))
             return ""
 
         if not utils.is_phabricator_task_id(task):
