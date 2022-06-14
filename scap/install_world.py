@@ -33,7 +33,7 @@ from os.path import expanduser
 import packaging.version
 
 from scap import cli, targets, utils, ssh, log
-from scap.lock import TimeoutLock, Lock
+from scap.lock import Lock
 from scap.runcmd import gitcmd
 
 
@@ -73,11 +73,6 @@ class InstallWorld(cli.Application):
              " prefix",
     )
     @cli.argument(
-        "--lock-timeout",
-        type=int,
-        help="Timeout to wait for the install concurrency lock to be released. In minutes",
-    )
-    @cli.argument(
         "-y", "--yes",
         action="store_true",
         help="Answer yes to all prompts"
@@ -102,38 +97,34 @@ class InstallWorld(cli.Application):
             # mode. Messages will still be logged
             self.arguments.no_log_message = True
 
-        lock_timeout = \
-            {"timeout": self.arguments.lock_timeout} if self.arguments.lock_timeout else {}
-        # The TimeoutLock serializes potential scap operations running in parallel
-        with TimeoutLock(self.config["serializing_lock_file"], name="concurrent install", **lock_timeout):
-            # The Lock ensures a scap installation cannot happen during a Mediawiki update
-            with Lock(self.get_lock_file(), "Scap is being updated"):
-                self._initialize_from_config()
-                self._select_targets()
-                self._select_version()
+        # The Lock ensures a scap installation cannot happen during a Mediawiki update
+        with Lock(self.get_lock_file(), "Scap is being updated"):
+            self._initialize_from_config()
+            self._select_targets()
+            self._select_version()
 
-                if not self.arguments.yes and not utils.prompt_user_for_confirmation(
-                    """Scap version "%s" will be installed on %d host(s). Proceed?"""
-                    % (self.version, len(self.targets))
-                ):
-                    utils.abort("Canceled by user")
+            if not self.arguments.yes and not utils.prompt_user_for_confirmation(
+                """Scap version "%s" will be installed on %d host(s). Proceed?"""
+                % (self.version, len(self.targets))
+            ):
+                utils.abort("Canceled by user")
 
-                self.announce(
-                    """Installing scap version "%s" for %d hosts"""
-                    % (self.version, len(self.targets))
-                )
+            self.announce(
+                """Installing scap version "%s" for %d hosts"""
+                % (self.version, len(self.targets))
+            )
 
-                if not self.arguments.sync_only:
-                    self._install_local_scap()
-                    self._sync_masters_scap_installation()
-                self._sync_targets_scap_installation()
-                # Filthy hack to have the lib dir automatically added to `sys.path` in targets
-                self._create_lib_dir_symlink_on_targets()
+            if not self.arguments.sync_only:
+                self._install_local_scap()
+                self._sync_masters_scap_installation()
+            self._sync_targets_scap_installation()
+            # Filthy hack to have the lib dir automatically added to `sys.path` in targets
+            self._create_lib_dir_symlink_on_targets()
 
-                self.announce(
-                    """Installation of scap version "%s" completed for %d hosts"""
-                    % (self.version, len(self.targets))
-                )
+            self.announce(
+                """Installation of scap version "%s" completed for %d hosts"""
+                % (self.version, len(self.targets))
+            )
 
     def _initialize_from_config(self):
         self.masters = self.get_master_list()
