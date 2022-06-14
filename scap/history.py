@@ -7,6 +7,7 @@
 
 from datetime import datetime
 import getpass
+import io
 import json
 import os
 from prettytable import PrettyTable
@@ -59,6 +60,48 @@ def log(entry, path):
             f.seek(0)
             f.writelines(lines)
             f.truncate(f.tell())
+
+
+def update_latest(path, **kwargs):
+    """
+    Updates the metadata of the latest history log entry.
+    """
+
+    try:
+        with utils.open_with_lock(path, 'r+') as f:
+            # scan back through the end of the file until we find the contents
+            # immediately following the second to last newline
+            f.seek(0, io.SEEK_END)
+            pos = f.tell()
+            scan_size = 2048
+            entry_pos = 0
+            entry_json = None
+            while pos > 0:
+                pos = f.seek(max(pos - scan_size, 0))
+                contents = f.read()
+                # use end=-1 to always ignore the final newline
+                entry_pos = contents.rfind("\n", 0, -1)
+
+                if entry_pos >= 0:
+                    entry_json = contents[entry_pos+1:-1]
+                    break
+
+            if entry_json is None:
+                return
+
+            # parse the currently read log line as a single history entry,
+            # update it, write it back to the same position, and truncate the
+            # file
+            entry = Entry.loads(entry_json)
+            for attr in kwargs:
+                setattr(entry, attr, kwargs[attr])
+
+            f.seek(pos + entry_pos + 1)
+            f.write(entry.dumps() + "\n")
+            f.truncate(f.tell())
+
+    except FileNotFoundError:
+        pass
 
 
 def strip_common_dirname(paths):
@@ -133,20 +176,25 @@ class History:
         self.entries = entries
         self.display_repos = display_repos
 
-    def browse(self, completed_only=True):
+    def browse(self, filter=None):
         """
         Interactively browses the history and returns the user-selected entry.
-        """
 
-        return browser.browse(self.completed() if completed_only else self)
-
-    def completed(self):
+        :param filter: Optional lambda used to filter history entries. By
+                       default only completed and synced entries are shown.
         """
-        Returns a history object with only completed entries.
+        return browser.browse(self.filter(
+            (lambda e: e.completed and e.synced) if filter is None else filter
+        ))
+
+    def filter(self, fltr):
+        """
+        Returns a history object with only entries for which the given lambda
+        returns True.
         """
 
         return self.__class__(
-            filter(lambda e: e.completed, self.entries),
+            filter(fltr, self.entries),
             display_repos=self.display_repos
         )
 
@@ -173,6 +221,7 @@ class Entry:
     """
 
     completed = False
+    synced = False
     timestamp = None
     checkouts = None
     username = None

@@ -1,6 +1,8 @@
 from datetime import datetime
 import getpass
 import io
+import os
+import tempfile
 
 from scap import history
 
@@ -15,6 +17,45 @@ def test_strip_common_dirname():
         "a/repo",
         "b/repo",
     ]
+
+
+def test_update_latest():
+    with tempfile.TemporaryDirectory() as tmpdir:
+        log = os.path.join(tmpdir, "history.log")
+        with open(log, 'w') as f:
+            f.write((
+                '{'
+                '"checkouts":{"a/repo":{"a-branch":{"a-dir":"foo123"}}},'
+                '"completed":true,'
+                '"timestamp":"2022-03-01 01:02:03",'
+                '"username":"scappy"'
+                "}\n"
+                '{'
+                '"checkouts":{"a/repo":{"a-branch":{"a-dir":"bar123"}}},'
+                '"completed":true,'
+                '"timestamp":"2022-03-03 01:02:03",'
+                '"username":"scappy"'
+                "}\n"
+            ))
+
+        history.update_latest(log, synced=True)
+
+        with open(log, 'r') as f:
+            assert f.read() == (
+                '{'
+                '"checkouts":{"a/repo":{"a-branch":{"a-dir":"foo123"}}},'
+                '"completed":true,'
+                '"timestamp":"2022-03-01 01:02:03",'
+                '"username":"scappy"'
+                "}\n"
+                '{'
+                '"checkouts":{"a/repo":{"a-branch":{"a-dir":"bar123"}}},'
+                '"completed":true,'
+                '"synced":true,'
+                '"timestamp":"2022-03-03 01:02:03",'
+                '"username":"scappy"'
+                "}\n"
+            )
 
 
 def test_history_load():

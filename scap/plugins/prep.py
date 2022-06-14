@@ -118,15 +118,11 @@ This operation can be run as many times as needed.
             logger = self.get_logger()
 
             self.new_history = history.Entry.now()
-            self.history_path = os.path.join(
-                self.config["stage_dir"],
-                "scap/log/history.log",
-            )
 
             if self.arguments.branch == "auto" and self.arguments.history:
                 display_repos = ['mediawiki/core', 'operations/mediawiki-config']
                 logger.info("Browsing history")
-                hist = history.load(self.history_path, display_repos=display_repos)
+                hist = history.load(self.config["history_log"], display_repos=display_repos)
                 self.replay_history = hist.browse()
                 if self.replay_history is None:
                     logger.info("No history selected. Aborting.")
@@ -161,7 +157,7 @@ This operation can be run as many times as needed.
 
                     self.new_history.completed = True
                 finally:
-                    history.log(self.new_history, self.history_path)
+                    history.log(self.new_history, self.config["history_log"])
 
     def _copy_private_settings(self, src, logger):
         dest = os.path.join(self.config["stage_dir"], "private", "PrivateSettings.php")

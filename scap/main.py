@@ -39,7 +39,7 @@ import sys
 import time
 import yaml
 
-from scap import ansi
+from scap import ansi, history
 import scap.arg as arg
 import scap.cli as cli
 import scap.lint as lint
@@ -151,6 +151,8 @@ class AbstractSync(cli.Application):
                                    self._apache_sync_command(proxies),
                                    full_target_list,
                                    shuffle=True)
+
+            history.update_latest(self.config["history_log"], synced=True)
 
             self._after_cluster_sync()
 
