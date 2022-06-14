@@ -28,6 +28,7 @@ import logging
 import operator
 import os
 import re
+import shlex
 import subprocess
 import sys
 import time
@@ -35,6 +36,7 @@ from functools import reduce
 
 import scap.plugins
 
+from scap.ssh import SSH_WITH_KEY
 from scap.terminal import TERM
 import scap.arg as arg
 import scap.config as config
@@ -116,11 +118,16 @@ class Application(object):
         scap = os.path.join(os.path.dirname(sys.argv[0]), "scap")
         return os.environ.get("SCAP", scap)
 
-    def get_keyholder_key(self):
+    def get_keyholder_key(self, ssh_user=None, key_name=None):
         """Get the private key for IdentityFile use in ssh."""
+
+        if ssh_user is None:
+            ssh_user = self.config["ssh_user"]
+        if key_name is None:
+            key_name = self.config.get("keyholder_key")
+
         key_dir = "/etc/keyholder.d"
-        key_safe_name = re.sub(r"\W", "_", self.config["ssh_user"])
-        key_name = self.config.get("keyholder_key")
+        key_safe_name = re.sub(r"\W", "_", ssh_user)
         if key_name is None:
             key_name = key_safe_name
         key_path = os.path.join(key_dir, key_name)
@@ -292,7 +299,7 @@ class Application(object):
 
         args = [self.get_script_path()] + scap_cmd + self.format_passthrough_args()
         with utils.suppress_backtrace():
-            subprocess.run(args, check=True, env=self.get_user_ssh_env())
+            subprocess.run(args, check=True, env=self.get_gerrit_ssh_env())
 
     def scap_check_output(self, scap_cmd: list) -> str:
         """
@@ -309,23 +316,50 @@ class Application(object):
                 check=True,
                 stdout=subprocess.PIPE,
                 universal_newlines=True,
-                env=self.get_user_ssh_env()
+                env=self.get_gerrit_ssh_env()
             ).stdout.strip()
 
-    def get_user_ssh_env(self) -> dict:
+    def get_gerrit_ssh_env(self) -> dict:
         """
-        An environment with a user-supplied ssh agent socket (if one was provided). The override is
-        required until we implement a long-term solution for
-        https://phabricator.wikimedia.org/T304557, at which point we can remove this method
+        An environment to interact with Gerrit over ssh
 
-        :returns: The current environment, where "SSH_AUTH_SOCK" is set to the user ssh agent socket
-                  , if provided
+        When `gerrit_push_user` scap configuration is set, set the
+        `GIT_SSH_COMMAND` environment variable to have git ssh to use that user
+        instead of the username of the person that invoked scap.
+
+        Else if a user-supplied ssh agent socket was provided, override the one
+        set by scap which does not have the invoking user key.
+
+        Eventually we will always require `gerrit_push_user` to be set.
+
+        See https://phabricator.wikimedia.org/T304557
+
+        :returns: environment suitable for sshing to Gerrit
         """
 
-        user_env = os.environ.copy()
-        if self.user_ssh_auth_sock:
-            user_env["SSH_AUTH_SOCK"] = self.user_ssh_auth_sock
-        return user_env
+        # Copy from the user environment
+        gerrit_env = os.environ.copy()
+
+        if self.config["gerrit_push_user"]:
+            key_file = self.get_keyholder_key(
+                ssh_user=self.config["gerrit_push_user"],
+                )
+            ssh_command = SSH_WITH_KEY(
+                user=self.config["gerrit_push_user"],
+                key=key_file
+            )
+            # Do not redirect ssh stdin from /dev/null since git sends data
+            # this way.
+            ssh_command.remove('-n')
+
+            # With python 3.8 we can use shlex.join(ssh_command)
+            gerrit_env["GIT_SSH_COMMAND"] = ' '.join(
+                shlex.quote(arg) for arg in ssh_command)
+
+        elif self.user_ssh_auth_sock:
+            gerrit_env["SSH_AUTH_SOCK"] = self.user_ssh_auth_sock
+
+        return gerrit_env
 
     def _handle_exception(self, ex):
         """
@@ -386,13 +420,23 @@ class Application(object):
 
     def _check_user_auth_sock(self):
         """
-        Similar to `_assert_auth_sock` method above. Unlike `_assert_auth_sock`, this method:
-         * Checks the original SSH_AUTH_SOCK provided in the environment by the user, before scap
-           potentially overrides it
-         * Is meant to be called during operations where a user-provided ssh-agent is required
-           (e.g. deploy-promote). It is not a global requirement of scap
+        Similar to `_assert_auth_sock` method above.
+
+        Returns immediately when "gerrit_push_user" has been configured, it is
+        assumed the identity is provided in the ssh authentication socket /
+        keyholder.
+
+        Unlike `_assert_auth_sock`, this method:
+         * Checks the original SSH_AUTH_SOCK provided in the environment
+           by the user, before scap potentially overrides it
+         * Is meant to be called during operations where a user-provided
+           ssh-agent is required (e.g. deploy-promote). It is not a global
+           requirement of scap
 
         """
+        if self.config["gerrit_push_user"]:
+            return
+
         if not self.user_ssh_auth_sock:
             utils.abort(
                 "You need to provide access to your own ssh-agent\n"

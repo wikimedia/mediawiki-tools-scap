@@ -317,6 +317,18 @@ def test_assert_ssh_auth_sock(cmd):
     cmd._assert_auth_sock()
 
 
+def test_check_user_auth_sock(cmd):
+    cmd._load_config()
+
+    assert "gerrit_push_user" in cmd.config
+    assert cmd.config["gerrit_push_user"] is None
+    with pytest.raises(SystemExit):
+        cmd._check_user_auth_sock()
+
+    cmd.config["gerrit_push_user"] = "trainbotuser"
+    assert cmd._check_user_auth_sock() is None
+
+
 def test_factory(cmd):
     assert isinstance(cmd._argparser, arg.ScapArgParser)
     assert cmd.arguments is not None

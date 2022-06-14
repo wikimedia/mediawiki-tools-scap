@@ -194,7 +194,7 @@ class DeployPromote(cli.Application):
         return True
 
     def _push_patch(self):
-        gitcmd("push", "origin", "HEAD:%s" % self._get_git_push_dest(), env=self.get_user_ssh_env())
+        gitcmd("push", "origin", "HEAD:%s" % self._get_git_push_dest(), env=self.get_gerrit_ssh_env())
 
         change_id = re.search(r"(?m)Change-Id:.+$", gitcmd("log", "-1")).group()
         gitcmd("reset", "--hard", "HEAD^")

@@ -102,7 +102,7 @@ class Backport(cli.Application):
 
         with utils.suppress_backtrace():
             subprocess.check_call(['ssh', '-p', '29418', gerrit_hostname, 'gerrit'] +
-                                  gerrit_arguments, env=self.get_user_ssh_env(),
+                                  gerrit_arguments, env=self.get_gerrit_ssh_env(),
                                   stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
     def check_ssh_auth(self):
