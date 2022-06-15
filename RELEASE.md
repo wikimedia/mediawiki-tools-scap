@@ -8,6 +8,10 @@ and automated testing.
 
 ## Test latest Scap code using the Beta Cluster
 
+NOTE: _Production is currently using scap self-installation (scap-over-scap) to update scap versions,
+but the Debian package is still used in the beta cluster. The plan is to eventually phase out the
+Debian package and use scap-o-scap in beta too._
+
 Before you make a new release you should verify that the latest Scap
 code works in beta cluster.
 
@@ -114,16 +118,12 @@ happen in a clone of the Scap git repository.
 * Tag version: `git tag --sign -m "Release $VERS" $VERS HEAD`
 * Push the tag to Gerrit: `git push --tags origin $VERS`
 
-## Ask SRE to build and install a new Debian package
+## Deploy the new version in production
 
-File a task in Phabricator:
-
-* title: Deploy Scap version $VERS
-* description:
-```
-Dear SRE team,
-Please build and deploy the version 4.0.0 of scap using the instructions in https://wikitech.wikimedia.org/wiki/Scap/Release
-<other details that may be relevant>
-Thanks in advance!
-```
-* tags: scap serviceops release-engineering-team
+* Make sure you select a time window where no deployments are happening
+* On the main deployment server (**deploy1002.eqiad.wmnet** at the time of writing), run
+`scap install-world`. This will select the latest available version tag for installation and
+prompt you for confirmation.
+* If you need to roll back, you can specify a particular version tag with e.g.
+`scap install-world --version 4.9.3`
+* Profit!
