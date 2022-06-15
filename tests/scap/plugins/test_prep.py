@@ -2,7 +2,6 @@ import os.path
 from unittest.mock import patch
 
 from scap.plugins.prep import CheckoutMediaWiki
-from scap.plugins.prep import SOURCE_URL
 import scap.cli
 
 
@@ -26,7 +25,7 @@ def test_scap_prep_sets_a_push_url(git, _):
     dest_dir = "/dest"
 
     scap_prep._clone_or_update_repo(
-        os.path.join(SOURCE_URL, repo_name),
+        os.path.join(scap_prep.config["gerrit_url"], repo_name),
         'wmf/1.99.0.wmf-33',
         dest_dir,
         None

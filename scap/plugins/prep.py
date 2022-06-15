@@ -14,8 +14,6 @@ from scap import log
 from scap import utils
 from scap.lock import TimeoutLock
 
-SOURCE_URL = "https://gerrit.wikimedia.org/r/"
-
 
 def version_parser(ver):
     """Validate our version number formats."""
@@ -146,11 +144,12 @@ This operation can be run as many times as needed.
                     if self.arguments.branch == "auto":
                         logger.info("Auto mode")
 
-                        self._clone_or_update_repo(os.path.join(SOURCE_URL, "operations/mediawiki-config"),
-                                                   self.config["operations_mediawiki_config_branch"],
-                                                   self.config["stage_dir"],
-                                                   logger,
-                                                   )
+                        self._clone_or_update_repo(
+                            os.path.join(self.config["gerrit_url"], "operations/mediawiki-config"),
+                            self.config["operations_mediawiki_config_branch"],
+                            self.config["stage_dir"],
+                            logger,
+                            )
 
                         if self.arguments.copy_private_settings:
                             self._copy_private_settings(self.arguments.copy_private_settings, logger)
@@ -186,11 +185,13 @@ This operation can be run as many times as needed.
             self._setup_patches(branch)
 
         # Note that this discards any local commits (e.g., security patches).
-        self._clone_or_update_repo(os.path.join(SOURCE_URL, "mediawiki/core"),
-                                   checkout_version,
-                                   dest_dir,
-                                   logger,
-                                   reference=reference_dir)
+        self._clone_or_update_repo(
+            os.path.join(self.config["gerrit_url"], "mediawiki/core"),
+            checkout_version,
+            dest_dir,
+            logger,
+            reference=reference_dir,
+        )
 
         if checkout_version == "master":
             self._master_stuff(dest_dir, logger)
@@ -294,7 +295,7 @@ This operation can be run as many times as needed.
                                             ref=ref)
 
             # Ensure all repositories have a ssh push url
-            repo_name = os.path.relpath(repo, SOURCE_URL)
+            repo_name = os.path.relpath(repo, self.config["gerrit_url"])
             git.gitcmd("remote", "set-url", "--push", "origin",
                        os.path.join(self.config["gerrit_push_url"], repo_name),
                        cwd=dir)
@@ -310,7 +311,7 @@ This operation can be run as many times as needed.
 
         for type in ["extensions", "vendor", "skins"]:
 
-            repo = os.path.join(SOURCE_URL, "mediawiki/{}".format(type))
+            repo = os.path.join(self.config["gerrit_url"], "mediawiki/{}".format(type))
             path = os.path.join(branch_dir, type)
 
             # If mediawiki/core has just been freshly cloned, the
