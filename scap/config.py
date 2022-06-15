@@ -60,7 +60,6 @@ DEFAULT_CONFIG = {
     "wmf_realm": (str, "production"),
     "ssh_user": (str, getpass.getuser()),
     "datacenter": (str, "eqiad"),
-    "dsh_testservers": (str, "testserver"),
     "dsh_targets": (str, "mediawiki-installation"),
     "dsh_masters": (str, "scap-masters"),
     "dsh_proxies": (str, "scap-proxies"),

@@ -73,8 +73,7 @@ class Backport(cli.Application):
         self.validate_changes(change_details)
         self.check_dependencies(change_details, change_numbers)
         if not self.answer_yes:
-            utils.prompt_for_approval_or_exit("Backport the changes %s? (y/N): " % change_numbers,
-                                              "Backport cancelled.")
+            self.prompt_for_approval_or_exit("Backport the changes %s? (y/N): " % change_numbers, "Backport cancelled.")
         self.approve_changes(change_details)
         self.wait_for_changes_to_be_merged(change_numbers)
         self.confirm_commits_to_sync(change_details)
@@ -83,27 +82,17 @@ class Backport(cli.Application):
         if self.arguments.stop_before_sync:
             return 0
 
-        self.sync_world(change_details)
+        self.scap_check_call(["sync-world", "Backport for %s" % ",".join(
+            ["[[gerrit:%d]] %s" % (change["_number"], change["subject"]) for change in change_details])])
 
         return 0
-
-    def sync_world(self, change_details):
-        sync_arguments = ["Backport for %s" % ","
-                          .join(["[[gerrit:%d]] %s" %
-                                 (change["_number"], change["subject"]) for change in change_details])]
-
-        if not self.answer_yes:
-            sync_arguments.insert(0, "--pause-after-testserver-sync")
-
-        self.scap_check_call(["sync-world"] + sync_arguments)
 
     def gerrit_ssh(self, gerrit_arguments):
         gerrit_hostname = urllib.parse.urlparse(self.config['gerrit_url']).hostname
 
         with utils.suppress_backtrace():
             subprocess.check_call(['ssh', '-p', '29418', gerrit_hostname, 'gerrit'] +
-                                  gerrit_arguments, env=self.get_user_ssh_env(),
-                                  stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                                  gerrit_arguments, env=self.get_user_ssh_env(), stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
     def check_ssh_auth(self):
         try:
@@ -213,6 +202,11 @@ class Backport(cli.Application):
                 deps += self.get_depends_ons(change_info['id'], change_number)
 
         return deps
+
+    def prompt_for_approval_or_exit(self, prompt_message, exit_message):
+        approval = input(prompt_message)
+        if approval.lower() != "y":
+            raise SystemExit(exit_message)
 
     def wait_for_changes_to_be_merged(self, change_numbers):
         self.get_logger().info('Waiting for changes to be merged. '
@@ -348,9 +342,13 @@ class Backport(cli.Application):
                     with utils.suppress_backtrace():
                         subprocess.check_call(["git", "--no-pager", "-C", repo, "show"] + list(extra_commits))
 
-                utils.prompt_for_approval_or_exit('There were unexpected commits pulled from origin for %s. '
-                                                  'Continue with backport? (y/N): ' % repo, "Backport cancelled.")
+                self.prompt_for_approval_or_exit('There were unexpected commits pulled from origin for %s. '
+                                                 'Continue with backport? (y/N): ' % repo, "Backport cancelled.")
 
             self.get_logger().info('Printing git status for %s for your reference...' % repo)
             with utils.suppress_backtrace():
                 subprocess.check_call(["git", "-C", repo, "status"])
+
+        if not self.answer_yes:
+            self.prompt_for_approval_or_exit('All live versions will be synced. Continue? (y/N): ',
+                                             "Sync cancelled.")

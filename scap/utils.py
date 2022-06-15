@@ -1003,12 +1003,6 @@ def empty_file_mask():
     os.umask(orig_umask)
 
 
-def prompt_for_approval_or_exit(prompt_message, exit_message):
-    approval = input(prompt_message)
-    if approval.lower() != "y":
-        abort(exit_message)
-
-
 def abort(message):
     raise SystemExit("Aborting: %s" % message)
 
