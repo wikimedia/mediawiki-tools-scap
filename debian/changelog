@@ -1,3 +1,11 @@
+scap (4.9.3-1) unstable; urgency=medium
+
+  * install-world: use bootstrap script from scap source dir
+  * scap backport: deploy to mwdebug
+  * scap prep: Print response from https://train-blockers.toolforge.org/api.php if not parseable as JSON
+
+ -- Jaime Nuche <jnuche@wikimedia.org>  Wed, 15 Jun 2022 10:03:50 +0200
+
 scap (4.9.2-1) unstable; urgency=medium
 
   * install-world: remove concurrency lock
