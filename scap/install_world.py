@@ -27,7 +27,6 @@ import random
 import re
 import socket
 import subprocess
-import sys
 from os.path import expanduser
 
 import packaging.version
@@ -205,7 +204,7 @@ class InstallWorld(cli.Application):
     def _install_local_scap(self):
         self.logger.info("Installing version %s locally" % self.version)
 
-        install_script_path = os.path.join(os.path.dirname(sys.argv[0]), "install_local_version.sh")
+        install_script_path = "%s/bin/install_local_version.sh" % self.config["scap_source_dir"]
         cmd = [
             install_script_path,
             "-u", self.install_user,
