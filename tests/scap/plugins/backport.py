@@ -8,7 +8,7 @@ import scap.cli
 @patch.dict('os.environ', clear=True)
 def test_backport_uses_gerrit_push_user_config():
     scap_backport = scap.cli.Application.factory(["backport"])
-    scap_backport._load_config()
+    scap_backport.setup()
 
     with mock.patch('subprocess.check_call') as check:
         scap_backport._gerrit_ssh([])

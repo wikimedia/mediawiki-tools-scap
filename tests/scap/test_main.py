@@ -20,13 +20,9 @@ def cmd(request):
     else:
         app = cli.Application.factory(request.param)
 
-    # Do some basic initialization (see cli.Application.run)
-    # Let each application handle `extra_args`
-    app.arguments, app.extra_arguments = app._process_arguments(
-        app.arguments, app.extra_arguments
-    )
-    app._load_config()
-    app._setup_loggers()
+    # Do some basic initialization
+    app.setup()
+
     return app
 
 
@@ -126,13 +122,11 @@ def test__check_sync_flag(cmd, mocker, lock_exists):
 
 def test_exclude_wikiversions():
     sync_world_app = cli.Application.factory(["sync-world"])
-    sync_world_app._load_config()
-    sync_world_app._setup_loggers()
+    sync_world_app.setup()
 
     assert "--exclude-wikiversions.php" in sync_world_app._base_scap_pull_command()
 
     sync_wikiversions_app = cli.Application.factory(["sync-wikiversions"])
-    sync_wikiversions_app._load_config()
-    sync_wikiversions_app._setup_loggers()
+    sync_wikiversions_app.setup()
 
     assert "--exclude-wikiversions.php" not in sync_wikiversions_app._base_scap_pull_command()

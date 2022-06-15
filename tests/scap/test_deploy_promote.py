@@ -70,11 +70,10 @@ def get_deploy_promote_with_messages(task, p):
 def test_push_patch(*args):
 
     scap_deploy_promote = scap.cli.Application.factory(
-        ["deploy-promote", "group1"])
-    scap_deploy_promote._load_config()
-    scap_deploy_promote.config["ssh_auth_sock"] = "/keyholder.sock"
-    scap_deploy_promote._setup_environ()
-    scap_deploy_promote._setup_loggers()
+        ["deploy-promote",
+         "-D", "ssh_auth_sock:/keyholder.sock",
+         "group1"])
+    scap_deploy_promote.setup()
     scap_deploy_promote.logger = scap_deploy_promote.get_logger()
 
     with patch('scap.deploy_promote.gitcmd') as gitcmd:

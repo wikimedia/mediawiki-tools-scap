@@ -221,6 +221,16 @@ class Application(object):
 
         return args, extra_args
 
+    def setup(self):
+        # Let each application handle `extra_args`
+        self.arguments, self.extra_arguments = self._process_arguments(
+            self.arguments, self.extra_arguments
+        )
+
+        self._load_config()
+        self._setup_loggers()
+        self._setup_environ()
+
     def _load_config(self):
         """Load configuration."""
 
@@ -505,14 +515,8 @@ class Application(object):
             if os.geteuid() == 0:
                 raise OSError(errno.EPERM, "Scap should not be run as root")
 
-            # Let each application handle `extra_args`
-            app.arguments, app.extra_arguments = app._process_arguments(
-                app.arguments, app.extra_arguments
-            )
+            app.setup()
 
-            app._load_config()
-            app._setup_loggers()
-            app._setup_environ()
             if "subcommand" in app.arguments and app.arguments.subcommand:
                 method = app.arguments.subcommand
                 exit_status = method(app, app.extra_arguments)

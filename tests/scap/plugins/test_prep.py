@@ -10,8 +10,7 @@ import scap.cli
 def test_scap_prep_sets_a_push_url(git, _):
 
     scap_prep = scap.cli.Application.factory(["prep", "1.99.0-wmf.33"])
-    scap_prep._load_config()
-    scap_prep._setup_loggers()
+    scap_prep.setup()
 
     # config has been loaded
     assert "gerrit_push_url" in scap_prep.config
