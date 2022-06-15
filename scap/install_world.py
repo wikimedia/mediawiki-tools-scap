@@ -45,7 +45,7 @@ class InstallWorld(cli.Application):
     Scap sub-command to install scap version on targets
     """
 
-    MIN_VERSION = packaging.version.Version('4.9.1')
+    MIN_VERSION = packaging.version.Version('4.9.3')
 
     def __init__(self, exe_name):
         super().__init__(exe_name)

@@ -6,7 +6,7 @@
 #    * Bootstrap/stage a scap installation on a deploy server
 #    * Allow a RelEng operator to create their own installation in their home
 #
-# The script can be used to install versions >=4.9.1 of scap
+# The script can be used to install versions >=4.9.3 of scap
 
 set -eu -o pipefail
 
