@@ -78,6 +78,9 @@ class GerritSession(object):
     def change(self, changeid, **kwargs):
         return Change(changeid, session=self, **kwargs)
 
+    def change_revision_commit(self, project_branch_id, **kwargs):
+        return ChangeRevisionCommit(project_branch_id, session=self, **kwargs)
+
     def submitted_together(self, changeid, **kwargs):
         return SubmittedTogether(changeid, session=self, **kwargs)
 
@@ -249,6 +252,19 @@ class Change(GerritEndpoint):
         super().__init__(path='changes/%s' % changeid, **kwargs)
         self.changeid = changeid
         self.revision = ChangeRevisions(changeid, revisionid=revisionid,
+                                        session=self._session)
+
+
+class ChangeRevisionCommit(GerritEndpoint):
+    """ Get the commit hash of a change """
+
+    project_branch_id = None
+    revisionid = "current"
+
+    def __init__(self, project_branch_id, revisionid="current", **kwargs):
+        super().__init__(path='changes/%s/revisions/%s/commit' % (project_branch_id, revisionid), **kwargs)
+        self.project_branch_id = project_branch_id
+        self.revision = ChangeRevisions(project_branch_id, revisionid=revisionid,
                                         session=self._session)
 
 
