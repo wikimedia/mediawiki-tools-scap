@@ -118,8 +118,8 @@ class AbstractSync(cli.Application):
                     self.get_logger().info("Syncing to testservers")
                     self.sync_target(testservers, "testservers")
 
-                    # Not all subclasses of AbstractSync define the --pause-after-testserver-sync, so
-                    # we can't assume it is in self.arguments.
+                    # Not all subclasses of AbstractSync define the --pause-after-testserver-sync argument,
+                    # so we can't assume it is in self.arguments.
                     if getattr(self.arguments, "pause_after_testserver_sync", False):
                         utils.prompt_for_approval_or_exit('Changes synced to: %s.\nPlease do any necessary checks '
                                                           'before continuing.\n' % ', '.join(testservers) +
