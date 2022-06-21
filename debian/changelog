@@ -1,3 +1,16 @@
+scap (4.9.5-1) unstable; urgency=medium
+
+  * scap install-world rsync fix
+  * scap prep: make Gerrit source URL configurable
+  * add a missing word to a comment
+  * scap backport: deploy to mwdebug (revised)
+  * scap prep: set ssh push url on all repositories
+  * install-world: update minimum allowed scap version
+  * release readme: update to reflect installation via scap-over-scap
+  * startup: warn user if not running from a Python virtual environment
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Tue, 21 Jun 2022 10:55:54 -0700
+
 scap (4.9.4-1) unstable; urgency=medium
 
   * Revert "scap backport: deploy to mwdebug"
