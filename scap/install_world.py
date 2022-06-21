@@ -315,6 +315,6 @@ def _get_scap_rsync_call_for(master, destination_dir):
         "--exclude=*.swp",
         "--exclude=**/__pycache__",
         # "scap-install-staging" is an rsync module defined in the operations/puppet repo
-        "%s::scap-install-staging" % master,
-        destination_dir
+        "%s::scap-install-staging/scap/" % master,
+        "%s/scap/" % destination_dir,
     ]
