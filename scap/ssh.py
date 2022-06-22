@@ -44,8 +44,8 @@ SSH = cmd.Command(
     "-n",
     "-oBatchMode=yes",
     "-oSetupTimeout=10",
-    cmd.arg("verbose", "-v"),
     "-F/dev/null",
+    cmd.arg("verbose", "-v"),
     cmd.arg("user", "-oUser={}"),
 )
 SSH_WITH_KEY = cmd.Command(
