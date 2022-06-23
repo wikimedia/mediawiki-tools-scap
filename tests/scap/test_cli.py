@@ -120,10 +120,10 @@ def test_get_keyholder_key(app, mocker):
     assert app.get_keyholder_key() is None
     # Case 2: key exists for the ssh user
     exists.return_value = True
-    assert app.get_keyholder_key() == "/etc/keyholder.d/fuzz_buzz.pub"
+    assert app.get_keyholder_key() == "/etc/keyholder.d/fuzz_buzz"
     # Case 3: keyholder key defined
     app.config["keyholder_key"] = "pinkunicorn"
-    assert app.get_keyholder_key() == "/etc/keyholder.d/pinkunicorn.pub"
+    assert app.get_keyholder_key() == "/etc/keyholder.d/pinkunicorn"
 
 
 def test_get_master_list(app, mocker):

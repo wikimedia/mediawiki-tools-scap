@@ -117,13 +117,13 @@ class Application(object):
         return os.environ.get("SCAP", scap)
 
     def get_keyholder_key(self):
-        """Get the public key for IdentityFile use in ssh."""
+        """Get the private key for IdentityFile use in ssh."""
         key_dir = "/etc/keyholder.d"
         key_safe_name = re.sub(r"\W", "_", self.config["ssh_user"])
         key_name = self.config.get("keyholder_key")
         if key_name is None:
             key_name = key_safe_name
-        key_path = os.path.join(key_dir, "{}.pub".format(key_name))
+        key_path = os.path.join(key_dir, key_name)
 
         if os.path.exists(key_path):
             self.get_logger().debug("Using key: %s", key_path)
