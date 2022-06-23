@@ -15,6 +15,7 @@ from scap import arg, cli, lock, utils
 
 
 @cli.command("dummy")
+@mock.patch.dict('os.environ', clear=True)
 class DummyApp(cli.Application):
     """Dummy derivative class"""
 
@@ -25,6 +26,7 @@ class DummyApp(cli.Application):
 
 
 @pytest.fixture
+@mock.patch.dict('os.environ', clear=True)
 def app(name="cmd.exe"):
     """Simple, non-initialized version of the class"""
     with mock.patch("time.time") as timezero:
@@ -34,6 +36,7 @@ def app(name="cmd.exe"):
 
 
 @pytest.fixture
+@mock.patch.dict('os.environ', clear=True)
 def cmd(request):
     """Fully initialized class"""
     # This is quite convoluted.
