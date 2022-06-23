@@ -15,6 +15,9 @@ from scap import utils
 from scap.lock import TimeoutLock
 
 
+HISTORY_ABORT_STATUS = 127
+
+
 def version_parser(ver):
     """Validate our version number formats."""
     if ver == "auto":
@@ -126,13 +129,13 @@ This operation can be run as many times as needed.
                 self.replay_history = hist.browse()
                 if self.replay_history is None:
                     logger.info("No history selected. Aborting.")
-                    return
+                    return HISTORY_ABORT_STATUS
                 else:
                     summary = self.replay_history.summary(display_repos)
                     prompt = "Replay checkouts from %s?" % summary
                     if not utils.prompt_user_for_confirmation(prompt):
                         logger.info("Aborting.")
-                        return
+                        return HISTORY_ABORT_STATUS
                     logger.info("Replaying history: %s" % summary)
 
             with log.Timer("prep", self.get_stats()):
