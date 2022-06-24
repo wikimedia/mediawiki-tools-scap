@@ -17,17 +17,44 @@ code and configuration on production web servers.
 Running tests
 =============
 
-Automated tests can be executed with "make test". For a list of Scap
-dependencies during testing, see requirements.txt and test-requirements.txt.
-Some deb packages are also required to set up the running env, for instance
-to install Python or pip.
+Automated tests can be executed with `make test`.
 
-To generate a Docker container and run tests in that, run the
-following command:
+Scap comes with an automated suite invoked via `scripts/check`. The script does
+not install any dependencies though.
 
-  blubber .pipeline/blubber.yaml test > Dockerfile.tests
-  docker build -f Dockerfile.tests --iidfile id .
-  docker run --rm "$(cat id)"
+For a list of Scap dependencies during testing, see `requirements.txt` and
+`test-requirements.txt`.  Some Debian packages are also required to set up the
+running environment, for instance to install Python or pip.
+
+To ensure compatiblity with multiple Debian distributions, we use Docker images
+defined using Blubber (see `.pipeline/blubber.yaml`). The image build installs
+the runtime dependencies from Debian packages while tests dependencies defined
+in `test-requirements.txt` are installed via `pip`. This lets us use ensure we
+run with the same set of Python module provided by Debian while using more
+recent versions of testing utilities than the one frozen by Debian
+(ex: `pytest`) and ensure we use the same version of `flake8` regardless of the
+Debian distribution version.
+
+To generate the container images and run tests in each of them, we provide a
+`Makefile`. To run all tests against all supported Debian distributions use
+`make test`.
+
+The `test` target builds the images using the `Blubberfile syntax
+<https://wikitech.wikimedia.org/wiki/Blubber/User_Guide#Blubberfiles>` using
+`Blubber buildkit <docker-registry.wikimedia.org/wikimedia/blubber-buildkit>`.
+The target then invokes the defined entrypoint `scripts/check` which runs the
+tests in each images.
+
+The Wikimedia CI builds those images in a similar way and run the same tests.
+
+To build all images without running tests, use `make images`, useful when
+amending the Blubber config or changing dependencies.
+
+For each Debian distribution defined at the top of the `makefile`, rules let
+you build and test against a single distribution: `make test-bullseye`. You
+will probably want to use it when developing instead of testing against each of
+the distribution. When your change is ready, run it against all distributions
+to catch potential compatibility issues (`make test`).
 
 Reporting Issues
 ================
