@@ -8,7 +8,6 @@ default:
 	$(info Targets:)
 	$(info `make images` Build the images)
 	$(info `make test` Run all images (run tests))
-	$(info `make clean` Clear state)
 	$(error exiting...)
 
 ########################
