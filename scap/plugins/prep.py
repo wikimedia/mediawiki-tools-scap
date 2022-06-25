@@ -112,6 +112,12 @@ This operation can be run as many times as needed.
         type=int,
         help="Timeout to wait for the prep concurrency lock to be released. In minutes",
     )
+    @cli.argument(
+        "--no-patches",
+        dest="apply_patches",
+        action="store_false",
+        help="Don't apply security patches.  Only used in auto mode.",
+    )
     def main(self, *extra_args):
         """Checkout next MediaWiki."""
 
@@ -154,7 +160,7 @@ This operation can be run as many times as needed.
                             self._copy_private_settings(self.arguments.copy_private_settings, logger)
 
                         for version in self.active_wikiversions("stage"):
-                            self._prep_mw_branch(version, logger, apply_patches=True)
+                            self._prep_mw_branch(version, logger, apply_patches=self.arguments.apply_patches)
                     else:
                         self._prep_mw_branch(self.arguments.branch, logger)
 
