@@ -100,7 +100,7 @@ class AbstractSync(cli.Application):
                 self.get_logger().info("Checking for new runtime errors locally")
                 self._check_fatals()
             else:
-                self.get_logger().warning("check_fatals Skipped by --force")
+                self.get_logger().warning("check_fatals skipped by --force")
             self._build_container_images()
             self._deploy_container_images()
 
@@ -134,7 +134,7 @@ class AbstractSync(cli.Application):
                         self._restart_php_hostgroups([canaries])
                         self.canary_checks(canaries, timer)
             else:
-                self.get_logger().warning("Canaries Skipped by --force")
+                self.get_logger().warning("Testservers and canaries skipped by --force")
 
             # Update proxies
             proxies = utils.list_intersection(self._get_proxy_list(), full_target_list)
