@@ -1,3 +1,16 @@
+scap (4.10.0-1) unstable; urgency=medium
+
+  * Makefile: remove 'clean' target which does nothing
+  * rollback: Provide rollback subcommand for quick history replay and sync
+  * Revert "startup: warn user if not running from a Python virtual environment"
+  * history: Mark latest history entry as synced following any sync command
+  * Support a different user for Gerrit ssh interactions
+  * get_keyholder_key: Return private key path instead of public key
+  * cli.Application() fixtures require a clear env
+  * rearrange SSH parameters for consistency with SSH_WITH_KEY
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Tue, 28 Jun 2022 08:57:42 -0700
+
 scap (4.9.5-1) unstable; urgency=medium
 
   * scap install-world rsync fix
