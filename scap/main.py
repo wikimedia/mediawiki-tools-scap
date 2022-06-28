@@ -536,7 +536,6 @@ class AbstractSync(cli.Application):
         """
         if not self._setup_php():
             return
-        pool = ProcessPoolExecutor(max_workers=5)
         num_hosts = 0
         for grp in target_hosts:
             num_hosts += len(grp)
@@ -546,7 +545,8 @@ class AbstractSync(cli.Application):
                     php_fpm.INSTANCE.cmd, num_hosts
                 )
             )
-            results = pool.map(php_fpm.restart_helper, target_hosts)
+            with ProcessPoolExecutor(max_workers=5) as pool:
+                results = pool.map(php_fpm.restart_helper, target_hosts)
             for _, failed in results:
                 if failed:
                     self.get_logger().warning(
