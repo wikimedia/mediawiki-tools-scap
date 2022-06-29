@@ -121,10 +121,16 @@ This operation can be run as many times as needed.
     def main(self, *extra_args):
         """Checkout next MediaWiki."""
 
+        logger = self.get_logger()
+
+        # Make sure that the files created by this operation will be group writable.
+        if utils.get_umask() != 0o002:
+            logger.error("umask must be set to 002 before running scap prep. Aborting")
+            return 1
+
         lock_timeout = \
             {"timeout": self.arguments.lock_timeout} if self.arguments.lock_timeout else {}
         with TimeoutLock(self.config["serializing_lock_file"], name="concurrent prep", **lock_timeout):
-            logger = self.get_logger()
 
             self.new_history = history.Entry.now()
 

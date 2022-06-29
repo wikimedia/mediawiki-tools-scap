@@ -1003,6 +1003,15 @@ def empty_file_mask():
     os.umask(orig_umask)
 
 
+def get_umask() -> int:
+    """Returns the process's file mode creation mask"""
+    # We have to set the umask to something to read it.
+    res = os.umask(0)
+    # Set it back to whatever it was
+    os.umask(res)
+    return res
+
+
 def prompt_for_approval_or_exit(prompt_message, exit_message):
     approval = input(prompt_message)
     if approval.lower() != "y":
