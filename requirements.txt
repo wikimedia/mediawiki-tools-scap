@@ -2,6 +2,6 @@ jinja2==2.10.2
 pyyaml==5.1.0
 requests==2.21.0
 pygments==2.3.1
-prettytable==0.7.2
+prettytable==1.0.1
 markupsafe==1.1.0
 packaging==20.9

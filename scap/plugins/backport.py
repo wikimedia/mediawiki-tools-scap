@@ -16,13 +16,24 @@ from scap import cli, git, ssh, utils
 from scap.plugins.gerrit import GerritSession
 
 
-def make_table(backports):
+def make_table(backports, display_mergable):
     table = PrettyTable()
-    table.field_names = ["Change Number", "Project", "Branch", "Subject"]
+    field_names = ["#", "Project", "Branch", "Subject"]
 
-    for change in backports:
-        table.add_row([change['_number'], change['project'], change['branch'], change['subject']])
+    if display_mergable:
+        field_names.append("Mergeable")
+        for change in backports:
+            table.add_row([change['_number'], change['project'].replace("mediawiki/", ""), change['branch'],
+                           change['subject'], change['mergeable']])
+    else:
+        for change in backports:
+            table.add_row([change['_number'], change['project'].replace("mediawiki/", ""), change['branch'],
+                           change['subject']])
 
+    table.field_names = field_names
+    table.max_width["Subject"] = 100
+    table.align["#"] = "r"
+    table.align["Subject"] = "l"
     return table
 
 
@@ -56,15 +67,12 @@ class Backport(cli.Application):
     @cli.argument(
         "--revert",
         help='revert a backport',
-        action="store_const",
-        const="revert",
-        default="backport"
+        action="store_true"
     )
     @cli.argument("change_numbers", nargs="*", help="Change numbers/URLs to backport or revert")
     def main(self, *extra_args):
         self.interval = 5
-        # rename for clarity
-        self.backport_or_revert = self.arguments.revert
+        self.backport_or_revert = "revert" if self.arguments.revert else "backport"
         self.gerrit = GerritSession(url=self.config['gerrit_url'])
         self.config_branch = self.config["operations_mediawiki_config_branch"]
         self.mediawiki_location = self.config["stage_dir"]
@@ -86,7 +94,7 @@ class Backport(cli.Application):
 
         change_details = list(map(lambda number: self.gerrit.change_detail(number).get(), change_numbers))
 
-        if self.backport_or_revert == "revert":
+        if self.arguments.revert:
             self.do_revert(change_details)
         else:
             self.do_backport(change_numbers, change_details)
@@ -173,13 +181,13 @@ class Backport(cli.Application):
             self.get_logger().info("No available %s." % self.backport_or_revert)
             raise SystemExit()
 
-        backports_table = make_table(backports)
+        backports_table = make_table(backports, not self.arguments.revert)
         print(backports_table.get_string(sortby="Project"))
 
     def get_backports(self):
         params = {}
 
-        if self.backport_or_revert == "revert":
+        if self.arguments.revert:
             status = "merged"
             params["n"] = 10
         else:
