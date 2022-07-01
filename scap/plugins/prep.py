@@ -217,7 +217,7 @@ This operation can be run as many times as needed.
         cache_dir = os.path.join(dest_dir, "cache")
         if os.geteuid() == os.stat(cache_dir).st_uid:
             logger.info("Making cache dir world writable")
-            os.chmod(cache_dir, 0o777)
+            os.chmod(cache_dir, os.stat(cache_dir).st_mode | 0o777)
 
         logger.info(
             "MediaWiki %s successfully checked out." % checkout_version
