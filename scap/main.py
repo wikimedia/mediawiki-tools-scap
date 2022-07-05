@@ -62,11 +62,13 @@ class AbstractSync(cli.Application):
 
     def __init__(self, exe_name):
         super().__init__(exe_name)
-        self.include = None
+        self.includes = []
+        self.exclude_wikiversions_php = False
         self.om = None
         self.logo = True
         # A list of hostnames that have been processed by self._perform_sync
         self.already_synced = []
+        self.already_restarted = set()
 
     @cli.argument(
         "--force",
@@ -115,8 +117,8 @@ class AbstractSync(cli.Application):
             if not self.arguments.force:
                 testservers = utils.list_intersection(self._get_testserver_list(), full_target_list)
                 if len(testservers) > 0:
-                    self.get_logger().info("Syncing to testservers")
-                    self.sync_target(testservers, "testservers")
+                    with log.Timer("sync-testservers", self.get_stats()):
+                        self.sync_targets(testservers, "testservers")
 
                     # Not all subclasses of AbstractSync define the --pause-after-testserver-sync argument,
                     # so we can't assume it is in self.arguments.
@@ -128,10 +130,8 @@ class AbstractSync(cli.Application):
                 canaries = utils.list_intersection(self._get_canary_list(), full_target_list)
                 if len(canaries) > 0:
                     with log.Timer("sync-check-canaries", self.get_stats()) as timer:
-                        self.sync_target(canaries, "canaries")
+                        self.sync_targets(canaries, "canaries")
                         timer.mark("Canaries Synced")
-                        # We need a list of lists here.
-                        self._restart_php_hostgroups([canaries])
                         self.canary_checks(canaries, timer)
             else:
                 self.get_logger().warning("Testservers and canaries skipped by --force")
@@ -284,21 +284,26 @@ class AbstractSync(cli.Application):
             cmd = ["env", "SCAP_MW_LANG={}".format(lang)] + cmd
         return cmd
 
-    def _base_scap_pull_command(self) -> list:
+    def _base_scap_pull_command(self, just_rsync=True) -> list:
         """
         Returns (as a list) the basic scap pull command to run on a remote
         target.  Note that no source servers are specified in the command
         so scap pull will default to pull from whatever `master_rsync` is
         defined to be in the scap configuration on the target.
-
-        Subclasses may override this method.
         """
-        cmd = [self.get_script_path(), "pull", "--no-php-restart", "--no-update-l10n"]
+        cmd = [self.get_script_path(), "pull"]
+        if just_rsync:
+            cmd.extend(["--no-php-restart", "--no-update-l10n"])
         if self.verbose:
             cmd.append("--verbose")
+        if self.exclude_wikiversions_php:
+            cmd.append("--exclude-wikiversions.php")
+        for include in self.includes:
+            cmd.extend(["--include", include])
+
         return cmd
 
-    def _apache_sync_command(self, proxies: list = ()) -> list:
+    def _apache_sync_command(self, proxies: list = (), **kwargs) -> list:
         """
         Returns (as a list) the scap pull command to run on mediawiki
         installation targets.  This is comprised of the base scap pull command
@@ -308,8 +313,9 @@ class AbstractSync(cli.Application):
         :param proxies: A list of proxy hostnames that can be pulled from in addition
                         to the deployment masters. Default is empty (as a tuple to prevent mutable
                         list warning)
+        :param kwargs:  Any remaining keyword arguments are passed on to _base_scap_pull_command.
         """
-        return self._base_scap_pull_command() + utils.list_union(self.get_master_list(), proxies)
+        return self._base_scap_pull_command(**kwargs) + utils.list_union(self.get_master_list(), proxies)
 
     def _perform_sync(self, type: str, command: list, targets: list, shuffle=False):
         """
@@ -376,23 +382,20 @@ class AbstractSync(cli.Application):
     def _after_lock_release(self):
         pass
 
-    def sync_target(self, targets=None, type=None):
+    def sync_targets(self, targets=None, type=None):
         """
-        Sync targets
+        Run scap pull on the targets, including l10n rebuild and php-fpm restart.
+        The pull source will be this deploy server.
 
         :param targets: Iterable of target servers to sync
 
         :param type: A string like "apaches" or "proxies" naming the type of target.
         """
-        sync_cmd = self._apache_sync_command()
-
-        # Go ahead and attempt to restart php for canaries
-        if "--no-php-restart" in sync_cmd:
-            sync_cmd.remove("--no-php-restart")
-
+        sync_cmd = self._apache_sync_command(just_rsync=False)
         sync_cmd.append(socket.getfqdn())
 
         self._perform_sync(type, sync_cmd, targets)
+        self.already_restarted |= set(targets)
 
     def canary_checks(self, canaries=None, timer=None):
         """
@@ -499,7 +502,7 @@ class AbstractSync(cli.Application):
         """
         If php_fpm_restart_script is set in the configuration then
         on all dsh groups referenced by the mw_web_clusters config parameter
-        (but excluding canaries) do the following:
+        do the following:
 
         Check if php-fpm opcache is full, if so restart php-fpm.  If
         the php_fpm_always_restart config parameter is true, the
@@ -510,6 +513,7 @@ class AbstractSync(cli.Application):
         php-fpm unsafely (i.e., without depooling and repooling
         around the service restart).  T243009
 
+        Targets that have already been restarted will not be restarted again.
         """
         if not self._setup_php():
             return
@@ -521,12 +525,11 @@ class AbstractSync(cli.Application):
         target_groups = targets.DirectDshTargetList("mw_web_clusters", self.config)
         # Convert the list of group objects into a
         # list of lists of targets.
-        # We remove the canaries as they should've been already restarted.
-        canaries = self._get_canary_list()
         group_hosts = []
         for group in target_groups.groups.values():
-            target_hosts = set(group.targets) - set(canaries)
+            target_hosts = set(group.targets) - self.already_restarted
             group_hosts.append(list(target_hosts))
+            self.already_restarted |= target_hosts
         self._restart_php_hostgroups(group_hosts)
 
     def _restart_php_hostgroups(self, target_hosts=None):
@@ -825,6 +828,12 @@ class ScapWorld(AbstractSync):
     #. Rolling invalidation of all opcache for php 7.x
     """
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # We want to exclude wikiversions.php during the normal rsync.
+        # wikiversions.php is handled separately in _after_cluster_sync.
+        self.exclude_wikiversions_php = True
+
     @cli.argument(
         "--force",
         action="store_true",
@@ -903,13 +912,6 @@ class ScapWorld(AbstractSync):
             with log.Timer("l10n-update", self.get_stats()):
                 for version, wikidb in self.active_wikiversions("stage", return_type=dict).items():
                     tasks.update_localization_cache(version, wikidb, self)
-
-    def _base_scap_pull_command(self):
-        cmd = super()._base_scap_pull_command()
-        # We want to exclude wikiversions.php during the normal rsync.
-        # wikiversions.php is handled separately in _after_cluster_sync (below).
-        cmd.append("--exclude-wikiversions.php")
-        return cmd
 
     def _after_cluster_sync(self):
         target_hosts = self._get_target_list()
@@ -1088,7 +1090,7 @@ class SyncFile(AbstractSync):
         relpath = os.path.relpath(abspath, self.config["stage_dir"])
         if os.path.isdir(abspath):
             relpath = "%s/***" % relpath
-        self.include = relpath
+        include = relpath
 
         # Notify when syncing a symlink.
         if os.path.islink(abspath):
@@ -1099,24 +1101,17 @@ class SyncFile(AbstractSync):
         else:
             lint.check_valid_syntax(abspath, utils.cpus_for_jobs())
 
-    def _after_cluster_sync(self):
-        self._restart_php()
-
-    def _base_scap_pull_command(self):
-        cmd = [self.get_script_path(), "pull", "--no-update-l10n", "--no-php-restart"]
-
-        if "/" in self.include:
-            parts = self.include.split("/")
+        if "/" in include:
+            parts = include.split("/")
             for i in range(1, len(parts)):
                 # Include parent directories in sync command or the default
                 # exclude will block them and by extension block the target
                 # file.
-                cmd.extend(["--include", "/".join(parts[:i])])
+                self.includes.append("/".join(parts[:i]))
+        self.includes.append(include)
 
-        cmd.extend(["--include", self.include])
-        if self.verbose:
-            cmd.append("--verbose")
-        return cmd
+    def _after_cluster_sync(self):
+        self._restart_php()
 
     def _after_lock_release(self):
         self.announce(
@@ -1157,22 +1152,15 @@ class SyncL10n(AbstractSync):
             raise IOError(errno.ENOENT, "Directory not found", abspath)
 
         relpath = os.path.relpath(abspath, self.config["stage_dir"])
-        self.include = "%s/***" % relpath
+        include = "%s/***" % relpath
 
-    def _base_scap_pull_command(self):
-        cmd = [self.get_script_path(), "pull", "--no-update-l10n", "--no-php-restart"]
-
-        parts = self.include.split("/")
+        parts = include.split("/")
         for i in range(1, len(parts)):
             # Include parent directories in sync command or the default
             # exclude will block them and by extension block the target
             # file.
-            cmd.extend(["--include", "/".join(parts[:i])])
-
-        cmd.extend(["--include", self.include])
-        if self.verbose:
-            cmd.append("--verbose")
-        return cmd
+            self.includes.append("/".join(parts[:i]))
+        self.includes.append(include)
 
     def _after_cluster_sync(self):
         # Rebuild l10n CDB files
