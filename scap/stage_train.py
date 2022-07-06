@@ -65,7 +65,7 @@ class StageTrain(cli.Application):
 
     @cli.argument(
         "version",
-        help="Wikiversion needing staging"
+        help="Wikiversion needing staging.  Specify 'auto' to use the latest available wmf branch"
     )
     @cli.argument(
         "--start-from",
@@ -81,7 +81,7 @@ class StageTrain(cli.Application):
     @cli.argument(
         "-y", "--yes",
         action="store_true",
-        help="default to Yes for prompts"
+        help="default to Yes for prompts, and don't check for tmux or screen running."
     )
     def main(self, *extra_args):
         def check_term_multplxr():
@@ -92,7 +92,12 @@ class StageTrain(cli.Application):
                     "\tSCREEN: screen -D -RR train"
                 )
 
-        check_term_multplxr()
+        if self.arguments.version == "auto":
+            self.arguments.version = utils.get_current_train_version(self.config["gerrit_url"])
+            self.logger.info("Using version %s", self.arguments.version)
+
+        if not self.arguments.yes:
+            check_term_multplxr()
         self._check_user_auth_sock()
 
         # Ensure that all files created by this operation are group writable.
@@ -111,7 +116,7 @@ class StageTrain(cli.Application):
         self._run(["prep", self.arguments.version])
 
     def _patch(self):
-        self._run(["apply-patches", "--train", self.arguments.version])
+        self._run(["apply-patches", "--abort-git-am-on-fail", "--train", self.arguments.version])
 
     def _testwikis(self):
         self._run(["deploy-promote", "--yes", "testwikis", self.arguments.version])
