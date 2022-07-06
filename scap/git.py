@@ -619,20 +619,22 @@ def clone_or_update_repo(dir, repo, branch, logger, reference=None,
 
     Returns the sha1 of the checked out branch.
     """
-    logger.info("Clone or update {}, branch: {}, dir: {}".format(
-        repo, branch, dir))
 
+    operation = "Update"
     if not os.path.isdir(dir) or utils.dir_is_empty(dir):
-        logger.info("Fresh clone")
+        operation = "Clone"
+
+    logger.info("{} {} ({} branch) in {}".format(
+        operation, repo, branch, dir))
+
+    if operation == "Clone":
         fetch(dir, repo, branch=branch, reference=reference)
 
-    logger.info("Fetching from origin")
+    logger.debug("Fetching from origin")
     fetch(dir, repo, branch=branch)
-
-    logger.info("Changes pulled down since last fetch:")
-    logger.info(gitcmd("log", "HEAD..@{upstream}", cwd=dir))
-
-    logger.info("Resetting checkout")
+    changes_fetched = gitcmd("log", "HEAD..@{upstream}", cwd=dir)
+    if changes_fetched:
+        logger.info("Changes pulled down since last fetch:\n%s", changes_fetched)
 
     if ref is None:
         ref = "origin/{}".format(branch)
@@ -643,9 +645,7 @@ def clone_or_update_repo(dir, repo, branch, logger, reference=None,
     logger.info("{} checked out at commit {}".format(
         repo, head))
 
-    logger.info("Updating submodules")
+    logger.debug("Updating submodules")
     update_submodules(dir, use_upstream=True, checkout=True, force=True)
-
-    logger.info("Done checking out {}\n".format(repo))
 
     return head

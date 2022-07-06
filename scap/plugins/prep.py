@@ -150,11 +150,9 @@ This operation can be run as many times as needed.
                         return HISTORY_ABORT_STATUS
                     logger.info("Replaying history: %s" % summary)
 
-            with log.Timer("prep", self.get_stats()):
+            with log.Timer("scap prep {}".format(self.arguments.branch), self.get_stats()):
                 try:
                     if self.arguments.branch == "auto":
-                        logger.info("Auto mode")
-
                         self._clone_or_update_repo(
                             os.path.join(self.config["gerrit_url"], "operations/mediawiki-config"),
                             self.config["operations_mediawiki_config_branch"],
@@ -211,17 +209,13 @@ This operation can be run as many times as needed.
         # manipulation (a practice which needs to end).
         update_update_strategy(dest_dir)
 
-        logger.info("Creating LocalSettings.php stub")
+        logger.debug("Creating LocalSettings.php stub")
         write_settings_stub(os.path.join(dest_dir, "LocalSettings.php"))
 
         cache_dir = os.path.join(dest_dir, "cache")
         if os.geteuid() == os.stat(cache_dir).st_uid:
-            logger.info("Making cache dir world writable")
+            logger.debug("Making cache dir world writable")
             os.chmod(cache_dir, os.stat(cache_dir).st_mode | 0o777)
-
-        logger.info(
-            "MediaWiki %s successfully checked out." % checkout_version
-        )
 
         if apply_patches:
             with utils.suppress_backtrace():
@@ -230,6 +224,10 @@ This operation can be run as many times as needed.
                     "--abort-git-am-on-fail", "--train", branch
                 ] + self.format_passthrough_args()
                 subprocess.check_call(args)
+
+        logger.info(
+            "MediaWiki %s successfully checked out." % checkout_version
+        )
 
     def _select_reference_directory(self):
         """
@@ -271,12 +269,12 @@ This operation can be run as many times as needed.
     def _setup_patches(self, version):
         logger = self.get_logger()
 
-        logger.info("Setting up patches for {}".format(version))
+        logger.debug("Setting up patches for {}".format(version))
 
         patch_base_dir = self.config["patch_path"]
         patch_path = os.path.join(patch_base_dir, version)
         if os.path.exists(patch_path):
-            logger.info("Patches already set up for {}".format(version))
+            logger.debug("Patches already set up for {}".format(version))
             return
 
         reference_patches = self._select_reference_patches()
@@ -290,7 +288,7 @@ This operation can be run as many times as needed.
 
         # This also commits.
         git.add_all(patch_base_dir, message='Scap prep for "{}"'.format(version))
-        logger.info("Done setting patches for {}".format(version))
+        logger.debug("Done setting patches for {}".format(version))
 
     def _clone_or_update_repo(self, repo, branch, dir, logger, reference=None):
         """
