@@ -123,10 +123,7 @@ This operation can be run as many times as needed.
 
         logger = self.get_logger()
 
-        # Make sure that the files created by this operation will be group writable.
-        if utils.get_umask() != 0o002:
-            logger.error("umask must be set to 002 before running scap prep. Aborting")
-            return 1
+        os.umask(self.config["umask"])
 
         lock_timeout = \
             {"timeout": self.arguments.lock_timeout} if self.arguments.lock_timeout else {}

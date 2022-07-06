@@ -103,6 +103,7 @@ class DeployPromote(cli.Application):
         if not self.arguments.yes and not self._prompt_user_to_approve(prev_version):
             utils.abort("Canceled by user")
 
+        os.umask(self.config["umask"])
         self._update_versions()
 
     def _check_group(self):

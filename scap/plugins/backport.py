@@ -116,6 +116,7 @@ class Backport(cli.Application):
         self.approve_changes(change_details)
         self.wait_for_changes_to_be_merged(change_numbers)
         self.confirm_commits_to_sync(change_details)
+
         self.scap_check_call(["prep", "auto"])
 
         if self.arguments.stop_before_sync:

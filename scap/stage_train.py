@@ -100,8 +100,7 @@ class StageTrain(cli.Application):
             check_term_multplxr()
         self._check_user_auth_sock()
 
-        # Ensure that all files created by this operation are group writable.
-        os.umask(0o002)
+        os.umask(self.config["umask"])
 
         stages = STAGE_SEQUENCE[STAGE_SEQUENCE.index(self.arguments.start_from):]
         for i, stage in enumerate(stages, start=1):
