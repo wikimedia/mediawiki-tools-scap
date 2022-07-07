@@ -924,7 +924,7 @@ def write_file_if_needed(filename, data: str):
         if os.path.exists(filename):
             os.unlink(filename)
 
-        os.chmod(f.name, 0o644)
+        os.chmod(f.name, 0o664)
         os.link(f.name, filename)
 
 

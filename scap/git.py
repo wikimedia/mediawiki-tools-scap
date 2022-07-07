@@ -627,11 +627,13 @@ def clone_or_update_repo(dir, repo, branch, logger, reference=None,
     logger.info("{} {} ({} branch) in {}".format(
         operation, repo, branch, dir))
 
+    config = {"core.sharedRepository": "group"}
+
     if operation == "Clone":
-        fetch(dir, repo, branch=branch, reference=reference)
+        fetch(dir, repo, branch=branch, reference=reference, config=config)
 
     logger.debug("Fetching from origin")
-    fetch(dir, repo, branch=branch)
+    fetch(dir, repo, branch=branch, config=config)
     changes_fetched = gitcmd("log", "HEAD..@{upstream}", cwd=dir)
     if changes_fetched:
         logger.info("Changes pulled down since last fetch:\n%s", changes_fetched)
