@@ -1,3 +1,22 @@
+scap (4.11.0-1) unstable; urgency=medium
+
+  * Set umask in file creating cmds
+  * Additional change for group sharing
+  * startup: warn user if not running from a Python virtual environment
+  * Clean up php fpm restart
+  * Reduce verbosity of "scap prep auto"
+  * Add auto mode to stage-train
+  * Move serializing_lock_file to a setgid directory
+  * scap prep chmod 777 cache dir bugfix
+  * scap prep: Ensure umask is 002 before running
+  * Text changes
+  * scap stage-train: Set umask to 002
+  * Clean up ProcessPoolExecutor after using it
+  * scap backport: add revert option
+  * scap prep auto: Add --no-patches flag
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Mon, 18 Jul 2022 12:35:28 -0700
+
 scap (4.10.0-1) unstable; urgency=medium
 
   * Makefile: remove 'clean' target which does nothing
