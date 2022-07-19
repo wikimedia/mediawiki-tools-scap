@@ -76,8 +76,6 @@ def test_get_batch_size():
     """
     test get_batch_size function
     """
-    with pytest.raises(ValueError):
-        php_fpm.get_batch_size([])
     assert php_fpm.get_batch_size(range(0, 1000)) == 100
     assert php_fpm.get_batch_size(range(0, 1000), percentage=20) == 200
 

@@ -108,11 +108,6 @@ def get_batch_size(targets, percentage=10.0):
 
     :returns: int batch size based on percentage
     """
-    num_targets = len(targets)
-
-    if not num_targets:
-        raise ValueError("php_fpm expected targets, 0 given")
-
     return int(math.ceil(len(targets) * percentage / 100.0))
 
 
