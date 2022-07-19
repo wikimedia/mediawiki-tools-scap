@@ -1,3 +1,9 @@
+scap (4.11.1-1) unstable; urgency=medium
+
+  * php_fpm.py Remove an unnecessary check from get_batch_size()
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Tue, 19 Jul 2022 10:37:42 -0700
+
 scap (4.11.0-1) unstable; urgency=medium
 
   * Set umask in file creating cmds
