@@ -528,8 +528,9 @@ class AbstractSync(cli.Application):
         group_hosts = []
         for group in target_groups.groups.values():
             target_hosts = set(group.targets) - self.already_restarted
-            group_hosts.append(list(target_hosts))
-            self.already_restarted |= target_hosts
+            if target_hosts:
+                group_hosts.append(list(target_hosts))
+                self.already_restarted |= target_hosts
         self._restart_php_hostgroups(group_hosts)
 
     def _restart_php_hostgroups(self, target_hosts=None):
