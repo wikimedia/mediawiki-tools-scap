@@ -203,6 +203,7 @@ class DeployPromote(cli.Application):
         while not _commit_arrived_to_remote(change_id):
             print(".", end="")
             time.sleep(5)
+        print()
 
     def _get_git_push_dest(self) -> str:
         branch = gitcmd("symbolic-ref", "--short", "HEAD").strip()
