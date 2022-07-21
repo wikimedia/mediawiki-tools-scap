@@ -1,3 +1,9 @@
+scap (4.11.3-1) unstable; urgency=medium
+
+  * scap backport: Handle gerrit_push_user properly
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Thu, 21 Jul 2022 14:56:28 -0700
+
 scap (4.11.2-1) unstable; urgency=medium
 
   * _restart_php: Exclude empty host lists
