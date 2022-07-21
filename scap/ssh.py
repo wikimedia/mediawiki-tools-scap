@@ -47,6 +47,7 @@ SSH = cmd.Command(
     "-F/dev/null",
     cmd.arg("verbose", "-v"),
     cmd.arg("user", "-oUser={}"),
+    cmd.arg("port", "-oPort={}"),
 )
 SSH_WITH_KEY = cmd.Command(
     "/usr/bin/ssh",
@@ -57,6 +58,7 @@ SSH_WITH_KEY = cmd.Command(
     "-F/dev/null",
     cmd.arg("verbose", "-v"),
     cmd.arg("user", "-oUser={}"),
+    cmd.arg("port", "-oPort={}"),
     cmd.arg("key", "-oIdentityFile={}"),
 )
 

@@ -12,7 +12,7 @@ from datetime import datetime
 
 from prettytable import PrettyTable
 from random import randint
-from scap import cli, git, utils
+from scap import cli, git, ssh, utils
 from scap.plugins.gerrit import GerritSession
 
 
@@ -136,10 +136,17 @@ class Backport(cli.Application):
 
     def gerrit_ssh(self, gerrit_arguments):
         gerrit_hostname = urllib.parse.urlparse(self.config['gerrit_url']).hostname
+        key_file = self.get_keyholder_key(
+            ssh_user=self.config["gerrit_push_user"],
+        )
+        ssh_command = ssh.SSH_WITH_KEY(
+            user=self.config["gerrit_push_user"],
+            key=key_file,
+            port='29418'
+        ) + [gerrit_hostname, 'gerrit'] + gerrit_arguments
 
         with utils.suppress_backtrace():
-            subprocess.check_call(['ssh', '-p', '29418', gerrit_hostname, 'gerrit'] +
-                                  gerrit_arguments, env=self.get_gerrit_ssh_env(),
+            subprocess.check_call(ssh_command , env=self.get_gerrit_ssh_env(),
                                   stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
     def check_ssh_auth(self):
