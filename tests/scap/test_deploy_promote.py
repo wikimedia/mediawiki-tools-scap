@@ -1,10 +1,14 @@
 import shlex
-from unittest.mock import patch
+from logging import Logger
 from unittest import mock
+from unittest.mock import patch
+
+import pytest
+import requests
+from requests import HTTPError, Response
 
 import scap.cli
 from scap.deploy_promote import DeployPromote
-import pytest
 
 messages_tests = [
     (
@@ -24,21 +28,25 @@ messages_tests = [
 ]
 
 
+@pytest.fixture
+@patch.object(DeployPromote, '__init__', return_value=None)
+def deploy_promote(init):
+    return DeployPromote()
+
+
 @pytest.mark.parametrize("task,announce,commit", messages_tests)
-def test_set_messages(task, announce, commit):
-    p = get_DeployPromote_with_messages(task)
+def test_set_messages(task, announce, commit, deploy_promote):
+    p = get_deploy_promote_with_messages(task, deploy_promote)
 
     assert p.announce_message == announce
     assert p.commit_message == commit
     assert "\n" not in p.announce_message
 
 
-@patch.object(DeployPromote, '__init__', return_value=None)
-def get_DeployPromote_with_messages(task, init):
+def get_deploy_promote_with_messages(task, p):
     with patch.object(DeployPromote, '_get_train_task') as gtt:
         gtt.return_value = task
 
-        p = DeployPromote()
         p.group = "group3"
         p.promote_version = "1.42.0-wmf.00"
 
@@ -104,3 +112,35 @@ def test_push_patch(*args):
         push_env = kwargs['env']
 
         assert 'GIT_SSH_COMMAND' not in push_env
+
+
+def test_version_check(deploy_promote):
+    deploy_promote.logger = mock.MagicMock(Logger)
+    deploy_promote.promote_version = "1.39.0-wmf.19"
+
+    with mock.patch.object(requests, "get") as mock_get:
+        mock_get.return_value = mock.MagicMock(Response)
+
+        # Version matches
+        mock_get.return_value.text = '<meta name="generator" content="MediaWiki 1.39.0-wmf.19"/>'
+        deploy_promote._check_versions()
+
+        # Version does not match
+        mock_get.return_value.text = '<meta name="generator" content="MediaWiki NoVersTooBad"/>'
+        with pytest.raises(SystemExit):
+            deploy_promote._check_versions()
+
+        # Version could not be found in page
+        mock_get.return_value.text = 'garbled nonsense dadadddd'
+        with pytest.raises(SystemExit):
+            deploy_promote._check_versions()
+
+        # Request failed
+        with mock.patch.object(mock_get.return_value, "raise_for_status") as mock_raise:
+            http_error = HTTPError()
+            http_error.response = mock.MagicMock(Response)
+            http_error.response.status_code = 500
+            mock_raise.side_effect = http_error
+
+            with pytest.raises(SystemExit):
+                deploy_promote._check_versions()

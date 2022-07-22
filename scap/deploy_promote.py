@@ -250,7 +250,10 @@ class DeployPromote(cli.Application):
             actual_version = \
                 "Request to checked page failed" \
                 + (" with %s" % e.response.status_code if isinstance(e, HTTPError) else "")
+
         self._notify_version_update_result(check_url, actual_version)
+        if self.promote_version != actual_version:
+            utils.abort("Could not verify version update")
 
     def _notify_version_update_result(self, check_url, actual_version):
         self.logger.info(
