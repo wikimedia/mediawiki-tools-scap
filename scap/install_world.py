@@ -115,7 +115,8 @@ class InstallWorld(cli.Application):
 
             if not self.arguments.sync_only:
                 self._install_local_scap()
-                self._sync_masters_scap_installation()
+                if self.masters:
+                    self._sync_masters_scap_installation()
             self._sync_targets_scap_installation()
             # Filthy hack to have the lib dir automatically added to `sys.path` in targets
             self._create_lib_dir_symlink_on_targets()
