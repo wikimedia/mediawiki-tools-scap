@@ -8,8 +8,9 @@
 from __future__ import absolute_import
 
 import math
-import sys
+import shlex
 import subprocess
+import sys
 
 from scap import log
 
@@ -88,7 +89,7 @@ class PHPRestart(object):
 
         try:
             cmd = "/usr/bin/sudo -u {} /usr/bin/sudo -u root -- {}".format(self.ssh_user, self.cmd)
-            subprocess.check_call(cmd)
+            subprocess.check_call(shlex.split(cmd))
             return False
         except subprocess.CalledProcessError:
             return True
