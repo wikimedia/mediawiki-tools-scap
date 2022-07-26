@@ -23,17 +23,17 @@ scripts were introduced, probably written by Brion, notably:
 - sync-common-all, which ran sync-common on all servers
 
 Tim added a script which would push the MW source code in common/php
-out to all servers, in addition to running a pre-deployment lint
-check, in order to reduce the (then frequent) incidents of site
-downtime due to PHP fatal errors. The natural name for this script,
-following the previous convention, would have sync-common-php-all,
+out to all servers, in addition to running a pre-deployment lint check,
+in order to reduce the (then frequent) incidents of site downtime due
+to PHP fatal errors. The natural name for this script, following the
+previous convention, would have been `sync-common-php-all`,
 but this had two problems:
 
 - It was too long
 - Its acronym was not pronounceable
 
 Tim noticed that if the last two components of the name were swapped,
-a short and catchy acronym could be contrived. Thus, scap was born.
+a short and catchy acronym could be contrived. Thus, Scap was born.
 
 Indices and tables
 ==================
