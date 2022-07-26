@@ -9,9 +9,9 @@ from __future__ import absolute_import
 
 import math
 import sys
+import subprocess
 
 from scap import log
-from scap import utils
 
 INSTANCE = None
 
@@ -32,6 +32,7 @@ class PHPRestart(object):
         """
         self.cmd = None
         self.job = job
+        self.ssh_user = cfg["ssh_user"]
 
         if unsafe:
             script = cfg.get("php_fpm_unsafe_restart_script")
@@ -80,10 +81,16 @@ class PHPRestart(object):
         if not self.cmd:
             return False
 
+        # We need to run the restart command as root,
+        # and while both the deployment group and the ssh_user can run that command,
+        # not every deployer has the etcd credentials to depool/pool a server.
+        # So we need to run the command as ssh_user
+
         try:
-            utils.sudo_check_call(cmd=self.cmd, user="root")
+            cmd = "/usr/bin/sudo -u {} /usr/bin/sudo -u root -- {}".format(self.ssh_user, self.cmd)
+            subprocess.check_call(cmd)
             return False
-        except Exception:
+        except subprocess.CalledProcessError:
             return True
 
     def restart_all(self, targets):

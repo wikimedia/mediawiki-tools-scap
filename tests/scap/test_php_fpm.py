@@ -19,6 +19,7 @@ PHPRESTART_PARAMS = {
     "php_fpm_restart_script": "/bin/foo",
     "php_fpm": "php7.2-fpm",
     "php_fpm_opcache_threshold": 100,
+    "ssh_user": "mwdeploy",
 }
 
 
@@ -87,6 +88,6 @@ def test_cmd_and_job_exist():
     Many functions expect cmd and job to exist as members of the PHPRestart
     class. This ensures that they're set, even if to falsy values.
     """
-    php_restart = php_fpm.PHPRestart({})
+    php_restart = php_fpm.PHPRestart({"ssh_user": "test"})
     assert php_restart.cmd is None
     assert php_restart.job is None
