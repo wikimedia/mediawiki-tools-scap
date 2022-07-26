@@ -1,3 +1,15 @@
+scap (4.11.4-1) unstable; urgency=medium
+
+  * Correctly split command in subprocess call
+  * Stop using utils.sudo_check_call in php restarts
+  * Revert "serial lock: move default location to `/var/lock`"
+  * serial lock: move default location to `/var/lock`
+  * install-world: check if extra masters before attempting to sync
+  * deploy-promote: abort process if version check fails
+  * deploy-promote: Terminate line after jenkins has merged the patch
+
+ -- jnuche <jnuche@wikimedia.org>  Tue, 26 Jul 2022 14:04:51 +0200
+
 scap (4.11.3-1) unstable; urgency=medium
 
   * scap backport: Handle gerrit_push_user properly
