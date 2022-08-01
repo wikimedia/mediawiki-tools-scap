@@ -8,27 +8,21 @@ Usage: $0 [ version ]
 
 Updates scap to the specified version on all deployment-prep hosts
 that already have scap installed.  If the version is not supplied, the
-latest version will be determined and you will be prompted for
-confirmation.
+latest code revision will be used.
 
 EOF
     exit 1
 }
 
-scriptdir=$(dirname "$0")
+version=
 
-VERSION=
-
-function get_latest_beta_and_confirm {
-    local version
-    version=$("$scriptdir/get-latest-beta-deb")
+function confirm_latest_code_rev {
     local answer
-
-    read -r -p "Update scap to $version? " answer
+    read -r -p "Update scap to latest code revision? " answer
 
     case "$answer" in
         y*)
-            VERSION="$version"
+            version="latest_rev"
             return
             ;;
         *)
@@ -40,33 +34,42 @@ function get_latest_beta_and_confirm {
 
 
 if [ $# -eq 0 ]; then
-    get_latest_beta_and_confirm
+    confirm_latest_code_rev
 elif [ $# -eq 1 ]; then
     case "$1" in
         -h|--help)
             usage
             ;;
         *)
-            VERSION="$1"
+            version="$1"
             ;;
     esac
 else
     usage
 fi
 
+if [ "$version" = latest_rev ]; then
+  irc_message_ver='latest code revision'
+  scap_tag=
+else
+  irc_message_ver=$version
+  scap_tag="-t $version"
+fi
+
 cat <<EOF
 Use this log message in #wikimedia-releng IRC:
-!log Upgrading scap to $VERSION in beta cluster
+!log Upgrading scap to $irc_message_ver in beta cluster
 EOF
 
-remote_cmd="export DEBIAN_FRONTEND=noninteractive && apt-get update && apt-get install -y --allow-downgrades scap=$VERSION"
+remote_cmd="
+set -e
+cd /srv/deployment/scap; git checkout master; git pull --rebase
+bin/install_local_version.sh -u scap $scap_tag .
+cd; scap install-world --batch
+"
 
 encoded_remote_cmd=$(echo "$remote_cmd" | base64 -w0)
 
 # shellcheck disable=SC2029
-ssh deployment-cumin.deployment-prep.eqiad.wmflabs \
-    sudo cumin \
-    --no-progress \
-    --force \
-    'P{C:scap}' \
-    "'echo $encoded_remote_cmd | base64 -d | bash'"
+ssh deployment-deploy03.deployment-prep.eqiad1.wikimedia.cloud \
+  "echo $encoded_remote_cmd | base64 -d | bash"

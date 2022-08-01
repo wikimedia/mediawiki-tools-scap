@@ -8,22 +8,12 @@ and automated testing.
 
 ## Test latest Scap code using the Beta Cluster
 
-NOTE: _Production is currently using scap self-installation (scap-over-scap) to update scap versions,
-but the Debian package is still used in the beta cluster. The plan is to eventually phase out the
-Debian package and use scap-o-scap in beta too._
-
 Before you make a new release you should verify that the latest Scap
 code works in beta cluster.
 
-Whenever a Scap commit is merged, the
-[beta-build-scap-deb](https://integration.wikimedia.org/ci/view/Beta/job/beta-build-scap-deb/)
-Jenkins job builds a new deb file and triggers the
-[beta-publish-deb](https://integration.wikimedia.org/ci/view/Beta/job/beta-publish-deb/)
-to publish it.  These debs are not automatically installed on beta
-cluster hosts.  To install the latest deb on beta hosts, perform the following steps:
-
-(For these steps to work you must have ssh access to and sudo
-privileges on **deployment-cumin.deployment-prep.eqiad.wmflabs**)
+(For the following steps to work you must have ssh access to and sudo privileges on 
+**deployment-cumin.deployment-prep.eqiad.wmflabs** and **deployment-deploy03.deployment-prep.
+eqiad1.wikimedia.cloud**)
 
 1. Run `release-scripts/scaps-installed-in-beta`.  It will print a
 list of the versions of Scap that are installed on beta hosts.  Save
@@ -32,9 +22,8 @@ just be one version reported but sometimes (read: frequently)
 situations arise on beta cluster that result in mismatches.
 
 1. Run `release-scripts/update-scap-in-beta`.  This will retrieve the
-latest available version of Scap, prompt you for confirmation, and (if
-you answer `y` or `yes`) install it on beta hosts that already have
-Scap installed.
+latest available code revision of Scap, prompt you for confirmation, and (if
+you answer `y` or `yes`) install it on beta Scap hosts.
 
 ### Test the Scap deployment
 
@@ -69,7 +58,7 @@ Scap installed.
 
 ### Let the release marinate in beta cluster for a while
 
-Let the new scap deb operate for some amount of time in beta cluster.
+Let the new Scap operate for some amount of time in beta cluster.
 How long is up to you.  When you are satisfied, move on with the remaining steps.
 
 ## Pick version number

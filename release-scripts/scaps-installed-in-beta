@@ -29,14 +29,8 @@ while getopts "v" o; do
 done
 shift $((OPTIND-1))
 
-# shellcheck disable=SC2016
-remote_cmd='
-if command -v scap >/dev/null; then
-   dpkg-query --show --showformat \${Version}\\n scap ;
-fi
-'
-
-encoded_remote_cmd=$(echo "$remote_cmd" | base64 -w0)
+# Sudo to make sure we don't run as root (scap would fail)
+remote_cmd='sudo -u scap scap version'
 
 case "$format" in
     verbose)
@@ -46,7 +40,7 @@ case "$format" in
             --no-progress \
             --force \
             'P{C:scap}' \
-            "'echo $encoded_remote_cmd | base64 -d | bash'"
+            "'$remote_cmd'"
         ;;
     brief)
         # Alternate output which just shows all versions in use, w/o
@@ -58,7 +52,7 @@ case "$format" in
             --force \
             -o json \
             'P{C:scap}' \
-            "'echo $encoded_remote_cmd | base64 -d | bash'" \
+            "'$remote_cmd'" \
             | grep -vF "_____FORMATTED_OUTPUT_____" | jq -r '.[]' | sort -u --version-sort
         ;;
     *)
