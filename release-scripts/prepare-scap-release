@@ -1,8 +1,7 @@
 #!/bin/bash
 
-# This script is expected to be run by a member of the Release
-# Engineering team in preparation for making a request to SRE build
-# and deploy a new Scap deb.
+# This script is expected to be run by a member of the Release Engineering team in preparation
+# for the rollout of a new scap version
 
 set -eu -o pipefail
 
@@ -40,5 +39,5 @@ cat scap/version.py
 
 "$(dirname "$0")/generate-changelog" "$old_version" "$new_version"
 
-git commit -m "Release ${new_version}-1" scap/version.py debian/changelog
+git commit -m "Release ${new_version}-1" scap/version.py changelog
 echo Completed

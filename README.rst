@@ -17,15 +17,10 @@ code and configuration on production web servers.
 Running tests
 =============
 
-Scap comes with an automated suite invoked via scripts/check. It
-requires the various dependencies of Scap to be installed, via Debian
-packages. They're not installed by the check script, and testing is
-done directly on the host, not in virtual environments, to match what
-happens in production. tox and pip are not used.
-
-For a list of packages needed, see debian/control or
-.pipeline/blubber.yaml, which should have matching lists of Debian
-packages.
+Automated tests can be executed with "make test". For a list of Scap
+dependencies during testing, see requirements.txt and test-requirements.txt.
+Some deb packages are also required to set up the running env, for instance
+to install Python or pip.
 
 To generate a Docker container and run tests in that, run the
 following command:
@@ -33,17 +28,6 @@ following command:
   blubber .pipeline/blubber.yaml test > Dockerfile.tests
   docker build -f Dockerfile.tests --iidfile id .
   docker run --rm "$(cat id)"
-
-Building a .deb
-===============
-
-Run this command to build a scap.deb package under Docker, for your
-own use (not for SRE to install on production hosts):
-
-  ./build-deb-in-docker ~/tmp/scap-deb
-
-The directory given as an argument must exist. The resulting package
-files will be put into that directory.
 
 Reporting Issues
 ================
@@ -65,7 +49,7 @@ figlet font [#speedfont]_.
 License
 =======
 
-|    Copyright 2014-2021 Wikimedia Foundation & Contributors.
+|    Copyright 2014-2022 Wikimedia Foundation & Contributors.
 |
 |    Scap is free software: you can redistribute it and/or modify
 |    it under the terms of the GNU General Public License as published by
@@ -78,9 +62,3 @@ License
 |
 |    You should have received a copy of the GNU General Public License
 |    along with this program.  If not, see <http://www.gnu.org/licenses/>.
-
-
-Increment T184118
-=================
-Increment this number when you work around `#T184118
-<https://phabricator.wikimedia.org/T184118>`_: 5

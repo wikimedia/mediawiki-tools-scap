@@ -22,7 +22,7 @@ tmp=$(mktemp)
 trap 'rm -f $tmp' EXIT
 
 cat <<EOF > "$tmp"
-scap (${new_version}-1) unstable; urgency=medium
+scap (${new_version})
 
 EOF
 git log --pretty='tformat:  * %s' --no-merges --no-decorate "$old_version.." >> "$tmp"
@@ -35,14 +35,14 @@ EOF
 echo "Proposed new changelog entry:"
 cat "$tmp"
 
-read -r -p "OK to update debian/changelog? " answer
+read -r -p "OK to update changelog? " answer
 if [ "$answer" != "y" ]; then
     echo Aborted.
     exit 1
 fi
 
-cat debian/changelog >> "$tmp"
-cat "$tmp" > debian/changelog
+cat changelog >> "$tmp"
+cat "$tmp" > changelog
 
 echo Done
 

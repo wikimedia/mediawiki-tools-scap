@@ -71,19 +71,14 @@ VERS=1.2.3 # Replace with new version
 ```
 in your shell to make the following commands simpler.
 
-## Update scap/version.py and debian/changelog
+## Update scap/version.py and changelog
 
 Run `release-scripts/prepare-scap-release $VERS`.  This will
 automatically update and commit `scap/version.py` and
-`debian/changelog`, prompting you for confirmation along the way.
+`changelog`, prompting you for confirmation along the way.
 
-At this point you are welcome to further modify `debian/changelog` and
+At this point you are welcome to further modify `changelog` and
 update the commit.
-
-## Perform a local deb build (optional)
-
-* Run `./build-deb-in-docker /tmp/scap-build` to verify that the deb
-  file can be created.  This step requires Docker.
 
 ## Push changes to Gerrit for review
 
