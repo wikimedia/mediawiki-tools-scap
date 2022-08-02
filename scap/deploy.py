@@ -170,7 +170,13 @@ class DeployLocal(cli.Application):
         Render config files.
 
         Grabs the current config yaml file from the deploy git server, and
-        renders the final template inside the repo-cache's tmp directory.
+        renders the config files templates inside the repo-cache's
+        .git/config-files directory. During the promote stage, final links are
+        created to the rev-specific config files.
+
+        If the config file target path for a template is relative, however,
+        the file is written directly at the target path and no link is
+        created.
         """
         logger = self.get_logger()
         if not self.config["config_deploy"]:
@@ -214,15 +220,19 @@ class DeployLocal(cli.Application):
             self.noop = False
 
             if filename.startswith("/"):
-                filename = filename[1:]
+                # Absolute config files are written to .git/config-files and
+                # linked from their final location in the promote stage
+                filename = os.path.join(source_basepath, filename[1:])
+            else:
+                # Relative config files are written directly to their
+                # destination under the rev directory and linking is skipped
+                filename = self.context.rev_path(self.rev, filename)
 
-            utils.mkdir_p(os.path.join(source_basepath, os.path.dirname(filename)))
-
-            source = os.path.join(source_basepath, filename)
-            logger.info("Rendering config_file: {} using {}".format(source, var_file))
-
-            with open(source, "w") as f:
+            utils.mkdir_p(os.path.dirname(filename))
+            logger.info("Rendering config_file: {} using {}".format(filename, var_file))
+            with open(filename, "w") as f:
                 f.write(tmpl.render())
+
         return 0
 
     def config_diff(self):
