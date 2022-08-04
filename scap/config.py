@@ -82,7 +82,8 @@ DEFAULT_CONFIG = {
     "nrpe_dir": (str, "/etc/nagios/nrpe.d"),
     "require_valid_service": (bool, False),
     "scap3_mediawiki": (bool, False),
-    "serializing_lock_file": (str, "/srv/mediawiki-staging/scap/log/scap.serial.lock"),
+    # Relative to "stage_dir"
+    "serializing_lock_file": (str, "scap/lock/scap.serial.lock"),
     "service_timeout": (float, 120.0),
     "tags_to_keep": (int, 20),
     "perform_checks": (bool, True),
