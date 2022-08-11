@@ -7,17 +7,18 @@
 """
 from __future__ import absolute_import
 
-from datetime import datetime
 import errno
 import os
+import re
 import socket
 import subprocess
+from datetime import datetime
+
 import yaml
 
-
-from scap.runcmd import gitcmd, FailedCommand
-import scap.utils as utils
 import scap
+import scap.utils as utils
+from scap.runcmd import gitcmd, FailedCommand
 
 
 def version():
@@ -646,3 +647,15 @@ def clone_or_update_repo(dir, repo, branch, logger, reference=None,
     update_submodules(dir, use_upstream=True, checkout=True, force=True)
 
     return head
+
+
+def file_has_unstaged_changes(file, location=None) -> bool:
+    """
+    Untracked files are also considered
+    """
+
+    location = location or os.getcwd()
+
+    ensure_dir(location)
+    git_status_output = gitcmd("status", "--porcelain", file, cwd=location)
+    return bool(re.search(r'(?m)^( M|\?\?)', git_status_output))

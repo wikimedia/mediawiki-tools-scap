@@ -99,7 +99,7 @@ DEFAULT_CONFIG = {
     # HTTP/HTTPS proxy used only for requests that need it (such as accessing train_blockers_url)
     "web_proxy": (str, None),
 
-    # Settings related to container image building
+    # Settings related to building and deploying mediawiki container image
     # xref AbstractSync._build_container_images() in main.py
     "build_mw_container_image": (bool, False),
     "deploy_mw_container_image": (bool, False),
@@ -117,7 +117,13 @@ DEFAULT_CONFIG = {
     "mediawiki_image_extra_packages": (str, ""),
     # Path to a CA cert to inject into the image
     "mediawiki_image_extra_ca_cert": (str, None),
-    # End settings related to image building
+
+    "helmfile_services_dir": (str, "/srv/deployment-charts/helmfile.d/services"),
+    "helmfile_mediawiki_release_dir": (str, "/etc/helmfile-defaults/mediawiki/release"),
+    # Comma separated list of the clusters we will deploy to
+    "k8s_clusters": (str, "eqiad, codfw"),
+    "k8s_deployments_file": (str, "/etc/helmfile-defaults/mediawiki-deployments.yaml"),
+    # End settings related to building and deploying mediawiki container image
 
     # Settings related to scap installation
     "install_ssh_user": (str, "scap"),

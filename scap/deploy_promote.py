@@ -38,7 +38,7 @@ from functools import partial
 import requests
 from requests import RequestException, HTTPError
 
-from scap import cli, utils, config
+from scap import cli, utils, config, git
 from scap.runcmd import gitcmd
 
 print = partial(print, flush=True)
@@ -150,7 +150,7 @@ class DeployPromote(cli.Application):
         """
         versions_file = \
             utils.get_realm_specific_filename("wikiversions.json", self.config["wmf_realm"])
-        files_to_commit = [file for file in [versions_file, "php"] if _file_updated(file)]
+        files_to_commit = [file for file in [versions_file, "php"] if git.file_has_unstaged_changes(file)]
 
         if not files_to_commit:
             return False
@@ -233,11 +233,6 @@ class DeployPromote(cli.Application):
             actual_version,
             "SUCCESS" if self.promote_version == actual_version else "FAIL"
         )
-
-
-def _file_updated(file) -> bool:
-    git_status_output = gitcmd("status", "--porcelain", file)
-    return bool(re.search(r'(?m)^ M', git_status_output))
 
 
 def _commit_arrived_to_remote(change_id) -> bool:

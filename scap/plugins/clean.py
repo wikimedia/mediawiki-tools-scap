@@ -60,6 +60,9 @@ class Clean(main.AbstractSync):
         self.arguments.message = "Pruned MediaWiki: {}".format(", ".join(self.branches_to_remove))
         self.arguments.force = False
         self.arguments.stop_before_sync = False
+        # There's no need to build or deploy container images during scap clean
+        self.config["build_mw_container_image"] = False
+        self.config["deploy_mw_container_image"] = False
         return super().main(*extra_args)
 
     def _before_cluster_sync(self):
@@ -137,13 +140,6 @@ class Clean(main.AbstractSync):
             self._maybe_delete(os.path.join(patch_base_dir, branch))
             srv_patches_git_message = 'Scap clean for "{}"'.format(branch)
             git.add_all(patch_base_dir, message=srv_patches_git_message)
-
-    # There's no need to build or deploy container images during scap clean
-    def _build_container_images(self):
-        pass
-
-    def _deploy_container_images(self):
-        pass
 
     def _after_cluster_sync(self):
         """
