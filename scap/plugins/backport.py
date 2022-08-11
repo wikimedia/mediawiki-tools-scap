@@ -111,7 +111,12 @@ class Backport(cli.Application):
         self.validate_backports(change_details)
         self.check_dependencies(change_details, change_numbers)
         if not self.arguments.yes:
-            utils.prompt_for_approval_or_exit("Backport the changes %s? (y/N): " % change_numbers,
+            table = PrettyTable()
+            table.field_names = ["Change Number", "Subject"]
+            for change in change_details:
+                table.add_row([change["_number"], change["subject"]])
+            utils.prompt_for_approval_or_exit("The following changes are scheduled for backport:\n%s\n"
+                                              "Backport the changes? (y/N): " % table.get_string(),
                                               "Backport cancelled.")
         self.approve_changes(change_details)
         self.wait_for_changes_to_be_merged(change_numbers)
@@ -243,7 +248,7 @@ class Backport(cli.Application):
                 subprocess.check_call(["git", "-C", repo_location, "reset", "--hard", "@{u}"])
                 subprocess.check_call(["git", "-C", repo_location, "revert", "--no-edit", commit])
                 commit_msg = subprocess.check_output(["git", "-C", repo_location, "show", "--pretty=format:%s", "-s",
-                                                      "HEAD"], text=True)
+                                                      "HEAD"], text=True) + "\n"
 
             change_id = self.generate_change_id(commit_msg)
             with utils.suppress_backtrace():
