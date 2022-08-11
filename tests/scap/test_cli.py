@@ -336,19 +336,6 @@ def test_factory(cmd):
     assert isinstance(cmd, cli.Application)
 
 
-def test_create_serial_lock_dir(cmd, mocker):
-    exists = mocker.patch("os.path.exists")
-    exists.return_value = False
-    mkdirs = mocker.patch("os.makedirs")
-
-    cmd._load_config()
-    cmd._ensure_serial_lock_dir_exists()
-
-    stage_dir = cmd.config["stage_dir"]
-    lock_dir = os.path.join(stage_dir, os.path.dirname(cmd.config["serializing_lock_file"]))
-    mkdirs.assert_called_with(lock_dir, 0o775, exist_ok=True)
-
-
 def test_run(cmd, mocker):
     # Application.run is indecent enough to exit on us.
     # Tell them no.
@@ -360,7 +347,6 @@ def test_run(cmd, mocker):
     cmd._load_config = mock.MagicMock()
     cmd._setup_loggers = mock.MagicMock()
     cmd._setup_environ = mock.MagicMock()
-    cmd._ensure_serial_lock_dir_exists = mock.MagicMock()
     cmd._handle_exception = mock.MagicMock(return_value=70)
     cmd.handle_keyboard_interrupt = mock.MagicMock(return_value=130)
     # Running as root causes an exception handling

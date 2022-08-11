@@ -54,6 +54,17 @@ def test_clears_lock_on_sigterm():
     assert_clears_lock_on(signal.SIGTERM)
 
 
+def test_timeout_lock_create_lock_dir(mocker):
+    exists = mocker.patch("os.path.exists")
+    exists.return_value = False
+    mkdirs = mocker.patch("os.makedirs")
+
+    to_lock = lock.TimeoutLock("/a/path/to/lock")
+    to_lock._ensure_lock_dir_exists()
+
+    mkdirs.assert_called_with("/a/path/to", 0o775, exist_ok=True)
+
+
 @timeout_decorator.timeout(5, use_signals=False)
 def test_timeout_lock_acquires_lock():
     (lock_file, release_signal_file) = get_temp_filepaths()

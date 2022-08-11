@@ -128,7 +128,10 @@ def get_lock_excuse(lockfile):
 class TimeoutLock:
     """
     File-based exclusive lock. It will block trying to acquire a lock on the file for the specified
-    amount of time before timing out
+    amount of time before timing out.
+
+    The lock file is placed in a directory relative to config["stage_dir"]. This means code using this type of lock
+    should only run on hosts where that dir exists (i.e. masters at the time of writing)
     """
 
     DEFAULT_TIMEOUT_IN_MINS = 10
@@ -143,6 +146,7 @@ class TimeoutLock:
         self.timeout = timeout
         self.lock_fd = None
 
+        self._ensure_lock_dir_exists()
         self._ensure_sane_timeout()
 
     def __enter__(self):
@@ -162,6 +166,16 @@ class TimeoutLock:
             fcntl.lockf(self.lock_fd, fcntl.LOCK_UN)
             os.close(self.lock_fd)
             self.lock_fd = None
+
+    def _ensure_lock_dir_exists(self):
+        lock_dir = os.path.dirname(self.lock_file)
+
+        if not os.path.exists(lock_dir):
+            try:
+                # exist_ok=True prevents error in case of concurrent execution
+                os.makedirs(lock_dir, 0o775, exist_ok=True)
+            except Exception as e:
+                raise Exception("Failed to create required lock dir: \"%s\"" % lock_dir) from e
 
     def _ensure_sane_timeout(self):
         if not TimeoutLock.MIN_TIMEOUT_IN_MINS <= self.timeout <= TimeoutLock.MAX_TIMEOUT_IN_MINS:

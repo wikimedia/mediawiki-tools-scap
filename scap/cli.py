@@ -442,16 +442,6 @@ class Application(object):
                 "try: eval $(ssh-agent) && ssh-add"
             )
 
-    def _ensure_serial_lock_dir_exists(self):
-        lock_dir = os.path.dirname(self.get_serial_lock_file())
-
-        if not os.path.exists(lock_dir):
-            try:
-                # exist_ok=True prevents error in case of concurrent execution
-                os.makedirs(lock_dir, 0o775, exist_ok=True)
-            except Exception as e:
-                raise Exception("Failed to create required lock dir: \"%s\"" % lock_dir) from e
-
     def get_serial_lock_file(self):
         return os.path.join(self.config["stage_dir"], self.config["serializing_lock_file"])
 
@@ -511,7 +501,6 @@ class Application(object):
             app._load_config()
             app._setup_loggers()
             app._setup_environ()
-            app._ensure_serial_lock_dir_exists()
             if "subcommand" in app.arguments and app.arguments.subcommand:
                 method = app.arguments.subcommand
                 exit_status = method(app, app.extra_arguments)
