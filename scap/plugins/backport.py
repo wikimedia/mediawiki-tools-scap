@@ -185,7 +185,7 @@ class Backport(cli.Application):
         else:
             status = "open"
 
-        params["query"] = ("status:" + status + " AND ("
+        params["query"] = ("status:" + status + " -is:wip" + " AND ("
                            + " OR ".join(["branch:wmf/{}".format(v) for v in self.versions])
                            + " OR (project:operations/mediawiki-config AND branch:"
                            + self.config_branch + "))")
@@ -297,10 +297,12 @@ class Backport(cli.Application):
         change_number = change_detail['_number']
         project = change_detail.project.replace("mediawiki/", "")
         branch = change_detail.branch.replace("wmf/", "")
-        status = change_detail.status
 
-        if status == "ABANDONED":
+        if change_detail.status == "ABANDONED":
             self.get_logger().warn("Change '%s' has been abandoned!" % change_number)
+            raise SystemExit(1)
+        if change_detail.work_in_progress:
+            self.get_logger().warn("Change '%s' is a work in progress and not ready for merge!" % change_number)
             raise SystemExit(1)
         if project == "operations/mediawiki-config" and branch == self.config_branch:
             pass
