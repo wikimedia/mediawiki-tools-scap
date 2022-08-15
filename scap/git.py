@@ -586,13 +586,8 @@ def remap_submodules(location, server):
 def list_submodules(repo, args):
     """List all of the submodules of a given respository"""
     ensure_dir(repo)
-    submodules = []
 
-    res = gitcmd("submodule", "status", args, cwd=repo)
-
-    for line in res.splitlines():
-        submodules.append(line.split()[1])
-    return submodules
+    return gitcmd("submodule", "-q", "foreach", "echo $name", args, cwd=repo).splitlines()
 
 
 def reflog(repo, fmt="oneline", branch=None):

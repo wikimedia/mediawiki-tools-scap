@@ -300,8 +300,7 @@ class Backport(cli.Application):
 
         return int(number)
 
-    def validate_change(self, change_detail):
-        core_submodules = ["core"] + git.list_submodules(self.mediawiki_location, "--recursive")
+    def validate_change(self, change_detail, base_repos):
         change_number = change_detail['_number']
         project = change_detail.project.replace("mediawiki/", "")
         branch = change_detail.branch.replace("wmf/", "")
@@ -319,8 +318,7 @@ class Backport(cli.Application):
                 "Change '%s' branch '%s' not valid for any deployed wikiversion. Deployed wikiversions: %s" %
                 (change_number, branch, list(self.versions)))
             raise SystemExit(1)
-        elif project not in core_submodules + git.list_submodules(self.mediawiki_location + '/' + 'php-'
-                                                                  + branch, "--recursive"):
+        elif project not in base_repos + git.list_submodules(self.mediawiki_location + "/php-" + branch, "--recursive"):
             self.get_logger().warn("Change '%s' project '%s' not valid for any production project/submodule" %
                                    (change_number, project))
             raise SystemExit(1)
@@ -329,15 +327,17 @@ class Backport(cli.Application):
 
     def validate_backports(self, change_details):
         self.get_logger().info("Checking whether changes are in a branch and version deployed to production...")
+        base_repos = git.list_submodules(self.mediawiki_location, "--recursive") + ["core"]
         for detail in change_details:
-            self.validate_change(detail)
+            self.validate_change(detail, base_repos)
 
     def validate_reverts(self, change_details):
         self.get_logger().info("Checking whether changes are in a branch and version deployed to production...")
+        base_repos = git.list_submodules(self.mediawiki_location, "--recursive") + ["core"]
         for detail in change_details:
             if detail['status'] != "MERGED":
                 raise SystemExit("Change '%s' has not yet been merged and cannot be reverted." % detail['_number'])
-            self.validate_change(detail)
+            self.validate_change(detail, base_repos)
 
     def check_dependencies(self, change_details, change_numbers):
         self.get_logger().info("Checking for relation chains and Depends-Ons...")
