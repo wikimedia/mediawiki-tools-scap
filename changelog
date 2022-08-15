@@ -1,3 +1,16 @@
+scap (4.13.0)
+
+  * Scap backport --list: Add mergeable column
+  * scap backport: Don't allow WIP
+  * scap backport: Add commit subject to confirmation
+  * serial lock: move check for lock dir to `TimeoutLock` class
+  * Print message w/ time estimate for php-fpm restarts
+  * Remove wmf-beta-autoupdate subcommand
+  * serial lock: make sure dir for the lock exists
+  * debian package: remove from codebase
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Mon, 15 Aug 2022 09:05:31 -0700
+
 scap (4.12.0-1) unstable; urgency=medium
 
   * deploy-local: Render relative config files directly to their final paths
