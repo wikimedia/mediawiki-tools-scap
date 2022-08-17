@@ -93,7 +93,7 @@ class StageTrain(cli.Application):
                 )
 
         if self.arguments.version == "auto":
-            self.arguments.version = utils.get_current_train_version(self.config["gerrit_url"])
+            self.arguments.version = utils.get_current_train_version_from_gerrit(self.config["gerrit_url"])
             self.logger.info("Using version %s", self.arguments.version)
 
         if not self.arguments.yes:

@@ -44,11 +44,17 @@ def test_set_messages(task, announce, commit, deploy_promote):
 
 
 def get_deploy_promote_with_messages(task, p):
-    with patch.object(DeployPromote, '_get_train_task') as gtt:
-        gtt.return_value = task
+    version = "1.42.0-wmf.00"
+
+    with patch('scap.utils.get_current_train_info') as gcti:
+        gcti.return_value = {
+            "version": version,
+            "task": task,
+            "status": "open",
+        }
 
         p.group = "group3"
-        p.promote_version = "1.42.0-wmf.00"
+        p.promote_version = version
 
         p._set_messages()
 

@@ -30,13 +30,10 @@
     You should have received a copy of the GNU General Public License
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """
-import json
 import os
 import re
-import socket
 import time
 from functools import partial
-from json import JSONDecodeError
 
 import requests
 from requests import RequestException, HTTPError
@@ -111,38 +108,6 @@ class DeployPromote(cli.Application):
         if not os.path.isfile(group_file):
             utils.abort("""group "%s" does not exist""" % group_file)
 
-    def _get_train_task(self) -> str:
-        """
-        Returns the Phabricator id of the current train task.  If this
-        information cannot be retrieved or decoded, or the response doesn't look
-        like a Phabricator task id, an empty string is returned.
-        """
-
-        api_url = "https://train-blockers.toolforge.org/api.php"
-
-        self.logger.info('Trying to retrieve Phabricator train task from "%s"' % api_url)
-        try:
-            proxy = {"https": "http://webproxy:8080"} if _on_real_deploy_server() else None
-            train_task_json = requests.get(api_url, proxies=proxy).text
-        except RequestException as e:
-            self.logger.warning("Failed to retrieve Phabricator train task:\n%s" % str(e))
-            return ""
-
-        try:
-            task = json.loads(train_task_json)["current"]["task_id"]
-        except (JSONDecodeError, TypeError) as e:
-            self.logger.warning("Invalid JSON received from %s:\n%s\n%s" % (api_url, train_task_json, e))
-            return ""
-
-        if not utils.is_phabricator_task_id(task):
-            self.logger.warning(
-                "Unexpected Phabricator train task format received from %s: %s" % (api_url, task)
-            )
-            return ""
-
-        self.logger.info("Phabricator task id is %s" % task)
-        return task
-
     def _prompt_user_to_approve(self, prev_version) -> bool:
         prompt_message = "Promote %s from %s to %s" % (
             self.group, prev_version, self.promote_version
@@ -174,7 +139,7 @@ class DeployPromote(cli.Application):
         self.commit_message = header
         self.announce_message = header
 
-        phabricator_task_id = self._get_train_task()
+        phabricator_task_id = utils.get_current_train_info()["task"]
         if phabricator_task_id:
             self.commit_message += "\n\nBug: %s" % phabricator_task_id
             self.announce_message += "  refs %s" % phabricator_task_id
@@ -268,10 +233,6 @@ class DeployPromote(cli.Application):
             actual_version,
             "SUCCESS" if self.promote_version == actual_version else "FAIL"
         )
-
-
-def _on_real_deploy_server() -> bool:
-    return socket.getfqdn().endswith(".wmnet")
 
 
 def _file_updated(file) -> bool:

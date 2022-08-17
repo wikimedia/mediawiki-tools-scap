@@ -26,6 +26,7 @@ import packaging.version
 import pwd
 import random
 import re
+import requests
 import socket
 import struct
 import subprocess
@@ -1087,7 +1088,11 @@ def parse_wmf_version(version: str) -> packaging.version.Version:
     return packaging.version.Version(re.sub(r"[^.\d]", "", version))
 
 
-def get_current_train_version(gerrit_url) -> str:
+def on_real_deploy_server() -> bool:
+    return socket.getfqdn().endswith(".wmnet")
+
+
+def get_current_train_version_from_gerrit(gerrit_url) -> str:
     """Returns a string like '1.39.0-wmf.19'"""
 
     url = os.path.join(gerrit_url, "mediawiki/core")
@@ -1098,6 +1103,32 @@ def get_current_train_version(gerrit_url) -> str:
     res = re.sub(r"^.*wmf/(.*)$", "\\1", output.splitlines()[-1])
 
     return res
+
+
+def get_current_train_info() -> dict:
+    """
+    Returns a dictionary containing information about this week's train
+    """
+    api_url = "https://train-blockers.toolforge.org/api.php"
+
+    proxy = {"https": "http://webproxy:8080"} if on_real_deploy_server() else None
+    resp = requests.get(api_url, proxies=proxy)
+    resp.raise_for_status()
+
+    current = resp.json()["current"]
+
+    version = current["version"]
+    task = current["task_id"]
+    status = current["status"]
+
+    assert(is_phabricator_task_id(task))
+    assert(re.match(BRANCH_RE, version))
+
+    return {
+        "version": version,
+        "task": task,
+        "status": status,
+    }
 
 
 def subprocess_check_run_quietly_if_ok(cmd, dir, logfile, logger, shell=False):
