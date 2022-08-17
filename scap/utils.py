@@ -1105,24 +1105,33 @@ def get_current_train_version_from_gerrit(gerrit_url) -> str:
     return res
 
 
-def get_current_train_info() -> dict:
+def get_current_train_info(api_url) -> dict:
     """
     Returns a dictionary containing information about this week's train
     """
-    api_url = "https://train-blockers.toolforge.org/api.php"
 
-    proxy = {"https": "http://webproxy:8080"} if on_real_deploy_server() else None
-    resp = requests.get(api_url, proxies=proxy)
-    resp.raise_for_status()
+    # Support absolute file:// URLs for testing (particularly by train-dev).
+    if api_url.startswith("file:///"):
+        with open(api_url[len("file://"):]) as f:
+            current = json.loads(f.read())
+    else:
+        proxy = {"https": "http://webproxy:8080"} if on_real_deploy_server() else None
+        resp = requests.get(api_url, proxies=proxy)
+        resp.raise_for_status()
 
-    current = resp.json()["current"]
+        current = resp.json()["current"]
 
     version = current["version"]
     task = current["task_id"]
     status = current["status"]
 
-    assert(is_phabricator_task_id(task))
-    assert(re.match(BRANCH_RE, version))
+    if not is_phabricator_task_id(task):
+        raise ValueError("{} returned invalid Phabricator task id '{}'".format(
+            api_url, task))
+
+    if not re.match(BRANCH_RE, version):
+        raise ValueError("{} returned invalid version '{}'".format(
+            api_url, version))
 
     return {
         "version": version,

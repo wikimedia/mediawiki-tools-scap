@@ -95,6 +95,7 @@ DEFAULT_CONFIG = {
     "cache_revs": (int, 5),
     "use_syslog": (bool, False),
     "umask": (int, 0o002),
+    "train_blockers_url": (str, "https://train-blockers.toolforge.org/api.php"),
 
     # Settings related to container image building
     # xref AbstractSync._build_container_images() in main.py

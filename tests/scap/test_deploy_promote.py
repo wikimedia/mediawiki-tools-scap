@@ -1,4 +1,6 @@
+import json
 import shlex
+import tempfile
 from logging import Logger
 from unittest import mock
 from unittest.mock import patch
@@ -11,11 +13,6 @@ import scap.cli
 from scap.deploy_promote import DeployPromote
 
 messages_tests = [
-    (
-        "",
-        "group3 wikis to 1.42.0-wmf.00",
-        "group3 wikis to 1.42.0-wmf.00",
-    ),
     (
         "T777",
         "group3 wikis to 1.42.0-wmf.00  refs T777",
@@ -31,7 +28,9 @@ messages_tests = [
 @pytest.fixture
 @patch.object(DeployPromote, '__init__', return_value=None)
 def deploy_promote(init):
-    return DeployPromote()
+    dp = DeployPromote()
+    dp.config = {}
+    return dp
 
 
 @pytest.mark.parametrize("task,announce,commit", messages_tests)
@@ -45,14 +44,17 @@ def test_set_messages(task, announce, commit, deploy_promote):
 
 def get_deploy_promote_with_messages(task, p):
     version = "1.42.0-wmf.00"
-
-    with patch('scap.utils.get_current_train_info') as gcti:
-        gcti.return_value = {
-            "version": version,
-            "task": task,
-            "status": "open",
+    train_info = {
+        "version": version,
+        "task_id": task,
+        "status": "open",
         }
 
+    with tempfile.NamedTemporaryFile(mode="w") as f:
+        json.dump(train_info, f)
+        f.flush()
+
+        p.config["train_blockers_url"] = "file://{}".format(f.name)
         p.group = "group3"
         p.promote_version = version
 

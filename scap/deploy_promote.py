@@ -139,10 +139,10 @@ class DeployPromote(cli.Application):
         self.commit_message = header
         self.announce_message = header
 
-        phabricator_task_id = utils.get_current_train_info()["task"]
-        if phabricator_task_id:
-            self.commit_message += "\n\nBug: %s" % phabricator_task_id
-            self.announce_message += "  refs %s" % phabricator_task_id
+        train_info = utils.get_current_train_info(self.config["train_blockers_url"])
+        phabricator_task_id = train_info["task"]
+        self.commit_message += "\n\nBug: %s" % phabricator_task_id
+        self.announce_message += "  refs %s" % phabricator_task_id
 
     def _commit_files(self) -> bool:
         """

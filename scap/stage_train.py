@@ -37,6 +37,7 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """
 import os
+import sys
 
 from scap import cli, utils
 
@@ -93,8 +94,7 @@ class StageTrain(cli.Application):
                 )
 
         if self.arguments.version == "auto":
-            self.arguments.version = utils.get_current_train_version_from_gerrit(self.config["gerrit_url"])
-            self.logger.info("Using version %s", self.arguments.version)
+            self._setup_auto_mode()
 
         if not self.arguments.yes:
             check_term_multplxr()
@@ -111,6 +111,7 @@ class StageTrain(cli.Application):
             getattr(self, "_" + stage)()
             self.logger.info("DONE!")
 
+    # Stage implementations
     def _prep(self):
         self._run(["prep", self.arguments.version])
 
@@ -122,6 +123,7 @@ class StageTrain(cli.Application):
 
     def _clean(self):
         self._run(["clean", "auto"])
+    # End stage implementations
 
     def _run(self, scap_cmd):
         scap_cmd_str = " ".join(scap_cmd)
@@ -133,3 +135,25 @@ class StageTrain(cli.Application):
                 return
 
             self.scap_check_call(scap_cmd)
+
+    def _setup_auto_mode(self):
+        self.logger.info("Initializing stage-train auto mode")
+        self.logger.info("Retrieving train information...")
+        gerrit_latest_version = utils.get_current_train_version_from_gerrit(self.config["gerrit_url"])
+
+        train_blockers_url = self.config["train_blockers_url"]
+        train_info = utils.get_current_train_info(train_blockers_url)
+        task = train_info["task"]
+        status = train_info["status"]
+        version = train_info["version"]
+
+        if status != "open":
+            self.logger.warn("Phabricator task %s has status '%s'.  Cancelling operation.", task, status)
+            sys.exit(0)
+
+        if version != gerrit_latest_version:
+            utils.abort("Phabricator task {} says the train version is '{}', but '{}' is the latest available in Gerrit.".format(
+                task, version, gerrit_latest_version))
+
+        self.arguments.version = version
+        self.logger.info("Using version %s", version)
