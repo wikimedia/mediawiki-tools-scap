@@ -1098,3 +1098,22 @@ def get_current_train_version(gerrit_url) -> str:
     res = re.sub(r"^.*wmf/(.*)$", "\\1", output.splitlines()[-1])
 
     return res
+
+
+def subprocess_check_run_quietly_if_ok(cmd, dir, logfile, logger, shell=False):
+    try:
+        with open(logfile, "a") as logstream:
+            log_file_position = logstream.tell()
+            logger.debug("Running {} in {}".format(cmd, dir))
+            subprocess.run(cmd, shell=shell, check=True, cwd=dir,
+                           stdout=logstream,
+                           stderr=subprocess.STDOUT)
+    except subprocess.CalledProcessError as e:
+        # Print the error message, which contains the command that was executed and its
+        # exit status.
+        logger.error(e)
+        logger.error("Stdout/stderr follows:")
+        with open(logfile) as logstream:
+            logstream.seek(log_file_position)
+            logger.error(logstream.read())
+        raise
