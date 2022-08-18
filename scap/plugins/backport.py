@@ -143,14 +143,33 @@ class Backport(cli.Application):
         self.sync_world(change_details)
 
     def sync_world(self, change_details):
-        sync_arguments = ["Backport for %s" % ","
-                          .join(["[[gerrit:%d]] %s"
-                                 % (change["_number"], change["subject"]) for change in change_details])]
+        sync_arguments = [self.build_sal(change_details)]
 
         if not self.arguments.yes:
             sync_arguments.insert(0, "--pause-after-testserver-sync")
 
         self.scap_check_call(["sync-world"] + sync_arguments)
+
+    def extract_bug_ids_from_gerrit_change_details(self, change) -> list:
+        """Returns a list of Phabricator task id strings"""
+        commit_msg = change["revisions"][change["current_revision"]]["commit_with_footers"]
+        footers = commit_msg.split('\n\n')[-1]
+        return re.findall(r'Bug: (T\d+)\n', footers)
+
+    def build_sal(self, change_details) -> str:
+        """Build a Server Admin Log entry"""
+        return "Backport for {}".format(", ".join(map(self.build_sal_1, change_details)))
+
+    # This code was inspired by https://gerrit.wikimedia.org/r/plugins/gitiles/labs/tools/deploy-commands/+/refs/heads/master/deploy_commands/bacc.py#10
+    def build_sal_1(self, change) -> str:
+        bug_ids = self.extract_bug_ids_from_gerrit_change_details(change)
+
+        if not bug_ids:
+            bug_str = ''
+        else:
+            bug_str = ' (' + ' '.join(bug_ids) + ')'
+
+        return '[[gerrit:{}|{}{}]]'.format(change["_number"], change["subject"], bug_str)
 
     def gerrit_ssh(self, gerrit_arguments):
         gerrit_hostname = urllib.parse.urlparse(self.config['gerrit_url']).hostname

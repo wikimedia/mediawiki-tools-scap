@@ -299,9 +299,9 @@ class ChangeDetail(GerritEndpoint):
     revisionid = "current"
 
     def __init__(self, changeid, revisionid="current", **kwargs):
-        options = ''
+        options = '?o=COMMIT_FOOTERS'
         if revisionid == 'current':
-            options = '?o=CURRENT_REVISION'
+            options += '&o=CURRENT_REVISION'
         super().__init__(path='changes/%s/detail%s' % (changeid, options), **kwargs)
         self.changeid = changeid
         self.revision = ChangeRevisions(changeid, revisionid,
