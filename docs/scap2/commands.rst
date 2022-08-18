@@ -13,7 +13,7 @@ scap sync-world
 configuration files currently staged on the deploy server to the rest of the
 cluster.
 
-.. program-output:: ../bin/scap sync-world --help
+.. program-output:: python3 ../bin/scap sync-world --help
 .. seealso::
    * :func:`scap.ScapWorld`
    * :func:`scap.tasks.check_valid_syntax`
@@ -27,7 +27,7 @@ scap pull
 :command:`scap pull` uses rsync to fetch MediaWiki code and configuration to the
 local host. It is typically called automatically on hosts during the execution of `scap sync-world`_.
 
-.. program-output:: ../bin/scap pull --help
+.. program-output:: python3 ../bin/scap pull --help
 .. seealso::
    * :func:`scap.SyncCommon`
    * :func:`scap.tasks.sync_common`
@@ -38,7 +38,7 @@ scap sync-file
 :command:`scap sync-file` synchronizes a file or directory from the staging
 directory to the cluster.
 
-.. program-output:: ../bin/scap sync-file --help
+.. program-output:: python3 ../bin/scap sync-file --help
 .. seealso::
    * :func:`scap.SyncFile`
 
@@ -48,7 +48,7 @@ scap sync-l10n
 :command:`scap sync-l10n` synchronizes the localization files for a given
 MediaWiki version to the cluster and rebuilds the associated cache files.
 
-.. program-output:: ../bin/scap sync-l10n --help
+.. program-output:: python3 ../bin/scap sync-l10n --help
 .. seealso::
    * :func:`scap.SyncL10n`
 
@@ -57,7 +57,7 @@ scap sync-wikiversions
 :command:`scap sync-wikiversions` compiles wikiversions.json into a CDB database and then
 syncs both the JSON and CDB versions to the rest of the cluster.
 
-.. program-output:: ../bin/scap sync-wikiversions --help
+.. program-output:: python3 ../bin/scap sync-wikiversions --help
 .. seealso::
    * :func:`scap.SyncWikiversions`
    * :func:`scap.tasks.compile_wikiversions`
@@ -73,7 +73,7 @@ scap wikiversions-inuse
 :command:`scap wikiversions-inuse` examines wikiversions.json to find the current active
 MediaWiki versions.
 
-.. program-output:: ../bin/scap wikiversions-inuse --help
+.. program-output:: python3 ../bin/scap wikiversions-inuse --help
 .. seealso::
    * :func:`scap.MWVersionsInUse`
 
@@ -82,7 +82,7 @@ scap wikiversions-compile
 -------------------------
 :command:`wikiversions-compile` compiles wikiversions.json into wikiversions.php.
 
-.. program-output:: ../bin/scap wikiversions-compile --help
+.. program-output:: python3 ../bin/scap wikiversions-compile --help
 .. seealso::
    * :func:`scap.CompileWikiversions`
    * :func:`scap.tasks.compile_wikiversions`
@@ -92,7 +92,7 @@ scap cdb-rebuild
 ----------------
 :command:`scap cdb-rebuild` rebuilds localization cache CDB files from JSON files.
 
-.. program-output:: ../bin/scap cdb-rebuild --help
+.. program-output:: python3 ../bin/scap cdb-rebuild --help
 .. seealso::
    * :func:`scap.RebuildCdbs`
    * :func:`scap.tasks.merge_cdb_updates`
@@ -102,7 +102,7 @@ scap cdb-json-refresh
 ---------------------
 :command:`refreshCdbJsonFiles` Create JSON/MD5 files for all CDB files in a directory.
 
-.. program-output:: ../bin/scap cdb-json-refresh --help
+.. program-output:: python3 ../bin/scap cdb-json-refresh --help
 .. seealso::
    * :func:`scap.refreshCdbJsonFiles`
    * :func:`scap.tasks.refresh_cdb_json_files`
