@@ -37,10 +37,15 @@ def make_table(backports, display_mergable):
     return table
 
 
-@cli.command("backport", help="list eligible backports")
+@cli.command("backport", help="List, apply, or revert backports")
 class Backport(cli.Application):
-    """Doing things with backports."""
+    """
+    Merge, pull, and sync the specified commits
 
+    Scap backport will +2 the specified Gerrit commits, wait for them to be
+    merged, pull them down into the staging directory, sync to test servers,
+    prompt for confirmation to proceed, then sync to all servers.
+    """
     gerrit = None
     config_branch = None
     mediawiki_location = None
