@@ -1,3 +1,19 @@
+scap (4.14.0)
+
+  * Use train-blockers.toolforge for scap stage-train auto information
+  * scap backport: Include bug ids in SAL messages
+  * Update help text for scap backport
+  * Sphinx program output must use a relative python
+  * Restore tox for CI documentation generation
+  * Add utils.get_current_train_info()
+  * Add utils.subprocess_check_run_quietly_if_ok()
+  * bootstrap: fix permissions of master bootstrap script
+  * bootstrap: add script for master bootstrapping
+  * scap backport: improve performance of validation
+  * Rewrite "running tests" section in README.md
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Fri, 19 Aug 2022 08:14:05 -0700
+
 scap (4.13.0)
 
   * Scap backport --list: Add mergeable column
