@@ -23,7 +23,6 @@
 """
 from __future__ import absolute_import
 
-import errno
 import os
 import random
 import select
@@ -164,6 +163,7 @@ class Job(object):
     def hosts(self, hosts):
         """Set hosts to run command on."""
         self._hosts = list(hosts)
+        self.max_failure = len(self._hosts)
         return self
 
     def shuffle(self):
@@ -331,6 +331,8 @@ def cluster_ssh(
     procs = {}
     # key is file descriptor, value is an OutputHandler (or subclass) object
     output_handlers = {}
+    # key is file descriptor, value is pid
+    fd_to_pid = {}
     poll = select.epoll()
     try:
         while hosts or procs:
@@ -353,41 +355,35 @@ def cluster_ssh(
 
                 procs[proc.pid] = JobResult(proc, host)
                 poll.register(proc.stdout, select.EPOLLIN)
-                output_handlers[proc.stdout.fileno()] = output_handler(host)
+                fd = proc.stdout.fileno()
+                output_handlers[fd] = output_handler(host)
+                fd_to_pid[fd] = proc.pid
 
                 if reporter:
                     reporter.add_in_flight()
 
             elif procs:
-                try:
-                    pid, status = utils.eintr_retry(os.waitpid, -1, os.WNOHANG)
-                except OSError as e:
-                    # We lost track of our children somehow. So grab any child
-                    # process from procs (they're all dead anyway) and pretend
-                    # it exited normally.
-                    # See https://bugs.python.org/issue1731717
-                    if e.errno == errno.ECHILD:
-                        pid = next(iter(procs))
-                        status = 0
-                    else:
-                        raise
-
                 for fd, event in utils.eintr_retry(poll.poll, 0.01):
                     output = utils.eintr_retry(os.read, fd, 1048576)
-                    output_handlers[fd].accept(output.decode("UTF-8"))
 
-                if pid:
-                    status = -(status & 255) or (status >> 8)
-                    if status != 0:
-                        failures = failures + 1
-                    jobresult = procs.pop(pid)
-                    proc = jobresult.proc
-                    poll.unregister(proc.stdout)
-                    ohandler = output_handlers.pop(proc.stdout.fileno())
-                    jobresult.finish(status, ohandler.output)
-                    if failures > max_failure:
-                        hosts = []
-                    yield jobresult
+                    if output:
+                        output_handlers[fd].accept(output.decode("UTF-8"))
+                    else:
+                        # Got EOF on stdout.  This means the subprocess has completed.
+                        pid = fd_to_pid[fd]
+                        pid, status = utils.eintr_retry(os.waitpid, pid, 0)
+                        status = -(status & 255) or (status >> 8)
+                        if status != 0:
+                            failures = failures + 1
+                        fd_to_pid.pop(fd)
+                        jobresult = procs.pop(pid)
+                        proc = jobresult.proc
+                        poll.unregister(proc.stdout)
+                        ohandler = output_handlers.pop(fd)
+                        jobresult.finish(status, ohandler.output)
+                        if failures > max_failure:
+                            hosts = []
+                        yield jobresult
     finally:
         poll.close()
         for pid, jobresult in procs.items():

@@ -22,6 +22,7 @@
 """
 from __future__ import absolute_import
 
+import contextlib
 import fnmatch
 from functools import partial
 import json
@@ -29,10 +30,12 @@ import logging
 import logging.handlers
 import math
 import operator
+import queue
 import re
 import shlex
 import socket
 import sys
+import threading
 import time
 import traceback
 
@@ -505,6 +508,75 @@ class MuteReporter(ProgressReporter):
 
     def finish(self):
         pass
+
+
+class QueueReporter(ProgressReporter):
+    """
+    A ProgressReporter which sends its state-changing operations upstream via
+    a queue.  It does not generate any output.
+    """
+
+    def __init__(self, name, expect=0, fd=sys.stderr, queue=None):
+        self.queue = queue
+        super().__init__(name, expect, fd)
+
+    def _send(self, message):
+        self.queue.put((threading.get_ident(), message))
+
+    def expect(self, count):
+        self._send(("expect", count))
+
+    def start(self):
+        pass
+
+    def finish(self):
+        pass
+
+    def add_in_flight(self):
+        self._send(("add_in_flight",))
+
+    def add_success(self):
+        self._send(("add_success",))
+
+    def add_failure(self):
+        self._send(("add_failure",))
+
+
+def queue_reader(name, queue):
+    r = ProgressReporter(name)
+    r.start()
+
+    expects = {}
+
+    while True:
+        (worker_id, message) = queue.get()
+        operation = message[0]
+        if operation == "expect":
+            expects[worker_id] = message[1]
+            r.expect(sum(expects.values()))
+        elif operation == "add_in_flight":
+            r.add_in_flight()
+        elif operation == "add_success":
+            r.add_success()
+        elif operation == "add_failure":
+            r.add_failure()
+        elif operation == "terminate":
+            break
+    r.finish()
+
+
+@contextlib.contextmanager
+def MultithreadedProgressReportCollection(name):
+    q = queue.Queue()
+
+    t = threading.Thread(name="Queue reader", target=queue_reader, args=(name, q), daemon=True)
+    t.start()
+
+    try:
+        yield q
+    finally:
+        q.put((None, ("terminate",)))
+        t.join()
 
 
 class DeployLogFormatter(JSONFormatter):
