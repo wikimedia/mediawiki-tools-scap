@@ -144,8 +144,10 @@ class Backport(cli.Application):
 
     def sync_world(self, change_details):
         sync_arguments = [self.build_sal(change_details)]
+        notify_users = set(map(lambda change: "--notify-user=" + change['owner'].username, change_details))
 
         if not self.arguments.yes:
+            sync_arguments = list(notify_users) + sync_arguments
             sync_arguments.insert(0, "--pause-after-testserver-sync")
 
         self.scap_check_call(["sync-world"] + sync_arguments)

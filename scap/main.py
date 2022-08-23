@@ -25,6 +25,7 @@ from __future__ import print_function
 
 import argparse
 import base64
+import getpass
 from concurrent.futures import ProcessPoolExecutor
 import errno
 import locale
@@ -85,6 +86,13 @@ class AbstractSync(cli.Application):
         action="store_true",
         help="Pause after syncing testservers and prompt the user to confirm to continue syncing",
     )
+    @cli.argument(
+        "--notify-user",
+        action="append",
+        default=[],
+        help="User to notify on IRC after sync to testservers."
+             " Can be used multiple times",
+    )
     @cli.argument("message", nargs="*", help="Log message for SAL")
     def main(self, *extra_args):
         """Perform a sync operation to the cluster."""
@@ -123,8 +131,13 @@ class AbstractSync(cli.Application):
                     # Not all subclasses of AbstractSync define the --pause-after-testserver-sync argument,
                     # so we can't assume it is in self.arguments.
                     if getattr(self.arguments, "pause_after_testserver_sync", False):
+                        testservers_string = ', '.join(testservers)
+                        users = [getpass.getuser()] + getattr(self.arguments, "notify_user", [])
+                        message = "%s: %s synced to the testservers: %s" % \
+                                  (' and '.join(users), self.arguments.message, testservers_string)
+                        self.announce(message)
                         utils.prompt_for_approval_or_exit('Changes synced to: %s.\nPlease do any necessary checks '
-                                                          'before continuing.\n' % ', '.join(testservers) +
+                                                          'before continuing.\n' % testservers_string +
                                                           'Continue with sync? (y/N): ', "Sync cancelled.")
 
                 canaries = utils.list_intersection(self._get_canary_list(), full_target_list)
@@ -873,6 +886,13 @@ class ScapWorld(AbstractSync):
         action="store_true",
         help="Pause after syncing testservers and prompt the user to confirm to continue syncing",
     )
+    @cli.argument(
+        "--notify-user",
+        action="append",
+        default=[],
+        help="User to notify on IRC after sync to testservers."
+             " Can be used multiple times",
+    )
     @cli.argument("message", nargs="*", help="Log message for SAL")
     def main(self, *extra_args):
         try:
@@ -1077,6 +1097,13 @@ class SyncFile(AbstractSync):
         "--pause-after-testserver-sync",
         action="store_true",
         help="Pause after syncing testservers and prompt the user to confirm to continue syncing",
+    )
+    @cli.argument(
+        "--notify-user",
+        action="append",
+        default=[],
+        help="User to notify on IRC after sync to testservers."
+             " Can be used multiple times",
     )
     @cli.argument("file", help="File/directory to sync")
     @cli.argument("message", nargs="*", help="Log message for SAL")
