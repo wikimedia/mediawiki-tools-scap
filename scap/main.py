@@ -549,10 +549,10 @@ class AbstractSync(cli.Application):
                     php_fpm.INSTANCE.cmd, num_hosts
                 )
             )
-            with log.MultiprocessProgressReportCollection("php-fpm-restart") as q:
-                php_fpm.INSTANCE.set_progress_queue(q)
-                with ProcessPoolExecutor(max_workers=5) as pool:
-                    results = pool.map(php_fpm.restart_helper, target_hosts)
+            if self.config["wmf_realm"] == "production":
+                self.get_logger().info("This takes about 3 minutes")
+            with ProcessPoolExecutor(max_workers=5) as pool:
+                results = pool.map(php_fpm.restart_helper, target_hosts)
             for _, failed in results:
                 if failed:
                     self.get_logger().warning(

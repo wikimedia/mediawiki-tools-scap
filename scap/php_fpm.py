@@ -58,9 +58,6 @@ class PHPRestart(object):
                 cfg["php_fpm_restart_script"], cfg["php_fpm"], str(threshold)
             )
 
-    def set_progress_queue(self, queue):
-        self.progress_queue = queue
-
     def _build_job(self, targets):
         """
         :param targets: list of targets
@@ -72,7 +69,7 @@ class PHPRestart(object):
         self.job.hosts(targets)
         sudo_cmd = "/usr/bin/sudo -u root -- {}".format(self.cmd)
         self.job.command(sudo_cmd)
-        self.job.progress(log.QueueReporter(name="php-fpm-restart", queue=self.progress_queue))
+        self.job.progress(log.MuteReporter())
         return self.job
 
     def restart_self(self):

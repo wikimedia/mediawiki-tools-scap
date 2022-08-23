@@ -48,7 +48,6 @@ def test_build_job(php_restart):
     """
     Test build job
     """
-    php_restart.set_progress_queue(None)
     php_restart._build_job(["x"])
     assert php_restart.job._hosts == ["x"]
     assert (
