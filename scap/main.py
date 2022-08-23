@@ -946,8 +946,8 @@ class ScapWorld(AbstractSync):
             self.get_logger().warning("%d hosts had sync_wikiversions errors", failed)
             self.soft_errors = True
 
-        tasks.clear_message_blobs(self.config)
         self._restart_php()
+        tasks.clear_message_blobs(self.config)
 
     def _after_lock_release(self):
         self.announce(
@@ -1185,8 +1185,8 @@ class SyncL10n(AbstractSync):
                     "%d hosts had scap-cdb-rebuild errors", failed
                 )
                 self.soft_errors = True
-        tasks.clear_message_blobs(self.config)
         self._restart_php()
+        tasks.clear_message_blobs(self.config)
 
     def _after_lock_release(self):
         self.announce(
