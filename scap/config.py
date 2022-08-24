@@ -96,6 +96,8 @@ DEFAULT_CONFIG = {
     "use_syslog": (bool, False),
     "umask": (int, 0o002),
     "train_blockers_url": (str, "https://train-blockers.toolforge.org/api.php"),
+    # HTTP/HTTPS proxy used only for requests that need it (such as accessing train_blockers_url)
+    "web_proxy": (str, None),
 
     # Settings related to container image building
     # xref AbstractSync._build_container_images() in main.py

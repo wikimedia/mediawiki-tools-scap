@@ -1105,7 +1105,7 @@ def get_current_train_version_from_gerrit(gerrit_url) -> str:
     return res
 
 
-def get_current_train_info(api_url) -> dict:
+def get_current_train_info(api_url, proxy=None) -> dict:
     """
     Returns a dictionary containing information about this week's train
     """
@@ -1115,8 +1115,8 @@ def get_current_train_info(api_url) -> dict:
         with open(api_url[len("file://"):]) as f:
             current = json.loads(f.read())
     else:
-        proxy = {"https": "http://webproxy:8080"} if on_real_deploy_server() else None
-        resp = requests.get(api_url, proxies=proxy)
+        proxies = {"http": proxy, "https": proxy} if proxy else None
+        resp = requests.get(api_url, proxies=proxies)
         resp.raise_for_status()
 
         current = resp.json()["current"]

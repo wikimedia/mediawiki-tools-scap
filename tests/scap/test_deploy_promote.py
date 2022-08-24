@@ -55,6 +55,7 @@ def get_deploy_promote_with_messages(task, p):
         f.flush()
 
         p.config["train_blockers_url"] = "file://{}".format(f.name)
+        p.config["web_proxy"] = None
         p.group = "group3"
         p.promote_version = version
 

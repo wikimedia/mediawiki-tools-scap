@@ -141,8 +141,7 @@ class StageTrain(cli.Application):
         self.logger.info("Retrieving train information...")
         gerrit_latest_version = utils.get_current_train_version_from_gerrit(self.config["gerrit_url"])
 
-        train_blockers_url = self.config["train_blockers_url"]
-        train_info = utils.get_current_train_info(train_blockers_url)
+        train_info = self.get_current_train_info()
         task = train_info["task"]
         status = train_info["status"]
         version = train_info["version"]
