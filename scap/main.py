@@ -136,9 +136,9 @@ class AbstractSync(cli.Application):
                         message = "%s: %s synced to the testservers: %s" % \
                                   (' and '.join(users), self.arguments.message, testservers_string)
                         self.announce(message)
-                        utils.prompt_for_approval_or_exit('Changes synced to: %s.\nPlease do any necessary checks '
-                                                          'before continuing.\n' % testservers_string +
-                                                          'Continue with sync? (y/N): ', "Sync cancelled.")
+                        self.prompt_for_approval_or_exit('Changes synced to: %s.\nPlease do any necessary checks '
+                                                         'before continuing.\n' % testservers_string +
+                                                         'Continue with sync?', "Sync cancelled.")
 
                 canaries = utils.list_intersection(self._get_canary_list(), full_target_list)
                 if len(canaries) > 0:

@@ -192,6 +192,13 @@ class Application(object):
             self.config[source_tree + "_dir"], self.config["wmf_realm"], return_type
         )
 
+    def prompt_for_approval_or_exit(self, prompt_message, exit_message):
+        """Exits successfully with a message if the user does not approve."""
+        approval = utils.prompt_user_for_confirmation(prompt_message)
+        if not approval:
+            self.announce(exit_message)
+            sys.exit(os.EX_OK)
+
     def _process_arguments(self, args, extra_args):
         """
         Validate and process command line arguments.

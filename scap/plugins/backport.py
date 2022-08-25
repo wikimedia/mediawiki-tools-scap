@@ -128,9 +128,9 @@ class Backport(cli.Application):
             table.field_names = ["Change Number", "Subject"]
             for change in change_details:
                 table.add_row([change["_number"], change["subject"]])
-            utils.prompt_for_approval_or_exit("The following changes are scheduled for backport:\n%s\n"
-                                              "Backport the changes? (y/N): " % table.get_string(),
-                                              "Backport cancelled.")
+            self.prompt_for_approval_or_exit("The following changes are scheduled for backport:\n%s\n"
+                                             "Backport the changes?" % table.get_string(),
+                                             "Backport cancelled.")
         self.approve_changes(change_details)
         self.wait_for_changes_to_be_merged(change_numbers)
         self.confirm_commits_to_sync(change_details)
@@ -538,15 +538,15 @@ class Backport(cli.Application):
                     subprocess.check_call(["git", "-C", repo, "show", "-s"] + list(extra_commits))
 
                 if self.arguments.yes:
-                    check_diff = 'y'
+                    check_diff = True
                 else:
-                    check_diff = input('Would you like to see the diff? (y/N): ')
-                if check_diff.lower() == 'y':
+                    check_diff = utils.prompt_user_for_confirmation("Would you like to see the diff?")
+                if check_diff:
                     with utils.suppress_backtrace():
                         subprocess.check_call(["git", "--no-pager", "-C", repo, "show"] + list(extra_commits))
 
-                utils.prompt_for_approval_or_exit('There were unexpected commits pulled from origin for %s. '
-                                                  'Continue with backport? (y/N): ' % repo, "Backport cancelled.")
+                self.prompt_for_approval_or_exit('There were unexpected commits pulled from origin for %s. '
+                                                 'Continue with backport?' % repo, "Backport cancelled.")
 
             self.get_logger().info('Printing git status for %s for your reference...' % repo)
             with utils.suppress_backtrace():

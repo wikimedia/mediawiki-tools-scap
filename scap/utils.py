@@ -964,12 +964,11 @@ def temp_to_permanent_file(final_filename):
 
 def prompt_user_for_confirmation(prompt_message) -> bool:
     """
-    Prompts user with `prompt_message` and expects yes/no answer. Default answer if enter is pressed
-    is "no"
+    Prompts user with `prompt_message` and expects yes/no answer.
     """
     while True:
-        answer = input(prompt_message + " y/N ")
-        if not answer or re.match(r"(?i)(n|no)$", answer):
+        answer = input(prompt_message + " (y/n): ")
+        if re.match(r"(?i)(n|no)$", answer):
             return False
         if re.match(r"(?i)(y|yes)$", answer):
             return True
@@ -1002,12 +1001,6 @@ def empty_file_mask():
     orig_umask = os.umask(0)
     yield
     os.umask(orig_umask)
-
-
-def prompt_for_approval_or_exit(prompt_message, exit_message):
-    approval = input(prompt_message)
-    if approval.lower() != "y":
-        abort(exit_message)
 
 
 def abort(message):
