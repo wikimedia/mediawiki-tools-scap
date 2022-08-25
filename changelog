@@ -1,3 +1,16 @@
+scap (4.15.0)
+
+  * backport: Use standard reporter to display merge progress
+  * Add progress reporting to php-fpm-restarts (v2.0)
+  * Move hard-coded web proxy value into web_proxy config setting
+  * Add "scap php-fpm-restart"
+  * scap backport: IRC notify upon testserver deploy
+  * Call tasks.clear_message_blobs after restarting php-fpm
+  * Revert "Add progress reporting to php-fpm-restarts"
+  * Add progress reporting to php-fpm-restarts
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Thu, 25 Aug 2022 11:01:58 -0700
+
 scap (4.14.0)
 
   * Use train-blockers.toolforge for scap stage-train auto information
