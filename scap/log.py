@@ -25,6 +25,7 @@ from __future__ import absolute_import
 import contextlib
 import fnmatch
 from functools import partial
+import itertools
 import json
 import logging
 import logging.handlers
@@ -338,12 +339,16 @@ class ProgressReporter(object):
     output line.
     """
 
-    def __init__(self, name, expect=0, fd=sys.stderr):
+    def __init__(self, name, expect=0, fd=sys.stderr, spinner=None):
         """
         :param name: Name of command being monitored
         :param expect: Number of results to expect
         :param fd: File handle to write status messages to
+        :param spinner: Cyclical iterator that returns progress spinner.
         """
+        if spinner is None:
+            spinner = itertools.cycle(['-', '\\', '|', '/'])
+
         self._name = name
         self._expect = expect
         self._done = 0
@@ -351,6 +356,7 @@ class ProgressReporter(object):
         self._failed = 0
         self._in_flight = None
         self._fd = fd
+        self._spinner = spinner
 
     @property
     def ok(self):
@@ -379,13 +385,17 @@ class ProgressReporter(object):
         """Set expected result count."""
         self._expect = count
 
+    def refresh(self):
+        """Refresh/redraw progress output."""
+        self._progress()
+
     def start(self):
         """Start tracking progress."""
         self._progress()
 
     def finish(self):
         """Finish tracking progress."""
-        self._progress()
+        self._progress(show_spinner=False)
         self._fd.write("\n")
 
     def add_in_flight(self):
@@ -411,21 +421,22 @@ class ProgressReporter(object):
             self._in_flight -= 1
         self._progress()
 
-    def _progress(self):
+    def _progress(self, show_spinner=True):
         if sys.stdout.isatty():
             fmt = "%-80s\r"
         else:
             fmt = "%-80s\n"
-        self._fd.write(fmt % self._output())
+        self._fd.write(fmt % self._output(show_spinner=show_spinner))
 
-    def _output(self):
-        return "%s: %3.0f%% (%sok: %d; fail: %d; left: %d)" % (
+    def _output(self, show_spinner=True):
+        return "%s: %3.0f%% (%sok: %d; fail: %d; left: %d) %s" % (
             self._name,
             self.percent_complete,
             "" if self._in_flight is None else "in-flight: {}; ".format(self._in_flight),
             self.ok,
             self.failed,
             self.remaining,
+            next(self._spinner) if show_spinner else "",
         )
 
 

@@ -12,7 +12,7 @@ from datetime import datetime
 
 from prettytable import PrettyTable
 from random import randint
-from scap import cli, git, ssh, utils
+from scap import cli, git, log, ssh, utils
 from scap.plugins.gerrit import GerritSession
 
 
@@ -404,35 +404,47 @@ class Backport(cli.Application):
                                'This may take some time if there are long running tests.')
 
         finished = False
+        reporter = log.reporter("awaiting-backport-merges")
+        reporter.expect(len(change_numbers))
+        reporter.start()
+        changes = set(change_numbers)
+        changes_merged = set()
 
-        while not finished:
-            finished = True  # optimism
-            for number in change_numbers:
-                detail = self.gerrit.change_detail(number).get()
-                status = detail['status']
-                verified = detail['labels']['Verified']
-                rejected = getattr(verified, 'rejected', None)
-                # The "mergeable" field will only exist if Gerrit's config has
-                # change.mergeabilityComputationBehavior set to API_REF_UPDATED_AND_CHANGE_REINDEX.
-                mergeable = getattr(detail, 'mergeable', None)
-                print("Change {} status: {}, mergeable: {}".format(number, status, mergeable))
+        try:
+            while not finished:
+                finished = True  # optimism
+                for number in changes.difference(changes_merged):
+                    detail = self.gerrit.change_detail(number).get()
+                    status = detail['status']
+                    verified = detail['labels']['Verified']
+                    rejected = getattr(verified, 'rejected', None)
+                    # The "mergeable" field will only exist if Gerrit's config has
+                    # change.mergeabilityComputationBehavior set to API_REF_UPDATED_AND_CHANGE_REINDEX.
+                    mergeable = getattr(detail, 'mergeable', None)
 
-                if status != 'MERGED':
-                    # Specifically checking for false, since mergeable could be None
-                    if mergeable is False:
-                        raise SystemExit("Gerrit could not merge the change '%s' as is and could require a rebase"
-                                         % number)
+                    if status == 'MERGED':
+                        changes_merged.add(number)
+                        reporter.add_success()
+                    else:
+                        # Specifically checking for false, since mergeable could be None
+                        if mergeable is False:
+                            raise SystemExit("Gerrit could not merge the change '%s' as is and could require a rebase"
+                                             % number)
 
-                    if rejected:
-                        all_verified = getattr(verified, 'all', [])
-                        jenkins_rejected = [v for v in all_verified if v.username == 'jenkins-bot' and v.value == -1]
-                        if len(jenkins_rejected) > 0:
-                            raise SystemExit("The change '%s' failed build tests and could not be merged" % number)
+                        if rejected:
+                            all_verified = getattr(verified, 'all', [])
+                            jenkins_rejected = [v for v in all_verified if v.username == 'jenkins-bot' and v.value == -1]
+                            if len(jenkins_rejected) > 0:
+                                raise SystemExit("The change '%s' failed build tests and could not be merged" % number)
 
-                    finished = False
+                        finished = False
 
-            if not finished:
-                time.sleep(self.interval)
+                if not finished:
+                    reporter.refresh()
+                    time.sleep(self.interval)
+
+        finally:
+            reporter.finish()
 
         self.get_logger().info('All changes have been merged')
 
