@@ -23,7 +23,7 @@ following sources.
 
 * The docs directory in the source tree.
   - online: <https://gerrit.wikimedia.org/r/plugins/gitiles/mediawiki/tools/scap/+/master/docs/>
-  - formatted: <https://doc.wikimedia.org/mw-tools-scap/>
+  - formatted: <https://doc.wikimedia.org/scap/>
 * Wikitech:
   - version 2: <https://wikitech.wikimedia.org/wiki/Scap>
   - version 3: <https://wikitech.wikimedia.org/wiki/Scap3>
