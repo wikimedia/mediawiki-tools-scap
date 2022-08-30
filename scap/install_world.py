@@ -32,7 +32,7 @@ from os.path import expanduser
 import packaging.version
 
 from scap import cli, targets, utils, ssh, log
-from scap.lock import Lock
+from scap.lock import TimeoutLock
 from scap.runcmd import gitcmd
 
 
@@ -97,7 +97,7 @@ class InstallWorld(cli.Application):
             self.arguments.no_log_message = True
 
         # The Lock ensures a scap installation cannot happen during a Mediawiki update
-        with Lock(self.get_lock_file(), "Scap is being updated"):
+        with TimeoutLock(self.get_lock_file(), name="install-world", reason="Scap is being updated"):
             self._initialize_from_config()
             self._select_targets()
             self._select_version()

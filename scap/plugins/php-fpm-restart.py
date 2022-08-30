@@ -11,7 +11,7 @@ class PhpRpmRestartCmd(main.AbstractSync):
 
         self._assert_auth_sock()
 
-        with lock.Lock(self.get_lock_file(), self.arguments.message):
+        with lock.TimeoutLock(self.get_lock_file(), name="php-fpm-restart", reason=self.arguments.message):
             self.announce("Starting php-fpm-restarts")
             self._restart_php()
             self.announce("Finished php-fpm-restarts")

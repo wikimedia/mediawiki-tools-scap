@@ -15,12 +15,16 @@ def cmd(request):
 
     if not hasattr(request, "param"):
         app = cli.Application.factory(
-            ["sync-world", "--is-wrong", "pinkunicorns", "are", "real"]
+            ["sync-world"]
         )
     else:
         app = cli.Application.factory(request.param)
 
     # Do some basic initialization (see cli.Application.run)
+    # Let each application handle `extra_args`
+    app.arguments, app.extra_arguments = app._process_arguments(
+        app.arguments, app.extra_arguments
+    )
     app._load_config()
     app._setup_loggers()
     return app
@@ -36,32 +40,24 @@ def test_init():
     "cmd",
     [
         # Args ok
-        ["sync-world", "-w", "7"],
+        ["sync-world", "-n", "-w", "7"],
         # Args ok
-        ["sync-world", "--canary-wait-time", "30"],
+        ["sync-world", "-n", "--canary-wait-time", "30"],
         # Args ok
-        ["sync-world", "-w", "92"],
+        ["sync-world", "-n", "-w", "92"],
         # Wrong way of specifying canary wait time
-        ["sync-world", "-D", "canary_wait_time:30"],
+        ["sync-world", "-n", "-D", "canary_wait_time:30"],
     ],
     indirect=True,
 )
-def test_scap_sync_world_flags(cmd, mocker):
+def test_scap_sync_world_flags(cmd):
     # Testing if we are parsing -w propertly. argparse makes sure cw
     # is int or exists if -w flag is set, so no need to test for those.
-    isthere = mocker.patch("os.path.exists")
-    isthere.return_value = True
     try:
         cmd.main(cmd.extra_arguments)
     except ValueError as ve:
         assert "canary_wait_time" in cmd.arguments.defines[0]
         assert "defined" in str(ve)
-    # If we get an AssertionError or a RuntimeError, means our args are ok. Both errors arise from
-    # a failed global lock attempt, which means the flag parsing succeeded
-    except AssertionError:
-        pass
-    except RuntimeError as re:
-        assert "scap-global-lock" in str(re)
 
 
 def test_increment_stat(cmd, mocker):

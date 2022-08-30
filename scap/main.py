@@ -98,7 +98,7 @@ class AbstractSync(cli.Application):
 
         self._assert_auth_sock()
 
-        with lock.Lock(self.get_lock_file(), self.arguments.message):
+        with lock.TimeoutLock(self.get_lock_file(), name="sync", reason=self.arguments.message):
             self._check_sync_flag()
             self._compile_wikiversions()
             self._before_cluster_sync()
@@ -739,6 +739,11 @@ class ScapWorld(AbstractSync):
         help="Skip update of l10n files",
     )
     @cli.argument(
+        "-n",
+        action="store_true",
+        help="No-op for running tests"
+    )
+    @cli.argument(
         "--stop-before-sync",
         action="store_true",
         help="Perform all operations up to but not including rsyncing to any host",
@@ -776,6 +781,9 @@ class ScapWorld(AbstractSync):
             self.config["canary_wait_time"] = wait
 
         self.logo = self.arguments.logo
+
+        if self.arguments.n:
+            return 0
 
         return super().main(*extra_args)
 
@@ -1238,7 +1246,7 @@ class LockManager(cli.Application):
             repo = self.config["git_repo"]
 
         got_lock = False
-        with lock.Lock(lock_path, self.arguments.message, group_write=True):
+        with lock.TimeoutLock(lock_path, name="lock-manager", reason=self.arguments.message):
             got_lock = True
             self.announce(
                 "Locking from deployment [%s]: %s (planned duration: %s)",

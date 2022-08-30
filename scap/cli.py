@@ -454,9 +454,6 @@ class Application(object):
                 "try: eval $(ssh-agent) && ssh-add"
             )
 
-    def get_serial_lock_file(self):
-        return os.path.join(self.config["stage_dir"], self.config["serializing_lock_file"])
-
     def get_current_train_info(self):
         return utils.get_current_train_info(self.config["train_blockers_url"], self.config["web_proxy"])
 

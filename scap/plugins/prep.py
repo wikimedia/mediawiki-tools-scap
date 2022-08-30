@@ -127,7 +127,7 @@ This operation can be run as many times as needed.
 
         lock_timeout = \
             {"timeout": self.arguments.lock_timeout} if self.arguments.lock_timeout else {}
-        with TimeoutLock(self.get_serial_lock_file(), name="concurrent prep", **lock_timeout):
+        with TimeoutLock(self.get_lock_file(), name="concurrent prep", **lock_timeout):
 
             self.new_history = history.Entry.now()
 
