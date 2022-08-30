@@ -201,6 +201,10 @@ This operation can be run as many times as needed.
 
         if checkout_version == "master":
             self._master_stuff(dest_dir, logger)
+        else:
+            gitmodules = os.path.join(dest_dir, ".gitmodules")
+            if not os.path.exists(gitmodules):
+                raise SystemExit("{} does not exist. Did the train branch commit get merged?".format(gitmodules))
 
         # This is only needed while people still do manual checkout
         # manipulation (a practice which needs to end).
