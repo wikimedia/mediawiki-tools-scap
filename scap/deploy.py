@@ -505,8 +505,11 @@ class DeployLocal(cli.Application):
         """
         # Primarily for use in script checks
         check_environment = os.environ.copy()
+        check_environment["SCAP_REVS_DIR"] = self.context.revs_dir
         check_environment["SCAP_FINAL_PATH"] = self.final_path
         check_environment["SCAP_REV_PATH"] = self.context.rev_path(self.rev)
+        check_environment["SCAP_CURRENT_REV_DIR"] = self.context.current_rev_dir
+        check_environment["SCAP_DONE_REV_DIR"] = self.context.done_rev_dir
 
         # Load NRPE checks
         if os.path.isdir(self.config["nrpe_dir"]):
