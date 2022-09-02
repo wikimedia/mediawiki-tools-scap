@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 
 """Scap plugin for listing, applying, and rolling back backports."""
-import getpass
 import hashlib
 import platform
 import re
@@ -52,8 +51,8 @@ class Backport(cli.Application):
     mediawiki_location = None
     versions = None
     interval = None
-    answer_yes = False
     backport_or_revert = None
+    deploy_user = None
 
     @cli.argument(
         "--list",
@@ -77,6 +76,7 @@ class Backport(cli.Application):
     )
     @cli.argument("change_numbers", nargs="*", help="Change numbers/URLs to backport or revert")
     def main(self, *extra_args):
+        self.deploy_user = utils.get_real_username() + "@" + socket.gethostname()
         self.interval = 5
         self.backport_or_revert = "revert" if self.arguments.revert else "backport"
         self.gerrit = GerritSession(url=self.config['gerrit_url'])
@@ -249,12 +249,36 @@ class Backport(cli.Application):
 
     def generate_change_id(self, commit_msg):
         random_no = randint(10000, 99999)
-        user = getpass.getuser()
+        user = self.deploy_user
         datestr = datetime.now().strftime("%a %d %b %Y %I:%M:%S %p %Z")
         hostname = platform.node()
         encoded_str = ("%s\n%s\n%s\n%s\n%s" % (user, datestr, hostname, commit_msg, random_no)).encode("utf-8")
 
-        return hashlib.sha1(encoded_str).hexdigest()
+        return "I" + hashlib.sha1(encoded_str).hexdigest()
+
+    def create_revert_message(self, revert_id, commit, commit_msg):
+        reason = None
+        default_reason = "Reverted by %s via scap backport" % self.deploy_user
+
+        if not self.arguments.yes:
+            reason = input("Please supply a reason for revert (default: %s): " % default_reason)
+
+        if reason:
+            reason_msg = "\nReason for revert: %s: %s\n" % (self.deploy_user, reason)
+        else:
+            reason_msg = "\nReason for revert: %s\n" % default_reason
+
+        revert_msg = commit_msg + "\nThis reverts commit %s\n" % commit + reason_msg
+
+        # Adds the change-id trailer line to the git commit message
+        # This should make sure not to clobber any other existing trailer lines that are part of the commit message
+        with utils.suppress_backtrace():
+            revert_msg = subprocess.check_output(
+                ["git", "-c", "trailer.ifexists=doNothing", "interpret-trailers",
+                 "--trailer", "Change-Id: %s" % revert_id],
+                input=revert_msg, universal_newlines=True)
+
+        return revert_msg
 
     def create_reverts(self, change_details):
         """Creates a revert on gerrit
@@ -285,11 +309,10 @@ class Backport(cli.Application):
                 commit_msg = subprocess.check_output(["git", "-C", repo_location, "show", "--pretty=format:%s", "-s",
                                                       "HEAD"], text=True) + "\n"
 
-            change_id = self.generate_change_id(commit_msg)
+            revert_id = self.generate_change_id(commit_msg)
+            commit_msg = self.create_revert_message(revert_id, commit, commit_msg)
+
             with utils.suppress_backtrace():
-                commit_msg = subprocess.check_output(["git", "-c", "trailer.ifexists=doNothing", "interpret-trailers",
-                                                      "--trailer", "Change-Id: I%s" % change_id],
-                                                     input=bytes(commit_msg, encoding='utf-8'))
                 subprocess.check_call(["git", "-C", repo_location, "commit", "--amend", "-m", commit_msg])
 
             revert_number = self.push_and_collect_change_number(repo_location, project, branch)
@@ -301,6 +324,8 @@ class Backport(cli.Application):
 
             revert_numbers.append(revert_number)
             self.get_logger().info('Change %s created' % revert_number)
+            self.gerrit_ssh(['review', '-m', '"%s created a revert of this change as %s"'
+                             % (self.deploy_user, revert_id), '%s' % detail['current_revision']])
 
         self.reset_workspace()
         return revert_numbers
@@ -311,7 +336,7 @@ class Backport(cli.Application):
         self.get_logger().info('Approving %s change(s)' % len(change_details))
         for detail in change_details:
             self.gerrit_ssh(['review', '--code-review', '+2', '-m',
-                             '"Approved by %s@%s using scap backport"' % (utils.get_real_username(), socket.gethostname()),
+                             '"Approved by %s using scap backport"' % self.deploy_user,
                              '%s' % detail['current_revision']])
             self.get_logger().info('Change %s approved' % detail['_number'])
 
