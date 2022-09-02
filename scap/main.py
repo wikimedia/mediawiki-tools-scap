@@ -933,8 +933,8 @@ class ScapWorld(AbstractSync):
             self.get_logger().warn("Skipping l10n-update")
         else:
             with log.Timer("l10n-update", self.get_stats()):
-                for version, wikidb in self.active_wikiversions("stage", return_type=dict).items():
-                    tasks.update_localization_cache(version, wikidb, self)
+                for version in self.active_wikiversions("stage"):
+                    tasks.update_localization_cache(version, self)
 
     def _after_cluster_sync(self):
         target_hosts = self._get_target_list()

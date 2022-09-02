@@ -362,13 +362,12 @@ def sync_master(cfg, master, verbose=False, logger=None):
 
     # Rebuild the CDB files
     use_cores = utils.cpus_for_jobs()
-    versions = utils.get_active_wikiversions(cfg["stage_dir"], cfg["wmf_realm"], return_type=dict)
 
     with log.Timer("rebuild CDB staging files", stats):
-        for version, wikidb in versions.items():
+        for version in utils.get_active_wikiversions(cfg["stage_dir"], cfg["wmf_realm"]):
             cache_dir = os.path.join(cfg["stage_dir"], "php-%s" % version, "cache", "l10n")
             _call_rebuildLocalisationCache(
-                wikidb,
+                version,
                 cache_dir,
                 use_cores,
                 php_l10n=cfg["php_l10n"],
@@ -564,13 +563,13 @@ def update_l10n_cdb_wrapper(args, logger=None):
 
 
 def _call_rebuildLocalisationCache(
-    wikidb, out_dir, use_cores=1, php_l10n=False, lang=None, force=False, quiet=False,
+    version, out_dir, use_cores=1, php_l10n=False, lang=None, force=False, quiet=False,
     delay_messageblobstore_purge=False,
 ):
     """
     Helper for update_localization_cache.
 
-    :param wikidb: Wiki running given version
+    :param version: The train version to build l10n for
     :param out_dir: The output directory
     :param use_cores: The number of cores to run in
     :param lang: The --lang option, or None to omit
@@ -613,12 +612,13 @@ def _call_rebuildLocalisationCache(
         utils.sudo_check_call(
             "www-data",
             "/usr/local/bin/mwscript rebuildLocalisationCache.php "
-            '--wiki="%(wikidb)s" '
+            '--wiki=aawiki '
+            '--force-version "%(version)s" '
             "--no-progress "
             "--store-class=%(store_class)s "
             "--threads=%(use_cores)s %(lang)s %(force)s %(quiet)s %(skip_message_purge)s"
             % {
-                "wikidb": wikidb,
+                "version": version,
                 "store_class": store_class,
                 "use_cores": use_cores,
                 "lang": "--lang " + lang if lang else "",
@@ -658,7 +658,7 @@ def ensure_extension_messages_file(cfg, version, logger):
 
 
 @utils.log_context("update_localization_cache")
-def update_localization_cache(version, wikidb, app, logger=None):
+def update_localization_cache(version, app, logger=None):
     """
     Update the localization cache for a given MW version.
 
@@ -692,7 +692,7 @@ def update_localization_cache(version, wikidb, app, logger=None):
         # mergeMessageFileList.php needs a l10n file
         logger.info("Bootstrapping l10n cache for %s", version)
         _call_rebuildLocalisationCache(
-            wikidb, cache_dir, use_cores, cfg["php_l10n"], lang="en", quiet=True
+            version, cache_dir, use_cores, cfg["php_l10n"], lang="en", quiet=True
         )
         # Force subsequent cache rebuild to overwrite bootstrap version
         force_rebuild = True
@@ -712,8 +712,8 @@ def update_localization_cache(version, wikidb, app, logger=None):
     utils.sudo_check_call(
         "www-data",
         "/usr/local/bin/mwscript mergeMessageFileList.php "
-        '--wiki="%s" --list-file="%s" '
-        '--output="%s"' % (wikidb, ext_list, new_extension_messages),
+        '--wiki=aawiki --force-version "%s" --list-file="%s" '
+        '--output="%s"' % (version, ext_list, new_extension_messages),
     )
 
     utils.sudo_check_call("www-data", 'chmod 0664 "%s"' % new_extension_messages)
@@ -729,7 +729,7 @@ def update_localization_cache(version, wikidb, app, logger=None):
         "Updating LocalisationCache for %s " "using %s thread(s)" % (version, use_cores)
     )
     _call_rebuildLocalisationCache(
-        wikidb,
+        version,
         cache_dir,
         use_cores,
         php_l10n=cfg["php_l10n"],
