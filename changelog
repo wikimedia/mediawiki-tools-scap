@@ -1,3 +1,14 @@
+scap (4.16.0)
+
+  * k8s: deploy to debug namepsace during testservers deployment
+  * Pass --wiki=aawiki and --force-version <version> to l10n related maintenance scripts
+  * checks: Define environment variables for current/done/revs dirs
+  * scap prep: Detect missing .gitmodules in train branches
+  * Update URL for online documentation
+  * scap backport: exit successfully on cancel
+
+ -- jnuche <jnuche@wikimedia.org>  Mon, 05 Sep 2022 13:27:42 +0200
+
 scap (4.15.0)
 
   * backport: Use standard reporter to display merge progress
