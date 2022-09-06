@@ -306,10 +306,7 @@ def merge_cdb_updates(directory, pool_size, trust_mtime=False, mute=False, logge
     pool = multiprocessing.Pool(pool_size)
     updated = 0
 
-    if mute:
-        reporter = log.MuteReporter()
-    else:
-        reporter = log.ProgressReporter("l10n merge")
+    reporter = log.reporter("l10n merge", mute=mute)
     reporter.expect(len(files))
     reporter.start()
 
@@ -763,11 +760,8 @@ def refresh_cdb_json_files(in_dir, pool_size, verbose):
     cdb_files = glob.glob(os.path.join(in_dir, "*.cdb"))
     pool = multiprocessing.Pool(pool_size)
 
-    reporter = log.MuteReporter()
     updated = 0
-
-    if verbose:
-        reporter = log.ProgressReporter("cdb update")
+    reporter = log.reporter("cdb update", mute=not verbose)
 
     reporter.expect(len(cdb_files))
     reporter.start()

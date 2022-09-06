@@ -317,13 +317,19 @@ class SyslogFormatter(LogstashFormatter):
         return "scap: @cee: " + super().format(record)
 
 
-def reporter(message, fancy=False):
+def reporter(message, fancy=False, mute=False):
     """
     Instantiate progress reporter
 
     :message: - string that will be displayed to user
     :fancy: - boolean that determines the progress bar type
     """
+    if mute:
+        return MuteReporter()
+
+    if not sys.stdout.isatty():
+        return RateLimitedProgressReporter(message)
+
     if fancy:
         return FancyProgressReporter(message)
 
@@ -357,6 +363,7 @@ class ProgressReporter(object):
         self._in_flight = None
         self._fd = fd
         self._spinner = spinner
+        self._finished = False
 
     @property
     def ok(self):
@@ -395,7 +402,8 @@ class ProgressReporter(object):
 
     def finish(self):
         """Finish tracking progress."""
-        self._progress(show_spinner=False)
+        self._finished = True
+        self._progress()
         self._fd.write("\n")
 
     def add_in_flight(self):
@@ -421,15 +429,16 @@ class ProgressReporter(object):
             self._in_flight -= 1
         self._progress()
 
-    def _progress(self, show_spinner=True):
+    def _progress(self):
+        show_spinner = not self._finished
+
         if sys.stdout.isatty():
             fmt = "%-80s\r"
         else:
             fmt = "%-80s\n"
-        self._fd.write(fmt % self._output(show_spinner=show_spinner))
+            show_spinner = False
 
-    def _output(self, show_spinner=True):
-        return "%s: %3.0f%% (%sok: %d; fail: %d; left: %d) %s" % (
+        output = "%s: %3.0f%% (%sok: %d; fail: %d; left: %d) %s" % (
             self._name,
             self.percent_complete,
             "" if self._in_flight is None else "in-flight: {}; ".format(self._in_flight),
@@ -437,7 +446,35 @@ class ProgressReporter(object):
             self.failed,
             self.remaining,
             next(self._spinner) if show_spinner else "",
-        )
+            )
+
+        self._fd.write(fmt % output)
+
+
+class RateLimitedProgressReporter(ProgressReporter):
+    """
+    The same as ProgressReporter, but doesn't generate output more than
+    once every max_reporting_interval seconds.  The final progress report
+    is always generated.
+    """
+
+    def __init__(self, *args, **kwargs):
+        self._last_report_time = 0
+        self._max_reporting_interval = kwargs.get("max_reporting_interval", 30)
+        if "max_reporting_interval" in kwargs:
+            del kwargs["max_reporting_interval"]
+        super().__init__(*args, **kwargs)
+
+    def _progress(self, *args, **kwargs):
+        now = time.time()
+
+        if not self._finished and now - self._last_report_time < self._max_reporting_interval:
+            # Not enough time has elapsed since the last report
+            return
+
+        super()._progress(*args, **kwargs)
+
+        self._last_report_time = now
 
 
 class FancyProgressReporter(ProgressReporter):
