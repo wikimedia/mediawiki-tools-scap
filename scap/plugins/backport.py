@@ -5,6 +5,7 @@ import getpass
 import hashlib
 import platform
 import re
+import socket
 import subprocess
 import time
 import urllib.parse
@@ -309,7 +310,8 @@ class Backport(cli.Application):
 
         self.get_logger().info('Approving %s change(s)' % len(change_details))
         for detail in change_details:
-            self.gerrit_ssh(['review', '--code-review', '+2', '-m', '"Approved via scap backport"',
+            self.gerrit_ssh(['review', '--code-review', '+2', '-m',
+                             '"Approved by %s@%s using scap backport"' % (utils.get_real_username(), socket.gethostname()),
                              '%s' % detail['current_revision']])
             self.get_logger().info('Change %s approved' % detail['_number'])
 
