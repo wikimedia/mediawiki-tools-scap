@@ -24,24 +24,17 @@ from __future__ import absolute_import
 from __future__ import print_function
 
 import argparse
-import base64
-import getpass
-from concurrent.futures import ThreadPoolExecutor
 import errno
+import getpass
 import locale
 import os
-import pathlib
 import pwd
-import re
 import select
-import shlex
 import socket
-import subprocess
 import sys
 import time
-import yaml
+from concurrent.futures import ThreadPoolExecutor
 
-from scap import ansi, history, git
 import scap.arg as arg
 import scap.cli as cli
 import scap.lint as lint
@@ -53,7 +46,9 @@ import scap.targets as targets
 import scap.tasks as tasks
 import scap.utils as utils
 import scap.version as scapversion
-from scap.runcmd import mwscript, gitcmd
+from scap import ansi, history
+from scap.kubernetes import K8sOps, TEST_SERVERS
+from scap.runcmd import mwscript
 
 
 class AbstractSync(cli.Application):
@@ -71,6 +66,7 @@ class AbstractSync(cli.Application):
         # A list of hostnames that have been processed by self._perform_sync
         self.already_synced = []
         self.already_restarted = set()
+        self.k8s_ops = None
 
     @cli.argument(
         "--force",
@@ -107,12 +103,15 @@ class AbstractSync(cli.Application):
             self._compile_wikiversions()
             self._before_cluster_sync()
             self._update_caches()
+
             if not self.arguments.force:
                 self.get_logger().info("Checking for new runtime errors locally")
                 self._check_fatals()
             else:
                 self.get_logger().warning("check_fatals skipped by --force")
-            self._build_container_images()
+
+            self.k8s_ops = K8sOps(self)
+            self.k8s_ops.build_k8s_images()
 
             if self.arguments.stop_before_sync:
                 self.get_logger().info("Stopping before sync operations")
@@ -127,8 +126,7 @@ class AbstractSync(cli.Application):
                 if len(testservers) > 0:
                     with log.Timer("sync-testservers", self.get_stats()):
                         self.sync_targets(testservers, "testservers")
-                    if self.config["deploy_mw_container_image"]:
-                        self._deploy_container_image_to("mwdebug")
+                    self.k8s_ops.deploy_k8s_images_for(TEST_SERVERS)
 
                     # Not all subclasses of AbstractSync define the --pause-after-testserver-sync argument,
                     # so we can't assume it is in self.arguments.
@@ -573,163 +571,6 @@ class AbstractSync(cli.Application):
                     self.get_logger().warning(
                         "%d hosts had failures restarting php-fpm", failed
                     )
-
-    def _build_container_images(self):
-        if not self.config["build_mw_container_image"]:
-            return
-
-        logger = self.get_logger()
-
-        release_repo_dir = self.config["release_repo_dir"]
-
-        if release_repo_dir is None:
-            raise SystemExit("release_repo_dir must be configured when build_mw_container_image is True")
-
-        release_repo_update_cmd = self.config["release_repo_update_cmd"]
-
-        if release_repo_update_cmd:
-            logger.info("Running {}".format(release_repo_update_cmd))
-            with utils.suppress_backtrace():
-                subprocess.run(release_repo_update_cmd, shell=True, check=True)
-
-        git_base = self.config["gerrit_url"]
-
-        if self.config["operations_mediawiki_config_branch"] == "train-dev":
-            # Filthy hacks because the image build happens in a docker
-            # container outside of the train-dev, so it can't resolve
-            # the name "gerrit.traindev" even though it can access the
-            # IP address and port.
-            import urllib.parse
-            import socket
-            p = urllib.parse.urlparse(self.config["gerrit_url"])
-            # hack: Replace the hostname of the gerrit server with its IP address.
-            p = p._replace(netloc="{}:{}".format(socket.gethostbyname(p.hostname), p.port))
-            git_base = urllib.parse.urlunparse(p)
-
-        with log.Timer("build-and-push-container-images", self.get_stats()):
-            make_container_image_dir = os.path.join(release_repo_dir, "make-container-image")
-            registry = self.config["docker_registry"]
-
-            dev_ca_crt = ""
-
-            if self.config["mediawiki_image_extra_ca_cert"]:
-                with open(self.config["mediawiki_image_extra_ca_cert"], "rb") as f:
-                    dev_ca_crt = base64.b64encode(f.read()).decode("utf-8")
-
-            make_parameters = {
-                "GIT_BASE": git_base,
-                "MW_CONFIG_BRANCH": self.config["operations_mediawiki_config_branch"],
-                "workdir_volume": self.config["stage_dir"],
-                "mv_image_name": "{}/{}".format(registry, self.config["mediawiki_image_name"]),
-                "webserver_image_name": "{}/{}".format(registry, self.config["webserver_image_name"]),
-                "MV_BASE_PACKAGES": self.config["mediawiki_image_extra_packages"],
-                "MV_EXTRA_CA_CERT": dev_ca_crt,
-            }
-
-            with utils.suppress_backtrace():
-                cmd = "{} {}".format(
-                    self.config["release_repo_build_and_push_images_cmd"],
-                    " ".join([shlex.quote("=".join(pair)) for pair in make_parameters.items()]))
-
-                build_logfile = os.path.join(pathlib.Path.home(), "scap-image-build-and-push-log")
-
-                logger.info("Container build/push output redirected to {}".format(build_logfile))
-
-                utils.subprocess_check_run_quietly_if_ok(cmd, make_container_image_dir,
-                                                         build_logfile, logger, shell=True)
-
-    def _deploy_container_image_to(self, stage, test=True):
-        # * locate the mwdebug entry in /etc/helmfile-defaults/mediawiki-deployments.yaml
-
-        with open(self.config["k8s_deployments_file"]) as f:
-            deployments = yaml.safe_load(f)
-
-        data = None
-        for entry in deployments:
-            data = entry.get(stage)
-            if data:
-                break
-        if data is None:
-            raise SystemExit("Did not find an entry for {} in {}".format(stage, self.config["k8s_deployments_file"]))
-
-        # * Use the info from the mwdebug entry to locate the helm values file to update
-        #   in /etc/helmfile-defaults/mediawiki/release.  The filename is
-        #   mwdebug-<name-from-mediawiki-deployments.yaml>.yaml
-        self._update_helm_values("{}-{}.yaml".format(stage, data["name"]), self._get_container_image_names())
-
-        # * Use helmfile apply/test
-        logger = self.get_logger()
-        logfile = os.path.join(pathlib.Path.home(), "scap-image-deploy-log")
-        logger.info("Container deployment to '{}', output redirected to {}".format(stage, logfile))
-
-        helmfile_dir = os.path.join(self.config["helmfile_services_dir"], stage)
-
-        operations = ["apply"]
-        if test:
-            operations.append("test")
-
-        # FIXME: Process each cluster in parallel for efficiency.
-        for cluster in re.split(r'[,\s]+', self.config["k8s_clusters"]):
-            for operation in operations:
-                cmd = ["helmfile", "-e", cluster, operation]
-
-                with log.Timer("Running {} in {}".format(" ".join(cmd), helmfile_dir), self.get_stats()):
-                    with utils.suppress_backtrace():
-                        utils.subprocess_check_run_quietly_if_ok(cmd, helmfile_dir, logfile, logger)
-
-    def _get_container_image_names(self) -> dict:
-        release_repo_dir = self.config["release_repo_dir"]
-
-        if release_repo_dir is None:
-            raise SystemExit("release_repo_dir must be configured when deploy_mw_container_image is True")
-
-        make_container_image_dir = os.path.join(release_repo_dir, "make-container-image")
-
-        return {
-            "multiversion": utils.read_first_line_from_file(os.path.join(make_container_image_dir, "last-build")),
-            "webserver": utils.read_first_line_from_file(os.path.join(make_container_image_dir, "webserver", "last-build")),
-        }
-
-    def _update_helm_values(self, values_filename, images_info):
-        helmfile_mediawiki_release_dir = self.config["helmfile_mediawiki_release_dir"]
-        values_file = os.path.join(helmfile_mediawiki_release_dir, values_filename)
-        registry = self.config["docker_registry"]
-
-        def strip_registry(fqin):
-            registry_prefix = registry + "/"
-            if fqin.startswith(registry_prefix):
-                return fqin[len(registry_prefix):]
-
-            return fqin
-
-        mv_img = strip_registry(images_info["multiversion"])
-        web_img = strip_registry(images_info["webserver"])
-
-        values = {
-            "docker": {
-                "registry": registry,
-            },
-            "main_app": {
-                "image": mv_img,
-            },
-            "mw": {
-                "httpd": {
-                    "image_tag": web_img,
-                }
-            },
-        }
-
-        utils.write_file_if_needed(values_file, yaml.dump(values))
-        with utils.cd(helmfile_mediawiki_release_dir):
-            if git.file_has_unstaged_changes(values_file):
-                msg = (
-                  "Updating release\n\n"
-                  "Multiversion image is: '%s'\n"
-                  "Webserver image is: '%s'"
-                ) % (mv_img, web_img)
-
-                gitcmd("add", values_file)
-                gitcmd("commit", "-m", msg)
 
 
 @cli.command("security-check")
