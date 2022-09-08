@@ -1,3 +1,11 @@
+scap (4.17.0)
+
+  * scap backport: Include the deployer's username on the Gerrit approval comment
+  * Add RateLimitedProgressReporter
+  * Only use ANSI colors in scap logo when stdout is a tty
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Thu, 08 Sep 2022 08:49:15 -0700
+
 scap (4.16.0)
 
   * k8s: deploy to debug namepsace during testservers deployment
