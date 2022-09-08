@@ -167,7 +167,6 @@ class K8sOps:
         if app.config["deploy_mw_container_image"]:
             self._verify_deployment_prereqs()
 
-        # TODO: reset logs here
         self.build_logfile = os.path.join(pathlib.Path.home(), "scap-image-build-and-push-log")
         self.deploy_logfile = os.path.join(pathlib.Path.home(), "scap-image-deploy-log")
 
@@ -208,6 +207,7 @@ class K8sOps:
                 )
 
                 self.logger.info("K8s images build/push output redirected to {}".format(self.build_logfile))
+                K8sOps._ensure_file_deleted(self.build_logfile)
                 utils.subprocess_check_run_quietly_if_ok(cmd, make_container_image_dir,
                                                          self.build_logfile, self.logger, shell=True)
 
@@ -226,6 +226,7 @@ class K8sOps:
             self.logger.info(
                 """K8s release "{}" deployment output redirected to {}""".format(fq_release_name, self.deploy_logfile)
             )
+            K8sOps._ensure_file_deleted(self.deploy_logfile)
 
             for cluster in re.split(r'[,\s]+', self.app.config["k8s_clusters"]):
                 for operation in ["apply", "test"]:
@@ -316,3 +317,8 @@ class K8sOps:
                 os.path.join(make_container_image_dir, "webserver", "last-build")
             ),
         }
+
+    @staticmethod
+    def _ensure_file_deleted(file: str):
+        if os.path.lexists(file):
+            os.unlink(file)
