@@ -196,7 +196,10 @@ class Check(object):
     Represent a loaded 'command' check.
 
     :param name: check name
-    :param stage: stage after which to run the check
+    :param stage: (deprecated: use "after", ignored when "after" is set)
+                  stage after which to run the check
+    :param before: stage before which to run the check
+    :param after: stage after which to run the check
     :param environment: environment in which to run checks
     :param group: deploy group for which to run the check
     :param timeout: maximum time allowed for check execution, in seconds
@@ -206,7 +209,9 @@ class Check(object):
     def __init__(
         self,
         name,
-        stage,
+        stage=None,
+        before=None,
+        after=None,
         environment=None,
         group=None,
         timeout=30.0,
@@ -215,7 +220,8 @@ class Check(object):
     ):
         self.name = name
         self.environment = environment
-        self.stage = stage
+        self.before = before
+        self.after = after or stage
         self.group = group
         self.timeout = timeout
         self.command = command
@@ -234,6 +240,10 @@ class Check(object):
 
         self.validate()
 
+    @property
+    def stage(self):
+        return self.after or self.before
+
     def run(self):
         """Return a running :class:`CheckJob`."""
 
@@ -244,6 +254,17 @@ class Check(object):
 
         if not self.command:
             raise CheckInvalid("missing 'command'")
+
+    def __repr__(self):
+        stages = ""
+        if self.stage:
+            stages += "stage: %s" % self.stage
+        if self.before:
+            stages += "before: %s" % self.before
+        if self.after:
+            stages += "after: %s" % self.after
+
+        return "<Check %s %s>" % (self.name, stages)
 
 
 class CheckJob(object):

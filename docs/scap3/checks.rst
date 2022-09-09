@@ -5,7 +5,10 @@ Configuring Service Checks
 Scap can perform service checks during a deployment in order to detect any
 problems that might be caused by the new code (or configuration) and alert the
 deployer early in the process and offering the option to roll back to the
-previously deployed version. Additionally, you can run any arbitrary command using checks.
+previously deployed version.
+
+Additionally, you can run any arbitrary command using checks which can thus be
+used as a hook system in the :doc:`process flow <architecture>`.
 
 The environment in which a check executes has the following environment
 variables defined:
@@ -84,7 +87,7 @@ Example checks.yml:
       service_endpoints:
         type: nrpe
         command: check_service_endpoints
-        stage: promote
+        after: promote
         timeout: 60 # default is 30 seconds
 
 .. seealso::
@@ -96,17 +99,16 @@ Example checks.yml:
 
 Script Checks
 =============
-The ``script`` check type allows users to run scripts after any stage of a
-deployment. This was in the past achieved through use of the ``command`` check;
-however, this provides an easier means by which to execute scripts that may
-change between revisions of a repository.
+The ``script`` check type allows users to run scripts before or after any
+`check stages`_ of a deployment. This was in the past achieved through use of
+the ``command`` check; however, this provides an easier means by which to
+execute scripts that may change between revisions of a repository.
 
 Script checks will only run executable files in the `scap/scripts` directory.
 
 Script checks can be referenced in `checks.yaml` using `type: script` and
 `command: [basename_of_executable_file]`. The value of
-`[basename_of_executable_file]` will be executed by the ``ssh_user`` after the
-stage specified by ``stage:``
+`[basename_of_executable_file]` will be executed by the ``ssh_user``.
 
 In the example below, scap expects that in the repo being deployed there exists
 a `scap/scripts/build_venv.sh` file that is executable by the ``ssh_user``.
@@ -118,19 +120,19 @@ Example checks.yml:
     checks:
       build_venv:
         type: script
-        stage: promote
+        after: promote
         command: build_venv.sh
 
 
 Command Checks
 ==============
 
-The ``command`` check type allows users to define shell commands to run after
-each stage of deployment.
+The ``command`` check type allows users to define shell commands to run before
+or after each stage of deployment.
 
 Command checks can be referenced in `checks.yaml` using `type: command` and
 `command: {shell_command}`. The value of `{shell_command}` will be executed
-by the ``ssh_user`` after the stage specified by ``stage:``
+by the ``ssh_user`` before or after the stage specified by ``stage:``.
 
 Example checks.yml:
 
@@ -139,7 +141,7 @@ Example checks.yml:
     checks:
       mockbase_responds:
         type: command
-        stage: promote
+        after: promote
         command: curl -Ss localhost:1134
 
 ..
@@ -154,13 +156,6 @@ Example checks.yml:
 Check stages
 ============
 
-Not all of these stages are run for every deployment.  The basic stages that
-you might want to write checks for are ``fetch`` and ``promote``.
-
-NRPE checks, and command checks may be executed following any stage of
-deployment (the stage is specified using the ``stage`` option in the
-``checks.yaml`` file:
-
 #. ``restart_service`` - a service is restarted
 #. ``config_deploy`` - templated configuration files are rendered
 #. ``config_diff`` - compare each file to the deployed version, called during
@@ -170,3 +165,17 @@ deployment (the stage is specified using the ``stage`` option in the
 #. ``promote`` - make the new deployment active
 #. ``rollback`` - target is rolled back to the last deployed revision
 
+Not all of these stages are run for every deployment.  The basic stages that
+you might want to write checks for are ``fetch`` and ``promote``.
+
+The checks may be executed at any stage of the deployment, either before
+running the stage or after it. The execution time is specified in the
+``checks.yaml`` configuration file using the ``before`` or ``after`` option
+followed by one of the stage names above.
+
+Checks with ``before`` are executed before the stage starts (for example
+``before: promote``). A failure of those checks will prevent the associated
+stage from running.
+
+Checks with ``after`` (or the deprecated ``stage``) are run after the stage
+runs. A failure of those checks will cause the stage to be failling.

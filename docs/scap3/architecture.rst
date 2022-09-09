@@ -128,14 +128,15 @@ with a detailed explanation below.
     deploy_local_finalize -> group_deployed -> deploy_complete
     group_deployed -> next_group [style = dashed]
 
-    deploy_local_config -> config_deploy_fetch -> config_deploy_vars ->
-      config_deploy_render -> config_deploy_checks
-    deploy_local_fetch -> fetch_repo -> fetch_checkout -> fetch_submodules ->
-      fetch_checks
-    deploy_local_promote -> promote_link -> promote_config ->
-      promote_restart -> promote_checks
-    deploy_local_finalize -> finalize_state -> finalize_rm_old_revs ->
-      finalize_checks
+    deploy_local_config -> config_deploy_before_checks ->
+      config_deploy_fetch -> config_deploy_vars -> config_deploy_render ->
+      config_deploy_checks
+    deploy_local_fetch -> fetch_before_checks -> fetch_repo ->
+      fetch_checkout -> fetch_submodules -> fetch_checks
+    deploy_local_promote -> promote_before_checks -> promote_link ->
+      promote_config -> promote_restart -> promote_checks
+    deploy_local_finalize -> finalize_before_checks -> finalize_state ->
+      finalize_rm_old_revs -> finalize_checks
 
     puppet -> provide_secrets -> config_deploy_vars
 
@@ -168,24 +169,28 @@ with a detailed explanation below.
       puppet [class = terminus]
       provide_secrets [class = step, label = "Provide secrets"]
 
+      config_deploy_before_checks [class = check, label = "Perform before checks"]
       config_deploy_fetch [class = step, label = "Fetch template"]
       config_deploy_vars [class = step, label = "Combine vars"]
       config_deploy_render [class = step, label = "Render new config"]
-      config_deploy_checks [class = check, label = "Perform checks"]
+      config_deploy_checks [class = check, label = "Perform after checks"]
 
+      fetch_before_checks [class = check, label = "Perform before checks"]
       fetch_repo [class = step, label = "Fetch repo"]
       fetch_checkout [class = step, label = "Checkout revision"]
       fetch_submodules [class = step, label = "Update submodules"]
-      fetch_checks [class = check, label = "Perform checks"]
+      fetch_checks [class = check, label = "Perform after checks"]
 
+      promote_before_checks [class = check, label = "Perform before checks"]
       promote_link [class = step, label = "Link repo"]
       promote_config [class = step, label = "Link config"]
       promote_restart [class = step, label = "Restart service"]
-      promote_checks [class = check, label = "Perform checks"]
+      promote_checks [class = check, label = "Perform after checks"]
 
+      finalize_before_checks [class = check, label = "Perform before checks"]
       finalize_state [class = step, label = "Update state"]
       finalize_rm_old_revs [class = step, label = "Delete old revs"]
-      finalize_checks [class = check, label = "Perform checks"]
+      finalize_checks [class = check, label = "Perform after checks"]
     }
   }
 

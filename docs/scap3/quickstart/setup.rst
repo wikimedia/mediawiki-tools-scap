@@ -219,7 +219,7 @@ currently being deployed.
 Command Checks
 --------------
 
-User-defined checks may be preformed after any stage of deployment:
+User-defined checks may be preformed before or after any stage of deployment:
 
 #. ``fetch`` when the git repository is fetched to the target machines
 #. ``config_deploy`` when any template files are built on targets
@@ -241,12 +241,13 @@ User-defined checks are specified in the ``scap/checks.yaml`` file::
 
 The ``checks.yaml`` file is a dictionary of named checks. An example check
 for the mockbase repository is to ensure that a particular end-point gives
-a valid response to an HTTP request on localhost::
+a valid response to an HTTP request on localhost after the new code has been
+swapped in::
 
     checks:
       mockbase_responds:
         type: command
-        stage: promote
+        after: promote
         command: curl -Ss localhost:1134
         timeout: 60
 
@@ -263,10 +264,21 @@ If I wanted to only run this check for the ``canary`` deploy group, I would modi
     checks:
       mockbase_responds:
         type: command
-        stage: promote
+        after: promote
         group: canary
         command: curl -Ss localhost:1134
         timeout: 60
+
+You can run the checks before a stage runs using ``before``::
+
+    checks:
+      stop_apache:
+        type: command
+        before: promote
+        command: sudo systemctl stop apache2
+
+Would stop the ``apache2`` systemd unit before doing the promote. A failure of
+the command would abort the stage (``promote`` would not be run).
 
 NRPE Checks
 -----------
@@ -281,14 +293,14 @@ of the fetch stage for all groups using the NRPE check at
     checks:
       mockbase_responds:
         type: command
-        stage: promote
+        after: promote
         group: canary
         command: curl -Ss localhost:1134
         timeout: 60
 
       check_diskspace:
         type: nrpe
-        stage: fetch
+        after: fetch
         command: check_disk_space
 
 Script Checks
@@ -305,19 +317,19 @@ a bash script that is executable by the ``ssh_user`` in the repository at
     checks:
       mockbase_responds:
         type: command
-        stage: promote
+        after: promote
         group: canary
         command: curl -Ss localhost:1134
         timeout: 60
 
       check_diskspace:
         type: nrpe
-        stage: fetch
+        after: fetch
         command: check_disk_space
 
       build_virtualenv:
         type: script
-        stage: fetch
+        after: fetch
         command: build_virtualenv.sh
 
 No additional ``scap/scap.cfg`` variables are required to run the checks in

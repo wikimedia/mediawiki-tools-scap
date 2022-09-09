@@ -155,10 +155,16 @@ class DeployLocal(cli.Application):
         for stage in self.stages:
             self.noop = False
 
+            if not self.noop and self.config["perform_checks"]:
+                status = self._execute_checks("before", stage, group)
+
+            if status != 0:
+                break
+
             getattr(self, stage)()
 
             if not self.noop and self.config["perform_checks"]:
-                status = self._execute_checks(stage, group)
+                status = self._execute_checks("after", stage, group)
 
             if status != 0:
                 break
@@ -496,7 +502,7 @@ class DeployLocal(cli.Application):
         self.finalize(rollback=True, rev=rollback_to)
 
     @utils.log_context("checks")
-    def _execute_checks(self, stage, group=None, logger=None):
+    def _execute_checks(self, when, stage, group=None, logger=None):
         """
         Fetch and executes all checks configured for the given stage.
 
@@ -519,8 +525,10 @@ class DeployLocal(cli.Application):
         script.register_directory(self.context.scripts_dir(self.rev))
 
         chks = checks.load(self.config, check_environment)
-        chks = [chk for chk in chks.values()
-                if DeployLocal._valid_chk(chk, stage, group)]
+        chks = [
+            chk for chk in chks.values()
+            if DeployLocal._valid_chk(chk, stage, group, when=when)
+            ]
 
         success, done = checks.execute(chks, logger=logger)
         failed = [job.check.name for job in done if job.isfailure()]
@@ -530,11 +538,15 @@ class DeployLocal(cli.Application):
         return 1 if failed else 2
 
     @staticmethod
-    def _valid_chk(chk, stage, group):
+    def _valid_chk(chk, stage, group, when):
         """Make sure a check is valid for our current group."""
+        wanted_stage = stage
+
         if group is not None:
-            return chk.stage == stage and (chk.group == group or chk.group is None)
-        return chk.stage == stage
+            if chk.group is not None and chk.group != group:
+                return False
+
+        return getattr(chk, when) == wanted_stage
 
     def _get_config_overrides(self):
         """
