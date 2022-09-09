@@ -11,12 +11,12 @@ def test_backport_uses_gerrit_push_user_config():
     scap_backport._load_config()
 
     with mock.patch('subprocess.check_call') as check:
-        scap_backport.gerrit_ssh([])
+        scap_backport._gerrit_ssh([])
         check.assert_called_with(ANY, env={}, stdout=ANY, stderr=ANY)
 
     with mock.patch('subprocess.check_call') as check:
         scap_backport.config["gerrit_push_user"] = "trainbotuser"
-        scap_backport.gerrit_ssh([])
+        scap_backport._gerrit_ssh([])
 
         # With python 3.8 we could retrieve kwargs directly
         # env = check.mock_calls[0].kwargs['env']
