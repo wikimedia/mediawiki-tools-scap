@@ -7,10 +7,29 @@ problems that might be caused by the new code (or configuration) and alert the
 deployer early in the process and offering the option to roll back to the
 previously deployed version. Additionally, you can run any arbitrary command using checks.
 
-The environment in which a check executes has two additional variables defined
-by scap: ``$SCAP_FINAL_PATH`` and ``$SCAP_REV_PATH``. ``$SCAP_FINAL_PATH`` is
-the final path of the code after deployment is complete. ``$SCAP_REV_PATH`` is
-the variable path of the code currently being deployed.
+The environment in which a check executes has the following environment
+variables defined:
+
+  * ``$SCAP_FINAL_PATH`` - A symbolic link created during the ``promote`` stage
+    that points to the deployed code, constructed from the configured
+    ``git_deploy_dir`` and the repo name, e.g. ``/srv/deployment/repo/name``.
+    Note that this link will point to the previously deployed rev for checks
+    that run prior to ``promote``.
+  * ``$SCAP_REV_PATH`` - Path to the revision of the code being deployed, e.g.
+    ``/srv/deployment/repo/name-cache/revs/abc123``. This is the most reliable
+    value for scripts that need to operate on the revision being deployed
+    regardless of its current state.
+  * ``$SCAP_REVS_DIR`` - Directory that contains all deployed revisions, e.g.
+    ``/srv/deployment/repo/name-cache/revs``.
+  * ``$SCAP_CURRENT_REV_DIR`` - A symbolic link created during the ``promote``
+    stage that points to the deployed code. Note this is an internal convention
+    that scap uses to track the state of deployment and should only be used by
+    scripts that need to mimic its internal logic. For a less esoteric
+    alternative, use ``$SCAP_FINAL_PATH``.
+  * ``$SCAP_DONE_REV_DIR`` - A symbolic link created during the ``finalize``
+    stage that points to the deployed code. Note this is an internal convention
+    that scap uses to track the state of deployment and should only be used by
+    scripts that need to mimic its internal logic.
 
 .. topic:: Logging and Monitoring
 
