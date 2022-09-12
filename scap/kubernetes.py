@@ -1,12 +1,10 @@
 import base64
-import numbers
 import os
 import pathlib
 import re
 import shlex
 import subprocess
-from distutils.util import strtobool
-from typing import List, Any
+from typing import List
 
 import yaml
 
@@ -105,7 +103,7 @@ class DeploymentsConfig:
     @classmethod
     def parse(cls, deployments_file: str) -> "DeploymentsConfig":
         def is_testservers_config(dep_config: dict) -> bool:
-            return cls._parse_bool(dep_config.get("debug"))
+            return dep_config.get("debug")
 
         testservers = {}
         canaries = {}
@@ -141,16 +139,6 @@ class DeploymentsConfig:
                     canaries[dep_namespace] = parsed_canary_dep_config
 
         return cls(list(testservers.values()), list(canaries.values()), list(production.values()))
-
-    @staticmethod
-    def _parse_bool(val: Any) -> bool:
-        if type(val) == bool:
-            return val
-        if isinstance(val, numbers.Number):
-            return bool(val)
-        if type(val) == str:
-            return bool(strtobool(val))
-        raise ValueError("""Don't know how to parse value "%s" into a boolean""" % val)
 
 
 class K8sOps:
