@@ -900,12 +900,7 @@ def clear_message_blobs(cfg, logger=None):
     :param cfg: Scap configuration dict
     :param logger: logger instance
     """
-    if cfg["delay_messageblobstore_purge"]:
-        script = "purgeMessageBlobStore.php"  # T263872
-    else:
-        script = "extensions/WikimediaMaintenance/refreshMessageBlobs.php"
-
-    cmd = "/usr/local/bin/mwscript {}".format(script)
+    cmd = "/usr/local/bin/mwscript purgeMessageBlobStore.php"
 
     logger.info("Running {}".format(cmd))
 

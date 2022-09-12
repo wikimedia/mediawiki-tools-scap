@@ -708,7 +708,7 @@ class ScapWorld(AbstractSync):
     #. Ask apaches to sync with fastest rsync server (excluding wikiversions.php)
     #. Ask apaches to rebuild l10n CDB files
     #. Ask apaches to sync wikiversions.php
-    #. Run refreshMessageBlobs.php
+    #. Run purgeMessageBlobStore.php
     #. Rolling invalidation of all opcache for php 7.x
     """
 
