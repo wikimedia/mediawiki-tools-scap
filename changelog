@@ -1,3 +1,10 @@
+scap (4.19.0)
+
+  * Remove dependency on distutils.util
+  * scap backport: Make internal methods "private"
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Mon, 12 Sep 2022 12:14:01 -0700
+
 scap (4.18.0)
 
   * Scap backport --revert: improve commit message
