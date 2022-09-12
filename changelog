@@ -1,3 +1,11 @@
+scap (4.18.0)
+
+  * Scap backport --revert: improve commit message
+  * k8s: reset local logs between runs
+  * K8s: add parsing of deployments configuration file
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Mon, 12 Sep 2022 08:11:10 -0700
+
 scap (4.17.0)
 
   * scap backport: Include the deployer's username on the Gerrit approval comment
