@@ -591,7 +591,7 @@ class QueueReporter(ProgressReporter):
 
 
 def queue_reader(name, queue):
-    r = ProgressReporter(name)
+    r = reporter(name)
     r.start()
 
     expects = {}
