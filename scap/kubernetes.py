@@ -1,9 +1,11 @@
 import base64
+import concurrent.futures
 import os
 import pathlib
 import re
 import shlex
 import subprocess
+import tempfile
 from typing import List
 
 import yaml
@@ -83,7 +85,8 @@ class DeploymentsConfig:
       }]
      }
 
-    Also, note that values of the `debug` field are interpreted as "truthy"
+    Also, note that values of the `debug` field are interpreted as true according to Python's rules:
+    https://docs.python.org/3/library/stdtypes.html#truth-value-testing
     """
 
     # The K8s namespace is also sometimes referred to as "cluster"
@@ -156,7 +159,6 @@ class K8sOps:
             self._verify_deployment_prereqs()
 
         self.build_logfile = os.path.join(pathlib.Path.home(), "scap-image-build-and-push-log")
-        self.deploy_logfile = os.path.join(pathlib.Path.home(), "scap-image-deploy-log")
 
     def build_k8s_images(self):
         if not self.app.config["build_mw_container_image"]:
@@ -199,33 +201,130 @@ class K8sOps:
                 utils.subprocess_check_run_quietly_if_ok(cmd, make_container_image_dir,
                                                          self.build_logfile, self.logger, shell=True)
 
-    # FIXME: Parallelize as appropriate
-    def deploy_k8s_images_for(self, stage: str):
+    # Called by AbstractSync.main()
+    def deploy_k8s_images_for_stage(self, stage: str):
         if not self.app.config["deploy_mw_container_image"]:
             return
 
-        for stage_dep_config in self.k8s_deployments_config.stages[stage]:
-            namespace = stage_dep_config[DeploymentsConfig.NAMESPACE]
-            fq_release_name = "{}-{}".format(namespace, stage_dep_config[DeploymentsConfig.RELEASE])
+        dep_configs = self.k8s_deployments_config.stages[stage]
+        datacenters = re.split(r'[,\s]+', self.app.config["k8s_clusters"])  # FIXME: Rename this config value
+        container_image_names = self._get_container_image_names()
 
-            self._update_helmfile_values_for(fq_release_name)
+        saved_values = self._read_current_values(dep_configs)
 
+        try:
+            self._update_values(dep_configs, container_image_names)
+            self._deploy_to_datacenters(datacenters, dep_configs)
+        # Using BaseException so that we catch KeyboardInterrupt too
+        except BaseException as e:
+            # FIXME: Interruptions during helmfile apply will need to use something like
+            # helm3 --kubeconfig /etc/kubernetes/mwdebug-deploy-eqiad.config rollback pinkunicorn --namespace mwdebug
+            # to avoid leaving things in a broken state.
+            self.logger.error("K8s deployment to stage %s failed: %s", stage, e)
+            self.logger.error("Rolling back to prior state...")
+            self._revert_values(dep_configs, saved_values)
+            try:
+                self._deploy_to_datacenters(datacenters, dep_configs)
+            except BaseException:
+                self.logger.error("Caught another exception while trying to roll back. Giving up.")
+                raise e
+
+            self.logger.error("Rollback completed.  Raising original error")
+            raise
+
+    def _read_current_values(self, dep_configs) -> dict:
+        res = {}
+
+        for dep_config in dep_configs:
+            fq_release_name = self._dep_config_fq_release_name(dep_config)
+            with open(self._dep_config_values_file(dep_config)) as f:
+                res[fq_release_name] = yaml.safe_load(f)
+
+        return res
+
+    def _update_values(self, dep_configs, container_image_names):
+        for dep_config in dep_configs:
+            self._update_helmfile_values_for(dep_config, container_image_names)
+
+    def _revert_values(self, dep_configs, saved_values):
+        commit = False
+
+        with utils.cd(self.app.config["helmfile_mediawiki_release_dir"]):
+            for dep_config in dep_configs:
+                fq_release_name = self._dep_config_fq_release_name(dep_config)
+                values = saved_values[fq_release_name]
+                values_file = self._dep_config_values_file(dep_config)
+
+                utils.write_file_if_needed(values_file, yaml.dump(values))
+                if git.file_has_unstaged_changes(values_file):
+                    gitcmd("add", values_file)
+                    commit = True
+
+            if commit:
+                gitcmd("commit", "-m", "Configuration(s) reverted")
+
+    def _deploy_to_datacenters(self, datacenters, dep_configs):
+        def deploy(datacenter, dep_config):
+            namespace = dep_config[DeploymentsConfig.NAMESPACE]
             helmfile_dir = os.path.join(self.app.config["helmfile_services_dir"], namespace)
-            self.logger.info(
-                """K8s release "{}" deployment output redirected to {}""".format(fq_release_name, self.deploy_logfile)
-            )
-            K8sOps._ensure_file_deleted(self.deploy_logfile)
+            self._deploy_k8s_images_for_datacenter(datacenter, helmfile_dir)
 
-            for cluster in re.split(r'[,\s]+', self.app.config["k8s_clusters"]):
-                for operation in ["apply", "test"]:
-                    cmd = ["helmfile", "-e", cluster, operation]
+        def deploy_to_datacenter(datacenter):
+            with concurrent.futures.ThreadPoolExecutor(max_workers=len(dep_configs)) as pool:
+                futures = []
 
-                    with log.Timer("Running {} in {}".format(" ".join(cmd), helmfile_dir), self.app.get_stats()):
-                        with utils.suppress_backtrace():
-                            utils.subprocess_check_run_quietly_if_ok(
-                                cmd,
-                                helmfile_dir, self.deploy_logfile, self.logger
-                            )
+                for dep_config in dep_configs:
+                    future = pool.submit(deploy, datacenter, dep_config)
+                    future._scap_dep_config = dep_config
+                    futures.append(future)
+
+                failed = []
+
+                for future in concurrent.futures.as_completed(futures):
+                    exception = future.exception()
+
+                    if exception:
+                        fq_release_name = self._dep_config_fq_release_name(future._scap_dep_config)
+                        failed.append("Deployment of {} failed: {}".format(fq_release_name, exception))
+
+                if failed:
+                    raise Exception("\n".join(failed))
+
+        with concurrent.futures.ThreadPoolExecutor(max_workers=len(datacenters)) as pool:
+            futures = []
+
+            for datacenter in datacenters:
+                future = pool.submit(deploy_to_datacenter, datacenter)
+                future._scap_datacenter = datacenter
+                futures.append(future)
+
+            failed = []
+
+            for future in concurrent.futures.as_completed(futures):
+                exception = future.exception()
+                if exception:
+                    failed.append("{}: {}".format(future._scap_datacenter, exception))
+
+            if failed:
+                raise Exception("K8s deployment had the following errors:\n " + "\n".join(failed))
+
+    def _deploy_k8s_images_for_datacenter(self, datacenter, helmfile_dir):
+        """
+        datacenter will be something like "eqiad" or "codfw" or "traindev"
+        """
+
+        for operation in ["apply", "test"]:
+            cmd = ["helmfile", "-e", datacenter, operation]
+
+            with log.Timer("Running {} in {}".format(" ".join(cmd), helmfile_dir), self.app.get_stats()):
+                # FIXME: Make sure command output gets sent to the logger at debug level
+                with tempfile.NamedTemporaryFile() as logstream:
+                    with utils.suppress_backtrace():
+                        # FIXME: error output needs to be prefixed w/ the datacenter name.
+                        utils.subprocess_check_run_quietly_if_ok(
+                            cmd,
+                            helmfile_dir, logstream.name, self.logger
+                        )
 
     def _verify_build_and_push_prereqs(self):
         if self.app.config["release_repo_dir"] is None:
@@ -252,10 +351,22 @@ class K8sOps:
             self.app.soft_errors = True
             disable_deployments()
 
-    def _update_helmfile_values_for(self, fq_release_name: str):
+    def _dep_config_fq_release_name(self, dep_config) -> str:
+        return "{}-{}".format(dep_config[DeploymentsConfig.NAMESPACE], dep_config[DeploymentsConfig.RELEASE])
+
+    def _dep_config_values_file(self, dep_config) -> str:
+        """
+        Returns the path to the values.yaml file associated with dep_config
+        """
         helmfile_mediawiki_release_dir = self.app.config["helmfile_mediawiki_release_dir"]
-        values_file = os.path.join(helmfile_mediawiki_release_dir, "{}.yaml".format(fq_release_name))
-        images_info = self._get_container_image_names()
+        fq_release_name = self._dep_config_fq_release_name(dep_config)
+        return os.path.join(helmfile_mediawiki_release_dir, "{}.yaml".format(fq_release_name))
+
+    def _update_helmfile_values_for(self, dep_config, images_info):
+        """
+        Note: Due to the git operations and change of the working directory, this function
+        is not thread safe.
+        """
         registry = self.app.config["docker_registry"]
 
         def strip_registry(fqin):
@@ -282,9 +393,11 @@ class K8sOps:
             },
         }
 
+        values_file = self._dep_config_values_file(dep_config)
         utils.write_file_if_needed(values_file, yaml.dump(values))
-        with utils.cd(helmfile_mediawiki_release_dir):
+        with utils.cd(self.app.config["helmfile_mediawiki_release_dir"]):
             if git.file_has_unstaged_changes(values_file):
+                fq_release_name = self._dep_config_fq_release_name(dep_config)
                 msg = (
                   "Updating release '%s'\n\n"
                   "Multiversion image is: '%s'\n"
@@ -295,6 +408,10 @@ class K8sOps:
                 gitcmd("commit", "-m", msg)
 
     def _get_container_image_names(self) -> dict:
+        """
+        Return a data structure containing the fully qualified image names of the
+        images most recently built by build_k8s_images().
+        """
         make_container_image_dir = os.path.join(self.app.config["release_repo_dir"], "make-container-image")
 
         return {

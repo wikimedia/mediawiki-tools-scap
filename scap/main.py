@@ -126,7 +126,9 @@ class AbstractSync(cli.Application):
                 if len(testservers) > 0:
                     with log.Timer("sync-testservers", self.get_stats()):
                         self.sync_targets(testservers, "testservers")
-                    self.k8s_ops.deploy_k8s_images_for(TEST_SERVERS)
+                    with log.Timer("sync-testservers-k8s", self.get_stats()):
+                        with utils.suppress_backtrace():
+                            self.k8s_ops.deploy_k8s_images_for_stage(TEST_SERVERS)
 
                     # Not all subclasses of AbstractSync define the --pause-after-testserver-sync argument,
                     # so we can't assume it is in self.arguments.
