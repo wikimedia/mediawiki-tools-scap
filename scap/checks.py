@@ -224,6 +224,14 @@ class Check(object):
         if self.environment is None:
             self.environment = os.environ.copy()
 
+        # Avoid TypeError exceptions later on in Popen -> fsencode by removing
+        # None values from the environment
+        self.environment = {
+            k: v
+            for k, v in self.environment.items()
+            if v is not None
+        }
+
         self.validate()
 
     def run(self):
