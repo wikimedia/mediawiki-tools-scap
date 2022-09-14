@@ -1,3 +1,11 @@
+scap (4.19.1)
+
+  * checks: Avoid TypeError exception during check execution
+  * docs: Describe SCAP_REVS_DIR, SCAP_CURRENT_REV_DIR, SCAP_DONE_REV_DIR
+  * Less verbose php-fpm-restart progress reporting when no tty
+
+ -- Dan Duvall <dduvall@wikimedia.org>  Wed, 14 Sep 2022 10:14:16 -0700
+
 scap (4.19.0)
 
   * Remove dependency on distutils.util
