@@ -419,7 +419,7 @@ def sync_common(
     if exclude_wikiversionsphp:
         if rsync_args and "--delete-excluded" in rsync_args:
             # --delete-excluded mode overrides exclude_wikiversionsphp because
-            # we can't allow have wikiversions.php to be deleted.
+            # we can't allow wikiversions.php to be deleted.
             pass
         else:
             # Exclude wikiversions*.php.  This is rsync'd by sync_wikiversions later.
