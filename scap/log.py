@@ -55,6 +55,7 @@ import scap.utils as utils
 # See <http://docs.python.org/2/library/logging.html#logrecord-attributes>
 # for attribute names you can include here.
 CONSOLE_LOG_FORMAT = "%(asctime)s %(levelname)-8s - %(message)s"
+TIMESTAMP_FORMAT = "%H:%M:%S"
 
 
 class AnsiColorFormatter(logging.Formatter):
@@ -438,7 +439,8 @@ class ProgressReporter(object):
             fmt = "%-80s\n"
             show_spinner = False
 
-        output = "%s: %3.0f%% (%sok: %d; fail: %d; left: %d) %s" % (
+        output = "%s %s: %3.0f%% (%sok: %d; fail: %d; left: %d) %s" % (
+            time.strftime(TIMESTAMP_FORMAT),
             self._name,
             self.percent_complete,
             "" if self._in_flight is None else "in-flight: {}; ".format(self._in_flight),

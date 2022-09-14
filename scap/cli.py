@@ -490,7 +490,7 @@ class Application(object):
         logging.basicConfig(
             level=logging.INFO,
             format=log.CONSOLE_LOG_FORMAT,
-            datefmt="%H:%M:%S",
+            datefmt=log.TIMESTAMP_FORMAT,
             stream=sys.stdout,
         )
 
