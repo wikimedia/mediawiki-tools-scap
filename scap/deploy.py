@@ -1053,7 +1053,7 @@ class Deploy(cli.Application):
         """
 
         logger = self.get_logger()
-        deploy_local_cmd = [self.get_script_path(), "deploy-local"]
+        deploy_local_cmd = [self.get_script_path(remote=True), "deploy-local"]
         batch_size = self._get_batch_size(stage)
 
         deploy_local_cmd.append("-v")

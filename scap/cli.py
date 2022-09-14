@@ -111,11 +111,16 @@ class Application(object):
         """Get the elapsed duration in seconds."""
         return time.time() - self.start
 
-    def get_script_path(self):
-        """Qualify the path to the scap script."""
+    def get_script_path(self, remote=False):
+        """Returns the path to the scap script."""
 
         scap = os.path.join(os.path.dirname(sys.argv[0]), "scap")
-        return os.environ.get("SCAP", scap)
+
+        # For development
+        if remote:
+            scap = os.environ.get("REMOTE_SCAP", scap)
+
+        return scap
 
     def get_keyholder_key(self, ssh_user=None, key_name=None):
         """Get the private key for IdentityFile use in ssh."""

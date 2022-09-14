@@ -288,7 +288,7 @@ class AbstractSync(cli.Application):
 
     def _master_sync_command(self):
         """Synchronization command to run on the master hosts."""
-        cmd = [self.get_script_path(), "pull-master"]
+        cmd = [self.get_script_path(remote=True), "pull-master"]
         if self.verbose:
             cmd.append("--verbose")
         cmd.append(socket.getfqdn())
@@ -304,7 +304,7 @@ class AbstractSync(cli.Application):
         so scap pull will default to pull from whatever `master_rsync` is
         defined to be in the scap configuration on the target.
         """
-        cmd = [self.get_script_path(), "pull"]
+        cmd = [self.get_script_path(remote=True), "pull"]
         if just_rsync:
             cmd.extend(["--no-php-restart", "--no-update-l10n"])
         if self.verbose:
@@ -814,7 +814,7 @@ class ScapWorld(AbstractSync):
             )
             rebuild_cdbs.shuffle()
             rebuild_cdbs.command(
-                "sudo -u mwdeploy -n -- %s cdb-rebuild" % self.get_script_path()
+                "sudo -u mwdeploy -n -- %s cdb-rebuild" % self.get_script_path(remote=True)
             )
             rebuild_cdbs.progress(
                 log.reporter("scap-cdb-rebuild", self.config["fancy_progress"])
@@ -1069,7 +1069,7 @@ class SyncL10n(AbstractSync):
             )
             rebuild_cdbs.shuffle()
             cdb_cmd = "sudo -u mwdeploy -n -- {} cdb-rebuild --version {}"
-            cdb_cmd = cdb_cmd.format(self.get_script_path(), self.arguments.version)
+            cdb_cmd = cdb_cmd.format(self.get_script_path(remote=True), self.arguments.version)
             rebuild_cdbs.command(cdb_cmd)
             rebuild_cdbs.progress(
                 log.reporter("scap-cdb-rebuild", self.config["fancy_progress"])
