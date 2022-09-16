@@ -1,3 +1,10 @@
+scap (4.20.0)
+
+  * Remove references to refreshMessageBlobs.php
+  * fixed a typo
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Fri, 16 Sep 2022 08:47:31 -0700
+
 scap (4.19.1)
 
   * checks: Avoid TypeError exception during check execution
