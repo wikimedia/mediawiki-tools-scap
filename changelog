@@ -1,3 +1,10 @@
+scap (4.21.0)
+
+  * devel hacks: Change SCAP to REMOTE_SCAP
+  * scap backport: Allow URLs to have a trailing slash
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Mon, 19 Sep 2022 10:37:42 -0700
+
 scap (4.20.0)
 
   * Remove references to refreshMessageBlobs.php
