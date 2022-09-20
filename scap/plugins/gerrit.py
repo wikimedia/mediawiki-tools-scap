@@ -111,6 +111,9 @@ class GerritSession(object):
     def change_revisions(self, changeid, **kwargs):
         return ChangeRevisions(changeid, session=self, **kwargs)
 
+    def change_files(self, changeid, **kwargs):
+        return ChangeRevisionsFiles(changeid, session=self, **kwargs)
+
     def project_branch(self, project, branch, **kwargs):
         return ProjectBranch(project, branch, session=self, **kwargs)
 
@@ -314,6 +317,16 @@ class ChangeRevisions(GerritEndpoint):
 
     def __init__(self, changeid, revisionid="current", **kwargs):
         super().__init__(path='changes/%s/revisions/%s' % (changeid, revisionid),
+                         **kwargs)
+        self.changeid = changeid
+        self.revisionid = revisionid
+
+
+class ChangeRevisionsFiles(GerritEndpoint):
+    revisionid = "current"
+
+    def __init__(self, changeid, revisionid="current", **kwargs):
+        super().__init__(path='changes/%s/revisions/%s/files' % (changeid, revisionid),
                          **kwargs)
         self.changeid = changeid
         self.revisionid = revisionid

@@ -138,6 +138,10 @@ class Backport(cli.Application):
 
         self.scap_check_call(["prep", "auto"])
 
+        if self._beta_only_config_changes(change_details):
+            self.get_logger().info("Skipping sync since all commits were beta/labs-only changes. Operation completed.")
+            return 0
+
         if self.arguments.stop_before_sync:
             return 0
 
@@ -578,3 +582,39 @@ class Backport(cli.Application):
             self.get_logger().info('Printing git status for %s for your reference...' % repo)
             with utils.suppress_backtrace():
                 subprocess.check_call(["git", "-C", repo, "status"])
+
+    def _get_file_list(self, details):
+        """
+        Returns the list of files modified by the change associated with 'details'.
+        """
+        return [filename for filename in self.gerrit.change_files(details["_number"]).get().keys()
+                if filename != "/COMMIT_MSG"]
+
+    def _count_beta_only_config_files(self, details):
+        beta_only_config_files = self.config["beta_only_config_files"].split()
+        num_beta_files = 0
+        num_other_files = 0
+
+        for file in self._get_file_list(details):
+            if file in beta_only_config_files:
+                num_beta_files += 1
+            else:
+                num_other_files += 1
+
+        return (num_beta_files, num_other_files)
+
+    def _beta_only_config_changes(self, change_details) -> bool:
+        """
+        Returns True if the changes being backported consist exclusively of beta/labs-only
+        configuration changes.
+        """
+        for details in change_details:
+            if details["project"] != "operations/mediawiki-config":
+                return False
+
+            (num_beta_files, num_other_files) = self._count_beta_only_config_files(details)
+
+            if num_other_files > 0 or num_beta_files == 0:
+                return False
+
+        return True
