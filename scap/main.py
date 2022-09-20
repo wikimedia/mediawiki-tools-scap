@@ -28,7 +28,6 @@ import errno
 import getpass
 import locale
 import os
-import pwd
 import select
 import socket
 import sys
@@ -99,7 +98,6 @@ class AbstractSync(cli.Application):
         self._assert_auth_sock()
 
         with lock.TimeoutLock(self.get_lock_file(), name="sync", reason=self.arguments.message):
-            self._check_sync_flag()
             self._compile_wikiversions()
             self._before_cluster_sync()
             self._update_caches()
@@ -220,14 +218,6 @@ class AbstractSync(cli.Application):
                 stderr = mwscript("eval.php", "--wiki", wikidb)
                 if stderr:
                     raise SystemExit("'mwscript eval.php --wiki {}' generated unexpected output: {}".format(wikidb, stderr))
-
-    def _check_sync_flag(self):
-        sync_flag = os.path.join(self.config["stage_dir"], "sync.flag")
-        if os.path.exists(sync_flag):
-            stat = os.stat(sync_flag)
-            owner = pwd.getpwuid(stat.st_uid).pw_name
-            utils.get_logger().error("%s's sync.flag is blocking deployments", owner)
-            raise IOError(errno.EPERM, "Blocked by sync.flag", sync_flag)
 
     def _get_proxy_list(self):
         """Get list of sync proxy hostnames that should be updated before the

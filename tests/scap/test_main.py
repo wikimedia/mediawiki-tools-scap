@@ -1,7 +1,6 @@
 from __future__ import absolute_import
 
 import pytest
-import os
 from scap import cli
 
 
@@ -101,23 +100,6 @@ def test__get_canary_list(cmd, mocker):
 
     canary_targets.side_effect = side_effect_cb
     assert sorted(cmd._get_canary_list()) == sorted(app_canaries + api_canaries)
-
-
-@pytest.mark.parametrize("lock_exists", [True, False])
-def test__check_sync_flag(cmd, mocker, lock_exists):
-    isthere = mocker.patch("os.path.exists")
-    ms = mocker.patch("os.stat")
-    ms.return_value = os.stat("/bin/bash")
-    mu = mocker.patch("pwd.getpwuid")
-    mu.return_value.pw_name = "scap"
-    if lock_exists:
-        isthere.return_value = lock_exists
-        with pytest.raises(IOError) as excinfo:
-            cmd._check_sync_flag()
-        assert "Blocked" in str(excinfo.value)
-    else:
-        isthere.return_value = False
-        cmd._check_sync_flag()
 
 
 def test_exclude_wikiversions():
