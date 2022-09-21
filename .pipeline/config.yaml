@@ -1,8 +1,4 @@
 pipelines:
-  stretch:
-    blubberfile: blubber.yaml
-    stages:
-      - name: stretch
   buster:
     blubberfile: blubber.yaml
     stages:

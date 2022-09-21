@@ -1,7 +1,7 @@
 # syntax = docker-registry.wikimedia.org/wikimedia/blubber-buildkit:0.9.0
 #
-# A Blubber spec file for a Docker container, based on Debian 9
-# (stretch), where the Scap automated test suite can be run.
+# A Blubber spec file for Docker containers where the Scap automated test suite
+# can be run.
 
 version: v4
 
@@ -32,9 +32,6 @@ python:
 entrypoint: [scripts/check]
 
 variants:
-  stretch:
-    copies: [local]
-    base: docker-registry.wikimedia.org/wikimedia-stretch
   buster:
     copies: [local]
     base: docker-registry.wikimedia.org/wikimedia-buster

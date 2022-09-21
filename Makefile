@@ -1,4 +1,4 @@
-BLUBBER_VARIANTS := stretch buster bullseye
+BLUBBER_VARIANTS := buster bullseye
 
 IMAGE = local/scap-$(*F)-test
 
