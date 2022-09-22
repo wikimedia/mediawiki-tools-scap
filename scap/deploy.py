@@ -519,7 +519,8 @@ class DeployLocal(cli.Application):
         script.register_directory(self.context.scripts_dir(self.rev))
 
         chks = checks.load(self.config, check_environment)
-        chks = [chk for chk in chks.values() if self._valid_chk(chk, stage, group)]
+        chks = [chk for chk in chks.values()
+                if DeployLocal._valid_chk(chk, stage, group)]
 
         success, done = checks.execute(chks, logger=logger)
         failed = [job.check.name for job in done if job.isfailure()]
@@ -528,7 +529,8 @@ class DeployLocal(cli.Application):
             return 0
         return 1 if failed else 2
 
-    def _valid_chk(self, chk, stage, group):
+    @staticmethod
+    def _valid_chk(chk, stage, group):
         """Make sure a check is valid for our current group."""
         if group is not None:
             return chk.stage == stage and (chk.group == group or chk.group is None)
