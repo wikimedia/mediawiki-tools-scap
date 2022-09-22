@@ -1,3 +1,13 @@
+scap (4.22.0)
+
+  * Make "scap backport" skip sync for labs-only changes
+  * cli: invoke all setup calls from a single method
+  * Replace Lock with TimeoutLock
+  * Drop Debian Stretch from integration testing
+  * ProgressReporter: Prefix progress indicator with a timestamp
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Thu, 22 Sep 2022 09:41:26 -0700
+
 scap (4.21.0)
 
   * devel hacks: Change SCAP to REMOTE_SCAP
