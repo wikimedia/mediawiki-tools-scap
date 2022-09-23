@@ -9,6 +9,7 @@ from __future__ import absolute_import
 
 import errno
 import fcntl
+import json
 import os
 import signal
 import time
@@ -35,14 +36,21 @@ class TimeoutLock:
     MAX_TIMEOUT_IN_MINS = 60
     LOCK_PERMISSIONS = 0o666
 
-    def __init__(self, lock_file, name="exclusion", reason="no reason given", timeout=DEFAULT_TIMEOUT_IN_MINS):
+    SHARED = "shared"
+    EXCLUSIVE = "exclusive"
+
+    def __init__(self, lock_file, name="exclusion", reason="no reason given", timeout=DEFAULT_TIMEOUT_IN_MINS,
+                 lock_mode=EXCLUSIVE):
         self.logger = utils.get_logger()
 
         self.lock_file = lock_file
         self.name = name
         self.timeout = timeout
+        if lock_mode not in (TimeoutLock.SHARED, TimeoutLock.EXCLUSIVE):
+            raise LockFailedError("Invalid lock_mode '{}'. Must be TimeoutLock.SHARED or TimeoutLock.EXCLUSIVE", lock_mode)
+        self.lock_mode = lock_mode
         self.lock_fd = None
-        self.global_lock_fd = None
+        self.global_lock = None
         self.reason = reason
 
         self._ensure_lock_dir_exists()
@@ -50,99 +58,136 @@ class TimeoutLock:
 
     def __enter__(self):
         if self.lock_file == GLOBAL_LOCK_FILE:
-            self.lock_fd = self._get_lock(self.lock_file, os.O_RDWR)
+            self._get_lock()
         else:
-            # lock global lock file for reading so a global lock cannot be obtained when any lock is in place
-            self.global_lock_fd = self._get_lock(GLOBAL_LOCK_FILE, os.O_RDONLY, fcntl.LOCK_SH)
-            self.lock_fd = self._get_lock(self.lock_file, os.O_WRONLY)
-
-        self._write_lock_reason(self.lock_fd)
+            self.global_lock = TimeoutLock(GLOBAL_LOCK_FILE, name="global lock", timeout=self.timeout, lock_mode=TimeoutLock.SHARED)
+            self.global_lock.__enter__()
+            self._get_lock()
 
     def __exit__(self, *args):
-        self._release_lock(self.lock_fd)
+        if self.lock_fd:
+            if self.lock_mode == TimeoutLock.EXCLUSIVE:
+                self._clear_lock_reason()
+            fcntl.lockf(self.lock_fd, fcntl.LOCK_UN)
+            os.close(self.lock_fd)
         self.lock_fd = None
 
-        self._release_lock(self.global_lock_fd)
-        self.global_lock_fd = None
+        if self.global_lock:
+            self.global_lock.__exit__()
+            self.global_lock = None
 
-    def _release_lock(self, lock_fd):
-        if lock_fd:
-            fcntl.lockf(lock_fd, fcntl.LOCK_UN)
-            os.close(lock_fd)
-
-    def _write_lock_reason(self, lock_fd):
-        os.ftruncate(lock_fd, 0)
-        os.write(lock_fd, self.reason.encode("UTF-8"))
-
-    def _create_or_open_file(self, lock_file, flag):
-        try:
-            return os.open(lock_file, flag | os.O_CREAT | os.O_EXCL, TimeoutLock.LOCK_PERMISSIONS)
-        except OSError as e:
-            if e.errno == errno.EEXIST:
-                # The lockfile has already been created. Fall back to opening the existing file
-                # without O_CREAT (to avoid permission denied error if we're not the user
-                # that created the lockfile).
-                return os.open(lock_file, flag, TimeoutLock.LOCK_PERMISSIONS)
-            # Something else happened
-            raise
-
-    def _get_lock(self, lock_file, flag, lock_type=fcntl.LOCK_EX):
+    def _get_lock(self):
         """
-        Acquires a lock on 'lock_file', waiting up until the timeout has been exceeded.
-        If sucesssful, returns the file descriptor of the lockfile.  If the timeout is reached,
-        a LockFailedError exception is raised.
+        Acquires a lock on self.lock_file, waiting up until the timeout has been exceeded.
+        If the timeout is reached a LockFailedError exception is raised.
+
+        If an exclusive lock is successfully acquired, the lock reason will be updated.
         """
         try:
             with utils.empty_file_mask():
-                lock_fd = self._create_or_open_file(lock_file, flag)
+                access_mode = os.O_RDWR if self.lock_mode == TimeoutLock.EXCLUSIVE else os.O_RDONLY
+                self.lock_fd = self._create_or_open_file(self.lock_file, access_mode)
         except OSError as e:
             self.logger.warning("Could not acquire %s lock. Aborting" % self.name)
             raise LockFailedError(e)
 
         try:
-            fcntl.lockf(lock_fd, lock_type | fcntl.LOCK_NB)
+            fcntl.lockf(self.lock_fd, self._get_lock_type() | fcntl.LOCK_NB)
         except BlockingIOError:
-            self.logger.warning("%s", self._get_lock_excuse(lock_file, True))
-            self._wait_for_lock(lock_fd, lock_file, lock_type)
+            self.logger.warning(
+                '%s Will wait up to %s minute(s) for the lock to be released.' %
+                (
+                    self._get_lock_reason(),
+                    self.timeout,
+                )
+            )
+            self._wait_for_lock()
+        if self.lock_mode == TimeoutLock.EXCLUSIVE:
+            self._set_lock_reason()
 
-        return lock_fd
-
-    def _get_lock_excuse(self, lock_file, is_waiting):
+    def _wait_for_lock(self):
         """
-        Get an excuse for why we couldn't lock the file.
-
-        Read the file and its owner, if we can. Fail gracefully with something
-        if we can't read it (most likely permissions)
+        Perform a blocking fnctl.lockf() call.  An exception will be raised
+        if the timeout period elapses before acquisition.
         """
+        deadline_check_interval = self._get_deadline_check_interval()
+        deadline = self._get_deadline()
 
-        bad_user = "a server gremlin"
-        excuses = "no excuse given"
+        def deadline_check(*args):
+            if time.time() >= deadline:
+                print("", flush=True)
+                self.logger.warning("Exceeded lock timeout period")
+                raise LockFailedError(
+                    'Failed to acquire lock after waiting for %s minute(s); %s\nAborting' %
+                    (
+                        self.timeout,
+                        self._get_lock_reason(),
+                    )
+                )
+            print(".", flush=True, end="")
+            signal.alarm(deadline_check_interval)
+
+        signal.signal(signal.SIGALRM, deadline_check)
+        signal.alarm(deadline_check_interval)
         try:
-            bad_user = utils.get_username(os.stat(lock_file).st_uid) or bad_user
-            excuses = open(lock_file, "r").read() or excuses
-        except (IOError, OSError) as failure:
-            # Before we raise, let's at least warn what failed
-            utils.get_logger().warning(failure)
+            fcntl.lockf(self.lock_fd, self._get_lock_type())
+        finally:
+            signal.alarm(0)
 
-        if is_waiting:
-            excuse = 'Lock "%s" is busy; owner is "%s"; reason is "%s".' \
-                     ' Will wait up to %s minute(s) for the lock to be released.' %  \
-                     (
-                        self.name,
-                        bad_user,
-                        excuses,
-                        self.timeout,
-                     )
-        else:
-            excuse = 'Failed to acquire lock "%s" after waiting for %s minute(s); owner is "%s"; reason is "%s".' % \
-                     (
-                        self.name,
-                        self.timeout,
-                        bad_user,
-                        excuses,
-                     )
+    def _get_deadline_check_interval(self) -> int:
+        return 30
 
-        return excuse
+    def _get_deadline(self) -> float:
+        return time.time() + self.timeout * 60
+
+    def _create_or_open_file(self, lock_file, access_mode):
+        try:
+            return os.open(lock_file, access_mode | os.O_CREAT | os.O_EXCL, TimeoutLock.LOCK_PERMISSIONS)
+        except OSError as e:
+            if e.errno == errno.EEXIST:
+                # The lockfile has already been created. Fall back to opening the existing file
+                # without O_CREAT (to avoid permission denied error if we're not the user
+                # that created the lockfile).
+                return os.open(lock_file, access_mode, TimeoutLock.LOCK_PERMISSIONS)
+            # Something else happened
+            raise
+
+    def _get_lock_type(self):
+        return fcntl.LOCK_EX if self.lock_mode == TimeoutLock.EXCLUSIVE else fcntl.LOCK_SH
+
+    def _write_lock_file(self, info):
+        os.ftruncate(self.lock_fd, 0)
+        os.pwrite(self.lock_fd, json.dumps(info, indent=4).encode("UTF-8"), 0)
+
+    def _clear_lock_reason(self):
+        self._write_lock_file({})
+
+    def _set_lock_reason(self):
+        info = {
+            "locker": utils.get_real_username(),
+            "pid": os.getpid(),
+            "timestamp_utc": time.asctime(time.gmtime()),
+            "reason": self.reason,
+            }
+
+        self._write_lock_file(info)
+
+    def _get_lock_reason(self) -> str:
+        try:
+            sb = os.fstat(self.lock_fd)
+            info = json.loads(os.pread(self.lock_fd, sb.st_size, 0).decode("UTF-8"))
+        except Exception as e:
+            utils.get_logger().warning("Caught %s while reading lock info from %s", e, self.lock_file)
+            info = {}
+
+        return '%s is locked by %s (pid %s) on %s; reason is "%s".' % \
+            (
+                self.name,
+                info.get("locker", "?"),
+                info.get("pid", "?"),
+                info.get("timestamp_utc", "?"),
+                info.get("reason", "?"),
+            )
 
     def _ensure_lock_dir_exists(self):
         lock_dir = os.path.dirname(self.lock_file)
@@ -161,31 +206,3 @@ class TimeoutLock:
                 "Supplied timeout for %s lock needs to be in range [1, 60]. Timeout reset to %s"
                 " minutes" % (self.name, TimeoutLock.DEFAULT_TIMEOUT_IN_MINS)
             )
-
-    def _wait_for_lock(self, lock_fd, lock_file, lock_type):
-        deadline_check_interval = self._get_deadline_check_interval()
-        deadline = self._get_deadline()
-
-        def deadline_check(*args):
-            if time.time() >= deadline:
-                print("", flush=True)
-                self.logger.warning("Exceeded lock timeout period")
-                excuse = self._get_lock_excuse(lock_file, False)
-                raise LockFailedError(excuse + "\nAborting")
-            print(".", flush=True, end="")
-            signal.alarm(deadline_check_interval)
-
-        signal.signal(signal.SIGALRM, deadline_check)
-        signal.alarm(deadline_check_interval)
-        try:
-            fcntl.lockf(lock_fd, lock_type)
-        finally:
-            signal.alarm(0)
-        if lock_type == fcntl.LOCK_EX:
-            self._write_lock_reason(lock_fd)
-
-    def _get_deadline_check_interval(self) -> int:
-        return 30
-
-    def _get_deadline(self) -> float:
-        return time.time() + self.timeout * 60
