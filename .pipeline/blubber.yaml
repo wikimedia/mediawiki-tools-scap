@@ -25,16 +25,34 @@ apt:
 
 python:
   version: python3
+  # Ensure requirements.txt is exhaustive
+  no-deps: True
   requirements:
     - requirements.txt
-    - test-requirements.txt
-    - docs/requirements.txt
 entrypoint: [scripts/check]
 
 variants:
-  buster:
+  buster-build:
     copies: [local]
     base: docker-registry.wikimedia.org/wikimedia-buster
-  bullseye:
+  buster-test:
+    includes: [buster-build]
+    copies: [buster-build]
+    python:
+      # Allow transitive dependencies for test/docs
+      no-deps: False
+      requirements:
+        - test-requirements.txt
+        - docs/requirements.txt
+  bullseye-build:
     copies: [local]
     base: docker-registry.wikimedia.org/bullseye
+  bullseye-test:
+    includes: [bullseye-build]
+    copies: [bullseye-build]
+    python:
+      # Allow transitive dependencies for test/docs
+      no-deps: False
+      requirements:
+        - test-requirements.txt
+        - docs/requirements.txt
