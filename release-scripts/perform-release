@@ -1,0 +1,99 @@
+#!/bin/bash
+
+set -eu -o pipefail
+
+function suggest_new_version {
+    # Finds the latest tag and adds one to the minor version.
+
+    local last_tag
+    last_tag="$(git tag --sort version:refname | grep -v debian/ | tail -1)"
+
+    IFS=.
+    local parts
+    # shellcheck disable=SC2206
+    parts=($last_tag)
+    : $(( parts[1] += 1 ))
+    echo "${parts[*]}"
+    IFS=
+}
+
+function assert_clean_checkout {
+    if [ "$(git status --porcelain)" ]; then
+        echo "Checkout is not clean"
+        git status
+        exit 1
+    fi
+}
+
+function wait_for_merge {
+    local change_number="$1"
+
+    echo -n "Waiting for change $change_number to merge..."
+
+    while true; do
+        echo -n "."
+        curl -sSf "https://gerrit.wikimedia.org/r/changes/$change_number/detail" | tail -1 > "$tmp"
+
+        local status rejected
+        status="$(jq -r .status "$tmp")"
+        rejected="$(jq .labels.Verified.rejected "$tmp")"
+
+        if [ "$status" == "MERGED" ]; then
+            echo
+            echo "Change $change_number has been merged"
+            return 0
+        fi
+        if [ "$rejected" ]; then
+            echo
+            echo "Change $change_number was rejected"
+            exit 1
+        fi
+
+        sleep 5
+    done
+}
+
+assert_clean_checkout
+git pull --rebase
+assert_clean_checkout
+if [ "$(git rev-list origin/master..)" ]; then
+    echo Local commits detected:
+    git log --oneline origin/master..
+    echo Aborting
+    exit 1
+fi
+
+suggested_vers="$(suggest_new_version)"
+
+echo -n "New version (default $suggested_vers): "
+read -r VERS
+if [ -z "$VERS" ]; then
+    VERS="$suggested_vers"
+fi
+
+echo "Selected version $VERS"
+
+release-scripts/prepare-scap-release "$VERS"
+
+tmp="$(mktemp)"
+trap 'rm -f $tmp' EXIT
+
+echo Pushing commit
+git push origin HEAD:refs/for/master%l=Code-Review+2 &> "$tmp"
+
+change_number=$(grep mediawiki/tools/scap/+ "$tmp" | sed -r -e 's,^.*mediawiki/tools/scap/\+/([0-9]+).*$,\1,')
+
+wait_for_merge "$change_number"
+
+git pull --rebase
+
+assert_clean_checkout
+
+git tag --sign -m "Release $VERS" "$VERS" HEAD
+git push --tags origin "$VERS"
+
+cat <<EOF
+scap release $VERS has been tagged.  You can install on production hosts
+by logging into deployment.eqiad.wmnet and running:
+scap install-world --version $VERS
+EOF
