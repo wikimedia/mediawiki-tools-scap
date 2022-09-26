@@ -1,7 +1,7 @@
-jinja2==2.10.2
-pyyaml==5.1.0
-requests==2.21.0
-pygments==2.3.1
-prettytable==1.0.1
-markupsafe==1.1.0
+Jinja2==2.10.2
+MarkupSafe==1.1.0
 packaging==20.9
+prettytable==1.0.1
+Pygments==2.3.1
+PyYAML==5.1
+requests==2.21.0
