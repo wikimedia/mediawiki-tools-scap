@@ -1,3 +1,13 @@
+scap (4.23.0)
+
+  * Normalize requirements files
+  * Support checks running before a stage
+  * Make DeployLocal._valid_chk() static + test coverage
+  * Remove legacy sync.flag check
+  * Perform k8s deployments in parallel
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Mon, 26 Sep 2022 09:18:56 -0700
+
 scap (4.22.0)
 
   * Make "scap backport" skip sync for labs-only changes
