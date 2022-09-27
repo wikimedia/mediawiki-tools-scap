@@ -125,10 +125,7 @@ class Backport(cli.Application):
         self._validate_backports(change_details)
         self._check_dependencies(change_details, change_numbers)
         if not self.arguments.yes:
-            table = PrettyTable()
-            table.field_names = ["Change Number", "Subject"]
-            for change in change_details:
-                table.add_row([change["_number"], change["subject"]])
+            table = make_table(change_details, False)
             self.prompt_for_approval_or_exit("The following changes are scheduled for backport:\n%s\n"
                                              "Backport the changes?" % table.get_string(),
                                              "Backport cancelled.")
