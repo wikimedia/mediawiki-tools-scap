@@ -192,6 +192,31 @@ class DeployPromote(cli.Application):
         self._check_versions()
 
     def _check_versions(self):
+        check_url = self._get_check_url()
+
+        polling_interval = 1  # seconds
+        timeout = self._get_check_versions_timeout()
+
+        deadline = time.time() + timeout
+
+        while True:
+            actual_version = self._get_special_version(check_url)
+            self._notify_version_update_result(check_url, actual_version)
+
+            if self.promote_version == actual_version:
+                return
+
+            if time.time() >= deadline:
+                # Time ran out.
+                utils.abort("Could not verify version update")
+
+            time.sleep(polling_interval)
+
+    # This is a method so that it can be patched during tests
+    def _get_check_versions_timeout(self):
+        return 10
+
+    def _get_check_url(self) -> str:
         if self.group == "testwikis":
             check_domain = "test.wikipedia.org"
         elif self.group == "group0":
@@ -200,8 +225,9 @@ class DeployPromote(cli.Application):
             check_domain = "en.wikinews.org"
         else:
             check_domain = "en.wikipedia.org"
-        check_url = "https://%s/wiki/Special:Version" % check_domain
+        return "https://%s/wiki/Special:Version" % check_domain
 
+    def _get_special_version(self, check_url) -> str:
         try:
             res = requests.get(check_url)
             res.raise_for_status()
@@ -216,9 +242,7 @@ class DeployPromote(cli.Application):
                 "Request to checked page failed" \
                 + (" with %s" % e.response.status_code if isinstance(e, HTTPError) else "")
 
-        self._notify_version_update_result(check_url, actual_version)
-        if self.promote_version != actual_version:
-            utils.abort("Could not verify version update")
+        return actual_version
 
     def _notify_version_update_result(self, check_url, actual_version):
         self.logger.info(

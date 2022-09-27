@@ -129,26 +129,28 @@ def test_version_check(deploy_promote):
     with mock.patch.object(requests, "get") as mock_get:
         mock_get.return_value = mock.MagicMock(Response)
 
-        # Version matches
-        mock_get.return_value.text = '<meta name="generator" content="MediaWiki 1.39.0-wmf.19"/>'
-        deploy_promote._check_versions()
-
-        # Version does not match
-        mock_get.return_value.text = '<meta name="generator" content="MediaWiki NoVersTooBad"/>'
-        with pytest.raises(SystemExit):
+        # Set the check versions timeout to zero so that these tests will complete quickly.
+        with mock.patch.object(deploy_promote, '_get_check_versions_timeout', return_value=0):
+            # Version matches
+            mock_get.return_value.text = '<meta name="generator" content="MediaWiki 1.39.0-wmf.19"/>'
             deploy_promote._check_versions()
 
-        # Version could not be found in page
-        mock_get.return_value.text = 'garbled nonsense dadadddd'
-        with pytest.raises(SystemExit):
-            deploy_promote._check_versions()
-
-        # Request failed
-        with mock.patch.object(mock_get.return_value, "raise_for_status") as mock_raise:
-            http_error = HTTPError()
-            http_error.response = mock.MagicMock(Response)
-            http_error.response.status_code = 500
-            mock_raise.side_effect = http_error
-
+            # Version does not match
+            mock_get.return_value.text = '<meta name="generator" content="MediaWiki NoVersTooBad"/>'
             with pytest.raises(SystemExit):
                 deploy_promote._check_versions()
+
+            # Version could not be found in page
+            mock_get.return_value.text = 'garbled nonsense dadadddd'
+            with pytest.raises(SystemExit):
+                deploy_promote._check_versions()
+
+            # Request failed
+            with mock.patch.object(mock_get.return_value, "raise_for_status") as mock_raise:
+                http_error = HTTPError()
+                http_error.response = mock.MagicMock(Response)
+                http_error.response.status_code = 500
+                mock_raise.side_effect = http_error
+
+                with pytest.raises(SystemExit):
+                    deploy_promote._check_versions()
