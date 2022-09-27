@@ -1,0 +1,8 @@
+stages:          # List of stages for jobs, and their order of execution
+  - test
+
+buster:
+    stage: test
+    image: docker-registry.wikimedia.org/wikimedia-buster
+    script: 
+        - env
