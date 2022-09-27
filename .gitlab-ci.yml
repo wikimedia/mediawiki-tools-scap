@@ -25,3 +25,9 @@ bullseye:
     extends: .script-common
     stage: test
     image: docker-registry.wikimedia.org/bullseye
+
+tox:
+  stage: test
+  image: docker-registry.wikimedia.org/releng/tox-buster:0.5.3
+  script:
+    - tox -e doc
