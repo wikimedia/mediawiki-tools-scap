@@ -3,11 +3,26 @@ stages:          # List of stages for jobs, and their order of execution
 
 variables:
   DEBIAN_FRONTEND: noninteractive
+  LANG: C.UTF-8
 
 buster:
     stage: test
     image: docker-registry.wikimedia.org/wikimedia-buster
     script:
+        # This is a rough translation of what scap's .pipeline/config.yaml and blubber.yaml result in
+        - apt-get update
+        - apt-get install -y build-essential ca-certificates git libjpeg-dev openssl php-cli python3 python3-pip python3-dev zlib1g-dev shellcheck
+        - pip3 install -U setuptools!=60.9.0 
+        - pip3 install -U wheel tox
+        - pip3 install -U -r requirements.txt -r test-requirements.txt -r docs/requirements.txt
+        - scripts/check
+
+bullseye:
+    stage: test
+    image: docker-registry.wikimedia.org/bullseye
+    # FIXME: How to refactor?
+    script:
+        # This is a rough translation of what scap's .pipeline/config.yaml and blubber.yaml result in
         - apt-get update
         - apt-get install -y build-essential ca-certificates git libjpeg-dev openssl php-cli python3 python3-pip python3-dev zlib1g-dev shellcheck
         - pip3 install -U setuptools!=60.9.0 
