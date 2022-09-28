@@ -4,14 +4,14 @@ set -eu -o pipefail
 
 function suggest_new_version {
     # Finds the latest tag and adds one to the minor version.
+    # Sets the LAST_TAG global variable for later use.
 
-    local last_tag
-    last_tag="$(git tag --sort version:refname | grep -v debian/ | tail -1)"
+    LAST_TAG="$(git tag --sort version:refname | grep -v debian/ | tail -1)"
 
     IFS=.
     local parts
     # shellcheck disable=SC2206
-    parts=($last_tag)
+    parts=($LAST_TAG)
     : $(( parts[1] += 1 ))
     echo "${parts[*]}"
     IFS=
@@ -96,4 +96,7 @@ cat <<EOF
 scap release $VERS has been tagged.  You can install on production hosts
 by logging into deployment.eqiad.wmnet and running:
 scap install-world --version $VERS
+
+If you need to roll back, you can specify a particular version tag with e.g.
+scap install-world --version $LAST_TAG
 EOF

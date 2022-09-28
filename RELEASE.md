@@ -1,15 +1,34 @@
 # Release procedure for Scap
 
-This is a detailed release procedure for the Scap software. It's meant
+This is the release procedure for the Scap software. It is meant
 to be followed by a member of the Release Engineering team.
 
 This document assumes that the codebase has already undergone manual
 and automated testing.
 
-## Test latest Scap code using the Beta Cluster
+## Production Release
 
-Before you make a new release you should verify that the latest Scap
-code works in beta cluster.
+Run `release-scripts/perform-release`.  It will:
+
+* Ensure that your checkout is up-to-date and clean.
+* Prompt you for for the new version number (with a reasonable default).
+* Update scap/version.py and changelog and create a commit with those changes.
+* Push the commit to Gerrit, approve it, and wait for it to merge.
+* Tag and push the commit.
+* Tell you how to deploy the new release.
+
+That's it!
+
+### Production deployment
+
+* Make sure you select a time window where no deployments are happening
+* On the main deployment server (**deployment.eqiad.wmnet** at the time of writing), run
+`scap install-world`. This will select the latest available version tag for installation and
+prompt you for confirmation.
+* If you need to roll back, you can specify a particular version tag with e.g.
+`scap install-world --version 4.9.3`
+
+## Beta Release
 
 (For the following steps to work you must have ssh access to and sudo privileges on 
 **deployment-cumin.deployment-prep.eqiad.wmflabs** and **deployment-deploy03.deployment-prep.
@@ -55,59 +74,3 @@ you answer `y` or `yes`) install it on beta Scap hosts.
       /srv/deployment/integration/slave-scripts is a symlink to the
       same revs directory:
       `ls -l /srv/deployment/integration/slave-scripts-cache /srv/deployment/integration/slave-scripts`
-
-### Let the release marinate in beta cluster for a while
-
-Let the new Scap operate for some amount of time in beta cluster.
-How long is up to you.  When you are satisfied, move on with the remaining steps.
-
-## Pick version number
-
-Pick a new version number, called $VERS in these instructions.  A
-version number might be, for example `1.2.3`.  Replace every instance
-of `$VERS` in examples below with the version number.  Run
-```sh
-VERS=1.2.3 # Replace with new version
-```
-in your shell to make the following commands simpler.
-
-## Update scap/version.py and changelog
-
-Run `release-scripts/prepare-scap-release $VERS`.  This will
-automatically update and commit `scap/version.py` and
-`changelog`, prompting you for confirmation along the way.
-
-At this point you are welcome to further modify `changelog` and
-update the commit.
-
-## Push changes to Gerrit for review
-
-```sh
-$ git push origin HEAD:refs/for/master
-```
-
-Someone will need to +2 the change to merge it.
-
-After the merge, run `git pull --rebase`
-
-## Tag the release in git
-
-This is the formal part of the release procedure. These steps all
-happen in a clone of the Scap git repository.
-
-* Make sure the workspace is clean and has no uncommitted changes or
-  unwanted files: `git status`
-* Use `git log` to locate the version-changing commit that you merged earlier
-  in this process.
-* Tag version: `git tag --sign -m "Release $VERS" $VERS HEAD`
-* Push the tag to Gerrit: `git push --tags origin $VERS`
-
-## Deploy the new version in production
-
-* Make sure you select a time window where no deployments are happening
-* On the main deployment server (**deploy1002.eqiad.wmnet** at the time of writing), run
-`scap install-world`. This will select the latest available version tag for installation and
-prompt you for confirmation.
-* If you need to roll back, you can specify a particular version tag with e.g.
-`scap install-world --version 4.9.3`
-* Profit!
