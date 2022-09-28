@@ -147,7 +147,10 @@ function create_scap_venv_for_user {
 
   $AS_USER python3 -m venv --clear "$VENV_DIR"
   $AS_USER "${VENV_DIR}"/bin/pip3 install wheel==0.37.1
-  $AS_USER "${VENV_DIR}"/bin/pip3 install --upgrade "$SCAP_SOURCE_DIR"
+  # --no-deps prevents pip from processing any requirements in SCAP_SOURCE_DIR
+  # in conjunction with -r requirements.txt, none of the requirements transitive
+  # dependencies will be installed
+  $AS_USER "${VENV_DIR}"/bin/pip3 install --no-deps -r requirements.txt "$SCAP_SOURCE_DIR"
 
   # Since we have successfully installed we no more need to restore the old env
   trap - ERR
