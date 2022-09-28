@@ -15,7 +15,7 @@ function usage {
 
    Usage: $0 [-u <USERNAME>] [-t <TAG>] <SCAP_SOURCE_DIR>
 
-   Uses a scap git repository at <SCAP_SOURCE_DIR> to create/update a self-contained scap Python3
+   Uses a scap git repository at <SCAP_SOURCE_DIR> to recreate a self-contained scap Python3
    venv in the user's HOME at $HOME/scap. If <USERNAME> is not passed, the environment variable USER
    is taken instead. An optional git <TAG> can be passed to specify the code revision to use when
    creating the venv.
@@ -107,13 +107,18 @@ function check_out_tag {
   # running. The call generates several lines of output, so we use the grep filter to trim it down
   # to the most informative of those
   trap "git_scap checkout - 2>&1 | grep -i switched" EXIT
-
   log "Tag \"$TAG\" checked out"
 }
 
 function create_scap_venv_for_user {
   local USER_HOME
   USER_HOME=$(eval echo "~$INSTALL_USER")
+
+  # Directory to hold a copy of the previous version while we create a new
+  # virtual environment with the version to be deployed.
+  local OLD_VENV_DIR
+  OLD_VENV_DIR=$(mktemp -d "${USER_HOME}/.scap-venv.XXXXXX")
+  # Virtualenv directory for the scap deployment
   local VENV_DIR=${USER_HOME}/scap
   local AS_USER=
   local http_proxy=
@@ -134,14 +139,24 @@ function create_scap_venv_for_user {
     fi
   fi
 
-  $AS_USER python3 -m venv "$VENV_DIR"
+  # Signal we will want to restore the old venv in case of installation failure
+  if [ -e "$VENV_DIR" ]; then
+    mv "$VENV_DIR" "$OLD_VENV_DIR"
+    trap 'rm -fR "$VENV_DIR"; [ -e "$OLD_VENV_DIR" ] && mv "$OLD_VENV_DIR" "$VENV_DIR"' ERR
+  fi
+
+  $AS_USER python3 -m venv --clear "$VENV_DIR"
   $AS_USER "${VENV_DIR}"/bin/pip3 install wheel==0.37.1
   $AS_USER "${VENV_DIR}"/bin/pip3 install --upgrade "$SCAP_SOURCE_DIR"
 
+  # Since we have successfully installed we no more need to restore the old env
+  trap - ERR
+  rm -fR "$OLD_VENV_DIR"
+
   if [ -n "$TAG" ]; then
-    log "Scap \"$TAG\" successfully installed/updated at \"$VENV_DIR\""
+    log "Scap \"$TAG\" successfully installed at \"$VENV_DIR\""
   else
-    log "Scap successfully installed/updated at \"$VENV_DIR\""
+    log "Scap successfully installed at \"$VENV_DIR\""
   fi
 }
 
