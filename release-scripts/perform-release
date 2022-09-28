@@ -43,7 +43,7 @@ function wait_for_merge {
             echo "Change $change_number has been merged"
             return 0
         fi
-        if [ "$rejected" ]; then
+        if [ "$rejected" != "null" ]; then
             echo
             echo "Change $change_number was rejected"
             exit 1
