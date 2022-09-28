@@ -1,3 +1,13 @@
+scap (4.24.0)
+
+  * perform-release bugfix
+  * Add release-scripts/perform-release
+  * Tie up some TimeoutLock loose ends
+  * Enable retry support for Gerrit HTTP requests
+  * scap backport should display branch in the patch table
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Wed, 28 Sep 2022 08:53:19 -0700
+
 scap (4.23.0)
 
   * Normalize requirements files
