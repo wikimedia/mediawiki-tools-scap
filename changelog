@@ -1,3 +1,10 @@
+scap (4.25.0)
+
+  * scap deploy-promote should retry when verifying Special:Version
+  * Define requirements.txt exhaustively
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Thu, 29 Sep 2022 08:31:33 -0700
+
 scap (4.24.0)
 
   * perform-release bugfix
