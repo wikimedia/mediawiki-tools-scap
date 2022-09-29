@@ -15,14 +15,12 @@ from pygments.lexers import JsonLexer
 from pygments.formatters import TerminalFormatter
 
 import re
+import requests
 import json
 import logging
 
-try:
-    from urllib.parse import quote
-except ImportError:
-    # Python 2
-    from urllib import quote
+from urllib.parse import quote
+import urllib3
 
 
 def debug_log(msg, *args):
@@ -57,6 +55,11 @@ class GerritSession(object):
         self.useAuth = use_auth
 
         self.session = Session()
+
+        retries = urllib3.Retry(backoff_factor=1)
+        adapter = requests.adapters.HTTPAdapter(max_retries=retries)
+        self.session.mount('http://', adapter)
+        self.session.mount('https://', adapter)
 
         if self.useAuth:
             if url[-1] == '/':

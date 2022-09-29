@@ -2,8 +2,14 @@ pipelines:
   buster:
     blubberfile: blubber.yaml
     stages:
-      - name: buster
+      - name: buster-build
+        build: buster-build
+        run: {}
+      - name: buster-test
   bullseye:
     blubberfile: blubber.yaml
     stages:
-      - name: bullseye
+      - name: bullseye-build
+        build: bullseye-build
+        run: {}
+      - name: bullseye-test

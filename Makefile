@@ -1,6 +1,7 @@
 BLUBBER_VARIANTS := buster bullseye
 
-IMAGE = local/scap-$(*F)-test
+BUILD_IMAGE = local/scap-$(*F)
+TEST_IMAGE = local/scap-$(*F)-test
 
 .PHONY: default
 default:
@@ -20,11 +21,16 @@ image-%:
 	DOCKER_BUILDKIT=1 docker build \
 		--quiet \
 		-f .pipeline/blubber.yaml \
-		--target $(*F) \
-		-t $(IMAGE) .
+		--target $(*F)-build \
+		-t $(BUILD_IMAGE) .
+	DOCKER_BUILDKIT=1 docker build \
+		--quiet \
+		-f .pipeline/blubber.yaml \
+		--target $(*F)-test \
+		-t $(TEST_IMAGE) .
 
 test-%: image-%
-	docker run -it --rm $(IMAGE)
+	docker run -it --rm $(TEST_IMAGE)
 
 ########################
 # TARGETS

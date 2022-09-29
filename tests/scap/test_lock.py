@@ -36,14 +36,12 @@ def test_timeout_lock_acquires_lock():
 
     def verify_wait_on_lock():
         verifying_lock = lock.TimeoutLock(lock_file.name)
-        with mock.patch.object(
-                verifying_lock, '_wait_for_lock', wraps=verifying_lock._wait_for_lock
-        ) as wait_for_lock:
+        with mock.patch('fcntl.lockf', wraps=fcntl.lockf) as lockf:
             with verifying_lock:
-                # On Python 3.6 or later replace with assert_called_once()
-                wait_for_lock.assert_called_once_with(verifying_lock.lock_fd, lock_file.name, fcntl.LOCK_EX)
+                lockf.assert_has_calls([mock.call(verifying_lock.lock_fd, fcntl.LOCK_EX | fcntl.LOCK_NB),
+                                        mock.call(verifying_lock.lock_fd, fcntl.LOCK_EX)])
 
-    lock_proc = acquire_lock(lock_file.name, release_signal_file.name)
+    lock_proc = acquire_lock_in_subprocess(lock_file.name, release_signal_file.name)
     lock_release_thread = start_release_thread(release_signal_file.name)
 
     time.sleep(1)
@@ -73,7 +71,7 @@ def test_timeout_lock_times_out():
                     with verifying_lock:
                         pass
 
-    lock_proc = acquire_lock(lock_file.name, release_signal_file.name)
+    lock_proc = acquire_lock_in_subprocess(lock_file.name, release_signal_file.name)
 
     time.sleep(1)
     verify_lock_timeout()
@@ -92,7 +90,7 @@ def get_temp_filepaths():
     return file1, file2
 
 
-def acquire_lock(lock_file, release_signal_file):
+def acquire_lock_in_subprocess(lock_file, release_signal_file):
     return subprocess.Popen(["/usr/bin/python3", "-c", """
 import os
 import fcntl
