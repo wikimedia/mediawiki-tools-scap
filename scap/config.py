@@ -32,10 +32,7 @@ import scap.utils as utils
 
 DEFAULT_CONFIG = {
     "beta_only_config_files": (str, ""),
-    "canary_dashboard_url": (
-        str,
-        "https://logstash.wikimedia.org/goto/3888cca979647b9381a7739b0bdbc88e",
-    ),
+    "canary_dashboard_url": (str, "https://logstash.wikimedia.org"),
     "canary_threshold": (float, 10.0),
     "canary_service": (str, "mediawiki"),
     "canary_wait_time": (int, 20),
