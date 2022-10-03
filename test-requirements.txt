@@ -1,5 +1,5 @@
 coverage
-flake8==3.9.2
+flake8==5.0.4
 mock
 pytest
 pytest-cov
