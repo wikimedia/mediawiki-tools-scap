@@ -81,6 +81,9 @@ class GerritSession(object):
     def change(self, changeid, **kwargs):
         return Change(changeid, session=self, **kwargs)
 
+    def change_in(self, changeid, **kwargs):
+        return ChangeIn(changeid, session=self, **kwargs)
+
     def change_revision_commit(self, project_branch_id, **kwargs):
         return ChangeRevisionCommit(project_branch_id, session=self, **kwargs)
 
@@ -257,6 +260,19 @@ class Change(GerritEndpoint):
 
     def __init__(self, changeid, revisionid="current", **kwargs):
         super().__init__(path='changes/%s' % changeid, **kwargs)
+        self.changeid = changeid
+        self.revision = ChangeRevisions(changeid, revisionid=revisionid,
+                                        session=self._session)
+
+
+class ChangeIn(GerritEndpoint):
+    """ Get the branches and tags the change is included in"""
+
+    changeid = None
+    revisionid = "current"
+
+    def __init__(self, changeid, revisionid="current", **kwargs):
+        super().__init__(path='changes/%s/in' % changeid, **kwargs)
         self.changeid = changeid
         self.revision = ChangeRevisions(changeid, revisionid=revisionid,
                                         session=self._session)
