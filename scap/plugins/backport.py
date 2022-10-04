@@ -404,11 +404,23 @@ class Backport(cli.Application):
 
             if len(deps_numbers) > 0:
                 unscheduled_dependencies = set(deps_numbers) - set(change_numbers)
+                unmet_dependencies = []
 
-                if len(unscheduled_dependencies) > 0:
+                # check if dependencies have already been merged
+                for dep in unscheduled_dependencies:
+                    included_info = self.gerrit.change_in(dep).get()
+                    if detail['project'] == "operations/mediawiki-config":
+                        branch = self.config_branch
+                    else:
+                        branch = detail['branch']
+
+                    if branch not in included_info.branches:
+                        unmet_dependencies.append(dep)
+
+                if len(unmet_dependencies) > 0:
                     raise SystemExit("The change '%s' cannot be merged because it has dependencies '%s' "
-                                     "which are not scheduled for backport." % (
-                                      change_number, unscheduled_dependencies))
+                                     "which are not scheduled for backport or included in the target branch." % (
+                                      change_number, unmet_dependencies))
 
     def _get_depends_ons(self, project_branch_id, change_number):
         depends_ons = self.gerrit.depends_ons(project_branch_id).get()
