@@ -46,6 +46,7 @@ class Backport(cli.Application):
     merged, pull them down into the staging directory, sync to test servers,
     prompt for confirmation to proceed, then sync to all servers.
     """
+    OPERATIONS_CONFIG = "operations/mediawiki-config"
     gerrit = None
     config_branch = None
     mediawiki_location = None
@@ -53,6 +54,8 @@ class Backport(cli.Application):
     interval = None
     backport_or_revert = None
     deploy_user = None
+    base_repos = None
+    git_submodules = {}
 
     @cli.argument(
         "--list",
@@ -83,6 +86,7 @@ class Backport(cli.Application):
         self.config_branch = self.config["operations_mediawiki_config_branch"]
         self.mediawiki_location = self.config["stage_dir"]
         self.versions = self.active_wikiversions("stage")
+        self.base_repos = git.list_submodules(self.mediawiki_location, "--recursive") + ["core"]
         change_numbers = [self._change_number(n) for n in self.arguments.change_numbers]
 
         self._assert_auth_sock()
@@ -122,8 +126,7 @@ class Backport(cli.Application):
             self.scap_check_call(arguments + reverts)
 
     def _do_backport(self, change_numbers, change_details):
-        self._validate_backports(change_details)
-        self._check_dependencies(change_details, change_numbers)
+        self._validate_backports(change_details, change_numbers)
         if not self.arguments.yes:
             table = make_table(change_details, False)
             self.prompt_for_approval_or_exit("The following changes are scheduled for backport:\n%s\n"
@@ -223,7 +226,7 @@ class Backport(cli.Application):
 
         params["query"] = ("status:" + status + " -is:wip" + " AND ("
                            + " OR ".join(["branch:wmf/{}".format(v) for v in self.versions])
-                           + " OR (project:operations/mediawiki-config AND branch:"
+                           + " OR (project:" + self.OPERATIONS_CONFIG + " AND branch:"
                            + self.config_branch + "))")
 
         return self.gerrit.changes().get(params=params)
@@ -295,7 +298,7 @@ class Backport(cli.Application):
             project = detail.project.replace("mediawiki/", "")
             branch = detail.branch
 
-            if project == "operations/mediawiki-config":
+            if project == self.OPERATIONS_CONFIG:
                 repo_location = self.mediawiki_location
             elif project == "core":
                 repo_location = "%s/php-%s" % (self.mediawiki_location, branch.replace("wmf/", ""))
@@ -334,7 +337,7 @@ class Backport(cli.Application):
     def _approve_changes(self, change_details):
         """Approves the given changes by voting Code-Review+2"""
 
-        self.get_logger().info('Approving %s change(s)' % len(change_details))
+        self.get_logger().info('Voting on %s change(s)' % len(change_details))
         for detail in change_details:
             self._gerrit_ssh(['review', '--code-review', '+2', '-m',
                               '"Approved by %s using scap backport"' % self.deploy_user,
@@ -354,88 +357,115 @@ class Backport(cli.Application):
 
         return int(number)
 
-    def _validate_change(self, change_detail, base_repos):
-        change_number = change_detail['_number']
-        project = change_detail.project.replace("mediawiki/", "")
-        branch = change_detail.branch.replace("wmf/", "")
+    def _is_project_suitable(self, change_number, project, branch):
+        if branch not in self.git_submodules:
+            self.git_submodules[branch] = git.list_submodules(self.mediawiki_location + "/php-" +
+                                                              branch.replace("wmf/", ""), "--recursive")
+        if project not in self.base_repos + self.git_submodules[branch]:
+            self.get_logger().warn("Change '%s', project '%s', branch '%s' not valid for any production "
+                                   "project/submodule" % (change_number, project, branch))
+            return False
+        return True
 
+    def _are_branches_suitable(self, change_number, project, branches):
+        if project == self.OPERATIONS_CONFIG and self.config_branch in branches:
+            return True
+        elif project is not self.OPERATIONS_CONFIG:
+            included_in_production_branches = set("wmf/{}".format(v) for v in self.versions).intersection(branches)
+            for branch in included_in_production_branches:
+                if self._is_project_suitable(change_number, project, branch):
+                    return True
+
+        self.get_logger().info(
+            "Change '%s', project '%s', branches '%s' not found in any deployed wikiversion. Deployed wikiversions: %s"
+            % (change_number, project, branches, list(self.versions)))
+        return False
+
+    def _is_status_suitable(self, change_detail):
+        change_number = change_detail['_number']
         if change_detail.status == "ABANDONED":
             self.get_logger().warn("Change '%s' has been abandoned!" % change_number)
-            raise SystemExit(1)
+            return False
         if change_detail.work_in_progress:
             self.get_logger().warn("Change '%s' is a work in progress and not ready for merge!" % change_number)
-            raise SystemExit(1)
-        if project == "operations/mediawiki-config" and branch == self.config_branch:
-            pass
-        elif branch not in self.versions:
-            self.get_logger().warn(
-                "Change '%s' branch '%s' not valid for any deployed wikiversion. Deployed wikiversions: %s" %
-                (change_number, branch, list(self.versions)))
-            raise SystemExit(1)
-        elif project not in base_repos + git.list_submodules(self.mediawiki_location + "/php-" + branch, "--recursive"):
-            self.get_logger().warn("Change '%s' project '%s' not valid for any production project/submodule" %
-                                   (change_number, project))
+            return False
+        return True
+
+    def _validate_change(self, change_detail):
+        change_number = change_detail['_number']
+        project = change_detail.project.replace("mediawiki/", "")
+        branch = change_detail.branch
+
+        if not self._is_status_suitable(change_detail):
             raise SystemExit(1)
 
-        self.get_logger().info("Change '%s' valid for %s" % (change_number, self.backport_or_revert))
+        if not self._are_branches_suitable(change_number, project, [branch]):
+            if not self.arguments.yes:
+                self.prompt_for_approval_or_exit("Continue with %s?" % self.backport_or_revert.capitalize(),
+                                                 "%s Cancelled" % self.backport_or_revert)
 
-    def _validate_backports(self, change_details):
+    def _validate_backports(self, change_details, change_numbers):
         self.get_logger().info("Checking whether changes are in a branch and version deployed to production...")
-        base_repos = git.list_submodules(self.mediawiki_location, "--recursive") + ["core"]
         for detail in change_details:
-            self._validate_change(detail, base_repos)
+            self._validate_change(detail)
+            self._validate_dependencies(detail, change_numbers)
+            self.get_logger().info("Change '%s' validated for %s" % (detail['_number'], self.backport_or_revert))
 
     def _validate_reverts(self, change_details):
         self.get_logger().info("Checking whether changes are in a branch and version deployed to production...")
-        base_repos = git.list_submodules(self.mediawiki_location, "--recursive") + ["core"]
         for detail in change_details:
             if detail['status'] != "MERGED":
                 raise SystemExit("Change '%s' has not yet been merged and cannot be reverted." % detail['_number'])
-            self._validate_change(detail, base_repos)
+            self._validate_change(detail)
 
-    def _check_dependencies(self, change_details, change_numbers):
+    def _validate_dependencies(self, change_detail, change_numbers):
+        """Checks if all dependencies are merged or scheduled to be merged."""
         self.get_logger().info("Checking for relation chains and Depends-Ons...")
-        for detail in change_details:
-            change_number = detail['_number']
-            project_branch_id = detail['id']
-            deps_numbers = list(map(lambda change: change['_number'],
-                                    self.gerrit.submitted_together(change_number).get().changes))
-            deps_numbers += self._get_depends_ons(project_branch_id, change_number)
+        change_number = change_detail['_number']
+        project_branch_id = change_detail['id']
 
-            if len(deps_numbers) > 0:
-                unscheduled_dependencies = set(deps_numbers) - set(change_numbers)
-                unmet_dependencies = []
+        deps = dict(map(lambda change: (change['_number'], change),
+                        self.gerrit.submitted_together(change_number).get().changes))
+        deps.update(self._get_depends_ons(project_branch_id, change_number))
 
-                # check if dependencies have already been merged
-                for dep in unscheduled_dependencies:
-                    included_info = self.gerrit.change_in(dep).get()
-                    if detail['project'] == "operations/mediawiki-config":
-                        branch = self.config_branch
-                    else:
-                        branch = detail['branch']
+        unscheduled_dependencies = set(deps.keys()) - set(change_numbers)
+        unmet_dependencies = []
+        unsuitable_dependencies = []
 
-                    if branch not in included_info.branches:
-                        unmet_dependencies.append(dep)
+        for dep_number in unscheduled_dependencies:
+            dep_project = deps[dep_number]['project'].replace("mediawiki/", "")
+            included_info = self.gerrit.change_in(dep_number).get()
+            branches = included_info.branches
+            if len(branches) == 0:
+                unmet_dependencies.append(dep_number)
+            elif not self._are_branches_suitable(dep_number, dep_project, branches):
+                unsuitable_dependencies.append(dep_number)
 
-                if len(unmet_dependencies) > 0:
-                    raise SystemExit("The change '%s' cannot be merged because it has dependencies '%s' "
-                                     "which are not scheduled for backport or included in the target branch." % (
-                                      change_number, unmet_dependencies))
+        if len(unmet_dependencies) > 0:
+            raise SystemExit("Change '%s' cannot be merged without merging its dependencies '%s', which are not "
+                             "merged or scheduled for backport" % (change_number, unmet_dependencies))
 
-    def _get_depends_ons(self, project_branch_id, change_number):
-        depends_ons = self.gerrit.depends_ons(project_branch_id).get()
-        deps = []
+        if len(unsuitable_dependencies) > 0:
+            self.get_logger().warn("The change '%s' has dependencies '%s' which are not scheduled for backport "
+                                   "or included in any mediawiki production branch." %
+                                   (change_number, unsuitable_dependencies))
+            self.prompt_for_approval_or_exit("Continue with %s?" % self.backport_or_revert.capitalize(),
+                                             "%s Cancelled" % self.backport_or_revert)
+
+    def _get_depends_ons(self, change_id, change_number):
+        depends_ons = self.gerrit.depends_ons(change_id).get()
+        deps = {}
 
         if bool(depends_ons.cycle) is True:
             raise SystemExit(
                 "The change '%s' cannot be merged because a dependency cycle was detected." % change_number)
 
         for change_info in depends_ons.depends_on_found:
-            change_id = change_info['change_id']
-            if change_id not in deps:
-                change_number = change_info['_number']
-                deps.append(change_number)
-                deps += self._get_depends_ons(change_info['id'], change_number)
+            dep_change_id = change_info['change_id']
+            dep_change_number = change_info['_number']
+            if change_number not in deps:
+                deps[dep_change_number] = change_info
+                deps.update(self._get_depends_ons(dep_change_id, dep_change_number))
 
         return deps
 
@@ -523,7 +553,7 @@ class Backport(cli.Application):
             project = detail.project
             branch = detail.branch
 
-            if project == "operations/mediawiki-config":
+            if project == self.OPERATIONS_CONFIG:
                 repo_location = self.mediawiki_location
             else:
                 repo_location = "%s/php-%s" % (self.mediawiki_location, branch.replace("wmf/", ""))
@@ -618,7 +648,7 @@ class Backport(cli.Application):
         configuration changes.
         """
         for details in change_details:
-            if details["project"] != "operations/mediawiki-config":
+            if details["project"] != self.OPERATIONS_CONFIG:
                 return False
 
             (num_beta_files, num_other_files) = self._count_beta_only_config_files(details)
