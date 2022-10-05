@@ -1,3 +1,16 @@
+scap (4.26.0)
+
+  * scripts: Log (debug) registration of scripts
+  * install-world: install only declared requirements
+  * scap backport: check for already merged dependency
+  * install-world: ensure a clear venv
+  * config.py: Update default value for canary_dashboard_url
+  * Add .editorconfig
+  * test-requirements.txt: Set flake8 to 5.0.4
+  * RELEASE.md: Use release-scripts/perform-release
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Wed, 05 Oct 2022 14:34:23 -0700
+
 scap (4.25.0)
 
   * scap deploy-promote should retry when verifying Special:Version
