@@ -1,3 +1,9 @@
+scap (4.27.0)
+
+  * checks: Only validate checks for the current stage
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Wed, 05 Oct 2022 15:12:24 -0700
+
 scap (4.26.0)
 
   * scripts: Log (debug) registration of scripts
