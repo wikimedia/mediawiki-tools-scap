@@ -15,4 +15,5 @@ def test_register():
 
 def test_unregistered_check():
     with pytest.raises(checks.CheckInvalid):
-        script.ScriptCheck("name", stage="promote", command="notafile.sh")
+        check = script.ScriptCheck("name", stage="promote", command="notafile.sh")
+        check.validate()

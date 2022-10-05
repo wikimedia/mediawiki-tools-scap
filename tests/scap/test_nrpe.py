@@ -39,4 +39,5 @@ def test_registered_check():
 
 def test_unregistered_check():
     with pytest.raises(checks.CheckInvalid):
-        nrpe.NRPECheck("name", stage="promote", command="foo")
+        check = nrpe.NRPECheck("name", stage="promote", command="foo")
+        check.validate()
