@@ -522,7 +522,9 @@ class DeployLocal(cli.Application):
             nrpe.register(nrpe.load_directory(self.config["nrpe_dir"]))
 
         # Load script checks
-        script.register_directory(self.context.scripts_dir(self.rev))
+        scripts_dir = self.context.scripts_dir(self.rev)
+        logger.debug("Registering scripts in directory '%s'" % scripts_dir)
+        script.register_directory(scripts_dir, logger=logger)
 
         chks = checks.load(self.config, check_environment)
         chks = [

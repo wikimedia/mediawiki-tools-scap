@@ -39,7 +39,7 @@ import scap.checks as checks
 _SCRIPTS = {}
 
 
-def register_directory(scripts_path):
+def register_directory(scripts_path, logger=None):
     """ "
     Load available executable checks scripts from a given path
 
@@ -50,8 +50,14 @@ def register_directory(scripts_path):
 
     for script in list(next(os.walk(scripts_path))[-1]):
         script_path = os.path.join(scripts_path, script)
+
+        registered = False
         if os.path.isfile(script_path) and os.access(script_path, os.X_OK):
             register(script, script_path)
+            registered = True
+
+        if logger is not None:
+            logger.debug("registered script? '%s' %s" % (script_path, registered))
 
 
 def register(script, script_path):
