@@ -530,7 +530,10 @@ class DeployLocal(cli.Application):
         chks = [
             chk for chk in chks.values()
             if DeployLocal._valid_chk(chk, stage, group, when=when)
-            ]
+        ]
+
+        for chk in chks:
+            chk.validate()
 
         success, done = checks.execute(chks, logger=logger)
         failed = [job.check.name for job in done if job.isfailure()]

@@ -238,8 +238,6 @@ class Check(object):
             if v is not None
         }
 
-        self.validate()
-
     @property
     def stage(self):
         return self.after or self.before
