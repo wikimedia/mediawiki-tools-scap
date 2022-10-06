@@ -33,26 +33,26 @@ entrypoint: [scripts/check]
 
 variants:
   buster-build:
-    copies: [local]
     base: docker-registry.wikimedia.org/wikimedia-buster
   buster-test:
     includes: [buster-build]
-    copies: [buster-build]
+    copies: [local]
     python:
       # Allow transitive dependencies for test/docs
       no-deps: False
       requirements:
+        - requirements.txt
         - test-requirements.txt
         - docs/requirements.txt
   bullseye-build:
-    copies: [local]
     base: docker-registry.wikimedia.org/bullseye
   bullseye-test:
     includes: [bullseye-build]
-    copies: [bullseye-build]
+    copies: [local]
     python:
       # Allow transitive dependencies for test/docs
       no-deps: False
       requirements:
+        - requirements.txt
         - test-requirements.txt
         - docs/requirements.txt
