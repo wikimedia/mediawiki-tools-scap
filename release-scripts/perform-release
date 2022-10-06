@@ -2,17 +2,24 @@
 
 set -eu -o pipefail
 
+# Don't set this
+SKIP_CHECKS=${SKIP_CHECKS:-}
+
+function get_last_tag {
+    git tag --sort version:refname | grep -v debian/ | tail -1
+}
+
 function suggest_new_version {
-    # Finds the latest tag and adds one to the minor version.
-    # Sets the LAST_TAG global variable for later use.
+    local old_version="$1"
 
-    LAST_TAG="$(git tag --sort version:refname | grep -v debian/ | tail -1)"
-
+    # Break the version out into components
     IFS=.
     local parts
     # shellcheck disable=SC2206
-    parts=($LAST_TAG)
+    parts=($old_version)
+    # Add one to the minor version
     : $(( parts[1] += 1 ))
+    # And mush back together
     echo "${parts[*]}"
     IFS=
 }
@@ -53,17 +60,24 @@ function wait_for_merge {
     done
 }
 
-assert_clean_checkout
-git pull --rebase
-assert_clean_checkout
-if [ "$(git rev-list origin/master..)" ]; then
-    echo Local commits detected:
-    git log --oneline origin/master..
-    echo Aborting
-    exit 1
+function sanity_checks {
+    assert_clean_checkout
+    git pull --rebase
+    assert_clean_checkout
+    if [ "$(git rev-list origin/master..)" ]; then
+        echo Local commits detected:
+        git log --oneline origin/master..
+        echo Aborting
+        exit 1
+    fi
+}
+
+if [ -z "$SKIP_CHECKS" ]; then
+    sanity_checks
 fi
 
-suggested_vers="$(suggest_new_version)"
+OLD_VERS="$(get_last_tag)"
+suggested_vers="$(suggest_new_version "$OLD_VERS")"
 
 echo -n "New version (default $suggested_vers): "
 read -r VERS
@@ -98,5 +112,5 @@ by logging into deployment.eqiad.wmnet and running:
 scap install-world --version $VERS
 
 If you need to roll back, you can specify a particular version tag with e.g.
-scap install-world --version $LAST_TAG
+scap install-world --version $OLD_VERS
 EOF
