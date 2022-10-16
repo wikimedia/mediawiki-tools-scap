@@ -22,8 +22,6 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """
 
-from __future__ import absolute_import
-
 import sys
 
 import scap.plugins

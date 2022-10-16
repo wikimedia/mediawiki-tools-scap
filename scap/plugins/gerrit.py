@@ -3,9 +3,6 @@
     ~~~~~~~~~~~~~~~~~~~
     Provides Gerrit REST api support for plugins
 """
-
-from __future__ import print_function, unicode_literals
-
 from json import JSONEncoder
 from requests import Session
 from requests.utils import get_netrc_auth
