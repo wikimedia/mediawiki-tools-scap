@@ -117,7 +117,6 @@ function create_scap_venv_for_user {
   # Directory to hold a copy of the previous version while we create a new
   # virtual environment with the version to be deployed.
   local OLD_VENV_DIR
-  OLD_VENV_DIR=$(mktemp -d "${USER_HOME}/.scap-venv.XXXXXX")
   # Virtualenv directory for the scap deployment
   local VENV_DIR=${USER_HOME}/scap
   local AS_USER=
@@ -139,10 +138,12 @@ function create_scap_venv_for_user {
     fi
   fi
 
+  OLD_VENV_DIR=$($AS_USER mktemp -d "${USER_HOME}/.scap-venv.XXXXXX")
+
   # Signal we will want to restore the old venv in case of installation failure
   if [ -e "$VENV_DIR" ]; then
-    mv "$VENV_DIR" "$OLD_VENV_DIR"
-    trap 'rm -fR "$VENV_DIR"; [ -e "$OLD_VENV_DIR" ] && mv "$OLD_VENV_DIR" "$VENV_DIR"' ERR
+    $AS_USER mv "$VENV_DIR" "$OLD_VENV_DIR"
+    trap '$AS_USER rm -fR "$VENV_DIR"; [ -e "$OLD_VENV_DIR" ] && $AS_USER mv "$OLD_VENV_DIR" "$VENV_DIR"' ERR
   fi
 
   $AS_USER python3 -m venv --clear "$VENV_DIR"
@@ -154,7 +155,7 @@ function create_scap_venv_for_user {
 
   # Since we have successfully installed we no more need to restore the old env
   trap - ERR
-  rm -fR "$OLD_VENV_DIR"
+  $AS_USER rm -fR "$OLD_VENV_DIR"
 
   if [ -n "$TAG" ]; then
     log "Scap \"$TAG\" successfully installed at \"$VENV_DIR\""
