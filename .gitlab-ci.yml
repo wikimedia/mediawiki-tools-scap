@@ -1,33 +1,20 @@
+include:
+  - project: 'repos/releng/kokkuri'
+    file: 'includes/images.yaml'
+
 stages:
   - test
 
-variables:
-  DEBIAN_FRONTEND: noninteractive
-  LANG: C.UTF-8
+build-buster-test-image:
+  stage: test
+  extends: .kokkuri:build-and-run-image
+  variables:
+    BUILD_VARIANT: buster-test
 
-.script-common:
-    script:
-        # This is a rough translation of what scap's .pipeline/config.yaml and blubber.yaml result in.
-        # FIXME: Redoing all these steps each time is very expensive compared to the actual testing time.
-        - apt-get update
-        - apt-get install -y build-essential ca-certificates git libjpeg-dev openssl php-cli python3 python3-pip python3-dev zlib1g-dev shellcheck
-        - pip3 install -U setuptools!=60.9.0 
-        - pip3 install -U wheel tox
-        - pip3 install -U -r requirements.txt -r test-requirements.txt -r docs/requirements.txt
-        - scripts/check
+build-bullseye-test-image:
+  stage: test
+  extends: .kokkuri:build-and-run-image
+  variables:
+    BUILD_VARIANT: bullseye-test
 
-buster:
-    extends: .script-common
-    stage: test
-    image: docker-registry.wikimedia.org/wikimedia-buster
-
-bullseye:
-    extends: .script-common
-    stage: test
-    image: docker-registry.wikimedia.org/bullseye
-
-#tox-docs:
-#  stage: test
-#  image: docker-registry.wikimedia.org/releng/tox-buster:0.5.3
-#  script:
-#    - tox -e doc
+# FIXME: Still need the equivalent of scap-tox-doc-docker

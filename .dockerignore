@@ -4,6 +4,7 @@
 __pycache*
 .coverage
 .git
+.gitlab-ci.yml
 .pc
 .pybuild
 .tox
