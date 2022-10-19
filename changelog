@@ -1,3 +1,14 @@
+scap (4.27.1)
+
+  * install-world: absolute path to requirements.txt
+  * install-world: tempdir must be owned by scap
+  * Drop pointless from __future__isms as pointless
+  * scap backport: refactor dependency checks
+  * blubber.yaml:  Decouple the *-build and *-test images
+  * perform-release: Fix old version handling
+
+ -- jnuche <jnuche@wikimedia.org>  Wed, 19 Oct 2022 12:13:00 +0200
+
 scap (4.27.0)
 
   * checks: Only validate checks for the current stage
