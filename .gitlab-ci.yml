@@ -17,4 +17,8 @@ build-bullseye-test-image:
   variables:
     BUILD_VARIANT: bullseye-test
 
-# FIXME: Still need the equivalent of scap-tox-doc-docker
+test-docs:
+  stage: test
+  extends: .kokkuri:build-and-run-image
+  variables:
+    BUILD_VARIANT: docs-test
