@@ -56,3 +56,10 @@ variants:
         - requirements.txt
         - test-requirements.txt
         - docs/requirements.txt
+  docs-test:
+    includes: [buster-test]
+    python:
+      requirements:
+        - requirements.txt
+        - docs/requirements.txt
+    entrypoint: [tox, -e, doc]
