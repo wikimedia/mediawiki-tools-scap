@@ -19,6 +19,8 @@ function suggest_new_version {
     parts=($old_version)
     # Add one to the minor version
     : $(( parts[1] += 1 ))
+    # Reset patch version to 0
+    : $(( parts[2] = 0 ))
     # And mush back together
     echo "${parts[*]}"
     IFS=
