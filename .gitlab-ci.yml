@@ -5,20 +5,11 @@ include:
 stages:
   - test
 
-build-buster-test-image:
+test:
   stage: test
   extends: .kokkuri:build-and-run-image
+  parallel:
+    matrix:
+      - DISTRO: [buster, bullseye]
   variables:
-    BUILD_VARIANT: buster-test
-
-build-bullseye-test-image:
-  stage: test
-  extends: .kokkuri:build-and-run-image
-  variables:
-    BUILD_VARIANT: bullseye-test
-
-test-docs:
-  stage: test
-  extends: .kokkuri:build-and-run-image
-  variables:
-    BUILD_VARIANT: docs-test
+    BUILD_VARIANT: test-$DISTRO
