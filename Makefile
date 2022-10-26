@@ -21,12 +21,12 @@ image-%:
 	DOCKER_BUILDKIT=1 docker build \
 		--quiet \
 		-f .pipeline/blubber.yaml \
-		--target $(*F)-build \
+		--target verify-deps-$(*F) \
 		-t $(BUILD_IMAGE) .
 	DOCKER_BUILDKIT=1 docker build \
 		--quiet \
 		-f .pipeline/blubber.yaml \
-		--target $(*F)-test \
+		--target test-$(*F) \
 		-t $(TEST_IMAGE) .
 
 test-%: image-%

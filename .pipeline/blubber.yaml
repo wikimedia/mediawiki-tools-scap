@@ -6,60 +6,65 @@
 version: v4
 
 runs:
-  insecurely: True
   environment:
     LANG: C.UTF-8
 
-apt:
-  packages:
-    - build-essential
-    - ca-certificates
-    - git
-    - libjpeg-dev
-    - openssl
-    - php-cli
-    - python3
-    - python3-pip
-    - zlib1g-dev
-    - shellcheck
-
 python:
   version: python3
-  # Ensure requirements.txt is exhaustive
-  no-deps: True
-  requirements:
-    - requirements.txt
-entrypoint: [scripts/check]
 
 variants:
-  buster-build:
+  python-packages:
+    apt:
+      packages:
+        - python3-pip
+  
+  base-buster:
     base: docker-registry.wikimedia.org/wikimedia-buster
-  buster-test:
-    includes: [buster-build]
-    copies: [local]
-    python:
-      # Allow transitive dependencies for test/docs
-      no-deps: False
-      requirements:
-        - requirements.txt
-        - test-requirements.txt
-        - docs/requirements.txt
-  bullseye-build:
+    includes: [python-packages]
+
+  base-bullseye:
     base: docker-registry.wikimedia.org/bullseye
-  bullseye-test:
-    includes: [bullseye-build]
+    includes: [python-packages]
+
+  verify-deps:
+    python:
+      # Ensure requirements.txt is exhaustive
+      no-deps: True
+      requirements:
+        - requirements.txt
+    entrypoint: [echo, "deps check passed"]
+
+  verify-deps-buster:
+    includes: [base-buster, verify-deps]
+  verify-deps-bullseye:
+    includes: [base-bullseye, verify-deps]
+    
+  test:
+    apt:
+      packages:
+        - git
+        - php-cli
+        - shellcheck
     copies: [local]
     python:
-      # Allow transitive dependencies for test/docs
+      # Allow transitive dependencies for test-requirements.txt
       no-deps: False
       requirements:
         - requirements.txt
         - test-requirements.txt
         - docs/requirements.txt
-  docs-test:
-    includes: [buster-test]
-    python:
-      requirements:
-        - requirements.txt
-        - docs/requirements.txt
-    entrypoint: [tox, -e, doc]
+    entrypoint: [scripts/check]
+    # runs.insecurely true because pytest writes to .pytest_cache
+    # (though this can be altered with a pytest.ini file) and doc
+    # build writes to docs/_build
+    runs:
+      insecurely: True  
+    
+  test-buster:
+    includes: [base-buster, test]
+  test-bullseye:
+    includes: [base-bullseye, test]
+
+  build-docs:
+    includes: [test-buster]
+    entrypoint: [sphinx-build, -W, -b, html, docs/, docs/_build/html]
