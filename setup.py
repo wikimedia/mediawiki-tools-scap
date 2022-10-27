@@ -55,7 +55,7 @@ setup(
     license="GNU GPLv3",
     maintainer="Wikimedia Foundation Release Engineering",
     maintainer_email="releng@wikimedia.org",
-    url="https://gerrit.wikimedia.org/g/mediawiki/tools/scap",
+    url="https://gitlab.wikimedia.org/repos/releng/scap",
     packages=["scap", "scap.plugins"],
     package_dir={"scap": "scap"},
     scripts=["bin/scap", "bin/install_local_version.sh"],

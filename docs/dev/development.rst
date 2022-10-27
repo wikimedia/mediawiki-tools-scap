@@ -4,7 +4,7 @@ Get the code
 ------------
 Clone the repository with the following command:
 
-    ``git clone https://gerrit.wikimedia.org/r/mediawiki/tools/scap``
+    ``git clone https://gitlab.wikimedia.org/repos/releng/scap``
 
 Scap-Vagrant
 ------------
@@ -15,10 +15,10 @@ called `scap-vagrant
 Code Review
 -----------
 
-The scap team uses `Wikimedia's Gerrit install
-<https://gerrit.wikimedia.org/>`_ for code review. To contribute to this
-project you will need a Wikimedia Gerrit account, see the `guide
-<https://www.mediawiki.org/wiki/Gerrit/Getting_started/>`_  on  mediawiki.org
+The scap team uses `Wikimedia's GitLab
+<https://gitlab.wikimedia.org/>`_ for code review. To contribute to this
+project you will need a Wikimedia GitLab account, see the `guide
+<https://www.mediawiki.org/wiki/GitLab/Workflows>`_  on  mediawiki.org
 for setup instructions
 
 Testing

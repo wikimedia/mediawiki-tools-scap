@@ -22,7 +22,7 @@ This document doesn't try to document Scap itself. Instead, see the
 following sources.
 
 * The docs directory in the source tree.
-  - online: <https://gerrit.wikimedia.org/r/plugins/gitiles/mediawiki/tools/scap/+/master/docs/>
+  - online: <https://gitlab.wikimedia.org/repos/releng/scap/-/tree/master/docs>
   - formatted: <https://doc.wikimedia.org/scap/>
 * Wikitech:
   - version 2: <https://wikitech.wikimedia.org/wiki/Scap>
