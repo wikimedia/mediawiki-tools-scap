@@ -4,7 +4,7 @@ Get the code
 ------------
 Clone the repository with the following command:
 
-    :command:`git clone https://gerrit.wikimedia.org/r/mediawiki/tools/scap`
+    ``git clone https://gerrit.wikimedia.org/r/mediawiki/tools/scap``
 
 Scap-Vagrant
 ------------
@@ -24,17 +24,19 @@ for setup instructions
 Testing
 -------
 
-Scap uses `tox
-<https://tox.readthedocs.org/en/latest/>`_ to run unit tests and to generate
-the documentation.
-
 To run unit tests, lint, coverage and update documentation, simply run
-:command:`tox` without any arguments.
+``scripts/check`` without any arguments.  For this to work you
+must have shellcheck, pytest, flake8, and sphinx-build installed.
+
+If you have Docker installed and you want to run tests without having
+to install prerequisite packages on your system, you can run
+``make test`` to run tests inside a properly-provisioned
+container.
 
 Git pre-commit hook
 -------------------
 
-There is an example pre-commit hook<pre-commit.sh>`_ that can
+There is an example `pre-commit hook <pre-commit.sh>`_ that can
 run ``tox -e flake8`` and ``tox -e doc`` before allowing a commit to
 proceed.
 
@@ -52,5 +54,5 @@ repository:
 
 .. code-block:: bash
 
-  cp docs/pre-commit.sh .git/hooks/pre-commit
+  cp docs/dev/pre-commit.sh .git/hooks/pre-commit
   chmod +x .git/hooks/pre-commit
