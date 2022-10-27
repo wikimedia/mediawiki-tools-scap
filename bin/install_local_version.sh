@@ -75,7 +75,7 @@ function parseArgs {
 }
 
 function verify_source_dir {
- if ! git_scap config remote.origin.url 2>/dev/null | grep -q mediawiki/tools/scap; then
+ if ! git_scap config remote.origin.url 2>/dev/null | grep -E -q 'mediawiki/tools/scap|repos/releng/scap'; then
    fail "Specified source path \"$SCAP_SOURCE_DIR\" does not seem to be a scap repository"
  fi
 }
