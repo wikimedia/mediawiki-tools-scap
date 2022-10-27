@@ -5,6 +5,15 @@ include:
 stages:
   - test
 
+verify-deps:
+  stage: test
+  extends: .kokkuri:build-and-run-image
+  parallel:
+    matrix:
+      - DISTRO: [buster, bullseye]
+  variables:
+    BUILD_VARIANT: verify-deps-$DISTRO
+
 test:
   stage: test
   extends: .kokkuri:build-and-run-image
