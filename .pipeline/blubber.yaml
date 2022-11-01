@@ -1,4 +1,4 @@
-# syntax = docker-registry.wikimedia.org/wikimedia/blubber-buildkit:v0.12.0
+# syntax = docker-registry.wikimedia.org/repos/releng/blubber:v0.12.1
 #
 # A Blubber spec file for Docker containers where the Scap automated test suite
 # can be run.
@@ -9,15 +9,16 @@ runs:
   environment:
     LANG: C.UTF-8
 
-python:
-  version: python3
+builders:
+  - python:
+      version: python3
 
 variants:
   python-packages:
     apt:
       packages:
         - python3-pip
-  
+
   base-buster:
     base: docker-registry.wikimedia.org/wikimedia-buster
     includes: [python-packages]
@@ -27,18 +28,19 @@ variants:
     includes: [python-packages]
 
   verify-deps:
-    python:
-      # Ensure requirements.txt is exhaustive
-      no-deps: True
-      requirements:
-        - requirements.txt
+    builders:
+      - python:
+          # Ensure requirements.txt is exhaustive
+          no-deps: True
+          requirements:
+            - requirements.txt
     entrypoint: [echo, "deps check passed"]
 
   verify-deps-buster:
     includes: [base-buster, verify-deps]
   verify-deps-bullseye:
     includes: [base-bullseye, verify-deps]
-    
+
   test:
     apt:
       packages:
@@ -46,20 +48,21 @@ variants:
         - php-cli
         - shellcheck
     copies: [local]
-    python:
-      # Allow transitive dependencies for test-requirements.txt
-      no-deps: False
-      requirements:
-        - requirements.txt
-        - test-requirements.txt
-        - docs/requirements.txt
+    builders:
+      - python:
+          # Allow transitive dependencies for test-requirements.txt
+          no-deps: False
+          requirements:
+            - requirements.txt
+            - test-requirements.txt
+            - docs/requirements.txt
     entrypoint: [scripts/check]
     # runs.insecurely true because pytest writes to .pytest_cache
     # (though this can be altered with a pytest.ini file) and doc
     # build writes to docs/_build
     runs:
-      insecurely: True  
-    
+      insecurely: True
+
   test-buster:
     includes: [base-buster, test]
   test-bullseye:
@@ -67,4 +70,14 @@ variants:
 
   build-docs:
     includes: [test-buster]
-    entrypoint: [sphinx-build, -W, -b, html, docs/, docs/_build/html]
+    builders:
+      - custom:
+          command: [sphinx-build, -W, -b, html, docs/, docs/_build/html]
+          requirements: [.]
+    entrypoint: [echo, docs are in docs/_build/html]
+
+  docs:
+    copies:
+      - from: build-docs
+        source: /srv/app/docs/_build/html/
+        destination: docs/

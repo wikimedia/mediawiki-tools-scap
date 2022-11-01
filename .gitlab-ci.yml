@@ -4,6 +4,8 @@ include:
 
 stages:
   - test
+  - build-docs
+  - publish-docs
 
 verify-deps:
   stage: test
@@ -22,3 +24,41 @@ test:
       - DISTRO: [buster, bullseye]
   variables:
     BUILD_VARIANT: test-$DISTRO
+
+.docs-job:
+  tags:
+    - protected
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $CI_COMMIT_REF_PROTECTED
+
+build-docs:
+  stage: build-docs
+  extends:
+    - .kokkuri:build-image
+    - .docs-job
+  variables:
+    BUILD_VARIANT: docs
+    # We'll end up with generated-documentation/docs/index.html, etc
+    BUILDCTL_BUILD_FLAGS: --output type=local,dest=generated-documentation
+  artifacts:
+    paths:
+      - generated-documentation
+    expire_in: 1 hour
+
+publish-docs:
+  stage: publish-docs
+  extends: .docs-job
+  dependencies: [build-docs]
+  image: docker-registry.wikimedia.org/wikimedia-buster
+  script:
+    # FIXME: Inefficient.  Need an image with rsync already installed
+    - apt-get update && apt-get install -y rsync
+    # Sync an empty dir named 'scap' WITHOUT deletion and with relative. That
+    # creates the directories at the destination.
+    #
+    # We do not --archive which preserves date, time or permissions.
+    # The base directory (such as ./cover) might have been populated by
+    # puppet and thus owned by a different user than rsyncd.
+    - (mkdir -p /tmp/blank/scap && cd /tmp/blank && rsync --recursive --relative scap rsync://doc.discovery.wmnet/doc/ )
+    # Now do the real work
+    - rsync --archive --stats --compress --delete-after generated-documentation/docs/ rsync://doc.discovery.wmnet/doc/scap/
