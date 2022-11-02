@@ -41,7 +41,7 @@ To generate the container images and run tests in each of them, we provide a
 
 The `test` target builds the images using the `Blubberfile syntax
 <https://wikitech.wikimedia.org/wiki/Blubber/User_Guide#Blubberfiles>` using
-`Blubber buildkit <docker-registry.wikimedia.org/wikimedia/blubber-buildkit>`.
+`Blubber buildkit <docker-registry.wikimedia.org/repos/releng/blubber/buildkit>`.
 The target then invokes the defined entrypoint `scripts/check` which runs the
 tests in each images.
 
