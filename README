@@ -1,0 +1,14 @@
+Scap has moved to GitLab!
+
+The scap repo has been moved to https://gitlab.wikimedia.org/repos/releng/scap
+
+To update your repository in place you can run the following commands:
+
+git remote set-url origin git@gitlab.wikimedia.org:repos/releng/scap.git
+or 
+git remote set-url origin https://gitlab.wikimedia.org/repos/releng/scap.git
+
+Then:
+
+git fetch origin
+git reset --hard origin/master

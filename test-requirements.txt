@@ -1,7 +1,0 @@
-coverage
-flake8==5.0.4
-mock
-pytest
-pytest-cov
-pytest-mock
-timeout-decorator
