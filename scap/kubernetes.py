@@ -222,15 +222,18 @@ class K8sOps:
             # helm3 --kubeconfig /etc/kubernetes/mwdebug-deploy-eqiad.config rollback pinkunicorn --namespace mwdebug
             # to avoid leaving things in a broken state.
             self.logger.error("K8s deployment to stage %s failed: %s", stage, e)
-            self.logger.error("Rolling back to prior state...")
-            self._revert_values(dep_configs, saved_values)
-            try:
-                self._deploy_to_datacenters(datacenters, dep_configs)
-            except BaseException:
-                self.logger.error("Caught another exception while trying to roll back. Giving up.")
-                raise e
 
-            self.logger.error("Rollback completed.  Raising original error")
+            if saved_values:
+                self.logger.error("Rolling back to prior state...")
+                self._revert_values(dep_configs, saved_values)
+                try:
+                    self._deploy_to_datacenters(datacenters, dep_configs)
+                except BaseException:
+                    self.logger.error("Caught another exception while trying to roll back. Giving up.")
+                    raise e
+                self.logger.error("Rollback completed. Raising original error")
+            else:
+                self.logger.error("No known prior state to roll back to. Raising original error")
             raise
 
     def _read_current_values(self, dep_configs) -> dict:
@@ -238,8 +241,10 @@ class K8sOps:
 
         for dep_config in dep_configs:
             fq_release_name = self._dep_config_fq_release_name(dep_config)
-            with open(self._dep_config_values_file(dep_config)) as f:
-                res[fq_release_name] = yaml.safe_load(f)
+            dep_config_values_file = self._dep_config_values_file(dep_config)
+            if os.path.exists(dep_config_values_file):
+                with open(dep_config_values_file) as f:
+                    res[fq_release_name] = yaml.safe_load(f)
 
         return res
 
@@ -271,7 +276,7 @@ class K8sOps:
             self._deploy_k8s_images_for_datacenter(datacenter, helmfile_dir)
 
         def deploy_to_datacenter(datacenter):
-            with concurrent.futures.ThreadPoolExecutor(max_workers=len(dep_configs)) as pool:
+            with concurrent.futures.ThreadPoolExecutor(max_workers=max(len(dep_configs), 1)) as pool:
                 futures = []
 
                 for dep_config in dep_configs:
@@ -291,7 +296,7 @@ class K8sOps:
                 if failed:
                     raise Exception("\n".join(failed))
 
-        with concurrent.futures.ThreadPoolExecutor(max_workers=len(datacenters)) as pool:
+        with concurrent.futures.ThreadPoolExecutor(max_workers=max(len(datacenters), 1)) as pool:
             futures = []
 
             for datacenter in datacenters:
