@@ -107,6 +107,7 @@ DEFAULT_CONFIG = {
 
     "docker_registry": (str, "docker-registry.discovery.wmnet"),
     "mediawiki_image_name": (str, "restricted/mediawiki-multiversion"),
+    "mediawiki_debug_image_name": (str, "restricted/mediawiki-multiversion-debug"),
     "webserver_image_name": (str, "restricted/mediawiki-webserver"),
     "mediawiki_image_extra_packages": (str, ""),
     # Path to a CA cert to inject into the image

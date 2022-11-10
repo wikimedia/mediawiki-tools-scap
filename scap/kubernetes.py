@@ -186,6 +186,7 @@ class K8sOps:
                 "MW_CONFIG_BRANCH": self.app.config["operations_mediawiki_config_branch"],
                 "workdir_volume": self.app.config["stage_dir"],
                 "mv_image_name": "{}/{}".format(registry, self.app.config["mediawiki_image_name"]),
+                "mv_debug_image_name": "{}/{}".format(registry, self.app.config["mediawiki_debug_image_name"]),
                 "webserver_image_name": "{}/{}".format(registry, self.app.config["webserver_image_name"]),
                 "MV_BASE_PACKAGES": self.app.config["mediawiki_image_extra_packages"],
                 "MV_EXTRA_CA_CERT": dev_ca_crt,
