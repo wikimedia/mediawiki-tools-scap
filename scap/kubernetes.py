@@ -272,8 +272,9 @@ class K8sOps:
     def _deploy_to_datacenters(self, datacenters, dep_configs):
         def deploy(datacenter, dep_config):
             namespace = dep_config[DeploymentsConfig.NAMESPACE]
+            release = dep_config[DeploymentsConfig.RELEASE]
             helmfile_dir = os.path.join(self.app.config["helmfile_services_dir"], namespace)
-            self._deploy_k8s_images_for_datacenter(datacenter, helmfile_dir)
+            self._deploy_k8s_images_for_datacenter(datacenter, helmfile_dir, release)
 
         def deploy_to_datacenter(datacenter):
             with concurrent.futures.ThreadPoolExecutor(max_workers=max(len(dep_configs), 1)) as pool:
@@ -314,13 +315,13 @@ class K8sOps:
             if failed:
                 raise Exception("K8s deployment had the following errors:\n " + "\n".join(failed))
 
-    def _deploy_k8s_images_for_datacenter(self, datacenter, helmfile_dir):
+    def _deploy_k8s_images_for_datacenter(self, datacenter, helmfile_dir, release):
         """
         datacenter will be something like "eqiad" or "codfw" or "traindev"
         """
 
         for operation in ["apply", "test"]:
-            cmd = ["helmfile", "-e", datacenter, operation]
+            cmd = ["helmfile", "-e", datacenter, "--selector", "name={}".format(release), operation]
 
             with log.Timer("Running {} in {}".format(" ".join(cmd), helmfile_dir), self.app.get_stats()):
                 # FIXME: Make sure command output gets sent to the logger at debug level
