@@ -320,18 +320,17 @@ class K8sOps:
         datacenter will be something like "eqiad" or "codfw" or "traindev"
         """
 
-        for operation in ["apply", "test"]:
-            cmd = ["helmfile", "-e", datacenter, "--selector", "name={}".format(release), operation]
+        cmd = ["helmfile", "-e", datacenter, "--selector", "name={}".format(release), "apply"]
 
-            with log.Timer("Running {} in {}".format(" ".join(cmd), helmfile_dir), self.app.get_stats()):
-                # FIXME: Make sure command output gets sent to the logger at debug level
-                with tempfile.NamedTemporaryFile() as logstream:
-                    with utils.suppress_backtrace():
-                        # FIXME: error output needs to be prefixed w/ the datacenter name.
-                        utils.subprocess_check_run_quietly_if_ok(
-                            cmd,
-                            helmfile_dir, logstream.name, self.logger
-                        )
+        with log.Timer("Running {} in {}".format(" ".join(cmd), helmfile_dir), self.app.get_stats()):
+            # FIXME: Make sure command output gets sent to the logger at debug level
+            with tempfile.NamedTemporaryFile() as logstream:
+                with utils.suppress_backtrace():
+                    # FIXME: error output needs to be prefixed w/ the datacenter name.
+                    utils.subprocess_check_run_quietly_if_ok(
+                        cmd,
+                        helmfile_dir, logstream.name, self.logger
+                    )
 
     def _verify_build_and_push_prereqs(self):
         if self.app.config["release_repo_dir"] is None:
