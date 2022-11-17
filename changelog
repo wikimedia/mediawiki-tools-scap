@@ -1,3 +1,9 @@
+scap (4.28.2)
+
+  * kubernetes: do not run "helmfile test"
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Thu, 17 Nov 2022 08:20:15 -0800
+
 scap (4.28.1)
 
   * kubernetes: only deploy to the selected release
