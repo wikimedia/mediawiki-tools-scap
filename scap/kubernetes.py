@@ -199,8 +199,10 @@ class K8sOps:
 
                 self.logger.info("K8s images build/push output redirected to {}".format(self.build_logfile))
                 K8sOps._ensure_file_deleted(self.build_logfile)
+                env = os.environ.copy()
+                env['SUPPRESS_SAL'] = 'true'
                 utils.subprocess_check_run_quietly_if_ok(cmd, make_container_image_dir,
-                                                         self.build_logfile, self.logger, shell=True)
+                                                         self.build_logfile, self.logger, shell=True, env=env)
 
     # Called by AbstractSync.main()
     def deploy_k8s_images_for_stage(self, stage: str):
