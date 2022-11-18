@@ -154,6 +154,7 @@ class AbstractSync(cli.Application):
                         self.canary_checks(canaries, timer)
 
                 if self.full_k8s_sync():
+                    self.k8s_ops.pull_image_on_nodes()
                     with log.Timer("sync-canaries-k8s", self.get_stats()):
                         with utils.suppress_backtrace():
                             self.k8s_ops.deploy_k8s_images_for_stage(CANARIES)

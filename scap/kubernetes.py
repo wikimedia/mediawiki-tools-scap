@@ -6,11 +6,11 @@ import re
 import shlex
 import subprocess
 import tempfile
-from typing import List
+from typing import List, Tuple
 
 import yaml
 
-from scap import utils, log, git
+from scap import utils, log, git, ssh, targets
 from scap.cli import Application
 from scap.runcmd import gitcmd
 
@@ -203,6 +203,28 @@ class K8sOps:
                 env['SUPPRESS_SAL'] = 'true'
                 utils.subprocess_check_run_quietly_if_ok(cmd, make_container_image_dir,
                                                          self.build_logfile, self.logger, shell=True, env=env)
+
+    def pull_image_on_nodes(self) -> Tuple[int, int]:
+        """Pull the multiversion image down on all k8s nodes."""
+        if not self.app.config.get("mw_k8s_nodes", False):
+            return (0, 0)
+        container_image_names = self._get_container_image_names()
+        k8s_nodes = targets.get("mw_k8s_nodes", self.app.config).all
+        image_tag = container_image_names["multiversion"].split(":").pop()
+        cmd = f"/usr/bin/sudo /usr/local/sbin/mediawiki-image-download {image_tag}"
+        pull = ssh.Job(
+            hosts=k8s_nodes,
+            command=cmd,
+            user=self.app.config["ssh_user"],
+            key=self.app.get_keyholder_key(),
+            verbose=False,
+            logger=self.logger,
+        )
+        with log.Timer("docker pull on k8s nodes"):
+            pull.progress(log.reporter("docker_pull_k8s", self.app.config["fancy_progress"]))
+            # Return a tuple (outcome, num_failed). For now we're not using this information in
+            # AbstractSync, but that might change in the future
+            return pull.run()
 
     # Called by AbstractSync.main()
     def deploy_k8s_images_for_stage(self, stage: str):
