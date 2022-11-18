@@ -1130,14 +1130,14 @@ def get_current_train_info(api_url, proxy=None) -> dict:
     }
 
 
-def subprocess_check_run_quietly_if_ok(cmd, dir, logfile, logger, shell=False):
+def subprocess_check_run_quietly_if_ok(cmd, dir, logfile, logger, shell=False, env=None):
     try:
         with open(logfile, "a") as logstream:
             log_file_position = logstream.tell()
             logger.debug("Running {} in {}".format(cmd, dir))
             subprocess.run(cmd, shell=shell, check=True, cwd=dir,
                            stdout=logstream,
-                           stderr=subprocess.STDOUT)
+                           stderr=subprocess.STDOUT, env=env)
     except subprocess.CalledProcessError as e:
         # Print the error message, which contains the command that was executed and its
         # exit status.
