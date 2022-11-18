@@ -50,46 +50,18 @@ function sanity_checks {
     fi
 }
 
-function push_gerrit {
-    git push origin HEAD:refs/for/$BRANCH%l=Code-Review+2 &> "$tmp"
-
-    local change_number
-    change_number=$(grep mediawiki/tools/scap/+ "$tmp" | sed -r -e 's,^.*mediawiki/tools/scap/\+/([0-9]+).*$,\1,')
-
-    echo -n "Waiting for change $change_number to merge..."
-
-    while true; do
-        echo -n "."
-        curl -sSf "https://gerrit.wikimedia.org/r/changes/$change_number/detail" | tail -1 > "$tmp"
-
-        local status rejected
-        status="$(jq -r .status "$tmp")"
-        rejected="$(jq .labels.Verified.rejected "$tmp")"
-
-        if [ "$status" == "MERGED" ]; then
-            echo
-            echo "Change $change_number has been merged"
-            return 0
-        fi
-        if [ "$rejected" != "null" ]; then
-            echo
-            echo "Change $change_number was rejected"
-            exit 1
-        fi
-
-        sleep 5
-    done
-}
-
 function push_gitlab {
     local remote_branch="review/$USER/release-$VERS"
 
-    git push \
+    if ! git push \
         -o merge_request.create \
         -o merge_request.target=$BRANCH \
         -o merge_request.merge_when_pipeline_succeeds \
         -o merge_request.remove_source_branch \
-        origin "HEAD:$remote_branch" &> "$tmp"
+        origin "HEAD:$remote_branch" &> "$tmp"; then
+      cat "$tmp"
+      exit 1
+    fi
 
     local mr_id
     mr_id=$(grep /merge_requests/ "$tmp" | sed -r -e 's,^.*/merge_requests/([0-9]+).*$,\1,')
@@ -119,20 +91,6 @@ function push_gitlab {
     done
 }
 
-function get_origin_type {
-    local url
-    url=$(git remote get-url origin)
-
-    if [[ "$url" =~ gitlab ]]; then
-        echo gitlab
-    elif [[ "$url" =~ gerrit ]]; then
-        echo gerrit
-    else
-        echo "$0: Unsupported origin url: $url" 1>&2
-        exit 1
-    fi
-}
-
 if [ -z "$SKIP_CHECKS" ]; then
     sanity_checks
 fi
@@ -153,10 +111,8 @@ echo "Selected version $VERS"
 tmp="$(mktemp)"
 trap 'rm -f $tmp' EXIT
 
-origin_type=$(get_origin_type)
-
 echo Pushing commit
-"push_${origin_type}"
+push_gitlab
 
 git pull --rebase
 
