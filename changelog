@@ -1,3 +1,14 @@
+scap (4.29.0)
+
+  * kubernetes: allow pre-pulling the multiversion image on k8s nodes
+  * blubber.yaml: Fix syntax line
+  * kubernetes: Do not log to SAL
+  * utils: Allow env for subprocess_check_run_quietly_if_ok
+  * perform-release: remove support for Gerrit remote
+  * Release 4.28.2-1
+
+ -- jnuche <jnuche@wikimedia.org>  Mon, 21 Nov 2022 13:05:36 +0100
+
 scap (4.28.2)
 
   * kubernetes: do not run "helmfile test"
