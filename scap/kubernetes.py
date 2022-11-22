@@ -199,10 +199,8 @@ class K8sOps:
 
                 self.logger.info("K8s images build/push output redirected to {}".format(self.build_logfile))
                 K8sOps._ensure_file_deleted(self.build_logfile)
-                env = os.environ.copy()
-                env['SUPPRESS_SAL'] = 'true'
                 utils.subprocess_check_run_quietly_if_ok(cmd, make_container_image_dir,
-                                                         self.build_logfile, self.logger, shell=True, env=env)
+                                                         self.build_logfile, self.logger, shell=True)
 
     def pull_image_on_nodes(self) -> Tuple[int, int]:
         """Pull the multiversion image down on all k8s nodes."""
@@ -351,9 +349,11 @@ class K8sOps:
             with tempfile.NamedTemporaryFile() as logstream:
                 with utils.suppress_backtrace():
                     # FIXME: error output needs to be prefixed w/ the datacenter name.
+                    env = os.environ.copy()
+                    env['SUPPRESS_SAL'] = 'true'
                     utils.subprocess_check_run_quietly_if_ok(
                         cmd,
-                        helmfile_dir, logstream.name, self.logger
+                        helmfile_dir, logstream.name, self.logger, env=env
                     )
 
     def _verify_build_and_push_prereqs(self):
