@@ -87,7 +87,7 @@ class AbstractSync(cli.Application):
     @cli.argument(
         "--full-k8s",
         action="store_true",
-        help="Deploy canaries and production Kubernetes targets. Not just test servers",
+        help="Sync to canaries and production Kubernetes targets. Not just test servers",
     )
     @cli.argument(
         "--notify-user",
@@ -784,7 +784,7 @@ class ScapWorld(AbstractSync):
     @cli.argument(
         "--full-k8s",
         action="store_true",
-        help="Deploy canaries and production Kubernetes targets. Not just test servers",
+        help="Sync to canaries and production Kubernetes targets. Not just test servers",
     )
     @cli.argument(
         "--notify-user",
