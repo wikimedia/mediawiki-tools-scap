@@ -101,10 +101,11 @@ class GerritSession(object):
             return None
 
         # match either:
-        # {project-name}/+/{change-id}
-        # {project-name}/+/{change-id}/{revision}
-        # (both are allowed to have a trailing slash)
-        match = re.search(r'/\+/(\d+)(?:/\d+)?/?$', url)
+        # /r/{change-number}
+        # {project-name}/+/{change-number}
+        # {project-name}/+/{change-number}/{revision}
+        # (all of which are allowed to have a trailing slash)
+        match = re.search(r'/r/(\d+)/?$', url) or re.search(r'/\+/(\d+)(?:/\d+)?/?$', url)
 
         if match is None:
             return None
