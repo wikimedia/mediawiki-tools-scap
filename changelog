@@ -1,3 +1,9 @@
+scap (4.29.2)
+
+  * k8s: allow to perform full K8s deployments with `deploy-promote`
+
+ -- jnuche <jnuche@wikimedia.org>  Mon, 28 Nov 2022 17:53:48 +0100
+
 scap (4.29.1)
 
   * kubernetes: Fix SAL suppression
