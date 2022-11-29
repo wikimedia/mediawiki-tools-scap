@@ -233,6 +233,8 @@ def find_nearest_host(hosts, port=22, timeout=1):
                     if e.errno != errno.EHOSTUNREACH and e.errno != errno.ECONNREFUSED:
                         # Something unexpected.  Discard the host
                         del host_map[host]
+                        # bail out of the loop over addresses too.
+                        break
                     continue
                 else:
                     return host
