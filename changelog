@@ -1,3 +1,10 @@
+scap (4.29.3)
+
+  * perform-release: display current version when prompting for new one
+  * utils.find_nearest_host: correctly catch timeouts
+
+ -- Brennen Bearnes <bbearnes@wikimedia.org>  Tue, 29 Nov 2022 15:12:50 -0700
+
 scap (4.29.2)
 
   * k8s: allow to perform full K8s deployments with `deploy-promote`
