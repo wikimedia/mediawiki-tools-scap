@@ -224,6 +224,8 @@ def find_nearest_host(hosts, port=22, timeout=1):
                 s.settimeout(timeout)
                 try:
                     s.connect(addr)
+                except socket.timeout:
+                    continue
                 except socket.error as e:
                     # EHOSTUNREACH will occur if the TTL is too low.
                     # ECONNREFUSED might happen if the host is only listening
@@ -231,8 +233,6 @@ def find_nearest_host(hosts, port=22, timeout=1):
                     if e.errno != errno.EHOSTUNREACH and e.errno != errno.ECONNREFUSED:
                         # Something unexpected.  Discard the host
                         del host_map[host]
-                    continue
-                except socket.timeout:
                     continue
                 else:
                     return host
