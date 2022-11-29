@@ -98,6 +98,7 @@ fi
 OLD_VERS="$(get_last_tag)"
 suggested_vers="$(suggest_new_version "$OLD_VERS")"
 
+echo "Current version: $OLD_VERS"
 echo -n "New version (default $suggested_vers): "
 read -r VERS
 if [ -z "$VERS" ]; then
