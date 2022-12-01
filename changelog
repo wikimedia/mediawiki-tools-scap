@@ -1,3 +1,11 @@
+scap (4.30.0)
+
+  * pull MV image onto K8s cluster before any actual deployments
+  * remove command line options for K8s deployments
+  * Add support for "gerriturl/r/:changenum" URLs to scap backport command
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Thu, 01 Dec 2022 09:56:45 -0800
+
 scap (4.29.3)
 
   * perform-release: display current version when prompting for new one
