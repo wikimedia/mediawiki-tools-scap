@@ -78,12 +78,6 @@ class DeployPromote(cli.Application):
         action="store_true",
         help="answer yes to all prompts"
     )
-    @cli.argument(
-        "--full-k8s",
-        action="store_true",
-        help="Sync to canaries and production Kubernetes targets. Not just test servers. Does not apply to group"
-             ' "testwikis" at the moment'
-    )
     def main(self, *extra_args):
         self.logger = self.get_logger()
 
@@ -188,10 +182,7 @@ class DeployPromote(cli.Application):
             self.scap_check_call(["sync-world", self.announce_message])
         else:
             self.logger.info("Running scap sync-wikiversions")
-            if self.arguments.full_k8s:
-                self.scap_check_call(["sync-wikiversions", "--full-k8s", self.announce_message])
-            else:
-                self.scap_check_call(["sync-wikiversions", self.announce_message])
+            self.scap_check_call(["sync-wikiversions", self.announce_message])
 
         # Group1 day is also the day we sync the php symlink
         if self.group == "group1":
