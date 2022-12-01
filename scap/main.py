@@ -116,6 +116,9 @@ class AbstractSync(cli.Application):
 
             full_target_list = self._get_target_list()
 
+            # Preload MW multiversion image into K8s cluster nodes
+            self.k8s_ops.pull_image_on_nodes()
+
             if not self.arguments.force:
                 testservers = utils.list_intersection(self._get_testserver_list(), full_target_list)
                 if len(testservers) > 0:
@@ -145,7 +148,6 @@ class AbstractSync(cli.Application):
                         timer.mark("Canaries Synced")
                         self.canary_checks(canaries, timer)
 
-                self.k8s_ops.pull_image_on_nodes()
                 # Deploy K8s canary releases
                 with log.Timer("sync-canaries-k8s", self.get_stats()):
                     with utils.suppress_backtrace():
