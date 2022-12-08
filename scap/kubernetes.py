@@ -1,12 +1,13 @@
 import base64
 import concurrent.futures
+import contextlib
 import os
 import pathlib
 import re
 import shlex
 import subprocess
 import tempfile
-from typing import List, Tuple
+from typing import List
 
 import yaml
 
@@ -199,13 +200,15 @@ class K8sOps:
 
                 self.logger.info("K8s images build/push output redirected to {}".format(self.build_logfile))
                 K8sOps._ensure_file_deleted(self.build_logfile)
-                utils.subprocess_check_run_quietly_if_ok(cmd, make_container_image_dir,
-                                                         self.build_logfile, self.logger, shell=True)
+                with self._subprocess_errors_are_soft():
+                    utils.subprocess_check_run_quietly_if_ok(cmd, make_container_image_dir,
+                                                             self.build_logfile, self.logger, shell=True)
 
-    def pull_image_on_nodes(self) -> Tuple[int, int]:
+    def pull_image_on_nodes(self):
         """Pull the multiversion image down on all k8s nodes."""
         if not self.app.config.get("mw_k8s_nodes", False):
-            return (0, 0)
+            return
+
         container_image_names = self._get_container_image_names()
         k8s_nodes = targets.get("mw_k8s_nodes", self.app.config).all
         image_tag = container_image_names["multiversion"].split(":").pop()
@@ -220,9 +223,10 @@ class K8sOps:
         )
         with log.Timer("docker pull on k8s nodes"):
             pull.progress(log.reporter("docker_pull_k8s", self.app.config["fancy_progress"]))
-            # Return a tuple (outcome, num_failed). For now we're not using this information in
-            # AbstractSync, but that might change in the future
-            return pull.run()
+            _, failed = pull.run()
+            if failed:
+                self.app.soft_errors = True
+                self.logger.error(f"{failed} K8s nodes failed to pull the multiversion image")
 
     # Called by AbstractSync.main()
     def deploy_k8s_images_for_stage(self, stage: str):
@@ -351,10 +355,11 @@ class K8sOps:
                     # FIXME: error output needs to be prefixed w/ the datacenter name.
                     env = os.environ.copy()
                     env['SUPPRESS_SAL'] = 'true'
-                    utils.subprocess_check_run_quietly_if_ok(
-                        cmd,
-                        helmfile_dir, logstream.name, self.logger, env=env
-                    )
+                    with self._subprocess_errors_are_soft():
+                        utils.subprocess_check_run_quietly_if_ok(
+                            cmd,
+                            helmfile_dir, logstream.name, self.logger, env=env
+                        )
 
     def _verify_build_and_push_prereqs(self):
         if self.app.config["release_repo_dir"] is None:
@@ -452,6 +457,13 @@ class K8sOps:
                 os.path.join(make_container_image_dir, "webserver", "last-build")
             ),
         }
+
+    @contextlib.contextmanager
+    def _subprocess_errors_are_soft(self):
+        try:
+            yield
+        except subprocess.CalledProcessError:
+            self.app.soft_errors = True
 
     @staticmethod
     def _ensure_file_deleted(file: str):
