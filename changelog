@@ -1,3 +1,10 @@
+scap (4.30.1)
+
+  * requirements: update dependencies versions to fix Gitlab pipeline
+  * kubernetes: treat operation failures as soft errors
+
+ -- jnuche <jnuche@wikimedia.org>  Fri, 09 Dec 2022 10:51:33 +0100
+
 scap (4.30.0)
 
   * pull MV image onto K8s cluster before any actual deployments
