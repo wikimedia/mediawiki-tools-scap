@@ -1,6 +1,5 @@
 import base64
 import concurrent.futures
-import contextlib
 import os
 import pathlib
 import re
@@ -200,9 +199,11 @@ class K8sOps:
 
                 self.logger.info("K8s images build/push output redirected to {}".format(self.build_logfile))
                 K8sOps._ensure_file_deleted(self.build_logfile)
-                with self._subprocess_errors_are_soft():
+                try:
                     utils.subprocess_check_run_quietly_if_ok(cmd, make_container_image_dir,
                                                              self.build_logfile, self.logger, shell=True)
+                except subprocess.CalledProcessError:
+                    self.app.soft_errors = True
 
     def pull_image_on_nodes(self):
         """Pull the multiversion image down on all k8s nodes."""
@@ -244,6 +245,8 @@ class K8sOps:
             self._deploy_to_datacenters(datacenters, dep_configs)
         # Using BaseException so that we catch KeyboardInterrupt too
         except BaseException as e:
+            self.app.soft_errors = True
+
             # FIXME: Interruptions during helmfile apply will need to use something like
             # helm3 --kubeconfig /etc/kubernetes/mwdebug-deploy-eqiad.config rollback pinkunicorn --namespace mwdebug
             # to avoid leaving things in a broken state.
@@ -254,13 +257,11 @@ class K8sOps:
                 self._revert_values(dep_configs, saved_values)
                 try:
                     self._deploy_to_datacenters(datacenters, dep_configs)
-                except BaseException:
-                    self.logger.error("Caught another exception while trying to roll back. Giving up.")
-                    raise e
-                self.logger.error("Rollback completed. Raising original error")
+                    self.logger.error("Rollback completed")
+                except BaseException as e:
+                    self.logger.error("Caught another exception while trying to roll back. Giving up: %s", e)
             else:
-                self.logger.error("No known prior state to roll back to. Raising original error")
-            raise
+                self.logger.error("No known prior state to roll back to")
 
     def _read_current_values(self, dep_configs) -> dict:
         res = {}
@@ -355,11 +356,10 @@ class K8sOps:
                     # FIXME: error output needs to be prefixed w/ the datacenter name.
                     env = os.environ.copy()
                     env['SUPPRESS_SAL'] = 'true'
-                    with self._subprocess_errors_are_soft():
-                        utils.subprocess_check_run_quietly_if_ok(
-                            cmd,
-                            helmfile_dir, logstream.name, self.logger, env=env
-                        )
+                    utils.subprocess_check_run_quietly_if_ok(
+                        cmd,
+                        helmfile_dir, logstream.name, self.logger, env=env
+                    )
 
     def _verify_build_and_push_prereqs(self):
         if self.app.config["release_repo_dir"] is None:
@@ -457,13 +457,6 @@ class K8sOps:
                 os.path.join(make_container_image_dir, "webserver", "last-build")
             ),
         }
-
-    @contextlib.contextmanager
-    def _subprocess_errors_are_soft(self):
-        try:
-            yield
-        except subprocess.CalledProcessError:
-            self.app.soft_errors = True
 
     @staticmethod
     def _ensure_file_deleted(file: str):
