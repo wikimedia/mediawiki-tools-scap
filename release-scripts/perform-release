@@ -120,7 +120,7 @@ git pull --rebase
 assert_clean_checkout
 
 git tag --sign -m "Release $VERS" "$VERS" HEAD
-git push --tags origin "$VERS"
+git push origin "$VERS"
 
 cat <<EOF
 scap release $VERS has been tagged.  You can install on production hosts
