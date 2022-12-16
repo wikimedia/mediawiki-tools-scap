@@ -1,3 +1,11 @@
+scap (4.30.3)
+
+  * RELEASE.md: Change "Gerrit" to "Gitlab"
+  * scap backport: Change-Id is case insensitive
+  * use trusted tag instead of protected
+
+ -- Jeena Huneidi <jhuneidi@wikimedia.org>  Fri, 16 Dec 2022 14:14:32 -0800
+
 scap (4.30.2)
 
   * perform-release: do not push all local tags
