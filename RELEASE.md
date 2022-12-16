@@ -13,7 +13,7 @@ Run `release-scripts/perform-release`.  It will:
 * Ensure that your checkout is up-to-date and clean.
 * Prompt you for for the new version number (with a reasonable default).
 * Update scap/version.py and changelog and create a commit with those changes.
-* Push the commit to Gerrit, approve it, and wait for it to merge.
+* Push the commit to Gitlab, approve it, and wait for it to merge.
 * Tag and push the commit.
 * Tell you how to deploy the new release.
 
