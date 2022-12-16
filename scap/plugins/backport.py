@@ -524,8 +524,8 @@ class Backport(cli.Application):
 
     def _grep_for_git_commit(self, directory, branch, search_string):
         with utils.suppress_backtrace():
-            return subprocess.check_output(["git", "-C", directory, "rev-list", branch, "--grep", search_string],
-                                           text=True).strip("\n")
+            return subprocess.check_output(["git", "-C", directory, "rev-list", branch, "--regexp-ignore-case",
+                                            "--grep", search_string], text=True).strip("\n")
 
     def _collect_commit_fingerprints(self, change_details):
         """
@@ -564,11 +564,10 @@ class Backport(cli.Application):
             # Depends-on commits can also include the change-id, so make sure to prefix with 'Change-Id:'.
             commit = self._grep_for_git_commit(repo_location, "origin/%s" % branch, "Change-Id: %s" % change_id)
 
-            # just to be safe in case submodule update commit has not landed yet
-            while not commit:
-                time.sleep(self.interval)
-                self._fetch_git_changes(repo_location)
-                commit = self._grep_for_git_commit(repo_location, "origin/%s" % branch, "Change-Id: %s" % change_id)
+            if commit is None:
+                self.get_logger().error("Could not find commit for change %s" % change_id)
+                self._reset_workspace()
+                raise SystemExit(1)
 
             repo_commits[repo_location].add(commit)
 
