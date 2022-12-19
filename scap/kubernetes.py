@@ -190,6 +190,7 @@ class K8sOps:
                 "webserver_image_name": "{}/{}".format(registry, self.app.config["webserver_image_name"]),
                 "MV_BASE_PACKAGES": self.app.config["mediawiki_image_extra_packages"],
                 "MV_EXTRA_CA_CERT": dev_ca_crt,
+                "FORCE_FULL_BUILD": "true" if self.app.config["full_image_build"] else "false",
             }
             with utils.suppress_backtrace():
                 cmd = "{} {}".format(

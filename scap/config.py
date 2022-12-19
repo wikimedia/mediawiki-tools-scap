@@ -96,6 +96,7 @@ DEFAULT_CONFIG = {
     # Settings related to building and deploying mediawiki container image
     # xref AbstractSync._build_container_images() in main.py
     "build_mw_container_image": (bool, False),
+    "full_image_build": (bool, False),
     "deploy_mw_container_image": (bool, False),
     "release_repo_dir": (str, None),
     "release_repo_update_cmd": (str, None),
