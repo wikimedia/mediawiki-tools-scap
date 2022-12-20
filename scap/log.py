@@ -967,8 +967,13 @@ def setup_loggers(cfg, console_level=logging.INFO, handlers=None):
     logging.root.setLevel(logging.DEBUG)
     logging.root.handlers[0].setLevel(console_level)
 
-    # Filter target output from the main handler
+    # Log messages matching these filters will be prevented from reaching the console.
     logging.root.handlers[0].addFilter(Filter({"name": "target.*"}))
+
+    # Normally we don't want scap.k8s.build and scap.k8s.deploy channel debug messages to reach the console, but we
+    # do want to see them when scap is run with the -v flag (which causes console_level to be logging.DEBUG).
+    logging.root.handlers[0].addFilter(Filter({"name": "scap.k8s.build", "levelno": lambda lvl: lvl < console_level}))
+    logging.root.handlers[0].addFilter(Filter({"name": "scap.k8s.deploy", "levelno": lambda lvl: lvl < console_level}))
 
     if cfg["log_json"]:
         logging.root.handlers[0].setFormatter(JSONFormatter())

@@ -1,5 +1,6 @@
 import base64
 import concurrent.futures
+import logging
 import os
 import pathlib
 import re
@@ -199,10 +200,11 @@ class K8sOps:
                 )
 
                 self.logger.info("K8s images build/push output redirected to {}".format(self.build_logfile))
-                K8sOps._ensure_file_deleted(self.build_logfile)
                 try:
-                    utils.subprocess_check_run_quietly_if_ok(cmd, make_container_image_dir,
-                                                             self.build_logfile, self.logger, shell=True)
+                    self._run_cmd(cmd, make_container_image_dir,
+                                  self.build_logfile,
+                                  logging.getLogger("scap.k8s.build"),
+                                  shell=True)
                 except subprocess.CalledProcessError:
                     self.app.soft_errors = True
 
@@ -357,9 +359,11 @@ class K8sOps:
                     # FIXME: error output needs to be prefixed w/ the datacenter name.
                     env = os.environ.copy()
                     env['SUPPRESS_SAL'] = 'true'
-                    utils.subprocess_check_run_quietly_if_ok(
+                    self._run_cmd(
                         cmd,
-                        helmfile_dir, logstream.name, self.logger, env=env
+                        helmfile_dir, logstream.name,
+                        logging.getLogger("scap.k8s.deploy"),
+                        env=env
                     )
 
     def _verify_build_and_push_prereqs(self):
@@ -459,7 +463,25 @@ class K8sOps:
             ),
         }
 
-    @staticmethod
-    def _ensure_file_deleted(file: str):
-        if os.path.lexists(file):
-            os.unlink(file)
+    def _run_cmd(self, cmd, dir, logfile, logger, shell=False, env=None):
+        """
+        Runs a subprocess, logging its output at debug level unless the
+        subprocess failed (exited non-zero) in which case the output is
+        logged at error level.
+        """
+        try:
+            with open(logfile, "w") as logstream:
+                logger.debug("Running {} in {}".format(cmd, dir))
+                subprocess.run(cmd, shell=shell, check=True, cwd=dir,
+                               stdout=logstream,
+                               stderr=subprocess.STDOUT, env=env)
+            with open(logfile) as logstream:
+                logger.debug(logstream.read())
+        except subprocess.CalledProcessError as e:
+            # Print the error message, which contains the command that was executed and its
+            # exit status.
+            logger.error(e)
+            logger.error("Stdout/stderr follows:")
+            with open(logfile) as logstream:
+                logger.error(logstream.read())
+            raise
