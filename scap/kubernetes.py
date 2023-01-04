@@ -353,7 +353,6 @@ class K8sOps:
         cmd = ["helmfile", "-e", datacenter, "--selector", "name={}".format(release), "apply"]
 
         with log.Timer("Running {} in {}".format(" ".join(cmd), helmfile_dir), self.app.get_stats()):
-            # FIXME: Make sure command output gets sent to the logger at debug level
             with tempfile.NamedTemporaryFile() as logstream:
                 with utils.suppress_backtrace():
                     # FIXME: error output needs to be prefixed w/ the datacenter name.
