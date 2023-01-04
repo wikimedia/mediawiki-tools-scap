@@ -1,3 +1,11 @@
+scap (4.31.0)
+
+  * Remove a now-resolved FIXME comment
+  * Send image build/deploy transcripts to syslog
+  * Add full_image_build config option
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Wed, 04 Jan 2023 07:47:49 -0800
+
 scap (4.30.3)
 
   * RELEASE.md: Change "Gerrit" to "Gitlab"
