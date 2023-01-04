@@ -1,3 +1,9 @@
+scap (4.31.1)
+
+  * kubernetes.py: Ensure log messages aren't too large
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Wed, 04 Jan 2023 09:35:16 -0800
+
 scap (4.31.0)
 
   * Remove a now-resolved FIXME comment
