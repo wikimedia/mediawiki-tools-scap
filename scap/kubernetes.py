@@ -1,6 +1,7 @@
 import base64
 import concurrent.futures
 import logging
+import math
 import os
 import pathlib
 import re
@@ -475,12 +476,29 @@ class K8sOps:
                                stdout=logstream,
                                stderr=subprocess.STDOUT, env=env)
             with open(logfile) as logstream:
-                logger.debug(logstream.read())
+                self._log_message(logstream.read(), logger, logging.DEBUG)
         except subprocess.CalledProcessError as e:
             # Print the error message, which contains the command that was executed and its
             # exit status.
             logger.error(e)
             logger.error("Stdout/stderr follows:")
             with open(logfile) as logstream:
-                logger.error(logstream.read())
+                self._log_message(logstream.read(), logger, logging.ERROR)
             raise
+
+    def _log_message(self, message, logger, log_level):
+        """
+        Logs 'message' to 'logger' at the specified 'log_level'.
+        'message' is broken into multiple messages if it exceeds
+        MAX_MESSAGE_SIZE.
+        """
+        MAX_MESSAGE_SIZE = 50000
+        num_segments = math.ceil(len(message)/MAX_MESSAGE_SIZE)
+
+        if num_segments <= 1:
+            logger.log(log_level, message)
+            return
+
+        for i in range(num_segments):
+            logger.log(log_level, "[{}/{}] {}".format(i+1, num_segments, message[:MAX_MESSAGE_SIZE]))
+            message = message[MAX_MESSAGE_SIZE:]
