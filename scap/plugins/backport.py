@@ -339,10 +339,15 @@ class Backport(cli.Application):
 
         self.get_logger().info('Voting on %s change(s)' % len(change_details))
         for detail in change_details:
+            change_number = detail['_number']
+            if detail['status'] == 'MERGED':
+                self.get_logger().info('Change %s was already merged', change_number)
+                continue
+
             self._gerrit_ssh(['review', '--code-review', '+2', '-m',
                               '"Approved by %s using scap backport"' % self.deploy_user,
                               '%s' % detail['current_revision']])
-            self.get_logger().info('Change %s approved' % detail['_number'])
+            self.get_logger().info('Change %s approved', change_number)
 
     def _change_number(self, number_or_url):
         if number_or_url.isnumeric():
