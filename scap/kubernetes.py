@@ -67,23 +67,28 @@ class DeploymentsConfig:
         "release": "debug",
         "mv_image_fl": "publish",
         "web_image_fl": "webserver",
+        "debug": True,
       }],
       "canaries": [{
         "namespace": "api1",
         "release": "canaries",
         "mv_image_fl": "publish",
         "web_image_fl": "webserver",
+        "debug": False,
+      }],
       }],
       "production": [{
         "namespace": "api1",
         "release": "main",
         "mv_image_fl": "publish",
         "web_image_fl": "webserver",
+        "debug": False,
         }, {
         "namespace": "api2",
         "release": "main",
         "mv_image_fl": "publish",
         "web_image_fl": "webserver",
+        "debug": False,
       }]
      }
 
@@ -97,6 +102,7 @@ class DeploymentsConfig:
     RELEASE = "release"
     MULTIVER_IMAGE_FLAVOR = "mv_image_fl"
     WEB_IMAGE_FLAVOR = "web_image_fl"
+    DEBUG = "debug"
 
     def __init__(self, testservers: List[dict], canaries: List[dict], production: List[dict]):
         self.stages = {
@@ -130,6 +136,7 @@ class DeploymentsConfig:
                 cls.RELEASE: dep_config["release"],
                 cls.MULTIVER_IMAGE_FLAVOR: dep_config["mw_flavour"],
                 cls.WEB_IMAGE_FLAVOR: dep_config["web_flavour"],
+                cls.DEBUG: is_testservers_config(dep_config),
             }
 
             if is_testservers_config(dep_config):
@@ -416,7 +423,11 @@ class K8sOps:
 
             return fqin
 
-        mv_img = strip_registry(images_info["multiversion"])
+        if dep_config[DeploymentsConfig.DEBUG]:
+            mv_img = strip_registry(images_info["debug"])
+        else:
+            mv_img = strip_registry(images_info["multiversion"])
+
         web_img = strip_registry(images_info["webserver"])
 
         values = {
@@ -455,6 +466,9 @@ class K8sOps:
         make_container_image_dir = os.path.join(self.app.config["release_repo_dir"], "make-container-image")
 
         return {
+            "debug": utils.read_first_line_from_file(
+                os.path.join(make_container_image_dir, "last-debug-build")
+            ),
             "multiversion": utils.read_first_line_from_file(
                 os.path.join(make_container_image_dir, "last-build")
             ),

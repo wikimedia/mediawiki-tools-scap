@@ -9,7 +9,7 @@ deployment_configs = [
     # Correct configuration
     ("""
     - namespace: testservers
-      release: debug
+      release: main
       canary:
       mw_flavour: publish
       web_flavour: webserver
@@ -32,26 +32,30 @@ deployment_configs = [
      {
          "testservers": [{
             "namespace": "testservers",
-            "release": "debug",
+            "release": "main",
             "mv_image_fl": "publish",
             "web_image_fl": "webserver",
+            "debug": True,
          }],
          "canaries": [{
             "namespace": "api1",
             "release": "canaries",
             "mv_image_fl": "publish",
             "web_image_fl": "webserver",
+            "debug": False,
          }],
          "production": [{
             "namespace": "api1",
             "release": "main",
             "mv_image_fl": "publish",
             "web_image_fl": "webserver",
+            "debug": False,
          }, {
             "namespace": "api2",
             "release": "main",
             "mv_image_fl": "publish",
             "web_image_fl": "webserver",
+            "debug": False,
          }]
      }
      ),
