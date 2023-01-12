@@ -6,6 +6,7 @@ stages:
   - test
   - build-docs
   - publish-docs
+  - publish-dist
 
 verify-deps:
   stage: test
@@ -24,6 +25,13 @@ test:
       - DISTRO: [buster, bullseye]
   variables:
     BUILD_VARIANT: test-$DISTRO
+
+test-dist:
+  stage: test
+  extends: .kokkuri:build-and-run-image
+  variables:
+    BUILD_VARIANT: binary-dist
+    RUN_ARGUMENTS: '["version"]'
 
 .docs-job:
   tags:
@@ -62,3 +70,13 @@ publish-docs:
     - (mkdir -p /tmp/blank/scap && cd /tmp/blank && rsync --recursive --relative scap rsync://doc.discovery.wmnet/doc/ )
     # Now do the real work
     - rsync --archive --stats --compress --delete-after generated-documentation/docs/ rsync://doc.discovery.wmnet/doc/scap/
+
+publish-dist:
+  stage: publish-dist
+  extends: .kokkuri:build-and-publish-image
+  variables:
+    BUILD_VARIANT: binary-dist
+  tags:
+    - trusted
+  rules:
+    - if: $CI_COMMIT_TAG && $CI_COMMIT_REF_PROTECTED

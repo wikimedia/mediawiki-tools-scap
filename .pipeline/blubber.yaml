@@ -81,3 +81,31 @@ variants:
       - from: build-docs
         source: /srv/app/docs/_build/html/
         destination: docs/
+
+  binary-dist-build:
+    includes: [base-buster]
+    apt:
+      packages:
+        - binutils
+        - python3-dev
+    builders:
+      - python:
+          requirements:
+            - requirements.txt
+            - binary-dist-requirements.txt
+      - custom:
+          command: [pyinstaller, bin/scap, scap/cli.py]
+          requirements: [.]
+      - custom:
+          command: [du, -hs, build]
+
+  binary-dist:
+    base: docker-registry.wikimedia.org/wikimedia-buster
+    apt:
+      packages:
+        - git
+    copies:
+      - from: binary-dist-build
+        source: /srv/app/dist/scap
+        destination: /srv/app
+    entrypoint: [/srv/app/scap]

@@ -24,17 +24,22 @@
 import os
 import sys
 
-if sys.prefix == sys.base_prefix and not os.path.exists("/etc/scap.skip.venv.check"):
-    print(
-        "WARN: Not running from a virtual environment. Scap will fail to start unless its"
-        " dependencies have been installed on the system. You can use the script at"
-        " bin/install_local_version.sh to create a scap venv"
-    )
+# xref https://pyinstaller.org/en/stable/runtime-information.html
+if getattr(sys, 'frozen', False) and hasattr(sys, '_MEIPASS'):
+    # No need to mess with sys.path once packaged by pyinstaller.
+    pass
+else:
+    if sys.prefix == sys.base_prefix and not os.path.exists("/etc/scap.skip.venv.check"):
+        print(
+            "WARN: Not running from a virtual environment. Scap will fail to start unless its"
+            " dependencies have been installed on the system. You can use the script at"
+            " bin/install_local_version.sh to create a scap venv"
+        )
 
-# Add scap package to search path
-SCRIPT = os.path.realpath(sys.argv[0])
-SCAP_SRC = os.path.dirname(os.path.dirname(SCRIPT))
-sys.path.insert(0,SCAP_SRC)
+    # Add scap package to search path
+    SCRIPT = os.path.realpath(sys.argv[0])
+    SCAP_SRC = os.path.dirname(os.path.dirname(SCRIPT))
+    sys.path.insert(0,SCAP_SRC)
 
 from scap import cli
 
