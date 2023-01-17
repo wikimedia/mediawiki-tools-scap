@@ -32,6 +32,7 @@ class PHPRestart(object):
         self.cmd = None
         self.job = job
         self.ssh_user = cfg["ssh_user"]
+        self.logger = logger
 
         if unsafe:
             script = cfg.get("php_fpm_unsafe_restart_script")
@@ -55,6 +56,9 @@ class PHPRestart(object):
             self.cmd = "{} {} {}".format(
                 cfg["php_fpm_restart_script"], cfg["php_fpm"], str(threshold)
             )
+        else:
+            if logger:
+                logger.debug("php_fpm_restart_script not configured")
 
     def set_progress_queue(self, queue):
         self.progress_queue = queue
@@ -90,6 +94,8 @@ class PHPRestart(object):
 
         try:
             cmd = "/usr/bin/sudo -u {} /usr/bin/sudo -u root -- {}".format(self.ssh_user, self.cmd)
+            if self.logger:
+                self.logger.debug("Running %s", cmd)
             subprocess.check_call(shlex.split(cmd))
             return False
         except subprocess.CalledProcessError:

@@ -957,7 +957,7 @@ class SyncPull(cli.Application):
                 )
 
         if self.arguments.php_restart:
-            fpm = php_fpm.PHPRestart(self.config)
+            fpm = php_fpm.PHPRestart(self.config, logger=self.get_logger())
             self.get_logger().info("Checking if php-fpm restart needed")
             failed = fpm.restart_self()
             if failed:
