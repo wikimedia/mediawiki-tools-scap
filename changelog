@@ -1,3 +1,13 @@
+scap (4.33.0)
+
+  * Debug log command used when self-restarting php-fpm
+  * Avoid duplicate usernames in "synced to the testservers" message
+  * requirements.txt: packaging==23
+  * kubernetes.py: Use correct image for debug envs
+  * Remove .pipeline/config.yaml
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Wed, 18 Jan 2023 08:42:17 -0800
+
 scap (4.32.0)
 
   * backport: Don't merge already merged patches
