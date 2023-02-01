@@ -3,7 +3,6 @@
 
 import json
 import os
-import subprocess
 
 import scap.cli as cli
 import scap.utils as utils
@@ -30,11 +29,7 @@ class UpdateWikiversions(cli.Application):
         )
 
         db_list_name = os.path.basename(os.path.splitext(self.arguments.dblist)[0])
-
-        script = os.path.join(
-            self.config["stage_dir"], "multiversion", "bin", "expanddblist"
-        )
-        dblist = subprocess.check_output([script, db_list_name]).decode().splitlines()
+        dblist = utils.expand_dblist(self.config["stage_dir"], db_list_name)
 
         new_dir = "php-%s" % self.arguments.branch
 

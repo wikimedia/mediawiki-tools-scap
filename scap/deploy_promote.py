@@ -86,22 +86,31 @@ class DeployPromote(cli.Application):
         self._check_user_auth_sock()
 
         sorted_versions = self.active_wikiversions("stage")
-        prev_version = sorted_versions[0]
-        if self.arguments.version:
-            self.promote_version = self.arguments.version
-        else:
-            if len(sorted_versions) < 2:
-                utils.abort(
-                    "Cannot determine version to promote to. Current active version: %s"
-                    % prev_version
-                )
-            self.promote_version = sorted_versions[1]
+
+        self.promote_version = self.arguments.version or sorted_versions[-1]
+
+        prev_version = "/".join(self._get_group_versions(self.arguments.group))
 
         if not self.arguments.yes and not self._prompt_user_to_approve(prev_version):
             utils.abort("Canceled by user")
 
         os.umask(self.config["umask"])
         self._update_versions()
+
+    def _get_group_versions(self, group) -> list:
+        """
+        Returns a list of versions used by 'group', in ascending version order.
+        """
+        dblist = utils.expand_dblist(self.config["stage_dir"], group)
+
+        versions = set()
+
+        for wikidb, version in self.read_wikiversions().items():
+            version = re.sub("^php-", "", version)
+            if wikidb in dblist:
+                versions.add(version)
+
+        return sorted(versions, key=lambda v: utils.parse_wmf_version(v))
 
     def _check_group(self):
         group_file = "%s/dblists/%s.dblist" % (self.config["stage_dir"], self.group)

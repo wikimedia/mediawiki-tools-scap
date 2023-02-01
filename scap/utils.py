@@ -697,6 +697,21 @@ def move_symlink(source, dest):
         os.symlink(rsource, rdest)
 
 
+def read_wikiversions(directory, realm) -> dict:
+    """
+    Return a dictionary representing the contents of the realm-specific wikiversions.json
+    file in the specified directory.
+
+    Keys are wikidbs, values are "php-<version>"
+    """
+    path = get_realm_specific_filename(
+        os.path.join(directory, "wikiversions.json"), realm
+    )
+
+    with open(path) as f:
+        return json.load(f)
+
+
 def get_active_wikiversions(directory, realm, return_type=list):
     """
     Get an ordered collection of active MediaWiki versions.
@@ -711,12 +726,7 @@ def get_active_wikiversions(directory, realm, return_type=list):
               operations that need a db but don't care which wiki's db is
               used.
     """
-    path = get_realm_specific_filename(
-        os.path.join(directory, "wikiversions.json"), realm
-    )
-
-    with open(path) as f:
-        wikiversions = json.load(f)
+    wikiversions = read_wikiversions(directory, realm)
 
     versions = {}
     # Process keys in sorted order to ensure that we always use the same
@@ -1128,3 +1138,10 @@ def get_current_train_info(api_url, proxy=None) -> dict:
         "task": task,
         "status": status,
     }
+
+
+def expand_dblist(stage_dir, db_list_name: str) -> list:
+    script = os.path.join(
+        stage_dir, "multiversion", "bin", "expanddblist"
+    )
+    return subprocess.check_output([script, db_list_name], universal_newlines=True).splitlines()
