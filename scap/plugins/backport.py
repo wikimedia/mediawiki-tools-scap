@@ -280,7 +280,7 @@ class Backport(cli.Application):
             revert_msg = subprocess.check_output(
                 ["git", "-c", "trailer.ifexists=doNothing", "interpret-trailers",
                  "--trailer", "Change-Id: %s" % revert_id],
-                input=revert_msg, universal_newlines=True)
+                input=revert_msg, text=True)
 
         return revert_msg
 

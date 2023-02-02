@@ -55,7 +55,7 @@ def _runcmd(argv, **kwargs) -> str:
     kwargs["stdout"] = subprocess.PIPE
     kwargs["stderr"] = subprocess.PIPE
     # Enable text mode
-    kwargs["universal_newlines"] = True
+    kwargs["text"] = True
 
     # Open /dev/null so stdin can be redirected to come from there. This way,
     # if a command is accidentally invoked in a way that it reads from stdin,

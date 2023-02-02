@@ -345,7 +345,7 @@ class Application(object):
                 args,
                 check=True,
                 stdout=subprocess.PIPE,
-                universal_newlines=True,
+                text=True,
                 env=self.get_gerrit_ssh_env()
             ).stdout.strip()
 

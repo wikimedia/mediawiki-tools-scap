@@ -507,14 +507,9 @@ def sudo_check_call(user, cmd, logger=None, logLevel=logging.DEBUG, app=None):
         fullCmd = "sudo -u %s -n %s -- %s" % (user, cmd_env, cmd)
 
     logger.debug("sudo_check_call running {}".format(fullCmd))
-    # We're using universal_newlines=True to put the stdout pipe into
-    # text mode for simpler processing.  We don't actually care about
-    # the universal newline behavior.  Python 3.7 makes this clearer
-    # by providing an argument named 'text' as an alias for
-    # universal_newlines.
     proc = subprocess.Popen(
         fullCmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, shell=True,
-        universal_newlines=True,
+        text=True,
     )
 
     fullOut = []
@@ -1099,7 +1094,7 @@ def get_current_train_version_from_gerrit(gerrit_url) -> str:
 
     # output will be something like '3137081c2ab92df3bc9c97956b00fb3017d7b511\trefs/heads/wmf/1.39.0-wmf.19'
     output = subprocess.check_output(["git", "ls-remote", "--sort=version:refname", url, "refs/heads/wmf/*"],
-                                     universal_newlines=True)
+                                     text=True)
     res = re.sub(r"^.*wmf/(.*)$", "\\1", output.splitlines()[-1])
 
     return res
@@ -1144,4 +1139,4 @@ def expand_dblist(stage_dir, db_list_name: str) -> list:
     script = os.path.join(
         stage_dir, "multiversion", "bin", "expanddblist"
     )
-    return subprocess.check_output([script, db_list_name], universal_newlines=True).splitlines()
+    return subprocess.check_output([script, db_list_name], text=True).splitlines()
