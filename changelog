@@ -1,3 +1,10 @@
+scap (4.34.0)
+
+  * Replace "universal_newlines" with "text"
+  * deploy-promote: Fix how prev_version is determined
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Thu, 02 Feb 2023 08:46:11 -0800
+
 scap (4.33.1)
 
   * Add binary image support
