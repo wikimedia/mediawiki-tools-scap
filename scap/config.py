@@ -192,7 +192,7 @@ def load(cfg_file=None, environment=None, overrides=None):
             ]
         )
 
-    fqdn = socket.getfqdn().split(".")
+    fqdn = socket.getfqdn().rstrip('.').split(".")
     sections = ["global"]
     sections += [".".join(fqdn[x:]) for x in range(0, len(fqdn))][::-1]
 

@@ -125,6 +125,36 @@ def test_nonexistent_environment(monkeypatch):
                 config.load(environment="staging")
 
 
+def test_load_section_for_host(monkeypatch):
+    config_file_content = dedent(
+        """
+        [global]
+        ssh_user: scap
+        [deployment.local]
+        ssh_user: janedoe
+    """
+    )
+
+    monkeypatch.setattr(config.socket, 'getfqdn', lambda: 'deployment.local')
+    with config_file(config_file_content) as cfg_file:
+        assert config.load(cfg_file)['ssh_user'] == 'janedoe'
+
+
+def test_load_section_for_host_with_trailing_dot(monkeypatch):
+    config_file_content = dedent(
+        """
+        [global]
+        ssh_user: scap
+        [deployment.local]
+        ssh_user: anneonymous
+    """
+    )
+
+    monkeypatch.setattr(config.socket, 'getfqdn', lambda: 'deployment.local.')
+    with config_file(config_file_content) as cfg_file:
+        assert config.load(cfg_file)['ssh_user'] == 'anneonymous'
+
+
 def test_coerce():
     with override_default_config({"foo": (int, None)}):
         assert config.coerce_value("foo", "1") == 1
