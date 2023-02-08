@@ -118,7 +118,10 @@ def test_nonexistent_environment(monkeypatch):
         with config_file(config_file_content) as cfg_file:
             monkeypatch.chdir(os.path.dirname(cfg_file))
 
-            with pytest.raises(RuntimeError):
+            with pytest.raises(
+                RuntimeError,
+                match='Environment staging does not exist'
+            ):
                 config.load(environment="staging")
 
 
