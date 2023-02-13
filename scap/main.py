@@ -120,15 +120,16 @@ class AbstractSync(cli.Application):
             self.k8s_ops.pull_image_on_nodes()
 
             if not self.arguments.force:
+                # Deploy K8s test releases
+                with log.Timer("sync-testservers-k8s", self.get_stats()):
+                    with utils.suppress_backtrace():
+                        self.k8s_ops.deploy_k8s_images_for_stage(TEST_SERVERS)
+
                 testservers = utils.list_intersection(self._get_testserver_list(), full_target_list)
                 if len(testservers) > 0:
                     with log.Timer("sync-testservers", self.get_stats()):
                         self.sync_targets(testservers, "testservers")
 
-                # Deploy K8s test releases
-                with log.Timer("sync-testservers-k8s", self.get_stats()):
-                    with utils.suppress_backtrace():
-                        self.k8s_ops.deploy_k8s_images_for_stage(TEST_SERVERS)
                 # Not all subclasses of AbstractSync define the --pause-after-testserver-sync argument,
                 # so we can't assume it is in self.arguments.
                 if getattr(self.arguments, "pause_after_testserver_sync", False):
@@ -141,6 +142,11 @@ class AbstractSync(cli.Application):
                                                      'before continuing.\n' % testservers_string +
                                                      'Continue with sync?', "Sync cancelled.")
 
+                # Deploy K8s canary releases
+                with log.Timer("sync-canaries-k8s", self.get_stats()):
+                    with utils.suppress_backtrace():
+                        self.k8s_ops.deploy_k8s_images_for_stage(CANARIES)
+
                 canaries = utils.list_intersection(self._get_canary_list(), full_target_list)
                 if len(canaries) > 0:
                     with log.Timer("sync-check-canaries", self.get_stats()) as timer:
@@ -148,12 +154,13 @@ class AbstractSync(cli.Application):
                         timer.mark("Canaries Synced")
                         self.canary_checks(canaries, timer)
 
-                # Deploy K8s canary releases
-                with log.Timer("sync-canaries-k8s", self.get_stats()):
-                    with utils.suppress_backtrace():
-                        self.k8s_ops.deploy_k8s_images_for_stage(CANARIES)
             else:
                 self.get_logger().warning("Testservers and canaries skipped by --force")
+
+            # Deploy K8s production releases
+            with log.Timer("sync-prod-k8s", self.get_stats()):
+                with utils.suppress_backtrace():
+                    self.k8s_ops.deploy_k8s_images_for_stage(PRODUCTION)
 
             # Update proxies
             proxies = utils.list_intersection(self._get_proxy_list(), full_target_list)
@@ -171,13 +178,9 @@ class AbstractSync(cli.Application):
                                    full_target_list,
                                    shuffle=True)
 
-            # Deploy K8s production releases
-            with log.Timer("sync-prod-k8s", self.get_stats()):
-                with utils.suppress_backtrace():
-                    self.k8s_ops.deploy_k8s_images_for_stage(PRODUCTION)
-
             history.update_latest(self.config["history_log"], synced=True)
 
+            # php-fpm restarts happen in here
             self._after_cluster_sync()
 
         self._after_lock_release()
