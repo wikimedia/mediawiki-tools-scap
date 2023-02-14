@@ -1,6 +1,7 @@
 import base64
 import concurrent.futures
 import logging
+import json
 import math
 import os
 import pathlib
@@ -353,10 +354,56 @@ class K8sOps:
             if failed:
                 raise Exception("K8s deployment had the following errors:\n " + "\n".join(failed))
 
+    def _get_kubeconfig(self, datacenter, helmfile_dir, release, logger):
+        cmd = ["helmfile", "-e", datacenter, "-l", "name={}".format(release), "build"]
+        data = yaml.safe_load(subprocess.check_output(cmd, text=True, cwd=helmfile_dir))
+        for arg in data["helmDefaults"]["args"]:
+            if re.search(r"/etc/kubernetes/", arg):
+                return arg
+        logger.warning("Could not figure out which kubeconfig file to use for datacenter %s, helmfile_dir %s, release %s",
+                       datacenter, helmfile_dir, release)
+        return None
+
+    def _get_helm_release_status(self, kubeconfig, helmfile_dir, release):
+        cmd = ["helm", "--kubeconfig", kubeconfig, "ls", "-l", "name={}".format(release), "-a", "-o", "json"]
+        data = json.loads(subprocess.check_output(cmd, text=True, cwd=helmfile_dir))
+        if not data:
+            return None
+
+        assert len(data) == 1
+
+        return data[0].get("status")
+
+    def _helm_rollback_pending_upgrade(self, kubeconfig, helmfile_dir, release, logger):
+        # Should this use --wait ?
+        cmd = ["helm", "--kubeconfig", kubeconfig, "rollback", release]
+        with log.Timer("Running {} in {}".format(" ".join(cmd), helmfile_dir), self.app.get_stats()):
+            with tempfile.NamedTemporaryFile() as logstream:
+                with utils.suppress_backtrace():
+                    self._run_cmd(
+                        cmd,
+                        helmfile_dir, logstream.name,
+                        logger,
+                    )
+
     def _deploy_k8s_images_for_datacenter(self, datacenter, helmfile_dir, release):
         """
         datacenter will be something like "eqiad" or "codfw" or "traindev"
         """
+
+        logger = logging.getLogger("scap.k8s.deploy")
+
+        kubeconfig = self._get_kubeconfig(datacenter, helmfile_dir, release, logger)
+
+        if kubeconfig:
+            status = self._get_helm_release_status(kubeconfig, helmfile_dir, release)
+            logger.debug("Status is '%s' for datacenter %s, helmfile_dir %s, release %s",
+                         status, datacenter, helmfile_dir, release)
+
+            if status == "pending-upgrade":
+                logger.warning("Release %s for datacenter %s in %s is in pending-upgrade state.  Attempting to clean up",
+                               release, datacenter, helmfile_dir)
+                self._helm_rollback_pending_upgrade(kubeconfig, helmfile_dir, release, logger)
 
         cmd = ["helmfile", "-e", datacenter, "--selector", "name={}".format(release), "apply"]
 
@@ -369,7 +416,7 @@ class K8sOps:
                     self._run_cmd(
                         cmd,
                         helmfile_dir, logstream.name,
-                        logging.getLogger("scap.k8s.deploy"),
+                        logger,
                         env=env
                     )
 
