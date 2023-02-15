@@ -293,13 +293,17 @@ class Application(object):
 
         :returns: exit status
         """
-        self.announce(
-            "{} aborted: {} (duration: {})".format(
-                self.program_name,
-                getattr(self.arguments, "message", ""),
-                utils.human_duration(self.get_duration()),
+        # Only announce the abort if any previous call to
+        # self.announce() has generated a broadcast announcement
+        # (T329228)
+        if self._announce_logger:
+            self.announce(
+                "{} aborted: {} (duration: {})".format(
+                    self.program_name,
+                    getattr(self.arguments, "message", ""),
+                    utils.human_duration(self.get_duration()),
+                )
             )
-        )
         return 130
 
     def format_passthrough_args(self) -> list:

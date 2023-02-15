@@ -270,6 +270,15 @@ def test_setup_environ_no_auth_sock(cmd):
 
 
 def test_handle_keyboard_interrupt(cmd):
+    # Case 1: No announcement if no prior announcement has been made
+    cmd.announce = mock.MagicMock(spec=cli.Application.announce)
+    cmd.handle_keyboard_interrupt()
+    assert cmd.announce.call_count == 0
+
+
+def test_handle_keyboard_interrupt2(cmd):
+    # Case 2: Announcement is made
+    cmd.announce("test")
     cmd.announce = mock.MagicMock(spec=cli.Application.announce)
     cmd.handle_keyboard_interrupt()
     assert cmd.announce.call_count == 1
