@@ -1,3 +1,14 @@
+scap (4.35.0)
+
+  * Don't transmit "aborted" message to IRC if no prior announcement has been made
+  * scap say: Fix longstanding handling of COLUMNS env var
+  * Perform k8s deployment before proxies/apaches
+  * Load section config when host has a trailing dot
+  * Improve scap.config test coverage
+  * tox: add a virtualenv for local testing
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Wed, 15 Feb 2023 13:06:06 -0800
+
 scap (4.34.0)
 
   * Replace "universal_newlines" with "text"
