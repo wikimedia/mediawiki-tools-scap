@@ -80,7 +80,7 @@ def scap_say(words=None, eyes=None, width=None, nowrap=False, color=True):
         words = fortune()
 
     if not width and not nowrap:
-        width = min([50, os.environ.get("COLUMNS", 50)])
+        width = min([50, int(os.environ.get("COLUMNS", 50))])
 
     if nowrap:
         width = max(list(map(len, words))) + 2
