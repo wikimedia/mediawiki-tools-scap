@@ -160,12 +160,7 @@ class Application(object):
         though `self.get_logger().info()` was used instead of
         `self.announce()`.
         """
-        env_check = "DOLOGMSGNOLOG" in os.environ
-        if self.arguments.no_log_message or env_check:
-            if env_check:
-                self.get_logger().warning(
-                    "DOLOGMSGNOLOG has been deprecated, use --no-log-message"
-                )
+        if self.arguments.no_log_message:
             # Do not log to the announce logger, but do log the event for the
             # console and other non-broadcast log collectors.
             self.get_logger().info(*args)

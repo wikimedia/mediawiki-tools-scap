@@ -141,16 +141,8 @@ def test_announce(app, mocker):
     logger.info.assert_called_with("test")
     logger.warning.assert_not_called()
 
-    # Case 2: DOLOGMSGNNOLOG env variable set, no_log_message is false
-    os.environ["DOLOGMSGNOLOG"] = "0"  # yes, we only check it exists...
+    # Case 2: no_log_message is not set
     app.arguments.no_log_message = False
-    logger.info.reset_mock()
-    app.announce("test")
-    logger.info.assert_called_with("test")
-    logger.warning.assert_called_once_with("DOLOGMSGNOLOG has been deprecated, use --no-log-message")
-
-    # Case 3: neither is set
-    del os.environ["DOLOGMSGNOLOG"]
     get_log = mocker.patch("logging.getLogger")
     announcer = get_log.return_value
     app.announce("test", "bar")
