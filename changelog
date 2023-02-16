@@ -1,3 +1,10 @@
+scap (4.37.0)
+
+  * Scap backport: Request dependencies for a specific change
+  * Remove support for deprecated DOLOGMSGNOLOG env var
+
+ -- Jeena Huneidi <jhuneidi@wikimedia.org>  Thu, 16 Feb 2023 15:50:59 -0800
+
 scap (4.36.0)
 
   * Attempt to autorecover from interrupted helm deployments
