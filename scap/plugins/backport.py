@@ -457,22 +457,48 @@ class Backport(cli.Application):
             self.prompt_for_approval_or_exit("Continue with %s?" % self.backport_or_revert.capitalize(),
                                              "%s Cancelled" % self.backport_or_revert)
 
-    def _get_depends_ons(self, change_id, change_number):
-        depends_ons = self.gerrit.depends_ons(change_id).get()
+    def _get_depends_ons(self, project_branch_changeid, change_number):
+        # There can be multiple changes with the same change_id, so make sure to use 'id',
+        # https://gerrit-review.googlesource.com/Documentation/rest-api-changes.html#change-info
+        # which combines project, branch, and change_id to request dependency information
+        # for the correct change.
+        depends_ons = self.gerrit.depends_ons(project_branch_changeid).get()
+        project_branch = project_branch_changeid.rsplit('~', 1)[0]
         deps = {}
 
         if bool(depends_ons.cycle) is True:
             raise SystemExit(
                 "The change '%s' cannot be merged because a dependency cycle was detected." % change_number)
 
-        for change_info in depends_ons.depends_on_found:
-            dep_change_id = change_info['change_id']
+        depends_ons_changes = self._filter_depends_ons(change_number, project_branch, depends_ons.depends_on_found)
+        for change_info in depends_ons_changes:
             dep_change_number = change_info['_number']
+            dep_project_branch_changeid = change_info['id']
             if change_number not in deps:
+                self.get_logger().info("Dependency %s found. Checking for dependencies of %s..." %
+                                       (dep_change_number, dep_change_number))
                 deps[dep_change_number] = change_info
-                deps.update(self._get_depends_ons(dep_change_id, dep_change_number))
+                deps.update(self._get_depends_ons(dep_project_branch_changeid, dep_change_number))
 
         return deps
+
+    def _filter_depends_ons(self, change_number, project_branch, depends_ons):
+        # filter out duplicate change ids
+        # the correct dependency should share project and branch with the original change
+        depends_ons_by_changeid = {}
+        filtered_depends_ons = []
+        for change in depends_ons:
+            depends_ons_by_changeid.setdefault(change['change_id'], []).append(change)
+        for change_id, changes in depends_ons_by_changeid.items():
+            if len(changes) > 1:
+                same_project_branch_deps = list((change for change in changes if project_branch in change['id']))
+                if len(same_project_branch_deps) != 1:
+                    raise SystemExit("Could not determine dependency for %s from those sharing change ids: %s."
+                                     % (change_number, list((change['_number'] for change in changes))))
+                filtered_depends_ons.extend(same_project_branch_deps)
+            else:
+                filtered_depends_ons.extend(changes)
+        return filtered_depends_ons
 
     def _wait_for_changes_to_be_merged(self, change_numbers):
         self.get_logger().info('Waiting for changes to be merged. '
