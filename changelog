@@ -1,4 +1,4 @@
-scap (y)
+scap (4.36.0)
 
   * Attempt to autorecover from interrupted helm deployments
 
