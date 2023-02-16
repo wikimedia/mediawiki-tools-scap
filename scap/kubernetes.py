@@ -356,7 +356,11 @@ class K8sOps:
 
     def _get_kubeconfig(self, datacenter, helmfile_dir, release, logger):
         cmd = ["helmfile", "-e", datacenter, "-l", "name={}".format(release), "build"]
-        data = yaml.safe_load(subprocess.check_output(cmd, text=True, cwd=helmfile_dir))
+        stdout = self._cmd_stdout(cmd, helmfile_dir, logger)
+        if not stdout:
+            return None
+
+        data = yaml.safe_load(stdout)
         for arg in data["helmDefaults"]["args"]:
             if re.search(r"/etc/kubernetes/", arg):
                 return arg
@@ -364,9 +368,13 @@ class K8sOps:
                        datacenter, helmfile_dir, release)
         return None
 
-    def _get_helm_release_status(self, kubeconfig, helmfile_dir, release):
+    def _get_helm_release_status(self, kubeconfig, helmfile_dir, release, logger):
         cmd = ["helm", "--kubeconfig", kubeconfig, "ls", "-l", "name={}".format(release), "-a", "-o", "json"]
-        data = json.loads(subprocess.check_output(cmd, text=True, cwd=helmfile_dir))
+        stdout = self._cmd_stdout(cmd, helmfile_dir, logger)
+        if not stdout:
+            return None
+
+        data = json.loads(stdout)
         if not data:
             return None
 
@@ -377,14 +385,7 @@ class K8sOps:
     def _helm_rollback_pending_upgrade(self, kubeconfig, helmfile_dir, release, logger):
         # Should this use --wait ?
         cmd = ["helm", "--kubeconfig", kubeconfig, "rollback", release]
-        with log.Timer("Running {} in {}".format(" ".join(cmd), helmfile_dir), self.app.get_stats()):
-            with tempfile.NamedTemporaryFile() as logstream:
-                with utils.suppress_backtrace():
-                    self._run_cmd(
-                        cmd,
-                        helmfile_dir, logstream.name,
-                        logger,
-                    )
+        self._run_timed_cmd_quietly(cmd, helmfile_dir, logger)
 
     def _deploy_k8s_images_for_datacenter(self, datacenter, helmfile_dir, release):
         """
@@ -396,7 +397,7 @@ class K8sOps:
         kubeconfig = self._get_kubeconfig(datacenter, helmfile_dir, release, logger)
 
         if kubeconfig:
-            status = self._get_helm_release_status(kubeconfig, helmfile_dir, release)
+            status = self._get_helm_release_status(kubeconfig, helmfile_dir, release, logger)
             logger.debug("Status is '%s' for datacenter %s, helmfile_dir %s, release %s",
                          status, datacenter, helmfile_dir, release)
 
@@ -406,19 +407,7 @@ class K8sOps:
                 self._helm_rollback_pending_upgrade(kubeconfig, helmfile_dir, release, logger)
 
         cmd = ["helmfile", "-e", datacenter, "--selector", "name={}".format(release), "apply"]
-
-        with log.Timer("Running {} in {}".format(" ".join(cmd), helmfile_dir), self.app.get_stats()):
-            with tempfile.NamedTemporaryFile() as logstream:
-                with utils.suppress_backtrace():
-                    # FIXME: error output needs to be prefixed w/ the datacenter name.
-                    env = os.environ.copy()
-                    env['SUPPRESS_SAL'] = 'true'
-                    self._run_cmd(
-                        cmd,
-                        helmfile_dir, logstream.name,
-                        logger,
-                        env=env
-                    )
+        self._run_timed_cmd_quietly(cmd, helmfile_dir, logger)
 
     def _verify_build_and_push_prereqs(self):
         if self.app.config["release_repo_dir"] is None:
@@ -523,6 +512,47 @@ class K8sOps:
                 os.path.join(make_container_image_dir, "webserver", "last-build")
             ),
         }
+
+    def _cmd_stdout(self, cmd, dir, logger):
+        """
+        Runs cmd in a subprocess.  The process has a zero exit
+        status, return its stdout as a string.  Otherwise
+        return None.
+        """
+        # This is similiar to scap.runcmd._runcmd() except:
+        # * a specific logger can be supplied
+        # * stdout/stderr are logged (debug level)
+
+        logger.debug("Running {} in {}".format(cmd, dir))
+        proc = subprocess.Popen(cmd, cwd=dir, text=True,
+                                stdout=subprocess.PIPE,
+                                stderr=subprocess.PIPE)
+        stdout, stderr = proc.communicate()
+        logger.debug("stdout: %s", stdout)
+        logger.debug("stderr: %s", stderr)
+        logger.debug("exit status: %s", proc.returncode)
+
+        if proc.returncode == 0:
+            return stdout
+
+        logger.error("Non-zero exit status (%d) from %s", proc.returncode, cmd)
+        logger.error("stdout: %s", stdout)
+        logger.error("stderr: %s", stderr)
+
+        return None
+
+    def _run_timed_cmd_quietly(self, cmd, dir, logger):
+        with log.Timer("Running {} in {}".format(" ".join(cmd), dir), self.app.get_stats()):
+            with tempfile.NamedTemporaryFile() as logstream:
+                with utils.suppress_backtrace():
+                    env = os.environ.copy()
+                    env['SUPPRESS_SAL'] = 'true'
+                    self._run_cmd(
+                        cmd,
+                        dir, logstream.name,
+                        logger,
+                        env=env
+                    )
 
     def _run_cmd(self, cmd, dir, logfile, logger, shell=False, env=None):
         """
