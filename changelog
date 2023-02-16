@@ -1,3 +1,9 @@
+scap (y)
+
+  * Attempt to autorecover from interrupted helm deployments
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Thu, 16 Feb 2023 10:40:08 -0800
+
 scap (4.35.0)
 
   * Don't transmit "aborted" message to IRC if no prior announcement has been made
