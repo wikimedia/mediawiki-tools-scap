@@ -82,30 +82,34 @@ variants:
         source: /srv/app/docs/_build/html/
         destination: docs/
 
-  binary-dist-build:
+  binary-dist-buster-build:
     includes: [base-buster]
-    apt:
-      packages:
-        - binutils
-        - python3-dev
     builders:
       - python:
-          requirements:
-            - requirements.txt
-            - binary-dist-requirements.txt
+          requirements: [binary-dist-requirements.txt]
       - custom:
-          command: [pyinstaller, bin/scap, scap/cli.py]
+          command: [./build_wheels.sh]
           requirements: [.]
-      - custom:
-          command: [du, -hs, build]
 
-  binary-dist:
+  binary-dist-bullseye-build:
+    includes: [base-bullseye]
+    builders:
+      - python:
+          requirements: [binary-dist-requirements.txt]
+      - custom:
+          command: [./build_wheels.sh]
+          requirements: [.]
+
+  binary-dist-buster:
     base: docker-registry.wikimedia.org/wikimedia-buster
-    apt:
-      packages:
-        - git
     copies:
-      - from: binary-dist-build
-        source: /srv/app/dist/scap
-        destination: /srv/app
-    entrypoint: [/srv/app/scap]
+      - from: binary-dist-buster-build
+        source: /srv/app/wheels
+        destination: /wheels
+
+  binary-dist-bullseye:
+    base: docker-registry.wikimedia.org/bullseye
+    copies:
+      - from: binary-dist-bullseye-build
+        source: /srv/app/wheels
+        destination: /wheels

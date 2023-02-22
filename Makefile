@@ -32,16 +32,11 @@ test-image-%:
 test-%: test-image-%
 	docker run -it --rm $(TEST_IMAGE)
 
-BINARY_DIST_IMAGE = local/scap
-
-binary-dist-image:
+binary-dist-image-%:
 	DOCKER_BUILDKIT=1 docker build \
 		-f .pipeline/blubber.yaml \
-		--target binary-dist \
-		-t $(BINARY_DIST_IMAGE) .
-
-smoketest-binary-dist-image: binary-dist-image
-	docker run --rm -it $(BINARY_DIST_IMAGE) version
+		--target binary-dist-$* \
+		-t local/scap-dist-$* .
 
 ########################
 # TARGETS
@@ -52,3 +47,6 @@ images: $(BLUBBER_VARIANTS:%=test-image-%)
 
 .PHONY: test
 test: $(BLUBBER_VARIANTS:%=test-%)
+
+.PHONY: dist-images
+dist-images: $(BLUBBER_VARIANTS:%=binary-dist-image-%)

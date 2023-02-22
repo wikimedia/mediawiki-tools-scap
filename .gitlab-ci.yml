@@ -26,13 +26,6 @@ test:
   variables:
     BUILD_VARIANT: test-$DISTRO
 
-test-dist:
-  stage: test
-  extends: .kokkuri:build-and-run-image
-  variables:
-    BUILD_VARIANT: binary-dist
-    RUN_ARGUMENTS: '["version"]'
-
 .docs-job:
   tags:
     - trusted
@@ -74,8 +67,14 @@ publish-docs:
 publish-dist:
   stage: publish-dist
   extends: .kokkuri:build-and-publish-image
+  parallel:
+    matrix:
+      - DISTRO: [ buster, bullseye ]
+      - IMAGE_TAG: [ $CI_COMMIT_TAG, 'latest' ]
   variables:
-    BUILD_VARIANT: binary-dist
+    BUILD_VARIANT: binary-dist-$DISTRO
+    PUBLISH_IMAGE_NAME: ${CI_PROJECT_PATH}-$DISTRO
+    PUBLISH_IMAGE_TAG: $IMAGE_TAG
   tags:
     - trusted
   rules:
