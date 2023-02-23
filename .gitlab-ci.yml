@@ -70,7 +70,7 @@ publish-dist:
   parallel:
     matrix:
       - DISTRO: [ buster, bullseye ]
-      - IMAGE_TAG: [ $CI_COMMIT_TAG, 'latest' ]
+        IMAGE_TAG: [ $CI_COMMIT_TAG, 'latest' ]
   variables:
     BUILD_VARIANT: binary-dist-$DISTRO
     PUBLISH_IMAGE_NAME: ${CI_PROJECT_PATH}-$DISTRO
