@@ -73,7 +73,7 @@ publish-dist:
         IMAGE_TAG: [ $CI_COMMIT_TAG, 'latest' ]
   variables:
     BUILD_VARIANT: binary-dist-$DISTRO
-    PUBLISH_IMAGE_NAME: ${CI_PROJECT_PATH}-$DISTRO
+    PUBLISH_IMAGE_NAME: ${CI_PROJECT_PATH}/$DISTRO
     PUBLISH_IMAGE_TAG: $IMAGE_TAG
   tags:
     - trusted
