@@ -1,31 +1,37 @@
 #!/bin/bash
 
-# This script can be used to create a local, self-contained, fresh installation of scap from a local
-# copy of the source code; or to update an already existing installation. It is meant for the
+# This script can be used to install Scap locally from Python wheels available via docker images. It is meant for the
 # following use cases:
 #    * Bootstrap/stage a scap installation on a deploy server
+#    * Install scap on a target host (wheels must be available locally on the target)
 #    * Allow a RelEng operator to create their own installation in their home
 #
-# The script can be used to install versions >=4.9.3 of scap
+# The script can be used to install versions >=4.42.0 of scap
 
 set -eu -o pipefail
+
+BASE_SCAP_IMAGE_REPO=docker-registry.wikimedia.org/repos/releng/scap
+# When changing the supported distros, also update the authoritative list in install_world.py
+SUPPORTED_DISTROS="buster bullseye"
 
 function usage {
   cat <<HERE
 
-   Usage: $0 [-u <USERNAME>] [-t <TAG>] <SCAP_SOURCE_DIR>
+   Usage: $0 [-u|--user <USERNAME>] [--on-deploy [-t|--tag <TAG>] [-d|--distros <D1,D2...>]]
 
-   Uses a scap git repository at <SCAP_SOURCE_DIR> to recreate a self-contained scap Python3
-   venv in the user's HOME at $HOME/scap. If <USERNAME> is not passed, the environment variable USER
-   is taken instead. An optional git <TAG> can be passed to specify the code revision to use when
-   creating the venv.
+   Uses Python wheels to install scap in a Python3 venv in the user's HOME at $HOME/scap. It has two modes of operation:
+     * Install target host (DEFAULT): Wheels for the host distro must be already available in the user's HOME
+     * Install deployment server:     Wheels will be downloaded prior to installation
 
-   Note the user running this script needs to have permissions:
-     * To read <SCAP_SOURCE_DIR>
-     * To sudo as <USERNAME> (unless the user is already <USERNAME>)
-     * If a tag is specified, permissions to write <SCAP_SOURCE_DIR> and to access the git remote
-     pointed to by <SCAP_SOURCE_DIR>
+   Optional arguments:
+     -u, --user <USERNAME>       The user to install Scap for. If not passed, the env var USER is taken instead
+     --on-deploy                 Signals this is a deployment host. Pull wheels from a distribution image before installing
+       -t, --tag <TAG>           Install wheels for <TAG>. Default is 'latest' (honored only if --on-deploy specified)
+       -d, --distros <D1,D2...>  Override supported distro codenames (honored only if --on-deploy specified)
 
+   Note the user running this script needs to have permissions to:
+     * sudo as <USERNAME> (unless the user is already <USERNAME>)
+     * Call the docker client
 HERE
 }
 
@@ -38,21 +44,63 @@ function fail {
   exit 1
 }
 
-function git_scap {
-  git -C "$SCAP_SOURCE_DIR" "$@"
+function verify_distro {
+  local DISTRO
+  DISTRO=$(lsb_release -cs)
+
+  if ! echo "$SUPPORTED_DISTROS" | grep -q "$DISTRO"; then
+    fail "System's distribution \"$DISTRO\" not supported by Scap"
+  fi
 }
 
 function parseArgs {
+  ON_DEPLOY_SERVER=
   INSTALL_USER=
-  TAG=
+  TAG=latest
 
-  while getopts 'u:t:' opt; do
+  for arg in "$@"; do
+    shift
+    case "$arg" in
+      --user)
+        set -- "$@" '-u'
+        ;;
+      --on-deploy)
+        ON_DEPLOY_SERVER=y
+        ;;
+      --tag)
+        set -- "$@" '-t'
+        ;;
+      --distros)
+        set -- "$@" '-d'
+        ;;
+      -h)
+        usage
+        exit 1
+        ;;
+      *)
+        set -- "$@" "$arg"
+        ;;
+    esac
+  done
+
+  while getopts 'u:t:d:' opt; do
     case "$opt" in
       u)
         INSTALL_USER=$OPTARG
         ;;
       t)
+        if [ "$ON_DEPLOY_SERVER" != y ]; then
+          usage
+          exit 1
+        fi
         TAG=$OPTARG
+        ;;
+      d)
+        if [ "$ON_DEPLOY_SERVER" != y ]; then
+          usage
+          exit 1
+        fi
+        SUPPORTED_DISTROS=${OPTARG//,/ }
         ;;
       *)
         usage
@@ -60,11 +108,6 @@ function parseArgs {
         ;;
     esac
   done
-  shift $((OPTIND - 1))
-
-  (($# < 1)) && usage && exit 1
-
-  SCAP_SOURCE_DIR=$1
 
   if [ -z "$INSTALL_USER" ]; then
     if [ -z "${USER:-}" ]; then
@@ -72,103 +115,119 @@ function parseArgs {
     fi
     INSTALL_USER=$USER
   fi
-}
 
-function verify_source_dir {
- if ! git_scap config remote.origin.url 2>/dev/null | grep -E -q 'mediawiki/tools/scap|repos/releng/scap'; then
-   fail "Specified source path \"$SCAP_SOURCE_DIR\" does not seem to be a scap repository"
- fi
+  if [ "$ON_DEPLOY_SERVER" != y ]; then
+    TAG=n
+  fi
 }
 
 function verify_user {
   if ! id "$INSTALL_USER" &>/dev/null; then
     fail "Unknown user \"$INSTALL_USER\""
   fi
-}
 
-function verify_tag {
-  if [ -n "$TAG" ]; then
-    git_scap fetch --prune
-    if ! git_scap rev-parse tags/"$TAG" &>/dev/null; then
-     fail "Specified tag \"$TAG\" is not recognized"
+  if [ "$INSTALL_USER" != "$(id -un)" ]; then
+    if ! sudo -n -u "$INSTALL_USER" id &>/dev/null; then
+      fail "Cannot sudo to user \"$INSTALL_USER\""
     fi
   fi
 }
 
-function verify_args {
-  verify_source_dir
-  verify_user
-  verify_tag
+function verify_local_wheels_available {
+  local DIST_DIR
+  DIST_DIR=$BASE_DIST_DIR/$(lsb_release -cs)
+
+  if [ ! -d "$DIST_DIR" ]; then
+    fail "Scap distribution dir \"$DIST_DIR\" is missing. Maybe this is a deploy server? Please check usage"
+  fi
 }
 
-function check_out_tag {
-  git_scap -c advice.detachedHead=false checkout "$TAG"
-  # The trap ensures the script restores the git repo to the original checkout it found before
-  # running. The call generates several lines of output, so we use the grep filter to trim it down
-  # to the most informative of those
-  trap "git_scap checkout - 2>&1 | grep -i switched" EXIT
-  log "Tag \"$TAG\" checked out"
+function get_scap_distribution {
+  local DISTRO=$1
+  local IMAGE=${BASE_SCAP_IMAGE_REPO}/$DISTRO:$TAG
+  local DIST_DIR=$BASE_DIST_DIR/$DISTRO
+
+  docker pull "$IMAGE" >/dev/null
+
+  if [ -d "$DIST_DIR" ]; then
+    $AS_USER rm -rf "$DIST_DIR"
+  fi
+  $AS_USER mkdir -p "$DIST_DIR"
+
+  local CONT_ID
+  CONT_ID=$(docker create "$IMAGE")
+  trap 'docker rm "$CONT_ID" >/dev/null' EXIT
+
+  local TEMP_WHEELS
+  TEMP_WHEELS=$(mktemp --tmpdir -d scap-wheels.XXX)
+  chmod 'go=rx' "$TEMP_WHEELS"
+  # Target user may not have permissions to run docker
+  docker cp "$CONT_ID":/wheels "$TEMP_WHEELS"
+  $AS_USER cp -r "$TEMP_WHEELS"/wheels/* "$DIST_DIR"
+
+  rm -rf "$TEMP_WHEELS"
+  docker rm "$CONT_ID" >/dev/null
+  trap - EXIT
+
+  log "Scap distribution successfully extracted at $DIST_DIR"
 }
 
-function create_scap_venv_for_user {
-  local USER_HOME
-  USER_HOME=$(eval echo "~$INSTALL_USER")
+function install_scap_venv_for_user {
+  local DISTRO
+  DISTRO=$(lsb_release -cs)
+  local DIST_DIR=$BASE_DIST_DIR/$DISTRO
+  local SCAP_VENV_DIR=${USER_HOME}/scap
+  local OLD_SCAP_VENV_DIR=
 
-  # Directory to hold a copy of the previous version while we create a new
-  # virtual environment with the version to be deployed.
-  local OLD_VENV_DIR
-  # Virtualenv directory for the scap deployment
-  local VENV_DIR=${USER_HOME}/scap
-  local AS_USER=
-  local http_proxy=
-  local https_proxy=
-
-  if dnsdomainname | grep -q wmnet; then
-    local SUBDOMAIN
-    SUBDOMAIN=$(dnsdomainname | cut -d. -f1)
-    export http_proxy="http://webproxy.${SUBDOMAIN}.wmnet:8080"
-    export https_proxy=$http_proxy
+  if [ -d "$SCAP_VENV_DIR" ]; then
+    OLD_SCAP_VENV_DIR=$($AS_USER mktemp --tmpdir -d scap.XXX)
+    $AS_USER mv "$SCAP_VENV_DIR" "$OLD_SCAP_VENV_DIR"
+    trap '$AS_USER mv "$OLD_SCAP_VENV_DIR"/scap "$SCAP_VENV_DIR"; $AS_USER rmdir "$OLD_SCAP_VENV_DIR";'\
+'echo -e "\nInstallation canceled. Restoring previous Scap version"' EXIT
   fi
 
-  if [ ! "$INSTALL_USER" = "$(id -un)" ]; then
-    if sudo -n -u "$INSTALL_USER" id &>/dev/null; then
-      AS_USER="sudo -su $INSTALL_USER --preserve-env=http_proxy,https_proxy"
-    else
-      fail "Could not sudo to user \"$INSTALL_USER\""
-    fi
+  $AS_USER python3 -m venv "$SCAP_VENV_DIR"
+  $AS_USER "$SCAP_VENV_DIR"/bin/pip install --no-deps "$DIST_DIR"/*.whl
+
+  # At this point installation has succeeded and we don't need to restore the old env anymore
+  trap - EXIT
+  if [ -d "$OLD_SCAP_VENV_DIR" ]; then
+    $AS_USER rm -rf "$OLD_SCAP_VENV_DIR"
   fi
 
-  OLD_VENV_DIR=$($AS_USER mktemp -d "${USER_HOME}/.scap-venv.XXXXXX")
-
-  # Signal we will want to restore the old venv in case of installation failure
-  if [ -e "$VENV_DIR" ]; then
-    $AS_USER mv "$VENV_DIR" "$OLD_VENV_DIR"
-    trap '$AS_USER rm -fR "$VENV_DIR"; [ -e "$OLD_VENV_DIR" ] && $AS_USER mv "$OLD_VENV_DIR" "$VENV_DIR"' ERR
-  fi
-
-  $AS_USER python3 -m venv --clear "$VENV_DIR"
-  $AS_USER "${VENV_DIR}"/bin/pip3 install wheel==0.37.1
-  # --no-deps prevents pip from processing any requirements in SCAP_SOURCE_DIR
-  # in conjunction with -r requirements.txt, none of the requirements transitive
-  # dependencies will be installed
-  $AS_USER "${VENV_DIR}"/bin/pip3 install --no-deps -r "$SCAP_SOURCE_DIR/requirements.txt" "$SCAP_SOURCE_DIR"
-
-  # Since we have successfully installed we no more need to restore the old env
-  trap - ERR
-  $AS_USER rm -fR "$OLD_VENV_DIR"
-
-  if [ -n "$TAG" ]; then
-    log "Scap \"$TAG\" successfully installed at \"$VENV_DIR\""
+  echo
+  if [ "$TAG" = n ]; then
+    log "Scap from local $DISTRO wheels successfully installed at $SCAP_VENV_DIR"
+  elif [ "$TAG" = latest ]; then
+    log "Latest Scap for $DISTRO successfully installed at $SCAP_VENV_DIR"
   else
-    log "Scap successfully installed at \"$VENV_DIR\""
+    log "Scap \"$TAG\" for $DISTRO successfully installed at $SCAP_VENV_DIR"
   fi
 }
 
 function install_scap {
-  [ -n "$TAG" ] && check_out_tag
-  create_scap_venv_for_user
+  AS_USER=
+  if [ "$INSTALL_USER" != "$(id -un)" ]; then
+    AS_USER="sudo -su $INSTALL_USER"
+  fi
+
+  if [ "$ON_DEPLOY_SERVER" = y ]; then
+    for DISTRO in $SUPPORTED_DISTROS; do
+      get_scap_distribution "$DISTRO"
+    done
+  fi
+
+  install_scap_venv_for_user
 }
 
 parseArgs "$@"
-verify_args
+verify_distro
+verify_user
+
+USER_HOME=$(eval echo "~$INSTALL_USER")
+BASE_DIST_DIR=$USER_HOME/scap-wheels
+if [ "$ON_DEPLOY_SERVER" != y ]; then
+  BASE_DIST_DIR=$USER_HOME
+  verify_local_wheels_available
+fi
 install_scap

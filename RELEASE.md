@@ -26,7 +26,7 @@ That's it!
 `scap install-world`. This will select the latest available version tag for installation and
 prompt you for confirmation.
 * If you need to roll back, you can specify a particular version tag with e.g.
-`scap install-world --version 4.9.3`
+`scap install-world --version 4.42.0`
 
 ## Beta Release
 
