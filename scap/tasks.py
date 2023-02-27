@@ -31,6 +31,7 @@ import os
 import pwd
 import socket
 import subprocess
+import sys
 import time
 import tempfile
 
@@ -393,14 +394,21 @@ def sync_common(
     :param sync_from: List of rsync servers to fetch from.
     """
 
-    if not os.path.isdir(cfg["deploy_dir"]):
-        raise IOError(
+    deploy_dir = cfg["deploy_dir"]
+
+    if not os.path.isdir(deploy_dir):
+        raise SystemExit(
             (
                 "rsync target directory %s not found. Ask root to create it "
                 "(should belong to mwdeploy:mwdeploy)."
             )
-            % cfg["deploy_dir"]
+            % deploy_dir
         )
+
+    # T329857
+    if os.path.islink(deploy_dir):
+        logger.warning(f"{deploy_dir} is a symlink to {os.readlink(deploy_dir)}.  Not pulling.")
+        sys.exit(0)
 
     server = None
     if sync_from:
@@ -438,9 +446,9 @@ def sync_common(
         rsync += rsync_args
 
     rsync.append("%s::common" % server)
-    rsync.append(cfg["deploy_dir"])
+    rsync.append(deploy_dir)
 
-    logger.info("Copying from %s:/srv/mediawiki-staging to %s:%s", server, socket.getfqdn(), cfg["deploy_dir"])
+    logger.info("Copying from %s:/srv/mediawiki-staging to %s:%s", server, socket.getfqdn(), deploy_dir)
     logger.debug("Running rsync command: `%s`", " ".join(rsync))
     stats = log.Stats(cfg["statsd_host"], int(cfg["statsd_port"]))
     with log.Timer("rsync common", stats):
@@ -449,7 +457,7 @@ def sync_common(
     # Bug 58618: Invalidate local configuration cache by updating the
     # timestamp of wmf-config/InitialiseSettings.php
     settings_path = os.path.join(
-        cfg["deploy_dir"], "wmf-config", "InitialiseSettings.php"
+        deploy_dir, "wmf-config", "InitialiseSettings.php"
     )
     logger.debug("Touching %s", settings_path)
     subprocess.check_call(
