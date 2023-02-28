@@ -1,3 +1,10 @@
+scap (4.43.0)
+
+  * Check for PHP notices during mwscript mergeMessageFileList.php
+  * Make scap pull exit if /srv/mediawiki is a symlink
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Tue, 28 Feb 2023 11:45:48 -0800
+
 scap (4.42.0)
 
   * self-installer: overhaul installation mechanism
