@@ -29,6 +29,7 @@ import logging
 import multiprocessing
 import os
 import pwd
+import re
 import socket
 import subprocess
 import sys
@@ -712,16 +713,20 @@ def update_localization_cache(version, app, logger=None):
         # fall back to the old location in wmf-config
         ext_list = "%s/wmf-config/extension-list" % cfg["stage_dir"]
 
-    utils.sudo_check_call(
-        "www-data",
-        "/usr/local/bin/mwscript mergeMessageFileList.php "
-        '--wiki=aawiki --force-version "%s" --list-file="%s" '
-        '--output="%s"' % (version, ext_list, new_extension_messages),
-    )
-
+    merge_message_file_list_command = ("/usr/local/bin/mwscript mergeMessageFileList.php "
+                                       '--wiki=aawiki --force-version "%s" --list-file="%s" '
+                                       '--output="%s"' % (version, ext_list, new_extension_messages))
+    diags = utils.sudo_check_call("www-data", merge_message_file_list_command)
     utils.sudo_check_call("www-data", 'chmod 0664 "%s"' % new_extension_messages)
 
     try:
+        # Check for PHP notices/warnings in mergeMessageFileList.php output.
+        if re.search(r"PHP (Notice|Warning)", diags):
+            raise SystemExit(f"""
+{merge_message_file_list_command} generated PHP notices/warnings:
+{diags}
+""")
+
         with open(new_extension_messages) as f:
             utils.write_file_if_needed(extension_messages, f.read())
     finally:

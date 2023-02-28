@@ -483,6 +483,8 @@ def sudo_check_call(user, cmd, logger=None, logLevel=logging.DEBUG, app=None):
 
     Reports stdout/stderr of process to logger during execution.
 
+    Returns a string containing stdout/stderr output from the subprocess.
+
     :param user: User to run command as
     :param cmd: Command to execute
     :param logger: Logger to send process output to
@@ -520,9 +522,14 @@ def sudo_check_call(user, cmd, logger=None, logLevel=logging.DEBUG, app=None):
     # stdout has been read entirely by this point.
     proc.wait()
 
+    # Change fullOut from a list of strings to one big string.
+    fullOut = "\n".join(fullOut)
+
     if proc.returncode:
-        logger.error("Last output:\n" + "\n".join(fullOut))
+        logger.error("Last output:\n%s", fullOut)
         raise subprocess.CalledProcessError(proc.returncode, cmd)
+
+    return fullOut
 
 
 def check_file_exists(path, message=False):
