@@ -220,6 +220,43 @@ def test_limit_target_hosts():
         _gth("test[z:a]")
 
 
+target_exclusion = [
+    (".*", []),
+    ("test.*", []),
+    ("test", []),
+    ("atest.*", _HOSTS),
+    ("atest", _HOSTS),
+    ("test01.eqiad.wmnet",
+     [
+         "test01",
+         "test02",
+         "test03",
+         "test02.eqiad.wmnet",
+         "test01.staging.eqiad.wmflabs",
+         "test02.staging.eqiad.wmflabs",
+     ]),
+    (".*staging",
+     [
+         "test01",
+         "test02",
+         "test03",
+         "test01.eqiad.wmnet",
+         "test02.eqiad.wmnet",
+     ]),
+    (".*(01|03)",
+     [
+         "test02",
+         "test02.eqiad.wmnet",
+         "test02.staging.eqiad.wmflabs",
+     ]),
+]
+
+
+@pytest.mark.parametrize("regex,hosts", target_exclusion)
+def test_exclude_target_hosts(regex, hosts):
+    assert set(targets.exclude_target_hosts(regex, _HOSTS)) == set(hosts)
+
+
 def test_get_deploy_groups__excludes_empty_groups():
     dsh_file = "empty-targets"
     dsh_path = os.path.join(os.path.dirname(__file__), "targets-test")

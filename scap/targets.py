@@ -28,7 +28,7 @@ import string
 import scap.utils as utils
 
 
-def get(key, cfg, limit_hosts=None, extra_paths=None):
+def get(key, cfg, limit_hosts=None, extra_paths=None, exclude_hosts=None):
     """
     Factory function to get a TargetList object to fetch a list of targets.
 
@@ -40,8 +40,10 @@ def get(key, cfg, limit_hosts=None, extra_paths=None):
     :param limit_hosts: str A pattern to limit host names by. See
         limit_target_hosts for further information on the format
     :param extra_paths: list of extra paths to search for list files in
+    :param exclude_hosts: str A regex of hosts to exclude by name. Takes
+        precedence over limit_hosts
     """
-    return DshTargetList(key, cfg, limit_hosts, extra_paths)
+    return DshTargetList(key, cfg, limit_hosts, extra_paths, exclude_hosts)
 
 
 def limit_target_hosts(pattern, hosts):
@@ -120,10 +122,16 @@ def limit_target_hosts(pattern, hosts):
     return targets
 
 
+def exclude_target_hosts(regex, hosts):
+    regex = re.compile(regex)
+    excluded = [host for host in hosts if regex.match(host)]
+    return list(set(hosts) - set(excluded))
+
+
 class TargetList(object):
     """An abstract list of targets (lists of hosts)."""
 
-    def __init__(self, key, cfg, limit_hosts=None, extra_paths=None):
+    def __init__(self, key, cfg, limit_hosts=None, extra_paths=None, exclude_hosts=None):
         """
         Constructor for target lists.
 
@@ -133,12 +141,15 @@ class TargetList(object):
         :param limit_hosts: str A pattern to limit host names by. See
             limit_target_hosts for further information on the format
         :param extra_paths: list of extra paths to search for list files in
+        :param exclude_hosts: str A regex of hosts to exclude by name. Takes
+            precedence over limit_hosts
         """
         self.primary_key = key
         self.config = cfg
         self.limit_hosts = limit_hosts
         self.extra_paths = extra_paths
         self.deploy_groups = {}
+        self.exclude_hosts = exclude_hosts
 
     def _get_failure_limit(self, group):
         key = "{}_failure_limit".format(group)
@@ -199,6 +210,8 @@ class TargetList(object):
 
             if self.limit_hosts is not None:
                 targets = limit_target_hosts(self.limit_hosts, targets)
+            if self.exclude_hosts is not None:
+                targets = exclude_target_hosts(self.exclude_hosts, targets)
 
             targets = list(set(targets) - set(all_hosts))
 
