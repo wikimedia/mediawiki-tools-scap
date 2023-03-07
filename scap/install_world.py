@@ -78,6 +78,10 @@ class InstallWorld(cli.Application):
              " prefix",
     )
     @cli.argument(
+        "-x", "--exclude-hosts",
+        help="Exclude hosts matching regex. The hosts are removed after --limit-hosts is applied",
+    )
+    @cli.argument(
         "-y", "--yes",
         action="store_true",
         help="Answer yes to all prompts"
@@ -137,7 +141,12 @@ class InstallWorld(cli.Application):
             utils.abort(f"SSH key {self.install_user_ssh_key} does not exist")
 
     def _select_targets(self):
-        selected_targets = targets.get("scap_targets", self.config, self.arguments.limit_hosts).all
+        selected_targets = targets.get(
+            "scap_targets",
+            self.config,
+            self.arguments.limit_hosts,
+            exclude_hosts=self.arguments.exclude_hosts
+        ).all
         self.targets = [target for target in selected_targets if target not in self.masters]
 
         if not self.targets:
