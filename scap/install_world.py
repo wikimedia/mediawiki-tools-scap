@@ -168,7 +168,7 @@ class InstallWorld(cli.Application):
             if not matches:
                 if self.arguments.batch:
                     self._abort(f"""Scap wheels for distro "{distro}" missing in staging area. Cannot proceed in"""
-                                "batch mode")
+                                " batch mode")
                 else:
                     self.logger.warn(f"""Scap wheels for distro "{distro}" missing in staging area. Falling back to"""
                                      " regular update")
