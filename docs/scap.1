@@ -220,57 +220,6 @@ global arguments:
 .UNINDENT
 .UNINDENT
 .UNINDENT
-.SH SCAP SYNC-L10N
-.sp
-\fBscap sync\-l10n\fP synchronizes the localization files for a given
-MediaWiki version to the cluster and rebuilds the associated cache files.
-.INDENT 0.0
-.INDENT 3.5
-.sp
-.nf
-.ft C
-usage: scap sync\-l10n [\-h] [\-c CONF_FILE] [\-\-no\-shared\-authsock]
-                      [\-D <name>:<value>] [\-V] [\-v]
-                      [\-\-environment ENVIRONMENT] [\-\-force]
-                      version [message [message ...]]
-
-Sync l10n files for a given branch and rebuild cache files.
-
-positional arguments:
-  version               MediaWiki version (eg 1.27.0\-wmf.7)
-  message               Log message for SAL
-
-optional arguments:
-  \-h, \-\-help            show this help message and exit
-  \-\-force               Skip canary checks
-
-global arguments:
-  Although these arguments can be passed to all scap (sub\-)commands, not all
-  commands are affected by every global argument.
-
-  \-c CONF_FILE, \-\-conf CONF_FILE
-                        Path to configuration file
-  \-\-no\-shared\-authsock  Ignore any shared ssh\-auth configuration
-  \-D <name>:<value>, \-\-define <name>:<value>
-                        Set a configuration value
-  \-V                    Print scap version.
-  \-v, \-\-verbose         Verbose output
-  \-\-environment ENVIRONMENT
-                        environment in which to execute scap
-.ft P
-.fi
-.UNINDENT
-.UNINDENT
-.sp
-\fBSEE ALSO:\fP
-.INDENT 0.0
-.INDENT 3.5
-.INDENT 0.0
-.IP \(bu 2
-\fBscap.SyncL10n()\fP
-.UNINDENT
-.UNINDENT
-.UNINDENT
 .SH SCAP SYNC-WIKIVERSIONS
 .sp
 \fBscap sync\-wikiversions\fP compiles wikiversions.json into a CDB database and then

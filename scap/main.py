@@ -661,18 +661,10 @@ class RebuildCdbs(cli.Application):
         dest="mute",
         help="Do not show progress indicator.",
     )
-    @cli.argument(
-        "--staging", action="store_true", help="Rebuild cdb files in staging directory"
-    )
     def main(self, *extra_args):
         user = "mwdeploy"
         source_tree = "deploy"
         root_dir = self.config["deploy_dir"]
-
-        if self.arguments.staging:
-            user = "l10nupdate"
-            source_tree = "stage"
-            root_dir = self.config["stage_dir"]
 
         self._run_as(user)
         self._assert_current_user(user)
@@ -1033,77 +1025,6 @@ class SyncFile(AbstractSync):
             utils.human_duration(self.get_duration()),
         )
         self.increment_stat("sync-file")
-
-
-@cli.command("sync-l10n")
-class SyncL10n(AbstractSync):
-    """Sync l10n files for a given branch and rebuild cache files."""
-
-    @cli.argument("--force", action="store_true", help="Skip canary checks")
-    @cli.argument(
-        "version", type=arg.is_version, help="MediaWiki version (eg 1.27.0-wmf.7)"
-    )
-    @cli.argument("message", nargs="*", help="Log message for SAL")
-    def main(self, *extra_args):
-        self.arguments.stop_before_sync = False
-        return super().main(*extra_args)
-
-    def _before_cluster_sync(self):
-        if self.arguments.version.startswith("php-"):
-            self.arguments.version = self.arguments.version[4:]
-
-        # Assert version is active
-        if self.arguments.version not in self.active_wikiversions("stage"):
-            raise IOError(errno.ENOENT, "Version not active", self.arguments.version)
-
-        # Assert l10n cache dir for version exists
-        abspath = os.path.join(
-            self.config["stage_dir"], "php-%s/cache/l10n" % self.arguments.version
-        )
-        if not os.path.isdir(abspath):
-            raise IOError(errno.ENOENT, "Directory not found", abspath)
-
-        relpath = os.path.relpath(abspath, self.config["stage_dir"])
-        include = "%s/***" % relpath
-
-        parts = include.split("/")
-        for i in range(1, len(parts)):
-            # Include parent directories in sync command or the default
-            # exclude will block them and by extension block the target
-            # file.
-            self.includes.append("/".join(parts[:i]))
-        self.includes.append(include)
-
-    def _after_cluster_sync(self):
-        # Rebuild l10n CDB files
-        target_hosts = self._get_target_list()
-        with log.Timer("scap-cdb-rebuild", self.get_stats()):
-            rebuild_cdbs = ssh.Job(
-                target_hosts, user=self.config["ssh_user"], key=self.get_keyholder_key()
-            )
-            rebuild_cdbs.shuffle()
-            cdb_cmd = "sudo -u mwdeploy -n -- {} cdb-rebuild --version {}"
-            cdb_cmd = cdb_cmd.format(self.get_script_path(remote=True), self.arguments.version)
-            rebuild_cdbs.command(cdb_cmd)
-            rebuild_cdbs.progress(
-                log.reporter("scap-cdb-rebuild", self.config["fancy_progress"])
-            )
-            succeeded, failed = rebuild_cdbs.run()
-            if failed:
-                self.get_logger().warning(
-                    "%d hosts had scap-cdb-rebuild errors", failed
-                )
-                self.soft_errors = True
-        self._restart_php()
-        tasks.clear_message_blobs(self.config)
-
-    def _after_lock_release(self):
-        self.announce(
-            "scap sync-l10n completed (%s) (duration: %s)",
-            self.arguments.version,
-            utils.human_duration(self.get_duration()),
-        )
-        self.increment_stat("l10nupdate-sync")
 
 
 @cli.command("sync-wikiversions")

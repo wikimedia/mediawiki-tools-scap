@@ -59,7 +59,6 @@ then I can run scap security-check --help
 then I can run scap sync-world --help
 then I can run scap sync-dir --help
 then I can run scap sync-file --help
-then I can run scap sync-l10n --help
 then I can run scap sync-wikiversions --help
 then I can run scap sync-world --help
 then I can run scap test-progress --help

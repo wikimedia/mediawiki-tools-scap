@@ -43,15 +43,6 @@ directory to the cluster.
    * :func:`scap.SyncFile`
 
 
-scap sync-l10n
---------------
-:command:`scap sync-l10n` synchronizes the localization files for a given
-MediaWiki version to the cluster and rebuilds the associated cache files.
-
-.. program-output:: python3 ../bin/scap sync-l10n --help
-.. seealso::
-   * :func:`scap.SyncL10n`
-
 scap sync-wikiversions
 ----------------------
 :command:`scap sync-wikiversions` compiles wikiversions.json into a CDB database and then

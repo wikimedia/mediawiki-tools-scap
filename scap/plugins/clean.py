@@ -73,12 +73,11 @@ class Clean(main.AbstractSync):
         """
         Given a branch, go through the cleanup process on the master.
 
-        (1) Remove l10nupdate cache
-        (2) Remove files owned by l10nupdate and www-data
-        (3) Remove <staging>/wmf-config/ExtensionMessages-<branch>.php file
-        (4) Prune git branches [if --delete-gerrit-branch is supplied]
-        (5) Remove all branch files
-        (6) Remove security patches
+        (1) Remove files owned by www-data
+        (2) Remove <staging>/wmf-config/ExtensionMessages-<branch>.php file
+        (3) Prune git branches [if --delete-gerrit-branch is supplied]
+        (4) Remove all branch files
+        (5) Remove security patches
         """
         branch_dir = os.path.join(
             self.config["stage_dir"], "php-%s" % branch
@@ -89,13 +88,8 @@ class Clean(main.AbstractSync):
                 'Branch "%s" is still in use, aborting' % branch
             )
 
-        with log.Timer("clean-l10nupdate-cache", self.get_stats()):
-            utils.sudo_check_call(
-                "www-data", "rm -fR /var/lib/l10nupdate/caches/cache-%s" % branch
-            )
-
         if os.path.exists(branch_dir):
-            for user in ["l10nupdate", "www-data"]:
+            for user in ["www-data"]:
                 with log.Timer("clean-{}-owned-files".format(user), self.get_stats()):
                     utils.sudo_check_call(
                         user, "find %s -user %s -delete" % (branch_dir, user)

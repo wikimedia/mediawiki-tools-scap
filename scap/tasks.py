@@ -587,23 +587,6 @@ def _call_rebuildLocalisationCache(
         # lang will remain None if SCAP_MW_LANG is not defined.
         lang = os.getenv("SCAP_MW_LANG")
 
-    # Deal with legacy setup where cache/l10n dir and files are
-    # owned by l10nupdate.  This block of code can be removed once
-    # a few trains have completed using the new code.
-    if os.path.exists(out_dir):
-        www_data_uid = pwd.getpwnam("www-data").pw_uid
-        l10nupdate_uid = pwd.getpwnam("l10nupdate").pw_uid
-
-        cache_dir_owner = os.stat(out_dir).st_uid
-
-        if cache_dir_owner == www_data_uid:
-            pass
-        elif cache_dir_owner == l10nupdate_uid:
-            logging.warn("Blasting legacy L10N cache {} owned by l10nupdate".format(out_dir))
-            utils.sudo_check_call("l10nupdate", "rm -fr {}".format(out_dir))
-        else:
-            raise RuntimeError("{} is owned by unexpected uid {}".format(out_dir, cache_dir_owner))
-
     def _rebuild(store_class, file_extension):
 
         logging.info("Running rebuildLocalisationCache.php as www-data")
