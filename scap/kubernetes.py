@@ -169,6 +169,7 @@ class K8sOps:
             self._verify_deployment_prereqs()
 
         self.build_logfile = os.path.join(pathlib.Path.home(), "scap-image-build-and-push-log")
+        self.helm_env = self._collect_helm_env()
 
     def build_k8s_images(self):
         if not self.app.config["build_mw_container_image"]:
@@ -509,7 +510,17 @@ class K8sOps:
             ),
         }
 
-    def _cmd_stdout(self, cmd, dir, logger):
+    def _helm_augmented_environment(self, env: dict) -> dict:
+        """
+        Returns a new dictionary that is a copy of the current environment, with
+        HELM_* variables set, plus any additional variables from 'env'.
+        """
+        res = os.environ.copy()
+        res.update(self.helm_env)
+        res.update(env)
+        return res
+
+    def _cmd_stdout(self, cmd, dir, logger, env={}):
         """
         Runs cmd in a subprocess.  The process has a zero exit
         status, return its stdout as a string.  Otherwise
@@ -522,7 +533,8 @@ class K8sOps:
         logger.debug("Running {} in {}".format(cmd, dir))
         proc = subprocess.Popen(cmd, cwd=dir, text=True,
                                 stdout=subprocess.PIPE,
-                                stderr=subprocess.PIPE)
+                                stderr=subprocess.PIPE,
+                                env=self._helm_augmented_environment(env))
         stdout, stderr = proc.communicate()
         logger.debug("stdout: %s", stdout)
         logger.debug("stderr: %s", stderr)
@@ -537,12 +549,13 @@ class K8sOps:
 
         return None
 
-    def _run_timed_cmd_quietly(self, cmd, dir, logger):
+    def _run_timed_cmd_quietly(self, cmd, dir, logger, env={}):
+        env = self._helm_augmented_environment(env)
+        env['SUPPRESS_SAL'] = 'true'
+
         with log.Timer("Running {} in {}".format(" ".join(cmd), dir), self.app.get_stats()):
             with tempfile.NamedTemporaryFile() as logstream:
                 with utils.suppress_backtrace():
-                    env = os.environ.copy()
-                    env['SUPPRESS_SAL'] = 'true'
                     self._run_cmd(
                         cmd,
                         dir, logstream.name,
@@ -589,3 +602,30 @@ class K8sOps:
         for i in range(num_segments):
             logger.log(log_level, "[{}/{}] {}".format(i+1, num_segments, message[:MAX_MESSAGE_SIZE]))
             message = message[MAX_MESSAGE_SIZE:]
+
+    # T331479
+    def _collect_helm_env(self) -> dict:
+        env = dict()
+
+        filename = "/etc/profile.d/kube-env.sh"
+        if not os.path.exists(filename):
+            return env
+
+        vars = ["HELM_HOME", "HELM_CONFIG_HOME", "HELM_DATA_HOME", "HELM_CACHE_HOME"]
+
+        cmd = f"source {filename}"
+
+        for var in vars:
+            cmd += f" && echo {var}=${var}"
+
+        cmd = ["bash", "-c", cmd]
+        output = subprocess.check_output(cmd, text=True)
+
+        for line in output.splitlines():
+            m = re.match(r"([^=]+)=(.*)$", line)
+            if not m:
+                raise RuntimeError(f"Unexpected output from {cmd}:\n{output}")
+
+            env[m[1]] = m[2]
+
+        return env
