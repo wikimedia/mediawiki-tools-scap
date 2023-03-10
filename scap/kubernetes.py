@@ -258,10 +258,6 @@ class K8sOps:
         # Using BaseException so that we catch KeyboardInterrupt too
         except BaseException as e:
             self.app.soft_errors = True
-
-            # FIXME: Interruptions during helmfile apply will need to use something like
-            # helm3 --kubeconfig /etc/kubernetes/mwdebug-deploy-eqiad.config rollback pinkunicorn --namespace mwdebug
-            # to avoid leaving things in a broken state.
             self.logger.error("K8s deployment to stage %s failed: %s", stage, e)
 
             if saved_values:
