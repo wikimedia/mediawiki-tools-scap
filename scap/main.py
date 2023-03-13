@@ -240,10 +240,17 @@ class AbstractSync(cli.Application):
 
     def _get_target_list(self):
         """Get list of hostnames that should be updated from the proxies."""
-        return list(
-            set(self._get_proxy_list())
-            | set(targets.get("dsh_targets", self.config).all)
-        )
+
+        res = set(self._get_proxy_list()) | set(targets.get("dsh_targets", self.config).all)
+
+        # T329857
+        if os.path.islink(self.config["deploy_dir"]):
+            # If deploy_dir (i.e., /srv/mediawiki) is a symlink, assume we're
+            # operating under T329857 conditions and don't include deploy servers
+            # in the target list.
+            res -= set(self.get_master_list())
+
+        return list(res)
 
     def _get_testserver_list(self):
         """ Get list of Mediawiki testservers."""
