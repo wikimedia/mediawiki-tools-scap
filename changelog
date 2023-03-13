@@ -1,3 +1,11 @@
+scap (4.46.0)
+
+  * Exclude deploy servers from target list if /srv/mediawiki is a symlink
+  * kubernetes.py: Extract HELM_* env vars from /etc/profile.d/kube-env.sh if available
+  * Remove an obsolete comment
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Mon, 13 Mar 2023 10:00:40 -0700
+
 scap (4.45.0)
 
   * Remove l10nupdate support
