@@ -167,20 +167,31 @@ class ChecksExecuteTest(unittest.TestCase):
             for i in range(4)
         ]
 
-        result, done = checks.execute(chks, logger=self.logger, concurrency=3)
+        success, done = checks.execute(chks, logger=self.logger, concurrency=3)
 
         assert len(done) == 4
-        assert result
+        assert success
 
-        assert (done[1].started - done[0].started) < 0.1
-        assert (done[2].started - done[0].started) < 0.1
-        assert (done[3].started - done[0].started) > 0.1
+        # We expect a burst of 3 jobs to be created, then one more
+        # after one of the first group finishes.
+        first_finished = done[0]
+
+        # There should be exactly one job that started after first_finished finished.
+        laters = [job for job in done if job.started > first_finished.ended]
+        assert len(laters) == 1
+
+        later = laters[0]
+
+        # All other jobs should have been created before the 'later' one started.
+        for job in done:
+            if job is not later:
+                assert job.started < later.started
 
     def test_execute_timeout(self):
-        chks = [checks.Check("foo", stage="x", command="sleep 0.1", timeout=0.01)]
+        chks = [checks.Check("foo", stage="x", command="sleep 30", timeout=0.01)]
 
-        result, done = checks.execute(chks, logger=self.logger)
+        success, done = checks.execute(chks, logger=self.logger)
 
         assert not done
-        assert not result
+        assert not success
         self.assert_logged("Check 'foo' exceeded 0.01s timeout")
