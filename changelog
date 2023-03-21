@@ -1,3 +1,11 @@
+scap (4.47.0)
+
+  * rework K8s deployment workflow
+  * Fix load-sensitive tests
+  * .gitlab-ci.yml: reduce number of pipelines when publishing scap images
+
+ -- jnuche <jnuche@wikimedia.org>  Tue, 21 Mar 2023 10:52:27 +0100
+
 scap (4.46.0)
 
   * Exclude deploy servers from target list if /srv/mediawiki is a symlink
