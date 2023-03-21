@@ -648,10 +648,6 @@ class Backport(cli.Application):
                 self.prompt_for_approval_or_exit('There were unexpected commits pulled from origin for %s. '
                                                  'Continue with backport?' % repo, "Backport cancelled.")
 
-            self.get_logger().info('Printing git status for %s for your reference...' % repo)
-            with utils.suppress_backtrace():
-                subprocess.check_call(["git", "-C", repo, "status"])
-
     def _get_file_list(self, details):
         """
         Returns the list of files modified by the change associated with 'details'.
