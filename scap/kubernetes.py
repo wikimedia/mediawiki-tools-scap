@@ -176,34 +176,34 @@ class K8sOps:
         def build_and_push_images():
             with log.Timer("build-and-push-container-images", self.app.get_stats()):
                 make_container_image_dir = os.path.join(release_repo_dir, "make-container-image")
-            registry = self.app.config["docker_registry"]
+                registry = self.app.config["docker_registry"]
 
-            dev_ca_crt = ""
-            if self.app.config["mediawiki_image_extra_ca_cert"]:
-                with open(self.app.config["mediawiki_image_extra_ca_cert"], "rb") as f:
-                    dev_ca_crt = base64.b64encode(f.read()).decode("utf-8")
+                dev_ca_crt = ""
+                if self.app.config["mediawiki_image_extra_ca_cert"]:
+                    with open(self.app.config["mediawiki_image_extra_ca_cert"], "rb") as f:
+                        dev_ca_crt = base64.b64encode(f.read()).decode("utf-8")
 
-            make_parameters = {
-                "GIT_BASE": self.app.config["gerrit_url"],
-                "MW_CONFIG_BRANCH": self.app.config["operations_mediawiki_config_branch"],
-                "workdir_volume": self.app.config["stage_dir"],
-                "mv_image_name": "{}/{}".format(registry, self.app.config["mediawiki_image_name"]),
-                "mv_debug_image_name": "{}/{}".format(registry, self.app.config["mediawiki_debug_image_name"]),
-                "webserver_image_name": "{}/{}".format(registry, self.app.config["webserver_image_name"]),
-                "MV_BASE_PACKAGES": self.app.config["mediawiki_image_extra_packages"],
-                "MV_EXTRA_CA_CERT": dev_ca_crt,
-                "FORCE_FULL_BUILD": "true" if self.app.config["full_image_build"] else "false",
-            }
-            with utils.suppress_backtrace():
-                cmd = "{} {}".format(
-                    self.app.config["release_repo_build_and_push_images_cmd"],
-                    " ".join([shlex.quote("=".join(pair)) for pair in make_parameters.items()])
-                )
-                self.logger.info("K8s images build/push output redirected to {}".format(self.build_logfile))
-                self._run_cmd(cmd, make_container_image_dir,
-                              self.build_logfile,
-                              logging.getLogger("scap.k8s.build"),
-                              shell=True)
+                make_parameters = {
+                    "GIT_BASE": self.app.config["gerrit_url"],
+                    "MW_CONFIG_BRANCH": self.app.config["operations_mediawiki_config_branch"],
+                    "workdir_volume": self.app.config["stage_dir"],
+                    "mv_image_name": "{}/{}".format(registry, self.app.config["mediawiki_image_name"]),
+                    "mv_debug_image_name": "{}/{}".format(registry, self.app.config["mediawiki_debug_image_name"]),
+                    "webserver_image_name": "{}/{}".format(registry, self.app.config["webserver_image_name"]),
+                    "MV_BASE_PACKAGES": self.app.config["mediawiki_image_extra_packages"],
+                    "MV_EXTRA_CA_CERT": dev_ca_crt,
+                    "FORCE_FULL_BUILD": "true" if self.app.config["full_image_build"] else "false",
+                }
+                with utils.suppress_backtrace():
+                    cmd = "{} {}".format(
+                        self.app.config["release_repo_build_and_push_images_cmd"],
+                        " ".join([shlex.quote("=".join(pair)) for pair in make_parameters.items()])
+                    )
+                    self.logger.info("K8s images build/push output redirected to {}".format(self.build_logfile))
+                    self._run_cmd(cmd, make_container_image_dir,
+                                  self.build_logfile,
+                                  logging.getLogger("scap.k8s.build"),
+                                  shell=True)
 
         def update_helmfile_files():
             for stage, dep_configs in self.k8s_deployments_config.stages.items():
