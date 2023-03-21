@@ -86,6 +86,11 @@ class AbstractSync(cli.Application):
         help="User to notify on IRC after sync to testservers."
              " Can be used multiple times",
     )
+    @cli.argument(
+        "--k8s-only",
+        action="store_true",
+        help="Deploy/sync to Kubernetes targets only",
+    )
     @cli.argument("message", nargs="*", help="Log message for SAL")
     def main(self, *extra_args):
         """Perform a sync operation to the cluster."""
@@ -112,76 +117,75 @@ class AbstractSync(cli.Application):
                 self.get_logger().info("Stopping before sync operations")
                 return 0
 
-            self._sync_masters()
-
-            full_target_list = self._get_target_list()
-
             # Preload MW multiversion image into K8s cluster nodes
             self.k8s_ops.pull_image_on_nodes()
 
-            if not self.arguments.force:
-                # Deploy K8s test releases
-                with log.Timer("sync-testservers-k8s", self.get_stats()):
-                    with utils.suppress_backtrace():
-                        self.k8s_ops.deploy_k8s_images_for_stage(TEST_SERVERS)
-
-                testservers = utils.list_intersection(self._get_testserver_list(), full_target_list)
-                if len(testservers) > 0:
-                    with log.Timer("sync-testservers", self.get_stats()):
-                        self.sync_targets(testservers, "testservers")
-
-                # Not all subclasses of AbstractSync define the --pause-after-testserver-sync argument,
-                # so we can't assume it is in self.arguments.
-                if getattr(self.arguments, "pause_after_testserver_sync", False):
-                    testservers_string = ', '.join(testservers)
-                    users = set([getpass.getuser()] + getattr(self.arguments, "notify_user", []))
-                    message = "%s: %s synced to the testservers: %s" % \
-                              (' and '.join(users), self.arguments.message, testservers_string)
-                    self.announce(message)
-                    self.prompt_for_approval_or_exit('Changes synced to: %s.\nPlease do any necessary checks '
-                                                     'before continuing.\n' % testservers_string +
-                                                     'Continue with sync?', "Sync cancelled.")
-
-                # Deploy K8s canary releases
-                with log.Timer("sync-canaries-k8s", self.get_stats()):
-                    with utils.suppress_backtrace():
-                        self.k8s_ops.deploy_k8s_images_for_stage(CANARIES)
-
-                canaries = utils.list_intersection(self._get_canary_list(), full_target_list)
-                if len(canaries) > 0:
-                    with log.Timer("sync-check-canaries", self.get_stats()) as timer:
-                        self.sync_targets(canaries, "canaries")
-                        timer.mark("Canaries Synced")
-                        self.canary_checks(canaries, timer)
-
+            if self._k8s_only_sync():
+                self._deploy_k8s_testservers()
+                self._deploy_k8s_canaries()
+                self._deploy_k8s_production()
             else:
-                self.get_logger().warning("Testservers and canaries skipped by --force")
+                self._sync_masters()
 
-            # Deploy K8s production releases
-            with log.Timer("sync-prod-k8s", self.get_stats()):
-                with utils.suppress_backtrace():
-                    self.k8s_ops.deploy_k8s_images_for_stage(PRODUCTION)
+                full_target_list = self._get_target_list()
 
-            # Update proxies
-            proxies = utils.list_intersection(self._get_proxy_list(), full_target_list)
+                if not self.arguments.force:
+                    # Deploy K8s test releases
+                    self._deploy_k8s_testservers()
 
-            if len(proxies) > 0:
-                with log.Timer("sync-proxies", self.get_stats()):
-                    sync_cmd = self._apache_sync_command()
-                    sync_cmd.append(socket.getfqdn())
-                    self._perform_sync("proxies", sync_cmd, proxies)
+                    testservers = utils.list_intersection(self._get_testserver_list(), full_target_list)
+                    if len(testservers) > 0:
+                        with log.Timer("sync-testservers", self.get_stats()):
+                            self.sync_targets(testservers, "testservers")
 
-            # Update apaches
-            with log.Timer("sync-apaches", self.get_stats()):
-                self._perform_sync("apaches",
-                                   self._apache_sync_command(proxies),
-                                   full_target_list,
-                                   shuffle=True)
+                    # Not all subclasses of AbstractSync define the --pause-after-testserver-sync argument,
+                    # so we can't assume it is in self.arguments.
+                    if getattr(self.arguments, "pause_after_testserver_sync", False):
+                        testservers_string = ', '.join(testservers)
+                        users = set([getpass.getuser()] + getattr(self.arguments, "notify_user", []))
+                        message = "%s: %s synced to the testservers: %s" % \
+                                  (' and '.join(users), self.arguments.message, testservers_string)
+                        self.announce(message)
+                        self.prompt_for_approval_or_exit('Changes synced to: %s.\nPlease do any necessary checks '
+                                                         'before continuing.\n' % testservers_string +
+                                                         'Continue with sync?', "Sync cancelled.")
 
-            history.update_latest(self.config["history_log"], synced=True)
+                    # Deploy K8s canary releases
+                    self._deploy_k8s_canaries()
 
-            # php-fpm restarts happen in here
-            self._after_cluster_sync()
+                    canaries = utils.list_intersection(self._get_canary_list(), full_target_list)
+                    if len(canaries) > 0:
+                        with log.Timer("sync-check-canaries", self.get_stats()) as timer:
+                            self.sync_targets(canaries, "canaries")
+                            timer.mark("Canaries Synced")
+                            self.canary_checks(canaries, timer)
+
+                else:
+                    self.get_logger().warning("Testservers and canaries skipped by --force")
+
+                # Deploy K8s production releases
+                self._deploy_k8s_production()
+
+                # Update proxies
+                proxies = utils.list_intersection(self._get_proxy_list(), full_target_list)
+
+                if len(proxies) > 0:
+                    with log.Timer("sync-proxies", self.get_stats()):
+                        sync_cmd = self._apache_sync_command()
+                        sync_cmd.append(socket.getfqdn())
+                        self._perform_sync("proxies", sync_cmd, proxies)
+
+                # Update apaches
+                with log.Timer("sync-apaches", self.get_stats()):
+                    self._perform_sync("apaches",
+                                       self._apache_sync_command(proxies),
+                                       full_target_list,
+                                       shuffle=True)
+
+                history.update_latest(self.config["history_log"], synced=True)
+
+                # php-fpm restarts happen in here
+                self._after_cluster_sync()
 
         self._after_lock_release()
         if self.soft_errors:
@@ -214,6 +218,25 @@ class AbstractSync(cli.Application):
 
     def _before_cluster_sync(self):
         pass
+
+    def _k8s_only_sync(self):
+        # Not all subclasses of AbstractSync define the --k8s-only option
+        return getattr(self.arguments, "k8s_only", False)
+
+    def _deploy_k8s_testservers(self):
+        with log.Timer("sync-testservers-k8s", self.get_stats()):
+            with utils.suppress_backtrace():
+                self.k8s_ops.deploy_k8s_images_for_stage(TEST_SERVERS)
+
+    def _deploy_k8s_canaries(self):
+        with log.Timer("sync-canaries-k8s", self.get_stats()):
+            with utils.suppress_backtrace():
+                self.k8s_ops.deploy_k8s_images_for_stage(CANARIES)
+
+    def _deploy_k8s_production(self):
+        with log.Timer("sync-prod-k8s", self.get_stats()):
+            with utils.suppress_backtrace():
+                self.k8s_ops.deploy_k8s_images_for_stage(PRODUCTION)
 
     def _update_caches(self):
         self._git_repo()
@@ -770,6 +793,11 @@ class ScapWorld(AbstractSync):
         default=[],
         help="User to notify on IRC after sync to testservers."
              " Can be used multiple times",
+    )
+    @cli.argument(
+        "--k8s-only",
+        action="store_true",
+        help="Deploy/sync to Kubernetes targets only",
     )
     @cli.argument("message", nargs="*", help="Log message for SAL")
     def main(self, *extra_args):

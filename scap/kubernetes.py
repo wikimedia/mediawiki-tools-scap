@@ -170,21 +170,12 @@ class K8sOps:
 
         self.build_logfile = os.path.join(pathlib.Path.home(), "scap-image-build-and-push-log")
         self.helm_env = self._collect_helm_env()
+        self.original_helmfile_values = {}
 
     def build_k8s_images(self):
-        if not self.app.config["build_mw_container_image"]:
-            return
-
-        release_repo_dir = self.app.config["release_repo_dir"]
-        release_repo_update_cmd = self.app.config["release_repo_update_cmd"]
-
-        if release_repo_update_cmd:
-            self.logger.info("Running {}".format(release_repo_update_cmd))
-            with utils.suppress_backtrace():
-                subprocess.run(release_repo_update_cmd, shell=True, check=True)
-
-        with log.Timer("build-and-push-container-images", self.app.get_stats()):
-            make_container_image_dir = os.path.join(release_repo_dir, "make-container-image")
+        def build_and_push_images():
+            with log.Timer("build-and-push-container-images", self.app.get_stats()):
+                make_container_image_dir = os.path.join(release_repo_dir, "make-container-image")
             registry = self.app.config["docker_registry"]
 
             dev_ca_crt = ""
@@ -208,15 +199,34 @@ class K8sOps:
                     self.app.config["release_repo_build_and_push_images_cmd"],
                     " ".join([shlex.quote("=".join(pair)) for pair in make_parameters.items()])
                 )
-
                 self.logger.info("K8s images build/push output redirected to {}".format(self.build_logfile))
-                try:
-                    self._run_cmd(cmd, make_container_image_dir,
-                                  self.build_logfile,
-                                  logging.getLogger("scap.k8s.build"),
-                                  shell=True)
-                except subprocess.CalledProcessError:
-                    self.app.soft_errors = True
+                self._run_cmd(cmd, make_container_image_dir,
+                              self.build_logfile,
+                              logging.getLogger("scap.k8s.build"),
+                              shell=True)
+
+        def update_helmfile_files():
+            for stage, dep_configs in self.k8s_deployments_config.stages.items():
+                self.original_helmfile_values[stage] = self._read_helmfile_files(dep_configs)
+                self._update_helmfile_files(dep_configs)
+
+        if not self.app.config["build_mw_container_image"]:
+            return
+
+        release_repo_dir = self.app.config["release_repo_dir"]
+        release_repo_update_cmd = self.app.config["release_repo_update_cmd"]
+
+        if release_repo_update_cmd:
+            self.logger.info("Running {}".format(release_repo_update_cmd))
+            with utils.suppress_backtrace():
+                subprocess.run(release_repo_update_cmd, shell=True, check=True)
+
+        try:
+            build_and_push_images()
+            update_helmfile_files()
+        except subprocess.CalledProcessError:
+            self._disable_k8s_deployments()
+            self.app.soft_errors = True
 
     def pull_image_on_nodes(self):
         """Pull the multiversion image down on all k8s nodes."""
@@ -249,30 +259,30 @@ class K8sOps:
 
         dep_configs = self.k8s_deployments_config.stages[stage]
         datacenters = re.split(r'[,\s]+', self.app.config["k8s_clusters"])  # FIXME: Rename this config value
-        container_image_names = self._get_container_image_names()
-
-        saved_values = self._read_current_values(dep_configs)
-
         try:
-            self._update_values(dep_configs, container_image_names)
             self._deploy_to_datacenters(datacenters, dep_configs)
         # Using BaseException so that we catch KeyboardInterrupt too
         except BaseException as e:
             self.app.soft_errors = True
             self.logger.error("K8s deployment to stage %s failed: %s", stage, e)
 
+            saved_values = self.original_helmfile_values[stage]
             if saved_values:
                 self.logger.error("Rolling back to prior state...")
-                self._revert_values(dep_configs, saved_values)
+                self._revert_helmfile_files(dep_configs, saved_values)
                 try:
                     self._deploy_to_datacenters(datacenters, dep_configs)
-                    self.logger.error("Rollback completed")
+                    self.logger.info("Rollback completed")
                 except BaseException as e:
                     self.logger.error("Caught another exception while trying to roll back. Giving up: %s", e)
             else:
                 self.logger.error("No known prior state to roll back to")
 
-    def _read_current_values(self, dep_configs) -> dict:
+    def _disable_k8s_deployments(self):
+        self.logger.warning("Disabling K8s deployments")
+        self.app.config["deploy_mw_container_image"] = False
+
+    def _read_helmfile_files(self, dep_configs) -> dict:
         res = {}
 
         for dep_config in dep_configs:
@@ -284,11 +294,12 @@ class K8sOps:
 
         return res
 
-    def _update_values(self, dep_configs, container_image_names):
+    def _update_helmfile_files(self, dep_configs):
+        container_image_names = self._get_container_image_names()
         for dep_config in dep_configs:
             self._update_helmfile_values_for(dep_config, container_image_names)
 
-    def _revert_values(self, dep_configs, saved_values):
+    def _revert_helmfile_files(self, dep_configs, saved_values):
         commit = False
 
         with utils.cd(self.app.config["helmfile_mediawiki_release_dir"]):
@@ -414,14 +425,10 @@ class K8sOps:
             self.app.config["build_mw_container_image"] = False
 
     def _verify_deployment_prereqs(self):
-        def disable_deployments():
-            self.logger.warning("Disabling K8s deployments")
-            self.app.config["deploy_mw_container_image"] = False
-
         if self.app.config["release_repo_dir"] is None:
             self.logger.error("release_repo_dir must be configured when deploy_mw_container_image is True")
             self.app.soft_errors = True
-            disable_deployments()
+            self._disable_k8s_deployments()
             return
 
         try:
@@ -429,7 +436,7 @@ class K8sOps:
         except InvalidDeploymentsConfig as e:
             self.logger.error("Failed to parse K8s deployments config: {}".format(str(e)))
             self.app.soft_errors = True
-            disable_deployments()
+            self._disable_k8s_deployments()
 
     def _dep_config_fq_release_name(self, dep_config) -> str:
         return "{}-{}".format(dep_config[DeploymentsConfig.NAMESPACE], dep_config[DeploymentsConfig.RELEASE])
