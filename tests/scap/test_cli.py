@@ -344,6 +344,7 @@ def test_run(cmd, mocker):
     factory.return_value = cmd
     # Ew. Still, only way to test this script.
     cmd._load_config = mock.MagicMock()
+    cmd.config = {"block_execution": False}
     cmd._setup_loggers = mock.MagicMock()
     cmd._setup_environ = mock.MagicMock()
     cmd._handle_exception = mock.MagicMock(return_value=70)

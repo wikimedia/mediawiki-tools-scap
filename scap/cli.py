@@ -525,6 +525,12 @@ class Application(object):
 
             app.setup()
 
+            if hasattr(app, "config") and app.config["block_execution"]:
+                utils.abort(
+                    "Scap is disabled on this host. If you really need to run Scap here, you can override by passing"
+                    """ "-Dblock_execution:False" to the call """
+                )
+
             if "subcommand" in app.arguments and app.arguments.subcommand:
                 method = app.arguments.subcommand
                 exit_status = method(app, app.extra_arguments)
