@@ -1187,14 +1187,41 @@ class LockManager(cli.Application):
         + "With great power comes great responsibility",
     )
     @cli.argument(
+        "--unlock-all",
+        action="store_true",
+        help="Remove global lock for all repositories",
+    )
+    @cli.argument(
         "--time",
-        type=int,
-        default=3600,
-        help="How long to lock deployments, in seconds",
+        type=str,
+        default="1h",
+        help="How long to lock deployments. Accepted suffixes are 's', 'm' and 'h' for seconds, minutes and hours"
+             " respectively. Default is 1 hour. Max is 4 hours",
     )
     @cli.argument("message", nargs="*", help="Log message for SAL/lock file")
     def main(self, *extra_args):
+        def duration_to_secs(duration: str) -> int:
+            lc_duration = duration.lower()
+            if lc_duration.endswith('s'):
+                multiplier = 1
+            elif lc_duration.endswith('m'):
+                multiplier = 60
+            elif lc_duration.endswith('h'):
+                multiplier = 3600
+            else:
+                raise ValueError(f"Suffix of lock duration '${duration}' not supported")
+            return int(duration[:-1]) * multiplier
+
+        if self.arguments.unlock_all:
+            lock.signal_gl_release()
+            return
+
+        lock_duration = duration_to_secs(self.arguments.time)
         logger = self.get_logger()
+
+        if lock_duration > 4 * 3600:
+            logger.fatal("Maximum lock duration is 4 hours")
+            return 1
 
         if self.arguments.message == "(no justification provided)":
             logger.fatal("Cannot lock repositories without a reason")
@@ -1207,30 +1234,48 @@ class LockManager(cli.Application):
             lock_path = self.get_lock_file()
             repo = self.config["git_repo"]
 
-        got_lock = False
-        with lock.TimeoutLock(lock_path, name="lock-manager", reason=self.arguments.message):
-            got_lock = True
+        with lock.TimeoutLock(lock_path, name="lock-manager", reason=self.arguments.message) as to_lock:
+            early_lock_release_r = None
+            early_lock_release_w = None
+
+            if self.arguments.all:
+                def release_global_lock(*args):
+                    self.announce("Received forced unlock request")
+                    to_lock.__exit__()
+                    # Signal early abort
+                    os.write(early_lock_release_w, bytes(1))
+
+                early_lock_release_r, early_lock_release_w = os.pipe()
+                lock.watch_for_gl_release_signal(release_global_lock)
+
             self.announce(
                 "Locking from deployment [%s]: %s (planned duration: %s)",
                 repo,
                 self.arguments.message,
-                utils.human_duration(self.arguments.time),
+                utils.human_duration(lock_duration),
             )
 
             logger.info("Press enter to abort early...")
             try:
-                rlist, _, _ = select.select([sys.stdin], [], [], self.arguments.time)
-                if rlist:
+                fds = [sys.stdin]
+                if early_lock_release_r is not None:
+                    fds.append(early_lock_release_r)
+                rlist, _, _ = select.select(fds, [], [], lock_duration)
+                if sys.stdin in rlist:
                     sys.stdin.readline()
+
             except KeyboardInterrupt:
                 pass  # We don't care here
 
-        if got_lock:
-            self.announce(
-                "Unlocked for deployment [%s]: %s (duration: %s)",
-                repo,
-                self.arguments.message,
-                utils.human_duration(self.get_duration()),
-            )
+            if early_lock_release_r is not None:
+                os.close(early_lock_release_r)
+                os.close(early_lock_release_w)
+
+        self.announce(
+            "Unlocked for deployment [%s]: %s (duration: %s)",
+            repo,
+            self.arguments.message,
+            utils.human_duration(self.get_duration()),
+        )
 
         return 0

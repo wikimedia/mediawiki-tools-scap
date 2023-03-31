@@ -5,22 +5,33 @@
     Manages lock/unlock operations for scap
 
 """
+import atexit
 import errno
 import fcntl
 import json
 import os
 import signal
+import threading
 import time
 
 import scap.utils as utils
 
 GLOBAL_LOCK_FILE = "/var/lock/scap-global-lock"
+REMOVE_GL_SIGNAL_FILE = "/tmp/scap-unlock-global"
+# The Scap processes involved in releasing a global lock could use file REMOVE_GL_SIGNAL_FILE to communicate. But it's
+# possible the system where Scap is running has set the following kernel option to 1 or 2:
+# https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux.git/tree/Documentation/admin-guide/sysctl/fs.rst?h=v5.15#n239
+# So we use two files for bi-directional communication to make sure we don't run into a problem
+ACK_GL_SIGNAL_FILE = "/tmp/scap-unlock-global-removed"
 
 
 class LockFailedError(RuntimeError):
     """Signal that a locking attempt failed."""
 
     pass
+
+
+logger = utils.get_logger()
 
 
 class TimeoutLock:
@@ -39,8 +50,6 @@ class TimeoutLock:
 
     def __init__(self, lock_file, name="exclusion", reason="no reason given", timeout=DEFAULT_TIMEOUT_IN_MINS,
                  lock_mode=EXCLUSIVE):
-        self.logger = utils.get_logger()
-
         self.lock_file = lock_file
         self.name = name
         self.timeout = timeout
@@ -61,6 +70,7 @@ class TimeoutLock:
             self.global_lock = TimeoutLock(GLOBAL_LOCK_FILE, name="global lock", timeout=self.timeout, lock_mode=TimeoutLock.SHARED)
             self.global_lock.__enter__()
             self._get_lock()
+        return self
 
     def __exit__(self, *args):
         if self.lock_fd:
@@ -86,13 +96,13 @@ class TimeoutLock:
                 access_mode = os.O_RDWR if self.lock_mode == TimeoutLock.EXCLUSIVE else os.O_RDONLY
                 self.lock_fd = self._create_or_open_file(self.lock_file, access_mode)
         except OSError as e:
-            self.logger.warning("Could not acquire %s lock. Aborting" % self.name)
+            logger.warning("Could not acquire %s lock. Aborting" % self.name)
             raise LockFailedError(e)
 
         try:
             fcntl.lockf(self.lock_fd, self._get_lock_type() | fcntl.LOCK_NB)
         except BlockingIOError:
-            self.logger.warning(
+            logger.warning(
                 '%s Will wait up to %s minute(s) for the lock to be released.' %
                 (
                     self._get_lock_reason(),
@@ -114,7 +124,7 @@ class TimeoutLock:
         def deadline_check(*args):
             if time.time() >= deadline:
                 print("", flush=True)
-                self.logger.warning("Exceeded lock timeout period")
+                logger.warning("Exceeded lock timeout period")
                 raise LockFailedError(
                     'Failed to acquire lock after waiting for %s minute(s); %s\nAborting' %
                     (
@@ -200,7 +210,66 @@ class TimeoutLock:
     def _ensure_sane_timeout(self):
         if not TimeoutLock.MIN_TIMEOUT_IN_MINS <= self.timeout <= TimeoutLock.MAX_TIMEOUT_IN_MINS:
             self.timeout = TimeoutLock.DEFAULT_TIMEOUT_IN_MINS
-            self.logger.warning(
+            logger.warning(
                 "Supplied timeout for %s lock needs to be in range [1, 60]. Timeout reset to %s"
                 " minutes" % (self.name, TimeoutLock.DEFAULT_TIMEOUT_IN_MINS)
             )
+
+
+def signal_gl_release():
+    if os.path.exists(GLOBAL_LOCK_FILE):
+        with open(GLOBAL_LOCK_FILE, encoding="UTF-8") as f:
+            lock_info = json.loads(f.read())
+
+        if lock_info != {}:
+            locker = lock_info.get("locker", "?"),
+            timestamp_utc = lock_info.get("timestamp_utc", "?"),
+            reason = lock_info.get("reason", "?"),
+            prompt = ("Lock details:\n"
+                      "  locker: %s\n" % locker +
+                      "  time acquired: %s\n" % timestamp_utc +
+                      "  reason: %s\n" % reason +
+                      "Clear lock?")
+            if not utils.prompt_user_for_confirmation(prompt):
+                utils.abort("Canceled by user")
+
+            with utils.empty_file_mask():
+                fd = os.open(REMOVE_GL_SIGNAL_FILE, os.O_CREAT, 0o444)
+                atexit.register(os.unlink, REMOVE_GL_SIGNAL_FILE)
+                os.close(fd)
+
+            # Signal file should be picked up right away
+            timeout = time.time() + 5
+            while time.time() < timeout:
+                if os.path.isfile(ACK_GL_SIGNAL_FILE):
+                    logger.info("Global lock removed")
+                    break
+                time.sleep(0.5)
+            else:
+                logger.warning(
+                    "Could not clear lock. The lock process may not be running, in which case there is no actual lock"
+                )
+
+            return
+
+    logger.info("No global lock set. Nothing to do")
+
+
+def watch_for_gl_release_signal(release_callback):
+    def wait_for_signal(*args):
+        while not os.path.isfile(REMOVE_GL_SIGNAL_FILE):
+            time.sleep(0.5)
+
+        fd = os.open(ACK_GL_SIGNAL_FILE, os.O_CREAT, 0o444)
+        atexit.register(os.unlink, ACK_GL_SIGNAL_FILE)
+        os.close(fd)
+
+        # Wait for the signaling process to finish its thing before proceeding
+        while os.path.isfile(REMOVE_GL_SIGNAL_FILE):
+            time.sleep(0.1)
+
+        release_callback()
+
+    watch_for_release_signal = threading.Thread(target=wait_for_signal)
+    watch_for_release_signal.daemon = True
+    watch_for_release_signal.start()
