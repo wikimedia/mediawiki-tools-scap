@@ -1102,7 +1102,8 @@ def get_current_train_version_from_gerrit(gerrit_url) -> str:
     # output will be something like '3137081c2ab92df3bc9c97956b00fb3017d7b511\trefs/heads/wmf/1.39.0-wmf.19'
     output = subprocess.check_output(["git", "ls-remote", "--sort=version:refname", url, "refs/heads/wmf/*"],
                                      text=True)
-    res = re.sub(r"^.*wmf/(.*)$", "\\1", output.splitlines()[-1])
+    valid_versions = [line for line in output.splitlines() if BRANCH_RE.search(line)]
+    res = re.sub(r"^.*wmf/(.*)$", "\\1", valid_versions[-1])
 
     return res
 
