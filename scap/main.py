@@ -299,7 +299,6 @@ class AbstractSync(cli.Application):
 
         if len(other_masters) > 0:
             self.master_only_cmd("sync-masters", self._master_sync_command())
-            self.master_only_cmd("sync-pull-masters", self._base_scap_pull_command())
 
     def master_only_cmd(self, timer, cmd):
         """
