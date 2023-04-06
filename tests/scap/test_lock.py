@@ -17,23 +17,23 @@ from scap import lock
 import timeout_decorator
 
 
-def test_timeout_lock_create_lock_dir(mocker):
+def test_lock_create_lock_dir(mocker):
     exists = mocker.patch("os.path.exists")
     exists.return_value = False
     mkdirs = mocker.patch("os.makedirs")
 
-    to_lock = lock.TimeoutLock("/a/path/to/lock")
+    to_lock = lock.Lock("/a/path/to/lock")
     to_lock._ensure_lock_dir_exists()
 
     mkdirs.assert_called_with("/a/path/to", 0o775, exist_ok=True)
 
 
 @timeout_decorator.timeout(5, use_signals=False)
-def test_timeout_lock_acquires_lock():
+def test_lock_acquires_lock():
     (lock_file, release_signal_file) = get_temp_filepaths()
 
     def verify_wait_on_lock():
-        verifying_lock = lock.TimeoutLock(lock_file.name)
+        verifying_lock = lock.Lock(lock_file.name)
         with mock.patch('fcntl.lockf', wraps=fcntl.lockf) as lockf:
             with verifying_lock:
                 lockf.assert_has_calls([mock.call(verifying_lock.lock_fd, fcntl.LOCK_EX | fcntl.LOCK_NB),
@@ -52,11 +52,11 @@ def test_timeout_lock_acquires_lock():
 
 
 @timeout_decorator.timeout(5, use_signals=False)
-def test_timeout_lock_times_out():
+def test_lock_times_out():
     (lock_file, release_signal_file) = get_temp_filepaths()
 
     def verify_lock_timeout():
-        verifying_lock = lock.TimeoutLock(lock_file.name)
+        verifying_lock = lock.Lock(lock_file.name)
         with mock.patch.object(
                 verifying_lock, '_get_deadline_check_interval'
         ) as get_deadline_check_interval:

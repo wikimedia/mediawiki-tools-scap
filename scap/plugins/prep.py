@@ -12,7 +12,7 @@ from scap import git
 from scap import history
 from scap import log
 from scap import utils
-from scap.lock import TimeoutLock
+from scap.lock import Lock
 
 
 HISTORY_ABORT_STATUS = 127
@@ -127,7 +127,7 @@ This operation can be run as many times as needed.
 
         lock_timeout = \
             {"timeout": self.arguments.lock_timeout} if self.arguments.lock_timeout else {}
-        with TimeoutLock(self.get_lock_file(), name="concurrent prep", **lock_timeout):
+        with Lock(self.get_lock_file(), name="concurrent prep", **lock_timeout):
 
             self.new_history = history.Entry.now()
 

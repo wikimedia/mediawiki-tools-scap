@@ -99,7 +99,7 @@ class AbstractSync(cli.Application):
 
         self._assert_auth_sock()
 
-        with lock.TimeoutLock(self.get_lock_file(), name="sync", reason=self.arguments.message):
+        with lock.Lock(self.get_lock_file(), name="sync", reason=self.arguments.message):
             self._compile_wikiversions()
             self._before_cluster_sync()
             self._update_caches()
@@ -1190,37 +1190,18 @@ class LockManager(cli.Application):
         action="store_true",
         help="Remove global lock for all repositories",
     )
-    @cli.argument(
-        "--time",
-        type=str,
-        default="1h",
-        help="How long to lock deployments. Accepted suffixes are 's', 'm' and 'h' for seconds, minutes and hours"
-             " respectively. Default is 1 hour. Max is 4 hours",
-    )
     @cli.argument("message", nargs="*", help="Log message for SAL/lock file")
     def main(self, *extra_args):
-        def duration_to_secs(duration: str) -> int:
-            lc_duration = duration.lower()
-            if lc_duration.endswith('s'):
-                multiplier = 1
-            elif lc_duration.endswith('m'):
-                multiplier = 60
-            elif lc_duration.endswith('h'):
-                multiplier = 3600
-            else:
-                raise ValueError(f"Suffix of lock duration '${duration}' not supported")
-            return int(duration[:-1]) * multiplier
-
-        if self.arguments.unlock_all:
-            lock.signal_gl_release()
-            return
-
-        lock_duration = duration_to_secs(self.arguments.time)
         logger = self.get_logger()
 
-        if lock_duration > 4 * 3600:
-            logger.fatal("Maximum lock duration is 4 hours")
-            return 1
+        if self.arguments.unlock_all:
+            if self.arguments.message == "(no justification provided)":
+                logger.fatal("Cannot request to remove global lock without a reason")
+                return 1
+
+            self.announce(f"Forcefully removing global lock: {self.arguments.message}")
+            lock.Lock.signal_gl_release(self.arguments.message)
+            return
 
         if self.arguments.message == "(no justification provided)":
             logger.fatal("Cannot lock repositories without a reason")
@@ -1233,42 +1214,35 @@ class LockManager(cli.Application):
             lock_path = self.get_lock_file()
             repo = self.config["git_repo"]
 
-        with lock.TimeoutLock(lock_path, name="lock-manager", reason=self.arguments.message) as to_lock:
-            early_lock_release_r = None
-            early_lock_release_w = None
+        with lock.Lock(lock_path, name="lock-manager", reason=self.arguments.message):
+            forced_lock_release_r = None
+            forced_lock_release_w = None
 
             if self.arguments.all:
                 def release_global_lock(*args):
-                    self.announce("Received forced unlock request")
-                    to_lock.__exit__()
-                    # Signal early abort
-                    os.write(early_lock_release_w, bytes(1))
+                    # Signal forced abort
+                    os.write(forced_lock_release_w, bytes(1))
 
-                early_lock_release_r, early_lock_release_w = os.pipe()
-                lock.watch_for_gl_release_signal(release_global_lock)
+                forced_lock_release_r, forced_lock_release_w = os.pipe()
+                lock.Lock.watch_for_gl_release_signal(release_global_lock)
 
-            self.announce(
-                "Locking from deployment [%s]: %s (planned duration: %s)",
-                repo,
-                self.arguments.message,
-                utils.human_duration(lock_duration),
-            )
+            self.announce("Locking from deployment [%s]: %s", repo, self.arguments.message)
 
-            logger.info("Press enter to abort early...")
+            logger.info("Press enter to unlock...")
             try:
                 fds = [sys.stdin]
-                if early_lock_release_r is not None:
-                    fds.append(early_lock_release_r)
-                rlist, _, _ = select.select(fds, [], [], lock_duration)
+                if forced_lock_release_r is not None:
+                    fds.append(forced_lock_release_r)
+                rlist, _, _ = select.select(fds, [], [])
                 if sys.stdin in rlist:
                     sys.stdin.readline()
 
             except KeyboardInterrupt:
                 pass  # We don't care here
 
-            if early_lock_release_r is not None:
-                os.close(early_lock_release_r)
-                os.close(early_lock_release_w)
+            if forced_lock_release_r is not None:
+                os.close(forced_lock_release_r)
+                os.close(forced_lock_release_w)
 
         self.announce(
             "Unlocked for deployment [%s]: %s (duration: %s)",
