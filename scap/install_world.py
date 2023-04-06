@@ -35,10 +35,7 @@ from scap import cli, targets, utils, ssh, log
 from scap.lock import TimeoutLock
 
 
-@cli.command(
-    "install-world",
-    help="Install scap version on targets"
-)
+@cli.command("install-world", help="Install scap version on targets", affected_by_blocked_deployments=True)
 class InstallWorld(cli.Application):
     """
     Scap sub-command to install scap version on targets

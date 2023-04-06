@@ -37,7 +37,7 @@ def make_table(backports, display_mergable):
     return table
 
 
-@cli.command("backport", help="List, apply, or revert backports")
+@cli.command("backport", help="List, apply, or revert backports", affected_by_blocked_deployments=True)
 class Backport(cli.Application):
     """
     Merge, pull, and sync the specified commits

@@ -42,6 +42,8 @@ import scap.utils as utils
 from scap.ssh import SSH_WITH_KEY
 from scap.terminal import TERM
 
+ATTR_DEPLOYMENT_COMMAND = "_deployment_command"
+
 
 class Application(object):
     """Base class for creating command line applications."""
@@ -525,10 +527,11 @@ class Application(object):
 
             app.setup()
 
-            if hasattr(app, "config") and app.config["block_execution"]:
+            if hasattr(app, "config") and app.config["block_deployments"] \
+                    and getattr(app.main, ATTR_DEPLOYMENT_COMMAND, False):
                 utils.abort(
-                    "Scap is disabled on this host. If you really need to run Scap here, you can override by passing"
-                    """ "-Dblock_execution:False" to the call """
+                    "This scap command is disabled on this host. If you really need to run it, you can override by"
+                    """ passing "-Dblock_deployments:False" to the call"""
                 )
 
             if "subcommand" in app.arguments and app.arguments.subcommand:
@@ -671,6 +674,11 @@ def command(*args, **kwargs):
 
         cmd = dict(name=name, cls=cls, args=args, kwargs=kwargs)
         COMMAND_REGISTRY[name] = cmd
+
+        affected_by_blocked_deployments = kwargs.get("affected_by_blocked_deployments", False)
+        setattr(cls.main, ATTR_DEPLOYMENT_COMMAND, affected_by_blocked_deployments)
+        kwargs.pop("affected_by_blocked_deployments", None)
+
         return cls
 
     return wrapper

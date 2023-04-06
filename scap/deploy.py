@@ -590,7 +590,7 @@ class DeployLocal(cli.Application):
         return yaml.load(r.text, yaml.loader.Loader)
 
 
-@cli.command("deploy", help="[SCAP 3] Sync new service code across cluster")
+@cli.command("deploy", help="[SCAP 3] Sync new service code across cluster", affected_by_blocked_deployments=True)
 class Deploy(cli.Application):
     """
     Sync new service code across cluster.
@@ -1253,7 +1253,7 @@ class DeployLog(cli.Application):
         pass
 
 
-@cli.command("deploy-mediawiki", help=argparse.SUPPRESS)
+@cli.command("deploy-mediawiki", help=argparse.SUPPRESS, affected_by_blocked_deployments=True)
 class DeployMediaWiki(cli.Application):
     """
     Deploy mediawiki via scap3.

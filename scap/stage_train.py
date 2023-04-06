@@ -52,7 +52,8 @@ STAGE_SEQUENCE = [
 @cli.command(
     "stage-train",
     help="Wraps manual steps required to stage a typical Tuesday deploy of the RelEng train"
-         " deployment: Preps new version branch, applies patches and deploys to testwikis"
+         " deployment: Preps new version branch, applies patches and deploys to testwikis",
+    affected_by_blocked_deployments=True,
 )
 class StageTrain(cli.Application):
     """

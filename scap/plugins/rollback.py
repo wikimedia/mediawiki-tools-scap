@@ -28,7 +28,7 @@ from scap import cli
 from scap.plugins import prep
 
 
-@cli.command("rollback", help="Restore production to a previous working state")
+@cli.command("rollback", help="Restore production to a previous working state", affected_by_blocked_deployments=True)
 class Rollback(cli.Application):
     """Checkout previously prepared working copies of MediaWiki repos and perform an immediate sync to restore production to a known working state."""
 

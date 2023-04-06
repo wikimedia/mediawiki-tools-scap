@@ -624,7 +624,7 @@ class SecurityPatchCheck(cli.Application):
         return 0
 
 
-@cli.command("wikiversions-compile", help=argparse.SUPPRESS)
+@cli.command("wikiversions-compile", help=argparse.SUPPRESS, affected_by_blocked_deployments=True)
 class CompileWikiversions(cli.Application):
     """Compile wikiversions.json to wikiversions.php."""
 
@@ -721,7 +721,7 @@ class RebuildCdbs(cli.Application):
             tasks.merge_cdb_updates(cache_dir, use_cores, True, self.arguments.mute)
 
 
-@cli.command("sync-world", help="Deploy MediaWiki to the cluster")
+@cli.command("sync-world", help="Deploy MediaWiki to the cluster", affected_by_blocked_deployments=True)
 class ScapWorld(AbstractSync):
     """
     Deploy MediaWiki to the cluster.
@@ -995,8 +995,8 @@ class SyncPull(cli.Application):
         return 0
 
 
-@cli.command("sync-dir", help=argparse.SUPPRESS)
-@cli.command("sync-file")
+@cli.command("sync-dir", help=argparse.SUPPRESS, affected_by_blocked_deployments=True)
+@cli.command("sync-file", affected_by_blocked_deployments=True)
 class SyncFile(AbstractSync):
     """Sync a specific file/directory to the cluster."""
 
@@ -1061,7 +1061,7 @@ class SyncFile(AbstractSync):
         self.increment_stat("sync-file")
 
 
-@cli.command("sync-wikiversions")
+@cli.command("sync-wikiversions", affected_by_blocked_deployments=True)
 class SyncWikiversions(AbstractSync):
     """Rebuild and sync wikiversions.php to the cluster."""
 
@@ -1113,7 +1113,7 @@ class SyncWikiversions(AbstractSync):
         self._restart_php()
 
 
-@cli.command("cdb-json-refresh", help=argparse.SUPPRESS)
+@cli.command("cdb-json-refresh", help=argparse.SUPPRESS, affected_by_blocked_deployments=True)
 class RefreshCdbJsonFiles(cli.Application):
     """
     Create JSON/MD5 files for all CDB files in a directory.
@@ -1169,7 +1169,7 @@ class Version(cli.Application):
         return 0
 
 
-@cli.command("lock", help="Temporarily lock deployment of this repository")
+@cli.command("lock", help="Temporarily lock deployment of this repository", affected_by_blocked_deployments=True)
 class LockManager(cli.Application):
     """
     Holds a lock open for a given repository.

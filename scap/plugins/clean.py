@@ -20,7 +20,7 @@ from scap import utils
 AUTO_CLEAN_THRESHOLD = 8
 
 
-@cli.command("clean")
+@cli.command("clean", affected_by_blocked_deployments=True)
 class Clean(main.AbstractSync):
     """Scap sub-command to clean old branches."""
 

@@ -22,7 +22,7 @@ KNOWN_RESULTS = {
 }
 
 
-@cli.command("apply-patches", help="Apply security patches for train")
+@cli.command("apply-patches", help="Apply security patches for train", affected_by_blocked_deployments=True)
 class ApplyPatches(cli.Application):
     """Apply security patches for train"""
 

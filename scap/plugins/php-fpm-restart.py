@@ -3,7 +3,7 @@
 from scap import cli, lock, main
 
 
-@cli.command("php-fpm-restart", help="Restart php-fpm on all mediawiki targets")
+@cli.command("php-fpm-restart", help="Restart php-fpm on all mediawiki targets", affected_by_blocked_deployments=True)
 class PhpRpmRestartCmd(main.AbstractSync):
     @cli.argument("message", nargs="*", help="Log message for SAL")
     def main(self, *extra_args):

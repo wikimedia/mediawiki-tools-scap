@@ -24,7 +24,7 @@ class PatchError(Exception):
         return self.msg
 
 
-@cli.command("patch")
+@cli.command("patch", affected_by_blocked_deployments=True)
 class SecurityPatchManager(cli.Application):
     """ Scap sub-command to manage mediawiki security patches """
 

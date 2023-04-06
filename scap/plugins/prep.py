@@ -58,7 +58,7 @@ def write_settings_stub(dest):
         destfile.write(file_stub)
 
 
-@cli.command("prep", help="Checkout MediaWiki version to staging")
+@cli.command("prep", help="Checkout MediaWiki version to staging", affected_by_blocked_deployments=True)
 class CheckoutMediaWiki(cli.Application):
     """Checkout a version of MediaWiki to staging.
 
