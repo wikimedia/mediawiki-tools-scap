@@ -1,3 +1,11 @@
+scap (4.49.0)
+
+  * lock: refactored + improved user feedback
+  * block_execution: do not block all scap commands on host
+  * Remove sync-pull-masters step
+
+ -- jnuche <jnuche@wikimedia.org>  Tue, 11 Apr 2023 16:22:40 +0200
+
 scap (4.48.0)
 
   * utils: make `get_current_train_version_from_gerrit` more robust
