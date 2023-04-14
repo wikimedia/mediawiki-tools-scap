@@ -48,21 +48,13 @@ build-docs:
 
 publish-docs:
   stage: publish-docs
-  extends: .docs-job
+  extends:
+    - .docs-job
+    - .kokkuri:publish-to-doc
   dependencies: [build-docs]
-  image: docker-registry.wikimedia.org/wikimedia-buster
-  script:
-    # FIXME: Inefficient.  Need an image with rsync already installed
-    - apt-get update && apt-get install -y rsync
-    # Sync an empty dir named 'scap' WITHOUT deletion and with relative. That
-    # creates the directories at the destination.
-    #
-    # We do not --archive which preserves date, time or permissions.
-    # The base directory (such as ./cover) might have been populated by
-    # puppet and thus owned by a different user than rsyncd.
-    - (mkdir -p /tmp/blank/scap && cd /tmp/blank && rsync --recursive --relative scap rsync://doc.discovery.wmnet/doc/ )
-    # Now do the real work
-    - rsync --archive --stats --compress --delete-after generated-documentation/docs/ rsync://doc.discovery.wmnet/doc/scap/
+  variables:
+    PUBLISH_TO_DOC_SOURCE: generated-documentation/docs
+    PUBLISH_TO_DOC_DEST: scap
 
 publish-dist:
   stage: publish-dist
