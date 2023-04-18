@@ -192,17 +192,6 @@ class Application(object):
             self.config[source_tree + "_dir"], self.config["wmf_realm"], return_type
         )
 
-    def read_wikiversions(self) -> dict:
-        """
-        Return a dictionary representing the contents of the realm-specific wikiversions.json
-        file in the staging directory.
-
-        Keys are wikidbs, values are "php-<version>"
-        """
-        return utils.read_wikiversions(
-            self.config["stage_dir"], self.config["wmf_realm"]
-        )
-
     def prompt_for_approval_or_exit(self, prompt_message, exit_message):
         """Exits successfully with a message if the user does not approve."""
         approval = utils.prompt_user_for_confirmation(prompt_message)

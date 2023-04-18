@@ -48,6 +48,7 @@ import scap.runcmd
 
 from scap.deploy_promote import DeployPromote
 from scap.stage_train import StageTrain
+from scap.train import Train
 from scap.install_world import InstallWorld
 
 __all__ = [
@@ -67,6 +68,7 @@ __all__ = [
     "SyncFile",
     "SyncMaster",
     "SyncWikiversions",
+    "Train",
     "Version",
     "__version__",
     "runcmd",
