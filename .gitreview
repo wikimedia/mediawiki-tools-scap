@@ -1,6 +1,5 @@
-[gerrit]
-host=gerrit.wikimedia.org
-port=29418
-project=mediawiki/tools/scap.git
-track=1
-defaultrebase=0
+[origin]
+host=https://gitlab.wikimedia.org
+project_id=865
+target_branch=master
+remove_source_branch=True
