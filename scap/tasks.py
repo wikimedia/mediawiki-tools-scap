@@ -967,7 +967,25 @@ def check_patch_files(version, cfg):
                 logger.warning("Patch(s) for %s have not been applied.", apply_dir)
 
 
-def get_wikiversions_ondisk(directory):
+def get_wikiversions_ondisk(directory) -> list:
+    """
+    Returns a list of the train branch versions that are currently
+    checked out in DIRECTORY.  The list is sorted in ascending order.
+
+    :returns: list like::
+        ['1.41.0-wmf.1', '1.41.0-wmf.2']
+
+    """
+    versions = [
+        d[len("php-") :]
+        for d in os.listdir(directory)
+        if d.startswith("php-") and utils.BRANCH_RE.match(d[len("php-") :])
+    ]
+
+    return sorted(versions, key=utils.parse_wmf_version)
+
+
+def get_wikiversions_ondisk_ex(directory):
     """
     Get checked-out wikiversions in a directory.
 
@@ -975,18 +993,12 @@ def get_wikiversions_ondisk(directory):
     of the oldest reflog for that branch (non recursive)
 
     :returns: list of tuples like::
-        [(/path/to/php-1.29.0-wmf.17, <DateCreated>)]`
+        [("1.29.0-wmf.17", <DateCreated>)]`
     """
     versions_with_date = []
 
-    versions_on_disk = [
-        d
-        for d in os.listdir(directory)
-        if d.startswith("php-") and utils.BRANCH_RE.match(d[len("php-") :])
-    ]
-
-    for dirname in versions_on_disk:
-        abspath = os.path.join(directory, dirname)
+    for version in get_wikiversions_ondisk(directory):
+        abspath = os.path.join(directory, f"php-{version}")
 
         git_reflog = git.reflog(abspath, fmt="%at")
 
@@ -994,9 +1006,9 @@ def get_wikiversions_ondisk(directory):
             continue
 
         # Oldest reflog date assumed to be the branch date
-        date_branched = datetime.utcfromtimestamp(float(git_reflog[::-1][0]))
+        date_branched = datetime.utcfromtimestamp(float(git_reflog[-1]))
 
-        versions_with_date.append((abspath, date_branched))
+        versions_with_date.append((version, date_branched))
 
     return versions_with_date
 

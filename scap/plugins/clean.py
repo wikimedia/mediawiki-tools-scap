@@ -2,7 +2,6 @@
 """For cleaning up old MediaWiki."""
 from datetime import datetime, timedelta
 import os
-import re
 import shutil
 import subprocess
 import sys
@@ -185,8 +184,7 @@ class Clean(main.AbstractSync):
         active = self.active_wikiversions("stage")
 
         versions_to_remove = []
-        for path, created in tasks.get_wikiversions_ondisk(self.config["stage_dir"]):
-            version = re.search(utils.BRANCH_RE, path)[0]
+        for version, created in tasks.get_wikiversions_ondisk_ex(self.config["stage_dir"]):
             if version not in active and created < cutoff:
                 versions_to_remove.append(version)
 
