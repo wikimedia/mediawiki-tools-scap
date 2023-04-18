@@ -1148,3 +1148,19 @@ def expand_dblist(stage_dir, db_list_name: str) -> list:
         stage_dir, "multiversion", "bin", "expanddblist"
     )
     return subprocess.check_output([script, db_list_name], text=True).splitlines()
+
+
+def get_group_versions(group, directory, realm) -> list:
+    """
+    Returns a list of versions used by 'group', in ascending version order.
+    """
+    dblist = expand_dblist(directory, group)
+
+    versions = set()
+
+    for wikidb, version in read_wikiversions(directory, realm).items():
+        version = re.sub("^php-", "", version)
+        if wikidb in dblist:
+            versions.add(version)
+
+    return sorted(versions, key=parse_wmf_version)

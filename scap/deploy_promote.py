@@ -38,7 +38,7 @@ from functools import partial
 import requests
 from requests import RequestException, HTTPError
 
-from scap import cli, utils, config, git
+from scap import cli, utils, config, git, train
 from scap.runcmd import gitcmd
 
 print = partial(print, flush=True)
@@ -79,8 +79,21 @@ class DeployPromote(cli.Application):
         action="store_true",
         help="answer yes to all prompts"
     )
+    @cli.argument(
+        "--train",
+        action="store_true",
+        help="First set all wikis to the version specified by --old-version, "
+             "then set the new version on all train groups up to and including the target group"
+        )
+    @cli.argument(
+        "--old-version",
+        help="The old train version to be used with --train"
+    )
     def main(self, *extra_args):
         self.logger = self.get_logger()
+
+        if self.arguments.train and not self.arguments.old_version:
+            utils.abort("--old-version must be used along with --train")
 
         self.group = self.arguments.group
         self._check_group()
@@ -90,7 +103,7 @@ class DeployPromote(cli.Application):
 
         self.promote_version = self.arguments.version or sorted_versions[-1]
 
-        prev_version = "/".join(self._get_group_versions(self.arguments.group))
+        prev_version = "/".join(utils.get_group_versions(self.arguments.group, self.config["stage_dir"], self.config["wmf_realm"]))
 
         if not self.arguments.yes and not self._prompt_user_to_approve(prev_version):
             utils.abort("Canceled by user")
@@ -98,37 +111,42 @@ class DeployPromote(cli.Application):
         os.umask(self.config["umask"])
         self._update_versions()
 
-    def _get_group_versions(self, group) -> list:
-        """
-        Returns a list of versions used by 'group', in ascending version order.
-        """
-        dblist = utils.expand_dblist(self.config["stage_dir"], group)
-
-        versions = set()
-
-        for wikidb, version in self.read_wikiversions().items():
-            version = re.sub("^php-", "", version)
-            if wikidb in dblist:
-                versions.add(version)
-
-        return sorted(versions, key=lambda v: utils.parse_wmf_version(v))
-
     def _check_group(self):
         group_file = "%s/dblists/%s.dblist" % (self.config["stage_dir"], self.group)
         if not os.path.isfile(group_file):
             utils.abort("""group "%s" does not exist""" % group_file)
 
     def _prompt_user_to_approve(self, prev_version) -> bool:
-        prompt_message = "Promote %s from %s to %s" % (
-            self.group, prev_version, self.promote_version
-        )
+        if self.arguments.train:
+            # FIXME: The generated message isn't pretty
+            prompt_message = "Set and deploy these versions:\n"
+            v = self.promote_version
+            for group in train.GROUPS:
+                prompt_message += f"{group}: {v}\n"
+                if group == self.group:
+                    v = self.arguments.old_version
+
+            prompt_message += "?"
+        else:
+            prompt_message = "Promote %s from %s to %s" % (
+                self.group, prev_version, self.promote_version
+            )
         return utils.prompt_user_for_confirmation(prompt_message)
 
     def _update_versions(self):
         self._set_messages()
 
+        if self.arguments.train:
+            args = ["all", self.arguments.old_version]
+            for group in train.GROUPS:
+                args += [group, self.promote_version]
+                if group == self.group:
+                    break
+        else:
+            args = [self.group, self.promote_version]
+
         self.scap_check_call(
-            ["update-wikiversions", "--no-check", self.group, self.promote_version]
+            ["update-wikiversions", "--no-check"] + args
         )
         self._create_version_update_patch()
         self._sync_versions()
