@@ -1,3 +1,13 @@
+scap (4.50.0)
+
+  * scap train command
+  * update-wikiversions: Allow more than one dblist/version pair
+  * requirements.txt: packaging==23.1
+  * .gitreview: Convert to gerritlab format
+  * Revise tasks.get_wikiversions_ondisk()
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Tue, 25 Apr 2023 08:19:11 -0700
+
 scap (4.49.0)
 
   * lock: refactored + improved user feedback
