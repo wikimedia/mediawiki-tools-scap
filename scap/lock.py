@@ -103,14 +103,14 @@ class Lock:
         try:
             fcntl.lockf(self.lock_fd, self._get_lock_type() | fcntl.LOCK_NB)
         except BlockingIOError:
-            feedback = self._get_lock_reason()
+            feedback = self._get_lock_message()
 
-            if self.lock_file == GLOBAL_LOCK_FILE:
+            if self.lock_file == GLOBAL_LOCK_FILE and self._exclusive_lock_is_in_place():
                 feedback += ("\nThe lock is global. If required, it can be forcefully removed by running"
                              """ "scap lock --unlock-all <reason>".""")
 
             logger.warning(
-                '%s\nWill wait up to %s minute(s) for the lock to be released.' %
+                '%s\nWill wait up to %s minute(s) for the lock(s) to be released.' %
                 (
                     feedback,
                     self.timeout // 60,
@@ -136,7 +136,7 @@ class Lock:
                     'Failed to acquire lock after waiting for %s minute(s); %s\nAborting' %
                     (
                         self.timeout // 60,
-                        self._get_lock_reason(),
+                        self._get_lock_message(),
                     )
                 )
             print(".", flush=True, end="")
@@ -186,15 +186,50 @@ class Lock:
 
         self._write_lock_file(info)
 
-    def _get_lock_reason(self) -> str:
-        try:
-            sb = os.fstat(self.lock_fd)
-            info = json.loads(os.pread(self.lock_fd, sb.st_size, 0).decode("UTF-8"))
-        except Exception as e:
-            utils.get_logger().warning("Caught %s while reading lock info from %s", e, self.lock_file)
-            info = {}
+    def _get_lock_message(self) -> str:
+        def read_failed(lock, ex):
+            logger.warning("Caught %s while reading lock info from %s", ex, lock)
 
-        return '%s is locked by %s (pid %s) on %s; reason is "%s".' % \
+        def get_locks():
+            lock_dir, global_lock_basename = os.path.split(GLOBAL_LOCK_FILE)
+            return set([
+                os.path.join(lock_dir, lock) for lock in next(os.walk(lock_dir))[2]
+                if 'scap' in lock and global_lock_basename != lock
+            ])
+
+        def read_lock_info(lock, fd):
+            try:
+                sb = os.fstat(fd)
+                info = json.loads(os.pread(fd, sb.st_size, 0).decode("UTF-8"))
+            except Exception as ex:
+                read_failed(lock, ex)
+                info = {}
+            return info
+
+        locks_info = []
+        # Shared lock is blocking global
+        if self.lock_file == GLOBAL_LOCK_FILE and not self._exclusive_lock_is_in_place():
+            # Gather info from all the repository locks
+            for lock_file in get_locks():
+                lock_fd = None
+                try:
+                    lock_fd = os.open(lock_file, os.O_RDONLY)
+                    locks_info.append(read_lock_info(lock_file, lock_fd))
+                except OSError as e:
+                    read_failed(lock_file, e)
+                finally:
+                    if lock_fd:
+                        os.close(lock_fd)
+        else:
+            locks_info = [read_lock_info(self.lock_file, self.lock_fd)]
+
+        # Filter out locks that aren't actually set
+        locks_info = [info for info in locks_info if info != {}]
+        if not locks_info:
+            return "Scap initially detected a lock but the file disappeared. No lock details to show"
+
+        return "\n".join([
+            '%s is locked by %s (pid %s) on %s; reason is "%s".' %
             (
                 self.name,
                 info.get("locker", "?"),
@@ -202,6 +237,16 @@ class Lock:
                 info.get("timestamp_utc", "?"),
                 info.get("reason", "?"),
             )
+            for info in locks_info
+        ])
+
+    def _exclusive_lock_is_in_place(self):
+        try:
+            fcntl.lockf(self.lock_fd, fcntl.LOCK_SH | fcntl.LOCK_NB)
+            fcntl.lockf(self.lock_fd, fcntl.LOCK_UN)
+            return False
+        except BlockingIOError:
+            return True
 
     def _ensure_lock_dir_exists(self):
         lock_dir = os.path.dirname(self.lock_file)
