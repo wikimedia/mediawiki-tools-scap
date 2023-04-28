@@ -182,7 +182,9 @@ function install_scap_venv_for_user {
   if [ -d "$SCAP_VENV_DIR" ]; then
     OLD_SCAP_VENV_DIR=$($AS_USER mktemp --tmpdir -d scap.XXX)
     $AS_USER mv "$SCAP_VENV_DIR" "$OLD_SCAP_VENV_DIR"
-    trap '$AS_USER mv "$OLD_SCAP_VENV_DIR"/scap "$SCAP_VENV_DIR"; $AS_USER rmdir "$OLD_SCAP_VENV_DIR";'\
+    trap '[ -d "$SCAP_VENV_DIR" ] && $AS_USER rm -rf "$SCAP_VENV_DIR";'\
+'$AS_USER mv "$OLD_SCAP_VENV_DIR"/scap "$SCAP_VENV_DIR";'\
+'$AS_USER rmdir "$OLD_SCAP_VENV_DIR";'\
 'echo -e "\nInstallation canceled. Restoring previous Scap version"' EXIT
   fi
 
