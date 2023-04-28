@@ -401,7 +401,7 @@ def sync_submodules(location):
 
     logger = utils.get_logger()
 
-    logger.debug("Syncing out submodules")
+    logger.debug("git submodule sync")
     gitcmd("submodule", "sync", "--recursive", cwd=location)
 
 
@@ -414,6 +414,8 @@ def update_submodules(location, git_remote=None, use_upstream=False, reference=N
     ensure_dir(location)
 
     logger = utils.get_logger()
+
+    sync_submodules(location)
 
     logger.debug("Fetch submodules")
     if not use_upstream:
