@@ -1,3 +1,10 @@
+scap (4.51.0)
+
+  * lock: improve use feedback
+  * Revert "Exclude deploy servers from target list if /srv/mediawiki is a symlink"
+
+ -- jnuche <jnuche@wikimedia.org>  Fri, 28 Apr 2023 10:39:19 +0200
+
 scap (4.50.0)
 
   * scap train command
