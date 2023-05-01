@@ -1,3 +1,10 @@
+scap (4.52.0)
+
+  * Call git submodule sync before git submodule update
+  * scap train: Include part of train version in image
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Mon, 01 May 2023 12:32:10 -0700
+
 scap (4.51.0)
 
   * lock: improve use feedback
