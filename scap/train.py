@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 import prettytable
+import re
 
 from scap import cli, utils, tasks
 
@@ -26,10 +27,11 @@ class TrainInfo():
         # Copied from https://www.asciiart.eu/vehicles/trains
         train_image = """
 ____
-|DD|____T_
-|_ |_____|<
+|DD|_____T_
+|_ |XXXXXX|<
   @-@-@-oo\
 """
+        train_image = re.sub("XXXXXX", self.train_version[-6:], train_image)
 
         train_is_at = self.train_is_at
 
