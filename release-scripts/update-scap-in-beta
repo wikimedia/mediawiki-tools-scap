@@ -63,8 +63,8 @@ EOF
 
 remote_cmd="
 set -e
-cd /srv/deployment/scap; git checkout master; git pull --rebase
-bin/install_local_version.sh -u scap --on-deploy $scap_tag
+cd /srv/deployment/scap; git checkout master; git pull --rebase origin master
+sudo bin/install_local_version.sh -u scap --on-deploy $scap_tag
 cd; scap install-world --batch
 "
 
