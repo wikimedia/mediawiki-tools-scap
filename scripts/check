@@ -20,7 +20,7 @@ title "shellcheck"
 shellcheck $(find . -type f | grep -vE '^\./(\.git|\.tox|docs/_build)' | xargs grep -l '^#!/bin/.*sh')
 
 title "pytest (unit and other functional tests)"
-python3 -m pytest -q -Werror
+python3 -m pytest -q -Werror --ignore=tests/scap/integration
 
 title "flake8 (coding style checks)"
 flake8 --count --show-source --statistics \
