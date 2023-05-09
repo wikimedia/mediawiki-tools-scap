@@ -261,7 +261,7 @@ class DeployPromote(cli.Application):
             res.raise_for_status()
 
             actual_version_match = \
-                re.search(r'<meta name="generator" content="MediaWiki (.+)"/>', res.text)
+                re.search(r'<meta name="generator" content="MediaWiki (.+)"/?>', res.text)
             actual_version = \
                 actual_version_match.group(1) if actual_version_match \
                 else "Version not found on checked page"
