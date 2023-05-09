@@ -1,3 +1,12 @@
+scap (4.52.1)
+
+  * deploy-promote: fix parsing of non-self closing tag with wiki version
+  * deploy-promote: improve logging on page version check
+  * install_local_version.sh: fix bug when restoring installation
+  * update-scap-in-beta: make script work again
+
+ -- jnuche <jnuche@wikimedia.org>  Tue, 09 May 2023 17:56:46 +0200
+
 scap (4.52.0)
 
   * Call git submodule sync before git submodule update
