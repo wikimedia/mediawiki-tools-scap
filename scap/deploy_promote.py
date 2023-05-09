@@ -273,7 +273,9 @@ class DeployPromote(cli.Application):
         return actual_version
 
     def _notify_version_update_result(self, check_url, actual_version):
-        self.logger.info(
+        versions_match = self.promote_version == actual_version
+        log = self.logger.info if versions_match else self.logger.error
+        log(
             "==================================================\n"
             "Checking version on %s\n"
             "Expected: %s\n"
@@ -283,7 +285,7 @@ class DeployPromote(cli.Application):
             check_url,
             self.promote_version,
             actual_version,
-            "SUCCESS" if self.promote_version == actual_version else "FAIL"
+            "SUCCESS" if versions_match else "FAIL"
         )
 
 
