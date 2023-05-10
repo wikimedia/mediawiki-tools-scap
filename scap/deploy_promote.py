@@ -40,6 +40,7 @@ from requests import RequestException, HTTPError
 
 from scap import cli, utils, config, git, train
 from scap.runcmd import gitcmd
+from scap.utils import BRANCH_RE
 
 print = partial(print, flush=True)
 
@@ -260,8 +261,7 @@ class DeployPromote(cli.Application):
             res = requests.get(check_url)
             res.raise_for_status()
 
-            actual_version_match = \
-                re.search(r'<meta name="generator" content="MediaWiki (.+)"/?>', res.text)
+            actual_version_match = re.search(r'(?i)MediaWiki (%s)' % BRANCH_RE.pattern, res.text)
             actual_version = \
                 actual_version_match.group(1) if actual_version_match \
                 else "Version not found on checked page"
