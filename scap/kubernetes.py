@@ -216,15 +216,16 @@ class K8sOps:
         release_repo_dir = self.app.config["release_repo_dir"]
         release_repo_update_cmd = self.app.config["release_repo_update_cmd"]
 
-        if release_repo_update_cmd:
-            self.logger.info("Running {}".format(release_repo_update_cmd))
-            with utils.suppress_backtrace():
-                subprocess.run(release_repo_update_cmd, shell=True, check=True)
-
         try:
+            if release_repo_update_cmd:
+                self.logger.info("Running {}".format(release_repo_update_cmd))
+                with utils.suppress_backtrace():
+                    subprocess.run(release_repo_update_cmd, shell=True, check=True)
+
             build_and_push_images()
             update_helmfile_files()
         except subprocess.CalledProcessError:
+            self.logger.error("Build of K8s images failed (non-K8s deployment will continue normally)")
             self._disable_k8s_deployments()
             self.app.soft_errors = True
 
