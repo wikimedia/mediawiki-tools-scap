@@ -1,3 +1,10 @@
+scap (4.52.2)
+
+  * kubernetes: turn a failed tools-release repo update into a soft error
+  * deploy-promote: make version matching regex less brittle
+
+ -- jnuche <jnuche@wikimedia.org>  Tue, 16 May 2023 11:15:29 +0200
+
 scap (4.52.1)
 
   * deploy-promote: fix parsing of non-self closing tag with wiki version
