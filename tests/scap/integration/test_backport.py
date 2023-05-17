@@ -28,9 +28,6 @@ class BackportsTestHelper:
     gerrit = None
     gerrit_url = "http://gerrit.traindev:8080"
     gerrit_domain = "gerrit.traindev"
-    depends_on_change_urls = None
-    relation_change_urls = None
-    extension_change_url = None
 
     def setup(self):
         self.gerrit = GerritSession(url=self.gerrit_url)
@@ -147,7 +144,6 @@ class BackportsTestHelper:
 
     def config_backport(self, mode, branch="train-dev"):
         """ makes a change to the operations/config repo and backports """
-        announce("Config change test: %s" % mode)
         readme_path = self.mwconfig_dir + "/README"
         text = "\nscap backport test config change: " + datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         change_url = self.change_and_push_file(self.mwconfig_dir, branch, readme_path, text, "config backport test")
@@ -160,7 +156,6 @@ class BackportsTestHelper:
 
     def merge_commit_backport(self):
         """ makes and backports a change that should result in a merge commit """
-        announce("Testing mediawiki/core changes (two independent commits resulting in a merge commit)")
         developers_path = self.mwcore_dir + "/DEVELOPERS.md"
         text = "Added by scap backport on " + datetime.now().strftime("%Y-%m-%d %H:%M:%S") + "\n"
         change_url1 = self.change_and_push_file(self.mwcore_dir, self.mwbranch, developers_path, text,
@@ -176,7 +171,7 @@ class BackportsTestHelper:
         self.scap_backport([change_url2])
 
     def setup_relation_chains(self):
-        """ creates relation chain changesets and stores change urls """
+        """ creates relation chain changesets and returns change urls """
         credits_path = self.mwcore_dir + "/CREDITS"
         text = "Added by scap backport on " + datetime.now().strftime("%Y-%m-%d %H:%M:%S") + "\n"
         change_url1 = self.change_and_push_file(self.mwcore_dir, self.mwbranch, credits_path, text,
@@ -187,20 +182,18 @@ class BackportsTestHelper:
                                                 "scap backport testing: add line to bottom of CREDITS\n"
                                                 "This is expected to result in a relation chain")
 
-        self.relation_change_urls = [change_url1, change_url2]
+        return [change_url1, change_url2]
 
-    def relation_chain_backport_fails(self):
+    def relation_chain_backport_fails(self, change_url):
         """ attempts to backport stored relation chain commits out of order """
-        announce("Testing the latest commit in a relation chain cannot be backported alone")
-        self.scap_backport([self.relation_change_urls[1]])
+        self.scap_backport([change_url])
 
-    def relation_chain_backport_succeeds(self):
+    def relation_chain_backport_succeeds(self, change_urls_list):
         """ backports stored relation chain urls """
-        announce("Testing relation chains can be backported")
-        self.scap_backport(self.relation_change_urls)
+        self.scap_backport(change_urls_list)
 
     def setup_depends_ons(self):
-        """ creates Depends-On changesets and stores change urls """
+        """ creates Depends-On changesets and returns change urls """
         faq_path = self.mwcore_dir + "/FAQ"
         text = "Added by scap backport on " + datetime.now().strftime("%Y-%m-%d %H:%M:%S") + "\n"
         change_url1 = self.change_and_push_file(self.mwcore_dir, self.mwbranch, faq_path, text,
@@ -212,20 +205,19 @@ class BackportsTestHelper:
         text = "\nAdded by scap backport on " + datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         change_url2 = self.change_and_push_file(self.mwcore_dir, self.mwbranch, faq_path, text,
                                                 "scap backport testing: add Depends-On\n\nDepends-On: %s" % change_id)
-        self.depends_on_change_urls = [change_url1, change_url2]
+        return [change_url1, change_url2]
 
-    def depends_on_backport_fails(self):
+    def depends_on_backport_fails(self, change_url):
         """ attempts to backport a change which depends on an unmerged change """
-        announce("Testing commit with Depends-On cannot be backported alone")
-        self.scap_backport([self.depends_on_change_urls[1]])
+        self.scap_backport([change_url])
 
-    def depends_on_backport_succeeds(self):
+    def depends_on_backport_succeeds(self, change_urls_list):
         """ backports depends-on changes """
-        announce("Testing simultaneous merge of commit and dependency")
-        self.scap_backport(self.depends_on_change_urls)
+        announce("Attempting simultaneous backport of commit and dependency")
+        self.scap_backport(change_urls_list)
         change_id = self.get_change_id(self.mwcore_dir)
 
-        announce("Testing merge of commit with already merged dependency")
+        announce("Attempting backport of commit with already merged dependency")
         faq_path = self.mwcore_dir + "/FAQ"
         text = "\nAdded by scap backport on " + datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         change_url1 = self.change_and_push_file(self.mwcore_dir, self.mwbranch, faq_path, text,
@@ -234,7 +226,7 @@ class BackportsTestHelper:
         self.scap_backport([change_url1])
 
         readme_path = self.mwcore_dir + "/README.md"
-        announce("Testing dependency that shares a change_id")
+        announce("Attempting backport of dependency that shares a change_id")
         text = "Added by scap backport on " + datetime.now().strftime("%Y-%m-%d %H:%M:%S") + "\n"
         change_url1 = self.change_and_push_file(self.mwcore_dir, self.mwbranch, readme_path, text,
                                                 "scap backport testing: add line to top of README.md", False)
@@ -255,6 +247,7 @@ class BackportsTestHelper:
         self.scap_backport([change_url1, change_url3])
 
     def depends_on_backport_wrong_branch(self):
+        """ Backports with a dependency in a non-production branch"""
         self.git_command(self.mwconfig_dir, ["checkout", "master"])
         self.git_command(self.mwconfig_dir, ["pull", "origin", "master", "--rebase"])
         readme_path = self.mwconfig_dir + "/README"
@@ -272,21 +265,19 @@ class BackportsTestHelper:
         return pexpect.spawn("scap backport --yes --stop-before-sync %s" % change_url)
 
     def extension_backport(self):
-        """ backports an extension change with submodule update commit and stores the change url
+        """ backports an extension change with submodule update commit and returns the change url
             FIXME: it might be interesting to also test for submodule _and_ merge commit
         """
-        announce("Testing mediawiki/extensions/GrowthExperiments change")
         copying_path = self.mwgrowthexperiments_dir + "/COPYING"
         text = "\nAdded by scap backport on " + datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         change_url = self.change_and_push_file(self.mwgrowthexperiments_dir, self.mwbranch, copying_path, text,
                                                "scap backport testing: add line to bottom of COPYING")
         self.scap_backport([change_url])
-        self.extension_change_url = change_url
+        return change_url
 
-    def extension_revert(self):
+    def extension_revert(self, change_url):
         """ reverts a change """
-        announce("mediawiki/extensions/GrowthExperiments revert change")
-        self.scap_backport(["--revert", self.extension_change_url])
+        self.scap_backport(["--revert", change_url])
         return subprocess.check_output(["git", "-C", self.mwgrowthexperiments_dir, "rev-list", "@{u}..HEAD", "--count"],
                                        text=True).strip()
 
@@ -301,35 +292,44 @@ class TestBackports(unittest.TestCase):
         cls.backports_test_helper.setup()
 
     def test_config_changes(self):
+        announce("Config change test: %s" % "normal")
         self.backports_test_helper.config_backport("normal")
+        announce("Config change test: %s" % "already merged")
         self.backports_test_helper.config_backport("already_merged")
 
     def test_merge_commits(self):
+        announce("Testing mediawiki/core changes (two independent commits resulting in a merge commit)")
         self.backports_test_helper.merge_commit_backport()
 
-    def test_extension(self):
-        self.backports_test_helper.extension_backport()
+    def test_extension_and_revert(self):
+        announce("Testing mediawiki/extensions/GrowthExperiments change")
+        change_url = self.backports_test_helper.extension_backport()
+        announce("Testing mediawiki/extensions/GrowthExperiments backport --revert change")
+        self.assertEqual(self.backports_test_helper.extension_revert(change_url), '1')
 
     def test_relation_chains(self):
-        self.backports_test_helper.setup_relation_chains()
+        change_urls = self.backports_test_helper.setup_relation_chains()
+        announce("Testing the latest commit in a relation chain cannot be backported when relation changes haven't "
+                 "been merged")
         with self.assertRaises(Exception) as context:
-            self.backports_test_helper.relation_chain_backport_fails()
+            self.backports_test_helper.relation_chain_backport_fails(change_urls[1])
             self.assertTrue("not merged or scheduled for backport" in context.exception)
 
-        self.backports_test_helper.relation_chain_backport_succeeds()
+        announce("Testing relation chains can be backported")
+        self.backports_test_helper.relation_chain_backport_succeeds(change_urls)
 
     def test_depends_ons(self):
-        self.backports_test_helper.setup_depends_ons()
+        change_urls = self.backports_test_helper.setup_depends_ons()
+        announce("Testing commit with Depends-On label cannot be backported when Depends-On hasn't been merged")
         with self.assertRaises(Exception) as context:
-            self.backports_test_helper.depends_on_backport_fails()
+            self.backports_test_helper.depends_on_backport_fails(change_urls[1])
             self.assertTrue("not merged or scheduled for backport" in context.exception)
 
-        self.backports_test_helper.depends_on_backport_succeeds()
+        announce("Testing commits with Depends-On label can be backported")
+        self.backports_test_helper.depends_on_backport_succeeds(change_urls)
 
+        announce("Testing warning occurs when Depends-On commit isn't in a production branch")
         child = self.backports_test_helper.depends_on_backport_wrong_branch()
         child.expect_exact('Continue with Backport? (y/n): ')
         child.sendline('n')
         self.assertTrue("included in any mediawiki production branch" in child.before.decode("utf-8"))
-
-    def test_revert(self):
-        self.assertEqual(self.backports_test_helper.extension_revert(), '1')

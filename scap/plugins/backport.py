@@ -369,7 +369,7 @@ class Backport(cli.Application):
                                                               branch.replace("wmf/", ""), "--recursive")
         if project not in self.base_repos + self.git_submodules[branch]:
             self.get_logger().warning("Change '%s', project '%s', branch '%s' not valid for any production "
-                                   "project/submodule" % (change_number, project, branch))
+                                      "project/submodule" % (change_number, project, branch))
             return False
         return True
 
