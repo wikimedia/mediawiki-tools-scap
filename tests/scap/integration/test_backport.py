@@ -4,10 +4,8 @@ import re
 import subprocess
 import time
 from datetime import datetime
+import pexpect
 import unittest
-from io import StringIO
-from unittest.mock import patch
-import pdb
 
 import scap.cli
 import scap.utils
@@ -271,16 +269,7 @@ class BackportsTestHelper:
         change_url = self.change_and_push_file(self.mwconfig_dir, "train-dev", readme_path, text,
                                                "Depends-On testing 3\n\nDepends-On: %s" % change_id, False)
 
-        self.scap_backport([change_url])
-
-
-        '''install_path = self.mwcore_dir + "/INSTALL"
-        text = "Added by scap backport on " + datetime.now().strftime("%Y-%m-%d %H:%M:%S") + "\n"
-        self.write_to_top_of_file(install_path, text)
-        self.git_commit(self.mwcore_dir, "scap backport testing: add line to top of INSTALL", install_path)
-        change_url = self.push_and_collect_url(self.mwcore_dir, "master")
-        self.git_command(self.mwcore_dir, ["reset", "--hard", "HEAD~1"])
-        self.scap_backport([change_url])'''
+        return pexpect.spawn("scap backport --yes --stop-before-sync %s" % change_url)
 
     def extension_backport(self):
         """ backports an extension change with submodule update commit and stores the change url
@@ -329,8 +318,7 @@ class TestBackports(unittest.TestCase):
 
         self.backports_test_helper.relation_chain_backport_succeeds()
 
-    @unittest.mock.patch.object(logging.getLogger('scap.backport'), 'warning')
-    def test_depends_ons(self, mock_warn):
+    def test_depends_ons(self):
         self.backports_test_helper.setup_depends_ons()
         with self.assertRaises(Exception) as context:
             self.backports_test_helper.depends_on_backport_fails()
@@ -338,13 +326,10 @@ class TestBackports(unittest.TestCase):
 
         self.backports_test_helper.depends_on_backport_succeeds()
 
-        with patch('scap.utils.input', create=True, return_value='n'):
-            # with patch('sys.stdout', new=StringIO()) as mock_stdout:
-            self.backports_test_helper.depends_on_backport_wrong_branch()
-            self.assertTrue("included in any mediawiki production branch" in mock_warn.records[-1].message)
-            self.assertTrue(mock_warn.records[-1].levelname == "WARN")
-            # pdb.set_trace()
-        # self.assertTrue("included in any mediawiki production branch" in mock_stdout.getvalue())
+        child = self.backports_test_helper.depends_on_backport_wrong_branch()
+        child.expect_exact('Continue with Backport? (y/n): ')
+        child.sendline('n')
+        self.assertTrue("included in any mediawiki production branch" in child.before.decode("utf-8"))
 
     def test_revert(self):
         self.assertEqual(self.backports_test_helper.extension_revert(), '1')
