@@ -99,7 +99,7 @@ class Backport(cli.Application):
             change_numbers = [self._change_number(n) for n in change_numbers.split()]
 
         if not change_numbers:
-            self.get_logger().warn("No change number or url supplied!")
+            self.get_logger().warning("No change number or url supplied!")
             return 1
 
         change_details = list(map(lambda number: self.gerrit.change_detail(number).get(), change_numbers))
@@ -203,7 +203,7 @@ class Backport(cli.Application):
 
     def _list_backports(self):
         if len(self.versions) <= 0:
-            self.get_logger().warn("No active wikiversions!")
+            self.get_logger().warning("No active wikiversions!")
             raise SystemExit(1)
 
         backports = self._get_backports()
@@ -321,8 +321,9 @@ class Backport(cli.Application):
 
             revert_number = self._push_and_collect_change_number(repo_location, project, branch)
             if revert_number is None:
-                self.get_logger().warn("Could not find change number for revert of %s. Push to gerrit may have failed."
-                                       % detail['_number'])
+                self.get_logger().warning(
+                    "Could not find change number for revert of %s. Push to gerrit may have failed."
+                    % detail['_number'])
                 self._reset_workspace()
                 raise SystemExit(1)
 
@@ -357,7 +358,7 @@ class Backport(cli.Application):
         number = self.gerrit.change_number_from_url(number_or_url)
 
         if number is None:
-            self.get_logger().warn("'%s' is not a valid change number or URL" % number_or_url)
+            self.get_logger().warning("'%s' is not a valid change number or URL" % number_or_url)
             raise SystemExit(1)
 
         return int(number)
@@ -367,8 +368,8 @@ class Backport(cli.Application):
             self.git_submodules[branch] = git.list_submodules(self.mediawiki_location + "/php-" +
                                                               branch.replace("wmf/", ""), "--recursive")
         if project not in self.base_repos + self.git_submodules[branch]:
-            self.get_logger().warn("Change '%s', project '%s', branch '%s' not valid for any production "
-                                   "project/submodule" % (change_number, project, branch))
+            self.get_logger().warning("Change '%s', project '%s', branch '%s' not valid for any production "
+                                      "project/submodule" % (change_number, project, branch))
             return False
         return True
 
@@ -389,10 +390,10 @@ class Backport(cli.Application):
     def _is_status_suitable(self, change_detail):
         change_number = change_detail['_number']
         if change_detail.status == "ABANDONED":
-            self.get_logger().warn("Change '%s' has been abandoned!" % change_number)
+            self.get_logger().warning("Change '%s' has been abandoned!" % change_number)
             return False
         if change_detail.work_in_progress:
-            self.get_logger().warn("Change '%s' is a work in progress and not ready for merge!" % change_number)
+            self.get_logger().warning("Change '%s' is a work in progress and not ready for merge!" % change_number)
             return False
         return True
 
@@ -451,9 +452,9 @@ class Backport(cli.Application):
                              "merged or scheduled for backport" % (change_number, unmet_dependencies))
 
         if len(unsuitable_dependencies) > 0:
-            self.get_logger().warn("The change '%s' has dependencies '%s' which are not scheduled for backport "
-                                   "or included in any mediawiki production branch." %
-                                   (change_number, unsuitable_dependencies))
+            self.get_logger().warning("The change '%s' has dependencies '%s' which are not scheduled for backport "
+                                      "or included in any mediawiki production branch." %
+                                      (change_number, unsuitable_dependencies))
             self.prompt_for_approval_or_exit("Continue with %s?" % self.backport_or_revert.capitalize(),
                                              "%s Cancelled" % self.backport_or_revert)
 
@@ -633,7 +634,7 @@ class Backport(cli.Application):
             extra_commits = new_commits.difference(commits)
 
             if extra_commits:
-                self.get_logger().warn('The following are unexpected commits pulled from origin for %s:' % repo)
+                self.get_logger().warning('The following are unexpected commits pulled from origin for %s:' % repo)
                 with utils.suppress_backtrace():
                     subprocess.check_call(["git", "-C", repo, "show", "-s"] + list(extra_commits))
 
