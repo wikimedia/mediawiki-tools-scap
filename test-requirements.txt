@@ -1,6 +1,7 @@
 coverage
 flake8==5.0.4
 mock
+pexpect
 pytest
 pytest-cov
 pytest-mock
