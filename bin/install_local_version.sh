@@ -173,6 +173,12 @@ function get_scap_distribution {
 }
 
 function install_scap_venv_for_user {
+  function install_venv {
+    $AS_USER python3 -m venv "$SCAP_VENV_DIR"
+    $AS_USER "$SCAP_VENV_DIR"/bin/pip install --no-deps "$DIST_DIR"/*.whl
+    return $?
+  }
+
   local DISTRO
   DISTRO=$(lsb_release -cs)
   local DIST_DIR=$BASE_DIST_DIR/$DISTRO
@@ -188,8 +194,13 @@ function install_scap_venv_for_user {
 'echo -e "\nInstallation canceled. Restoring previous Scap version"' EXIT
   fi
 
-  $AS_USER python3 -m venv "$SCAP_VENV_DIR"
-  $AS_USER "$SCAP_VENV_DIR"/bin/pip install --no-deps "$DIST_DIR"/*.whl
+  # If any of the python commands fails, we retry once. Palliative solution for T337394.
+  # Note `set -e` has no effect inside of a function when its exit status is checked in an if statement, so
+  # `install_venv` handles its status explicitly
+  if ! install_venv; then
+    log 'Retrying creation of virtual environment'
+    install_venv
+  fi
 
   # At this point installation has succeeded and we don't need to restore the old env anymore
   trap - EXIT
