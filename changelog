@@ -1,3 +1,13 @@
+scap (4.52.3)
+
+  * install_local_version.sh: retry failed venv creation once
+  * docs: use `docpub` to publish Scap documentation
+  * backport: Use "warning" instead of "warn"
+  * scap backport: integration tests
+  * backport: Don't print git status
+
+ -- jnuche <jnuche@wikimedia.org>  Fri, 26 May 2023 11:15:12 +0200
+
 scap (4.52.2)
 
   * kubernetes: turn a failed tools-release repo update into a soft error
