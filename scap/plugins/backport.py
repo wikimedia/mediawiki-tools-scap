@@ -37,6 +37,217 @@ def make_table(backports, display_mergable):
     return table
 
 
+class GitRepos:
+    """
+    Contains base list of deployed git repos and a cache of submodules
+    with functions to check whether a project/branch is currently deployable
+    """
+    OPERATIONS_CONFIG = None
+    config_branch = None
+    versions = None
+    mediawiki_location = None
+    base_repos = []
+    submodules = {}
+    logger = None
+
+    def __init__(self, logger, operations_config, config_branch, versions, mediawiki_location, base_repos):
+        self.OPERATIONS_CONFIG = operations_config
+        self.config_branch = config_branch
+        self.versions = versions
+        self.mediawiki_location = mediawiki_location
+        self.base_repos = base_repos
+        self.logger = logger
+
+    def get(self, branch):
+        """Returns the submodules for a branch.
+        Gets and adds them to the dictionary if they haven't been recorded yet
+        """
+        res = self.submodules.get(branch)
+        if res:
+            return res
+        res = git.list_submodules(self.mediawiki_location + "/php-" + branch, "--recursive")
+        self.submodules[branch] = res
+        return res
+
+    def non_config_is_in_production(self, project, branches, change_number):
+        """Non-config projects only.
+           Checks if any of the included in branches of the project for the change are deployed to production.
+           The associated change_number is used for logging purposes.
+        """
+        included_in_production_branches = set("wmf/{}".format(v) for v in self.versions).intersection(branches)
+        for branch in included_in_production_branches:
+            if project in self.base_repos + self.get(branch.replace("wmf/", "")):
+                return True
+
+            self.logger.info("Change '%s', project '%s', branch '%s' not valid for any production "
+                             "project/submodule" % (change_number, project, branch))
+        return False
+
+    def are_any_branches_deployable(self, change_number, project, branches):
+        """Checks if any of the supplied project/branches are deployed to production.
+           The associated change_number is used only for logging purposes.
+        """
+        if project == self.OPERATIONS_CONFIG and self.config_branch in branches:
+            return True
+        elif project is not self.OPERATIONS_CONFIG:
+            if self.non_config_is_in_production(project, branches, change_number):
+                return True
+
+        self.logger.warning(
+            "Change '%s', project '%s', branches '%s' not found in any deployed wikiversion. Deployed wikiversions: %s"
+            % (change_number, project, branches, list(self.versions)))
+        return False
+
+
+class InvalidChangeException(SystemExit):
+    """Exception for changes which are determined to be invalid for backport"""
+
+
+class GerritChanges:
+    """
+    Manages gerrit changes to be backported
+    """
+    gerrit = None
+    changes = None
+    change_numbers = None
+    git_repos = None
+
+    def __init__(self, logger, gerrit, git_repos, change_numbers):
+        self.logger = logger
+        self.git_repos = git_repos
+        self.gerrit = gerrit
+        self.change_numbers = change_numbers
+        self.changes = dict(map(lambda number: (number, GerritChange(logger, gerrit, number)), change_numbers))
+
+    def __len__(self):
+        return len(self.change_numbers)
+
+    def is_change_scheduled(self, change_number):
+        """Returns whether the change is in the list of changes requested for backport"""
+        return change_number in self.change_numbers
+
+    def _select_ideal_dependency(self, change, deps):
+        """Attempts to select the appropriate dependency from a list of those sharing the same change Id"""
+        merged_count = 0
+        for dep in deps:
+            if change.get('branch') == dep.get('branch'):
+                return dep
+            if self.is_change_scheduled(dep.number):
+                return dep
+            if dep.is_merged:
+                merged_count = merged_count + 1
+        if merged_count == len(deps):
+            return None
+        raise InvalidChangeException("Could not determine dependency for %s from those sharing change ids: %s. To "
+                                     "backport your change, please include the correct dependency's change number in "
+                                     "the scap backport arguments"
+                                     % (change.number, list((dep.number for dep in deps))))
+
+    def validate_and_get_ambiguous_dependencies(self, change):
+        """
+        Ensures all dependencies for a change are met or provided for backport by the user
+        Returns a list of dependencies that are not in a production project/branch
+        """
+        non_prod_dependencies = []
+        unmet_dependencies = []
+        changes_by_change_id = {}
+        for dep in change.dependencies.values():
+            changes_by_change_id.setdefault(dep.get('change_id'), []).append(dep)
+        for changes in changes_by_change_id.values():
+            if len(changes) > 1:
+                dep = self._select_ideal_dependency(change, changes)
+                if dep is None:
+                    continue
+            else:
+                dep = changes[0]
+
+            if not self.is_change_scheduled(dep.number):
+                branches = dep.included_in_branches()
+                project = dep.get('project').replace("mediawiki/", "")
+                if len(branches) == 0:
+                    unmet_dependencies.append(dep.number)
+                elif not self.git_repos.are_any_branches_deployable(change.number, project, branches):
+                    non_prod_dependencies.append(dep.number)
+            non_prod_dependencies.extend(self.validate_and_get_ambiguous_dependencies(dep))
+
+        if len(unmet_dependencies) > 0:
+            raise InvalidChangeException("Change '%s' has dependencies '%s', which are not merged or scheduled for "
+                                         "backport" % (change.number, unmet_dependencies))
+        return non_prod_dependencies
+
+
+class GerritChange:
+    """
+    Stores and manages a gerrit change
+    """
+    gerrit = None
+    number = None
+    details = None
+    dependencies = None
+    logger = None
+
+    def __init__(self, logger, gerrit, number, details=None):
+        self.logger = logger
+        self.gerrit = gerrit
+        self.number = number
+        self.dependencies = {}
+        if details is not None:
+            self.details = details
+        else:
+            self.update_details()
+        self.check_status()
+
+    def get(self, key):
+        return self.details.get(key)
+
+    def is_merged(self):
+        return self.details.status == 'MERGED'
+
+    def check_status(self):
+        if self.get('status') == "ABANDONED":
+            raise InvalidChangeException("Change '%s' has been abandoned!" % self.number)
+        if self.get('work_in_progress'):
+            raise InvalidChangeException("Change '%s' is a work in progress and not ready for merge!" % self.number)
+
+    def included_in_branches(self):
+        included_info = self.gerrit.change_in(self.number).get()
+        return included_info.branches
+
+    def update_details(self):
+        self.details = self.gerrit.change_detail(self.number).get()
+
+    def update_dependencies(self):
+        self.dependencies = {}
+        self._update_relations()
+        self._update_depends_ons()
+
+    def _record_dependency(self, change):
+        if self.dependencies.get(change['_number']) is None:
+            gerrit_change = GerritChange(self.logger, self.gerrit, change['_number'], change)
+            gerrit_change._update_depends_ons()
+            self.dependencies[gerrit_change.number] = gerrit_change
+
+    def _update_relations(self):
+        relations = self.gerrit.submitted_together(self.number).get().changes
+        if len(relations) > 1:
+            # remove self from list
+            relations.pop(0)
+            for change in relations:
+                self.logger.info("Related change %s found for %s", change['_number'], self.number)
+                self._record_dependency(change)
+
+    def _update_depends_ons(self):
+        depends_ons = self.gerrit.depends_ons(self.get('id')).get()
+
+        if bool(depends_ons.cycle) is True:
+            raise InvalidChangeException(
+                "A dependency cycle was detected for change %s." % self.number)
+
+        for change in depends_ons.depends_on_found:
+            self.logger.info("Dependency %s found for %s", change['_number'], self.number)
+            self._record_dependency(change)
+
+
 @cli.command("backport", help="List, apply, or revert backports", affected_by_blocked_deployments=True)
 class Backport(cli.Application):
     """
@@ -55,7 +266,8 @@ class Backport(cli.Application):
     backport_or_revert = None
     deploy_user = None
     base_repos = None
-    git_submodules = {}
+    git_submodules = None
+    backports = None
 
     @cli.argument(
         "--list",
@@ -88,12 +300,14 @@ class Backport(cli.Application):
         self.versions = self.active_wikiversions("stage")
         self.base_repos = git.list_submodules(self.mediawiki_location, "--recursive") + ["core"]
         change_numbers = [self._change_number(n) for n in self.arguments.change_numbers]
+        self.git_submodules = GitRepos(self.get_logger(), self.OPERATIONS_CONFIG, self.config_branch, self.versions,
+                                       self.mediawiki_location, self.base_repos)
 
         self._assert_auth_sock()
         self._check_ssh_auth()
 
         if self.arguments.list:
-            self._list_backports()
+            self._list_available_backports()
             change_numbers = input("Enter the change numbers (separated by a space) you wish to %s: "
                                    % self.backport_or_revert)
             change_numbers = [self._change_number(n) for n in change_numbers.split()]
@@ -102,17 +316,17 @@ class Backport(cli.Application):
             self.get_logger().warning("No change number or url supplied!")
             return 1
 
-        change_details = list(map(lambda number: self.gerrit.change_detail(number).get(), change_numbers))
+        self.backports = GerritChanges(self.get_logger(), self.gerrit, self.git_submodules, change_numbers)
 
         if self.arguments.revert:
-            self._do_revert(change_details)
+            self._do_revert()
         else:
-            self._do_backport(change_numbers, change_details)
+            self._do_backport()
 
         return 0
 
-    def _do_revert(self, change_details):
-        self._validate_reverts(change_details)
+    def _do_revert(self):
+        self._validate_reverts()
 
         arguments = ["backport"]
         if self.arguments.yes:
@@ -120,36 +334,37 @@ class Backport(cli.Application):
         if self.arguments.stop_before_sync:
             arguments.append("--stop-before-sync")
 
-        reverts = self._create_reverts(change_details)
+        reverts = self._create_reverts()
 
         if len(reverts) > 0:
             self.scap_check_call(arguments + reverts)
 
-    def _do_backport(self, change_numbers, change_details):
-        self._validate_backports(change_details, change_numbers)
+    def _do_backport(self):
+        self._validate_backports()
         if not self.arguments.yes:
-            table = make_table(change_details, False)
+            table = make_table(list(change.details for change in self.backports.changes.values()), False)
             self.prompt_for_approval_or_exit("The following changes are scheduled for backport:\n%s\n"
                                              "Backport the changes?" % table.get_string(),
                                              "Backport cancelled.")
-        self._approve_changes(change_details)
-        self._wait_for_changes_to_be_merged(change_numbers)
-        self._confirm_commits_to_sync(change_details)
+        self._approve_changes()
+        self._wait_for_changes_to_be_merged()
+        self._confirm_commits_to_sync()
 
         self.scap_check_call(["prep", "auto"])
 
-        if self._beta_only_config_changes(change_details):
+        if self._beta_only_config_changes():
             self.get_logger().info("Skipping sync since all commits were beta/labs-only changes. Operation completed.")
             return 0
 
         if self.arguments.stop_before_sync:
             return 0
 
-        self._sync_world(change_details)
+        self._sync_world()
 
-    def _sync_world(self, change_details):
-        sync_arguments = [self._build_sal(change_details)]
-        notify_users = set(map(lambda change: "--notify-user=" + change['owner'].username, change_details))
+    def _sync_world(self):
+        sync_arguments = [self._build_sal()]
+        notify_users = set(map(lambda change: "--notify-user=" + change['owner'].username,
+                               self.backports.changes.values()))
 
         if not self.arguments.yes:
             sync_arguments = list(notify_users) + sync_arguments
@@ -157,26 +372,26 @@ class Backport(cli.Application):
 
         self.scap_check_call(["sync-world"] + sync_arguments)
 
-    def _extract_bug_ids_from_gerrit_change_details(self, change) -> list:
+    def _extract_bug_ids_from_gerrit_change_details(self, details) -> list:
         """Returns a list of Phabricator task id strings"""
-        commit_msg = change["revisions"][change["current_revision"]]["commit_with_footers"]
+        commit_msg = details["revisions"][details["current_revision"]]["commit_with_footers"]
         footers = commit_msg.split('\n\n')[-1]
         return re.findall(r'Bug: (T\d+)\n', footers)
 
-    def _build_sal(self, change_details) -> str:
+    def _build_sal(self) -> str:
         """Build a Server Admin Log entry"""
-        return "Backport for {}".format(", ".join(map(self._build_sal_1, change_details)))
+        return "Backport for {}".format(", ".join(map(self._build_sal_1, self.backports.changes)))
 
     # This code was inspired by https://gerrit.wikimedia.org/r/plugins/gitiles/labs/tools/deploy-commands/+/refs/heads/master/deploy_commands/bacc.py#10
     def _build_sal_1(self, change) -> str:
-        bug_ids = self._extract_bug_ids_from_gerrit_change_details(change)
+        bug_ids = self._extract_bug_ids_from_gerrit_change_details(change.details)
 
         if not bug_ids:
             bug_str = ''
         else:
             bug_str = ' (' + ' '.join(bug_ids) + ')'
 
-        return '[[gerrit:{}|{}{}]]'.format(change["_number"], change["subject"], bug_str)
+        return '[[gerrit:{}|{}{}]]'.format(change.number, change.get("subject"), bug_str)
 
     def _gerrit_ssh(self, gerrit_arguments):
         gerrit_hostname = urllib.parse.urlparse(self.config['gerrit_url']).hostname
@@ -201,12 +416,12 @@ class Backport(cli.Application):
                                     "Please check your ssh configuration.")
             raise SystemExit(e)
 
-    def _list_backports(self):
+    def _list_available_backports(self):
         if len(self.versions) <= 0:
             self.get_logger().warning("No active wikiversions!")
             raise SystemExit(1)
 
-        backports = self._get_backports()
+        backports = self._get_available_backports()
 
         if len(backports) <= 0:
             self.get_logger().info("No available %s." % self.backport_or_revert)
@@ -215,7 +430,7 @@ class Backport(cli.Application):
         backports_table = make_table(backports, not self.arguments.revert)
         print(backports_table.get_string(sortby="Project"))
 
-    def _get_backports(self):
+    def _get_available_backports(self):
         params = {}
 
         if self.arguments.revert:
@@ -284,19 +499,19 @@ class Backport(cli.Application):
 
         return revert_msg
 
-    def _create_reverts(self, change_details):
+    def _create_reverts(self):
         """Creates a revert on gerrit
 
         Returns a list of change numbers
         """
         revert_numbers = []
-        self.get_logger().info('Reverting %s change(s)' % len(change_details))
+        self.get_logger().info('Reverting %s change(s)' % len(self.backports))
 
-        for detail in change_details:
-            revision = self.gerrit.change_revision_commit(detail['id']).get()
+        for change in self.backports.changes.values():
+            revision = self.gerrit.change_revision_commit(change.get('id')).get()
             commit = revision['commit']
-            project = detail.project.replace("mediawiki/", "")
-            branch = detail.branch
+            project = change.get('project').replace("mediawiki/", "")
+            branch = change.get('branch')
 
             if project == self.OPERATIONS_CONFIG:
                 repo_location = self.mediawiki_location
@@ -323,31 +538,30 @@ class Backport(cli.Application):
             if revert_number is None:
                 self.get_logger().warning(
                     "Could not find change number for revert of %s. Push to gerrit may have failed."
-                    % detail['_number'])
+                    % change.number)
                 self._reset_workspace()
                 raise SystemExit(1)
 
             revert_numbers.append(revert_number)
             self.get_logger().info('Change %s created' % revert_number)
             self._gerrit_ssh(['review', '-m', '"%s created a revert of this change as %s"'
-                             % (self.deploy_user, revert_id), '%s' % detail['current_revision']])
+                             % (self.deploy_user, revert_id), '%s' % change.get('current_revision')])
 
         self._reset_workspace()
         return revert_numbers
 
-    def _approve_changes(self, change_details):
+    def _approve_changes(self):
         """Approves the given changes by voting Code-Review+2"""
 
-        self.get_logger().info('Voting on %s change(s)' % len(change_details))
-        for detail in change_details:
-            change_number = detail['_number']
-            if detail['status'] == 'MERGED':
+        self.get_logger().info('Voting on %s change(s)' % len(self.backports))
+        for change_number, change in self.backports.changes.items():
+            if change.is_merged():
                 self.get_logger().info('Change %s was already merged', change_number)
                 continue
 
             self._gerrit_ssh(['review', '--code-review', '+2', '-m',
                               '"Approved by %s using scap backport"' % self.deploy_user,
-                              '%s' % detail['current_revision']])
+                              '%s' % change.get('current_revision')])
             self.get_logger().info('Change %s approved', change_number)
 
     def _change_number(self, number_or_url):
@@ -363,166 +577,61 @@ class Backport(cli.Application):
 
         return int(number)
 
-    def _is_project_suitable(self, change_number, project, branch):
-        if branch not in self.git_submodules:
-            self.git_submodules[branch] = git.list_submodules(self.mediawiki_location + "/php-" +
-                                                              branch.replace("wmf/", ""), "--recursive")
-        if project not in self.base_repos + self.git_submodules[branch]:
-            self.get_logger().warning("Change '%s', project '%s', branch '%s' not valid for any production "
-                                      "project/submodule" % (change_number, project, branch))
-            return False
-        return True
+    def _confirm_change(self, change):
+        project = change.get('project').replace("mediawiki/", "")
+        branch = change.get('branch')
 
-    def _are_branches_suitable(self, change_number, project, branches):
-        if project == self.OPERATIONS_CONFIG and self.config_branch in branches:
-            return True
-        elif project is not self.OPERATIONS_CONFIG:
-            included_in_production_branches = set("wmf/{}".format(v) for v in self.versions).intersection(branches)
-            for branch in included_in_production_branches:
-                if self._is_project_suitable(change_number, project, branch):
-                    return True
-
-        self.get_logger().info(
-            "Change '%s', project '%s', branches '%s' not found in any deployed wikiversion. Deployed wikiversions: %s"
-            % (change_number, project, branches, list(self.versions)))
-        return False
-
-    def _is_status_suitable(self, change_detail):
-        change_number = change_detail['_number']
-        if change_detail.status == "ABANDONED":
-            self.get_logger().warning("Change '%s' has been abandoned!" % change_number)
-            return False
-        if change_detail.work_in_progress:
-            self.get_logger().warning("Change '%s' is a work in progress and not ready for merge!" % change_number)
-            return False
-        return True
-
-    def _validate_change(self, change_detail):
-        change_number = change_detail['_number']
-        project = change_detail.project.replace("mediawiki/", "")
-        branch = change_detail.branch
-
-        if not self._is_status_suitable(change_detail):
-            raise SystemExit(1)
-
-        if not self._are_branches_suitable(change_number, project, [branch]):
+        if not self.git_submodules.are_any_branches_deployable(change.number, project, [branch]):
             if not self.arguments.yes:
                 self.prompt_for_approval_or_exit("Continue with %s?" % self.backport_or_revert.capitalize(),
                                                  "%s Cancelled" % self.backport_or_revert)
 
-    def _validate_backports(self, change_details, change_numbers):
+    def _validate_backports(self):
         self.get_logger().info("Checking whether changes are in a branch and version deployed to production...")
-        for detail in change_details:
-            self._validate_change(detail)
-            self._validate_dependencies(detail, change_numbers)
-            self.get_logger().info("Change '%s' validated for %s" % (detail['_number'], self.backport_or_revert))
+        for change_number, change in self.backports.changes.items():
+            self._confirm_change(change)
+            change.update_dependencies()
+            ambiguous_dependencies = self.backports.validate_and_get_ambiguous_dependencies(change)
 
-    def _validate_reverts(self, change_details):
+            if len(ambiguous_dependencies) > 0:
+                self.get_logger().warning("The change '%s' has dependencies '%s' which are not scheduled for backport "
+                                          "or included in any mediawiki production branch." %
+                                          (change_number, ambiguous_dependencies))
+                self.prompt_for_approval_or_exit("Continue with %s?" % self.backport_or_revert.capitalize(),
+                                                 "%s Cancelled" % self.backport_or_revert)
+            self.get_logger().info("Change '%s' validated for %s" % (change_number, self.backport_or_revert))
+
+    def _validate_reverts(self):
         self.get_logger().info("Checking whether changes are in a branch and version deployed to production...")
-        for detail in change_details:
-            if detail['status'] != "MERGED":
-                raise SystemExit("Change '%s' has not yet been merged and cannot be reverted." % detail['_number'])
-            self._validate_change(detail)
+        for change_number, change in self.backports.changes.items():
+            if not change.is_merged():
+                raise InvalidChangeException("Change '%s' has not yet been merged and cannot be reverted."
+                                             % change_number)
+            self._confirm_change(change)
 
-    def _validate_dependencies(self, change_detail, change_numbers):
-        """Checks if all dependencies are merged or scheduled to be merged."""
-        self.get_logger().info("Checking for relation chains and Depends-Ons...")
-        change_number = change_detail['_number']
-        project_branch_id = change_detail['id']
-
-        deps = dict(map(lambda change: (change['_number'], change),
-                        self.gerrit.submitted_together(change_number).get().changes))
-        deps.update(self._get_depends_ons(project_branch_id, change_number))
-
-        unscheduled_dependencies = set(deps.keys()) - set(change_numbers)
-        unmet_dependencies = []
-        unsuitable_dependencies = []
-
-        for dep_number in unscheduled_dependencies:
-            dep_project = deps[dep_number]['project'].replace("mediawiki/", "")
-            included_info = self.gerrit.change_in(dep_number).get()
-            branches = included_info.branches
-            if len(branches) == 0:
-                unmet_dependencies.append(dep_number)
-            elif not self._are_branches_suitable(dep_number, dep_project, branches):
-                unsuitable_dependencies.append(dep_number)
-
-        if len(unmet_dependencies) > 0:
-            raise SystemExit("Change '%s' cannot be merged without merging its dependencies '%s', which are not "
-                             "merged or scheduled for backport" % (change_number, unmet_dependencies))
-
-        if len(unsuitable_dependencies) > 0:
-            self.get_logger().warning("The change '%s' has dependencies '%s' which are not scheduled for backport "
-                                      "or included in any mediawiki production branch." %
-                                      (change_number, unsuitable_dependencies))
-            self.prompt_for_approval_or_exit("Continue with %s?" % self.backport_or_revert.capitalize(),
-                                             "%s Cancelled" % self.backport_or_revert)
-
-    def _get_depends_ons(self, project_branch_changeid, change_number):
-        # There can be multiple changes with the same change_id, so make sure to use 'id',
-        # https://gerrit-review.googlesource.com/Documentation/rest-api-changes.html#change-info
-        # which combines project, branch, and change_id to request dependency information
-        # for the correct change.
-        depends_ons = self.gerrit.depends_ons(project_branch_changeid).get()
-        project_branch = project_branch_changeid.rsplit('~', 1)[0]
-        deps = {}
-
-        if bool(depends_ons.cycle) is True:
-            raise SystemExit(
-                "The change '%s' cannot be merged because a dependency cycle was detected." % change_number)
-
-        depends_ons_changes = self._filter_depends_ons(change_number, project_branch, depends_ons.depends_on_found)
-        for change_info in depends_ons_changes:
-            dep_change_number = change_info['_number']
-            dep_project_branch_changeid = change_info['id']
-            if change_number not in deps:
-                self.get_logger().info("Dependency %s found. Checking for dependencies of %s..." %
-                                       (dep_change_number, dep_change_number))
-                deps[dep_change_number] = change_info
-                deps.update(self._get_depends_ons(dep_project_branch_changeid, dep_change_number))
-
-        return deps
-
-    def _filter_depends_ons(self, change_number, project_branch, depends_ons):
-        # filter out duplicate change ids
-        # the correct dependency should share project and branch with the original change
-        depends_ons_by_changeid = {}
-        filtered_depends_ons = []
-        for change in depends_ons:
-            depends_ons_by_changeid.setdefault(change['change_id'], []).append(change)
-        for change_id, changes in depends_ons_by_changeid.items():
-            if len(changes) > 1:
-                same_project_branch_deps = list((change for change in changes if project_branch in change['id']))
-                if len(same_project_branch_deps) != 1:
-                    raise SystemExit("Could not determine dependency for %s from those sharing change ids: %s."
-                                     % (change_number, list((change['_number'] for change in changes))))
-                filtered_depends_ons.extend(same_project_branch_deps)
-            else:
-                filtered_depends_ons.extend(changes)
-        return filtered_depends_ons
-
-    def _wait_for_changes_to_be_merged(self, change_numbers):
+    def _wait_for_changes_to_be_merged(self):
         self.get_logger().info('Waiting for changes to be merged. '
                                'This may take some time if there are long running tests.')
 
         finished = False
         reporter = log.reporter("awaiting-backport-merges")
-        reporter.expect(len(change_numbers))
+        reporter.expect(len(self.backports))
         reporter.start()
-        changes = set(change_numbers)
+        changes = set(self.backports.change_numbers)
         changes_merged = set()
 
         try:
             while not finished:
                 finished = True  # optimism
                 for number in changes.difference(changes_merged):
-                    detail = self.gerrit.change_detail(number).get()
-                    status = detail['status']
-                    verified = detail['labels']['Verified']
+                    change = self.backports.changes[number]
+                    change.update_details()
+                    status = change.get('status')
+                    verified = change.get('labels')['Verified']
                     rejected = getattr(verified, 'rejected', None)
                     # The "mergeable" field will only exist if Gerrit's config has
                     # change.mergeabilityComputationBehavior set to API_REF_UPDATED_AND_CHANGE_REINDEX.
-                    mergeable = getattr(detail, 'mergeable', None)
+                    mergeable = change.get('mergeable')
 
                     if status == 'MERGED':
                         changes_merged.add(number)
@@ -559,12 +668,10 @@ class Backport(cli.Application):
             return subprocess.check_output(["git", "-C", directory, "rev-list", branch, "--regexp-ignore-case",
                                             "--grep", search_string], text=True).strip("\n")
 
-    def _collect_commit_fingerprints(self, change_details):
+    def _collect_commit_fingerprints(self):
         """
         Returns commit fingerprints for backported changes for each production branch
         including merge commits and submodule update commits
-
-        :param change_details:  list[object]: The change details for each backport
 
         :returns: dict[str, set]: Dict with string directory as key and set of string
                                   fingerprints for each active production branch
@@ -580,10 +687,10 @@ class Backport(cli.Application):
             repo_commits["%s/php-%s" % (self.mediawiki_location, version)] = set()
             self._fetch_git_changes("%s/php-%s" % (self.mediawiki_location, version))
 
-        for detail in change_details:
-            change_id = detail["change_id"]
-            project = detail.project
-            branch = detail.branch
+        for change in self.backports.changes.values():
+            change_id = change.get("change_id")
+            project = change.get('project')
+            branch = change.get('branch')
 
             if project == self.OPERATIONS_CONFIG:
                 repo_location = self.mediawiki_location
@@ -619,9 +726,9 @@ class Backport(cli.Application):
 
         return repo_commits
 
-    def _confirm_commits_to_sync(self, change_details):
+    def _confirm_commits_to_sync(self):
         self.get_logger().info('Collecting commits to deploy...')
-        repo_commits = self._collect_commit_fingerprints(change_details)
+        repo_commits = self._collect_commit_fingerprints()
 
         for repo, commits in repo_commits.items():
             with utils.suppress_backtrace():
@@ -649,36 +756,36 @@ class Backport(cli.Application):
                 self.prompt_for_approval_or_exit('There were unexpected commits pulled from origin for %s. '
                                                  'Continue with backport?' % repo, "Backport cancelled.")
 
-    def _get_file_list(self, details):
+    def _get_file_list(self, change_number):
         """
-        Returns the list of files modified by the change associated with 'details'.
+        Returns the list of files modified by the change associated with change number.
         """
-        return [filename for filename in self.gerrit.change_files(details["_number"]).get().keys()
+        return [filename for filename in self.gerrit.change_files(change_number).get().keys()
                 if filename != "/COMMIT_MSG"]
 
-    def _count_beta_only_config_files(self, details):
+    def _count_beta_only_config_files(self, change_number):
         beta_only_config_files = self.config["beta_only_config_files"].split()
         num_beta_files = 0
         num_other_files = 0
 
-        for file in self._get_file_list(details):
+        for file in self._get_file_list(change_number):
             if file in beta_only_config_files:
                 num_beta_files += 1
             else:
                 num_other_files += 1
 
-        return (num_beta_files, num_other_files)
+        return num_beta_files, num_other_files
 
-    def _beta_only_config_changes(self, change_details) -> bool:
+    def _beta_only_config_changes(self) -> bool:
         """
         Returns True if the changes being backported consist exclusively of beta/labs-only
         configuration changes.
         """
-        for details in change_details:
-            if details["project"] != self.OPERATIONS_CONFIG:
+        for change in self.backports.changes.values():
+            if change.get("project") != self.OPERATIONS_CONFIG:
                 return False
 
-            (num_beta_files, num_other_files) = self._count_beta_only_config_files(details)
+            (num_beta_files, num_other_files) = self._count_beta_only_config_files(change.number)
 
             if num_other_files > 0 or num_beta_files == 0:
                 return False
