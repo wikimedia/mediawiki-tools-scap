@@ -778,7 +778,7 @@ class Deploy(cli.Application):
                 # Handle JSON output from deploy-local
                 self.deploy_info["log_json"] = True
 
-                self.get_logger().debug("Update DEPLOY_HEAD")
+                logger.debug("Update DEPLOY_HEAD")
 
                 self.deploy_info.update(
                     {
@@ -925,13 +925,13 @@ class Deploy(cli.Application):
                     )
                     raise DeployGroupFailure(msg)
 
+            logger.info("%s deploy successful" % label)
             if (
                 prompt_user
                 and not self.continue_all
                 and not self._last_subgroup(group, label)
             ):
-
-                prompt = "%s deploy successful. Continue?" % label
+                prompt = "Continue?"
                 choices = "[y]es/[n]o/[c]ontinue all groups"
 
                 while True:
