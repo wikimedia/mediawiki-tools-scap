@@ -363,7 +363,7 @@ class Backport(cli.Application):
 
     def _sync_world(self):
         sync_arguments = [self._build_sal()]
-        notify_users = set(map(lambda change: "--notify-user=" + change['owner'].username,
+        notify_users = set(map(lambda change: "--notify-user=" + change.get('owner').username,
                                self.backports.changes.values()))
 
         if not self.arguments.yes:
@@ -380,7 +380,7 @@ class Backport(cli.Application):
 
     def _build_sal(self) -> str:
         """Build a Server Admin Log entry"""
-        return "Backport for {}".format(", ".join(map(self._build_sal_1, self.backports.changes)))
+        return "Backport for {}".format(", ".join(map(self._build_sal_1, self.backports.changes.values())))
 
     # This code was inspired by https://gerrit.wikimedia.org/r/plugins/gitiles/labs/tools/deploy-commands/+/refs/heads/master/deploy_commands/bacc.py#10
     def _build_sal_1(self, change) -> str:
