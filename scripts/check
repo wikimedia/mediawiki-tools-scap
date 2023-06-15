@@ -15,27 +15,36 @@ got()
     command -v "$1" > /dev/null
 }
 
-title "shellcheck"
-# shellcheck disable=SC2046
-shellcheck $(find . -type f | grep -vE '^\./(\.git|\.tox|docs/_build)' | xargs grep -l '^#!/bin/.*sh')
+if got shellcheck
+then
+    title "shellcheck"
+    # shellcheck disable=SC2046
+    shellcheck $(find . -type f | grep -vE '^\./(\.git|\.tox|docs/_build)' | xargs grep -l '^#!/bin/.*sh')
+fi
 
-title "pytest (unit and other functional tests)"
-python3 -m pytest -q -Werror --ignore=tests/scap/integration
+if got pytest
+then
+    title "pytest (unit and other functional tests)"
+    python3 -m pytest -q -Werror --ignore=tests/scap/integration
+fi
 
-title "flake8 (coding style checks)"
-flake8 --count --show-source --statistics \
-       --extend-ignore=W605,E501,E203 \
-       --extend-exclude=build,docs,dist,bin,subplot .
+if got flake8
+then
+    title "flake8 (coding style checks)"
+    flake8 --count --show-source --statistics \
+           --extend-ignore=W605,E501,E203 \
+           --extend-exclude=build,docs,dist,bin,subplot .
+fi
 
 if got black
 then
     # Black v18 is on Debian 10 (buster), but Lars develops on Debian
     # 11 (bullseye), which has a newer Black, which formats things
     # differently. So we only check formatting if we have a new Black.
-    if black --version | grep -q 20
+    if [ "$(black --version | head -n1 | cut -c8-9)" -ge 20 ]
     then
         title "black (code formatting)"
-        black --check --diff . bin/*
+        black --check --diff . bin/scap
     fi
 fi
 
@@ -49,8 +58,11 @@ then
     python3 test.py --log test.log --save-on-failure fail.tar.gz
 fi
 
-title "sphinx (documentation)"
-sphinx-build -q -W -b html docs/ docs/_build/html
+if got sphinx-build
+then
+    title "sphinx (documentation)"
+    sphinx-build -q -W -b html docs/ docs/_build/html
+fi
 
 title "Oh happy day: all tests pass OK!"
 exit 0
