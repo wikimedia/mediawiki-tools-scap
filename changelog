@@ -1,3 +1,13 @@
+scap (4.53.0)
+
+  * backport: Check for updated patch when merging
+  * backport: fix some bugs from refactor
+  * scripts/check: Loosen `black` requirements
+  * Include timestamp on successful stage completion
+  * scap backport: major refactor
+
+ -- jnuche <jnuche@wikimedia.org>  Thu, 15 Jun 2023 18:48:08 +0200
+
 scap (4.52.3)
 
   * install_local_version.sh: retry failed venv creation once
