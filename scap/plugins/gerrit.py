@@ -90,8 +90,8 @@ class GerritSession(object):
     def depends_ons(self, project_branch_changeid, **kwargs):
         return DependsOns(project_branch_changeid, session=self, **kwargs)
 
-    def change_detail(self, changeid, **kwargs):
-        return ChangeDetail(changeid, session=self, **kwargs)
+    def change_detail(self, changeid, revisionid='current', **kwargs):
+        return ChangeDetail(changeid, revisionid, session=self, **kwargs)
 
     def change_number_from_url(self, url):
         """Parses and returns the change number from the given URL."""
@@ -323,6 +323,9 @@ class ChangeDetail(GerritEndpoint):
         options = '?o=COMMIT_FOOTERS'
         if revisionid == 'current':
             options += '&o=CURRENT_REVISION'
+        elif revisionid == 'all':
+            options += '&o=ALL_REVISIONS'
+            self.revisionid = 'current'
         super().__init__(path='changes/%s/detail%s' % (changeid, options), **kwargs)
         self.changeid = changeid
         self.revision = ChangeRevisions(changeid, revisionid,

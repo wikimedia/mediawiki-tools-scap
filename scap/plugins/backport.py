@@ -213,8 +213,11 @@ class GerritChange:
         included_info = self.gerrit.change_in(self.number).get()
         return included_info.branches
 
-    def update_details(self):
-        self.details = self.gerrit.change_detail(self.number).get()
+    def update_details(self, get_all_revisions=False):
+        if get_all_revisions:
+            self.details = self.gerrit.change_detail(self.number, 'all').get()
+        else:
+            self.details = self.gerrit.change_detail(self.number).get()
 
     def update_dependencies(self):
         self.dependencies = {}
@@ -346,7 +349,7 @@ class Backport(cli.Application):
             self.prompt_for_approval_or_exit("The following changes are scheduled for backport:\n%s\n"
                                              "Backport the changes?" % table.get_string(),
                                              "Backport cancelled.")
-        self._approve_changes()
+        self._approve_changes(self.backports.changes.values())
         self._wait_for_changes_to_be_merged()
         self._confirm_commits_to_sync()
 
@@ -550,19 +553,19 @@ class Backport(cli.Application):
         self._reset_workspace()
         return revert_numbers
 
-    def _approve_changes(self):
+    def _approve_changes(self, changes):
         """Approves the given changes by voting Code-Review+2"""
 
-        self.get_logger().info('Voting on %s change(s)' % len(self.backports))
-        for change_number, change in self.backports.changes.items():
+        self.get_logger().info('Voting on %s change(s)' % len(changes))
+        for change in changes:
             if change.is_merged():
-                self.get_logger().info('Change %s was already merged', change_number)
+                self.get_logger().info('Change %s was already merged', change.number)
                 continue
 
             self._gerrit_ssh(['review', '--code-review', '+2', '-m',
                               '"Approved by %s using scap backport"' % self.deploy_user,
                               '%s' % change.get('current_revision')])
-            self.get_logger().info('Change %s approved', change_number)
+            self.get_logger().info('Change %s approved', change.number)
 
     def _change_number(self, number_or_url):
         if number_or_url.isnumeric():
@@ -625,7 +628,9 @@ class Backport(cli.Application):
                 finished = True  # optimism
                 for number in changes.difference(changes_merged):
                     change = self.backports.changes[number]
-                    change.update_details()
+                    old_revision = change.get('current_revision')
+                    change.update_details(True)
+                    new_revision = change.get('current_revision')
                     status = change.get('status')
                     verified = change.get('labels')['Verified']
                     rejected = getattr(verified, 'rejected', None)
@@ -647,6 +652,16 @@ class Backport(cli.Application):
                             jenkins_rejected = [v for v in all_verified if v.username == 'jenkins-bot' and v.value == -1]
                             if len(jenkins_rejected) > 0:
                                 raise SystemExit("The change '%s' failed build tests and could not be merged" % number)
+
+                        if old_revision != new_revision:
+                            old_number = change.get('revisions')[old_revision]['_number']
+                            new_number = change.get('revisions')[new_revision]['_number']
+                            self.prompt_for_approval_or_exit(
+                                "Change %s has been updated from patchset %s to patchset %s. Re-approve change and "
+                                "continue with %s(s)? " % (change.number, old_number, new_number,
+                                                           self.backport_or_revert),
+                                "%s Cancelled" % self.backport_or_revert)
+                            self._approve_changes([change])
 
                         finished = False
 
