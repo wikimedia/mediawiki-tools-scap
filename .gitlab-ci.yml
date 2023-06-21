@@ -1,6 +1,7 @@
 include:
   - project: repos/releng/kokkuri
     file: includes/images.yaml
+    ref: review/dancy/pipeline-timestamp
   - project: repos/releng/docpub
     file: includes/publish.yml
 
@@ -9,6 +10,12 @@ stages:
   - publish-dist
   - build-docs
   - publish-docs
+
+test-kokkuri-vars:
+  stage: test
+  script: |
+    if [ -z "$KOKKURI_PIPELINE_TIMESTAMP" ]; then echo KOKKURI_PIPELINE_TIMESTAMP is not set; exit 1; fi
+    echo test passed.  KOKKURI_PIPELINE_TIMESTAMP is $KOKKURI_PIPELINE_TIMESTAMP
 
 verify-deps:
   stage: test
