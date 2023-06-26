@@ -14,7 +14,7 @@ from scap.runcmd import gitcmd
 
 
 """ These tests are expected to be run in the train-dev test environment:
-    python3 -m pytest -s /workspace/scap/tests/scap/integration/test_backport.py
+    python3 -m pytest -s -o log_cli=1 --log-cli-level info /workspace/scap/tests/scap/integration/test_backport.py
 """
 
 
