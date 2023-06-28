@@ -24,13 +24,6 @@
 import os
 import sys
 
-if sys.prefix == sys.base_prefix and not os.path.exists("/etc/scap.skip.venv.check"):
-    print(
-        "WARN: Not running from a virtual environment. Scap will fail to start unless its"
-        " dependencies have been installed on the system. You can use the script at"
-        " bin/install_local_version.sh to create a scap venv"
-    )
-
 # Add scap package to search path
 SCRIPT = os.path.realpath(sys.argv[0])
 SCAP_SRC = os.path.dirname(os.path.dirname(SCRIPT))
