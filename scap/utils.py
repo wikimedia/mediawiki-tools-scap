@@ -579,44 +579,9 @@ def sudo_temp_dir(owner, prefix):
         sudo_check_call(owner, 'find "%s" -maxdepth 1 -delete' % dirname)
 
 
-def is_initsystem(to_test):
+def service_exists(service):
     """
-    Check if the init system on is the one to test.
-
-    :param to_test: init system to test
-    :returns: boolean
-    """
-    if to_test == "systemd":
-        return os.path.isdir("/run/systemd/system")
-    if to_test == "upstart":
-        return os.path.isfile("/sbin/initctl")
-    raise NotImplementedError("Only systemd and upstart are supported")
-
-
-def is_service_running(service):
-    """
-    Check if a service is running.
-
-    :param service: Service name
-    """
-    if is_initsystem("systemd"):
-        service_name = "{}.service".format(service)
-        systemctl_exit_code = subprocess.call(
-            ["/bin/systemctl", "--quiet", "is-active", service_name]
-        )
-
-        return systemctl_exit_code == 0
-    if is_initsystem("upstart"):
-        status = subprocess.check_output(["/sbin/status", service]).decode().rstrip().split(" ")
-        if not status[1].startswith("start/running"):
-            return False
-        return True
-    raise NotImplementedError("Only  upstart or systemd are supported")
-
-
-def systemd_service_exists(service):
-    """
-    Systemd service unit exists
+    Determine if a systemd service unit exists.
     """
     state_cmd = ["/bin/systemctl", "show", "--property", "LoadState", service]
     try:
@@ -636,39 +601,6 @@ def systemd_service_exists(service):
     # not-found does not, in fact, exit non-zero as one might expect
     # - <3 systemd
     return state not in ["masked", "not-found"]
-
-
-def upstart_service_exists(service):
-    """
-    Upstart service exists
-    """
-    return os.path.exists(os.path.join("/etc/init/", "{}.conf".format(service)))
-
-
-def sysv_service_exists(service):
-    """
-    Determine if a sysvinit script exists for a service.
-    """
-    return os.path.exists(os.path.join("/etc/init.d", service))
-
-
-def service_exists(service):
-    """
-    Determine if service exists.
-    """
-    sysv_exists = sysv_service_exists(service)
-
-    if is_initsystem("upstart"):
-        upstart_exists = upstart_service_exists(service)
-
-    if is_initsystem("systemd"):
-        systemd_exists = systemd_service_exists(service)
-        # Return early for systemd systems because we want to obey the "masked"
-        # property of systemd which isn't taken into account in sysv_exists or
-        # upstart_exists
-        return systemd_exists
-
-    return sysv_exists or upstart_exists
 
 
 def mkdir_p(path):
