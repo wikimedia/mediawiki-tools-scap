@@ -17,6 +17,8 @@ code and configuration on production web servers.
 Running tests
 =============
 
+Hello world!
+
 Automated tests can be executed with `make test`.
 
 Scap comes with an automated suite invoked via `scripts/check`. The script does
