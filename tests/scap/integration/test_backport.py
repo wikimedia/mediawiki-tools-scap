@@ -391,6 +391,14 @@ class BackportsTestHelper:
         return subprocess.check_output(["git", "-C", self.mwgrowthexperiments_dir, "rev-list", "@{u}..HEAD", "--count"],
                                        text=True).strip()
 
+    def backport_with_extra_commits(self):
+        """backports a change when there are unexpected new commits merged to the branch"""
+        # create, push, and merge an operations/mediawiki-config commit
+        self.setup_config_change("already_merged", context="backport_with_extra_commits")
+
+        change_url = self.setup_extension_change()
+        return self._pexpect_spawn("scap backport --stop-before-sync %s" % change_url)
+
 
 class TestBackports(unittest.TestCase):
     """tests the backports"""
@@ -459,4 +467,22 @@ class TestBackports(unittest.TestCase):
         child.expect_exact('which are not scheduled for backport or included in any mediawiki production branch')
         child.expect_exact('Continue with Backport? (y/n):')
         child.sendline('n')
-        self.assertTrue("included in any mediawiki production branch" in child.before.decode("utf-8"))
+
+    def test_extra_commit_confirmation(self):
+        announce("Testing whether confirmation is requested if extra commits are pulled")
+        child = self.backports_test_helper.backport_with_extra_commits()
+        child.expect_exact('Backport the changes? (y/n): ')
+        child.sendline('y')
+
+        child.expect_exact('The following are unexpected commits pulled from origin for /srv/mediawiki-staging')
+        child.expect_exact('Would you like to see the diff? (y/n): ')
+        child.sendline('y')
+
+        child.expect_exact('There were unexpected commits pulled from origin for /srv/mediawiki-staging.')
+        child.expect_exact('Continue with backport? (y/n): ')
+
+        # Go ahead and "deploy" the extra commit to avoid confusing other tests by leaving
+        # a merged-but-unpulled commit
+        child.sendline('y')
+
+        self.backports_test_helper._scap_backport_interact(child)

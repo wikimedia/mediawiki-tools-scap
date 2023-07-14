@@ -768,8 +768,8 @@ class Backport(cli.Application):
                     with utils.suppress_backtrace():
                         subprocess.check_call(["git", "--no-pager", "-C", repo, "show"] + list(extra_commits))
 
-                self.prompt_for_approval_or_exit('There were unexpected commits pulled from origin for %s. '
-                                                 'Continue with backport?' % repo, "Backport cancelled.")
+                self.get_logger().warning('There were unexpected commits pulled from origin for %s.' % repo)
+                self.prompt_for_approval_or_exit('Continue with backport?', "Backport cancelled.")
 
     def _get_file_list(self, change_number):
         """
