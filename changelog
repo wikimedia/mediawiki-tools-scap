@@ -1,3 +1,14 @@
+scap (4.54.0)
+
+  * Mention k8s mw-debug deployment if --pause-after-testserver-sync
+  * backport: add tests for extra commits
+  * Refactor scap backport tests
+  * docs/requirements.txt: Pin Pillow to 9.4.0 to work around error
+  * startup: stop checking for a Python venv
+  * Update suggested pytest command line
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Mon, 17 Jul 2023 08:07:01 -0700
+
 scap (4.53.0)
 
   * backport: Check for updated patch when merging
