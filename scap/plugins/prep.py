@@ -23,7 +23,7 @@ def version_parser(ver):
     if ver == "auto":
         return ver
 
-    match = re.match(r"(1\.\d\d\.\d+-wmf\.\d+|master)", ver)
+    match = re.match(r"(1\.\d\d\.\d+-wmf\.\d+|master|branch_cut_pretest)", ver)
 
     if match:
         return match.group(0)
@@ -79,6 +79,17 @@ This operation can be run as many times as needed.
     new_history = None
 
     @cli.argument(
+        "branch",
+        metavar="BRANCH",
+        type=version_parser,
+        help="The name of the branch to operate on.  Specify 'auto' to enable auto mode and select all active branches",
+    )
+    @cli.argument(
+        "--auto",
+        help="Enable automatic mode which will check out operations/mediawiki-config and the mediawiki branch(es) specified by BRANCH, then apply patches",
+        action='store_true',
+    )
+    @cli.argument(
         "-p",
         "--prefix",
         nargs=1,
@@ -94,12 +105,6 @@ This operation can be run as many times as needed.
             "refs to checkout. Only used in auto mode."
         ),
         action='store_true',
-    )
-    @cli.argument(
-        "branch",
-        metavar="BRANCH",
-        type=version_parser,
-        help="The name of the branch to operate on.  Specify 'auto' to check out operations/mediawiki-config and all active branches, and apply patches",
     )
     @cli.argument(
         "--copy-private-settings",
@@ -125,13 +130,19 @@ This operation can be run as many times as needed.
 
         os.umask(self.config["umask"])
 
+        if self.arguments.branch == "auto":
+            self.arguments.auto = True
+
+        if not self.arguments.auto:
+            self.arguments.apply_patches = False
+
         lock_timeout = \
             {"timeout": self.arguments.lock_timeout} if self.arguments.lock_timeout else {}
         with Lock(self.get_lock_file(), name="concurrent prep", **lock_timeout):
 
             self.new_history = history.Entry.now()
 
-            if self.arguments.branch == "auto" and self.arguments.history:
+            if self.arguments.auto and self.arguments.history:
                 display_repos = ['mediawiki/core', 'operations/mediawiki-config']
                 logger.info("Browsing history")
                 hist = history.load(self.config["history_log"], display_repos=display_repos)
@@ -149,7 +160,7 @@ This operation can be run as many times as needed.
 
             with log.Timer("scap prep {}".format(self.arguments.branch), self.get_stats()):
                 try:
-                    if self.arguments.branch == "auto":
+                    if self.arguments.auto:
                         self._clone_or_update_repo(
                             os.path.join(self.config["gerrit_url"], "operations/mediawiki-config"),
                             self.config["operations_mediawiki_config_branch"],
@@ -160,10 +171,10 @@ This operation can be run as many times as needed.
                         if self.arguments.copy_private_settings:
                             self._copy_private_settings(self.arguments.copy_private_settings, logger)
 
-                        for version in self.active_wikiversions("stage"):
-                            self._prep_mw_branch(version, logger, apply_patches=self.arguments.apply_patches)
-                    else:
-                        self._prep_mw_branch(self.arguments.branch, logger)
+                    versions_to_prep = self.active_wikiversions("stage") if self.arguments.branch == "auto" else [self.arguments.branch]
+
+                    for version in versions_to_prep:
+                        self._prep_mw_branch(version, logger, apply_patches=self.arguments.apply_patches)
 
                     self.new_history.completed = True
                 finally:
@@ -186,8 +197,10 @@ This operation can be run as many times as needed.
             checkout_version = "wmf/%s" % branch
 
         reference_dir = None
-        if checkout_version != "master":
+        if checkout_version not in ["master", "wmf/branch_cut_pretest"]:
             reference_dir = self._select_reference_directory()
+
+        if checkout_version != "master":
             self._setup_patches(branch)
 
         # Note that this discards any local commits (e.g., security patches).
