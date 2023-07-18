@@ -1,3 +1,9 @@
+scap (4.55.0)
+
+  * scap prep: Make auto mode usable when a single branch is specified
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Tue, 18 Jul 2023 09:17:31 -0700
+
 scap (4.54.0)
 
   * Mention k8s mw-debug deployment if --pause-after-testserver-sync
