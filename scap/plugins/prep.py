@@ -4,6 +4,7 @@ import argparse
 import glob
 import os
 import re
+import shlex
 import shutil
 import subprocess
 
@@ -34,7 +35,7 @@ def version_parser(ver):
 
 def update_update_strategy(path):
     """For all submodules, update the merge strategy."""
-    base_cmd = "/usr/bin/git -C %s config " % path
+    base_cmd = "/usr/bin/git -C %s config " % shlex.quote(path)
     base_cmd += "submodule.$name.update rebase"
     git.gitcmd("submodule", "foreach", "--recursive", base_cmd, cwd=path)
 
