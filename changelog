@@ -1,3 +1,10 @@
+scap (4.57.0)
+
+  * Announce to IRC when "continue with sync" is approved
+  * utils: drop support for alternative init systems
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Thu, 27 Jul 2023 09:38:32 -0700
+
 scap (4.56.0)
 
   * scap prep: Quote path used in update_update_strategy
