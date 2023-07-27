@@ -142,14 +142,15 @@ class AbstractSync(cli.Application):
                     # so we can't assume it is in self.arguments.
                     if getattr(self.arguments, "pause_after_testserver_sync", False):
                         testservers_string = ', '.join(testservers)
-                        users = set([getpass.getuser()] + getattr(self.arguments, "notify_user", []))
+                        users = ' and '.join(set([getpass.getuser()] + getattr(self.arguments, "notify_user", [])))
                         synced_to_text = f"synced to the testservers {testservers_string}, and mw-debug kubernetes deployment (accessible via k8s-experimental XWD option)"
                         message = "%s: %s %s" % \
-                                  (' and '.join(users), self.arguments.message, synced_to_text)
+                                  (users, self.arguments.message, synced_to_text)
                         self.announce(message)
                         self.prompt_for_approval_or_exit(f'Changes {synced_to_text}.\n'
                                                          'Please do any necessary checks before continuing.\n'
                                                          'Continue with sync?', "Sync cancelled.")
+                        self.announce(f"{users}: Continuing with sync")
 
                     # Deploy K8s canary releases
                     self._deploy_k8s_canaries()
