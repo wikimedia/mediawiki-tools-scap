@@ -195,14 +195,23 @@ before I am prompted to continue the deploy on the default targets
         deploy_mockbase_promote: 100% (ok: 2; fail: 0; left: 0)
         00:05:53 Finished deploy_mockbase (duration: 00m 31s)
 
-Service Restarts and Checks
+Service Handling and Checks
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-When you specify a ``service_name``, the service specified will be restarted as
-part of the ``promote`` stage of deployment (if ``=reload`` is appended to the
-service name, the service will be reloaded instead of restarted). The
-``ssh_user`` must have appropriate sudoers permissions to restart or reload the
-service as appropriate.
+When you specify a ``service_name``, the service specified will be restarted by
+default as part of the ``promote`` stage of deployment. Appending an action to
+the service name can be used to modify how the service is handled:
+
+- ``=restart``: same as default, service will be restarted
+- ``=reload``: service will be reloaded instead of restarted
+- ``=[restart|reload]:disable-secondary``: if target is a secondary host, service
+  will be disabled. A secondary host is recognized by the presence of the signal
+  file configured by ``secondary_host_signal_file`` (default "/etc/scap.secondary")
+
+Example valid values: ``jobrunner``, ``jobchron=reload``, ``jenkins=restart:disable-secondary``
+
+The ``ssh_user`` must have appropriate sudoers permissions to restart, reload or
+disable the service as appropriate.
 
 When you specify a ``service_port``, the port specified will be checked to
 see if it is accepting connections. By default, the port check on each host
@@ -210,8 +219,8 @@ will timeout after 120 seconds. If a service takes a long time to begin
 accepting connections, you may need to set the ``service_timeout`` value
 to a number > 120.
 
-In addition to service restarts, users may define their own custom checks. The
-environment variables ``$SCAP_FINAL_PATH`` and ``$SCAP_REV_PATH`` are available
+In addition to automatic service handling, users may define their own custom checks.
+The environment variables ``$SCAP_FINAL_PATH`` and ``$SCAP_REV_PATH`` are available
 for all checks. ``$SCAP_FINAL_PATH`` is the final path of the code after
 deployment is complete. ``$SCAP_REV_PATH`` is the variable path of the code
 currently being deployed.
@@ -219,12 +228,12 @@ currently being deployed.
 Command Checks
 --------------
 
-User-defined checks may be preformed before or after any stage of deployment:
+User-defined checks may be performed before or after any stage of deployment:
 
 #. ``fetch`` when the git repository is fetched to the target machines
 #. ``config_deploy`` when any template files are built on targets
 #. ``promote`` when the newly fetched code is swapped for the currently live code
-#. ``restart_service`` - a service is restarted
+#. ``restart_service`` - a service is handled (restarted by default)
 
 .. note:: ``promote`` and ``restart_service`` happen in the same stage, but
           have hooks to allow independent post-stage checks.

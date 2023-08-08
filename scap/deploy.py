@@ -51,7 +51,8 @@ import scap.utils as utils
 import scap.git as git
 
 FINALIZE = "finalize"
-RESTART = "restart_service"
+# Default for a service is to be restarted
+HANDLE_SERVICE = "handle_service"
 ROLLBACK = "rollback"
 CONFIG_DIFF = "config_diff"
 PROMOTE = "promote"
@@ -59,7 +60,7 @@ CONFIG_DEPLOY = "config_deploy"
 FETCH = "fetch"
 
 STAGES = [FETCH, CONFIG_DEPLOY, PROMOTE]
-EX_STAGES = [RESTART, ROLLBACK, CONFIG_DIFF, FINALIZE]
+EX_STAGES = [HANDLE_SERVICE, ROLLBACK, CONFIG_DIFF, FINALIZE]
 
 
 class DeployGroupFailure(RuntimeError):
@@ -74,7 +75,7 @@ class DeployLocal(cli.Application):
     Command that runs on target hosts.
 
     Responsible for fetching code from the git server, checking out
-    the appropriate revisions, restarting services and running checks.
+    the appropriate revisions, restarting/disabling services and running checks.
     """
 
     def __init__(self, exe_name):
@@ -422,7 +423,7 @@ class DeployLocal(cli.Application):
 
         self.context.mark_rev_current(rev)
         self.context.link_path_to_rev(self.final_path, rev, backup=True)
-        self.stages.append(RESTART)
+        self.stages.append(HANDLE_SERVICE)
 
     def finalize(self, rollback=False, rev=None):
         """
@@ -447,15 +448,19 @@ class DeployLocal(cli.Application):
             logger.info("Removing old revision {}".format(rev_dir))
             shutil.rmtree(rev_dir)
 
-    def restart_service(self):
+    def handle_service(self):
         """
-        Restart or reload service and check port based on configuration.
+        Restart, reload or disable service(s) and check port based on configuration.
         """
         service = self.config.get("service_name", None)
         if not service:
             return
 
-        tasks.handle_services(service, self.config.get("require_valid_service", False))
+        tasks.handle_services(
+            service,
+            self.config.get("require_valid_service", False),
+            os.path.exists(self.config["secondary_host_signal_file"])
+        )
 
         port = self.config.get("service_port", None)
         if not port:
@@ -619,6 +624,7 @@ class Deploy(cli.Application):
         "nrpe_dir",
         "perform_checks",
         "require_valid_service",
+        "secondary_targets_disabled",
         "service_name",
         "service_port",
         "service_timeout",
@@ -687,7 +693,7 @@ class Deploy(cli.Application):
             stages = STAGES
 
         if self.arguments.service_restart:
-            stages = [RESTART]
+            stages = [HANDLE_SERVICE]
             if not self.config.get("service_name"):
                 raise RuntimeError(
                     "--service-restart flag requires a `service_name` in " "the config"
@@ -697,7 +703,7 @@ class Deploy(cli.Application):
             stages = ["config_diff"]
 
         restart_only = False
-        if len(stages) == 1 and stages[0] == RESTART:
+        if len(stages) == 1 and stages[0] == HANDLE_SERVICE:
             restart_only = True
 
         if not git.is_dir(self.context.root):
@@ -823,7 +829,7 @@ class Deploy(cli.Application):
 
         # If we're only running a quick --dry-run or a --restart, we don't
         # want to update the SHA1
-        return not (len(stages) == 1 and stages[0] in [CONFIG_DIFF, RESTART])
+        return not (len(stages) == 1 and stages[0] in [CONFIG_DIFF, HANDLE_SERVICE])
 
     def _display_group_info(self, group, targets):
         self.get_logger().info(
@@ -1111,7 +1117,7 @@ class Deploy(cli.Application):
     def _get_stage_name(self, stage):
         """Map a stage name to a stage display name."""
         if stage == PROMOTE and self.config.get("service_name") is not None:
-            return "promote and restart_service"
+            return "promote and handle_service"
 
         return stage
 

@@ -62,6 +62,7 @@ DEFAULT_RSYNC_ARGS = [
 
 RESTART = "restart"
 RELOAD = "reload"
+DISABLE_SECONDARY = 'disable-secondary'
 
 
 def logstash_canary_checks(canaries, service, threshold, logstash, delay, cores=2):
@@ -839,37 +840,56 @@ def refresh_cdb_json_file(cdb_file_path) -> bool:
     return True
 
 
-def handle_services(services, require_valid_service=False):
+def handle_services(services, require_valid_service=False, on_secondary_host=False):
     """
-    Take a comma-separated list of services, and restart each of them.
+    Take a comma-separated list of services and restart, reload or disable each of them.
 
     The idea is to take a string directly from the scap.cfg file that looks
     like:
 
-        jobrunner, jobchron = reload
+        jobrunner, jobchron=reload, jenkins=restart:disable-secondary, ...
 
     and be able to determine what to do with that list.
-    """
-    servicehandles = [(job.replace(" ", ""), RESTART) for job in services.split(",")]
 
-    for service, handle in servicehandles:
-        if "=" in service:
-            service, handle = service.split("=")
+    If no action is specified the default is "restart".
+    When specified, main action can be one of:
+
+    * restart: service will be restarted
+    * reload: service will be reloaded
+
+    When specified, secondary action can be one of:
+
+    * disable-secondary: service is disabled on targets marked as secondary
+
+    Note that specifying a secondary action requires a main action
+    """
+
+    for service_handle in services.split(','):
+        service, action, secondary_action = (service_handle.strip(), RESTART, None)
+        if '=' in service:
+            service, action = service.split('=')
+            if ':' in action:
+                action, secondary_action = action.split(':')
 
         # Can be used to check if service is masked, require_valid_service
         # is False by default to preserve existing behavior
         if require_valid_service and not utils.service_exists(service):
             return
 
-        if handle == RELOAD:
+        if on_secondary_host and secondary_action == DISABLE_SECONDARY:
+            disable_service(service)
+            continue
+
+        if action == RELOAD:
             reload_service(service)
             continue
 
-        if handle == RESTART:
+        if action == RESTART:
             restart_service(service)
             continue
 
-        raise RuntimeError("Unknown action {} for service {}".format(handle, service))
+        reported_action = f"{action}:{secondary_action}" if secondary_action is not None else action
+        raise RuntimeError(f"""Unknown action "{reported_action}" for service "{service}" """)
 
 
 @utils.log_context("service_restart")
@@ -884,6 +904,16 @@ def reload_service(service, logger=None):
     logger.info("Reloading service '{}'".format(service))
     cmd = "sudo -n /usr/sbin/service {} reload".format(service).split()
     subprocess.check_call(cmd)
+
+
+@utils.log_context("service_disable")
+def disable_service(service, logger=None):
+    logger.info(f"This is a secondary host. Stopping and disabling service '{service}'")
+    # For historical reasons, we have sudo access to stop a service via `/usr/sbin/service`, see:
+    # https://gerrit.wikimedia.org/r/plugins/gitiles/operations/puppet/+/4e52262ab5671e694c14600101de0654396e9e14/modules/scap/manifests/target.pp#164
+    # But a systemd service can only be disabled with systemctl, so we combine both commands
+    subprocess.check_call(f"sudo -n /usr/sbin/service {service} stop".split())
+    subprocess.check_call(f"sudo -n /bin/systemctl disable {service}".split())
 
 
 @utils.log_context("clear_message_blobs")
