@@ -1,3 +1,10 @@
+scap (4.58.0)
+
+  * blubber: pin tox version in `verify-deps` variant
+  * deploy: disable configured `service_name` on secondary target hosts
+
+ -- jnuche <jnuche@wikimedia.org>  Thu, 17 Aug 2023 16:49:25 +0200
+
 scap (4.57.0)
 
   * Announce to IRC when "continue with sync" is approved
