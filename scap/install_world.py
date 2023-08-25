@@ -92,7 +92,7 @@ class InstallWorld(cli.Application):
     @cli.argument(
         "-b", "--batch",
         action="store_true",
-        help="Batch mode. Implies --yes and --install-only"
+        help="Batch mode. Implies --yes and --install-targets-only"
     )
     def main(self, *extra_args):
         if self.arguments.batch:
