@@ -260,17 +260,18 @@ class Backport(cli.Application):
     merged, pull them down into the staging directory, sync to test servers,
     prompt for confirmation to proceed, then sync to all servers.
     """
-    OPERATIONS_CONFIG = "operations/mediawiki-config"
-    gerrit = None
-    config_branch = None
-    mediawiki_location = None
-    versions = None
-    interval = None
-    backport_or_revert = None
-    deploy_user = None
-    base_repos = None
-    git_submodules = None
+    allowed_attempts = None
     backports = None
+    backport_or_revert = None
+    base_repos = None
+    config_branch = None
+    deploy_user = None
+    gerrit = None
+    git_submodules = None
+    interval = None
+    mediawiki_location = None
+    OPERATIONS_CONFIG = "operations/mediawiki-config"
+    versions = None
 
     @cli.argument(
         "--list",
@@ -295,6 +296,7 @@ class Backport(cli.Application):
     @cli.argument("change_numbers", nargs="*", help="Change numbers/URLs to backport or revert")
     def main(self, *extra_args):
         self.deploy_user = utils.get_real_username() + "@" + socket.gethostname()
+        self.allowed_attempts = 2
         self.interval = 5
         self.backport_or_revert = "revert" if self.arguments.revert else "backport"
         self.gerrit = GerritSession(url=self.config['gerrit_url'])
@@ -621,6 +623,7 @@ class Backport(cli.Application):
         reporter.expect(len(self.backports))
         reporter.start()
         changes = set(self.backports.change_numbers)
+        attempts = {change_number: 0 for change_number in changes}
         changes_merged = set()
 
         try:
@@ -644,8 +647,15 @@ class Backport(cli.Application):
                     else:
                         # Specifically checking for false, since mergeable could be None
                         if mergeable is False:
-                            raise SystemExit("Gerrit could not merge the change '%s' as is and could require a rebase"
-                                             % number)
+                            attempts[number] += 1
+
+                            if attempts[number] >= self.allowed_attempts:
+                                raise SystemExit("Gerrit could not merge the change '%s' as is and could require a "
+                                                 "rebase" % number)
+
+                            self.get_logger().info("Change %s is not currently mergeable, but may be being rebased. "
+                                                   "Attempt %s of %s" % (number, attempts[number],
+                                                                         self.allowed_attempts))
 
                         if rejected:
                             all_verified = getattr(verified, 'all', [])
