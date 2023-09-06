@@ -141,13 +141,11 @@ class AbstractSync(cli.Application):
                     # Not all subclasses of AbstractSync define the --pause-after-testserver-sync argument,
                     # so we can't assume it is in self.arguments.
                     if getattr(self.arguments, "pause_after_testserver_sync", False):
-                        testservers_string = ', '.join(testservers)
                         users = ' and '.join(set([getpass.getuser()] + getattr(self.arguments, "notify_user", [])))
-                        synced_to_text = f"synced to the testservers {testservers_string}, and mw-debug kubernetes deployment (accessible via k8s-experimental XWD option)"
-                        message = "%s: %s %s" % \
-                                  (users, self.arguments.message, synced_to_text)
+                        message = "%s: %s synced to the testservers (https://wikitech.wikimedia.org/wiki/Mwdebug)" % \
+                                  (users, self.arguments.message)
                         self.announce(message)
-                        self.prompt_for_approval_or_exit(f'Changes {synced_to_text}.\n'
+                        self.prompt_for_approval_or_exit('Changes synced to the testservers. (see https://wikitech.wikimedia.org/wiki/Mwdebug)\n'
                                                          'Please do any necessary checks before continuing.\n'
                                                          'Continue with sync?', "Sync cancelled.")
                         self.announce(f"{users}: Continuing with sync")
