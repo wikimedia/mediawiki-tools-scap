@@ -1,3 +1,10 @@
+scap (4.59.0)
+
+  * backport: make multiple attempts to continue
+  * install-world: fix help text for the `--batch` cli argument
+
+ -- Jeena Huneidi <jhuneidi@wikimedia.org>  Thu, 07 Sep 2023 15:08:39 -0700
+
 scap (4.58.0)
 
   * blubber: pin tox version in `verify-deps` variant
