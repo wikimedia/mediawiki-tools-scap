@@ -12,7 +12,7 @@ from datetime import datetime
 
 from prettytable import PrettyTable
 from random import randint
-from scap import cli, git, log, ssh, utils
+from scap import cli, git, log, ssh, utils, lock
 from scap.plugins.gerrit import GerritSession
 
 
@@ -345,26 +345,31 @@ class Backport(cli.Application):
             self.scap_check_call(arguments + reverts)
 
     def _do_backport(self):
-        self._validate_backports()
-        if not self.arguments.yes:
-            table = make_table(list(change.details for change in self.backports.changes.values()), False)
-            self.prompt_for_approval_or_exit("The following changes are scheduled for backport:\n%s\n"
-                                             "Backport the changes?" % table.get_string(),
-                                             "Backport cancelled.")
-        self._approve_changes(self.backports.changes.values())
-        self._wait_for_changes_to_be_merged()
-        self._confirm_commits_to_sync()
+        # Note that the default lock file returned by `self.get_lock_file()` cannot be used here or backport would
+        # deadlock itself when calling "sync-world" further down the flow.
+        # Also, a backport revert calls backport recursively, deferring to the lock here instead of itself locking
+        # '/var/lock/scap.backport.lock'. Otherwise, deadlock again
+        with lock.Lock('/var/lock/scap.backport.lock', name='backport', reason=self._build_sal()):
+            self._validate_backports()
+            if not self.arguments.yes:
+                table = make_table(list(change.details for change in self.backports.changes.values()), False)
+                self.prompt_for_approval_or_exit("The following changes are scheduled for backport:\n%s\n"
+                                                 "Backport the changes?" % table.get_string(),
+                                                 "Backport cancelled.")
+            self._approve_changes(self.backports.changes.values())
+            self._wait_for_changes_to_be_merged()
+            self._confirm_commits_to_sync()
 
-        self.scap_check_call(["prep", "auto"])
+            self.scap_check_call(["prep", "auto"])
 
-        if self._beta_only_config_changes():
-            self.get_logger().info("Skipping sync since all commits were beta/labs-only changes. Operation completed.")
-            return 0
+            if self._beta_only_config_changes():
+                self.get_logger().info("Skipping sync since all commits were beta/labs-only changes. Operation completed.")
+                return 0
 
-        if self.arguments.stop_before_sync:
-            return 0
+            if self.arguments.stop_before_sync:
+                return 0
 
-        self._sync_world()
+            self._sync_world()
 
     def _sync_world(self):
         sync_arguments = [self._build_sal()]
