@@ -1,3 +1,10 @@
+scap (4.60.0)
+
+  * backport tests: add test for concurrent backports
+  * backport: serialize concurrent backports
+
+ -- jnuche <jnuche@wikimedia.org>  Mon, 11 Sep 2023 17:15:07 +0200
+
 scap (4.59.0)
 
   * backport: make multiple attempts to continue
