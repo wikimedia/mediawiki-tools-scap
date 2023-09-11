@@ -486,3 +486,28 @@ class TestBackports(unittest.TestCase):
         child.sendline('y')
 
         self.backports_test_helper._scap_backport_interact(child)
+
+    def test_concurrency(self):
+        announce('Testing behavior during concurrent backports')
+
+        change_url = \
+            self.backports_test_helper.setup_config_change(
+                'normal',
+                context=f"\nAdded by test_concurrency on {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}. Pass 1"
+            )
+        patch_id = re.sub('.*/', '', change_url)
+        # Start backport process that should immediately grab the "backport" lock
+        backport_first = self.backports_test_helper._start_scap_backport([change_url])
+
+        change_url = \
+            self.backports_test_helper.setup_config_change(
+                'normal',
+                context=f"\nAdded by test_concurrency on {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}. Pass 2"
+            )
+        # A new attempt to backport should fail to grab the lock indicating the patch id of the blocker
+        backport_second = self.backports_test_helper._start_scap_backport([change_url])
+        try:
+            backport_second.expect(rf"backport is locked by.*{patch_id}", timeout=3)
+        finally:
+            backport_first.terminate(force=True)
+            backport_second.terminate(force=True)
