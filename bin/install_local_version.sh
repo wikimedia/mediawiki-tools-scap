@@ -12,7 +12,7 @@ set -eu -o pipefail
 
 BASE_SCAP_IMAGE_REPO=docker-registry.wikimedia.org/repos/releng/scap
 # When changing the supported distros, also update the authoritative list in install_world.py
-SUPPORTED_DISTROS="buster bullseye"
+SUPPORTED_DISTROS="buster bullseye bookworm"
 
 function usage {
   cat <<HERE

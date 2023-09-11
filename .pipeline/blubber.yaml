@@ -1,4 +1,4 @@
-# syntax=docker-registry.wikimedia.org/repos/releng/blubber/buildkit:v0.16.0
+# syntax=docker-registry.wikimedia.org/repos/releng/blubber/buildkit:v0.20.0
 #
 # A Blubber spec file for Docker containers where the Scap automated test suite
 # can be run.
@@ -27,6 +27,10 @@ variants:
     base: docker-registry.wikimedia.org/bullseye
     includes: [python-packages]
 
+  base-bookworm:
+    base: docker-registry.wikimedia.org/bookworm
+    includes: [python-packages]
+
   verify-deps:
     builders:
       - python:
@@ -41,6 +45,8 @@ variants:
     includes: [base-buster, verify-deps]
   verify-deps-bullseye:
     includes: [base-bullseye, verify-deps]
+  verify-deps-bookworm:
+    includes: [base-bookworm, verify-deps]
 
   test:
     apt:
@@ -68,6 +74,8 @@ variants:
     includes: [base-buster, test]
   test-bullseye:
     includes: [base-bullseye, test]
+  test-bookworm:
+    includes: [base-bookworm, test]
 
   build-docs:
     includes: [test-buster]
@@ -101,6 +109,15 @@ variants:
           command: [./build_wheels.sh]
           requirements: [.]
 
+  binary-dist-bookworm-build:
+    includes: [base-bookworm]
+    builders:
+      - python:
+          requirements: [binary-dist-requirements.txt]
+      - custom:
+          command: [./build_wheels.sh]
+          requirements: [.]
+
   binary-dist-buster:
     base: docker-registry.wikimedia.org/wikimedia-buster
     copies:
@@ -114,3 +131,11 @@ variants:
       - from: binary-dist-bullseye-build
         source: /srv/app/wheels
         destination: /wheels
+
+  binary-dist-bookworm:
+    base: docker-registry.wikimedia.org/bookworm
+    copies:
+      - from: binary-dist-bookworm-build
+        source: /srv/app/wheels
+        destination: /wheels
+        

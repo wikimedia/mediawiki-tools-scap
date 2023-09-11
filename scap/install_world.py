@@ -43,7 +43,7 @@ class InstallWorld(cli.Application):
 
     MIN_VERSION = packaging.version.Version("4.42.0")
     # When changing the supported distros, also update the standalone list in install_local_version.sh
-    SUPPORTED_DISTRIBUTIONS = ["buster", "bullseye"]
+    SUPPORTED_DISTRIBUTIONS = ["buster", "bullseye", "bookworm"]
     # The rsync module is defined in the operations/puppet repo
     SCAP_RSYNC_MODULE = "scap-install-staging"
     WHEELS_DIR = "scap-wheels"
