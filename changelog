@@ -1,3 +1,10 @@
+scap (4.61.0)
+
+  * Add bookworm support
+  * .gitlab-ci.yml: Factor out the list of supported distros
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Tue, 12 Sep 2023 07:46:27 -0700
+
 scap (4.60.0)
 
   * backport tests: add test for concurrent backports
