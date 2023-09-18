@@ -1,3 +1,10 @@
+scap (4.61.1)
+
+  * deploy: backward compatibility for stage 'restart_service'
+  * update-scap-in-beta: Set umask to 0002
+
+ -- jnuche <jnuche@wikimedia.org>  Mon, 18 Sep 2023 18:06:49 +0200
+
 scap (4.61.0)
 
   * Add bookworm support
