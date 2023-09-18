@@ -233,9 +233,9 @@ User-defined checks may be performed before or after any stage of deployment:
 #. ``fetch`` when the git repository is fetched to the target machines
 #. ``config_deploy`` when any template files are built on targets
 #. ``promote`` when the newly fetched code is swapped for the currently live code
-#. ``restart_service`` - a service is handled (restarted by default)
+#. ``handle_service`` - a service is restarted, reloaded or disabled (restarted by default)
 
-.. note:: ``promote`` and ``restart_service`` happen in the same stage, but
+.. note:: ``promote`` and ``handle_service`` happen in the same stage, but
           have hooks to allow independent post-stage checks.
 
 User-defined checks are specified in the ``scap/checks.yaml`` file::

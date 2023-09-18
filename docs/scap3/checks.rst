@@ -156,7 +156,7 @@ Example checks.yml:
 Check stages
 ============
 
-#. ``restart_service`` - a service is restarted
+#. ``handle_service`` - a service is restarted, reloaded or disabled (restarted by default)
 #. ``config_deploy`` - templated configuration files are rendered
 #. ``config_diff`` - compare each file to the deployed version, called during
    ``scap deploy --dry-run``.

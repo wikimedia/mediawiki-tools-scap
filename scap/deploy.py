@@ -61,6 +61,7 @@ FETCH = "fetch"
 
 STAGES = [FETCH, CONFIG_DEPLOY, PROMOTE]
 EX_STAGES = [HANDLE_SERVICE, ROLLBACK, CONFIG_DIFF, FINALIZE]
+ALL_STAGES = STAGES + EX_STAGES
 
 
 class DeployGroupFailure(RuntimeError):
@@ -122,7 +123,7 @@ class DeployLocal(cli.Application):
     @cli.argument(
         "stage",
         metavar="STAGE",
-        choices=STAGES + EX_STAGES,
+        choices=ALL_STAGES,
         nargs="?",
         help="Stage of the deployment to execute",
     )
@@ -528,10 +529,17 @@ class DeployLocal(cli.Application):
         logger.debug("Registering scripts in directory '%s'" % scripts_dir)
         script.register_directory(scripts_dir, logger=logger)
 
-        chks = checks.load(self.config, check_environment)
+        chks = checks.load(self.config, check_environment).values()
+
+        for chk in chks:
+            target_stage = getattr(chk, when)
+            # See method `_check_applies` for an explanation about "restart_service"
+            if target_stage not in ALL_STAGES + ['restart_service', None]:
+                raise SystemExit(f"""Unknown target stage "{target_stage}" specified in user-defined check""")
+
         chks = [
-            chk for chk in chks.values()
-            if DeployLocal._valid_chk(chk, stage, group, when=when)
+            chk for chk in chks
+            if DeployLocal._check_applies(chk, stage, group, when=when)
         ]
 
         for chk in chks:
@@ -545,15 +553,22 @@ class DeployLocal(cli.Application):
         return 1 if failed else 2
 
     @staticmethod
-    def _valid_chk(chk, stage, group, when):
-        """Make sure a check is valid for our current group."""
-        wanted_stage = stage
-
+    def _check_applies(chk, stage, group, when):
+        """ Verify whether a check applies for the current group and stage."""
         if group is not None:
             if chk.group is not None and chk.group != group:
                 return False
 
-        return getattr(chk, when) == wanted_stage
+        # In https://gitlab.wikimedia.org/repos/releng/scap/-/commit/9e49f8658bdfa99bc9f0548026a516b386f0b633 the
+        # deployment stage "restart_service" was renamed to "handle_service", but deployments can use stage names to
+        # specify when a particular check is to be executed. The change broke the existing restbase deployment:
+        # https://phabricator.wikimedia.org/T346354 and potentially others.
+        # For backward compatibility, "restart_service" is treated here as a synonym for "handle_service"
+        valid_stages = [stage]
+        if stage == HANDLE_SERVICE:
+            valid_stages.append('restart_service')
+
+        return getattr(chk, when) in valid_stages
 
     def _get_config_overrides(self):
         """

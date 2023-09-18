@@ -50,14 +50,16 @@ valid_chk_testcases = [
          id="When doing canaries, reject canaries check for different stage"),
     case(False, Check(group="servers", after="promote"), "promote", "canaries", "after",
          id="When doing canaries, reject check for different group"),
+    case(True, Check(group=None, after="restart_service"), "handle_service", None, "after",
+         id="When checking after 'handle_service', accept 'restart_service' as a synonym"),
 ]
 
 
 @pytest.mark.parametrize("expected,check,stage,group,when",
                          valid_chk_testcases)
-def test_DeployLocal_valid_chk(expected, check, stage, group, when):
-    assert DeployLocal._valid_chk(check, stage, group, when) == expected, (
-        "_valid_check(stage: %s, group: %s, when: %s) " % (stage, group, when)
+def test_DeployLocal_check_applies(expected, check, stage, group, when):
+    assert DeployLocal._check_applies(check, stage, group, when) == expected, (
+        "_check_applies(stage: %s, group: %s, when: %s) " % (stage, group, when)
         + "accepts" if expected else "rejects"
         + " <Check stage: %s, group: %s>" % (stage, group)
     )
