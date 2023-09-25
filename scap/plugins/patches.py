@@ -6,7 +6,7 @@ import os
 import re
 import sys
 
-from scap import cli
+from scap import cli, utils
 from scap.runcmd import gitcmd, FailedCommand
 
 APPLIED = 1
@@ -123,6 +123,37 @@ class SecurityPatches:
         for patch in self._patches:
             yield patch
 
+    def get_pre_patch_state(self, srcroot) -> dict:
+        """
+        Returns a dictionary representing the state (mtime and hash) of each file
+        affected by security patches.   This is expected to be called before
+        scap prep auto does any modifications to the mediawiki checkouts.
+        This information should be passed to fix_mtimes() after patches are applied.
+        """
+
+        res = {}
+        for patch in self:
+            res.update(patch.get_pre_patch_state(srcroot))
+        return res
+
+    def fix_mtimes(self, pre_patch_state):
+        """
+        This method is expected to be called after security patches have been
+        applied.  It reverts the mtime on any patched files if their contents
+        haven't changed since get_pre_patch_state() was called.  This is to avoid
+        unnecessary mtime-change-triggered operations that might follow (such as
+        l10n rebuild).
+        """
+        for filename in pre_patch_state:
+            if os.path.exists(filename):
+                new_mtime = os.stat(filename).st_mtime
+                new_hash = utils.md5_file(filename)
+                old_mtime, old_hash = pre_patch_state[filename]
+
+                if old_mtime != new_mtime and old_hash == new_hash:
+                    # mtime changed but contents didn't.  Set it back
+                    os.utime(filename, (old_mtime, old_mtime))
+
 
 class Patch:
     def __init__(self, pathname, relative):
@@ -134,6 +165,25 @@ class Patch:
 
     def path(self):
         return self._filename
+
+    def _affected_files(self, srcroot) -> list:
+        res = []
+        with open(self.path()) as f:
+            for line in f.readlines():
+                m = re.match(r"diff --git a/(.*) b/(.*)", line)
+                if m:
+                    a, b = m[1], m[2]
+                    if a != b:
+                        raise Exception(f"Patch a != b: {a} != {b}")
+                    res.append(os.path.join(srcroot, self._relative, a))
+        return res
+
+    def get_pre_patch_state(self, srcroot):
+        state = {}
+        for filename in self._affected_files(srcroot):
+            if os.path.exists(filename):
+                state[filename] = (os.stat(filename).st_mtime, utils.md5_file(filename))
+        return state
 
     def apply(self, srcroot, abort_git_am_on_fail):
         srcdir = os.path.join(srcroot, self._relative)

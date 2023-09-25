@@ -12,6 +12,7 @@ from scap import cli
 from scap import git
 from scap import history
 from scap import log
+from scap.plugins import patches
 from scap import utils
 from scap.lock import Lock
 
@@ -204,6 +205,9 @@ This operation can be run as many times as needed.
         if checkout_version != "master":
             self._setup_patches(branch)
 
+        _patches = patches.SecurityPatches(os.path.join(self.config["patch_path"], branch))
+        pre_patch_state = _patches.get_pre_patch_state(dest_dir)
+
         # Note that this discards any local commits (e.g., security patches).
         self._clone_or_update_repo(
             os.path.join(self.config["gerrit_url"], "mediawiki/core"),
@@ -239,6 +243,7 @@ This operation can be run as many times as needed.
                     "--abort-git-am-on-fail", "--train", branch
                 ] + self.format_passthrough_args()
                 subprocess.check_call(args)
+            _patches.fix_mtimes(pre_patch_state)
 
         logger.info(
             "MediaWiki %s successfully checked out." % checkout_version
