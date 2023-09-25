@@ -1,3 +1,9 @@
+scap (4.62.0)
+
+  * scap prep auto: Reset mtime of patched files when reapplying patches
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Mon, 25 Sep 2023 14:33:31 -0700
+
 scap (4.61.1)
 
   * deploy: backward compatibility for stage 'restart_service'
