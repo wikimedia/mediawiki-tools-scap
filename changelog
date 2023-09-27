@@ -1,3 +1,9 @@
+scap (4.63.0)
+
+  * scap: shorten 'synced to testservers' message
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Wed, 27 Sep 2023 08:24:49 -0700
+
 scap (4.62.0)
 
   * scap prep auto: Reset mtime of patched files when reapplying patches
