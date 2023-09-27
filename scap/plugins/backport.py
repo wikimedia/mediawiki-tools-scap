@@ -103,6 +103,10 @@ class InvalidChangeException(SystemExit):
     """Exception for changes which are determined to be invalid for backport"""
 
 
+class AbandonedChangeException(InvalidChangeException):
+    """Exception for invalid changes due to being abandoned"""
+
+
 class GerritChanges:
     """
     Manages gerrit changes to be backported
@@ -205,7 +209,7 @@ class GerritChange:
 
     def check_status(self):
         if self.get('status') == "ABANDONED":
-            raise InvalidChangeException("Change '%s' has been abandoned!" % self.number)
+            raise AbandonedChangeException("Change '%s' has been abandoned!" % self.number)
         if self.get('work_in_progress'):
             raise InvalidChangeException("Change '%s' is a work in progress and not ready for merge!" % self.number)
 
@@ -248,7 +252,16 @@ class GerritChange:
 
         for change in depends_ons.depends_on_found:
             self.logger.info("Dependency %s found for %s", change['_number'], self.number)
-            self._record_dependency(change)
+            try:
+                self._record_dependency(change)
+            except AbandonedChangeException as ace:
+                if self.details['branch'] != change['branch']:
+                    self.logger.warn(
+                        f"Dependency {change['_number']} is abandoned but belongs to a different branch."
+                        ' Will ignore and continue'
+                    )
+                else:
+                    raise ace
 
 
 @cli.command("backport", help="List, apply, or revert backports", affected_by_blocked_deployments=True)
