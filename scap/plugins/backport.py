@@ -246,7 +246,10 @@ class GerritChange:
             raise InvalidChangeException(
                 "A dependency cycle was detected for change %s." % self.number)
 
-        for change in depends_ons.depends_on_found:
+        same_branch_changes = [
+            change for change in depends_ons.depends_on_found if self.details['branch'] == change['branch']
+        ]
+        for change in same_branch_changes:
             self.logger.info("Dependency %s found for %s", change['_number'], self.number)
             self._record_dependency(change)
 
