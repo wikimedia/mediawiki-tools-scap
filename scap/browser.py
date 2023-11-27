@@ -45,13 +45,13 @@ class TableBrowser:
     data = []
     browser_cache = {}
     controls = {
-        "prev": {curses.KEY_UP, ord('k')},
-        "next": {curses.KEY_DOWN, ord('j')},
+        "prev": {curses.KEY_UP, ord("k")},
+        "next": {curses.KEY_DOWN, ord("j")},
         "prev_page": {curses.KEY_PPAGE},
         "next_page": {curses.KEY_NPAGE},
-        "select": {ord('\n'), ord(' ')},
-        "inspect": {ord('i'), curses.KEY_RIGHT},
-        "back": {ord('q'), curses.KEY_LEFT},
+        "select": {ord("\n"), ord(" ")},
+        "inspect": {ord("i"), curses.KEY_RIGHT},
+        "back": {ord("q"), curses.KEY_LEFT},
     }
     style = {
         "top_window_divisor": lambda: 3,
@@ -89,7 +89,7 @@ class TableBrowser:
         """
         Returns whether the object appears to be browseable by this class.
         """
-        return hasattr(obj, '__prettytable__')
+        return hasattr(obj, "__prettytable__")
 
     def browse_in(self, win):
         """
@@ -133,8 +133,9 @@ class TableBrowser:
             elif key in self.controls["back"]:
                 return None
 
-    def redraw(self, win, sel_row, force_single=False, show_help=True,
-               highlight_selected=True):
+    def redraw(
+        self, win, sel_row, force_single=False, show_help=True, highlight_selected=True
+    ):
         """
         Draws the table to the given window with the given selected row. If
         the selected row also corresponds to a browseable object, the window
@@ -146,15 +147,12 @@ class TableBrowser:
         if not force_single and isbrowseable(self.data[sel_row]):
             top_height = sum(divmod(height, self.style["top_window_divisor"]()))
             top_win = win.derwin(top_height, width, 0, 0)
-            bottom_win = win.derwin(height - top_height, width,
-                                    top_height, 0)
+            bottom_win = win.derwin(height - top_height, width, top_height, 0)
 
-            self.redraw(top_win, sel_row,
-                        force_single=True,
-                        show_help=False)
-            self._subbrowser(sel_row).redraw(bottom_win, 0,
-                                             force_single=True,
-                                             highlight_selected=False)
+            self.redraw(top_win, sel_row, force_single=True, show_help=False)
+            self._subbrowser(sel_row).redraw(
+                bottom_win, 0, force_single=True, highlight_selected=False
+            )
 
             return
 
@@ -186,8 +184,7 @@ class TableBrowser:
         for y in range(inner_offset, inner_offset + inner_height):
             if row < nrows:
                 if highlight_selected and y == sel_y:
-                    win.addnstr(y, 0, rows[row], width,
-                                self.style["selected"]())
+                    win.addnstr(y, 0, rows[row], width, self.style["selected"]())
                 else:
                     win.addnstr(y, 0, rows[row], width)
             else:
@@ -197,8 +194,7 @@ class TableBrowser:
             row += 1
 
         if show_help:
-            win.addnstr(height - 1, 0, self.help, width,
-                        self.style["footer"]())
+            win.addnstr(height - 1, 0, self.help, width, self.style["footer"]())
             win.clrtoeol()
 
         win.refresh()

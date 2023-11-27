@@ -29,9 +29,7 @@ def version_parser(ver):
 
     if match:
         return match.group(0)
-    raise argparse.ArgumentTypeError(
-        "Branch '%s' does not match required format" % ver
-    )
+    raise argparse.ArgumentTypeError("Branch '%s' does not match required format" % ver)
 
 
 def update_update_strategy(path):
@@ -60,20 +58,24 @@ def write_settings_stub(dest):
         destfile.write(file_stub)
 
 
-@cli.command("prep", help="Checkout MediaWiki version to staging", affected_by_blocked_deployments=True)
+@cli.command(
+    "prep",
+    help="Checkout MediaWiki version to staging",
+    affected_by_blocked_deployments=True,
+)
 class CheckoutMediaWiki(cli.Application):
     """Checkout a version of MediaWiki to staging.
 
-scap prep ensures that the specified version of MediaWiki (and
-submodules) is checked out into the staging directory.  The checkout
-will be updated to match origin.  Any previously applied security
-patches or local changes will be discarded.
+    scap prep ensures that the specified version of MediaWiki (and
+    submodules) is checked out into the staging directory.  The checkout
+    will be updated to match origin.  Any previously applied security
+    patches or local changes will be discarded.
 
-If you use 'scap prep auto', operations/mediawiki-config will be
-cloned/updated in the staging directory and all active MediaWiki
-versions will be prepped and security patches will be applied.
+    If you use 'scap prep auto', operations/mediawiki-config will be
+    cloned/updated in the staging directory and all active MediaWiki
+    versions will be prepped and security patches will be applied.
 
-This operation can be run as many times as needed.
+    This operation can be run as many times as needed.
 
     """
 
@@ -89,7 +91,7 @@ This operation can be run as many times as needed.
     @cli.argument(
         "--auto",
         help="Enable automatic mode which will check out operations/mediawiki-config and the mediawiki branch(es) specified by BRANCH, then apply patches",
-        action='store_true',
+        action="store_true",
     )
     @cli.argument(
         "-p",
@@ -106,7 +108,7 @@ This operation can be run as many times as needed.
             "Browse prep transaction history and choose a previous set of "
             "refs to checkout. Only used in auto mode."
         ),
-        action='store_true',
+        action="store_true",
     )
     @cli.argument(
         "--copy-private-settings",
@@ -138,16 +140,20 @@ This operation can be run as many times as needed.
         if not self.arguments.auto:
             self.arguments.apply_patches = False
 
-        lock_timeout = \
-            {"timeout": self.arguments.lock_timeout} if self.arguments.lock_timeout else {}
+        lock_timeout = (
+            {"timeout": self.arguments.lock_timeout}
+            if self.arguments.lock_timeout
+            else {}
+        )
         with Lock(self.get_lock_file(), name="concurrent prep", **lock_timeout):
-
             self.new_history = history.Entry.now()
 
             if self.arguments.auto and self.arguments.history:
-                display_repos = ['mediawiki/core', 'operations/mediawiki-config']
+                display_repos = ["mediawiki/core", "operations/mediawiki-config"]
                 logger.info("Browsing history")
-                hist = history.load(self.config["history_log"], display_repos=display_repos)
+                hist = history.load(
+                    self.config["history_log"], display_repos=display_repos
+                )
                 self.replay_history = hist.browse()
                 if self.replay_history is None:
                     logger.info("No history selected. Aborting.")
@@ -160,23 +166,35 @@ This operation can be run as many times as needed.
                         return HISTORY_ABORT_STATUS
                     logger.info("Replaying history: %s" % summary)
 
-            with log.Timer("scap prep {}".format(self.arguments.branch), self.get_stats()):
+            with log.Timer(
+                "scap prep {}".format(self.arguments.branch), self.get_stats()
+            ):
                 try:
                     if self.arguments.auto:
                         self._clone_or_update_repo(
-                            os.path.join(self.config["gerrit_url"], "operations/mediawiki-config"),
+                            os.path.join(
+                                self.config["gerrit_url"], "operations/mediawiki-config"
+                            ),
                             self.config["operations_mediawiki_config_branch"],
                             self.config["stage_dir"],
                             logger,
-                            )
+                        )
 
                         if self.arguments.copy_private_settings:
-                            self._copy_private_settings(self.arguments.copy_private_settings, logger)
+                            self._copy_private_settings(
+                                self.arguments.copy_private_settings, logger
+                            )
 
-                    versions_to_prep = self.active_wikiversions("stage") if self.arguments.branch == "auto" else [self.arguments.branch]
+                    versions_to_prep = (
+                        self.active_wikiversions("stage")
+                        if self.arguments.branch == "auto"
+                        else [self.arguments.branch]
+                    )
 
                     for version in versions_to_prep:
-                        self._prep_mw_branch(version, logger, apply_patches=self.arguments.apply_patches)
+                        self._prep_mw_branch(
+                            version, logger, apply_patches=self.arguments.apply_patches
+                        )
 
                     self.new_history.completed = True
                 finally:
@@ -205,7 +223,9 @@ This operation can be run as many times as needed.
         if checkout_version != "master":
             self._setup_patches(branch)
 
-        _patches = patches.SecurityPatches(os.path.join(self.config["patch_path"], branch))
+        _patches = patches.SecurityPatches(
+            os.path.join(self.config["patch_path"], branch)
+        )
         pre_patch_state = _patches.get_pre_patch_state(dest_dir)
 
         # Note that this discards any local commits (e.g., security patches).
@@ -222,7 +242,11 @@ This operation can be run as many times as needed.
         else:
             gitmodules = os.path.join(dest_dir, ".gitmodules")
             if not os.path.exists(gitmodules):
-                raise SystemExit("{} does not exist. Did the train branch commit get merged?".format(gitmodules))
+                raise SystemExit(
+                    "{} does not exist. Did the train branch commit get merged?".format(
+                        gitmodules
+                    )
+                )
 
         # This is only needed while people still do manual checkout
         # manipulation (a practice which needs to end).
@@ -239,15 +263,16 @@ This operation can be run as many times as needed.
         if apply_patches:
             with utils.suppress_backtrace():
                 args = [
-                    self.get_script_path(), "apply-patches",
-                    "--abort-git-am-on-fail", "--train", branch
+                    self.get_script_path(),
+                    "apply-patches",
+                    "--abort-git-am-on-fail",
+                    "--train",
+                    branch,
                 ] + self.format_passthrough_args()
                 subprocess.check_call(args)
             _patches.fix_mtimes(pre_patch_state)
 
-        logger.info(
-            "MediaWiki %s successfully checked out." % checkout_version
-        )
+        logger.info("MediaWiki %s successfully checked out." % checkout_version)
 
     def _select_reference_directory(self):
         """
@@ -303,7 +328,9 @@ This operation can be run as many times as needed.
             logger.warn("No reference patches available to copy")
             return
 
-        logger.info("Copying patches from {} to {}".format(reference_patches, patch_path))
+        logger.info(
+            "Copying patches from {} to {}".format(reference_patches, patch_path)
+        )
         shutil.copytree(reference_patches, patch_path)
 
         # This also commits.
@@ -320,14 +347,20 @@ This operation can be run as many times as needed.
             ref = self.replay_history.lookup(repo, branch, dir)
 
         with utils.suppress_backtrace():
-            head = git.clone_or_update_repo(dir, repo, branch, logger, reference,
-                                            ref=ref)
+            head = git.clone_or_update_repo(
+                dir, repo, branch, logger, reference, ref=ref
+            )
 
             # Ensure all repositories have a ssh push url
             repo_name = os.path.relpath(repo, self.config["gerrit_url"])
-            git.gitcmd("remote", "set-url", "--push", "origin",
-                       os.path.join(self.config["gerrit_push_url"], repo_name),
-                       cwd=dir)
+            git.gitcmd(
+                "remote",
+                "set-url",
+                "--push",
+                "origin",
+                os.path.join(self.config["gerrit_push_url"], repo_name),
+                cwd=dir,
+            )
 
         self.new_history.update(repo, branch, dir, head)
 
@@ -339,7 +372,6 @@ This operation can be run as many times as needed.
         gitignore_path = os.path.join(branch_dir, ".gitignore")
 
         for type in ["extensions", "vendor", "skins"]:
-
             repo = os.path.join(self.config["gerrit_url"], "mediawiki/{}".format(type))
             path = os.path.join(branch_dir, type)
 
@@ -350,13 +382,14 @@ This operation can be run as many times as needed.
             # we can clone the corresponding mediawiki/<repo>.
 
             if os.path.exists(path) and not git.is_dir(path):
-                logger.info("Deleting placeholder {} so it will be replaced with a clone of {}".format(path, repo))
+                logger.info(
+                    "Deleting placeholder {} so it will be replaced with a clone of {}".format(
+                        path, repo
+                    )
+                )
                 shutil.rmtree(path)
 
-            self._clone_or_update_repo(repo,
-                                       "master",
-                                       path,
-                                       logger)
+            self._clone_or_update_repo(repo, "master", path, logger)
 
             with open(gitignore_path, "a") as f:
                 f.write("# Added by scap prep auto\n")

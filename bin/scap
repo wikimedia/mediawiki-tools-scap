@@ -27,7 +27,7 @@ import sys
 # Add scap package to search path
 SCRIPT = os.path.realpath(sys.argv[0])
 SCAP_SRC = os.path.dirname(os.path.dirname(SCRIPT))
-sys.path.insert(0,SCAP_SRC)
+sys.path.insert(0, SCAP_SRC)
 
 from scap import cli
 

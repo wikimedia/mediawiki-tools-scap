@@ -178,7 +178,7 @@ class TerminalIO(io.TextIOBase):
         self._out = None
 
     def cleanup(self):
-        """ call cleanup callbacks registered by other modules """
+        """call cleanup callbacks registered by other modules"""
         for cb in self.cleanup_callbacks:
             cb(self)
 

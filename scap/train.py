@@ -7,7 +7,7 @@ from scap import cli, utils, tasks
 GROUPS = ["testwikis", "group0", "group1", "group2"]
 
 
-class TrainInfo():
+class TrainInfo:
     def __init__(self, config):
         self.config = config
         self.train_version = self.get_train_version()
@@ -17,7 +17,9 @@ class TrainInfo():
         # FIXME: Verify that versions are ascending as we advance through groups.
         # Warn if there is an unusual arrangement.
         for group in GROUPS:
-            versions = utils.get_group_versions(group, config["stage_dir"], config["wmf_realm"])
+            versions = utils.get_group_versions(
+                group, config["stage_dir"], config["wmf_realm"]
+            )
             self.groups[group] = versions
 
             if versions == [self.train_version]:
@@ -40,14 +42,24 @@ ____
         # Dividers are not printed if border=False
         table = prettytable.PrettyTable(border=True, header=False)
 
-        table.add_row([train_image if (stop == train_is_at or (stop == "START" and train_is_at is None)) else "" for stop in stops],
-                      divider=True)
+        table.add_row(
+            [
+                train_image
+                if (stop == train_is_at or (stop == "START" and train_is_at is None))
+                else ""
+                for stop in stops
+            ],
+            divider=True,
+        )
         table.add_row(stops)
-        table.add_row(["/".join(self.groups[stop]) if stop != "START" else "" for stop in stops])
+        table.add_row(
+            ["/".join(self.groups[stop]) if stop != "START" else "" for stop in stops]
+        )
         if show_positions:
             table.add_row([f"[{n}]" for n in range(0, len(stops))])
 
-        table.align = "l"  # Must be set after adding the rows, otherwise it has no effect.
+        # Must be set after adding the rows, otherwise it has no effect.
+        table.align = "l"
         table.vrules = prettytable.NONE
         table.hrules = prettytable.NONE
         table.horizontal_char = "="
@@ -58,8 +70,12 @@ ____
         Returns the version of the current train.  Validation is performed
         first to ensure that a good version will be returned.
         """
-        gerrit_latest_version = utils.get_current_train_version_from_gerrit(self.config["gerrit_url"])
-        train_info = utils.get_current_train_info(self.config["train_blockers_url"], self.config["web_proxy"])
+        gerrit_latest_version = utils.get_current_train_version_from_gerrit(
+            self.config["gerrit_url"]
+        )
+        train_info = utils.get_current_train_info(
+            self.config["train_blockers_url"], self.config["web_proxy"]
+        )
         task = train_info["task"]
         status = train_info["status"]
         version = train_info["version"]
@@ -68,8 +84,11 @@ ____
             utils.abort(f"Train task {task} has status '{status}'.")
 
         if version != gerrit_latest_version:
-            utils.abort("Phabricator task {} says the train version is '{}', but '{}' is the latest available in Gerrit.".format(
-                task, version, gerrit_latest_version))
+            utils.abort(
+                "Phabricator task {} says the train version is '{}', but '{}' is the latest available in Gerrit.".format(
+                    task, version, gerrit_latest_version
+                )
+            )
 
         return version
 
@@ -98,15 +117,9 @@ class Train(cli.Application):
     Advance or rollback the train
     """
 
+    @cli.argument("--forward", action="store_true", help="Advance the train")
     @cli.argument(
-        "--forward",
-        action="store_true",
-        help="Advance the train"
-    )
-    @cli.argument(
-        "--backward", "--rollback",
-        action="store_true",
-        help="Rollback the train"
+        "--backward", "--rollback", action="store_true", help="Rollback the train"
     )
     def main(self, *extra_args):
         if self.arguments.forward and self.arguments.backward:
@@ -136,9 +149,13 @@ class Train(cli.Application):
                 return
 
             if not self.old_version:
-                raise SystemExit("No other train branches are checked out.  Nothing to roll back to")
+                raise SystemExit(
+                    "No other train branches are checked out.  Nothing to roll back to"
+                )
         else:
-            target_pos = input(f"What station do you want the train to be at (0-{len(GROUPS)})? ")
+            target_pos = input(
+                f"What station do you want the train to be at (0-{len(GROUPS)})? "
+            )
             if not target_pos:
                 print("Cancelled")
                 return
@@ -155,7 +172,9 @@ class Train(cli.Application):
 
         if target_pos == 0:  # START
             if not self.old_version:
-                raise SystemExit("No other train branches are checked out.  Nothing to roll back to")
+                raise SystemExit(
+                    "No other train branches are checked out.  Nothing to roll back to"
+                )
             self._deploy_promote("all", self.old_version)
         else:
             self._deploy_promote(stops[target_pos], train_version)

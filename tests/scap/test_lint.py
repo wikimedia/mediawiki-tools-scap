@@ -46,9 +46,12 @@ No syntax errors detected in /srv/mediawiki-staging/wmf-config/mc.php
 No syntax errors detected in /srv/mediawiki-staging/wmf-config/profiler.php
 No syntax errors detected in /srv/mediawiki-staging/wmf-config/trusted-xff.php
 """
-    assert lint.clean_lint_output(output) == """
+    assert (
+        lint.clean_lint_output(output)
+        == """
 PHP Parse error:  syntax error, unexpected 'if' (T_IF) in /srv/mediawiki-staging/wmf-config/CommonSettings.php on line 52
 Errors parsing /srv/mediawiki-staging/wmf-config/CommonSettings.php"""
+    )
 
 
 @pytest.mark.skipif(sys.platform == "darwin", reason="Requires GNU find")

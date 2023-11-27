@@ -35,7 +35,11 @@ from scap import cli, targets, utils, ssh, log
 from scap.lock import Lock
 
 
-@cli.command("install-world", help="Install scap version on targets", affected_by_blocked_deployments=True)
+@cli.command(
+    "install-world",
+    help="Install scap version on targets",
+    affected_by_blocked_deployments=True,
+)
 class InstallWorld(cli.Application):
     """
     Scap sub-command to install scap version on targets
@@ -64,35 +68,36 @@ class InstallWorld(cli.Application):
         self.version = None
 
     @cli.argument(
-        "-v", "--version",
+        "-v",
+        "--version",
         default="latest",
         help="The version tag to be installed",
     )
     @cli.argument(
-        "-l", "--limit-hosts",
+        "-l",
+        "--limit-hosts",
         default="all",
         help="Limit install to hosts matching pattern. A regex can be indicated with a tilde (~)"
-             " prefix",
+        " prefix",
     )
     @cli.argument(
-        "-x", "--exclude-hosts",
+        "-x",
+        "--exclude-hosts",
         help="Exclude hosts matching regex. The hosts are removed after --limit-hosts is applied",
     )
+    @cli.argument("-y", "--yes", action="store_true", help="Answer yes to all prompts")
     @cli.argument(
-        "-y", "--yes",
-        action="store_true",
-        help="Answer yes to all prompts"
-    )
-    @cli.argument(
-        "-i", "--install-targets-only",
+        "-i",
+        "--install-targets-only",
         action="store_true",
         help="Do not update the scap version. Install targets using the version currently in the"
-             " staging area"
+        " staging area",
     )
     @cli.argument(
-        "-b", "--batch",
+        "-b",
+        "--batch",
         action="store_true",
-        help="Batch mode. Implies --yes and --install-targets-only"
+        help="Batch mode. Implies --yes and --install-targets-only",
     )
     def main(self, *extra_args):
         if self.arguments.batch:
@@ -103,7 +108,9 @@ class InstallWorld(cli.Application):
             self.arguments.no_log_message = True
 
         # The Lock ensures a scap installation cannot happen during a Mediawiki update
-        with Lock(self.get_lock_file(), name="install-world", reason="Scap is being updated"):
+        with Lock(
+            self.get_lock_file(), name="install-world", reason="Scap is being updated"
+        ):
             self._initialize_from_config()
             self._select_targets()
             self._select_version()
@@ -113,7 +120,9 @@ class InstallWorld(cli.Application):
             ):
                 utils.abort("Canceled by user")
 
-            self.announce(f"""Installing scap version "{self.version}" for {len(self.targets)} hosts""")
+            self.announce(
+                f"""Installing scap version "{self.version}" for {len(self.targets)} hosts"""
+            )
 
             if not self.arguments.install_targets_only:
                 self._install_local_scap()
@@ -124,7 +133,9 @@ class InstallWorld(cli.Application):
                     self._sync_masters_scap_installation(other_masters)
             self._install_scap_targets()
 
-            self.announce(f"""Installation of scap version "{self.version}" completed for {len(self.targets)} hosts""")
+            self.announce(
+                f"""Installation of scap version "{self.version}" completed for {len(self.targets)} hosts"""
+            )
 
     def _initialize_from_config(self):
         self.masters = self.get_master_list()
@@ -142,9 +153,11 @@ class InstallWorld(cli.Application):
             "scap_targets",
             self.config,
             self.arguments.limit_hosts,
-            exclude_hosts=self.arguments.exclude_hosts
+            exclude_hosts=self.arguments.exclude_hosts,
         ).all
-        self.targets = [target for target in selected_targets if target not in self.masters]
+        self.targets = [
+            target for target in selected_targets if target not in self.masters
+        ]
 
         if not self.targets:
             utils.abort("List of targets is empty")
@@ -164,11 +177,15 @@ class InstallWorld(cli.Application):
 
             if not matches:
                 if self.arguments.batch:
-                    self._abort(f"""Scap wheels for distro "{distro}" missing in staging area. Cannot proceed in"""
-                                " batch mode")
+                    self._abort(
+                        f"""Scap wheels for distro "{distro}" missing in staging area. Cannot proceed in"""
+                        " batch mode"
+                    )
                 else:
-                    self.logger.warn(f"""Scap wheels for distro "{distro}" missing in staging area. Falling back to"""
-                                     " regular update")
+                    self.logger.warn(
+                        f"""Scap wheels for distro "{distro}" missing in staging area. Falling back to"""
+                        " regular update"
+                    )
                     self._use_version_from_args()
                     self.arguments.install_targets_only = False
                     return
@@ -178,10 +195,14 @@ class InstallWorld(cli.Application):
                     f"""Found multiple Scap wheels for distro "{distro}" in staging area. Something is broken"""
                 )
 
-            staged_versions.add(re.search(r"Scap-(\d+\.\d+\.\d+)", matches[0].name).group(1))
+            staged_versions.add(
+                re.search(r"Scap-(\d+\.\d+\.\d+)", matches[0].name).group(1)
+            )
 
         if len(staged_versions) > 1:
-            self._abort("Distro wheels in staging area have multiple versions. Something is broken")
+            self._abort(
+                "Distro wheels in staging area have multiple versions. Something is broken"
+            )
 
         self.version = staged_versions.pop()
         self.logger.info(f"Using version {self.version} found in staging area")
@@ -193,20 +214,27 @@ class InstallWorld(cli.Application):
             try:
                 requested_version = packaging.version.Version(self.version)
                 if requested_version < InstallWorld.MIN_VERSION:
-                    utils.abort(f"""Self-install with wheels not supported for version "{self.arguments.version}" """)
+                    utils.abort(
+                        f"""Self-install with wheels not supported for version "{self.arguments.version}" """
+                    )
             except packaging.version.InvalidVersion:
                 utils.abort(f"""Version "{self.arguments.version}" is not valid""")
 
     def _install_local_scap(self):
         self.logger.info(f"""Installing version "{self.version}" locally""")
 
-        install_script_path = f"{self.install_user_home}/{InstallWorld.INSTALL_SCAP_SCRIPT_PATH}"
+        install_script_path = (
+            f"{self.install_user_home}/{InstallWorld.INSTALL_SCAP_SCRIPT_PATH}"
+        )
         cmd = [
             install_script_path,
-            "-u", self.install_user,
+            "-u",
+            self.install_user,
             "--on-deploy",
-            "-t", self.version,
-            "-d", ",".join(InstallWorld.SUPPORTED_DISTRIBUTIONS),
+            "-t",
+            self.version,
+            "-d",
+            ",".join(InstallWorld.SUPPORTED_DISTRIBUTIONS),
         ]
 
         with utils.suppress_backtrace():
@@ -230,7 +258,9 @@ class InstallWorld(cli.Application):
         ]
         masters_sync = self._get_ssh_job_for(masters_to_sync)
         masters_sync.command(rsync_call)
-        masters_sync.progress(log.reporter("scap-sync-to-masters", self.config["fancy_progress"]))
+        masters_sync.progress(
+            log.reporter("scap-sync-to-masters", self.config["fancy_progress"])
+        )
         _, failed = masters_sync.run()
         if failed:
             self._abort(f"{failed} masters failed to sync scap installation")
@@ -252,18 +282,24 @@ class InstallWorld(cli.Application):
         all_targets = {}
         for target in self.targets:
             all_targets.setdefault(select_master(target), list()).append(target)
-        targets_by_master = {master: all_targets[master] for master in all_targets.keys() if master}
+        targets_by_master = {
+            master: all_targets[master] for master in all_targets.keys() if master
+        }
         targets_no_master = all_targets[None] if None in all_targets else []
 
         return targets_by_master, targets_no_master
 
     def _assign_targets_to_random_master(self, targets_by_master, targets):
         for target in targets:
-            targets_by_master.setdefault(random.choice(self.masters), list()).append(target)
+            targets_by_master.setdefault(random.choice(self.masters), list()).append(
+                target
+            )
 
     def _sync_targets(self, targets_by_master):
         for master, tgts in targets_by_master.items():
-            self.logger.info(f"""Syncing installation material to {len(tgts)} scap targets from "{master}" """)
+            self.logger.info(
+                f"""Syncing installation material to {len(tgts)} scap targets from "{master}" """
+            )
 
             rsync_call = [
                 "/usr/bin/rsync",
@@ -275,7 +311,7 @@ class InstallWorld(cli.Application):
                 "--new-compress",
                 f"{self.deploy_master}::{InstallWorld.SCAP_RSYNC_MODULE}/{InstallWorld.WHEELS_DIR}/$(lsb_release -cs)",
                 f"{self.deploy_master}::{InstallWorld.SCAP_RSYNC_MODULE}/{InstallWorld.INSTALL_SCAP_SCRIPT_PATH}",
-                self.install_user_home + '/',
+                self.install_user_home + "/",
             ]
             targets_sync = self._get_ssh_job_for(tgts)
             targets_sync.command(rsync_call)
@@ -284,12 +320,16 @@ class InstallWorld(cli.Application):
             )
             _, failed = targets_sync.run()
             if failed:
-                self._abort(f"{failed} targets failed to sync scap installation material")
+                self._abort(
+                    f"{failed} targets failed to sync scap installation material"
+                )
 
     def _install_targets(self):
         self.logger.info(f"""Installing {len(self.targets)} scap targets""")
 
-        install_script_path = f"{self.install_user_home}/{InstallWorld.INSTALL_SCAP_SCRIPT}"
+        install_script_path = (
+            f"{self.install_user_home}/{InstallWorld.INSTALL_SCAP_SCRIPT}"
+        )
         targets_install = self._get_ssh_job_for(self.targets)
         targets_install.command([install_script_path, "-u", self.install_user])
         targets_install.progress(

@@ -89,7 +89,6 @@ class DeployLocal(cli.Application):
         self.stages = STAGES
 
     def _load_config(self):
-
         super()._load_config()
 
         # FIXME: this makes the assumption that the git_deploy_dir specified on
@@ -130,8 +129,7 @@ class DeployLocal(cli.Application):
     @cli.argument(
         "-f", "--force", action="store_true", help="force stage even when noop detected"
     )
-    @cli.argument("-r", "--repo", help="repo that you are deploying",
-                  required=True)
+    @cli.argument("-r", "--repo", help="repo that you are deploying", required=True)
     @cli.argument(
         "--refresh-config",
         action="store_true",
@@ -402,7 +400,6 @@ class DeployLocal(cli.Application):
         logger = self.get_logger()
 
         if self.context.current_rev_dir == rev_dir and not self.arguments.force:
-
             logger.info("{} is already live (use --force to override)".format(rev_dir))
             self.noop = True
             return
@@ -460,7 +457,7 @@ class DeployLocal(cli.Application):
         tasks.handle_services(
             service,
             self.config.get("require_valid_service", False),
-            os.path.exists(self.config["secondary_host_signal_file"])
+            os.path.exists(self.config["secondary_host_signal_file"]),
         )
 
         port = self.config.get("service_port", None)
@@ -534,11 +531,14 @@ class DeployLocal(cli.Application):
         for chk in chks:
             target_stage = getattr(chk, when)
             # See method `_check_applies` for an explanation about "restart_service"
-            if target_stage not in ALL_STAGES + ['restart_service', None]:
-                raise SystemExit(f"""Unknown target stage "{target_stage}" specified in user-defined check""")
+            if target_stage not in ALL_STAGES + ["restart_service", None]:
+                raise SystemExit(
+                    f"""Unknown target stage "{target_stage}" specified in user-defined check"""
+                )
 
         chks = [
-            chk for chk in chks
+            chk
+            for chk in chks
             if DeployLocal._check_applies(chk, stage, group, when=when)
         ]
 
@@ -554,7 +554,7 @@ class DeployLocal(cli.Application):
 
     @staticmethod
     def _check_applies(chk, stage, group, when):
-        """ Verify whether a check applies for the current group and stage."""
+        """Verify whether a check applies for the current group and stage."""
         if group is not None:
             if chk.group is not None and chk.group != group:
                 return False
@@ -566,7 +566,7 @@ class DeployLocal(cli.Application):
         # For backward compatibility, "restart_service" is treated here as a synonym for "handle_service"
         valid_stages = [stage]
         if stage == HANDLE_SERVICE:
-            valid_stages.append('restart_service')
+            valid_stages.append("restart_service")
 
         return getattr(chk, when) in valid_stages
 
@@ -598,10 +598,12 @@ class DeployLocal(cli.Application):
 
     def _get_remote_overrides(self):
         """Grab remote config from git_server."""
-        cfg_url = "{}://{}".format(self.config["git_scheme"],
-                                   os.path.join(
-                                       self.config["git_server"], self.arguments.repo,
-                                       ".git", "DEPLOY_HEAD"))
+        cfg_url = "{}://{}".format(
+            self.config["git_scheme"],
+            os.path.join(
+                self.config["git_server"], self.arguments.repo, ".git", "DEPLOY_HEAD"
+            ),
+        )
         r = requests.get(cfg_url)
         r.raise_for_status()
 
@@ -610,7 +612,11 @@ class DeployLocal(cli.Application):
         return yaml.load(r.text, yaml.loader.Loader)
 
 
-@cli.command("deploy", help="[SCAP 3] Sync new service code across cluster", affected_by_blocked_deployments=True)
+@cli.command(
+    "deploy",
+    help="[SCAP 3] Sync new service code across cluster",
+    affected_by_blocked_deployments=True,
+)
 class Deploy(cli.Application):
     """
     Sync new service code across cluster.
@@ -776,7 +782,9 @@ class Deploy(cli.Application):
         if not rev:
             rev = "HEAD"
 
-        with lock.Lock(self.get_lock_file(), name="deploy", reason=self.arguments.message):
+        with lock.Lock(
+            self.get_lock_file(), name="deploy", reason=self.arguments.message
+        ):
             with log.Timer(display_name):
                 timestamp = datetime.utcnow()
                 tag = git.next_deploy_tag(location=self.context.root)
@@ -1218,8 +1226,9 @@ class DeployLog(cli.Application):
         if not logfilter.isfiltering("levelno"):
             logfilter.append({"levelno": lambda v: v >= self.arguments.loglevel})
 
-        formatter = log.DiffLogFormatter(self.FORMAT, self.DATE_FORMAT,
-                                         colorize=sys.stderr.isatty())
+        formatter = log.DiffLogFormatter(
+            self.FORMAT, self.DATE_FORMAT, colorize=sys.stderr.isatty()
+        )
 
         cur_log_path = given_log
         cur_log_file = open(given_log, "r") if given_log else None
@@ -1274,7 +1283,9 @@ class DeployLog(cli.Application):
         pass
 
 
-@cli.command("deploy-mediawiki", help=argparse.SUPPRESS, affected_by_blocked_deployments=True)
+@cli.command(
+    "deploy-mediawiki", help=argparse.SUPPRESS, affected_by_blocked_deployments=True
+)
 class DeployMediaWiki(cli.Application):
     """
     Deploy mediawiki via scap3.

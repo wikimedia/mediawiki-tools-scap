@@ -38,53 +38,72 @@ def test_load_valid_config():
 
 
 def test_load_before():
-    chks = checks.load({
-        "checks": {
-            "prepare":
-                {"type": "command", "command": "/bin/true", "before": "fetch"}
+    chks = checks.load(
+        {
+            "checks": {
+                "prepare": {
+                    "type": "command",
+                    "command": "/bin/true",
+                    "before": "fetch",
+                }
+            }
         }
-    })
+    )
     assert len(chks) == 1
-    assert chks["prepare"].before == 'fetch'
-    assert chks["prepare"].stage == 'fetch', "Sets stage for back compat"
+    assert chks["prepare"].before == "fetch"
+    assert chks["prepare"].stage == "fetch", "Sets stage for back compat"
 
 
 def test_load_after():
-    chks = checks.load({
-        "checks": {
-            "complete":
-                {"type": "command", "command": "/bin/true", "after": "fetch"}
+    chks = checks.load(
+        {
+            "checks": {
+                "complete": {
+                    "type": "command",
+                    "command": "/bin/true",
+                    "after": "fetch",
+                }
+            }
         }
-    })
+    )
     assert len(chks) == 1
-    assert chks["complete"].after == 'fetch'
-    assert chks["complete"].stage == 'fetch', "Sets stage for back compat"
+    assert chks["complete"].after == "fetch"
+    assert chks["complete"].stage == "fetch", "Sets stage for back compat"
 
 
 def test_load_after_overrides_stage():
-    chks = checks.load({
-        "checks": {
-            "runs_after_promote":
-                {"type": "command", "command": "/bin/true",
-                 "stage": "fetch", "after": "promote"}
+    chks = checks.load(
+        {
+            "checks": {
+                "runs_after_promote": {
+                    "type": "command",
+                    "command": "/bin/true",
+                    "stage": "fetch",
+                    "after": "promote",
+                }
+            }
         }
-    })
+    )
     assert len(chks) == 1
-    assert chks["runs_after_promote"].after == 'promote'
-    assert chks["runs_after_promote"].stage == 'promote'
+    assert chks["runs_after_promote"].after == "promote"
+    assert chks["runs_after_promote"].stage == "promote"
 
 
 def test_load_before_overrides_stage():
-    chks = checks.load({
-        "checks": {
-            "runs_before_promote":
-                {"type": "command", "command": "/bin/true",
-                 "before": "promote"}
+    chks = checks.load(
+        {
+            "checks": {
+                "runs_before_promote": {
+                    "type": "command",
+                    "command": "/bin/true",
+                    "before": "promote",
+                }
+            }
         }
-    })
+    )
     assert len(chks) == 1
-    assert chks["runs_before_promote"].before == 'promote'
-    assert chks["runs_before_promote"].stage == 'promote'
+    assert chks["runs_before_promote"].before == "promote"
+    assert chks["runs_before_promote"].stage == "promote"
 
 
 def test_load_tolerates_empty_config():

@@ -34,10 +34,16 @@ def test_lock_acquires_lock():
 
     def verify_wait_on_lock():
         verifying_lock = lock.Lock(lock_file.name)
-        with mock.patch('fcntl.lockf', wraps=fcntl.lockf) as lockf:
+        with mock.patch("fcntl.lockf", wraps=fcntl.lockf) as lockf:
             with verifying_lock:
-                lockf.assert_has_calls([mock.call(verifying_lock.lock_fd, fcntl.LOCK_EX | fcntl.LOCK_NB),
-                                        mock.call(verifying_lock.lock_fd, fcntl.LOCK_EX)])
+                lockf.assert_has_calls(
+                    [
+                        mock.call(
+                            verifying_lock.lock_fd, fcntl.LOCK_EX | fcntl.LOCK_NB
+                        ),
+                        mock.call(verifying_lock.lock_fd, fcntl.LOCK_EX),
+                    ]
+                )
 
     lock_proc = acquire_lock_in_subprocess(lock_file.name, release_signal_file.name)
     lock_release_thread = start_release_thread(release_signal_file.name)
@@ -58,11 +64,9 @@ def test_lock_times_out():
     def verify_lock_timeout():
         verifying_lock = lock.Lock(lock_file.name)
         with mock.patch.object(
-                verifying_lock, '_get_deadline_check_interval'
+            verifying_lock, "_get_deadline_check_interval"
         ) as get_deadline_check_interval:
-            with mock.patch.object(
-                    verifying_lock, '_get_deadline'
-            ) as get_deadline:
+            with mock.patch.object(verifying_lock, "_get_deadline") as get_deadline:
                 get_deadline_check_interval.return_value = 1
                 get_deadline.return_value = time.time() + 1
                 with pytest.raises(lock.LockFailedError):
@@ -89,7 +93,11 @@ def get_temp_filepaths():
 
 
 def acquire_lock_in_subprocess(lock_file, release_signal_file):
-    return subprocess.Popen(["/usr/bin/python3", "-c", """
+    return subprocess.Popen(
+        [
+            "/usr/bin/python3",
+            "-c",
+            """
 import os
 import fcntl
 import time
@@ -98,7 +106,10 @@ fd = os.open('%s', os.O_WRONLY | os.O_CREAT)
 fcntl.lockf(fd, fcntl.LOCK_EX)
 while not os.path.exists('%s'):
     time.sleep(1)
-    """ % (lock_file, release_signal_file)])
+    """
+            % (lock_file, release_signal_file),
+        ]
+    )
 
 
 def start_release_thread(release_signal_file, wait_time=2):

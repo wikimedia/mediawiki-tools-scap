@@ -62,7 +62,7 @@ DEFAULT_RSYNC_ARGS = [
 
 RESTART = "restart"
 RELOAD = "reload"
-DISABLE_SECONDARY = 'disable-secondary'
+DISABLE_SECONDARY = "disable-secondary"
 
 
 def logstash_canary_checks(canaries, service, threshold, logstash, delay, cores=2):
@@ -313,9 +313,7 @@ def merge_cdb_updates(directory, pool_size, trust_mtime=False, mute=False, logge
 
     l10n_update_pool = pool.imap_unordered(
         update_l10n_cdb_wrapper,
-        zip(
-            itertools.repeat(cache_dir), files, itertools.repeat(trust_mtime)
-        ),
+        zip(itertools.repeat(cache_dir), files, itertools.repeat(trust_mtime)),
     )
     for i, result in enumerate(l10n_update_pool, 1):
         if result:
@@ -352,7 +350,9 @@ def sync_master(cfg, master, verbose=False, logger=None):
     rsync = ["sudo", "-n", "--", "/usr/local/bin/scap-master-sync"]
     rsync.append(master)
 
-    logger.info("Copying from %s to %s:/srv/mediawiki-staging", master, socket.getfqdn())
+    logger.info(
+        "Copying from %s to %s:/srv/mediawiki-staging", master, socket.getfqdn()
+    )
     logger.debug("Running rsync command: `%s`", " ".join(rsync))
     stats = log.Stats(cfg["statsd_host"], int(cfg["statsd_port"]))
     with log.Timer("rsync master", stats):
@@ -362,8 +362,12 @@ def sync_master(cfg, master, verbose=False, logger=None):
     use_cores = utils.cpus_for_jobs()
 
     with log.Timer("rebuild CDB staging files", stats):
-        for version in utils.get_active_wikiversions(cfg["stage_dir"], cfg["wmf_realm"]):
-            cache_dir = os.path.join(cfg["stage_dir"], "php-%s" % version, "cache", "l10n")
+        for version in utils.get_active_wikiversions(
+            cfg["stage_dir"], cfg["wmf_realm"]
+        ):
+            cache_dir = os.path.join(
+                cfg["stage_dir"], "php-%s" % version, "cache", "l10n"
+            )
             _call_rebuildLocalisationCache(
                 version,
                 cache_dir,
@@ -376,8 +380,13 @@ def sync_master(cfg, master, verbose=False, logger=None):
 # Called via "scap pull"
 @utils.log_context("sync_common")
 def sync_common(
-        cfg, include=None, sync_from=None, verbose=False, logger=None, rsync_args=None,
-        exclude_wikiversionsphp=False,
+    cfg,
+    include=None,
+    sync_from=None,
+    verbose=False,
+    logger=None,
+    rsync_args=None,
+    exclude_wikiversionsphp=False,
 ):
     """
     Sync local deploy dir with upstream rsync server's copy.
@@ -409,7 +418,9 @@ def sync_common(
 
     # T329857
     if os.path.islink(deploy_dir):
-        logger.warning(f"{deploy_dir} is a symlink to {os.readlink(deploy_dir)}.  Not pulling.")
+        logger.warning(
+            f"{deploy_dir} is a symlink to {os.readlink(deploy_dir)}.  Not pulling."
+        )
         sys.exit(0)
 
     server = None
@@ -450,7 +461,12 @@ def sync_common(
     rsync.append("%s::common" % server)
     rsync.append(deploy_dir)
 
-    logger.info("Copying from %s:/srv/mediawiki-staging to %s:%s", server, socket.getfqdn(), deploy_dir)
+    logger.info(
+        "Copying from %s:/srv/mediawiki-staging to %s:%s",
+        server,
+        socket.getfqdn(),
+        deploy_dir,
+    )
     logger.debug("Running rsync command: `%s`", " ".join(rsync))
     stats = log.Stats(cfg["statsd_host"], int(cfg["statsd_port"]))
     with log.Timer("rsync common", stats):
@@ -458,9 +474,7 @@ def sync_common(
 
     # Bug 58618: Invalidate local configuration cache by updating the
     # timestamp of wmf-config/InitialiseSettings.php
-    settings_path = os.path.join(
-        deploy_dir, "wmf-config", "InitialiseSettings.php"
-    )
+    settings_path = os.path.join(deploy_dir, "wmf-config", "InitialiseSettings.php")
     logger.debug("Touching %s", settings_path)
     subprocess.check_call(
         ("sudo", "-u", "mwdeploy", "-n", "--", "/usr/bin/touch", settings_path)
@@ -568,7 +582,13 @@ def update_l10n_cdb_wrapper(args, logger=None):
 
 
 def _call_rebuildLocalisationCache(
-    version, out_dir, use_cores=1, php_l10n=False, lang=None, force=False, quiet=False,
+    version,
+    out_dir,
+    use_cores=1,
+    php_l10n=False,
+    lang=None,
+    force=False,
+    quiet=False,
     delay_messageblobstore_purge=False,
 ):
     """
@@ -589,7 +609,6 @@ def _call_rebuildLocalisationCache(
         lang = os.getenv("SCAP_MW_LANG")
 
     def _rebuild(store_class, file_extension):
-
         logging.info("Running rebuildLocalisationCache.php as www-data")
         # Passing --skip-message-purge for T263872 (if delay_messageblobstore_purge feature
         # flag is enabled).
@@ -600,7 +619,7 @@ def _call_rebuildLocalisationCache(
         utils.sudo_check_call(
             "www-data",
             "/usr/local/bin/mwscript rebuildLocalisationCache.php "
-            '--wiki=aawiki '
+            "--wiki=aawiki "
             '--force-version "%(version)s" '
             "--no-progress "
             "--store-class=%(store_class)s "
@@ -612,7 +631,9 @@ def _call_rebuildLocalisationCache(
                 "lang": "--lang " + lang if lang else "",
                 "force": "--force" if force else "",
                 "quiet": "--quiet" if quiet else "",
-                "skip_message_purge": "--skip-message-purge" if delay_messageblobstore_purge else "",
+                "skip_message_purge": "--skip-message-purge"
+                if delay_messageblobstore_purge
+                else "",
             },
             logLevel=logging.INFO,
         )
@@ -674,7 +695,9 @@ def update_localization_cache(version, app, logger=None):
 
     if os.path.exists(cache_dir):
         # Clean up cruft from any prior interrupted run.
-        utils.sudo_check_call("www-data", "rm -f {}".format(os.path.join(cache_dir, "*.tmp.*")))
+        utils.sudo_check_call(
+            "www-data", "rm -f {}".format(os.path.join(cache_dir, "*.tmp.*"))
+        )
 
     if not os.path.exists(os.path.join(cache_dir, "l10n_cache-en.cdb")):
         # mergeMessageFileList.php needs a l10n file
@@ -686,9 +709,11 @@ def update_localization_cache(version, app, logger=None):
         force_rebuild = True
 
     logger.info("Updating ExtensionMessages-%s.php", version)
-    new_extension_messages = subprocess.check_output(
-        ["sudo", "-u", "www-data", "-n", "--", "/bin/mktemp"]
-    ).decode().strip()
+    new_extension_messages = (
+        subprocess.check_output(["sudo", "-u", "www-data", "-n", "--", "/bin/mktemp"])
+        .decode()
+        .strip()
+    )
 
     # attempt to read extension-list from the branch instead of wmf-config
     ext_list = os.path.join(cfg["stage_dir"], "php-%s" % version, "extension-list")
@@ -697,19 +722,23 @@ def update_localization_cache(version, app, logger=None):
         # fall back to the old location in wmf-config
         ext_list = "%s/wmf-config/extension-list" % cfg["stage_dir"]
 
-    merge_message_file_list_command = ("/usr/local/bin/mwscript mergeMessageFileList.php "
-                                       '--wiki=aawiki --force-version "%s" --list-file="%s" '
-                                       '--output="%s"' % (version, ext_list, new_extension_messages))
+    merge_message_file_list_command = (
+        "/usr/local/bin/mwscript mergeMessageFileList.php "
+        '--wiki=aawiki --force-version "%s" --list-file="%s" '
+        '--output="%s"' % (version, ext_list, new_extension_messages)
+    )
     diags = utils.sudo_check_call("www-data", merge_message_file_list_command)
     utils.sudo_check_call("www-data", 'chmod 0664 "%s"' % new_extension_messages)
 
     try:
         # Check for PHP notices/warnings in mergeMessageFileList.php output.
         if re.search(r"PHP (Notice|Warning)", diags):
-            raise SystemExit(f"""
+            raise SystemExit(
+                f"""
 {merge_message_file_list_command} generated PHP notices/warnings:
 {diags}
-""")
+"""
+            )
 
         with open(new_extension_messages) as f:
             utils.write_file_if_needed(extension_messages, f.read())
@@ -733,13 +762,15 @@ def update_localization_cache(version, app, logger=None):
     cache_dir_owner = pwd.getpwuid(os.stat(cache_dir).st_uid).pw_name
 
     # Include JSON versions of the CDB files and add MD5 files
-    logger.info("Generating JSON versions and md5 files (as {})".format(cache_dir_owner))
+    logger.info(
+        "Generating JSON versions and md5 files (as {})".format(cache_dir_owner)
+    )
     utils.sudo_check_call(
         user=cache_dir_owner,
         cmd="%s cdb-json-refresh "
         '--directory="%s" --threads=%s %s'
         % (app.get_script_path(), cache_dir, use_cores, verbose_messagelist),
-        app=app
+        app=app,
     )
 
 
@@ -864,12 +895,12 @@ def handle_services(services, require_valid_service=False, on_secondary_host=Fal
     Note that specifying a secondary action requires a main action
     """
 
-    for service_handle in services.split(','):
+    for service_handle in services.split(","):
         service, action, secondary_action = (service_handle.strip(), RESTART, None)
-        if '=' in service:
-            service, action = service.split('=')
-            if ':' in action:
-                action, secondary_action = action.split(':')
+        if "=" in service:
+            service, action = service.split("=")
+            if ":" in action:
+                action, secondary_action = action.split(":")
 
         # Can be used to check if service is masked, require_valid_service
         # is False by default to preserve existing behavior
@@ -888,8 +919,12 @@ def handle_services(services, require_valid_service=False, on_secondary_host=Fal
             restart_service(service)
             continue
 
-        reported_action = f"{action}:{secondary_action}" if secondary_action is not None else action
-        raise RuntimeError(f"""Unknown action "{reported_action}" for service "{service}" """)
+        reported_action = (
+            f"{action}:{secondary_action}" if secondary_action is not None else action
+        )
+        raise RuntimeError(
+            f"""Unknown action "{reported_action}" for service "{service}" """
+        )
 
 
 @utils.log_context("service_restart")

@@ -23,7 +23,12 @@ AUTO_CLEAN_THRESHOLD = 8
 class Clean(main.AbstractSync):
     """Scap sub-command to clean old branches."""
 
-    @cli.argument("branch", help="The name of the branch to clean.  Specify 'auto' to select all inactive branches that were created more than {} days ago.".format(AUTO_CLEAN_THRESHOLD))
+    @cli.argument(
+        "branch",
+        help="The name of the branch to clean.  Specify 'auto' to select all inactive branches that were created more than {} days ago.".format(
+            AUTO_CLEAN_THRESHOLD
+        ),
+    )
     @cli.argument(
         "--delete",
         action="store_true",
@@ -55,8 +60,12 @@ class Clean(main.AbstractSync):
         else:
             self.branches_to_remove = [self.arguments.branch]
 
-        self.get_logger().info("Cleaning branch(es): {}".format(", ".join(self.branches_to_remove)))
-        self.arguments.message = "Pruned MediaWiki: {}".format(", ".join(self.branches_to_remove))
+        self.get_logger().info(
+            "Cleaning branch(es): {}".format(", ".join(self.branches_to_remove))
+        )
+        self.arguments.message = "Pruned MediaWiki: {}".format(
+            ", ".join(self.branches_to_remove)
+        )
         self.arguments.force = False
         self.arguments.stop_before_sync = False
         # There's no need to build or deploy container images during scap clean
@@ -78,14 +87,10 @@ class Clean(main.AbstractSync):
         (4) Remove all branch files
         (5) Remove security patches
         """
-        branch_dir = os.path.join(
-            self.config["stage_dir"], "php-%s" % branch
-        )
+        branch_dir = os.path.join(self.config["stage_dir"], "php-%s" % branch)
 
         if branch in self.active_wikiversions("stage"):
-            raise SystemExit(
-                'Branch "%s" is still in use, aborting' % branch
-            )
+            raise SystemExit('Branch "%s" is still in use, aborting' % branch)
 
         if os.path.exists(branch_dir):
             for user in ["www-data"]:
@@ -107,7 +112,11 @@ class Clean(main.AbstractSync):
         # Moved behind a feature flag until T218750 is resolved
         if self.arguments.delete_gerrit_branch:
             if not os.path.exists(branch_dir):
-                logger.warn("Cannot perform --delete-gerrit-branch because {} does not exist".format(branch_dir))
+                logger.warn(
+                    "Cannot perform --delete-gerrit-branch because {} does not exist".format(
+                        branch_dir
+                    )
+                )
             else:
                 git_prune_cmd = [
                     "git",
@@ -140,9 +149,7 @@ class Clean(main.AbstractSync):
         """
 
         cache_dirs = [
-            os.path.join(self.config["deploy_dir"],
-                         "php-%s" % branch,
-                         "cache")
+            os.path.join(self.config["deploy_dir"], "php-%s" % branch, "cache")
             for branch in self.branches_to_remove
         ]
 
@@ -184,7 +191,9 @@ class Clean(main.AbstractSync):
         active = self.active_wikiversions("stage")
 
         versions_to_remove = []
-        for version, created in tasks.get_wikiversions_ondisk_ex(self.config["stage_dir"]):
+        for version, created in tasks.get_wikiversions_ondisk_ex(
+            self.config["stage_dir"]
+        ):
             if version not in active and created < cutoff:
                 versions_to_remove.append(version)
 

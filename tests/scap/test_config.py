@@ -119,8 +119,7 @@ def test_nonexistent_environment(monkeypatch):
             monkeypatch.chdir(os.path.dirname(cfg_file))
 
             with pytest.raises(
-                RuntimeError,
-                match='Environment staging does not exist'
+                RuntimeError, match="Environment staging does not exist"
             ):
                 config.load(environment="staging")
 
@@ -135,9 +134,9 @@ def test_load_section_for_host(monkeypatch):
     """
     )
 
-    monkeypatch.setattr(config.socket, 'getfqdn', lambda: 'deployment.local')
+    monkeypatch.setattr(config.socket, "getfqdn", lambda: "deployment.local")
     with config_file(config_file_content) as cfg_file:
-        assert config.load(cfg_file)['ssh_user'] == 'janedoe'
+        assert config.load(cfg_file)["ssh_user"] == "janedoe"
 
 
 def test_load_section_for_host_with_trailing_dot(monkeypatch):
@@ -150,9 +149,9 @@ def test_load_section_for_host_with_trailing_dot(monkeypatch):
     """
     )
 
-    monkeypatch.setattr(config.socket, 'getfqdn', lambda: 'deployment.local.')
+    monkeypatch.setattr(config.socket, "getfqdn", lambda: "deployment.local.")
     with config_file(config_file_content) as cfg_file:
-        assert config.load(cfg_file)['ssh_user'] == 'anneonymous'
+        assert config.load(cfg_file)["ssh_user"] == "anneonymous"
 
 
 def test_coerce():

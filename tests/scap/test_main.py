@@ -11,9 +11,7 @@ def cmd(request):
     # application.
 
     if not hasattr(request, "param"):
-        app = cli.Application.factory(
-            ["sync-world"]
-        )
+        app = cli.Application.factory(["sync-world"])
     else:
         app = cli.Application.factory(request.param)
 
@@ -109,4 +107,7 @@ def test_exclude_wikiversions():
     sync_wikiversions_app = cli.Application.factory(["sync-wikiversions"])
     sync_wikiversions_app.setup()
 
-    assert "--exclude-wikiversions.php" not in sync_wikiversions_app._base_scap_pull_command()
+    assert (
+        "--exclude-wikiversions.php"
+        not in sync_wikiversions_app._base_scap_pull_command()
+    )

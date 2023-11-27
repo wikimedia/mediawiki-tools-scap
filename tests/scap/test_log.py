@@ -30,8 +30,8 @@ class FilterTest(unittest.TestCase):
 
         self.root_handler.addFilter(logfilter)
 
-        self.b_logger.info(u"please log this")
-        self.c_logger.info(u"do not log this")
+        self.b_logger.info("please log this")
+        self.c_logger.info("do not log this")
 
         assert self.stream.getvalue() == "please log this\n"
 
@@ -40,8 +40,8 @@ class FilterTest(unittest.TestCase):
 
         self.root_handler.addFilter(logfilter)
 
-        self.b_logger.info(u"please log this")
-        self.c_logger.info(u"do not log this")
+        self.b_logger.info("please log this")
+        self.c_logger.info("do not log this")
 
         assert self.stream.getvalue() == "please log this\n"
 
@@ -50,8 +50,8 @@ class FilterTest(unittest.TestCase):
 
         self.root_handler.addFilter(logfilter)
 
-        self.b_logger.warning(u"please log this")
-        self.c_logger.info(u"do not log this")
+        self.b_logger.warning("please log this")
+        self.c_logger.info("do not log this")
 
         assert self.stream.getvalue() == "please log this\n"
 
@@ -60,8 +60,8 @@ class FilterTest(unittest.TestCase):
 
         self.root_handler.addFilter(logfilter)
 
-        self.b_logger.info(u"please log this")
-        self.c_logger.info(u"do not log this")
+        self.b_logger.info("please log this")
+        self.c_logger.info("do not log this")
 
         assert self.stream.getvalue() == "do not log this\n"
 
@@ -264,31 +264,30 @@ def test_progress():
 
 def test_ecs_event_fields_to_logstash(caplog):
     caplog.set_level(logging.INFO)
-    fname = 'test_ecs_event_fields_to_logstash'
+    fname = "test_ecs_event_fields_to_logstash"
 
     t = log.Timer(fname)
     with t:
         # ECS start and end assume milisecond resolution
         sleep(0.001)
-        t.mark('some marker')
+        t.mark("some marker")
         sleep(0.001)
         pass
 
     formatter = log.LogstashFormatter()
-    (start, mark, finish) = map(json.loads,
-                                map(formatter.format, caplog.records))
+    (start, mark, finish) = map(json.loads, map(formatter.format, caplog.records))
 
-    assert start['event.action'] == fname
-    assert finish['event.action'] == fname
-    assert mark['event.action'] == 'some marker'
+    assert start["event.action"] == fname
+    assert finish["event.action"] == fname
+    assert mark["event.action"] == "some marker"
 
-    assert 'event.end' not in mark
-    assert 'event.end' in finish
+    assert "event.end" not in mark
+    assert "event.end" in finish
 
-    assert isinstance(start['event.start'], int)
-    assert start['event.start'] == finish['event.start']
+    assert isinstance(start["event.start"], int)
+    assert start["event.start"] == finish["event.start"]
 
-    assert isinstance(finish['event.end'], int)
-    assert isinstance(finish['event.duration'], int)
+    assert isinstance(finish["event.end"], int)
+    assert isinstance(finish["event.duration"], int)
 
-    assert finish['event.end'] > finish['event.start']
+    assert finish["event.end"] > finish["event.start"]

@@ -94,7 +94,6 @@ DEFAULT_CONFIG = {
     "train_blockers_url": (str, "https://train-blockers.toolforge.org/api.php"),
     # HTTP/HTTPS proxy used only for requests that need it (such as accessing train_blockers_url)
     "web_proxy": (str, None),
-
     # Settings related to building and deploying mediawiki container image
     # xref AbstractSync._build_container_images() in main.py
     "build_mw_container_image": (bool, False),
@@ -102,12 +101,13 @@ DEFAULT_CONFIG = {
     "deploy_mw_container_image": (bool, False),
     "release_repo_dir": (str, None),
     "release_repo_update_cmd": (str, None),
-
     # This command will run with the current directory set to
     # {release_repo_dir}/make-container-image.  It will be passed some
     # additional parameters.
-    "release_repo_build_and_push_images_cmd": (str, "make -f Makefile build-and-push-all-images"),
-
+    "release_repo_build_and_push_images_cmd": (
+        str,
+        "make -f Makefile build-and-push-all-images",
+    ),
     "docker_registry": (str, "docker-registry.discovery.wmnet"),
     "mediawiki_image_name": (str, "restricted/mediawiki-multiversion"),
     "mediawiki_debug_image_name": (str, "restricted/mediawiki-multiversion-debug"),
@@ -115,14 +115,12 @@ DEFAULT_CONFIG = {
     "mediawiki_image_extra_packages": (str, ""),
     # Path to a CA cert to inject into the image
     "mediawiki_image_extra_ca_cert": (str, None),
-
     "helmfile_services_dir": (str, "/srv/deployment-charts/helmfile.d/services"),
     "helmfile_mediawiki_release_dir": (str, "/etc/helmfile-defaults/mediawiki/release"),
     # Comma separated list of the clusters we will deploy to
     "k8s_clusters": (str, "eqiad, codfw"),
     "k8s_deployments_file": (str, "/etc/helmfile-defaults/mediawiki-deployments.yaml"),
     # End settings related to building and deploying mediawiki container image
-
     # Settings related to scap installation
     "install_ssh_user": (str, "scap"),
     "scap_source_dir": (str, "/srv/deployment/scap"),
@@ -194,7 +192,7 @@ def load(cfg_file=None, environment=None, overrides=None):
             ]
         )
 
-    fqdn = socket.getfqdn().rstrip('.').split(".")
+    fqdn = socket.getfqdn().rstrip(".").split(".")
     sections = ["global"]
     sections += [".".join(fqdn[x:]) for x in range(0, len(fqdn))][::-1]
 

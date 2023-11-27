@@ -84,7 +84,7 @@ class AbstractSync(cli.Application):
         action="append",
         default=[],
         help="User to notify on IRC after sync to testservers."
-             " Can be used multiple times",
+        " Can be used multiple times",
     )
     @cli.argument(
         "--k8s-only",
@@ -99,7 +99,9 @@ class AbstractSync(cli.Application):
 
         self._assert_auth_sock()
 
-        with lock.Lock(self.get_lock_file(), name="sync", reason=self.arguments.message):
+        with lock.Lock(
+            self.get_lock_file(), name="sync", reason=self.arguments.message
+        ):
             self._compile_wikiversions()
             self._before_cluster_sync()
             self._update_caches()
@@ -133,7 +135,9 @@ class AbstractSync(cli.Application):
                     # Deploy K8s test releases
                     self._deploy_k8s_testservers()
 
-                    testservers = utils.list_intersection(self._get_testserver_list(), full_target_list)
+                    testservers = utils.list_intersection(
+                        self._get_testserver_list(), full_target_list
+                    )
                     if len(testservers) > 0:
                         with log.Timer("sync-testservers", self.get_stats()):
                             self.sync_targets(testservers, "testservers")
@@ -141,33 +145,51 @@ class AbstractSync(cli.Application):
                     # Not all subclasses of AbstractSync define the --pause-after-testserver-sync argument,
                     # so we can't assume it is in self.arguments.
                     if getattr(self.arguments, "pause_after_testserver_sync", False):
-                        users = ' and '.join(set([getpass.getuser()] + getattr(self.arguments, "notify_user", [])))
-                        message = "%s: %s synced to the testservers (https://wikitech.wikimedia.org/wiki/Mwdebug)" % \
-                                  (users, self.arguments.message)
+                        users = " and ".join(
+                            set(
+                                [getpass.getuser()]
+                                + getattr(self.arguments, "notify_user", [])
+                            )
+                        )
+                        message = (
+                            "%s: %s synced to the testservers (https://wikitech.wikimedia.org/wiki/Mwdebug)"
+                            % (users, self.arguments.message)
+                        )
                         self.announce(message)
-                        self.prompt_for_approval_or_exit('Changes synced to the testservers. (see https://wikitech.wikimedia.org/wiki/Mwdebug)\n'
-                                                         'Please do any necessary checks before continuing.\n'
-                                                         'Continue with sync?', "Sync cancelled.")
+                        self.prompt_for_approval_or_exit(
+                            "Changes synced to the testservers. (see https://wikitech.wikimedia.org/wiki/Mwdebug)\n"
+                            "Please do any necessary checks before continuing.\n"
+                            "Continue with sync?",
+                            "Sync cancelled.",
+                        )
                         self.announce(f"{users}: Continuing with sync")
 
                     # Deploy K8s canary releases
                     self._deploy_k8s_canaries()
 
-                    canaries = utils.list_intersection(self._get_canary_list(), full_target_list)
+                    canaries = utils.list_intersection(
+                        self._get_canary_list(), full_target_list
+                    )
                     if len(canaries) > 0:
-                        with log.Timer("sync-check-canaries", self.get_stats()) as timer:
+                        with log.Timer(
+                            "sync-check-canaries", self.get_stats()
+                        ) as timer:
                             self.sync_targets(canaries, "canaries")
                             timer.mark("Canaries Synced")
                             self.canary_checks(canaries, timer)
 
                 else:
-                    self.get_logger().warning("Testservers and canaries skipped by --force")
+                    self.get_logger().warning(
+                        "Testservers and canaries skipped by --force"
+                    )
 
                 # Deploy K8s production releases
                 self._deploy_k8s_production()
 
                 # Update proxies
-                proxies = utils.list_intersection(self._get_proxy_list(), full_target_list)
+                proxies = utils.list_intersection(
+                    self._get_proxy_list(), full_target_list
+                )
 
                 if len(proxies) > 0:
                     with log.Timer("sync-proxies", self.get_stats()):
@@ -177,10 +199,12 @@ class AbstractSync(cli.Application):
 
                 # Update apaches
                 with log.Timer("sync-apaches", self.get_stats()):
-                    self._perform_sync("apaches",
-                                       self._apache_sync_command(proxies),
-                                       full_target_list,
-                                       shuffle=True)
+                    self._perform_sync(
+                        "apaches",
+                        self._apache_sync_command(proxies),
+                        full_target_list,
+                        shuffle=True,
+                    )
 
                 history.update_latest(self.config["history_log"], synced=True)
 
@@ -249,12 +273,18 @@ class AbstractSync(cli.Application):
     def _check_fatals(self):
         logger = self.get_logger()
 
-        for version, wikidb in self.active_wikiversions("stage", return_type=dict).items():
+        for version, wikidb in self.active_wikiversions(
+            "stage", return_type=dict
+        ).items():
             logger.debug("Testing {} with eval.php using {}".format(version, wikidb))
             with utils.suppress_backtrace():
                 stderr = mwscript("eval.php", "--wiki", wikidb)
                 if stderr:
-                    raise SystemExit("'mwscript eval.php --wiki {}' generated unexpected output: {}".format(wikidb, stderr))
+                    raise SystemExit(
+                        "'mwscript eval.php --wiki {}' generated unexpected output: {}".format(
+                            wikidb, stderr
+                        )
+                    )
 
     def _get_proxy_list(self):
         """Get list of sync proxy hostnames that should be updated before the
@@ -269,7 +299,7 @@ class AbstractSync(cli.Application):
         )
 
     def _get_testserver_list(self):
-        """ Get list of Mediawiki testservers."""
+        """Get list of Mediawiki testservers."""
         return targets.get("dsh_testservers", self.config).all
 
     def _get_api_canary_list(self):
@@ -356,7 +386,9 @@ class AbstractSync(cli.Application):
                         list warning)
         :param kwargs:  Any remaining keyword arguments are passed on to _base_scap_pull_command.
         """
-        return self._base_scap_pull_command(**kwargs) + utils.list_union(self.get_master_list(), proxies)
+        return self._base_scap_pull_command(**kwargs) + utils.list_union(
+            self.get_master_list(), proxies
+        )
 
     def _perform_sync(self, type: str, command: list, targets: list, shuffle=False):
         """
@@ -369,7 +401,7 @@ class AbstractSync(cli.Application):
             targets,
             command=command,
             user=self.config["ssh_user"],
-            key=self.get_keyholder_key()
+            key=self.get_keyholder_key(),
         )
 
         job.exclude_hosts(self.already_synced)
@@ -382,20 +414,28 @@ class AbstractSync(cli.Application):
         )
 
         jobresults = job.run(return_jobresults=True)
-        self.get_logger().info("Per-host sync duration: average %ss, median %ss",
-                               locale.format("%.1f", jobresults.average_duration(), grouping=True),
-                               locale.format("%.1f", jobresults.median_duration(), grouping=True))
+        self.get_logger().info(
+            "Per-host sync duration: average %ss, median %ss",
+            locale.format("%.1f", jobresults.average_duration(), grouping=True),
+            locale.format("%.1f", jobresults.median_duration(), grouping=True),
+        )
 
         num_hosts = 0
         total_transferred = 0
 
         for jobresult in jobresults:
             num_hosts += 1
-            total_transferred += utils.parse_rsync_stats(jobresult.output).get("total_transferred_file_size", 0)
+            total_transferred += utils.parse_rsync_stats(jobresult.output).get(
+                "total_transferred_file_size", 0
+            )
 
         average_transferred = total_transferred // num_hosts if num_hosts else 0
 
-        self.get_logger().info("rsync transfer: average {:n} bytes/host, total {:n} bytes".format(average_transferred, total_transferred))
+        self.get_logger().info(
+            "rsync transfer: average {:n} bytes/host, total {:n} bytes".format(
+                average_transferred, total_transferred
+            )
+        )
 
         failed = jobresults.num_failed
         if failed:
@@ -461,7 +501,8 @@ class AbstractSync(cli.Application):
 
         if failed > max_failed_canaries:
             canary_fail_msg = (
-                "Scap failed!: {}/{} canaries failed their endpoint checks" "({}).  WARNING: canaries have not been rolled back."
+                "Scap failed!: {}/{} canaries failed their endpoint checks"
+                "({}).  WARNING: canaries have not been rolled back."
             ).format(failed, len(canaries), swagger_url)
             self.announce(canary_fail_msg)
             raise RuntimeError(canary_fail_msg)
@@ -586,9 +627,7 @@ class AbstractSync(cli.Application):
             num_hosts += len(grp)
         with log.Timer("php-fpm-restarts", self.get_stats()):
             self.get_logger().info(
-                "Running '{}' on {} host(s)".format(
-                    php_fpm.INSTANCE.cmd, num_hosts
-                )
+                "Running '{}' on {} host(s)".format(php_fpm.INSTANCE.cmd, num_hosts)
             )
             with log.MultithreadedProgressReportCollection("php-fpm-restart") as q:
                 php_fpm.INSTANCE.set_progress_queue(q)
@@ -617,7 +656,9 @@ class SecurityPatchCheck(cli.Application):
         return 0
 
 
-@cli.command("wikiversions-compile", help=argparse.SUPPRESS, affected_by_blocked_deployments=True)
+@cli.command(
+    "wikiversions-compile", help=argparse.SUPPRESS, affected_by_blocked_deployments=True
+)
 class CompileWikiversions(cli.Application):
     """Compile wikiversions.json to wikiversions.php."""
 
@@ -714,7 +755,11 @@ class RebuildCdbs(cli.Application):
             tasks.merge_cdb_updates(cache_dir, use_cores, True, self.arguments.mute)
 
 
-@cli.command("sync-world", help="Deploy MediaWiki to the cluster", affected_by_blocked_deployments=True)
+@cli.command(
+    "sync-world",
+    help="Deploy MediaWiki to the cluster",
+    affected_by_blocked_deployments=True,
+)
 class ScapWorld(AbstractSync):
     """
     Deploy MediaWiki to the cluster.
@@ -758,11 +803,7 @@ class ScapWorld(AbstractSync):
         dest="skip_l10n_update",
         help="Skip update of l10n files",
     )
-    @cli.argument(
-        "-n",
-        action="store_true",
-        help="No-op for running tests"
-    )
+    @cli.argument("-n", action="store_true", help="No-op for running tests")
     @cli.argument(
         "--stop-before-sync",
         action="store_true",
@@ -784,7 +825,7 @@ class ScapWorld(AbstractSync):
         action="append",
         default=[],
         help="User to notify on IRC after sync to testservers."
-             " Can be used multiple times",
+        " Can be used multiple times",
     )
     @cli.argument(
         "--k8s-only",
@@ -847,7 +888,8 @@ class ScapWorld(AbstractSync):
             )
             rebuild_cdbs.shuffle()
             rebuild_cdbs.command(
-                "sudo -u mwdeploy -n -- %s cdb-rebuild" % self.get_script_path(remote=True)
+                "sudo -u mwdeploy -n -- %s cdb-rebuild"
+                % self.get_script_path(remote=True)
             )
             rebuild_cdbs.progress(
                 log.reporter("scap-cdb-rebuild", self.config["fancy_progress"])
@@ -883,7 +925,7 @@ class ScapWorld(AbstractSync):
         # way to do this.
         backtrace = True
         if isinstance(ex, lock.LockFailedError) or getattr(
-                ex, "_scap_no_backtrace", False
+            ex, "_scap_no_backtrace", False
         ):
             backtrace = False
 
@@ -975,7 +1017,7 @@ class SyncPull(cli.Application):
                 utils.sudo_check_call(
                     user="mwdeploy",
                     cmd=self.get_script_path() + " cdb-rebuild --no-progress",
-                    app=self
+                    app=self,
                 )
 
         if self.arguments.php_restart:
@@ -1004,7 +1046,7 @@ class SyncFile(AbstractSync):
         action="append",
         default=[],
         help="User to notify on IRC after sync to testservers."
-             " Can be used multiple times",
+        " Can be used multiple times",
     )
     @cli.argument("file", help="File/directory to sync")
     @cli.argument("message", nargs="*", help="Log message for SAL")
@@ -1106,7 +1148,9 @@ class SyncWikiversions(AbstractSync):
         self._restart_php()
 
 
-@cli.command("cdb-json-refresh", help=argparse.SUPPRESS, affected_by_blocked_deployments=True)
+@cli.command(
+    "cdb-json-refresh", help=argparse.SUPPRESS, affected_by_blocked_deployments=True
+)
 class RefreshCdbJsonFiles(cli.Application):
     """
     Create JSON/MD5 files for all CDB files in a directory.
@@ -1162,7 +1206,11 @@ class Version(cli.Application):
         return 0
 
 
-@cli.command("lock", help="Temporarily lock deployment of this repository", affected_by_blocked_deployments=True)
+@cli.command(
+    "lock",
+    help="Temporarily lock deployment of this repository",
+    affected_by_blocked_deployments=True,
+)
 class LockManager(cli.Application):
     """
     Holds a lock open for a given repository.
@@ -1212,6 +1260,7 @@ class LockManager(cli.Application):
             forced_lock_release_w = None
 
             if self.arguments.all:
+
                 def release_global_lock(*args):
                     # Signal forced abort
                     os.write(forced_lock_release_w, bytes(1))
@@ -1219,7 +1268,9 @@ class LockManager(cli.Application):
                 forced_lock_release_r, forced_lock_release_w = os.pipe()
                 lock.Lock.watch_for_gl_release_signal(release_global_lock)
 
-            self.announce("Locking from deployment [%s]: %s", repo, self.arguments.message)
+            self.announce(
+                "Locking from deployment [%s]: %s", repo, self.arguments.message
+            )
 
             logger.info("Press enter to unlock...")
             try:

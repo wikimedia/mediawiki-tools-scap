@@ -48,14 +48,23 @@ class Lock:
     SHARED = "shared"
     EXCLUSIVE = "exclusive"
 
-    def __init__(self, lock_file, name="exclusion", reason="no reason given", timeout=DEFAULT_TIMEOUT,
-                 lock_mode=EXCLUSIVE):
+    def __init__(
+        self,
+        lock_file,
+        name="exclusion",
+        reason="no reason given",
+        timeout=DEFAULT_TIMEOUT,
+        lock_mode=EXCLUSIVE,
+    ):
         self.lock_file = lock_file
         self.name = name
         # In seconds
         self.timeout = timeout
         if lock_mode not in (Lock.SHARED, Lock.EXCLUSIVE):
-            raise LockFailedError("Invalid lock_mode '{}'. Must be Lock.SHARED or Lock.EXCLUSIVE", lock_mode)
+            raise LockFailedError(
+                "Invalid lock_mode '{}'. Must be Lock.SHARED or Lock.EXCLUSIVE",
+                lock_mode,
+            )
         self.lock_mode = lock_mode
         self.lock_fd = None
         self.global_lock = None
@@ -68,7 +77,12 @@ class Lock:
         if self.lock_file == GLOBAL_LOCK_FILE:
             self._get_lock()
         else:
-            self.global_lock = Lock(GLOBAL_LOCK_FILE, name="global lock", timeout=self.timeout, lock_mode=Lock.SHARED)
+            self.global_lock = Lock(
+                GLOBAL_LOCK_FILE,
+                name="global lock",
+                timeout=self.timeout,
+                lock_mode=Lock.SHARED,
+            )
             self.global_lock.__enter__()
             self._get_lock()
         return self
@@ -94,7 +108,9 @@ class Lock:
         """
         try:
             with utils.empty_file_mask():
-                access_mode = os.O_RDWR if self.lock_mode == Lock.EXCLUSIVE else os.O_RDONLY
+                access_mode = (
+                    os.O_RDWR if self.lock_mode == Lock.EXCLUSIVE else os.O_RDONLY
+                )
                 self.lock_fd = self._create_or_open_file(self.lock_file, access_mode)
         except OSError as e:
             logger.warning("Could not acquire %s lock. Aborting" % self.name)
@@ -105,13 +121,18 @@ class Lock:
         except BlockingIOError:
             feedback = self._get_lock_message()
 
-            if self.lock_file == GLOBAL_LOCK_FILE and self._exclusive_lock_is_in_place():
-                feedback += ("\nThe lock is global. If required, it can be forcefully removed by running"
-                             """ "scap lock --unlock-all <reason>".""")
+            if (
+                self.lock_file == GLOBAL_LOCK_FILE
+                and self._exclusive_lock_is_in_place()
+            ):
+                feedback += (
+                    "\nThe lock is global. If required, it can be forcefully removed by running"
+                    """ "scap lock --unlock-all <reason>"."""
+                )
 
             logger.warning(
-                '%s\nWill wait up to %s minute(s) for the lock(s) to be released.' %
-                (
+                "%s\nWill wait up to %s minute(s) for the lock(s) to be released."
+                % (
                     feedback,
                     self.timeout // 60,
                 )
@@ -133,8 +154,8 @@ class Lock:
                 print("", flush=True)
                 logger.warning("Exceeded lock timeout period")
                 raise LockFailedError(
-                    'Failed to acquire lock after waiting for %s minute(s); %s\nAborting' %
-                    (
+                    "Failed to acquire lock after waiting for %s minute(s); %s\nAborting"
+                    % (
                         self.timeout // 60,
                         self._get_lock_message(),
                     )
@@ -157,7 +178,9 @@ class Lock:
 
     def _create_or_open_file(self, lock_file, access_mode):
         try:
-            return os.open(lock_file, access_mode | os.O_CREAT | os.O_EXCL, Lock.LOCK_PERMISSIONS)
+            return os.open(
+                lock_file, access_mode | os.O_CREAT | os.O_EXCL, Lock.LOCK_PERMISSIONS
+            )
         except OSError as e:
             if e.errno == errno.EEXIST:
                 # The lockfile has already been created. Fall back to opening the existing file
@@ -182,7 +205,7 @@ class Lock:
             "pid": os.getpid(),
             "timestamp_utc": time.asctime(time.gmtime()),
             "reason": self.reason,
-            }
+        }
 
         self._write_lock_file(info)
 
@@ -192,10 +215,13 @@ class Lock:
 
         def get_locks():
             lock_dir, global_lock_basename = os.path.split(GLOBAL_LOCK_FILE)
-            return set([
-                os.path.join(lock_dir, lock) for lock in next(os.walk(lock_dir))[2]
-                if 'scap' in lock and global_lock_basename != lock
-            ])
+            return set(
+                [
+                    os.path.join(lock_dir, lock)
+                    for lock in next(os.walk(lock_dir))[2]
+                    if "scap" in lock and global_lock_basename != lock
+                ]
+            )
 
         def read_lock_info(lock, fd):
             try:
@@ -208,7 +234,10 @@ class Lock:
 
         locks_info = []
         # Shared lock is blocking global
-        if self.lock_file == GLOBAL_LOCK_FILE and not self._exclusive_lock_is_in_place():
+        if (
+            self.lock_file == GLOBAL_LOCK_FILE
+            and not self._exclusive_lock_is_in_place()
+        ):
             # Gather info from all the repository locks
             for lock_file in get_locks():
                 lock_fd = None
@@ -228,17 +257,19 @@ class Lock:
         if not locks_info:
             return "Scap initially detected a lock but the file disappeared. No lock details to show"
 
-        return "\n".join([
-            '%s is locked by %s (pid %s) on %s; reason is "%s".' %
-            (
-                self.name,
-                info.get("locker", "?"),
-                info.get("pid", "?"),
-                info.get("timestamp_utc", "?"),
-                info.get("reason", "?"),
-            )
-            for info in locks_info
-        ])
+        return "\n".join(
+            [
+                '%s is locked by %s (pid %s) on %s; reason is "%s".'
+                % (
+                    self.name,
+                    info.get("locker", "?"),
+                    info.get("pid", "?"),
+                    info.get("timestamp_utc", "?"),
+                    info.get("reason", "?"),
+                )
+                for info in locks_info
+            ]
+        )
 
     def _exclusive_lock_is_in_place(self):
         try:
@@ -256,7 +287,9 @@ class Lock:
                 # exist_ok=True prevents error in case of concurrent execution
                 os.makedirs(lock_dir, 0o775, exist_ok=True)
             except Exception as e:
-                raise Exception("Failed to create required lock dir: \"%s\"" % lock_dir) from e
+                raise Exception(
+                    'Failed to create required lock dir: "%s"' % lock_dir
+                ) from e
 
     def _ensure_sane_timeout(self):
         if not 1 <= self.timeout <= 3600:
@@ -273,23 +306,27 @@ class Lock:
                 lock_info = json.loads(f.read())
 
             if lock_info != {}:
-                locker = lock_info.get("locker", "?"),
-                timestamp_utc = lock_info.get("timestamp_utc", "?"),
-                reason = lock_info.get("reason", "?"),
-                prompt = ("Lock details:\n"
-                          "  locker: %s\n" % locker +
-                          "  time acquired (UTC): %s\n" % timestamp_utc +
-                          "  reason: %s\n" % reason +
-                          "Clear lock?")
+                locker = (lock_info.get("locker", "?"),)
+                timestamp_utc = (lock_info.get("timestamp_utc", "?"),)
+                reason = (lock_info.get("reason", "?"),)
+                prompt = (
+                    "Lock details:\n"
+                    "  locker: %s\n" % locker
+                    + "  time acquired (UTC): %s\n" % timestamp_utc
+                    + "  reason: %s\n" % reason
+                    + "Clear lock?"
+                )
                 if not utils.prompt_user_for_confirmation(prompt):
                     utils.abort("Canceled by user")
 
                 with utils.empty_file_mask():
-                    fd = os.open(Lock.REMOVE_GL_SIGNAL_FILE, os.O_WRONLY | os.O_CREAT, 0o644)
+                    fd = os.open(
+                        Lock.REMOVE_GL_SIGNAL_FILE, os.O_WRONLY | os.O_CREAT, 0o644
+                    )
                     atexit.register(os.unlink, Lock.REMOVE_GL_SIGNAL_FILE)
                     release_info = {
                         "releaser": utils.get_real_username(),
-                        "reason": release_reason
+                        "reason": release_reason,
                     }
                     Lock._write_json_file(fd, release_info)
                     os.close(fd)
@@ -318,11 +355,12 @@ class Lock:
 
             with open(Lock.REMOVE_GL_SIGNAL_FILE, encoding="UTF-8") as f:
                 release_info = json.loads(f.read())
-                releaser = release_info.get("releaser", "?"),
-                reason = release_info.get("reason", "?"),
-                logger.info("Received forced unlock request:\n"
-                            "  releaser: %s\n" % releaser +
-                            "  reason: %s" % reason)
+                releaser = (release_info.get("releaser", "?"),)
+                reason = (release_info.get("reason", "?"),)
+                logger.info(
+                    "Received forced unlock request:\n"
+                    "  releaser: %s\n" % releaser + "  reason: %s" % reason
+                )
 
             fd = os.open(Lock.ACK_GL_SIGNAL_FILE, os.O_CREAT, 0o444)
             atexit.register(os.unlink, Lock.ACK_GL_SIGNAL_FILE)

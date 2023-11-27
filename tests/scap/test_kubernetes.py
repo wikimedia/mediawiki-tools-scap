@@ -3,11 +3,18 @@ from unittest import TestCase
 import mock
 import pytest
 
-from scap.kubernetes import DeploymentsConfig, InvalidDeploymentsConfig, CANARIES, PRODUCTION, TEST_SERVERS
+from scap.kubernetes import (
+    DeploymentsConfig,
+    InvalidDeploymentsConfig,
+    CANARIES,
+    PRODUCTION,
+    TEST_SERVERS,
+)
 
 deployment_configs = [
     # Correct configuration
-    ("""
+    (
+        """
     - namespace: testservers
       release: main
       canary:
@@ -29,38 +36,46 @@ deployment_configs = [
       web_flavour: webserver
       debug: false
      """,
-     {
-         "testservers": [{
-            "namespace": "testservers",
-            "release": "main",
-            "mv_image_fl": "publish",
-            "web_image_fl": "webserver",
-            "debug": True,
-         }],
-         "canaries": [{
-            "namespace": "api1",
-            "release": "canaries",
-            "mv_image_fl": "publish",
-            "web_image_fl": "webserver",
-            "debug": False,
-         }],
-         "production": [{
-            "namespace": "api1",
-            "release": "main",
-            "mv_image_fl": "publish",
-            "web_image_fl": "webserver",
-            "debug": False,
-         }, {
-            "namespace": "api2",
-            "release": "main",
-            "mv_image_fl": "publish",
-            "web_image_fl": "webserver",
-            "debug": False,
-         }]
-     }
-     ),
+        {
+            "testservers": [
+                {
+                    "namespace": "testservers",
+                    "release": "main",
+                    "mv_image_fl": "publish",
+                    "web_image_fl": "webserver",
+                    "debug": True,
+                }
+            ],
+            "canaries": [
+                {
+                    "namespace": "api1",
+                    "release": "canaries",
+                    "mv_image_fl": "publish",
+                    "web_image_fl": "webserver",
+                    "debug": False,
+                }
+            ],
+            "production": [
+                {
+                    "namespace": "api1",
+                    "release": "main",
+                    "mv_image_fl": "publish",
+                    "web_image_fl": "webserver",
+                    "debug": False,
+                },
+                {
+                    "namespace": "api2",
+                    "release": "main",
+                    "mv_image_fl": "publish",
+                    "web_image_fl": "webserver",
+                    "debug": False,
+                },
+            ],
+        },
+    ),
     # Incorrect: Same namespace duplicated
-    ("""
+    (
+        """
     - namespace: api
       release: main
       canary: canaries
@@ -75,8 +90,8 @@ deployment_configs = [
       web_flavour: webserver
       debug: false
      """,
-     None
-     ),
+        None,
+    ),
 ]
 
 

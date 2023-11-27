@@ -40,7 +40,7 @@ def git_init(ctx, pathname=None):
     # Write a random number to a file to make sure commit ids are
     # always different.
     _write(
-        os.path.join(pathname, "dummy"), str(random.randint(0, 2 ** 62)).encode("UTF-8")
+        os.path.join(pathname, "dummy"), str(random.randint(0, 2**62)).encode("UTF-8")
     )
 
     # Add the file so the repo isn't empty and has a master branch.

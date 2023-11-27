@@ -26,7 +26,7 @@ class PatchError(Exception):
 
 @cli.command("patch", affected_by_blocked_deployments=True)
 class SecurityPatchManager(cli.Application):
-    """ Scap sub-command to manage mediawiki security patches """
+    """Scap sub-command to manage mediawiki security patches"""
 
     def __init__(self, exe_name):
         super().__init__(exe_name)
@@ -41,7 +41,7 @@ class SecurityPatchManager(cli.Application):
     )
     @cli.argument("branch", help="The name of the branch to operate on.")
     def main(self, *extra_args):
-        """ Apply security patches """
+        """Apply security patches"""
 
         logger = self.get_logger()
 

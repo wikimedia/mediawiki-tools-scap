@@ -31,7 +31,7 @@ from .. import log
 
 @cli.command("test-progress")
 class Test(cli.Application):
-    """ Display a mock progress bar """
+    """Display a mock progress bar"""
 
     @cli.argument("--steps", default="25", nargs="?")
     def main(self, *extra_args):

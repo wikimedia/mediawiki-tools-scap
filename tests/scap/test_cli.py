@@ -13,7 +13,7 @@ from scap import arg, cli, lock, utils
 
 
 @cli.command("dummy")
-@mock.patch.dict('os.environ', clear=True)
+@mock.patch.dict("os.environ", clear=True)
 class DummyApp(cli.Application):
     """Dummy derivative class"""
 
@@ -24,7 +24,7 @@ class DummyApp(cli.Application):
 
 
 @pytest.fixture
-@mock.patch.dict('os.environ', clear=True)
+@mock.patch.dict("os.environ", clear=True)
 def app(name="cmd.exe"):
     """Simple, non-initialized version of the class"""
     with mock.patch("time.time") as timezero:
@@ -34,7 +34,7 @@ def app(name="cmd.exe"):
 
 
 @pytest.fixture
-@mock.patch.dict('os.environ', clear=True)
+@mock.patch.dict("os.environ", clear=True)
 def cmd(request):
     """Fully initialized class"""
     # This is quite convoluted.
@@ -368,13 +368,17 @@ def test_run(cmd, mocker):
 
 
 def test_format_passthrough_args(app):
-
     assert app.format_passthrough_args() == []
 
     app.cli_defines = {
-        "canary_dashboard_url": "https://somewhere.over.the.rainbow", "log_json": False
+        "canary_dashboard_url": "https://somewhere.over.the.rainbow",
+        "log_json": False,
     }
-    assert sorted(app.format_passthrough_args()) == sorted([
-        "-D", "canary_dashboard_url:https://somewhere.over.the.rainbow", "-D",
-        "log_json:False"
-    ])
+    assert sorted(app.format_passthrough_args()) == sorted(
+        [
+            "-D",
+            "canary_dashboard_url:https://somewhere.over.the.rainbow",
+            "-D",
+            "log_json:False",
+        ]
+    )

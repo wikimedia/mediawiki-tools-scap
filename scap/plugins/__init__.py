@@ -53,7 +53,6 @@ def find_plugins(plugin_dirs):
     plugins = []
 
     for d in plugin_dirs:
-
         if d is None or not os.path.exists(d):
             continue
 

@@ -17,7 +17,7 @@ from scap import utils
 from scap.runcmd import gitcmd, FailedCommand
 
 
-TIMESTAMP_FORMAT = '%Y-%m-%d %H:%M:%S'
+TIMESTAMP_FORMAT = "%Y-%m-%d %H:%M:%S"
 
 # To avoid having to line-wise truncate the history log file on every run,
 # file size is used as a heuristic measure by which to detect the need to
@@ -32,14 +32,12 @@ LOG_GC_BYTE_LIMIT = 400 * (LOG_GC_TRUNCATE_TO_LINES * 2)
 def load(path, **kwargs):
     """Loads history from a given log file."""
     try:
-        with utils.open_with_lock(path, 'r') as f:
+        with utils.open_with_lock(path, "r") as f:
             return History.load(f, **kwargs)
     except FileNotFoundError:
         return History(**kwargs)
     except ValueError as e:
-        raise ValueError(
-            "failed to parse history file %s" % path
-        ) from e
+        raise ValueError("failed to parse history file %s" % path) from e
 
 
 def log(entry, path):
@@ -51,7 +49,7 @@ def log(entry, path):
     if dirname:
         os.makedirs(dirname, exist_ok=True)
 
-    with utils.open_with_lock(path, 'a+') as f:
+    with utils.open_with_lock(path, "a+") as f:
         f.write(entry.dumps() + "\n")
 
         # perform garbage collection once the log size limit is reached
@@ -68,7 +66,7 @@ def update_latest(path, **kwargs):
     """
 
     try:
-        with utils.open_with_lock(path, 'r+') as f:
+        with utils.open_with_lock(path, "r+") as f:
             # scan back through the end of the file until we find the contents
             # immediately following the second to last newline
             f.seek(0, io.SEEK_END)
@@ -83,7 +81,7 @@ def update_latest(path, **kwargs):
                 entry_pos = contents.rfind("\n", 0, -1)
 
                 if entry_pos >= 0:
-                    entry_json = contents[entry_pos+1:-1]
+                    entry_json = contents[entry_pos + 1 : -1]
                     break
 
             if entry_json is None:
@@ -141,7 +139,7 @@ def strip_common_dirname(paths):
         if path == common_dir:
             return path
         else:
-            return path[len(common_dir):].lstrip('/')
+            return path[len(common_dir) :].lstrip("/")
 
     return list(map(strip, paths))
 
@@ -183,9 +181,11 @@ class History:
         :param filter: Optional lambda used to filter history entries. By
                        default only completed and synced entries are shown.
         """
-        return browser.browse(self.filter(
-            (lambda e: e.completed and e.synced) if filter is None else filter
-        ))
+        return browser.browse(
+            self.filter(
+                (lambda e: e.completed and e.synced) if filter is None else filter
+            )
+        )
 
     def filter(self, fltr):
         """
@@ -194,8 +194,7 @@ class History:
         """
 
         return self.__class__(
-            filter(fltr, self.entries),
-            display_repos=self.display_repos
+            filter(fltr, self.entries), display_repos=self.display_repos
         )
 
     def __prettytable__(self):
@@ -204,10 +203,12 @@ class History:
         entries = sorted(self.entries, key=lambda e: e.timestamp, reverse=True)
         for i, entry in enumerate(entries):
             branch_heads = entry.branch_heads(self.display_repos)
-            branches = ', '.join([
-                "%s (%s)" % (branch, head[:8])
-                for branch, head in branch_heads.items()
-            ])
+            branches = ", ".join(
+                [
+                    "%s (%s)" % (branch, head[:8])
+                    for branch, head in branch_heads.items()
+                ]
+            )
             table.add_row([i, entry.timestamp, entry.username, branches])
         table.align = "l"
         return (table, entries)
@@ -236,9 +237,9 @@ class Entry:
         """Loads a history entry from a JSON string."""
         attrs = json.loads(serialized)
 
-        ts = attrs.get('timestamp')
+        ts = attrs.get("timestamp")
         if ts is not None:
-            attrs['timestamp'] = datetime.strptime(ts, TIMESTAMP_FORMAT)
+            attrs["timestamp"] = datetime.strptime(ts, TIMESTAMP_FORMAT)
 
         return cls(**attrs)
 
@@ -253,7 +254,7 @@ class Entry:
             username=getpass.getuser(),
             timestamp=datetime.utcnow(),
             completed=False,
-            **attrs
+            **attrs,
         )
 
     def branch_heads(self, repos):
@@ -295,8 +296,12 @@ class Entry:
 
         return [
             Checkout(
-                repos[i], branches[i], directories[i], commits[i],
-                short_repos[i], short_directories[i]
+                repos[i],
+                branches[i],
+                directories[i],
+                commits[i],
+                short_repos[i],
+                short_directories[i],
             )
             for i in range(len(repos))
         ]
@@ -309,13 +314,13 @@ class Entry:
 
         attrs = self.__dict__
 
-        ts = attrs.get('timestamp')
+        ts = attrs.get("timestamp")
         if ts is not None:
-            attrs['timestamp'] = ts.strftime(TIMESTAMP_FORMAT)
+            attrs["timestamp"] = ts.strftime(TIMESTAMP_FORMAT)
 
         return json.dumps(
             attrs,
-            **{"sort_keys": True, "separators": (',', ':'), **kwargs},
+            **{"sort_keys": True, "separators": (",", ":"), **kwargs},
         )
 
     def lookup(self, repo, branch, directory):
@@ -330,8 +335,11 @@ class Entry:
         Returns a terse summary of the entry, including branch head
         information for only the given repos.
         """
-        return "%s: (%s): %s" % (self.timestamp, self.username,
-                                 self.branch_heads(repos))
+        return "%s: (%s): %s" % (
+            self.timestamp,
+            self.username,
+            self.branch_heads(repos),
+        )
 
     def update(self, repo, branch, directory, commit):
         """
@@ -358,9 +366,7 @@ class Entry:
         table = PrettyTable()
         table.field_names = ["directory", "repo", "branch", "commit"]
         for co in checkouts:
-            table.add_row([
-                co.short_directory, co.short_repo, co.branch, co.commit
-            ])
+            table.add_row([co.short_directory, co.short_repo, co.branch, co.commit])
         table.align = "l"
         table.align["branch"] = "r"
         table.align["commit"] = "r"
@@ -376,8 +382,7 @@ class Checkout:
     Used to display checkout details to the user.
     """
 
-    def __init__(self, repo, branch, directory, commit, short_repo,
-                 short_directory):
+    def __init__(self, repo, branch, directory, commit, short_repo, short_directory):
         self.repo = repo
         self.branch = branch
         self.directory = directory
@@ -391,8 +396,7 @@ class Checkout:
 
         commit_info = []
         try:
-            commit_info = gitcmd("show", self.commit,
-                                 cwd=self.directory).splitlines()
+            commit_info = gitcmd("show", self.commit, cwd=self.directory).splitlines()
         except (FailedCommand, FileNotFoundError):
             commit_info = ["(checkout information is unavailable)"]
 

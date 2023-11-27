@@ -22,7 +22,11 @@ KNOWN_RESULTS = {
 }
 
 
-@cli.command("apply-patches", help="Apply security patches for train", affected_by_blocked_deployments=True)
+@cli.command(
+    "apply-patches",
+    help="Apply security patches for train",
+    affected_by_blocked_deployments=True,
+)
 class ApplyPatches(cli.Application):
     """Apply security patches for train"""
 
@@ -44,9 +48,7 @@ class ApplyPatches(cli.Application):
         srcroot = os.path.abspath(
             os.path.join(self.config["stage_dir"], "php-%s" % train)
         )
-        patch_path = os.path.abspath(
-            os.path.join(self.config["patch_path"], train)
-        )
+        patch_path = os.path.abspath(os.path.join(self.config["patch_path"], train))
 
         patches = SecurityPatches(patch_path)
 
@@ -71,7 +73,7 @@ class ApplyPatches(cli.Application):
 
             results.append((ret, patch))
 
-        for (ret, patch) in results:
+        for ret, patch in results:
             print("[{}] {}".format(KNOWN_RESULTS[ret], patch.path()))
 
         any_failed = any(ret == FAILED for (ret, _) in results)

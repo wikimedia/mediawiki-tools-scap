@@ -65,31 +65,24 @@ class DeployPromote(cli.Application):
     @cli.argument(
         "group",
         help="existing group to which you'd like to deploy a new version (testwikis, group0, group1"
-             ", or all)."
+        ", or all).",
     )
     @cli.argument(
         "version",
         nargs="?",
         default=None,
         help="version to deploy (ex: 1.36.0-wmf.2). Defaults to the latest version found in"
-             ' "<stage_dir>/<wikiversions_filename>". By default "<stage_dir>" is'
-             " " + config.DEFAULT_CONFIG["stage_dir"][1],
+        ' "<stage_dir>/<wikiversions_filename>". By default "<stage_dir>" is'
+        " " + config.DEFAULT_CONFIG["stage_dir"][1],
     )
-    @cli.argument(
-        "-y", "--yes",
-        action="store_true",
-        help="answer yes to all prompts"
-    )
+    @cli.argument("-y", "--yes", action="store_true", help="answer yes to all prompts")
     @cli.argument(
         "--train",
         action="store_true",
         help="First set all wikis to the version specified by --old-version, "
-             "then set the new version on all train groups up to and including the target group"
-        )
-    @cli.argument(
-        "--old-version",
-        help="The old train version to be used with --train"
+        "then set the new version on all train groups up to and including the target group",
     )
+    @cli.argument("--old-version", help="The old train version to be used with --train")
     def main(self, *extra_args):
         self.logger = self.get_logger()
 
@@ -104,7 +97,11 @@ class DeployPromote(cli.Application):
 
         self.promote_version = self.arguments.version or sorted_versions[-1]
 
-        prev_version = "/".join(utils.get_group_versions(self.arguments.group, self.config["stage_dir"], self.config["wmf_realm"]))
+        prev_version = "/".join(
+            utils.get_group_versions(
+                self.arguments.group, self.config["stage_dir"], self.config["wmf_realm"]
+            )
+        )
 
         if not self.arguments.yes and not self._prompt_user_to_approve(prev_version):
             utils.abort("Canceled by user")
@@ -130,7 +127,9 @@ class DeployPromote(cli.Application):
             prompt_message += "?"
         else:
             prompt_message = "Promote %s from %s to %s" % (
-                self.group, prev_version, self.promote_version
+                self.group,
+                prev_version,
+                self.promote_version,
             )
         return utils.prompt_user_for_confirmation(prompt_message)
 
@@ -146,9 +145,7 @@ class DeployPromote(cli.Application):
         else:
             args = [self.group, self.promote_version]
 
-        self.scap_check_call(
-            ["update-wikiversions", "--no-check"] + args
-        )
+        self.scap_check_call(["update-wikiversions", "--no-check"] + args)
         self._create_version_update_patch()
         self._sync_versions()
 
@@ -164,7 +161,7 @@ class DeployPromote(cli.Application):
         """
         Craft commit message and scap announcement message
         """
-        header = '%s wikis to %s' % (self.group, self.promote_version)
+        header = "%s wikis to %s" % (self.group, self.promote_version)
         self.commit_message = header
         self.announce_message = header
 
@@ -177,9 +174,14 @@ class DeployPromote(cli.Application):
         """
         Returns True if a commit was created, False if not.
         """
-        versions_file = \
-            utils.get_realm_specific_filename("wikiversions.json", self.config["wmf_realm"])
-        files_to_commit = [file for file in [versions_file, "php"] if git.file_has_unstaged_changes(file)]
+        versions_file = utils.get_realm_specific_filename(
+            "wikiversions.json", self.config["wmf_realm"]
+        )
+        files_to_commit = [
+            file
+            for file in [versions_file, "php"]
+            if git.file_has_unstaged_changes(file)
+        ]
 
         if not files_to_commit:
             return False
@@ -189,7 +191,12 @@ class DeployPromote(cli.Application):
         return True
 
     def _push_patch(self):
-        gitcmd("push", "origin", "HEAD:%s" % self._get_git_push_dest(), env=self.get_gerrit_ssh_env())
+        gitcmd(
+            "push",
+            "origin",
+            "HEAD:%s" % self._get_git_push_dest(),
+            env=self.get_gerrit_ssh_env(),
+        )
 
         change_id = re.search(r"(?m)Change-Id:.+$", gitcmd("log", "-1")).group()
         gitcmd("reset", "--hard", "HEAD^")
@@ -261,14 +268,18 @@ class DeployPromote(cli.Application):
             res = requests.get(check_url)
             res.raise_for_status()
 
-            actual_version_match = re.search(r'(?i)MediaWiki (%s)' % BRANCH_RE.pattern, res.text)
-            actual_version = \
-                actual_version_match.group(1) if actual_version_match \
+            actual_version_match = re.search(
+                r"(?i)MediaWiki (%s)" % BRANCH_RE.pattern, res.text
+            )
+            actual_version = (
+                actual_version_match.group(1)
+                if actual_version_match
                 else "Version not found on checked page"
+            )
         except RequestException as e:
-            actual_version = \
-                "Request to checked page failed" \
-                + (" with %s" % e.response.status_code if isinstance(e, HTTPError) else "")
+            actual_version = "Request to checked page failed" + (
+                " with %s" % e.response.status_code if isinstance(e, HTTPError) else ""
+            )
 
         return actual_version
 
@@ -285,7 +296,7 @@ class DeployPromote(cli.Application):
             check_url,
             self.promote_version,
             actual_version,
-            "SUCCESS" if versions_match else "FAIL"
+            "SUCCESS" if versions_match else "FAIL",
         )
 
 

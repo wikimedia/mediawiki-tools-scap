@@ -32,7 +32,7 @@ def error_log(msg, *args):
 
 class urlencode_map(object):
     def __init__(self, *base_maps):
-        """ wrap one or more mappings and urlencode the values """
+        """wrap one or more mappings and urlencode the values"""
         self.base_maps = base_maps
 
     def __getitem__(self, key):
@@ -55,19 +55,19 @@ class GerritSession(object):
 
         retries = urllib3.Retry(backoff_factor=1)
         adapter = requests.adapters.HTTPAdapter(max_retries=retries)
-        self.session.mount('http://', adapter)
-        self.session.mount('https://', adapter)
+        self.session.mount("http://", adapter)
+        self.session.mount("https://", adapter)
 
         if self.useAuth:
-            if url[-1] == '/':
-                self.api_url = url + 'a'
+            if url[-1] == "/":
+                self.api_url = url + "a"
             else:
-                self.api_url = url + '/a'
+                self.api_url = url + "/a"
 
             # get credentials from .netrc if one exists
             self.session.auth = get_netrc_auth(self.api_url)
         else:
-            self.api_url = url.rstrip('/')
+            self.api_url = url.rstrip("/")
 
     def endpoint(self, path="/"):
         return GerritEndpoint(session=self, path=path)
@@ -90,7 +90,7 @@ class GerritSession(object):
     def depends_ons(self, project_branch_changeid, **kwargs):
         return DependsOns(project_branch_changeid, session=self, **kwargs)
 
-    def change_detail(self, changeid, revisionid='current', **kwargs):
+    def change_detail(self, changeid, revisionid="current", **kwargs):
         return ChangeDetail(changeid, revisionid, session=self, **kwargs)
 
     def change_number_from_url(self, url):
@@ -105,7 +105,9 @@ class GerritSession(object):
         # {project-name}/+/{change-number}
         # {project-name}/+/{change-number}/{revision}
         # (all of which are allowed to have a trailing slash)
-        match = re.search(r'/r/(\d+)/?$', url) or re.search(r'/\+/(\d+)(?:/\d+)?/?$', url)
+        match = re.search(r"/r/(\d+)/?$", url) or re.search(
+            r"/\+/(\d+)(?:/\d+)?/?$", url
+        )
 
         if match is None:
             return None
@@ -132,7 +134,7 @@ class GerritSession(object):
 
 
 class GerritEndpoint(object):
-    """ base class for gerrit api endpoints """
+    """base class for gerrit api endpoints"""
 
     # derived classes override the path section of the uri for each endpoint
     _path = "/"
@@ -165,7 +167,7 @@ class GerritEndpoint(object):
         return self._uri_template.safe_substitute(urlencode_map(self.__dict__, kwargs))
 
     def get(self, **kwargs):
-        """ Call the api with a http get request """
+        """Call the api with a http get request"""
         params = kwargs.pop("params", None)
         uri = self._url(**kwargs)
 
@@ -194,7 +196,7 @@ class GerritEndpoint(object):
             )
 
     def post(self, data={}, **kwargs):
-        """ make a http POST request to this api endpoint """
+        """make a http POST request to this api endpoint"""
         uri = self._url()
         debug_log("POST to: %s", uri)
         debug_log("POST Data: %s", data)
@@ -204,7 +206,7 @@ class GerritEndpoint(object):
         return self.load(res)
 
     def put(self, data={}, **kwargs):
-        """ make a http PUT request to this api endpoint """
+        """make a http PUT request to this api endpoint"""
         uri = self._url()
         debug_log("PUT to: %s", uri)
         debug_log("PUT Data: %s", data)
@@ -236,12 +238,12 @@ class GerritEndpoint(object):
         return new_instance
 
     def __repr__(self):
-        """ return a string representation of this object's data """
+        """return a string representation of this object's data"""
         return gerrit_encoder(indent=2).encode(self.data)
 
 
 class Changes(GerritEndpoint):
-    """ Query Gerrit changes """
+    """Query Gerrit changes"""
 
     def __init__(self, **kwargs):
         super().__init__(path="changes/", **kwargs)
@@ -251,93 +253,108 @@ class Changes(GerritEndpoint):
 
 
 class Change(GerritEndpoint):
-    """ get details for a gerrit change """
+    """get details for a gerrit change"""
 
     changeid = None
     revisionid = "current"
 
     def __init__(self, changeid, revisionid="current", **kwargs):
-        super().__init__(path='changes/%s' % changeid, **kwargs)
+        super().__init__(path="changes/%s" % changeid, **kwargs)
         self.changeid = changeid
-        self.revision = ChangeRevisions(changeid, revisionid=revisionid,
-                                        session=self._session)
+        self.revision = ChangeRevisions(
+            changeid, revisionid=revisionid, session=self._session
+        )
 
 
 class ChangeIn(GerritEndpoint):
-    """ Get the branches and tags the change is included in"""
+    """Get the branches and tags the change is included in"""
 
     changeid = None
     revisionid = "current"
 
     def __init__(self, changeid, revisionid="current", **kwargs):
-        super().__init__(path='changes/%s/in' % changeid, **kwargs)
+        super().__init__(path="changes/%s/in" % changeid, **kwargs)
         self.changeid = changeid
-        self.revision = ChangeRevisions(changeid, revisionid=revisionid,
-                                        session=self._session)
+        self.revision = ChangeRevisions(
+            changeid, revisionid=revisionid, session=self._session
+        )
 
 
 class ChangeRevisionCommit(GerritEndpoint):
-    """ Get the commit hash of a change """
+    """Get the commit hash of a change"""
 
     project_branch_id = None
     revisionid = "current"
 
     def __init__(self, project_branch_id, revisionid="current", **kwargs):
-        super().__init__(path='changes/%s/revisions/%s/commit' % (project_branch_id, revisionid), **kwargs)
+        super().__init__(
+            path="changes/%s/revisions/%s/commit" % (project_branch_id, revisionid),
+            **kwargs
+        )
         self.project_branch_id = project_branch_id
-        self.revision = ChangeRevisions(project_branch_id, revisionid=revisionid,
-                                        session=self._session)
+        self.revision = ChangeRevisions(
+            project_branch_id, revisionid=revisionid, session=self._session
+        )
 
 
 class SubmittedTogether(GerritEndpoint):
-    """ get the submitted together changes for a gerrit change"""
+    """get the submitted together changes for a gerrit change"""
+
     changeid = None
     revisionid = "current"
 
     def __init__(self, changeid, revisionid="current", **kwargs):
-        super().__init__(path='changes/%s/submitted_together?o=NON_VISIBLE_CHANGES' % changeid, **kwargs)
+        super().__init__(
+            path="changes/%s/submitted_together?o=NON_VISIBLE_CHANGES" % changeid,
+            **kwargs
+        )
         self.changeid = changeid
-        self.revision = ChangeRevisions(changeid, revisionid=revisionid,
-                                        session=self._session)
+        self.revision = ChangeRevisions(
+            changeid, revisionid=revisionid, session=self._session
+        )
 
 
 class DependsOns(GerritEndpoint):
-    """ get the Depends-On changes for a gerrit change"""
+    """get the Depends-On changes for a gerrit change"""
+
     changeid = None
     revisionid = "current"
 
     def __init__(self, project_branch_changeid, revisionid="current", **kwargs):
-        super().__init__(path='changes/%s/revisions/current/crd' % project_branch_changeid, **kwargs)
+        super().__init__(
+            path="changes/%s/revisions/current/crd" % project_branch_changeid, **kwargs
+        )
         self.changeid = project_branch_changeid
-        self.revision = ChangeRevisions(project_branch_changeid, revisionid=revisionid,
-                                        session=self._session)
+        self.revision = ChangeRevisions(
+            project_branch_changeid, revisionid=revisionid, session=self._session
+        )
 
 
 class ChangeDetail(GerritEndpoint):
-    """ get details for a gerrit change """
+    """get details for a gerrit change"""
 
     changeid = None
     revisionid = "current"
 
     def __init__(self, changeid, revisionid="current", **kwargs):
-        options = '?o=COMMIT_FOOTERS'
-        if revisionid == 'current':
-            options += '&o=CURRENT_REVISION'
-        elif revisionid == 'all':
-            options += '&o=ALL_REVISIONS'
-            self.revisionid = 'current'
-        super().__init__(path='changes/%s/detail%s' % (changeid, options), **kwargs)
+        options = "?o=COMMIT_FOOTERS"
+        if revisionid == "current":
+            options += "&o=CURRENT_REVISION"
+        elif revisionid == "all":
+            options += "&o=ALL_REVISIONS"
+            self.revisionid = "current"
+        super().__init__(path="changes/%s/detail%s" % (changeid, options), **kwargs)
         self.changeid = changeid
-        self.revision = ChangeRevisions(changeid, revisionid,
-                                        session=self._session)
+        self.revision = ChangeRevisions(changeid, revisionid, session=self._session)
 
 
 class ChangeRevisions(GerritEndpoint):
     revisionid = "current"
 
     def __init__(self, changeid, revisionid="current", **kwargs):
-        super().__init__(path='changes/%s/revisions/%s' % (changeid, revisionid),
-                         **kwargs)
+        super().__init__(
+            path="changes/%s/revisions/%s" % (changeid, revisionid), **kwargs
+        )
         self.changeid = changeid
         self.revisionid = revisionid
 
@@ -346,16 +363,16 @@ class ChangeRevisionsFiles(GerritEndpoint):
     revisionid = "current"
 
     def __init__(self, changeid, revisionid="current", **kwargs):
-        super().__init__(path='changes/%s/revisions/%s/files' % (changeid, revisionid),
-                         **kwargs)
+        super().__init__(
+            path="changes/%s/revisions/%s/files" % (changeid, revisionid), **kwargs
+        )
         self.changeid = changeid
         self.revisionid = revisionid
 
 
 class ProjectBranch(GerritEndpoint):
     def __init__(self, project, branch, **kwargs):
-        super().__init__(path='projects/%s/branches/%s' % (project, branch),
-                         **kwargs)
+        super().__init__(path="projects/%s/branches/%s" % (project, branch), **kwargs)
         self.project = project
         self.branch = branch
 
@@ -364,7 +381,7 @@ class ProjectBranches(GerritEndpoint):
     project = None
 
     def __init__(self, project, **kwargs):
-        super().__init__(path='projects/%s/branches' % (project), **kwargs)
+        super().__init__(path="projects/%s/branches" % (project), **kwargs)
         self.project = project
 
     def create(self, branch, revision):
@@ -387,7 +404,7 @@ def debug_dump_json(data):
 
 
 class gerrit_encoder(JSONEncoder):
-    """ encode python objects to json """
+    """encode python objects to json"""
 
     def default(self, o):
         if hasattr(o, "__dump__"):

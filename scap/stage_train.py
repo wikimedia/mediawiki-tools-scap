@@ -52,7 +52,7 @@ STAGE_SEQUENCE = [
 @cli.command(
     "stage-train",
     help="Wraps manual steps required to stage a typical Tuesday deploy of the RelEng train"
-         " deployment: Preps new version branch, applies patches and deploys to testwikis",
+    " deployment: Preps new version branch, applies patches and deploys to testwikis",
     affected_by_blocked_deployments=True,
 )
 class StageTrain(cli.Application):
@@ -67,23 +67,20 @@ class StageTrain(cli.Application):
 
     @cli.argument(
         "version",
-        help="Wikiversion needing staging.  Specify 'auto' to use the latest available wmf branch"
+        help="Wikiversion needing staging.  Specify 'auto' to use the latest available wmf branch",
     )
     @cli.argument(
         "--start-from",
         choices=STAGE_SEQUENCE,
         default=STAGE_SEQUENCE[0],
-        help="stage to start from"
+        help="stage to start from",
     )
+    @cli.argument("--dry-run", action="store_true", help="dry run")
     @cli.argument(
-        "--dry-run",
+        "-y",
+        "--yes",
         action="store_true",
-        help="dry run"
-    )
-    @cli.argument(
-        "-y", "--yes",
-        action="store_true",
-        help="default to Yes for prompts, and don't check for tmux or screen running."
+        help="default to Yes for prompts, and don't check for tmux or screen running.",
     )
     def main(self, *extra_args):
         def check_term_multplxr():
@@ -103,11 +100,10 @@ class StageTrain(cli.Application):
 
         os.umask(self.config["umask"])
 
-        stages = STAGE_SEQUENCE[STAGE_SEQUENCE.index(self.arguments.start_from):]
+        stages = STAGE_SEQUENCE[STAGE_SEQUENCE.index(self.arguments.start_from) :]
         for i, stage in enumerate(stages, start=1):
             self.logger.info(
-                "----------------------------\n"
-                "%s. Starting: %s" % (i, stage)
+                "----------------------------\n" "%s. Starting: %s" % (i, stage)
             )
             getattr(self, "_" + stage)()
             self.logger.info("DONE!")
@@ -117,18 +113,28 @@ class StageTrain(cli.Application):
         self._run(["prep", self.arguments.version])
 
     def _patch(self):
-        self._run(["apply-patches", "--abort-git-am-on-fail", "--train", self.arguments.version])
+        self._run(
+            [
+                "apply-patches",
+                "--abort-git-am-on-fail",
+                "--train",
+                self.arguments.version,
+            ]
+        )
 
     def _testwikis(self):
         self._run(["deploy-promote", "--yes", "testwikis", self.arguments.version])
 
     def _clean(self):
         self._run(["clean", "auto"])
+
     # End stage implementations
 
     def _run(self, scap_cmd):
         scap_cmd_str = " ".join(scap_cmd)
-        cmd_run_approved = self.arguments.yes or utils.confirm("Run `%s` now?" % scap_cmd_str)
+        cmd_run_approved = self.arguments.yes or utils.confirm(
+            "Run `%s` now?" % scap_cmd_str
+        )
 
         if cmd_run_approved:
             if self.arguments.dry_run:
@@ -140,7 +146,9 @@ class StageTrain(cli.Application):
     def _setup_auto_mode(self):
         self.logger.info("Initializing stage-train auto mode")
         self.logger.info("Retrieving train information...")
-        gerrit_latest_version = utils.get_current_train_version_from_gerrit(self.config["gerrit_url"])
+        gerrit_latest_version = utils.get_current_train_version_from_gerrit(
+            self.config["gerrit_url"]
+        )
 
         train_info = self.get_current_train_info()
         task = train_info["task"]
@@ -148,12 +156,19 @@ class StageTrain(cli.Application):
         version = train_info["version"]
 
         if status != "open":
-            self.logger.warn("Phabricator task %s has status '%s'.  Cancelling operation.", task, status)
+            self.logger.warn(
+                "Phabricator task %s has status '%s'.  Cancelling operation.",
+                task,
+                status,
+            )
             sys.exit(0)
 
         if version != gerrit_latest_version:
-            utils.abort("Phabricator task {} says the train version is '{}', but '{}' is the latest available in Gerrit.".format(
-                task, version, gerrit_latest_version))
+            utils.abort(
+                "Phabricator task {} says the train version is '{}', but '{}' is the latest available in Gerrit.".format(
+                    task, version, gerrit_latest_version
+                )
+            )
 
         self.arguments.version = version
         self.logger.info("Using version %s", version)

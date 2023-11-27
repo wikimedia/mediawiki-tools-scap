@@ -72,11 +72,14 @@ def clean_lint_output(output: str) -> str:
     with "No syntax errors detected in " or "xargs: php: exited with status"
     removed.
     """
-    return "\n".join([
-        line for line in output.splitlines()
-        if not line.startswith("No syntax errors detected in ")
-        and not line.startswith("xargs: php: exited with status")
-    ])
+    return "\n".join(
+        [
+            line
+            for line in output.splitlines()
+            if not line.startswith("No syntax errors detected in ")
+            and not line.startswith("xargs: php: exited with status")
+        ]
+    )
 
 
 def check_valid_json_file(path):

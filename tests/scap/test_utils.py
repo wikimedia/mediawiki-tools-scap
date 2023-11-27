@@ -133,17 +133,17 @@ stuff after
     """
 
     assert utils.parse_rsync_stats(test_string) == {
-        'files': 184935,
-        'files_created': 0,
-        'files_deleted': 0,
-        'regular_files_transferred': 1,
-        'total_file_size': 8756954367,
-        'total_transferred_file_size': 815772,
-        'literal_data': 0,
-        'matched_data': 815772,
-        'file_list_size': 4744396,
-        'total_bytes_sent': 5603,
-        'total_bytes_received': 4744454
+        "files": 184935,
+        "files_created": 0,
+        "files_deleted": 0,
+        "regular_files_transferred": 1,
+        "total_file_size": 8756954367,
+        "total_transferred_file_size": 815772,
+        "literal_data": 0,
+        "matched_data": 815772,
+        "file_list_size": 4744396,
+        "total_bytes_sent": 5603,
+        "total_bytes_received": 4744454,
     }
 
 
@@ -169,6 +169,7 @@ def test_temp_to_permanent_file():
         with open(testfile) as f:
             assert f.read() == "Very important"
         import subprocess
+
         subprocess.run("ls -l {}".format(tmpname), shell=True)
         # Verify that the temp file was deleted
         assert not os.path.exists(tmpname)

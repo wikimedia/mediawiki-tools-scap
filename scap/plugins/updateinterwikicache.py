@@ -14,12 +14,18 @@ class UpdateInterwikiCache(cli.Application):
     """Scap sub-command to update the interwiki cache."""
 
     @cli.argument(
-        "--beta", action="store_true", help="Update the Beta Cluster interwiki cache file"
+        "--beta",
+        action="store_true",
+        help="Update the Beta Cluster interwiki cache file",
     )
     def main(self, *extra_args):
         """Update the latest interwiki cache."""
-        interwiki_file = "interwiki-labs.php" if self.arguments.beta else "interwiki.php"
-        interwiki_file = os.path.join(self.config["stage_dir"], "wmf-config", interwiki_file)
+        interwiki_file = (
+            "interwiki-labs.php" if self.arguments.beta else "interwiki.php"
+        )
+        interwiki_file = os.path.join(
+            self.config["stage_dir"], "wmf-config", interwiki_file
+        )
 
         if not os.path.exists(interwiki_file):
             raise IOError(errno.ENOENT, "File/directory not found", interwiki_file)

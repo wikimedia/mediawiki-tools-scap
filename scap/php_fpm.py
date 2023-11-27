@@ -74,7 +74,9 @@ class PHPRestart(object):
         self.job.hosts(targets)
         sudo_cmd = "/usr/bin/sudo -u root -- {}".format(self.cmd)
         self.job.command(sudo_cmd)
-        self.job.progress(log.QueueReporter(name="php-fpm-restart", queue=self.progress_queue))
+        self.job.progress(
+            log.QueueReporter(name="php-fpm-restart", queue=self.progress_queue)
+        )
         return self.job
 
     def restart_self(self):
@@ -93,7 +95,9 @@ class PHPRestart(object):
         # So we need to run the command as ssh_user
 
         try:
-            cmd = "/usr/bin/sudo -u {} /usr/bin/sudo -u root -- {}".format(self.ssh_user, self.cmd)
+            cmd = "/usr/bin/sudo -u {} /usr/bin/sudo -u root -- {}".format(
+                self.ssh_user, self.cmd
+            )
             if self.logger:
                 self.logger.debug("Running %s", cmd)
             subprocess.check_call(shlex.split(cmd))

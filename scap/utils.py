@@ -497,7 +497,9 @@ def sudo_check_call(user, cmd, logger=None, logLevel=logging.DEBUG, app=None):
     cmd_basename = os.path.basename(cmd.split()[0])
     if "scap" == cmd_basename:
         if app is None:
-            raise ValueError("When calling \"scap\" locally, the \"app\" parameter is required")
+            raise ValueError(
+                'When calling "scap" locally, the "app" parameter is required'
+            )
 
         cmd += " " + " ".join(app.format_passthrough_args())
 
@@ -510,7 +512,10 @@ def sudo_check_call(user, cmd, logger=None, logLevel=logging.DEBUG, app=None):
 
     logger.debug("sudo_check_call running {}".format(fullCmd))
     proc = subprocess.Popen(
-        fullCmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, shell=True,
+        fullCmd,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        shell=True,
         text=True,
     )
 
@@ -783,7 +788,7 @@ def ordered_load(
 
 
 class VarDumpJSONEncoder(JSONEncoder):
-    """ encode python objects to json """
+    """encode python objects to json"""
 
     def default(self, o):
         if hasattr(o, "__dump__"):
@@ -797,7 +802,7 @@ class VarDumpJSONEncoder(JSONEncoder):
 
 
 def var_dump(*args, **kwargs):
-    """ dump an object to the console as pretty-printed json"""
+    """dump an object to the console as pretty-printed json"""
 
     lexer = pygments.lexers.JsonLexer()
     formatter = pygments.formatters.TerminalFormatter()
@@ -890,7 +895,9 @@ def temp_to_permanent_file(final_filename):
     # Create the temp file in the same directory as the final filename
     # so that os.rename() can atomically replace the destination file
     # (if one exists)
-    with tempfile.NamedTemporaryFile("w", dir=os.path.dirname(final_filename), delete=False) as tmp:
+    with tempfile.NamedTemporaryFile(
+        "w", dir=os.path.dirname(final_filename), delete=False
+    ) as tmp:
         try:
             yield tmp
         except BaseException as e:
@@ -916,13 +923,13 @@ def prompt_user_for_confirmation(prompt_message) -> bool:
 
 
 @contextlib.contextmanager
-def open_with_lock(path, mode='r', *args, **kwargs):
+def open_with_lock(path, mode="r", *args, **kwargs):
     """
     Opens the given file and acquires an advisory lock using the open file
     object. If the mode is read-only ('r' or 'rb'), the lock is acquired as
     shared, and otherwise acquired as exclusive.
     """
-    lock_cmd = fcntl.LOCK_SH if mode in {'r', 'rb'} else fcntl.LOCK_EX
+    lock_cmd = fcntl.LOCK_SH if mode in {"r", "rb"} else fcntl.LOCK_EX
 
     with open(path, mode, *args, **kwargs) as f:
         try:
@@ -933,7 +940,7 @@ def open_with_lock(path, mode='r', *args, **kwargs):
 
 
 def is_phabricator_task_id(string: str) -> bool:
-    """ Returns true if 'string' has the format of a phabricator task id """
+    """Returns true if 'string' has the format of a phabricator task id"""
     return re.match(r"T\d+$", string) is not None
 
 
@@ -1032,8 +1039,10 @@ def get_current_train_version_from_gerrit(gerrit_url) -> str:
     url = os.path.join(gerrit_url, "mediawiki/core")
 
     # output will be something like '3137081c2ab92df3bc9c97956b00fb3017d7b511\trefs/heads/wmf/1.39.0-wmf.19'
-    output = subprocess.check_output(["git", "ls-remote", "--sort=version:refname", url, "refs/heads/wmf/*"],
-                                     text=True)
+    output = subprocess.check_output(
+        ["git", "ls-remote", "--sort=version:refname", url, "refs/heads/wmf/*"],
+        text=True,
+    )
     valid_versions = [line for line in output.splitlines() if BRANCH_RE.search(line)]
     res = re.sub(r"^.*wmf/(.*)$", "\\1", valid_versions[-1])
 
@@ -1047,7 +1056,7 @@ def get_current_train_info(api_url, proxy=None) -> dict:
 
     # Support absolute file:// URLs for testing (particularly by train-dev).
     if api_url.startswith("file:///"):
-        with open(api_url[len("file://"):]) as f:
+        with open(api_url[len("file://") :]) as f:
             current = json.loads(f.read())
     else:
         proxies = {"http": proxy, "https": proxy} if proxy else None
@@ -1061,12 +1070,12 @@ def get_current_train_info(api_url, proxy=None) -> dict:
     status = current["status"]
 
     if not is_phabricator_task_id(task):
-        raise ValueError("{} returned invalid Phabricator task id '{}'".format(
-            api_url, task))
+        raise ValueError(
+            "{} returned invalid Phabricator task id '{}'".format(api_url, task)
+        )
 
     if not re.match(BRANCH_RE, version):
-        raise ValueError("{} returned invalid version '{}'".format(
-            api_url, version))
+        raise ValueError("{} returned invalid version '{}'".format(api_url, version))
 
     return {
         "version": version,
@@ -1076,9 +1085,7 @@ def get_current_train_info(api_url, proxy=None) -> dict:
 
 
 def expand_dblist(stage_dir, db_list_name: str) -> list:
-    script = os.path.join(
-        stage_dir, "multiversion", "bin", "expanddblist"
-    )
+    script = os.path.join(stage_dir, "multiversion", "bin", "expanddblist")
     return subprocess.check_output([script, db_list_name], text=True).splitlines()
 
 

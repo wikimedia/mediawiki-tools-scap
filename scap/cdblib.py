@@ -25,7 +25,7 @@ import sys
 if sys.version_info.major == 2:
 
     def py_djb_hash(s):
-        u"""
+        """
         Return the value of DJB's hash function for the given 8-bit string.
 
         >>> py_djb_hash('')
@@ -40,11 +40,10 @@ if sys.version_info.major == 2:
             h = (((h << 5) + h) ^ ord(c)) & 0xFFFFFFFF
         return h
 
-
 else:
 
     def py_djb_hash(s):
-        u"""
+        """
         Return the value of DJB's hash function for the given 8-bit string.
 
         >>> py_djb_hash('')
@@ -111,8 +110,8 @@ class Reader(object):
             data = self.data[pos : pos + dlen]
             pos += dlen
 
-            key = key.decode('UTF-8')
-            data = data.decode('UTF-8')
+            key = key.decode("UTF-8")
+            data = data.decode("UTF-8")
 
             yield key, data
 
@@ -150,8 +149,8 @@ class Writer(object):
         h = self.hashfn(key) & 0xFFFFFFFF
 
         # Convert key/value strings to bytes
-        key = key.encode('UTF-8')
-        value = value.encode('UTF-8')
+        key = key.encode("UTF-8")
+        value = value.encode("UTF-8")
 
         pos = self.fp.tell()
         self.fp.write(WRITE_2_LE4(len(key), len(value)))

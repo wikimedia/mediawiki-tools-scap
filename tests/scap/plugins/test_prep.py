@@ -5,10 +5,9 @@ from scap.plugins.prep import CheckoutMediaWiki
 import scap.cli
 
 
-@patch.object(CheckoutMediaWiki, 'new_history')
-@patch('scap.plugins.prep.git')
+@patch.object(CheckoutMediaWiki, "new_history")
+@patch("scap.plugins.prep.git")
 def test_scap_prep_sets_a_push_url(git, _):
-
     scap_prep = scap.cli.Application.factory(["prep", "1.99.0-wmf.33"])
     scap_prep.setup()
 
@@ -25,11 +24,15 @@ def test_scap_prep_sets_a_push_url(git, _):
 
     scap_prep._clone_or_update_repo(
         os.path.join(scap_prep.config["gerrit_url"], repo_name),
-        'wmf/1.99.0.wmf-33',
+        "wmf/1.99.0.wmf-33",
         dest_dir,
-        None
+        None,
     )
     git.gitcmd.assert_called_with(
-        'remote', 'set-url', '--push', 'origin',
+        "remote",
+        "set-url",
+        "--push",
+        "origin",
         os.path.join(test_push_url, repo_name),
-        cwd=dest_dir)
+        cwd=dest_dir,
+    )

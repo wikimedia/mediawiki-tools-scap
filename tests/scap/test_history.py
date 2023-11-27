@@ -22,33 +22,35 @@ def test_strip_common_dirname():
 def test_update_latest():
     with tempfile.TemporaryDirectory() as tmpdir:
         log = os.path.join(tmpdir, "history.log")
-        with open(log, 'w') as f:
-            f.write((
-                '{'
-                '"checkouts":{"a/repo":{"a-branch":{"a-dir":"foo123"}}},'
-                '"completed":true,'
-                '"timestamp":"2022-03-01 01:02:03",'
-                '"username":"scappy"'
-                "}\n"
-                '{'
-                '"checkouts":{"a/repo":{"a-branch":{"a-dir":"bar123"}}},'
-                '"completed":true,'
-                '"timestamp":"2022-03-03 01:02:03",'
-                '"username":"scappy"'
-                "}\n"
-            ))
+        with open(log, "w") as f:
+            f.write(
+                (
+                    "{"
+                    '"checkouts":{"a/repo":{"a-branch":{"a-dir":"foo123"}}},'
+                    '"completed":true,'
+                    '"timestamp":"2022-03-01 01:02:03",'
+                    '"username":"scappy"'
+                    "}\n"
+                    "{"
+                    '"checkouts":{"a/repo":{"a-branch":{"a-dir":"bar123"}}},'
+                    '"completed":true,'
+                    '"timestamp":"2022-03-03 01:02:03",'
+                    '"username":"scappy"'
+                    "}\n"
+                )
+            )
 
         history.update_latest(log, synced=True)
 
-        with open(log, 'r') as f:
+        with open(log, "r") as f:
             assert f.read() == (
-                '{'
+                "{"
                 '"checkouts":{"a/repo":{"a-branch":{"a-dir":"foo123"}}},'
                 '"completed":true,'
                 '"timestamp":"2022-03-01 01:02:03",'
                 '"username":"scappy"'
                 "}\n"
-                '{'
+                "{"
                 '"checkouts":{"a/repo":{"a-branch":{"a-dir":"bar123"}}},'
                 '"completed":true,'
                 '"synced":true,'
@@ -59,20 +61,24 @@ def test_update_latest():
 
 
 def test_history_load():
-    hist = history.History.load(io.StringIO((
-        '{'
-        '"completed":true,'
-        '"timestamp":"2022-03-01 01:02:03",'
-        '"checkouts":{"a/repo":{"a-branch":{"a-dir":"foo123"}}},'
-        '"username":"scappy"'
-        "}\n"
-        '{'
-        '"completed":true,'
-        '"timestamp":"2022-03-03 01:02:03",'
-        '"checkouts":{"a/repo":{"a-branch":{"a-dir":"bar123"}}},'
-        '"username":"scappy"'
-        "}\n"
-    )))
+    hist = history.History.load(
+        io.StringIO(
+            (
+                "{"
+                '"completed":true,'
+                '"timestamp":"2022-03-01 01:02:03",'
+                '"checkouts":{"a/repo":{"a-branch":{"a-dir":"foo123"}}},'
+                '"username":"scappy"'
+                "}\n"
+                "{"
+                '"completed":true,'
+                '"timestamp":"2022-03-03 01:02:03",'
+                '"checkouts":{"a/repo":{"a-branch":{"a-dir":"bar123"}}},'
+                '"username":"scappy"'
+                "}\n"
+            )
+        )
+    )
 
     assert hist.entries == [
         history.Entry(
@@ -93,21 +99,18 @@ def test_history_load():
 def test_entry_dumps():
     entry = history.Entry(
         username="scappy",
-        timestamp=datetime(
-            2022, 2, 18, 18, 29, 8,
-            tzinfo=None
-        ),
+        timestamp=datetime(2022, 2, 18, 18, 29, 8, tzinfo=None),
         checkouts={
             "a/repo": {"a-branch": {"a-dir": "xyz123"}},
-        }
+        },
     )
 
     assert entry.dumps() == (
-        '{'
+        "{"
         '"checkouts":{"a/repo":{"a-branch":{"a-dir":"xyz123"}}},'
         '"timestamp":"2022-02-18 18:29:08",'
         '"username":"scappy"'
-        '}'
+        "}"
     )
 
 
@@ -125,7 +128,7 @@ def test_entry_loads():
         """
     )
 
-    assert entry.username == 'scappy'
+    assert entry.username == "scappy"
     assert entry.timestamp == datetime(2022, 2, 18, 18, 29, 8, tzinfo=None)
     assert entry.checkouts == {
         "a/repo": {"a-branch": {"a-dir": "xyz123"}},
@@ -179,7 +182,7 @@ def test_entry_branch_heads():
         }
     )
 
-    assert entry.branch_heads(['a/repo', 'c/repo']) == {
+    assert entry.branch_heads(["a/repo", "c/repo"]) == {
         "aa-branch": "abc123",
         "ab-branch": "abc321",
         "cc-branch": "xyz321",

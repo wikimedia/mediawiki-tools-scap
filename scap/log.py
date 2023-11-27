@@ -101,7 +101,6 @@ class DiffLogFormatter(AnsiColorFormatter):
         super().__init__(fmt, datefmt, colors, colorize)
 
     def format(self, record):
-
         if getattr(record, "type", None) == "config_diff":
             if self.lex:
                 return pygments.highlight(record.output, self.lex, self.formatter)
@@ -352,7 +351,7 @@ class ProgressReporter(object):
         :param spinner: Cyclical iterator that returns progress spinner.
         """
         if spinner is None:
-            spinner = itertools.cycle(['-', '\\', '|', '/'])
+            spinner = itertools.cycle(["-", "\\", "|", "/"])
 
         self._name = name
         self._expect = expect
@@ -441,12 +440,14 @@ class ProgressReporter(object):
             time.strftime(TIMESTAMP_FORMAT),
             self._name,
             self.percent_complete,
-            "" if self._in_flight is None else "in-flight: {}; ".format(self._in_flight),
+            ""
+            if self._in_flight is None
+            else "in-flight: {}; ".format(self._in_flight),
             self.ok,
             self.failed,
             self.remaining,
             next(self._spinner) if show_spinner else "",
-            )
+        )
 
         self._fd.write(fmt % output)
 
@@ -468,7 +469,10 @@ class RateLimitedProgressReporter(ProgressReporter):
     def _progress(self, *args, **kwargs):
         now = time.time()
 
-        if not self._finished and now - self._last_report_time < self._max_reporting_interval:
+        if (
+            not self._finished
+            and now - self._last_report_time < self._max_reporting_interval
+        ):
             # Not enough time has elapsed since the last report
             return
 
@@ -525,14 +529,12 @@ class FancyProgressReporter(ProgressReporter):
 
         TERM.save().move(bottom - 1, 0)
         if self._in_flight is not None:
-            TERM.fg(15).write("| in-flight: ").fg(7).write(str(self._in_flight)).write(" ")
-        TERM.fg(0).write("| ok: ").fg(2).write(
-            str(self.ok)
-        ).fg(15).write(" | fail: ").fg(1).write(str(self.failed)).fg(15).write(
-            " | remain: "
-        ).fg(
-            7
-        ).write(
+            TERM.fg(15).write("| in-flight: ").fg(7).write(str(self._in_flight)).write(
+                " "
+            )
+        TERM.fg(0).write("| ok: ").fg(2).write(str(self.ok)).fg(15).write(
+            " | fail: "
+        ).fg(1).write(str(self.failed)).fg(15).write(" | remain: ").fg(7).write(
             str(self.remaining), " | "
         ).clear_eol()
 
@@ -617,7 +619,9 @@ def queue_reader(name, queue):
 def MultithreadedProgressReportCollection(name):
     q = queue.Queue()
 
-    t = threading.Thread(name="Queue reader", target=queue_reader, args=(name, q), daemon=True)
+    t = threading.Thread(
+        name="Queue reader", target=queue_reader, args=(name, q), daemon=True
+    )
     t.start()
 
     try:
@@ -874,9 +878,10 @@ class Timer(object):
         self.logger.info(
             "Started %s" % self.label,
             extra={
-                'event.action': self.label,
-                'event.start': int(self.start * pow(10, 3)),
-            })
+                "event.action": self.label,
+                "event.start": int(self.start * pow(10, 3)),
+            },
+        )
         return self
 
     def __exit__(self, exc_type, exc_value, traceback):
@@ -895,16 +900,18 @@ class Timer(object):
         """
 
         extras = {
-            'event.action': label,
-            'event.start': int(self.start * pow(10, 3)),
-            'event.duration': int(elapsed * pow(10, 9)),  # nanoseconds
+            "event.action": label,
+            "event.start": int(self.start * pow(10, 3)),
+            "event.duration": int(elapsed * pow(10, 9)),  # nanoseconds
         }
         if self.end is not None:
-            extras['event.end'] = int(self.end * pow(10, 3))
+            extras["event.end"] = int(self.end * pow(10, 3))
 
         self.logger.info(
-            "Finished %s (duration: %s)", label, utils.human_duration(elapsed),
-            extra=extras
+            "Finished %s (duration: %s)",
+            label,
+            utils.human_duration(elapsed),
+            extra=extras,
         )
         if self.stats:
             label = re.sub(r"\W", "_", label.lower())
@@ -972,15 +979,20 @@ def setup_loggers(cfg, console_level=logging.INFO, handlers=None):
 
     # Normally we don't want scap.k8s.build and scap.k8s.deploy channel debug messages to reach the console, but we
     # do want to see them when scap is run with the -v flag (which causes console_level to be logging.DEBUG).
-    logging.root.handlers[0].addFilter(Filter({"name": "scap.k8s.build", "levelno": lambda lvl: lvl < console_level}))
-    logging.root.handlers[0].addFilter(Filter({"name": "scap.k8s.deploy", "levelno": lambda lvl: lvl < console_level}))
+    logging.root.handlers[0].addFilter(
+        Filter({"name": "scap.k8s.build", "levelno": lambda lvl: lvl < console_level})
+    )
+    logging.root.handlers[0].addFilter(
+        Filter({"name": "scap.k8s.deploy", "levelno": lambda lvl: lvl < console_level})
+    )
 
     if cfg["log_json"]:
         logging.root.handlers[0].setFormatter(JSONFormatter())
     else:
         logging.root.handlers[0].setFormatter(
-            DiffLogFormatter("%(asctime)s %(message)s", "%H:%M:%S",
-                             colorize=sys.stderr.isatty())
+            DiffLogFormatter(
+                "%(asctime)s %(message)s", "%H:%M:%S", colorize=sys.stderr.isatty()
+            )
         )
 
     if cfg["udp2log_host"]:

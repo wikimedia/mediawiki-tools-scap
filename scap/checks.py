@@ -113,7 +113,7 @@ def execute(checks, logger, concurrency=1):
                 epoll.register(job.fd, select.EPOLLIN)
 
             # Poll for stdout events
-            for (fd, event) in epoll.poll(0.01):
+            for fd, event in epoll.poll(0.01):
                 job = doing[fd]
 
                 # Handle job completion
@@ -230,11 +230,7 @@ class Check(object):
 
         # Avoid TypeError exceptions later on in Popen -> fsencode by removing
         # None values from the environment
-        self.environment = {
-            k: v
-            for k, v in self.environment.items()
-            if v is not None
-        }
+        self.environment = {k: v for k, v in self.environment.items() if v is not None}
 
     @property
     def stage(self):

@@ -13,13 +13,21 @@ import scap.utils as utils
 class UpdateWikiversions(cli.Application):
     """Scap subcommand for updating staging dir wikiversions.json to a new version."""
 
-    @cli.argument("--no-check", help="Don't check that the branch is already checked out",
-                  action='store_false', dest='check')
-    @cli.argument("pairs", nargs="*", help="A sequence of one or more DBLIST and VERSION pairs."
-                  " DBLIST names a group of wikis to migrate and VERSION names a train"
-                  " branch to set the group to.  If more than one DBLIST/VERSION pair"
-                  " is supplied, they will be updated in the order specified.",
-                  metavar="DBLIST VERSION")
+    @cli.argument(
+        "--no-check",
+        help="Don't check that the branch is already checked out",
+        action="store_false",
+        dest="check",
+    )
+    @cli.argument(
+        "pairs",
+        nargs="*",
+        help="A sequence of one or more DBLIST and VERSION pairs."
+        " DBLIST names a group of wikis to migrate and VERSION names a train"
+        " branch to set the group to.  If more than one DBLIST/VERSION pair"
+        " is supplied, they will be updated in the order specified.",
+        metavar="DBLIST VERSION",
+    )
     def main(self, *extra_args):
         """Update the json file, maybe update the branch symlink."""
 
@@ -47,7 +55,9 @@ class UpdateWikiversions(cli.Application):
         dblists = {}
 
         for dblist, version in self.updates.items():
-            if self.arguments.check and not os.path.isdir(os.path.join(self.config["stage_dir"], "php-%s" % version)):
+            if self.arguments.check and not os.path.isdir(
+                os.path.join(self.config["stage_dir"], "php-%s" % version)
+            ):
                 raise SystemExit(
                     "Train branch %s has not been checked out yet.\n"
                     "Try running 'scap prep %s' first, or run update-wikiversions with --no-check."
@@ -124,7 +134,9 @@ class UpdateWikiversions(cli.Application):
 
     def update_branch_pointer(self):
         """Swap the php symlink over to the new version as well, if needed."""
-        cur_version = self.active_wikiversions("stage")[-1]  # Get the most recent active version
+        cur_version = self.active_wikiversions("stage")[
+            -1
+        ]  # Get the most recent active version
 
         real_path = os.path.join(self.config["stage_dir"], "php-%s" % cur_version)
         symlink = os.path.join(self.config["stage_dir"], "php")

@@ -231,7 +231,6 @@ class Job(object):
                 self.verbose,
                 self._reporter,
             ):
-
                 host = jobresult.host
                 status = jobresult.status
                 output = jobresult.output

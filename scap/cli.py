@@ -65,11 +65,12 @@ class Application(object):
         self.start = time.time()
         # Property and related code should be removed once a long-term solution for
         # https://phabricator.wikimedia.org/T304557 is implemented
-        self.user_ssh_auth_sock =\
+        self.user_ssh_auth_sock = (
             os.environ["SSH_AUTH_SOCK"] if "SSH_AUTH_SOCK" in os.environ else None
+        )
 
         try:
-            locale.setlocale(locale.LC_ALL, '')
+            locale.setlocale(locale.LC_ALL, "")
         except locale.Error:
             pass
 
@@ -236,7 +237,11 @@ class Application(object):
             for string in self.arguments.defines:
                 pair = string.split(":", 1)
                 if len(pair) != 2:
-                    raise SystemExit("Invalid configuration setting: {}\nSettings must be in 'key:value' format".format(string))
+                    raise SystemExit(
+                        "Invalid configuration setting: {}\nSettings must be in 'key:value' format".format(
+                            string
+                        )
+                    )
                 res.append(pair)
             self.cli_defines = dict(res)
 
@@ -336,7 +341,7 @@ class Application(object):
                 check=True,
                 stdout=subprocess.PIPE,
                 text=True,
-                env=self.get_gerrit_ssh_env()
+                env=self.get_gerrit_ssh_env(),
             ).stdout.strip()
 
     def get_gerrit_ssh_env(self) -> dict:
@@ -363,18 +368,18 @@ class Application(object):
         if self.config["gerrit_push_user"]:
             key_file = self.get_keyholder_key(
                 ssh_user=self.config["gerrit_push_user"],
-                )
+            )
             ssh_command = SSH_WITH_KEY(
-                user=self.config["gerrit_push_user"],
-                key=key_file
+                user=self.config["gerrit_push_user"], key=key_file
             )
             # Do not redirect ssh stdin from /dev/null since git sends data
             # this way.
-            ssh_command.remove('-n')
+            ssh_command.remove("-n")
 
             # With python 3.8 we can use shlex.join(ssh_command)
-            gerrit_env["GIT_SSH_COMMAND"] = ' '.join(
-                shlex.quote(arg) for arg in ssh_command)
+            gerrit_env["GIT_SSH_COMMAND"] = " ".join(
+                shlex.quote(arg) for arg in ssh_command
+            )
 
         elif self.user_ssh_auth_sock:
             gerrit_env["SSH_AUTH_SOCK"] = self.user_ssh_auth_sock
@@ -436,7 +441,9 @@ class Application(object):
         """Assert that SSH_AUTH_SOCK is present in the environment."""
         if "SSH_AUTH_SOCK" not in os.environ:
             with utils.suppress_backtrace():
-                raise RuntimeError("%s requires SSH agent forwarding" % self.program_name)
+                raise RuntimeError(
+                    "%s requires SSH agent forwarding" % self.program_name
+                )
 
     def _check_user_auth_sock(self):
         """
@@ -464,7 +471,9 @@ class Application(object):
             )
 
     def get_current_train_info(self):
-        return utils.get_current_train_info(self.config["train_blockers_url"], self.config["web_proxy"])
+        return utils.get_current_train_info(
+            self.config["train_blockers_url"], self.config["web_proxy"]
+        )
 
     @staticmethod
     def factory(argv=None):
@@ -516,8 +525,11 @@ class Application(object):
 
             app.setup()
 
-            if hasattr(app, "config") and app.config["block_deployments"] \
-                    and getattr(app.main, ATTR_DEPLOYMENT_COMMAND, False):
+            if (
+                hasattr(app, "config")
+                and app.config["block_deployments"]
+                and getattr(app.main, ATTR_DEPLOYMENT_COMMAND, False)
+            ):
                 utils.abort(
                     "This scap command is disabled on this host. If you really need to run it, you can override by"
                     """ passing "-Dblock_deployments:False" to the call"""
@@ -664,7 +676,9 @@ def command(*args, **kwargs):
         cmd = dict(name=name, cls=cls, args=args, kwargs=kwargs)
         COMMAND_REGISTRY[name] = cmd
 
-        affected_by_blocked_deployments = kwargs.get("affected_by_blocked_deployments", False)
+        affected_by_blocked_deployments = kwargs.get(
+            "affected_by_blocked_deployments", False
+        )
         setattr(cls.main, ATTR_DEPLOYMENT_COMMAND, affected_by_blocked_deployments)
         kwargs.pop("affected_by_blocked_deployments", None)
 

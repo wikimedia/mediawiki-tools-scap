@@ -110,8 +110,7 @@ def largefile_pull(location, implementor):
 
 
 def lfs_install(*args):
-    """Run git-lfs-install with provided arguments.
-    """
+    """Run git-lfs-install with provided arguments."""
     lfsargs = ["install"] + list(args)
     # run `git lfs install $args`
     gitcmd("lfs", *lfsargs)
@@ -144,15 +143,15 @@ def info(directory, remote="origin"):
     # not refer to a local commit (i.e., a patch).  Use git merge-base
     # to find the nearest public commit.
     try:
-        head_sha1 = gitcmd("merge-base", "HEAD", "{}".format(remote), cwd=directory).strip()
+        head_sha1 = gitcmd(
+            "merge-base", "HEAD", "{}".format(remote), cwd=directory
+        ).strip()
     except Exception:
         # The git merge-base command won't work if origin doesn't have
         # a HEAD reference (which points to the default branch).
         head_sha1 = sha(directory, "HEAD")
 
-    commit_date = gitcmd(
-        "show", "-s", "--format=%ct", head_sha1, cwd=directory
-    ).strip()
+    commit_date = gitcmd("show", "-s", "--format=%ct", head_sha1, cwd=directory).strip()
 
     # Requires git v1.7.5+
     try:
@@ -307,8 +306,18 @@ def is_dir(path):
 def remote_exists(location, remote):
     """Check if remote exists in location"""
     ensure_dir(location)
-    argv = ["git", "-C", location, "config", "--local", "--get", "remote.{}.url".format(remote)]
-    return subprocess.call(argv, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL) == 0
+    argv = [
+        "git",
+        "-C",
+        location,
+        "config",
+        "--local",
+        "--get",
+        "remote.{}.url".format(remote),
+    ]
+    return (
+        subprocess.call(argv, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL) == 0
+    )
 
 
 def remote_set(location, repo, remote="origin"):
@@ -405,7 +414,14 @@ def sync_submodules(location):
     gitcmd("submodule", "sync", "--recursive", cwd=location)
 
 
-def update_submodules(location, git_remote=None, use_upstream=False, reference=None, checkout=False, force=False):
+def update_submodules(
+    location,
+    git_remote=None,
+    use_upstream=False,
+    reference=None,
+    checkout=False,
+    force=False,
+):
     """Update git submodules on target machines"""
 
     if not use_upstream and git_remote is None:
@@ -588,7 +604,9 @@ def list_submodules(repo, args):
     """List all of the submodules of a given respository"""
     ensure_dir(repo)
 
-    return gitcmd("submodule", "-q", "foreach", "echo $name", args, cwd=repo).splitlines()
+    return gitcmd(
+        "submodule", "-q", "foreach", "echo $name", args, cwd=repo
+    ).splitlines()
 
 
 def reflog(repo, fmt="oneline", branch=None):
@@ -604,8 +622,7 @@ def reflog(repo, fmt="oneline", branch=None):
 
 
 # FIXME: reference and ref together are confusing.
-def clone_or_update_repo(dir, repo, branch, logger, reference=None,
-                         ref=None):
+def clone_or_update_repo(dir, repo, branch, logger, reference=None, ref=None):
     """
     Clone or update the checkout of 'repo' in 'dir', using the specified
     branch.   Note that existing repos are hard-reset to the match the
@@ -620,8 +637,7 @@ def clone_or_update_repo(dir, repo, branch, logger, reference=None,
     if not os.path.isdir(dir) or utils.dir_is_empty(dir):
         operation = "Clone"
 
-    logger.info("{} {} ({} branch) in {}".format(
-        operation, repo, branch, dir))
+    logger.info("{} {} ({} branch) in {}".format(operation, repo, branch, dir))
 
     config = {"core.sharedRepository": "group"}
 
@@ -637,11 +653,9 @@ def clone_or_update_repo(dir, repo, branch, logger, reference=None,
     if ref is None:
         ref = "origin/{}".format(branch)
 
-    gitcmd("checkout", "--force", "-B", branch, ref,
-           cwd=dir)
+    gitcmd("checkout", "--force", "-B", branch, ref, cwd=dir)
     head = sha(dir, "HEAD")
-    logger.info("{} checked out at commit {}".format(
-        repo, head))
+    logger.info("{} checked out at commit {}".format(repo, head))
 
     logger.debug("Updating submodules")
     update_submodules(dir, use_upstream=True, checkout=True, force=True)
@@ -658,4 +672,4 @@ def file_has_unstaged_changes(file, location=None) -> bool:
 
     ensure_dir(location)
     git_status_output = gitcmd("status", "--porcelain", file, cwd=location)
-    return bool(re.search(r'(?m)^( M|\?\?)', git_status_output))
+    return bool(re.search(r"(?m)^( M|\?\?)", git_status_output))

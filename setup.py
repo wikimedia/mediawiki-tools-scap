@@ -50,7 +50,7 @@ setup(
     version=VERSION["__version__"],
     description="Deployment toolchain for Wikimedia projects",
     long_description=open("README.rst", "rb").read().decode("UTF8"),
-    python_requires='>=3.7',
+    python_requires=">=3.7",
     author=", ".join([name for name, _ in AUTHORS]),
     author_email=", ".join([email for _, email in AUTHORS]),
     license="GNU GPLv3",
@@ -69,9 +69,5 @@ setup(
         "Programming Language :: Python :: 3.7",
         "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
     ],
-    options={
-        "bdist_wheel": {
-            "python_tag": "py37"
-        }
-    },
+    options={"bdist_wheel": {"python_tag": "py37"}},
 )

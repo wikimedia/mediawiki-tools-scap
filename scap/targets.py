@@ -131,7 +131,9 @@ def exclude_target_hosts(regex, hosts):
 class TargetList(object):
     """An abstract list of targets (lists of hosts)."""
 
-    def __init__(self, key, cfg, limit_hosts=None, extra_paths=None, exclude_hosts=None):
+    def __init__(
+        self, key, cfg, limit_hosts=None, extra_paths=None, exclude_hosts=None
+    ):
         """
         Constructor for target lists.
 
@@ -264,7 +266,11 @@ class DshTargetList(TargetList):
                     hosts_file = os.path.abspath(candidate)
                     break
             if hosts_file is None:
-                raise RuntimeError("Did not find a file named {} in search path: {}".format(filename, search_path))
+                raise RuntimeError(
+                    "Did not find a file named {} in search path: {}".format(
+                        filename, search_path
+                    )
+                )
 
         utils.check_file_exists(hosts_file)
 

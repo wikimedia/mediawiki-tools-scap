@@ -28,7 +28,11 @@ from scap import cli
 from scap.plugins import prep
 
 
-@cli.command("rollback", help="Restore production to a previous working state", affected_by_blocked_deployments=True)
+@cli.command(
+    "rollback",
+    help="Restore production to a previous working state",
+    affected_by_blocked_deployments=True,
+)
 class Rollback(cli.Application):
     """Checkout previously prepared working copies of MediaWiki repos and perform an immediate sync to restore production to a known working state."""
 
@@ -39,10 +43,10 @@ class Rollback(cli.Application):
         """
 
         try:
-            self.scap_check_call(['prep', 'auto', '--history'])
+            self.scap_check_call(["prep", "auto", "--history"])
         except subprocess.CalledProcessError as e:
             if e.returncode == prep.HISTORY_ABORT_STATUS:
                 return
             raise e
 
-        self.scap_check_call(['sync-world'])
+        self.scap_check_call(["sync-world"])
