@@ -57,6 +57,11 @@ class ApplyPatches(cli.Application):
         curdir = None
         apply_in_curdir = True
 
+        if len(patches) == 0 and self.config["require_security_patches"]:
+            raise SystemExit(
+                f"No security patches found for {train}!\nRun again with -Drequire_security_patches:False to disable this check."
+            )
+
         for patch in patches:
             if patch.dirname() != curdir:
                 apply_in_curdir = True
@@ -124,6 +129,9 @@ class SecurityPatches:
     def __iter__(self):
         for patch in self._patches:
             yield patch
+
+    def __len__(self):
+        return len(self._patches)
 
     def get_pre_patch_state(self, srcroot) -> dict:
         """

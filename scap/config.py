@@ -125,6 +125,7 @@ DEFAULT_CONFIG = {
     "install_ssh_user": (str, "scap"),
     "scap_source_dir": (str, "/srv/deployment/scap"),
     "scap_targets": (str, "scap_targets"),
+    "require_security_patches": (bool, True),  # T350070
 }
 
 
