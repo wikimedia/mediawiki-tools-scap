@@ -1049,7 +1049,8 @@ class Backport(cli.Application):
                     "There were unexpected commits pulled from origin for %s." % repo
                 )
                 self.prompt_for_approval_or_exit(
-                    "Continue with backport?", "Backport cancelled."
+                    "Continue with deployment (all patches will be deployed)?",
+                    "Backport cancelled.",
                 )
 
     def _get_file_list(self, change_number):

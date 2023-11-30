@@ -639,7 +639,9 @@ class TestBackports(unittest.TestCase):
         child.expect_exact(
             "There were unexpected commits pulled from origin for /srv/mediawiki-staging."
         )
-        child.expect_exact("Continue with backport? (y/n): ")
+        child.expect_exact(
+            "Continue with deployment (all patches will be deployed)? (y/n): "
+        )
 
         # Go ahead and "deploy" the extra commit to avoid confusing other tests by leaving
         # a merged-but-unpulled commit
