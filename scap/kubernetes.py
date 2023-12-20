@@ -328,7 +328,7 @@ class K8sOps:
                 self.logger.error("No known prior state to roll back to")
 
     def _disable_k8s_deployments(self):
-        self.logger.warning("Disabling K8s deployments")
+        self.logger.warning("Disabled deploying to K8s")
         self.app.config["deploy_mw_container_image"] = False
 
     def _read_helmfile_files(self, dep_configs) -> dict:
