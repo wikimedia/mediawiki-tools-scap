@@ -42,10 +42,10 @@ import sys
 from scap import cli, utils
 
 STAGE_SEQUENCE = [
+    "clean",
     "prep",
     "patch",
     "testwikis",
-    "clean",
 ]
 
 

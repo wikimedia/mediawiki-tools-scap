@@ -1,6 +1,5 @@
 # -*- coding: utf-8 -*-
 """For cleaning up old MediaWiki."""
-from datetime import datetime, timedelta
 import os
 import shutil
 import subprocess
@@ -14,10 +13,6 @@ from scap import ssh
 from scap import tasks
 from scap import utils
 
-# Inactive train branches created more than this number of days will be selected when
-# 'auto' is supplied as the branch name on the command line.
-AUTO_CLEAN_THRESHOLD = 8
-
 
 @cli.command("clean", affected_by_blocked_deployments=True)
 class Clean(main.AbstractSync):
@@ -25,9 +20,7 @@ class Clean(main.AbstractSync):
 
     @cli.argument(
         "branch",
-        help="The name of the branch to clean.  Specify 'auto' to select all inactive branches that were created more than {} days ago.".format(
-            AUTO_CLEAN_THRESHOLD
-        ),
+        help="The name of the branch to clean. Specify 'auto' to select all inactive branches except the most recent one.",
     )
     @cli.argument(
         "--delete",
@@ -185,16 +178,22 @@ class Clean(main.AbstractSync):
         )
 
     def _autoselect_versions_to_remove(self):
-        # Inactive branches created before the cutoff will be selected
-        cutoff = datetime.utcnow() - timedelta(days=AUTO_CLEAN_THRESHOLD)
-
+        """
+        Selects all inactive versions except the most recent one
+        """
         active = self.active_wikiversions("stage")
+        inactive_versions = [
+            (version, created)
+            for version, created in tasks.get_wikiversions_ondisk_ex(
+                self.config["stage_dir"]
+            )
+            if version not in active
+        ]
 
-        versions_to_remove = []
-        for version, created in tasks.get_wikiversions_ondisk_ex(
-            self.config["stage_dir"]
-        ):
-            if version not in active and created < cutoff:
-                versions_to_remove.append(version)
-
-        return versions_to_remove
+        versions_to_remove = [
+            version
+            for version, _ in sorted(
+                inactive_versions, key=lambda version_created: version_created[1]
+            )
+        ]
+        return versions_to_remove[:-1]
