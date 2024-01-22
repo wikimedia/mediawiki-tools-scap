@@ -112,7 +112,8 @@ class GitRepos:
         return False
 
     def are_any_branches_deployable(self, change_number, project, branches):
-        """Checks if any of the supplied project/branches are deployed to production.
+        """
+        Checks if any of the supplied project/branches are deployed to production.
         The associated change_number is used only for logging purposes.
         Additionally, checks if the branches exist in the repository even if not deployed.
         """
@@ -121,24 +122,26 @@ class GitRepos:
         elif project != self.OPERATIONS_CONFIG:
             if self.non_config_is_in_production(project, branches, change_number):
                 return True
-            
         for branch in branches:
             if self.branch_exists(branch):
-                self.logger.info(f"Branch '{branch}' exists for deployment but is not yet live. Proceeding with backport.")
+                self.logger.info(
+                    f"Branch '{branch}' exists for deployment but is not yet live. Proceeding with backport."
+                )
                 return True
-
         self.logger.warning(
             "Change '%s', project '%s', branches '%s' not found in any deployed wikiversion. Deployed wikiversions: %s"
             % (change_number, project, branches, list(self.versions))
         )
         return False
-    
+
     def branch_exists(self, branch):
         """
         Checks if the specified branch exists in the local Git repository.
         """
         try:
-            subprocess.check_output(["git", "rev-parse", "--verify", branch], stderr=subprocess.STDOUT)
+            subprocess.check_output(
+                ["git", "rev-parse", "--verify", branch], stderr=subprocess.STDOUT
+            )
             return True
         except subprocess.CalledProcessError:
             return False
