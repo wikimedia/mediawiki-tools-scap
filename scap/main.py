@@ -299,7 +299,7 @@ class AbstractSync(cli.Application):
         )
 
     def _get_testserver_list(self):
-        """Get list of Mediawiki testservers."""
+        """Get list of MediaWiki testservers."""
         return targets.get("dsh_testservers", self.config).all
 
     def _get_api_canary_list(self):

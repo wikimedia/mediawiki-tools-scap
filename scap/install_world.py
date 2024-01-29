@@ -107,7 +107,7 @@ class InstallWorld(cli.Application):
             # mode. Messages will still be logged
             self.arguments.no_log_message = True
 
-        # The Lock ensures a scap installation cannot happen during a Mediawiki update
+        # The Lock ensures a scap installation cannot happen during a MediaWiki update
         with Lock(
             self.get_lock_file(), name="install-world", reason="Scap is being updated"
         ):
