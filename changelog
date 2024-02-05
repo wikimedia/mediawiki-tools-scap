@@ -1,3 +1,10 @@
+scap (4.65.3)
+
+  * backport: limit what Depends-On changes are considered appropriate
+  * Fix casing of MediaWiki
+
+ -- jnuche <jnuche@wikimedia.org>  Mon, 05 Feb 2024 13:16:50 +0100
+
 scap (4.65.2)
 
   * prune old inactive branches as first step of staging a train
