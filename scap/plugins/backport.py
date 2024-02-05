@@ -728,15 +728,23 @@ class Backport(cli.Application):
             # Case where branches match. In this case we know this is the intended dependency
             return change.details["branch"] == dep["branch"]
 
+        def get_link(dep):
+            return (
+                f"\t* {self.gerrit.url}/c/{dep['project']}/+/{dep['_number']}".replace(
+                    "//c", "/c"
+                )
+            )
+
         depends_ons = self.gerrit.depends_ons(change.get("id")).get().depends_on_found
         relevant_deps = [dep for dep in depends_ons if is_relevant_dep(dep)]
         if len(depends_ons) > 0 and len(relevant_deps) == 0 and not self.arguments.yes:
-            found_deps = [dep["_number"] for dep in depends_ons]
+            found_deps_links = "\n".join([get_link(dep) for dep in depends_ons])
+            self.get_logger().warning(
+                f"Change {change.number} specified 'Depends-On' but found dependencies are neither configuration"
+                f" changes nor do they belong to the same branch. Found dependencies are:\n{found_deps_links}"
+            )
             self.prompt_for_approval_or_exit(
-                f"Change {change.number} specified 'Depends-On' but none of its dependencies are suitable."
-                " They do not belong to the same branch or to the configuration repo, so they will be ignored. Found"
-                f" dependencies are: {found_deps}\nContinue with"
-                f" {self.backport_or_revert.capitalize()}?",
+                f"Ignore dependencies and continue with {self.backport_or_revert.capitalize()}?",
                 f"{self.backport_or_revert} Canceled",
             )
 
