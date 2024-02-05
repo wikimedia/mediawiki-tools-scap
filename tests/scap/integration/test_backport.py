@@ -4,15 +4,16 @@ import re
 import subprocess
 import sys
 import time
-from datetime import datetime
-import pexpect
 import unittest
+from datetime import datetime
+
+import pexpect
 
 import scap.cli
 import scap.utils
+from scap import utils
 from scap.plugins.gerrit import GerritSession
 from scap.runcmd import gitcmd
-
 
 """ These tests are expected to be run in the train-dev test environment:
     python3 -m pytest -s -o log_cli=1 --log-cli-level info /workspace/scap/tests/scap/integration/test_backport.py
@@ -36,7 +37,7 @@ class BackportsTestHelper:
     gerrit_domain = "gerrit.traindev"
 
     def setup(self):
-        self.gerrit = GerritSession(url=self.gerrit_url)
+        self.gerrit = GerritSession(url=self.gerrit_url, use_auth=True)
 
         if not os.path.exists(self.homedir + "/new-version"):
             logging.info("Bootstrapping with ~/train first")
@@ -351,7 +352,9 @@ class BackportsTestHelper:
     # using the Depends-On footer in commit messages.  We call this the depends-on chain.  The
     # chains are set up differently but scap backport must behave the same way for either type.
 
-    def setup_dependency_chain(self, *, style=None) -> list:
+    def setup_dependency_chain(
+        self, *, style=None, use_different_branches=False
+    ) -> list:
         """
         Constructs a chain of 3 commits in one of two ways depending on
         'style', which must be "relation" or "Depends-On".  The chain is pushed to
@@ -360,6 +363,9 @@ class BackportsTestHelper:
         The first commit in the chain is first created on the master branch (and
         pushed to Gerrit) and then cherry-picked into the train branch (wmf/*),
         simulating a typical backport workflow.  This helps exercise T324275/T323277.
+
+        If `use_different_branches` is True then the last commit in the chain will
+        use a different branch from the two first commits
 
         """
         allowed_styles = ["relation", "Depends-On"]
@@ -373,10 +379,12 @@ class BackportsTestHelper:
         files = ["COPYING", "CREDITS", "FAQ"]
         change_urls = []
 
-        def maybe_push_commit():
+        def maybe_push_commit(branch=None):
             if style == "Depends-On":
                 change_urls.append(
-                    self.push_and_collect_url(self.mwcore_dir, self.mwbranch)
+                    self.push_and_collect_url(
+                        self.mwcore_dir, branch if branch else self.mwbranch
+                    )
                 )
                 self.git_command(self.mwcore_dir, ["reset", "--hard", "HEAD~1"])
 
@@ -394,13 +402,30 @@ class BackportsTestHelper:
         ).strip()
         change_id = self.get_change_id(self.mwcore_dir)
 
+        current_branch = None
+        if use_different_branches:
+            # Deployed branches in ascending order. When this var gets used below, we end up with the following
+            # arrangement of commits. Assuming latest branch is 1.40.0-wmf.10:
+            # * [0]COPYING patch: 1.40.0-wmf.9
+            # * [1]CREDITS patch: 1.40.0-wmf.9
+            # * [2]FAQ patch:     1.40.0-wmf.10
+            deployed_branches = [
+                "wmf/" + ver
+                for ver in utils.get_active_wikiversions(self.mwconfig_dir, "dev")
+            ]
+            current_branch = deployed_branches[0]
+
         # Now cherry pick that commit as the first in a chain for the train branch.
-        self.setup_core_repo()
+        self.setup_core_repo(current_branch)
         self.git_command(self.mwcore_dir, ["cherry-pick", "-x", "-Xtheirs", commit])
-        maybe_push_commit()
+        maybe_push_commit(current_branch)
 
         # Then stack up two more commits on top
-        for file in files[1:]:
+        for i, file in enumerate(files[1:]):
+            if use_different_branches:
+                current_branch = deployed_branches[i]
+                self.setup_core_repo(current_branch)
+
             path = os.path.join(self.mwcore_dir, file)
             text = "Added by setup_dependency_chain (2) on " + datetime.now().strftime(
                 "%Y-%m-%d %H:%M:%S"
@@ -413,7 +438,7 @@ class BackportsTestHelper:
             self.write_to_file(path, text, append=True)
             self.git_commit(self.mwcore_dir, commit_msg, path)
             change_id = self.get_change_id(self.mwcore_dir)
-            maybe_push_commit()
+            maybe_push_commit(current_branch)
 
         if style == "relation":
             change_urls = self.push_and_collect_urls(self.mwcore_dir, self.mwbranch)
@@ -434,25 +459,30 @@ class BackportsTestHelper:
         child.wait()
         return child.exitstatus
 
-    def depends_on_backport_wrong_branch(self) -> pexpect.spawn:
-        """Backports with a dependency in a non-production branch"""
+    def depends_with_nonprod_branch(
+        self, root_change_in_prod_branch=False
+    ) -> pexpect.spawn:
+        """
+        Using the configuration repository (`operations/mediawiki-config`), creates two changes in a Depends-On
+        relationship using a non-production branch. If root_change_in_prod_branch is True, then the change with the
+        "Depends-On" will use the production branch instead
+        """
 
-        # Make a configuration change on the wrong branch.  In the case
-        # of train-dev (where these tests run), the right branch is "train-dev"
-        # and "master" is the wrong one.
+        # Make a configuration change on non-prod branch. In the case
+        # of train-dev (where these tests run), the prod branch is "train-dev"
+        # "master" also exists.
         self.setup_mediawiki_config_repo(branch="master")
 
         readme_path = self.mwconfig_dir + "/README"
-        text = (
-            "Added by depends_on_backport_wrong_branch on "
-            + datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        text = "Added by depends_with_nonprod_branch on " + datetime.now().strftime(
+            "%Y-%m-%d %H:%M:%S"
         )
         change_url = self.change_and_push_file(
             self.mwconfig_dir,
             "master",
             readme_path,
             text,
-            "A sample config change made on the wrong branch",
+            "A sample config change made on a non-prod branch",
         )
         change_id = self.get_change_id(self.mwconfig_dir)
         self.git_command(self.mwconfig_dir, ["reset", "--hard", "HEAD~1"])
@@ -466,19 +496,21 @@ class BackportsTestHelper:
         child.sendline("y")
         self._scap_backport_interact(child)
 
-        # Switch back to the right branch, train-dev, and make a configuration change
-        # which has a Depends-On pointing to the "wrong branch" change.
+        # Now create a new patch which "Depends-On" the first one. By default, it uses the same non-prod branch
         self.setup_mediawiki_config_repo()
-        text = (
-            "Added by depends_on_backport_wrong_branch on "
-            + datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        text = "Added by depends_with_nonprod_branch on " + datetime.now().strftime(
+            "%Y-%m-%d %H:%M:%S"
         )
+        if root_change_in_prod_branch:
+            branch = "train-dev"
+        else:
+            branch = "master"
         change_url = self.change_and_push_file(
             self.mwconfig_dir,
-            "train-dev",
+            branch,
             readme_path,
             text,
-            "Depends-On references commit in wrong branch\n\nDepends-On: %s"
+            "Depends-On references commit in non-prod branch\n\nDepends-On: %s"
             % change_id,
             False,
         )
@@ -611,16 +643,71 @@ class TestBackports(unittest.TestCase):
         )
         self._test_dependencies("Depends-On", change_urls)
 
-    def test_depends_on_non_production_branch(self):
+    def test_non_production_branch(self):
         announce(
-            "Testing warning occurs when Depends-On commit isn't in a production branch"
+            "Testing chain of dependencies in a non-production branch is allowed pending user approval"
         )
-        child = self.backports_test_helper.depends_on_backport_wrong_branch()
+
+        child = self.backports_test_helper.depends_with_nonprod_branch()
         child.expect_exact(
-            "which are not scheduled for backport or included in any mediawiki production branch"
+            " not found in any deployed wikiversion. Deployed wikiversions: "
         )
         child.expect_exact("Continue with Backport? (y/n):")
         child.sendline("n")
+
+    def test_depends_on_different_branch(self):
+        announce(
+            "Testing Depends-On a different branch makes the dependency be ignored"
+        )
+
+        child = self.backports_test_helper.depends_with_nonprod_branch(
+            root_change_in_prod_branch=True
+        )
+        child.expect(
+            r"Change.*specified 'Depends-On'.*none.*are suitable.*they will be ignored.*Continue with Backport?"
+        )
+        child.sendline("y")
+        self.backports_test_helper._scap_backport_interact(child)
+
+    # Verifies T345304
+    def test_depends_on_abandoned(self):
+        def abandon_change(change):
+            self.backports_test_helper.gerrit.post(
+                f"{self.backports_test_helper.gerrit_url}/a/changes/{change}/abandon"
+            )
+
+        announce(
+            "Testing abandoned Depends-On changes. Different branches should be ignored"
+        )
+
+        change_urls = self.backports_test_helper.setup_dependency_chain(
+            style="Depends-On", use_different_branches=True
+        )
+
+        # First change and middle change are in the same branch and middle change Depends-On first change. Abandoning
+        # the first change and trying to backport the middle one should make the backport fail
+        abandoned_change_number = change_urls[0].split("/")[-1]
+        abandon_change(abandoned_change_number)
+        backported_change_number = change_urls[1].split("/")[-1]
+        child = self.backports_test_helper._start_scap_backport([change_urls[1]])
+        child.expect_exact(
+            f"Change '{abandoned_change_number}' has been abandoned! Change is pulled by the following dependency"
+            f" chain: {backported_change_number} -> {abandoned_change_number}"
+        )
+        child.wait()
+
+        # Now we abandon the middle change. Last change Depends-On middle change but they belong to different branches,
+        # so backporting the last change should succeed when the user confirms the operation
+        abandoned_change_number = change_urls[1].split("/")[-1]
+        abandon_change(abandoned_change_number)
+        backported_change_number = change_urls[2].split("/")[-1]
+        child = self.backports_test_helper._start_scap_backport([change_urls[2]])
+        child.expect(
+            rf"Change {backported_change_number} specified 'Depends-On'.*none.*are suitable.*they will be ignored.*"
+            "Continue with Backport?"
+        )
+        child.sendline("y")
+        self.backports_test_helper._scap_backport_interact(child)
 
     def test_extra_commit_confirmation(self):
         announce(
