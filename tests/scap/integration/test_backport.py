@@ -11,7 +11,6 @@ import pexpect
 
 import scap.cli
 import scap.utils
-from scap import utils
 from scap.plugins.gerrit import GerritSession
 from scap.runcmd import gitcmd
 
@@ -30,7 +29,7 @@ class BackportsTestHelper:
     mwconfig_dir = workdir + "/mediawiki-config"
     mwdir = workdir + "/mediawiki"
     mwcore_dir = mwdir + "/core"
-    mwgrowthexperiments_dir = mwdir + "/extensions/GrowthExperiments"
+    mwvisualeditor_dir = mwdir + "/extensions/VisualEditor"
     mwbranch = None
     gerrit = None
     gerrit_url = "http://gerrit.traindev:8080"
@@ -52,7 +51,7 @@ class BackportsTestHelper:
 
         self.setup_mediawiki_config_repo()
         self.setup_core_repo()
-        self.setup_growthexperiments_repo()
+        self.setup_visualeditor_repo()
 
         self.setup_core_gitmodules()
 
@@ -68,12 +67,14 @@ class BackportsTestHelper:
             self.mwcore_dir,
         )
 
-    def setup_growthexperiments_repo(self):
+    def setup_visualeditor_repo(self):
         self.git_clone(
             self.mwbranch,
-            self.gerrit_url + "/mediawiki/extensions/GrowthExperiments",
-            self.mwgrowthexperiments_dir,
+            self.gerrit_url + "/mediawiki/extensions/VisualEditor",
+            self.mwvisualeditor_dir,
         )
+        self.git_command(self.mwvisualeditor_dir, ["submodule", "update", "--init"])
+        self.install_commit_hook(self.mwvisualeditor_dir + "/.git/modules/lib/ve")
 
     def setup_core_gitmodules(self):
         self.git_command(
@@ -82,20 +83,30 @@ class BackportsTestHelper:
                 "config",
                 "-f",
                 ".gitmodules",
-                "submodule.extensions/GrowthExperiments.url",
-                self.gerrit_url + "/mediawiki/extensions/GrowthExperiments",
+                "submodule.extensions/VisualEditor.url",
+                self.gerrit_url + "/mediawiki/extensions/VisualEditor",
+            ],
+        )
+        self.git_command(
+            self.mwcore_dir,
+            [
+                "config",
+                "-f",
+                ".gitmodules",
+                "submodule.lib/ve.url",
+                self.gerrit_url + "/VisualEditor/VisualEditor",
             ],
         )
         if subprocess.check_output(
             ["git", "-C", self.mwcore_dir, "status", "--porcelain", ".gitmodules"]
         ):
             announce(
-                "Tweaking submodule.extensions/GrowthExperiments.url in %s/.gitmodules"
+                "Tweaking submodule.extensions/VisualEditor.url and lib/ve.url in %s/.gitmodules"
                 % self.mwcore_dir
             )
             self.git_commit(
                 self.mwcore_dir,
-                "scap backport testing: set URL for extensions/GrowthExperiments to %s"
+                "scap backport testing: set URL for extensions/VisualEditor and lib/ve to %s"
                 % self.gerrit_domain,
                 ".gitmodules",
             )
@@ -105,22 +116,27 @@ class BackportsTestHelper:
             self.git_command(self.mwcore_dir, ["pull"])
             announce(".gitmodules tweak successful")
 
+    def install_commit_hook(self, path):
+        hookdir = path + "/hooks"
+        if not os.path.isdir(hookdir):
+            os.makedirs(hookdir)
+        subprocess.check_call(
+            [
+                "scp",
+                "-p",
+                "-P",
+                "29418",
+                "traindev@%s:hooks/commit-msg" % self.gerrit_domain,
+                hookdir,
+            ]
+        )
+
     def git_clone(self, branch, repo, path):
         """clones a repo"""
         announce("Updating checkout of %s (%s) in %s" % (repo, branch, path))
         if not os.path.isdir(path):
             subprocess.check_call(["git", "clone", "-b", branch, repo, path])
-            # install gerrit commit-msg hook
-            subprocess.check_call(
-                [
-                    "scp",
-                    "-p",
-                    "-P",
-                    "29418",
-                    "traindev@%s:hooks/commit-msg" % self.gerrit_domain,
-                    "%s/.git/hooks/" % path,
-                ]
-            )
+            self.install_commit_hook(path + "/.git/")
 
         self.git_command(path, ["fetch", "-q", "origin", branch])
         self.git_command(path, ["reset", "-q", "--hard", "FETCH_HEAD"])
@@ -195,7 +211,10 @@ class BackportsTestHelper:
     def scap_backport(self, args_list):
         """Run scap backport and perform a standard interaction with it"""
         child = self._start_scap_backport(args_list)
-        self._scap_backport_interact(child, args_list)
+        try:
+            self._scap_backport_interact(child, args_list)
+        finally:
+            child.terminate(force=True)
 
     def _pexpect_spawn(self, cmd, *args) -> pexpect.spawn:
         return pexpect.spawn(
@@ -411,7 +430,7 @@ class BackportsTestHelper:
             # * [2]FAQ patch:     1.40.0-wmf.10
             deployed_branches = [
                 "wmf/" + ver
-                for ver in utils.get_active_wikiversions(self.mwconfig_dir, "dev")
+                for ver in scap.utils.get_active_wikiversions(self.mwconfig_dir, "dev")
             ]
             current_branch = deployed_branches[0]
 
@@ -489,12 +508,15 @@ class BackportsTestHelper:
 
         # And deploy it, answering 'y' to the confirmation of the weird situation.
         child = self._start_scap_backport([change_url])
-        child.expect_exact(
-            " not found in any deployed wikiversion. Deployed wikiversions: "
-        )
-        child.expect_exact("Continue with Backport? (y/n):")
-        child.sendline("y")
-        self._scap_backport_interact(child)
+        try:
+            child.expect_exact(
+                " not found in any deployed wikiversion. Deployed wikiversions: "
+            )
+            child.expect_exact("Continue with Backport? (y/n):")
+            child.sendline("y")
+            self._scap_backport_interact(child)
+        finally:
+            child.terminate(force=True)
 
         # Now create a new patch which "Depends-On" the first one. By default, it uses the same non-prod branch
         self.setup_mediawiki_config_repo()
@@ -527,18 +549,42 @@ class BackportsTestHelper:
         FIXME: it might be interesting to also test for submodule _and_ merge commit
         """
         # Freshen up
-        self.setup_growthexperiments_repo()
+        self.setup_visualeditor_repo()
 
-        copying_path = self.mwgrowthexperiments_dir + "/COPYING"
+        copying_path = self.mwvisualeditor_dir + "/README.md"
         text = "\nAdded by setup_extension_change on " + datetime.now().strftime(
             "%Y-%m-%d %H:%M:%S"
         )
         change_url = self.change_and_push_file(
-            self.mwgrowthexperiments_dir,
+            self.mwvisualeditor_dir,
             self.mwbranch,
             copying_path,
             text,
-            "setup_extension_change: add line to bottom of COPYING",
+            "setup_extension_change: add line to bottom of README",
+        )
+        self.git_command(self.mwconfig_dir, ["reset", "--hard", "HEAD~1"])
+        return change_url
+
+    def setup_unusual_submodule_path_change(self):
+        """Creates a change in a submodule that has an unusual path and pushes to gerrit.
+        The local commit is discarded.
+
+        Returns the change url.
+        """
+        self.setup_visualeditor_repo()
+        ve_dir = self.mwvisualeditor_dir + "/lib/ve"
+
+        readme_path = ve_dir + "/README.md"
+        text = (
+            "\nAdded by setup_unusual_submodule_path_change on "
+            + datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        )
+        change_url = self.change_and_push_file(
+            ve_dir,
+            self.mwbranch,
+            readme_path,
+            text,
+            "setup_unusual_submodule_path_change: add line to bottom of README.md",
         )
         self.git_command(self.mwconfig_dir, ["reset", "--hard", "HEAD~1"])
         return change_url
@@ -550,7 +596,7 @@ class BackportsTestHelper:
             [
                 "git",
                 "-C",
-                self.mwgrowthexperiments_dir,
+                self.mwvisualeditor_dir,
                 "rev-list",
                 "@{u}..HEAD",
                 "--count",
@@ -594,13 +640,17 @@ class TestBackports(unittest.TestCase):
         self.backports_test_helper.merge_commit_backport()
 
     def test_extension_and_revert(self):
-        announce("Testing mediawiki/extensions/GrowthExperiments change")
+        announce("Testing mediawiki/extensions/VisualEditor change")
         change_url = self.backports_test_helper.setup_extension_change()
         self.backports_test_helper.scap_backport([change_url])
-        announce(
-            "Testing mediawiki/extensions/GrowthExperiments backport --revert change"
-        )
+        announce("Testing mediawiki/extensions/VisualEditor backport --revert change")
         self.assertEqual(self.backports_test_helper.extension_revert(change_url), "1")
+
+    def test_unusual_submodule_path(self):
+        """Tests recognition of a submodule with a project name that differs from the submodule name"""
+        announce("Testing mediawiki/extensions/VisualEditor/lib/ve change")
+        change_url = self.backports_test_helper.setup_unusual_submodule_path_change()
+        self.backports_test_helper.scap_backport([change_url])
 
     def _test_dependencies(self, dep_type, change_urls):
         if len(change_urls) != 3:
@@ -647,13 +697,15 @@ class TestBackports(unittest.TestCase):
         announce(
             "Testing chain of dependencies in a non-production branch is allowed pending user approval"
         )
-
         child = self.backports_test_helper.depends_with_nonprod_branch()
-        child.expect_exact(
-            " not found in any deployed wikiversion. Deployed wikiversions: "
-        )
-        child.expect_exact("Continue with Backport? (y/n):")
-        child.sendline("n")
+        try:
+            child.expect_exact(
+                " not found in any deployed wikiversion. Deployed wikiversions: "
+            )
+            child.expect_exact("Continue with Backport? (y/n):")
+            child.sendline("n")
+        finally:
+            child.terminate(force=True)
 
     def test_depends_on_different_branch(self):
         announce(
@@ -714,27 +766,30 @@ class TestBackports(unittest.TestCase):
             "Testing whether confirmation is requested if extra commits are pulled"
         )
         child = self.backports_test_helper.backport_with_extra_commits()
-        child.expect_exact("Backport the changes? (y/n): ")
-        child.sendline("y")
+        try:
+            child.expect_exact("Backport the changes? (y/n): ")
+            child.sendline("y")
 
-        child.expect_exact(
-            "The following are unexpected commits pulled from origin for /srv/mediawiki-staging"
-        )
-        child.expect_exact("Would you like to see the diff? (y/n): ")
-        child.sendline("y")
+            child.expect_exact(
+                "The following are unexpected commits pulled from origin for /srv/mediawiki-staging"
+            )
+            child.expect_exact("Would you like to see the diff? (y/n): ")
+            child.sendline("y")
 
-        child.expect_exact(
-            "There were unexpected commits pulled from origin for /srv/mediawiki-staging."
-        )
-        child.expect_exact(
-            "Continue with deployment (all patches will be deployed)? (y/n): "
-        )
+            child.expect_exact(
+                "There were unexpected commits pulled from origin for /srv/mediawiki-staging."
+            )
+            child.expect_exact(
+                "Continue with deployment (all patches will be deployed)? (y/n): "
+            )
 
-        # Go ahead and "deploy" the extra commit to avoid confusing other tests by leaving
-        # a merged-but-unpulled commit
-        child.sendline("y")
+            # Go ahead and "deploy" the extra commit to avoid confusing other tests by leaving
+            # a merged-but-unpulled commit
+            child.sendline("y")
 
-        self.backports_test_helper._scap_backport_interact(child)
+            self.backports_test_helper._scap_backport_interact(child)
+        finally:
+            child.terminate(force=True)
 
     def test_concurrency(self):
         announce("Testing behavior during concurrent backports")

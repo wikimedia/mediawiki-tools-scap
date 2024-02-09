@@ -601,11 +601,19 @@ def remap_submodules(location, server):
 
 
 def list_submodules(repo, args):
-    """List all of the submodules of a given respository"""
+    """Return a list of the URLs of the submodules of the given repository"""
     ensure_dir(repo)
 
     return gitcmd(
-        "submodule", "-q", "foreach", "echo $name", args, cwd=repo
+        "submodule",
+        "-q",
+        "foreach",
+        "git",
+        "remote",
+        "get-url",
+        "origin",
+        args,
+        cwd=repo,
     ).splitlines()
 
 

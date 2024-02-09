@@ -63,6 +63,7 @@ class GitRepos:
     base_repos = []
     submodules = {}
     logger = None
+    gerrit = None
 
     def __init__(
         self,
@@ -72,6 +73,7 @@ class GitRepos:
         versions,
         mediawiki_location,
         base_repos,
+        gerrit,
     ):
         self.OPERATIONS_CONFIG = operations_config
         self.config_branch = config_branch
@@ -79,19 +81,20 @@ class GitRepos:
         self.mediawiki_location = mediawiki_location
         self.base_repos = base_repos
         self.logger = logger
+        self.gerrit = gerrit
 
     def get(self, branch):
-        """Returns the submodules for a branch.
+        """Returns a list of the projects names of the submodules for a branch.
         Gets and adds them to the dictionary if they haven't been recorded yet
         """
         res = self.submodules.get(branch)
         if res:
             return res
-        res = git.list_submodules(
-            self.mediawiki_location + "/php-" + branch, "--recursive"
+        submodule_urls = _get_submodule_urls(self.mediawiki_location + "/php-" + branch)
+        self.submodules[branch] = self.gerrit.submodule_projects_from_urls(
+            submodule_urls
         )
-        self.submodules[branch] = res
-        return res
+        return self.submodules[branch]
 
     def non_config_is_in_production(self, project, branches, change_number):
         """Non-config projects only.
@@ -212,6 +215,10 @@ class GerritChange:
             )
 
 
+def _get_submodule_urls(repo):
+    return git.list_submodules(repo, "--recursive")
+
+
 @cli.command(
     "backport",
     help="List, apply, or revert backports",
@@ -263,9 +270,16 @@ class Backport(cli.Application):
         self.config_branch = self.config["operations_mediawiki_config_branch"]
         self.mediawiki_location = self.config["stage_dir"]
         self.versions = self.active_wikiversions("stage")
-        self.base_repos = git.list_submodules(
-            self.mediawiki_location, "--recursive"
-        ) + ["core"]
+
+        if len(self.versions) <= 0:
+            self.get_logger().warning("No active wikiversions!")
+            raise SystemExit(1)
+
+        submodule_urls = _get_submodule_urls(self.mediawiki_location)
+        self.base_repos = self.gerrit.submodule_projects_from_urls(submodule_urls) + [
+            "mediawiki/core"
+        ]
+
         change_numbers = [self._change_number(n) for n in self.arguments.change_numbers]
         self.git_submodules = GitRepos(
             self.get_logger(),
@@ -274,6 +288,7 @@ class Backport(cli.Application):
             self.versions,
             self.mediawiki_location,
             self.base_repos,
+            self.gerrit,
         )
 
         self._assert_auth_sock()
@@ -423,10 +438,6 @@ class Backport(cli.Application):
             raise SystemExit(e)
 
     def _list_available_backports(self):
-        if len(self.versions) <= 0:
-            self.get_logger().warning("No active wikiversions!")
-            raise SystemExit(1)
-
         backports = self._get_available_backports()
 
         if len(backports) <= 0:
@@ -552,7 +563,7 @@ class Backport(cli.Application):
 
             if project == self.OPERATIONS_CONFIG:
                 repo_location = self.mediawiki_location
-            elif project == "core":
+            elif project == "mediawiki/core":
                 repo_location = "%s/php-%s" % (
                     self.mediawiki_location,
                     branch.replace("wmf/", ""),
@@ -664,8 +675,8 @@ class Backport(cli.Application):
         In case the backport is not in a production branch, get confirmation from operator
         """
 
-        project = change["project"].replace("mediawiki/", "")
-        branch = change["branch"]
+        project = change.get("project")
+        branch = change.get("branch")
 
         if not self.git_submodules.are_any_branches_deployable(
             change["_number"], project, [branch]
