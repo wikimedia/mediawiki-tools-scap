@@ -662,20 +662,20 @@ class SecurityPatchCheck(cli.Application):
 class CompileWikiversions(cli.Application):
     """Compile wikiversions.json to wikiversions.php."""
 
+    # This flag is no longer needed, but left here for compatibility with any existing scripts which
+    # might still pass this flag.  T357581, T329857
     @cli.argument(
         "--staging",
         action="store_true",
-        help="Compile wikiversions in staging directory",
+        help="Compile wikiversions in staging directory.  This flag is deprecated since wikiversions-compile always uses the staging directory.",
     )
     def main(self, *extra_args):
         if self.arguments.staging:
-            source_tree = "stage"
-        else:
-            source_tree = "deploy"
-            self._run_as("mwdeploy")
-            self._assert_current_user("mwdeploy")
+            self.get_logger().warn(
+                "The --staging flag is deprecated and will be removed in a future release."
+            )
 
-        tasks.compile_wikiversions(source_tree, self.config)
+        tasks.compile_wikiversions("stage", self.config)
         return 0
 
 
@@ -688,17 +688,20 @@ class MWVersionsInUse(cli.Application):
         action="store_true",
         help="Add `=wikidb` with some wiki using the version.",
     )
+    # This flag is no longer needed, but left here for compatibility with any existing scripts which
+    # might still pass this flag.  T357581, T329857
     @cli.argument(
         "--staging",
         action="store_true",
-        help="Compile wikiversions in staging directory",
+        help="Read wikiversions from the staging directory.  This flag is deprecated since wikiversions-inuse always uses the staging directory.",
     )
     def main(self, *extra_args):
         if self.arguments.staging:
-            source_tree = "stage"
-        else:
-            source_tree = "deploy"
-        versions = self.active_wikiversions(source_tree, return_type=dict)
+            self.get_logger().warn(
+                "The --staging flag is deprecated and will be removed in a future release."
+            )
+
+        versions = self.active_wikiversions("stage", return_type=dict)
 
         if self.arguments.withdb:
             output = [
