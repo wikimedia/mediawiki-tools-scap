@@ -519,7 +519,9 @@ class AbstractSync(cli.Application):
         # If the canary endpoint check took less than the wait time we
         # should wait longer
         if remaining_wait_time > 0:
-            self.get_logger().info("Waiting for canary traffic...")
+            self.get_logger().info(
+                f"Waiting {remaining_wait_time} seconds for canary traffic..."
+            )
             time.sleep(remaining_wait_time)
         # Otherwise Canary endpoint check took more than the wait time
         # we should adjust the logstash canary delay
