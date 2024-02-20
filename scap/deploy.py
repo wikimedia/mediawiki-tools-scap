@@ -620,8 +620,6 @@ class DeployLocal(cli.Application):
 class Deploy(cli.Application):
     """
     Sync new service code across cluster.
-
-    Uses local .scaprc as config for each host in cluster
     """
 
     MAX_BATCH_SIZE = 80
