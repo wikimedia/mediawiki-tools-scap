@@ -24,6 +24,7 @@ import argparse
 import errno
 import getpass
 import locale
+import math
 import os
 import select
 import socket
@@ -520,7 +521,7 @@ class AbstractSync(cli.Application):
         # should wait longer
         if remaining_wait_time > 0:
             self.get_logger().info(
-                f"Waiting {remaining_wait_time} seconds for canary traffic..."
+                f"Waiting {math.ceil(remaining_wait_time)} seconds for canary traffic..."
             )
             time.sleep(remaining_wait_time)
         # Otherwise Canary endpoint check took more than the wait time
