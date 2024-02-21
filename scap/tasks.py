@@ -65,52 +65,46 @@ RELOAD = "reload"
 DISABLE_SECONDARY = "disable-secondary"
 
 
-def logstash_canary_checks(canaries, service, threshold, logstash, delay, cores=2):
+def logstash_canary_checks(service, threshold, logstash, delay):
     """
     Run the logstash canary checks on test application servers.
 
-    :param canaries: list, canaries to check
     :param threshold: float, average log multiple at which to fail
     :param service: string, name of the service to check
     :param logstash: string, logstash server
-    :param verbose: bool, verbose output
     :param delay: float, time between deploy and now
-    :param cores: number of processor cores to use
+
+    Return True if checks passed, False if not.
     """
     logger = utils.get_logger()
 
     canary_checks = []
 
-    # Build Check command list
-    for canary in canaries:
-        check_name = "Logstash Error rate for {}".format(canary)
+    check_name = "Logstash canary error rate"
 
-        # Split canary name at first "." since domain isn't in logs
-        canary = canary.split(".")[0]
+    cmd = [
+        "/usr/local/bin/logstash_checker.py",
+        "--service-name",
+        service,
+        "--host",
+        "canaries",
+        "--fail-threshold",
+        threshold,
+        "--delay",
+        delay,
+        "--logstash-host",
+        logstash,
+    ]
 
-        cmd = [
-            "/usr/local/bin/logstash_checker.py",
-            "--service-name",
-            service,
-            "--host",
-            canary,
-            "--fail-threshold",
-            threshold,
-            "--delay",
-            delay,
-            "--logstash-host",
-            logstash,
-        ]
+    cmd = " ".join(map(str, cmd))
+    canary_checks.append(
+        checks.Check(check_name, "logstash-canary", command=cmd, timeout=120.0)
+    )
 
-        cmd = " ".join(map(str, cmd))
-        canary_checks.append(
-            checks.Check(check_name, "logstash-canary", command=cmd, timeout=120.0)
-        )
-
-    success, done = checks.execute(canary_checks, logger, concurrency=cores)
+    success, done = checks.execute(canary_checks, logger)
     failed = [job.check.name for job in done if job.isfailure()]
 
-    return (len(done) - len(failed), len(failed))
+    return len(failed) == 0
 
 
 def endpoint_canary_checks(canaries, url, spec_path="/spec.yaml", cores=2):
