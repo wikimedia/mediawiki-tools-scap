@@ -31,6 +31,7 @@ import subprocess
 import sys
 import tempfile
 import time
+import urllib.parse
 import yaml
 
 import requests
@@ -88,8 +89,21 @@ class DeployLocal(cli.Application):
         self.server_url = None
         self.stages = STAGES
 
+    # This is called by scap.cli.Application.setup(), which is called
+    # early in the application startup process.
     def _load_config(self):
         super()._load_config()
+
+        self.server_url = urllib.parse.urlunparse(
+            (
+                self.config["git_scheme"],
+                self.config["git_server"],
+                self.arguments.repo,
+                None,
+                None,
+                None,
+            )
+        )
 
         # FIXME: this makes the assumption that the git_deploy_dir specified on
         # the target machines in /etc/scap.cfg is correct. Currently, we have
@@ -138,9 +152,6 @@ class DeployLocal(cli.Application):
     )
     def main(self, *extra_args):
         self.rev = self.config["git_rev"]
-        # only supports http from deployment server for the moment
-        url = os.path.normpath("{git_server}/{git_repo}".format(**self.config))
-        self.server_url = "http://{0}".format(url)
 
         if self.arguments.stage:
             self.stages = [self.arguments.stage]
@@ -598,12 +609,7 @@ class DeployLocal(cli.Application):
 
     def _get_remote_overrides(self):
         """Grab remote config from git_server."""
-        cfg_url = "{}://{}".format(
-            self.config["git_scheme"],
-            os.path.join(
-                self.config["git_server"], self.arguments.repo, ".git", "DEPLOY_HEAD"
-            ),
-        )
+        cfg_url = os.path.join(self.server_url, ".git", "DEPLOY_HEAD")
         r = requests.get(cfg_url)
         r.raise_for_status()
 
@@ -1147,6 +1153,8 @@ class Deploy(cli.Application):
         size = int(self.config.get("{}_batch_size".format(stage), default))
         return min(size, self.MAX_BATCH_SIZE)
 
+    # This is called by scap.cli.Application.setup(), which is called
+    # early in the application startup process.
     def _load_config(self):
         """Set the host directory after the config has been loaded."""
 
