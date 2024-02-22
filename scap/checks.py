@@ -68,13 +68,16 @@ def execute(checks, logger, concurrency=1):
     """
     Execute the given checks in parallel.
 
-    :param checks: iterable of `checks.Check` objects
+    :param checks: iterable of `checks.Check` objects, or a single `checks.Check` object.
     :param logger: `logging.Logger` to send messages to
     :param concurrency: level of concurrency
 
     :returns: tuple of the aggregate check success and list of executed checks
     :rtype: (bool, list)
     """
+
+    if isinstance(checks, Check):
+        checks = [checks]
 
     epoll = select.epoll()
     todo = checks[::-1]

@@ -494,6 +494,11 @@ class AbstractSync(cli.Application):
         :raises SystemExit: on canary check failure
         """
 
+        # Deployment to canaries finishes just before canary_checks()
+        # is called, so this time is when the canary deployments
+        # finished.
+        start = time.time()
+
         ##################
         # Swagger checks #
         ##################
@@ -516,14 +521,17 @@ class AbstractSync(cli.Application):
                     )
                 )
 
-        time_since_sync = timer.mark("Canary Endpoint Check Complete")
+            timer.mark("Canary Endpoint Check Complete")
+
+        # How long endpoint checks took
+        endpoint_checks_time = time.time() - start
 
         ###########################
         # Wait for canary traffic #
         ###########################
 
         canary_wait_time = self.config["canary_wait_time"]
-        remaining_wait_time = canary_wait_time - time_since_sync
+        remaining_wait_time = canary_wait_time - endpoint_checks_time
 
         # If the canary endpoint check took less than the wait time we
         # should wait longer
@@ -532,31 +540,60 @@ class AbstractSync(cli.Application):
                 f"Waiting {math.ceil(remaining_wait_time)} seconds for canary traffic..."
             )
             time.sleep(remaining_wait_time)
-        # Otherwise canary endpoint checks took more than the wait time
-        # we should adjust the logstash canary delay
-        else:
-            canary_wait_time = time_since_sync
 
         ###################
         # Logstash checks #
         ###################
 
-        succeeded = tasks.logstash_canary_checks(
-            self.config["canary_service"],
-            self.config["canary_threshold"],
-            self.config["logstash_host"],
-            canary_wait_time,
-        )
-
-        if not succeeded:
-            self._fail_canary_checks(
-                "The average error rate across "
-                "canaries increased by {}x "
-                "(rerun with --force to override this check, "
-                "see {} for details).".format(
-                    self.config["canary_threshold"], self.config["canary_dashboard_url"]
-                )
+        while True:
+            status = tasks.logstash_canary_checks(
+                self.config["canary_service"],
+                self.config["canary_threshold"],
+                self.config["logstash_host"],
+                time.time() - start,
             )
+
+            if status == 0:
+                # Checks OK!
+                return
+
+            if status == 10:
+                self._fail_canary_checks(
+                    "The average error rate across "
+                    "canaries increased by {}x "
+                    "(rerun with --force to override this check, "
+                    "see {} for details).".format(
+                        self.config["canary_threshold"],
+                        self.config["canary_dashboard_url"],
+                    )
+                )
+
+            # Something weird happened with logstash_checker.py.
+            self.get_logger().warning(
+                "Failed to complete canary checks for some reason."
+            )
+
+            if not sys.stdin.isatty():
+                self.announce("Scap cancelled")
+                sys.exit(1)
+
+            while True:
+                resp = input(
+                    "What do you want to do?\n[1] Exit scap\n[2] Retry canary checks\n[3] Continue with deployment\n-> "
+                )
+                resp = resp.strip()
+                if resp == "1":
+                    self.announce("Scap cancelled")
+                    sys.exit(1)
+                if resp == "2":
+                    break
+                if resp == "3":
+                    self.get_logger().info("Proceeding with deployment")
+                    return
+                print(f"Unexpected input: {resp}")
+                # Loop around and re-prompt
+
+            # If we reach here, we'll loop around and re-run the canary logstash check.
 
     def _setup_php(self):
         """

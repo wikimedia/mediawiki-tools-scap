@@ -150,7 +150,7 @@ def confirm(question="Continue?", default=False, on_fulfilled=None, on_rejected=
     else:
         choices = "[y/N]"
 
-    # in case stdin is not a tty or the user accepts the default answer, then
+    # in case stdout is not a tty or the user accepts the default answer, then
     # the result will be default.
     result = default
 

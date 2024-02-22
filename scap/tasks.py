@@ -74,11 +74,9 @@ def logstash_canary_checks(service, threshold, logstash, delay):
     :param logstash: string, logstash server
     :param delay: float, time between deploy and now
 
-    Return True if checks passed, False if not.
+    Returns the exit status of logstash_checker.py
     """
     logger = utils.get_logger()
-
-    canary_checks = []
 
     check_name = "Logstash canary error rate"
 
@@ -97,14 +95,12 @@ def logstash_canary_checks(service, threshold, logstash, delay):
     ]
 
     cmd = " ".join(map(str, cmd))
-    canary_checks.append(
-        checks.Check(check_name, "logstash-canary", command=cmd, timeout=120.0)
-    )
 
-    success, done = checks.execute(canary_checks, logger)
-    failed = [job.check.name for job in done if job.isfailure()]
+    check = checks.Check(check_name, "logstash-canary", command=cmd, timeout=120.0)
 
-    return len(failed) == 0
+    success, done = checks.execute(check, logger)
+
+    return done[0].proc.returncode
 
 
 def endpoint_canary_checks(canaries, url, spec_path="/spec.yaml", cores=2):
