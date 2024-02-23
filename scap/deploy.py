@@ -26,6 +26,7 @@ from datetime import datetime
 import errno
 import glob
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -321,8 +322,13 @@ class DeployLocal(cli.Application):
         git_remote = os.path.join(self.server_url, ".git")
         logger.info("Fetch from: {}".format(git_remote))
 
+        fetch_config = {}
+        original_origin = self.config.get("original_origin")
+        if original_origin:
+            fetch_config["lfs.url"] = f"{original_origin}/info/lfs"
+
         # clone/fetch from the repo to the cache directory
-        git.fetch(self.context.cache_dir, git_remote)
+        git.fetch(self.context.cache_dir, git_remote, config=fetch_config)
 
         if has_submodules:
             upstream_submodules = self.config["git_upstream_submodules"]
@@ -364,6 +370,7 @@ class DeployLocal(cli.Application):
             reference=self.context.cache_dir,
             dissociate=False,
             recurse_submodules=False,
+            config=fetch_config,
         )
 
         logger.info("Checkout rev: {}".format(self.rev))
@@ -378,6 +385,24 @@ class DeployLocal(cli.Application):
                 use_upstream=upstream_submodules,
                 reference=self.context.cache_dir,
             )
+
+        if not git_binary_manager:
+            # Autodetect the git_binary_manager(s) to use by
+            # scanning .gitattributes.
+            git_binary_manager = set()
+
+            gitatttributes_filename = os.path.join(rev_dir, ".gitattributes")
+            if os.path.exists(gitatttributes_filename):
+                with open(gitatttributes_filename) as f:
+                    for line in f.readlines():
+                        if re.search(r"\bfilter=lfs\b", line):
+                            git_binary_manager.add(git.LFS)
+                        elif re.search(r"\bfilter=fat\b", line):
+                            git_binary_manager.add(git.FAT)
+
+            git_binary_manager = list(git_binary_manager)
+            if git_binary_manager:
+                logger.info(f"Auto-set git_binary_manager to {git_binary_manager}")
 
         if git_binary_manager:
             for manager in git_binary_manager:
@@ -740,7 +765,8 @@ class Deploy(cli.Application):
             logger.warning("No targets selected, check limits and dsh_targets")
             return 1
 
-        short_sha1 = git.info(self.context.root)["headSHA1"][:7]
+        git_info = git.info(self.context.root)
+        short_sha1 = git_info["headSHA1"][:7]
         if not short_sha1:
             short_sha1 = "UNKNOWN"
 
@@ -805,6 +831,7 @@ class Deploy(cli.Application):
                         "commit": commit,
                         "user": utils.get_username(),
                         "timestamp": timestamp.isoformat(),
+                        "original_origin": git_info["remoteURL"],
                     }
                 )
 
