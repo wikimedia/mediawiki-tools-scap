@@ -272,16 +272,32 @@ def last_deploy_tag(location):
 
 
 def next_deploy_tag(location):
-    """Calculates the scap/sync/{date}/{n} tag to use for this deployment"""
+    """Calculates the scap/sync/YYYY-MM-DD/{n} tag to use for this deployment"""
     ensure_dir(location)
     timestamp = datetime.utcnow()
-    date = timestamp.strftime("%F")
-    args = ["--list"]
-    tag_fmt = os.path.join(TAG_PREFIX, "{}", "*")
-    args.append(tag_fmt.format(date))
-    seq = len(gitcmd("tag", *args, cwd=location).splitlines()) + 1
-    tag_fmt = os.path.join(TAG_PREFIX, "{0}", "{1:04d}")
-    return tag_fmt.format(date, seq)
+    date = timestamp.strftime("%F")  # YYYY-MM-DD format.
+
+    last_seq = 0
+
+    todays_tags = gitcmd(
+        "tag",
+        "--list",
+        "--sort=-version:refname",
+        f"{TAG_PREFIX}/{date}/*",
+        cwd=location,
+    ).splitlines()
+    if todays_tags:
+        last_tag = todays_tags[0]
+        m = re.search(r"/(\d{4})$", last_tag)
+        if not m:
+            raise ValueError(
+                f"The most recent deployment tag '{last_tag}' does not have the expected format."
+            )
+        last_seq = int(m[1])
+
+    seq = last_seq + 1
+
+    return f"{TAG_PREFIX}/{date}/{seq:04d}"
 
 
 def ensure_dir(location):
@@ -504,7 +520,7 @@ def tag_repo(deploy_info, location=os.getcwd()):
     with utils.cd(location):
         gitcmd(
             "tag",
-            "-fa",
+            "-a",
             "-muser {}".format(deploy_info["user"]),
             "-mtimestamp {}".format(deploy_info["timestamp"]),
             "--",
