@@ -5,6 +5,7 @@
     Helpers for git operations and interacting with .git directories
 
 """
+import collections
 import errno
 import os
 import re
@@ -94,7 +95,7 @@ def fat_isinitialized(location):
         return False
 
 
-def largefile_pull(location, implementor):
+def largefile_pull(location, implementor, submodules=False):
     """Syncs all git-fat or git-lfs objects for the given repo directory.
 
     :param location: Repository to work in
@@ -102,6 +103,8 @@ def largefile_pull(location, implementor):
     """
     if implementor == LFS:
         gitcmd("lfs", "pull", cwd=location)
+        if submodules:
+            gitcmd("submodule", "foreach", "--recursive", "git lfs pull", cwd=location)
     elif implementor == FAT:
         fat_init(location)
         gitcmd("fat", "pull", cwd=location)
@@ -437,6 +440,7 @@ def update_submodules(
     reference=None,
     checkout=False,
     force=False,
+    lfs_smudge=False,
 ):
     """Update git submodules on target machines"""
 
@@ -449,10 +453,12 @@ def update_submodules(
 
     sync_submodules(location)
 
+    original_submodules_info = None
+
     logger.debug("Fetch submodules")
     if not use_upstream:
         logger.debug("Remapping submodule %s to %s", location, git_remote)
-        remap_submodules(location, git_remote)
+        original_submodules_info = remap_submodules(location, git_remote)
     else:
         logger.debug("Using upstream submodules")
 
@@ -470,7 +476,19 @@ def update_submodules(
         cmd.append("--reference")
         cmd.append(reference)
 
-    gitcmd("submodule", *cmd, cwd=location)
+    env = os.environ.copy()
+    if not lfs_smudge:
+        env["GIT_LFS_SKIP_SMUDGE"] = "1"
+
+    gitcmd("submodule", *cmd, cwd=location, env=env)
+
+    if original_submodules_info:
+        for submodule_name, submodule_info in original_submodules_info.items():
+            lfs_url = f"{submodule_info['url']}/info/lfs"
+            logger.debug(f"Setting lfs.url of {submodule_name} to {lfs_url}")
+            gitcmd(
+                "config", "lfs.url", lfs_url, cwd=os.path.join(location, submodule_name)
+            )
 
 
 @utils.log_context("git_update_server_info")
@@ -561,6 +579,27 @@ def resolve_gitdir(directory):
     return git_dir
 
 
+def parse_submodules(location) -> dict:
+    """
+    Reads .gitmodules and returns a dictionary of information about each
+    defined submodule.
+
+    The key is the name of the submodule, and the value is a dictionary
+    with "path" (typically the same as the submodule name) and "url" keys.
+    """
+    submodules = collections.defaultdict(dict)
+
+    for line in gitcmd(
+        "config", "--list", "--file", ".gitmodules", cwd=location
+    ).splitlines():
+        m = re.match(r"submodule\.(.*)\.(path|url)=(.*)$", line)
+        if m:
+            name, setting, value = m.groups()
+            submodules[name][setting] = value
+
+    return submodules
+
+
 def remap_submodules(location, server):
     """Remap all submodules to deployment server
 
@@ -588,32 +627,21 @@ def remap_submodules(location, server):
     # ensure we're working with a non-modified .gitmodules file
     gitcmd("checkout", ".gitmodules", cwd=location)
 
-    # get .gitmodule info
-    modules = gitcmd("config", "--list", "--file", ".gitmodules", cwd=location)
+    submodules_info = parse_submodules(location)
 
-    submodules = {}
-    for line in modules.split("\n"):
-        if not line.startswith("submodule."):
-            continue
-
-        module_conf = line.split("=")
-        module_name = module_conf[0].strip()
-
-        if module_name.endswith(".path"):
-            name = module_name[len("submodule.") : -len(".path")]
-            submodules[name] = module_conf[1].strip()
-
-    with open(gitmodule, "w") as module:
-        for submodule_name, submodule_path in submodules.items():
+    with utils.temp_to_permanent_file(gitmodule) as module:
+        for submodule_name, info in submodules_info.items():
             # Since we're using a non-bare http remote, map the submodule
             # to the submodule path under $GIT_DIR/modules subdirectory of
             # the superproject (git documentation: https://git.io/v4W9F).
             remote_path = "{}/modules/{}".format(server, submodule_name)
             module.write('[submodule "{}"]\n'.format(submodule_name))
-            module.write("\tpath = {}\n".format(submodule_path))
+            module.write("\tpath = {}\n".format(info["path"]))
             module.write("\turl = {}\n".format(remote_path))
 
     sync_submodules(location)
+
+    return submodules_info
 
 
 def list_submodules(repo, args):

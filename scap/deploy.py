@@ -408,7 +408,7 @@ class DeployLocal(cli.Application):
             for manager in git_binary_manager:
                 logger.info("Pulling large objects [using %s]", manager)
                 if manager in [git.FAT, git.LFS]:
-                    git.largefile_pull(rev_dir, manager)
+                    git.largefile_pull(rev_dir, manager, has_submodules)
                 else:
                     logger.warning("Passed unrecognized binary manager %s", manager)
 

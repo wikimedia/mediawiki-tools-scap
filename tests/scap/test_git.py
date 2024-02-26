@@ -68,3 +68,27 @@ class GitTest(unittest.TestCase):
 
     def test_git_gc(self):
         git.garbage_collect(TEMPDIR)
+
+    def test_parse_submodules(self):
+        gitmodules_path = os.path.join(TEMPDIR, ".gitmodules")
+
+        try:
+            with open(gitmodules_path, "w") as f:
+                f.write('[submodule "sub"]\n\tpath= sub\n\turl = /tmp\n')
+            out = git.parse_submodules(TEMPDIR)
+            assert out
+            assert "sub" in out
+            assert "url" in out["sub"]
+            assert out["sub"]["url"] == "/tmp"
+
+            # Same thing, but with one less tab character.
+            with open(gitmodules_path, "w") as f:
+                f.write('[submodule "sub"]\npath = sub\n\turl = /tmp\n')
+            out = git.parse_submodules(TEMPDIR)
+            assert out
+            assert "sub" in out
+            assert "url" in out["sub"]
+            assert out["sub"]["url"] == "/tmp"
+        finally:
+            if os.path.exists(gitmodules_path):
+                os.unlink(gitmodules_path)
