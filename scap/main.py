@@ -132,55 +132,52 @@ class AbstractSync(cli.Application):
 
                 full_target_list = self._get_target_list()
 
-                if not self.arguments.force:
-                    # Deploy K8s test releases
-                    self._deploy_k8s_testservers()
+                # Deploy K8s test releases
+                self._deploy_k8s_testservers()
 
-                    testservers = utils.list_intersection(
-                        self._get_testserver_list(), full_target_list
+                testservers = utils.list_intersection(
+                    self._get_testserver_list(), full_target_list
+                )
+                if len(testservers) > 0:
+                    with log.Timer("sync-testservers", self.get_stats()):
+                        self.sync_targets(testservers, "testservers")
+
+                # Not all subclasses of AbstractSync define the --pause-after-testserver-sync argument,
+                # so we can't assume it is in self.arguments.
+                if getattr(self.arguments, "pause_after_testserver_sync", False):
+                    users = " and ".join(
+                        set(
+                            [getpass.getuser()]
+                            + getattr(self.arguments, "notify_user", [])
+                        )
                     )
-                    if len(testservers) > 0:
-                        with log.Timer("sync-testservers", self.get_stats()):
-                            self.sync_targets(testservers, "testservers")
-
-                    # Not all subclasses of AbstractSync define the --pause-after-testserver-sync argument,
-                    # so we can't assume it is in self.arguments.
-                    if getattr(self.arguments, "pause_after_testserver_sync", False):
-                        users = " and ".join(
-                            set(
-                                [getpass.getuser()]
-                                + getattr(self.arguments, "notify_user", [])
-                            )
-                        )
-                        message = (
-                            "%s: %s synced to the testservers (https://wikitech.wikimedia.org/wiki/Mwdebug)"
-                            % (users, self.arguments.message)
-                        )
-                        self.announce(message)
-                        self.prompt_for_approval_or_exit(
-                            "Changes synced to the testservers. (see https://wikitech.wikimedia.org/wiki/Mwdebug)\n"
-                            "Please do any necessary checks before continuing.\n"
-                            "Continue with sync?",
-                            "Sync cancelled.",
-                        )
-                        self.announce(f"{users}: Continuing with sync")
-
-                    # Deploy K8s canary releases
-                    self._deploy_k8s_canaries()
-
-                    canaries = utils.list_intersection(
-                        self._get_canary_list(), full_target_list
+                    message = (
+                        "%s: %s synced to the testservers (https://wikitech.wikimedia.org/wiki/Mwdebug)"
+                        % (users, self.arguments.message)
                     )
-                    with log.Timer("sync-check-canaries", self.get_stats()) as timer:
-                        if canaries:
-                            self.sync_targets(canaries, "canaries")
-                            timer.mark("Canaries Synced")
+                    self.announce(message)
+                    self.prompt_for_approval_or_exit(
+                        "Changes synced to the testservers. (see https://wikitech.wikimedia.org/wiki/Mwdebug)\n"
+                        "Please do any necessary checks before continuing.\n"
+                        "Continue with sync?",
+                        "Sync cancelled.",
+                    )
+                    self.announce(f"{users}: Continuing with sync")
+
+                # Deploy K8s canary releases
+                self._deploy_k8s_canaries()
+
+                canaries = utils.list_intersection(
+                    self._get_canary_list(), full_target_list
+                )
+                with log.Timer("sync-check-canaries", self.get_stats()) as timer:
+                    if canaries:
+                        self.sync_targets(canaries, "canaries")
+                        timer.mark("Canaries Synced")
+                    if self.arguments.force:
+                        self.get_logger().warning("Canary checks skipped by --force")
+                    else:
                         self.canary_checks(canaries, timer)
-
-                else:
-                    self.get_logger().warning(
-                        "Testservers and canaries skipped by --force"
-                    )
 
                 # Deploy K8s production releases
                 self._deploy_k8s_production()
