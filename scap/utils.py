@@ -1054,16 +1054,7 @@ def get_current_train_info(api_url, proxy=None) -> dict:
     Returns a dictionary containing information about this week's train
     """
 
-    # Support absolute file:// URLs for testing (particularly by train-dev).
-    if api_url.startswith("file:///"):
-        with open(api_url[len("file://") :]) as f:
-            current = json.loads(f.read())
-    else:
-        proxies = {"http": proxy, "https": proxy} if proxy else None
-        resp = requests.get(api_url, proxies=proxies)
-        resp.raise_for_status()
-
-        current = resp.json()["current"]
+    current = get_train_blockers_info(api_url, proxy)["current"]
 
     version = current["version"]
     task = current["task_id"]
@@ -1082,6 +1073,23 @@ def get_current_train_info(api_url, proxy=None) -> dict:
         "task": task,
         "status": status,
     }
+
+
+def get_train_blockers_info(api_url, proxy=None) -> dict:
+    """
+    Returns a dictionary with details about the current and upcoming train blocker tasks
+    """
+
+    # Support absolute file:// URLs for testing (particularly by train-dev).
+    if api_url.startswith("file:///"):
+        with open(api_url[len("file://") :]) as f:
+            return {"current": json.loads(f.read())}
+    else:
+        proxies = {"http": proxy, "https": proxy} if proxy else None
+        resp = requests.get(api_url, proxies=proxies)
+        resp.raise_for_status()
+
+        return resp.json()
 
 
 def expand_dblist(stage_dir, db_list_name: str) -> list:
@@ -1103,3 +1111,23 @@ def get_group_versions(group, directory, realm) -> list:
             versions.add(version)
 
     return sorted(versions, key=parse_wmf_version)
+
+
+def select_latest_patches(patch_base_dir):
+    """
+    Find the latest /srv/patches/<version> directory. Useful to e.g. populate the patches dir for a new version by
+    carrying over the most recent patches
+
+    Returns None if unavailable.
+    """
+
+    candidates = [
+        name for name in os.listdir(patch_base_dir) if re.match(BRANCH_RE, name)
+    ]
+
+    if not candidates:
+        return None
+
+    latest_patches_vers = sorted(candidates, key=parse_wmf_version)[-1]
+
+    return os.path.join(patch_base_dir, latest_patches_vers)

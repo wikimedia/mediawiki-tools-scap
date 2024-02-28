@@ -238,7 +238,15 @@ def add_all(location, message="Update"):
         gitcmd("init", cwd=location)
 
     gitcmd("add", "--all", cwd=location)
+    set_env_vars_for_user()
 
+    try:
+        gitcmd("commit", "--quiet", "-m", message, cwd=location)
+    except FailedCommand:
+        pass  # ignore errors
+
+
+def set_env_vars_for_user():
     # None of these values can be unset or empty strings because we use
     # them as git envvars below. Unset values and empty strings will
     # cause git to shout about ident errors.
@@ -253,11 +261,6 @@ def add_all(location, message="Update"):
 
     os.environ["GIT_COMMITTER_NAME"] = ename
     os.environ["GIT_AUTHOR_NAME"] = rname
-
-    try:
-        gitcmd("commit", "--quiet", "-m", message, cwd=location)
-    except FailedCommand:
-        pass  # ignore errors
 
 
 def last_deploy_tag(location):

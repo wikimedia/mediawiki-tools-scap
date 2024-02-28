@@ -125,7 +125,13 @@ DEFAULT_CONFIG = {
     "install_ssh_user": (str, "scap"),
     "scap_source_dir": (str, "/srv/deployment/scap"),
     "scap_targets": (str, "scap_targets"),
+    # Phabricator/Phorge settings
+    "phorge_url": (str, "https://phabricator.wikimedia.org"),
+    # Settings related to "apply-patches"
     "require_security_patches": (bool, True),  # T350070
+    "notify_patch_failures": (bool, False),
+    "patch_bot_phorge_name": (str, "SecurityPatchBot"),
+    "patch_bot_phorge_token": (str, None),
 }
 
 

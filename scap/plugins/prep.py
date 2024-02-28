@@ -15,7 +15,7 @@ from scap import log
 from scap.plugins import patches
 from scap import utils
 from scap.lock import Lock
-
+from scap.plugins.patches import SecurityPatches
 
 HISTORY_ABORT_STATUS = 127
 
@@ -270,7 +270,7 @@ class CheckoutMediaWiki(cli.Application):
                     branch,
                 ] + self.format_passthrough_args()
                 subprocess.check_call(args)
-            _patches.fix_mtimes(pre_patch_state)
+            SecurityPatches.fix_mtimes(pre_patch_state)
 
         logger.info("MediaWiki %s successfully checked out." % checkout_version)
 
@@ -288,29 +288,6 @@ class CheckoutMediaWiki(cli.Application):
 
         return sorted(candidates, key=utils.parse_wmf_version)[-1]
 
-    def _select_reference_patches(self):
-        """
-        Find the latest /srv/patches/<version> directory to copy
-        to set up a new version.
-
-        Returns None if unavailable.
-        """
-
-        patch_base_dir = self.config["patch_path"]
-
-        candidates = [
-            name
-            for name in os.listdir(patch_base_dir)
-            if re.match(utils.BRANCH_RE, name)
-        ]
-
-        if not candidates:
-            return None
-
-        latest_patches_vers = sorted(candidates, key=utils.parse_wmf_version)[-1]
-
-        return os.path.join(patch_base_dir, latest_patches_vers)
-
     def _setup_patches(self, version):
         logger = self.get_logger()
 
@@ -322,7 +299,7 @@ class CheckoutMediaWiki(cli.Application):
             logger.debug("Patches already set up for {}".format(version))
             return
 
-        reference_patches = self._select_reference_patches()
+        reference_patches = utils.select_latest_patches(patch_base_dir)
 
         if not reference_patches:
             logger.warn("No reference patches available to copy")
