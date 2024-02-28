@@ -1,3 +1,14 @@
+scap (4.67.0)
+
+  * deploy: Fix git-lfs support (submodules)
+  * k8s: fix behavior when `--force` flag is supplied to `sync-world`
+  * Fix longstanding bug in git.next_deploy_tag()
+  * deploy: Fix git-lfs support
+  * deploy-local: Initialize self.server_url early
+  * Handle logstash timeouts separately from spikes in errors reported by logstash
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Wed, 28 Feb 2024 08:07:09 -0800
+
 scap (4.66.0)
 
   * Check bare metal and mw-on-k8s canaries
