@@ -205,6 +205,7 @@ class Check(object):
     :param group: deploy group for which to run the check
     :param timeout: maximum time allowed for check execution, in seconds
     :param command: check command to run
+    :param shell: If True, a shell is used to execute "command".
     """
 
     def __init__(
@@ -217,6 +218,7 @@ class Check(object):
         group=None,
         timeout=30.0,
         command="",
+        shell=False,
         **opts
     ):
         self.name = name
@@ -226,6 +228,7 @@ class Check(object):
         self.group = group
         self.timeout = timeout
         self.command = command
+        self.shell = shell
         self.options = opts
 
         if self.environment is None:
@@ -275,11 +278,15 @@ class CheckJob(object):
         """Inititalizes a new CheckJob and begins execution."""
 
         self.check = check
+
+        cmd = check.command if check.shell else shlex.split(check.command)
+
         self.proc = subprocess.Popen(
-            shlex.split(check.command),
+            cmd,
             env=check.environment,
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
+            shell=check.shell,
         )
         self.fd = self.proc.stdout.fileno()
         self.stream = self.proc.stdout

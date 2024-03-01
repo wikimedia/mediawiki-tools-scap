@@ -24,7 +24,6 @@ import argparse
 import errno
 import getpass
 import locale
-import math
 import os
 import select
 import socket
@@ -33,6 +32,7 @@ import time
 from concurrent.futures import ThreadPoolExecutor
 
 import scap.arg as arg
+import scap.checks as checks
 import scap.cli as cli
 import scap.lint as lint
 import scap.lock as lock
@@ -135,12 +135,16 @@ class AbstractSync(cli.Application):
                 # Deploy K8s test releases
                 self._deploy_k8s_testservers()
 
-                testservers = utils.list_intersection(
+                baremetal_testservers = utils.list_intersection(
                     self._get_testserver_list(), full_target_list
                 )
-                if len(testservers) > 0:
+                if len(baremetal_testservers) > 0:
                     with log.Timer("sync-testservers", self.get_stats()):
-                        self.sync_targets(testservers, "testservers")
+                        self.sync_targets(baremetal_testservers, "testservers")
+                if self.arguments.force:
+                    self.get_logger().warning("Test server checks skipped by --force")
+                else:
+                    self.check_testservers(baremetal_testservers)
 
                 # Not all subclasses of AbstractSync define the --pause-after-testserver-sync argument,
                 # so we can't assume it is in self.arguments.
@@ -177,7 +181,7 @@ class AbstractSync(cli.Application):
                     if self.arguments.force:
                         self.get_logger().warning("Canary checks skipped by --force")
                     else:
-                        self.canary_checks(canaries, timer)
+                        self.canary_checks()
 
                 # Deploy K8s production releases
                 self._deploy_k8s_production()
@@ -474,20 +478,14 @@ class AbstractSync(cli.Application):
         self._perform_sync(type, sync_cmd, targets)
         self.already_restarted |= set(targets)
 
-    def _fail_canary_checks(self, message):
-        message = (
-            f"Scap failed! {message}\nWARNING: Canaries have not been rolled back."
-        )
-        self.announce(message)
-        raise SystemExit(message)
+    def cancel(self):
+        self.announce("Scap cancelled\nWARNING: Nothing has been rolled back.")
+        sys.exit(1)
 
-    def canary_checks(self, canaries, timer):
+    def canary_checks(self):
         """
-        Run canary checks.  This includes swagger checks (for bare metal servers)
-        and logstash error rate checks (for bare metal and mw-on-k8s).
+        Run logstash error rate checks (for bare metal and mw-on-k8s).
 
-        :param canaries: Iterable of bare metal canary servers to swagger check
-        :param timer: log.Timer
         :raises SystemExit: on canary check failure
         """
 
@@ -496,53 +494,21 @@ class AbstractSync(cli.Application):
         # finished.
         start = time.time()
 
-        ##################
-        # Swagger checks #
-        ##################
-
-        if canaries:
-            # If more than 1/4 of the canaries failed, stop deployment
-            max_failed_canaries = max(len(canaries) / 4, 1)
-
-            swagger_url = self.config["mediawiki_canary_swagger_url"]
-            spec_path = self.config["mediawiki_canary_swagger_spec_path"]
-
-            succeeded, failed = tasks.endpoint_canary_checks(
-                canaries, swagger_url, spec_path, cores=utils.cpus_for_jobs()
-            )
-
-            if failed >= max_failed_canaries:
-                self._fail_canary_checks(
-                    ("{}/{} canaries failed their endpoint checks ({}).").format(
-                        failed, len(canaries), swagger_url
-                    )
-                )
-
-            timer.mark("Canary Endpoint Check Complete")
-
-        # How long endpoint checks took
-        endpoint_checks_time = time.time() - start
+        logger = self.get_logger()
 
         ###########################
         # Wait for canary traffic #
         ###########################
 
         canary_wait_time = self.config["canary_wait_time"]
-        remaining_wait_time = canary_wait_time - endpoint_checks_time
-
-        # If the canary endpoint check took less than the wait time we
-        # should wait longer
-        if remaining_wait_time > 0:
-            self.get_logger().info(
-                f"Waiting {math.ceil(remaining_wait_time)} seconds for canary traffic..."
-            )
-            time.sleep(remaining_wait_time)
+        logger.info(f"Waiting {canary_wait_time} seconds for canary traffic...")
+        time.sleep(canary_wait_time)
 
         ###################
         # Logstash checks #
         ###################
 
-        while True:
+        def test_func() -> bool:
             status = tasks.logstash_canary_checks(
                 self.config["canary_service"],
                 self.config["canary_threshold"],
@@ -552,10 +518,9 @@ class AbstractSync(cli.Application):
 
             if status == 0:
                 # Checks OK!
-                return
-
-            if status == 10:
-                self._fail_canary_checks(
+                return True
+            elif status == 10:
+                logger.error(
                     "The average error rate across "
                     "canaries increased by {}x "
                     "(rerun with --force to override this check, "
@@ -564,33 +529,62 @@ class AbstractSync(cli.Application):
                         self.config["canary_dashboard_url"],
                     )
                 )
+                # Checks not OK!
+                return False
+            else:
+                # Something weird happened with logstash_checker.py.
+                logger.warning("Failed to complete canary checks for some reason.")
+                return False
 
-            # Something weird happened with logstash_checker.py.
-            self.get_logger().warning(
-                "Failed to complete canary checks for some reason."
+        utils.retry_continue_exit("canary checks", test_func, self.cancel, logger)
+
+    def check_testservers(self, baremetal_testservers: list):
+        """
+        Check bare metal and k8s testservers.
+
+        :raises SystemExit: on check failure
+        """
+        baremetal_check_cmd = self.config["testservers_check_cmd_baremetal"]
+        k8s_check_cmd = self.config["testservers_check_cmd_k8s"]
+        checkslist = []
+
+        if baremetal_check_cmd and baremetal_testservers:
+            env = os.environ.copy()
+            env["BAREMETAL_TESTSERVERS"] = ",".join(baremetal_testservers)
+
+            checkslist.append(
+                checks.Check(
+                    "check_testservers_baremetal",
+                    command=baremetal_check_cmd,
+                    timeout=120,
+                    shell=True,
+                    environment=env,
+                )
+            )
+        if k8s_check_cmd:
+            checkslist.append(
+                checks.Check(
+                    "check_testservers_k8s",
+                    command=k8s_check_cmd,
+                    timeout=120,
+                    shell=True,
+                )
             )
 
-            if not sys.stdin.isatty():
-                self.announce("Scap cancelled")
-                sys.exit(1)
+        if not checkslist:
+            return
 
-            while True:
-                resp = input(
-                    "What do you want to do?\n[1] Exit scap\n[2] Retry canary checks\n[3] Continue with deployment\n-> "
-                )
-                resp = resp.strip()
-                if resp == "1":
-                    self.announce("Scap cancelled")
-                    sys.exit(1)
-                if resp == "2":
-                    break
-                if resp == "3":
-                    self.get_logger().info("Proceeding with deployment")
-                    return
-                print(f"Unexpected input: {resp}")
-                # Loop around and re-prompt
+        logger = self.get_logger()
 
-            # If we reach here, we'll loop around and re-run the canary logstash check.
+        with log.Timer("check-testservers", self.get_stats()):
+
+            def test_func() -> bool:
+                success, jobs = checks.execute(checkslist, logger, concurrency=2)
+                return success
+
+            utils.retry_continue_exit(
+                "testserver checks", test_func, self.cancel, logger
+            )
 
     def _setup_php(self):
         """

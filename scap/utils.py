@@ -97,6 +97,28 @@ def eintr_retry(func, *args):
             raise
 
 
+def prompt_choices(choices: dict) -> str:
+    """
+    Use the 'choices' dict to present a list of choices to the user.
+    Returns the valid choice that the user made.  Re-prompt if an
+    invalid choice is made.
+    """
+    while True:
+        for key, value in choices.items():
+            print(f"[{key}] {value}")
+        resp = input("What do you want to do?: ")
+        if resp in choices:
+            return resp
+        print(f"Unexpected input: {resp}")
+
+
+def terminal_interactive() -> bool:
+    """
+    Returns True if both stdin and stdout are attached to a terminal.
+    """
+    return sys.stdin.isatty() and sys.stdout.isatty()
+
+
 def ask(question, default, choices=None):
     """
     Provide a y/n prompt if the controlling terminal is interactive.
@@ -109,7 +131,7 @@ def ask(question, default, choices=None):
     :returns: str User input or default value
     """
 
-    if not sys.stdout.isatty():
+    if not terminal_interactive():
         return default
 
     if choices is None:
@@ -154,7 +176,7 @@ def confirm(question="Continue?", default=False, on_fulfilled=None, on_rejected=
     # the result will be default.
     result = default
 
-    if sys.stdout.isatty():
+    if terminal_interactive():
         ans = input("{} {}: ".format(question, choices)).strip().lower()
         if ans in yes:
             result = True
@@ -173,6 +195,51 @@ def confirm(question="Continue?", default=False, on_fulfilled=None, on_rejected=
             on_rejected()
 
     return result
+
+
+def retry_continue_exit(description, test_func, exit_func, logger):
+    """
+    Runs test_func().  If it returns True, this function returns.
+    If test_func() does not return true:
+
+    * If an interactive terminal is not available, exit_func() is called
+      and it is not expected to return.
+    * If an interactive terminal is available, ask the user if they want to
+      retry the test, continue with deployment anyway, or exit.   If the user
+      chooses to retry, this function starts over.  If the user chooses to
+      continue, a message is logged and this function returns.  If the user
+      chooses to exit, exit_func() is called and it is not expected to return.
+
+    'description' is used to describe the operation to retry in the
+    retry/continue/exit prompt.
+
+    """
+    while True:
+        if test_func():
+            break
+
+        if not terminal_interactive():
+            exit_func()
+            break
+
+        resp = prompt_choices(
+            {
+                "r": f"Retry {description}",
+                "c": "Continue with deployment",
+                "e": "Exit scap",
+            }
+        )
+        if resp == "r":
+            # loop around and try again
+            continue
+        elif resp == "c":
+            logger.info("Continuing with deployment")
+            break
+        elif resp == "e":
+            exit_func()
+            break
+        else:
+            raise Exception("This should never happen")
 
 
 def find_nearest_host(hosts, port=22, timeout=1):
