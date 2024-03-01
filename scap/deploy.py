@@ -26,7 +26,6 @@ from datetime import datetime
 import errno
 import glob
 import os
-import re
 import shutil
 import subprocess
 import sys
@@ -385,24 +384,6 @@ class DeployLocal(cli.Application):
                 use_upstream=upstream_submodules,
                 reference=self.context.cache_dir,
             )
-
-        if not git_binary_manager:
-            # Autodetect the git_binary_manager(s) to use by
-            # scanning .gitattributes.
-            git_binary_manager = set()
-
-            gitatttributes_filename = os.path.join(rev_dir, ".gitattributes")
-            if os.path.exists(gitatttributes_filename):
-                with open(gitatttributes_filename) as f:
-                    for line in f.readlines():
-                        if re.search(r"\bfilter=lfs\b", line):
-                            git_binary_manager.add(git.LFS)
-                        elif re.search(r"\bfilter=fat\b", line):
-                            git_binary_manager.add(git.FAT)
-
-            git_binary_manager = list(git_binary_manager)
-            if git_binary_manager:
-                logger.info(f"Auto-set git_binary_manager to {git_binary_manager}")
 
         if git_binary_manager:
             for manager in git_binary_manager:
