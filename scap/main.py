@@ -1283,7 +1283,8 @@ class LockManager(cli.Application):
             repo = "ALL REPOSITORIES"
         else:
             lock_path = self.get_lock_file()
-            repo = self.config["git_repo"]
+            # This value is used only for log messages.
+            repo = self.config.get("git_repo", "mediawiki")
 
         with lock.Lock(lock_path, name="lock-manager", reason=self.arguments.message):
             forced_lock_release_r = None
