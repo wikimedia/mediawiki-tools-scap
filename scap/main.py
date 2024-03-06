@@ -355,7 +355,7 @@ class AbstractSync(cli.Application):
             cmd = ["env", "SCAP_MW_LANG={}".format(lang)] + cmd
         return cmd
 
-    def _base_scap_pull_command(self, just_rsync=True) -> list:
+    def _base_scap_pull_command(self) -> list:
         """
         Returns (as a list) the basic scap pull command to run on a remote
         target.  Note that no source servers are specified in the command
@@ -363,12 +363,14 @@ class AbstractSync(cli.Application):
         defined to be in the scap configuration on the target.
         """
         cmd = [self.get_script_path(remote=True), "pull"]
-        if just_rsync:
-            cmd.extend(["--no-php-restart", "--no-update-l10n"])
-        if self.verbose:
-            cmd.append("--verbose")
+
+        cmd.extend(["--no-php-restart", "--no-update-l10n"])
         if self.exclude_wikiversions_php:
             cmd.append("--exclude-wikiversions.php")
+
+        if self.verbose:
+            cmd.append("--verbose")
+
         for include in self.includes:
             cmd.extend(["--include", include])
 
@@ -463,20 +465,54 @@ class AbstractSync(cli.Application):
     def _after_lock_release(self):
         pass
 
+    def _after_sync_rebuild_cdbs(self, target_hosts):
+        # Ask target hosts to rebuild l10n CDB files
+        with log.Timer("scap-cdb-rebuild", self.get_stats()):
+            rebuild_cdbs = ssh.Job(
+                target_hosts, user=self.config["ssh_user"], key=self.get_keyholder_key()
+            )
+            rebuild_cdbs.shuffle()
+            rebuild_cdbs.command(
+                "sudo -u mwdeploy -n -- %s cdb-rebuild"
+                % self.get_script_path(remote=True)
+            )
+            rebuild_cdbs.progress(
+                log.reporter("scap-cdb-rebuild", self.config["fancy_progress"])
+            )
+            succeeded, failed = rebuild_cdbs.run()
+            if failed:
+                self.get_logger().warning(
+                    "%d hosts had scap-cdb-rebuild errors", failed
+                )
+                self.soft_errors = True
+
+    def _after_sync_sync_wikiversions(self, target_hosts):
+        # Update and sync wikiversions.php
+        succeeded, failed = tasks.sync_wikiversions(
+            target_hosts, self.config, key=self.get_keyholder_key()
+        )
+        if failed:
+            self.get_logger().warning("%d hosts had sync_wikiversions errors", failed)
+            self.soft_errors = True
+
     def sync_targets(self, targets=None, type=None):
         """
-        Run scap pull on the targets, including l10n rebuild and php-fpm restart.
-        The pull source will be this deploy server.
+        This function is used to sync to bare metal testservers and canaries.
+
+        Run scap pull on the targets, including l10n rebuild, wikiversions sync,
+        and php-fpm restart. The pull source will be this deploy server.
 
         :param targets: Iterable of target servers to sync
 
-        :param type: A string like "apaches" or "proxies" naming the type of target.
+        :param type: A string like "testservers" or "canaries" naming the type of target.
         """
-        sync_cmd = self._apache_sync_command(just_rsync=False)
+        sync_cmd = self._apache_sync_command()
         sync_cmd.append(socket.getfqdn())
 
         self._perform_sync(type, sync_cmd, targets)
-        self.already_restarted |= set(targets)
+        self._after_sync_rebuild_cdbs(targets)
+        self._after_sync_sync_wikiversions(targets)
+        self._restart_php_hostgroups([targets])
 
     def cancel(self):
         self.announce("Scap cancelled\nWARNING: Nothing has been rolled back.")
@@ -905,34 +941,8 @@ class ScapWorld(AbstractSync):
     def _after_cluster_sync(self):
         target_hosts = self._get_target_list()
 
-        # Ask apaches to rebuild l10n CDB files
-        with log.Timer("scap-cdb-rebuild", self.get_stats()):
-            rebuild_cdbs = ssh.Job(
-                target_hosts, user=self.config["ssh_user"], key=self.get_keyholder_key()
-            )
-            rebuild_cdbs.shuffle()
-            rebuild_cdbs.command(
-                "sudo -u mwdeploy -n -- %s cdb-rebuild"
-                % self.get_script_path(remote=True)
-            )
-            rebuild_cdbs.progress(
-                log.reporter("scap-cdb-rebuild", self.config["fancy_progress"])
-            )
-            succeeded, failed = rebuild_cdbs.run()
-            if failed:
-                self.get_logger().warning(
-                    "%d hosts had scap-cdb-rebuild errors", failed
-                )
-                self.soft_errors = True
-
-        # Update and sync wikiversions.php
-        succeeded, failed = tasks.sync_wikiversions(
-            target_hosts, self.config, key=self.get_keyholder_key()
-        )
-        if failed:
-            self.get_logger().warning("%d hosts had sync_wikiversions errors", failed)
-            self.soft_errors = True
-
+        self._after_sync_rebuild_cdbs(target_hosts)
+        self._after_sync_sync_wikiversions(target_hosts)
         self._restart_php()
         tasks.clear_message_blobs(self.config)
 
@@ -1020,7 +1030,7 @@ class SyncPull(cli.Application):
         "--no-php-restart",
         action="store_false",
         dest="php_restart",
-        help="Check to see if php needs a restart",
+        help="Don't restart php-fpm after the pull.",
     )
     @cli.argument(
         "servers", nargs=argparse.REMAINDER, help="Rsync server(s) to copy from"
