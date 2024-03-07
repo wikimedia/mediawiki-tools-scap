@@ -29,7 +29,10 @@ class BackportsTestHelper:
     mwconfig_dir = workdir + "/mediawiki-config"
     mwdir = workdir + "/mediawiki"
     mwcore_dir = mwdir + "/core"
+    mwgrowthexperiments_dir = mwdir + "/extensions/GrowthExperiments"
     mwvisualeditor_dir = mwdir + "/extensions/VisualEditor"
+    mwstaging_dir = "/srv/mediawiki-staging"
+    mwphp_dir = None
     mwbranch = None
     gerrit = None
     gerrit_url = "http://gerrit.traindev:8080"
@@ -47,7 +50,9 @@ class BackportsTestHelper:
         scap.utils.mkdir_p(self.workdir)
 
         with open(self.homedir + "/new-version", "r") as f:
-            self.mwbranch = "wmf/" + f.read().rstrip()
+            version = f.read().strip()
+            self.mwbranch = "wmf/" + version
+            self.mwphp_dir = "php-" + version
 
         self.setup_mediawiki_config_repo()
         self.setup_core_repo()
@@ -67,6 +72,13 @@ class BackportsTestHelper:
             self.mwcore_dir,
         )
 
+    def setup_growthexperiments_repo(self):
+        self.git_clone(
+            self.mwbranch,
+            self.gerrit_url + "/mediawiki/extensions/GrowthExperiments",
+            self.mwgrowthexperiments_dir,
+        )
+
     def setup_visualeditor_repo(self):
         self.git_clone(
             self.mwbranch,
@@ -76,45 +88,49 @@ class BackportsTestHelper:
         self.git_command(self.mwvisualeditor_dir, ["submodule", "update", "--init"])
         self.install_commit_hook(self.mwvisualeditor_dir + "/.git/modules/lib/ve")
 
-    def setup_core_gitmodules(self):
+    def setup_gitmodule(self, dir, submodule_config, submodule_dir):
         self.git_command(
-            self.mwcore_dir,
+            dir,
             [
                 "config",
                 "-f",
                 ".gitmodules",
-                "submodule.extensions/VisualEditor.url",
-                self.gerrit_url + "/mediawiki/extensions/VisualEditor",
-            ],
-        )
-        self.git_command(
-            self.mwcore_dir,
-            [
-                "config",
-                "-f",
-                ".gitmodules",
-                "submodule.lib/ve.url",
-                self.gerrit_url + "/VisualEditor/VisualEditor",
+                submodule_config,
+                self.gerrit_url + submodule_dir,
             ],
         )
         if subprocess.check_output(
-            ["git", "-C", self.mwcore_dir, "status", "--porcelain", ".gitmodules"]
+            ["git", "-C", dir, "status", "--porcelain", ".gitmodules"]
         ):
-            announce(
-                "Tweaking submodule.extensions/VisualEditor.url and lib/ve.url in %s/.gitmodules"
-                % self.mwcore_dir
-            )
+            announce("Tweaking %s in %s/.gitmodules" % (submodule_config, dir))
             self.git_commit(
-                self.mwcore_dir,
-                "scap backport testing: set URL for extensions/VisualEditor and lib/ve to %s"
-                % self.gerrit_domain,
+                dir,
+                "scap backport testing: set URL for %s to %s"
+                % (submodule_dir, self.gerrit_domain),
                 ".gitmodules",
             )
-            change_url = self.push_and_collect_url(self.mwcore_dir, self.mwbranch)
-            self.git_command(self.mwcore_dir, ["reset", "--hard", "HEAD^"])
+            change_url = self.push_and_collect_url(dir, self.mwbranch)
+            self.git_command(dir, ["reset", "--hard", "HEAD^"])
             self.scap_backport([change_url])
-            self.git_command(self.mwcore_dir, ["pull"])
+            self.git_command(dir, ["pull"])
             announce(".gitmodules tweak successful")
+
+    def setup_core_gitmodules(self):
+        self.setup_gitmodule(
+            self.mwcore_dir,
+            "submodule.extensions/GrowthExperiments.url",
+            "/mediawiki/extensions/GrowthExperiments",
+        )
+        self.setup_gitmodule(
+            self.mwcore_dir,
+            "submodule.extensions/VisualEditor.url",
+            "/mediawiki/extensions/VisualEditor",
+        )
+        self.setup_gitmodule(
+            self.mwvisualeditor_dir,
+            "submodule.lib/ve.url",
+            "/VisualEditor/VisualEditor",
+        )
 
     def install_commit_hook(self, path):
         hookdir = path + "/hooks"
@@ -549,25 +565,25 @@ class BackportsTestHelper:
         FIXME: it might be interesting to also test for submodule _and_ merge commit
         """
         # Freshen up
-        self.setup_visualeditor_repo()
+        self.setup_growthexperiments_repo()
 
-        copying_path = self.mwvisualeditor_dir + "/README.md"
+        copying_path = self.mwgrowthexperiments_dir + "/COPYING"
         text = "\nAdded by setup_extension_change on " + datetime.now().strftime(
             "%Y-%m-%d %H:%M:%S"
         )
         change_url = self.change_and_push_file(
-            self.mwvisualeditor_dir,
+            self.mwgrowthexperiments_dir,
             self.mwbranch,
             copying_path,
             text,
-            "setup_extension_change: add line to bottom of README",
+            "setup_extension_change: add line to bottom of COPYING",
         )
-        self.git_command(self.mwconfig_dir, ["reset", "--hard", "HEAD~1"])
+        self.git_command(self.mwgrowthexperiments_dir, ["reset", "--hard", "HEAD~1"])
         return change_url
 
     def setup_unusual_submodule_path_change(self):
         """Creates a change in a submodule that has an unusual path and pushes to gerrit.
-        The local commit is discarded.
+        Updates the submodule link with another commit. The local commit to the submodule is discarded.
 
         Returns the change url.
         """
@@ -586,17 +602,29 @@ class BackportsTestHelper:
             text,
             "setup_unusual_submodule_path_change: add line to bottom of README.md",
         )
-        self.git_command(self.mwconfig_dir, ["reset", "--hard", "HEAD~1"])
-        return change_url
 
-    def extension_revert(self, change_url):
-        """reverts a change"""
+        # avoid merge conflicts in future test runs by updating the submodule link
+        self.git_command(ve_dir, ["reset", "--hard", "HEAD~1"])
+        self.scap_backport([change_url])
+        self.git_command(ve_dir, ["checkout", self.mwbranch])
+        self.git_command(ve_dir, ["pull"])
+        self.git_command(self.mwvisualeditor_dir, ["checkout", self.mwbranch])
+        self.git_commit(self.mwvisualeditor_dir, "update ve submodule link", "lib/ve")
+        return self.push_and_collect_url(self.mwvisualeditor_dir, self.mwbranch)
+
+    def growthexperiments_extension_revert(self, change_url):
+        """reverts a change
+
+        Returns the number of commits different between the local deploy branch and origin
+        """
         self.scap_backport(["--revert", change_url])
+        # confirm only one commit was pushed to gerrit (no submission of security patch)
+        # workdir does not contain patches; check must be done in /srv/mediawiki-staging
         return subprocess.check_output(
             [
                 "git",
                 "-C",
-                self.mwvisualeditor_dir,
+                self.mwstaging_dir + "/" + self.mwphp_dir,
                 "rev-list",
                 "@{u}..HEAD",
                 "--count",
@@ -639,12 +667,18 @@ class TestBackports(unittest.TestCase):
         )
         self.backports_test_helper.merge_commit_backport()
 
-    def test_extension_and_revert(self):
-        announce("Testing mediawiki/extensions/VisualEditor change")
+    def test_extension_and_revert_with_security_patch(self):
+        announce("Testing mediawiki/extensions/GrowthExperiments change")
         change_url = self.backports_test_helper.setup_extension_change()
         self.backports_test_helper.scap_backport([change_url])
-        announce("Testing mediawiki/extensions/VisualEditor backport --revert change")
-        self.assertEqual(self.backports_test_helper.extension_revert(change_url), "1")
+        announce(
+            "Testing mediawiki/extensions/GrowthExperiments backport --revert change"
+        )
+        # assert the security patch only exists locally
+        self.assertEqual(
+            self.backports_test_helper.growthexperiments_extension_revert(change_url),
+            "1",
+        )
 
     def test_unusual_submodule_path(self):
         """Tests recognition of a submodule with a project name that differs from the submodule name"""
