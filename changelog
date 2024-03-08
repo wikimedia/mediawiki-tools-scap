@@ -1,3 +1,9 @@
+scap (4.70.1)
+
+  * patches: fix patch path for patch failure notifications
+
+ -- Jaime Nuche <jnuche@wikimedia.org>  Fri, 08 Mar 2024 11:24:39 +0100
+
 scap (4.70.0)
 
   * test-backport: fix extension tests
