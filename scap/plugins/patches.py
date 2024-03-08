@@ -202,7 +202,7 @@ class ApplyPatches(cli.Application):
 
         release_task_id = notification_info.target_release_for_fixes["task_id"]
         release_task_phid = self.phorge_conduit.base_task_info(release_task_id)["phid"]
-        notification = self._compose_notification(notification_info)
+        notification = ApplyPatches._compose_notification(notification_info)
         self.phorge_conduit.edit_task(
             notification_info.patch_task,
             [
@@ -248,7 +248,8 @@ class ApplyPatches(cli.Application):
             and bot_comment_for_patch_is_present()
         )
 
-    def _compose_notification(self, notification_info):
+    @staticmethod
+    def _compose_notification(notification_info):
         patch_name = notification_info.patch_name
         module = notification_info.module
         target_release_task = notification_info.target_release_for_fixes["task_id"]
@@ -265,7 +266,7 @@ class ApplyPatches(cli.Application):
             "```\n"
             "REVISED_PATCH=<path_to_revised_patch>\n"
             "scap update-patch --message-body 'Rebase to solve merge conflicts with mainline code'"
-            f""" {self.config["patch_path"]}/{target_release_version}/{module}/{patch_name} "$REVISED_PATCH" """
+            f""" /srv/patches/{target_release_version}/{module}/{patch_name} "$REVISED_PATCH" """
             "```\n"
             "---\n"
             "//If the patch has been made public//\n"
@@ -274,7 +275,7 @@ class ApplyPatches(cli.Application):
             " with the following Scap command:\n"
             "```\n"
             "scap remove-patch --message-body 'Remove patch already made public'"
-            f" {self.config['patch_path']}/{target_release_version}/{module}/{patch_name}"
+            f" /srv/patches/{target_release_version}/{module}/{patch_name}"
             "```\n"
             "(Note that if patches for the version don't exist yet, they will be created and the patch you specified"
             " removed)"
