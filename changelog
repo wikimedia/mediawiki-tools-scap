@@ -1,3 +1,10 @@
+scap (4.71.0)
+
+  * patches: do not notify security tasks about git failures
+  * sync-world: Include wikiversions.php in testservers/canaries sync
+
+ -- Jaime Nuche <jnuche@wikimedia.org>  Mon, 11 Mar 2024 16:30:27 +0100
+
 scap (4.70.1)
 
   * patches: fix patch path for patch failure notifications
