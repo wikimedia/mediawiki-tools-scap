@@ -17,12 +17,16 @@ APPLIED = 1
 ALREADY_APPLIED = 2
 FAILED = 3
 SKIPPED = 4
+GIT_NOT_CLEAN = 5
+ERROR = 6
 
 KNOWN_RESULTS = {
     APPLIED: "APPLIED",
     ALREADY_APPLIED: "ALREADY APPLIED",
     FAILED: "FAILED",
     SKIPPED: "SKIPPED",
+    GIT_NOT_CLEAN: "GIT NOT CLEAN",
+    ERROR: "ERROR",
 }
 
 
@@ -59,6 +63,9 @@ class ApplyPatches(cli.Application):
         required=False,
     )
     def main(self, *extra_args):
+        def unsuccessful(res):
+            return res in [FAILED, GIT_NOT_CLEAN, ERROR]
+
         self._post_init()
 
         train = self.arguments.train
@@ -88,7 +95,7 @@ class ApplyPatches(cli.Application):
                 ret = patch.apply(srcroot, self.arguments.abort_git_am_on_fail)
                 if ret not in KNOWN_RESULTS:
                     sys.exit("Patch.apply returned unknown value {!r}".format(ret))
-                if ret == FAILED:
+                if unsuccessful(ret):
                     apply_in_curdir = False
             else:
                 ret = SKIPPED
@@ -99,10 +106,12 @@ class ApplyPatches(cli.Application):
             print("[{}] {}".format(KNOWN_RESULTS[ret], patch.path()))
 
         any_failed = any(ret == FAILED for (ret, _) in results)
-        if any_failed:
-            if self.config["notify_patch_failures"]:
-                self._notify_failures(results)
-            sys.exit("At least one patch failed to apply")
+        if any_failed and self.config["notify_patch_failures"]:
+            self._notify_failures(results)
+
+        any_unsuccessful = any(unsuccessful(ret) for (ret, _) in results)
+        if any_unsuccessful:
+            sys.exit("At least one patch did not apply successfully")
 
         return 0
 
@@ -587,10 +596,10 @@ class Patch:
         try:
             if not git_is_clean(srcdir):
                 print("ERROR: git is not clean: %s" % srcdir)
-                return FAILED
+                return GIT_NOT_CLEAN
         except FailedCommand as e:
-            print("ERROR: git is clean: %s" % e.stderr)
-            return FAILED
+            print("ERROR: while checking if git is clean: %s" % e.stderr)
+            return ERROR
 
         try:
             output = gitcmd("am", "--3way", self.path(), cwd=srcdir)
