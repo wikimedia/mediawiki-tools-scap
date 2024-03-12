@@ -12,6 +12,7 @@ from datetime import timedelta, datetime
 from scap import cli, utils, git
 from scap.phorge_conduit import PhorgeConduit
 from scap.runcmd import gitcmd, FailedCommand
+from scap.utils import BRANCH_RE
 
 APPLIED = 1
 ALREADY_APPLIED = 2
@@ -173,6 +174,18 @@ class ApplyPatches(cli.Application):
             self.config["train_blockers_url"], self.config["web_proxy"]
         )
         current = train_tasks["current"]
+
+        # ## If the patches are being applied on a MW version branch (typically as part of the branch cut process) ## #
+        if BRANCH_RE.match(self.arguments.train):
+            if current["version"] != self.arguments.train:
+                raise Exception(
+                    f"Tried to apply patches to version {self.arguments.train} but current train version is"
+                    f" {current['version']}. This situation is currently not handled by the patch notifier"
+                )
+
+            return current
+
+        # ## If the patches are being applied on mainline branch (typically as part of nightly checks) ## #
 
         # If the current task is valid and its corresponding branch hasn't been created yet, that's where we want the
         # fixed patches to be
