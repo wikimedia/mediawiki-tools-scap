@@ -51,6 +51,7 @@ class Application(object):
     program_name = None
     _logger = None
     _announce_logger = None
+    _have_announced = False
     _stats = None
     arguments = None
     config = None
@@ -171,6 +172,7 @@ class Application(object):
             if self._announce_logger is None:
                 self._announce_logger = logging.getLogger("scap.announce")
             self._announce_logger.info(*args)
+            self._have_announced = True
 
     def active_wikiversions(self, source_tree="deploy", return_type=list):
         """
@@ -197,7 +199,13 @@ class Application(object):
         """Exits successfully with a message if the user does not approve."""
         approval = utils.prompt_user_for_confirmation(prompt_message)
         if not approval:
-            self.announce(exit_message)
+            # Avoid announcing (to IRC, etc) that someone has
+            # cancelled an operation if there was no announcement that
+            # someone started an operation.
+            if self._have_announced:
+                self.announce(exit_message)
+            else:
+                self.get_logger().info(exit_message)
             sys.exit(os.EX_OK)
 
     def _process_arguments(self, args, extra_args):
