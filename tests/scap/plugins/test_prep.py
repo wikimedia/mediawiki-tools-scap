@@ -28,7 +28,7 @@ def test_scap_prep_sets_a_push_url(git, _):
         dest_dir,
         None,
     )
-    git.gitcmd.assert_called_with(
+    git.gitcmd.assert_any_call(
         "remote",
         "set-url",
         "--push",

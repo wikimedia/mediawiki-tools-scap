@@ -338,8 +338,51 @@ class CheckoutMediaWiki(cli.Application):
                 os.path.join(self.config["gerrit_push_url"], repo_name),
                 cwd=dir,
             )
+            # If the repo checkout is being reused, that can cause problems when a
+            # module is removed upstream from `.gitmodules`. We detect that situation
+            # and clean the local checkout
+            self._check_for_removed_submodules(dir)
 
         self.new_history.update(repo, branch, dir, head)
+
+    def _check_for_removed_submodules(self, local_repo_dir):
+        status_output = git.gitcmd("status", "--porcelain", cwd=local_repo_dir)
+        untracked_files = [
+            # `out` looks like something like "?? extensions/Cite/"
+            re.sub(r"/$", "", out.split()[1])
+            for out in status_output.splitlines()
+            if "??" in out
+        ]
+
+        for untracked_file in untracked_files:
+            # Check if submodule dir
+            try:
+                subprocess.check_call(
+                    ["git", "config", f"submodule.{untracked_file}.url"],
+                    cwd=local_repo_dir,
+                )
+            except subprocess.CalledProcessError:
+                # Not a leftover submodule dir, ignore
+                continue
+
+            # If no exception, we found a dirty submodule dir. Let's clean
+
+            submodule_dir = os.path.join(local_repo_dir, untracked_file)
+            self.get_logger().info(f"Found orphan submodule. Deleting {submodule_dir}")
+            shutil.rmtree(submodule_dir)
+
+            git_submodule_dir = os.path.join(
+                local_repo_dir, ".git/modules", untracked_file
+            )
+            if os.path.isdir(git_submodule_dir):
+                shutil.rmtree(git_submodule_dir)
+
+            git.gitcmd(
+                "config",
+                "--remove-section",
+                f"submodule.{untracked_file}",
+                cwd=local_repo_dir,
+            )
 
     def _master_stuff(self, branch_dir, logger):
         # On train branches of mediawiki/core, extensions/vendors/skins are submodules.
