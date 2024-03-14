@@ -581,6 +581,18 @@ class BackportsTestHelper:
         self.git_command(self.mwgrowthexperiments_dir, ["reset", "--hard", "HEAD~1"])
         return change_url
 
+    def cleanup_unusual_submodule_change(self):
+        """Avoids merge conflicts in future test runs by updating the submodule link"""
+        ve_dir = self.mwvisualeditor_dir + "/lib/ve"
+
+        self.git_command(ve_dir, ["checkout", self.mwbranch])
+        self.git_command(ve_dir, ["pull"])
+        self.git_command(self.mwvisualeditor_dir, ["checkout", self.mwbranch])
+        self.git_commit(self.mwvisualeditor_dir, "update ve submodule link", "lib/ve")
+        self.scap_backport(
+            [self.push_and_collect_url(self.mwvisualeditor_dir, self.mwbranch)]
+        )
+
     def setup_unusual_submodule_path_change(self):
         """Creates a change in a submodule that has an unusual path and pushes to gerrit.
         Updates the submodule link with another commit. The local commit to the submodule is discarded.
@@ -603,14 +615,8 @@ class BackportsTestHelper:
             "setup_unusual_submodule_path_change: add line to bottom of README.md",
         )
 
-        # avoid merge conflicts in future test runs by updating the submodule link
         self.git_command(ve_dir, ["reset", "--hard", "HEAD~1"])
-        self.scap_backport([change_url])
-        self.git_command(ve_dir, ["checkout", self.mwbranch])
-        self.git_command(ve_dir, ["pull"])
-        self.git_command(self.mwvisualeditor_dir, ["checkout", self.mwbranch])
-        self.git_commit(self.mwvisualeditor_dir, "update ve submodule link", "lib/ve")
-        return self.push_and_collect_url(self.mwvisualeditor_dir, self.mwbranch)
+        return change_url
 
     def growthexperiments_extension_revert(self, change_url):
         """reverts a change
@@ -680,11 +686,14 @@ class TestBackports(unittest.TestCase):
             "1",
         )
 
-    def test_unusual_submodule_path(self):
+    def test_unusual_submodule_path_and_revert(self):
         """Tests recognition of a submodule with a project name that differs from the submodule name"""
         announce("Testing mediawiki/extensions/VisualEditor/lib/ve change")
         change_url = self.backports_test_helper.setup_unusual_submodule_path_change()
         self.backports_test_helper.scap_backport([change_url])
+        self.backports_test_helper.cleanup_unusual_submodule_change()
+        self.backports_test_helper.scap_backport(["--revert", change_url])
+        self.backports_test_helper.cleanup_unusual_submodule_change()
 
     def _test_dependencies(self, dep_type, change_urls):
         if len(change_urls) != 3:

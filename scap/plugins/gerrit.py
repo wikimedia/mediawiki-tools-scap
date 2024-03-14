@@ -93,14 +93,11 @@ class GerritSession(object):
     def change_detail(self, changeid, revisionid="current", **kwargs):
         return ChangeDetail(changeid, revisionid, session=self, **kwargs)
 
-    def submodule_projects_from_urls(self, submodule_urls):
-        gerrit_projects = []
-
-        for url in submodule_urls:
-            split_url = url.split(self.url)
-            if len(split_url) > 1:
-                gerrit_projects.append(split_url[-1].lstrip("/").replace(".git", ""))
-        return gerrit_projects
+    def submodule_project_from_url(self, submodule_url):
+        split_url = submodule_url.split(self.url)
+        if len(split_url) > 1:
+            return split_url[-1].lstrip("/").replace(".git", "")
+        return None
 
     def change_number_from_url(self, url):
         """Parses and returns the change number from the given URL."""

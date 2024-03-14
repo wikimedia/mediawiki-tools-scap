@@ -57,78 +57,96 @@ class GitRepos:
     """
 
     OPERATIONS_CONFIG = None
+    MEDIAWIKI_CORE = None
     config_branch = None
     versions = None
     mediawiki_location = None
-    base_repos = []
-    submodules = {}
-    logger = None
+    config_repos = {}
+    core_repos = {}
     gerrit = None
 
     def __init__(
         self,
-        logger,
+        mediawiki_core,
         operations_config,
         config_branch,
         versions,
         mediawiki_location,
-        base_repos,
         gerrit,
     ):
+        self.MEDIAWIKI_CORE = mediawiki_core
         self.OPERATIONS_CONFIG = operations_config
         self.config_branch = config_branch
         self.versions = versions
         self.mediawiki_location = mediawiki_location
-        self.base_repos = base_repos
-        self.logger = logger
         self.gerrit = gerrit
+        self.config_repos = self._get_submodules_paths(self.mediawiki_location)
+        self.config_repos[self.OPERATIONS_CONFIG] = self.mediawiki_location
 
-    def get(self, branch):
-        """Returns a list of the projects names of the submodules for a branch.
+    def _get_submodules_paths(self, location):
+        """Returns a dictionary of submodule project keys and path values for the given location"""
+        submodule_paths = {}
+        paths_urls = git.list_submodules_paths_urls(location, "--recursive")
+        for path_url in paths_urls:
+            path, url = path_url.split(" ")
+            project = self.gerrit.submodule_project_from_url(url)
+            if project is not None:
+                submodule_paths[project] = path
+        return submodule_paths
+
+    def _get_core_repos_for_branch(self, branch):
+        """Returns a dict of the core repos for a branch with project keys and path values.
         Gets and adds them to the dictionary if they haven't been recorded yet
         """
-        res = self.submodules.get(branch)
+        version = branch.replace("wmf/", "")
+        res = self.core_repos.get(version)
         if res:
             return res
-        submodule_urls = _get_submodule_urls(self.mediawiki_location + "/php-" + branch)
-        self.submodules[branch] = self.gerrit.submodule_projects_from_urls(
-            submodule_urls
-        )
-        return self.submodules[branch]
+        core_path = self.mediawiki_location + "/php-" + version
+        self.core_repos[version] = self._get_submodules_paths(core_path)
+        self.core_repos[version][self.MEDIAWIKI_CORE] = core_path
+        return self.core_repos[version]
 
-    def non_config_is_in_production(self, project, branches, change_number):
-        """Non-config projects only.
-        Checks if any of the included in branches of the project for the change are deployed to production.
-        The associated change_number is used for logging purposes.
+    def _is_project_in_production_mediawiki(self, project, branch):
+        """mediawiki & extensions projects only.
+        Checks if the branch of the project for the change is deployed to production.
         """
-        included_in_production_branches = set(
-            "wmf/{}".format(v) for v in self.versions
-        ).intersection(branches)
-        for branch in included_in_production_branches:
-            if project in self.base_repos + self.get(branch.replace("wmf/", "")):
-                return True
+        production_branches = [f"wmf/{v}" for v in self.versions]
+        return (
+            branch in production_branches
+            and project in self._get_core_repos_for_branch(branch)
+        )
 
-            self.logger.info(
-                "Change '%s', project '%s', branch '%s' not valid for any production "
-                "project/submodule" % (change_number, project, branch)
-            )
-        return False
-
-    def are_any_branches_deployable(self, change_number, project, branches):
-        """Checks if any of the supplied project/branches are deployed to production.
+    def is_branch_deployable(self, project, branch):
+        """Checks if the supplied project & branch is deployed to production.
         The associated change_number is used only for logging purposes.
         """
-        if project == self.OPERATIONS_CONFIG and self.config_branch in branches:
+        if branch == self.config_branch and project in self.config_repos:
             return True
-        elif project is not self.OPERATIONS_CONFIG:
-            if self.non_config_is_in_production(project, branches, change_number):
-                return True
+        elif self._is_project_in_production_mediawiki(project, branch):
+            return True
 
-        self.logger.warning(
-            "Change '%s', project '%s', branches '%s' not found in any deployed wikiversion. Deployed wikiversions: %s"
-            % (change_number, project, branches, list(self.versions))
-        )
         return False
+
+    def get_repo_location(self, project, branch, use_submodule_directory=False):
+        """Gets the location of the repo for the project and version defined by the branch.
+        If use_submodule_directory is True, then the submodule directory is returned,
+        otherwise, the parent project's location will be returned.
+
+        Returns the repo location
+        """
+        if project in self.config_repos:
+            if use_submodule_directory:
+                repo_location = self.config_repos[project]
+            else:
+                repo_location = self.mediawiki_location
+        else:
+            core_repos = self._get_core_repos_for_branch(branch)
+            if use_submodule_directory:
+                repo_location = core_repos[project]
+            else:
+                repo_location = core_repos[self.MEDIAWIKI_CORE]
+        return repo_location
 
 
 class InvalidChangeException(SystemExit):
@@ -236,14 +254,14 @@ class Backport(cli.Application):
     allowed_attempts = None
     backports = None
     backport_or_revert = None
-    base_repos = None
     config_branch = None
     deploy_user = None
     gerrit = None
-    git_submodules = None
+    git_repos = None
     interval = None
     mediawiki_location = None
     OPERATIONS_CONFIG = "operations/mediawiki-config"
+    MEDIAWIKI_CORE = "mediawiki/core"
     versions = None
 
     @cli.argument(
@@ -275,19 +293,13 @@ class Backport(cli.Application):
             self.get_logger().warning("No active wikiversions!")
             raise SystemExit(1)
 
-        submodule_urls = _get_submodule_urls(self.mediawiki_location)
-        self.base_repos = self.gerrit.submodule_projects_from_urls(submodule_urls) + [
-            "mediawiki/core"
-        ]
-
         change_numbers = [self._change_number(n) for n in self.arguments.change_numbers]
-        self.git_submodules = GitRepos(
-            self.get_logger(),
+        self.git_repos = GitRepos(
+            self.MEDIAWIKI_CORE,
             self.OPERATIONS_CONFIG,
             self.config_branch,
             self.versions,
             self.mediawiki_location,
-            self.base_repos,
             self.gerrit,
         )
 
@@ -361,6 +373,9 @@ class Backport(cli.Application):
                 return 0
 
             if self.arguments.stop_before_sync:
+                self.get_logger().info(
+                    "Skipping sync since --stop-before-sync was specified"
+                )
                 return 0
 
             self._sync_world()
@@ -558,22 +573,10 @@ class Backport(cli.Application):
         for change in self.backports.changes.values():
             revision = self.gerrit.change_revision_commit(change.get("id")).get()
             commit = revision["commit"]
-            project = change.get("project").replace("mediawiki/", "")
+            project = change.get("project")
             branch = change.get("branch")
 
-            if project == self.OPERATIONS_CONFIG:
-                repo_location = self.mediawiki_location
-            elif project == "mediawiki/core":
-                repo_location = "%s/php-%s" % (
-                    self.mediawiki_location,
-                    branch.replace("wmf/", ""),
-                )
-            else:
-                repo_location = "%s/php-%s/%s" % (
-                    self.mediawiki_location,
-                    branch.replace("wmf/", ""),
-                    project,
-                )
+            repo_location = self.git_repos.get_repo_location(project, branch, True)
 
             # handle security patches by resetting. They will be re-applied by scap prep
             with utils.suppress_backtrace():
@@ -678,9 +681,11 @@ class Backport(cli.Application):
         project = change.get("project")
         branch = change.get("branch")
 
-        if not self.git_submodules.are_any_branches_deployable(
-            change["_number"], project, [branch]
-        ):
+        if not self.git_repos.is_branch_deployable(project, branch):
+            self.get_logger().warning(
+                "Change '%s', project '%s', branch '%s' not found in any deployed wikiversion. Deployed wikiversions: %s"
+                % (change["_number"], project, branch, list(self.versions))
+            )
             if not self.arguments.yes:
                 self.prompt_for_approval_or_exit(
                     "Continue with %s?" % self.backport_or_revert.capitalize(),
@@ -924,13 +929,7 @@ class Backport(cli.Application):
             project = change.get("project")
             branch = change.get("branch")
 
-            if project == self.OPERATIONS_CONFIG:
-                repo_location = self.mediawiki_location
-            else:
-                repo_location = "%s/php-%s" % (
-                    self.mediawiki_location,
-                    branch.replace("wmf/", ""),
-                )
+            repo_location = self.git_repos.get_repo_location(project, branch)
 
             self.get_logger().info("Collecting commit for %s..." % change_id)
             # The submodule update commit will have the same change-id as the original commit to

@@ -647,18 +647,15 @@ def remap_submodules(location, server):
     return submodules_info
 
 
-def list_submodules(repo, args):
-    """Return a list of the URLs of the submodules of the given repository"""
+def list_submodules_paths_urls(repo, args):
+    """Return a list of the paths and URLs of the submodules of the given repository, separated by a space"""
     ensure_dir(repo)
 
     return gitcmd(
         "submodule",
         "-q",
         "foreach",
-        "git",
-        "remote",
-        "get-url",
-        "origin",
+        'echo -n "$PWD " && git remote get-url origin',
         args,
         cwd=repo,
     ).splitlines()
