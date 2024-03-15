@@ -10,6 +10,7 @@ from datetime import datetime
 import pexpect
 
 import scap.cli
+import scap.git
 import scap.utils
 from scap.plugins.gerrit import GerritSession
 from scap.runcmd import gitcmd
@@ -586,13 +587,26 @@ class BackportsTestHelper:
         """Avoids merge conflicts in future test runs by updating the submodule link"""
         ve_dir = self.mwvisualeditor_dir + "/lib/ve"
 
+        announce("cleanup_unusual_submodule_change started")
+
+        announce("Updating checkout of VisualEditor/VisualEditor")
         self.git_command(ve_dir, ["checkout", self.mwbranch])
         self.git_command(ve_dir, ["pull"])
         self.git_command(self.mwvisualeditor_dir, ["checkout", self.mwbranch])
-        self.git_commit(self.mwvisualeditor_dir, "update ve submodule link", "lib/ve")
-        self.scap_backport(
-            [self.push_and_collect_url(self.mwvisualeditor_dir, self.mwbranch)]
-        )
+
+        if scap.git.file_has_unstaged_changes(
+            "lib/ve", location=self.mwvisualeditor_dir
+        ):
+            announce(
+                "Committing and backporting .gitmodules update in extensions/VisualEditor"
+            )
+            self.git_commit(
+                self.mwvisualeditor_dir, "update ve submodule link", "lib/ve"
+            )
+            self.scap_backport(
+                [self.push_and_collect_url(self.mwvisualeditor_dir, self.mwbranch)]
+            )
+        announce("cleanup_unusual_submodule_change completed")
 
     def setup_unusual_submodule_path_change(self):
         """Creates a change in a submodule that has an unusual path and pushes to gerrit.
@@ -601,6 +615,7 @@ class BackportsTestHelper:
         Returns the change url.
         """
         self.setup_visualeditor_repo()
+        self.cleanup_unusual_submodule_change()
         ve_dir = self.mwvisualeditor_dir + "/lib/ve"
 
         readme_path = ve_dir + "/README.md"
