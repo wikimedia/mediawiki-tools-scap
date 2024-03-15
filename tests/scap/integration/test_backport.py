@@ -266,6 +266,7 @@ class BackportsTestHelper:
                 raise Exception("This should never happen")
 
         logging.info("Waiting for scap backport to terminate")
+        child.expect_exact("Skipping sync since --stop-before-sync was specified")
         child.wait()
         if child.exitstatus != 0:
             raise RuntimeError(
