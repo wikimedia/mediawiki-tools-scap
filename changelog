@@ -1,3 +1,12 @@
+scap (4.72.0)
+
+  * patches: support notifications during the branch cut process
+  * backport.py: minor refactor
+  * prep: remove deleted submodules from working tree
+  * prompt_for_approval_or_exit: Don't announce cancelled operations
+
+ -- Jaime Nuche <jnuche@wikimedia.org>  Fri, 15 Mar 2024 15:51:57 +0100
+
 scap (4.71.0)
 
   * patches: do not notify security tasks about git failures
