@@ -730,20 +730,60 @@ class Backport(cli.Application):
                 self._validate_chain_change(change, rel, unmet_dependencies)
 
     def _validate_depends_ons(self, change, unmet_dependencies):
+        not_enough_dep_info = False
+
         def is_relevant_dep(dep):
             # Case where the dependency is the configuration repo and the branch its production branch (e.g.
             # "master"). Other branches in the repo are not relevant during backport
             if dep["project"] == self.OPERATIONS_CONFIG:
                 return dep["branch"] == self.config_branch
             # Case where the dependant is the configuration repo and the dependency a MW repo. In this situation there
-            # is not enough information to determine which MW dep(s) is/are intended when there are several of them. We
-            # verify in case of a non-prod branch and continue
+            # is not enough information at this point to determine which MW dep(s) is/are intended when there are
+            # several of them
             if change.details["project"] == self.OPERATIONS_CONFIG:
-                self._confirm_change(dep)
+                nonlocal not_enough_dep_info
+                not_enough_dep_info = True
                 return True
             # Case where branches match. In this case we know this is the intended dependency
             return change.details["branch"] == dep["branch"]
 
+        depends_ons = self.gerrit.depends_ons(change.get("id")).get().depends_on_found
+        relevant_deps = [dep for dep in depends_ons if is_relevant_dep(dep)]
+        if len(depends_ons) > 0 and not self.arguments.yes:
+            if len(relevant_deps) == 0:
+                message = (
+                    f"Change {change.number} specified 'Depends-On' but found dependencies are neither configuration"
+                    " changes nor do they belong to the same branch"
+                )
+                self._warn_of_suspicious_deps(message, depends_ons)
+            # Special case when a config change depends on a MW change. See T360291
+            if not_enough_dep_info:
+                # If the config change depends on prod MW changes, those are presumably the ones we want
+                relevant_deps = [
+                    dep
+                    for dep in relevant_deps
+                    if self.git_repos.is_branch_deployable(
+                        dep["project"], dep["branch"]
+                    )
+                ]
+                # Otherwise let the user know of the situation, as it's possible the change being backported depends
+                # on code that hasn't been deployed to production yet
+                if len(relevant_deps) == 0:
+                    message = (
+                        f"Change {change.number} is a configuration change that depends on MediaWiki changes."
+                        " However the MediaWiki dependencies could not be found in any deployed wikiversion."
+                        " There is a chance that the code you depend on is NOT in production if it wasn't deployed"
+                        " as part of the regular weekly train"
+                    )
+                    self._warn_of_suspicious_deps(message, depends_ons)
+
+        for dep in relevant_deps:
+            self.get_logger().info(
+                f"Dependency {dep['_number']} found for {change.number}"
+            )
+            self._validate_chain_change(change, dep, unmet_dependencies)
+
+    def _warn_of_suspicious_deps(self, message, deps):
         def get_link(dep):
             return (
                 f"\t* {self.gerrit.url}/c/{dep['project']}/+/{dep['_number']}".replace(
@@ -751,24 +791,14 @@ class Backport(cli.Application):
                 )
             )
 
-        depends_ons = self.gerrit.depends_ons(change.get("id")).get().depends_on_found
-        relevant_deps = [dep for dep in depends_ons if is_relevant_dep(dep)]
-        if len(depends_ons) > 0 and len(relevant_deps) == 0 and not self.arguments.yes:
-            found_deps_links = "\n".join([get_link(dep) for dep in depends_ons])
-            self.get_logger().warning(
-                f"Change {change.number} specified 'Depends-On' but found dependencies are neither configuration"
-                f" changes nor do they belong to the same branch. Found dependencies are:\n{found_deps_links}"
-            )
-            self.prompt_for_approval_or_exit(
-                f"Ignore dependencies and continue with {self.backport_or_revert.capitalize()}?",
-                f"{self.backport_or_revert} Canceled",
-            )
-
-        for dep in relevant_deps:
-            self.get_logger().info(
-                f"Dependency {dep['_number']} found for {change.number}"
-            )
-            self._validate_chain_change(change, dep, unmet_dependencies)
+        found_deps_links = "\n".join([get_link(dep) for dep in deps])
+        self.get_logger().warning(
+            f"{message}. Found dependencies are:\n{found_deps_links}"
+        )
+        self.prompt_for_approval_or_exit(
+            f"Ignore suspicious dependencies and continue with {self.backport_or_revert.capitalize()}?",
+            f"{self.backport_or_revert} Canceled",
+        )
 
     def _validate_chain_change(self, dependant, dependency, unmet_dependencies):
         gerrit_change = GerritChange(

@@ -759,7 +759,7 @@ class TestBackports(unittest.TestCase):
             root_change_in_prod_branch=True
         )
         child.expect(
-            r"Change.*specified 'Depends-On'.*Ignore dependencies and continue with Backport?"
+            r"Change.*specified 'Depends-On'.*Ignore suspicious dependencies and continue with Backport?"
         )
         child.sendline("y")
         self.backports_test_helper._scap_backport_interact(child)
@@ -798,7 +798,7 @@ class TestBackports(unittest.TestCase):
         backported_change_number = change_urls[2].split("/")[-1]
         child = self.backports_test_helper._start_scap_backport([change_urls[2]])
         child.expect(
-            rf"Change {backported_change_number} specified 'Depends-On'.*Ignore dependencies and continue with"
+            rf"Change {backported_change_number} specified 'Depends-On'.*Ignore suspicious dependencies and continue with"
             " Backport?"
         )
         child.sendline("y")
