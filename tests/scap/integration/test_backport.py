@@ -897,7 +897,9 @@ class TestBackports(unittest.TestCase):
 
     def test_backport_of_rejected_change(self):
         """Test that the backport of a rejected change is aborted with an appropriate error message."""
-        announce("Testing mediawiki/mediawiki-config, --backporting of rejected change")
+        announce(
+            "Testing operations/mediawiki-config, --backporting of rejected change"
+        )
         change_url = self.backports_test_helper.setup_config_change(
             "normal",
             context=f"\nAdded by test_backport_of_rejected_change on {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}.",
@@ -914,5 +916,5 @@ class TestBackports(unittest.TestCase):
         finally:
             child.terminate(force=True)
         announce(
-            f"Finished testing mediawiki/mediawiki-config backport --rejected change (Code-Review -2) for {change_number}"
+            f"Finished testing operations/mediawiki-config backport --rejected change (Code-Review -2) for {change_number}"
         )
