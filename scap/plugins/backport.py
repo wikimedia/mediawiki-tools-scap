@@ -818,7 +818,9 @@ class Backport(cli.Application):
                     new_revision = change.get("current_revision")
                     status = change.get("status")
                     verified = change.get("labels")["Verified"]
+                    code_review = change.get("labels")["Code-Review"]
                     rejected = getattr(verified, "rejected", None)
+                    vetoed = getattr(code_review, "rejected", None)
                     # The "mergeable" field will only exist if Gerrit's config has
                     # change.mergeabilityComputationBehavior set to API_REF_UPDATED_AND_CHANGE_REINDEX.
                     mergeable = change.get("mergeable")
@@ -841,6 +843,12 @@ class Backport(cli.Application):
                                 "Change %s is not currently mergeable, but may be being rebased. "
                                 "Attempt %s of %s"
                                 % (number, attempts[number], self.allowed_attempts)
+                            )
+
+                        if vetoed:
+                            raise SystemExit(
+                                "The change '%s' has been rejected (Code-Review -2) by '%s'"
+                                % (number, vetoed["name"])
                             )
 
                         if rejected:

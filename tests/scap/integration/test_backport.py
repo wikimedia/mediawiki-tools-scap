@@ -664,6 +664,28 @@ class BackportsTestHelper:
         change_url = self.setup_extension_change()
         return self._pexpect_spawn("scap backport --stop-before-sync %s" % change_url)
 
+    def reject_change(self, change_url):
+        """reject the change based on the change url.
+        Returns the change number.
+        """
+        change_number = self.gerrit.change_number_from_url(change_url)
+        current_rev = self.gerrit.change_detail(change_number).get()["current_revision"]
+        logging.info("Rejecting change %s" % change_number)
+        subprocess.check_output(
+            [
+                "ssh",
+                "-p",
+                "29418",
+                self.gerrit_domain,
+                "gerrit review",
+                current_rev,
+                "--code-review",
+                "-2",
+            ],
+            stderr=subprocess.DEVNULL,
+        )
+        return change_number
+
 
 class TestBackports(unittest.TestCase):
     """tests the backports"""
@@ -872,3 +894,25 @@ class TestBackports(unittest.TestCase):
         finally:
             backport_first.terminate(force=True)
             backport_second.terminate(force=True)
+
+    def test_backport_of_rejected_change(self):
+        """Test that the backport of a rejected change is aborted with an appropriate error message."""
+        announce("Testing mediawiki/mediawiki-config, --backporting of rejected change")
+        change_url = self.backports_test_helper.setup_config_change(
+            "normal",
+            context=f"\nAdded by test_backport_of_rejected_change on {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}.",
+        )
+        child = self.backports_test_helper._start_scap_backport([change_url])
+        change_number = self.backports_test_helper.reject_change(change_url)
+
+        try:
+            child.expect_exact("Backport the changes? (y/n): ")
+            child.sendline("y")
+            child.expect_exact(
+                f"The change '{change_number}' has been rejected (Code-Review -2) by 'TrainConductor"
+            )
+        finally:
+            child.terminate(force=True)
+        announce(
+            f"Finished testing mediawiki/mediawiki-config backport --rejected change (Code-Review -2) for {change_number}"
+        )
