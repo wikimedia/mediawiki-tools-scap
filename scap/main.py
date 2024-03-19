@@ -123,13 +123,15 @@ class AbstractSync(cli.Application):
             # Preload MW multiversion image into K8s cluster nodes
             self.k8s_ops.pull_image_on_nodes()
 
+            # Sync masters regardless of the --k8s-only flag since some of the
+            # sync'd information affects k8s deployments.
+            self._sync_masters()
+
             if self._k8s_only_sync():
                 self._deploy_k8s_testservers()
                 self._deploy_k8s_canaries()
                 self._deploy_k8s_production()
             else:
-                self._sync_masters()
-
                 full_target_list = self._get_target_list()
 
                 # Deploy K8s test releases
