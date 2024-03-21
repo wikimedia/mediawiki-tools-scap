@@ -1,3 +1,4 @@
+import contextlib
 import logging
 import os
 import re
@@ -35,6 +36,7 @@ class BackportsTestHelper:
     mwstaging_dir = "/srv/mediawiki-staging"
     mwphp_dir = None
     mwbranch = None
+    oldmwversion = None
     gerrit = None
     gerrit_url = "http://gerrit.traindev:8080"
     gerrit_domain = "gerrit.traindev"
@@ -54,6 +56,9 @@ class BackportsTestHelper:
             version = f.read().strip()
             self.mwbranch = "wmf/" + version
             self.mwphp_dir = "php-" + version
+
+        with open(self.homedir + "/old-version", "r") as f:
+            self.oldmwversion = f.read().rstrip()
 
         self.setup_mediawiki_config_repo()
         self.setup_core_repo()
@@ -353,31 +358,84 @@ class BackportsTestHelper:
 
         return change_url
 
-    def merge_commit_backport(self):
-        """makes and backports a change that should result in a merge commit"""
-        developers_path = self.mwcore_dir + "/DEVELOPERS.md"
-        text = "Added by merge_commit_backport (1) on " + datetime.now().strftime(
-            "%Y-%m-%d %H:%M:%S"
+    @contextlib.contextmanager
+    def wikiversions_all_temporarily_set_to_old(self):
+        wikiversions_filename = "/srv/mediawiki-staging/wikiversions-dev.json"
+
+        with open(wikiversions_filename) as f:
+            saved_wikiversions_dev = f.read()
+
+        subprocess.check_call(
+            [
+                "scap",
+                "update-wikiversions",
+                "--no-update-php-symlink",
+                "all",
+                self.oldmwversion,
+            ]
         )
-        change_url1 = self.change_and_push_file(
+
+        try:
+            yield
+        finally:
+            with scap.utils.temp_to_permanent_file(wikiversions_filename) as f:
+                f.write(saved_wikiversions_dev)
+
+    def make_mediawiki_core_developers_md_change(self, who, where, extra_text=None):
+        """
+        Makes a change to mediawiki/core's DEVELOPERS.md file.
+        A line is written to either the top or the bottom of the file
+        depending on the value of "where" (which must be "top" or "bottom").
+        The change is committed and pushed and the change URL is returned.
+        The commit is discarded from the local checkout before returning.
+        """
+        assert where in ["top", "bottom"]
+
+        developers_path = self.mwcore_dir + "/DEVELOPERS.md"
+        text = f"Added by {who} on " + datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        if extra_text:
+            text += "\n" + extra_text
+
+        change_url = self.change_and_push_file(
             self.mwcore_dir,
             self.mwbranch,
             developers_path,
             text,
-            "merge_commit_backport (1): add a line to top of DEVELOPERS.md",
-            False,
+            f"{who}: add a line to the {where} of DEVELOPERS.md",
+            False if where == "top" else True,
         )
 
         self.git_command(self.mwcore_dir, ["reset", "--hard", "HEAD~1"])
-        text = "\nAdded by merge_commit_backport (2) on " + datetime.now().strftime(
-            "%Y-%m-%d %H:%M:%S"
+
+        return change_url
+
+    # T317795
+    def backport_non_live_mediawiki_core_change(self):
+        change_url = self.make_mediawiki_core_developers_md_change(
+            "backport_non_live_mediawiki_core_change",
+            "bottom",
         )
-        change_url2 = self.change_and_push_file(
-            self.mwcore_dir,
-            self.mwbranch,
-            developers_path,
-            text,
-            "merge_commit_backport (2): add line to bottom of DEVELOPERS.md\n "
+        with self.wikiversions_all_temporarily_set_to_old():
+            child = self._start_scap_backport([change_url])
+            try:
+                child.expect_exact(
+                    "not found in any deployed wikiversion. Deployed wikiversions:"
+                )
+                child.expect_exact("Continue with Backport? [y/N]:")
+                child.sendline("y")
+                self._scap_backport_interact(child)
+            finally:
+                child.terminate(force=True)
+
+    def merge_commit_backport(self):
+        """makes and backports a change that should result in a merge commit"""
+        change_url1 = self.make_mediawiki_core_developers_md_change(
+            "merge_commit_backport",
+            "top",
+        )
+        change_url2 = self.make_mediawiki_core_developers_md_change(
+            "merge_commit_backport",
+            "bottom",
             "This is expected to result in a merge commit",
         )
 
@@ -528,7 +586,7 @@ class BackportsTestHelper:
         child = self._start_scap_backport([change_url])
         try:
             child.expect_exact(
-                " not found in any deployed wikiversion. Deployed wikiversions: "
+                "not found in any deployed wikiversion. Deployed wikiversions:"
             )
             child.expect_exact("Continue with Backport? [y/N]:")
             child.sendline("y")
@@ -781,7 +839,7 @@ class TestBackports(unittest.TestCase):
         child = self.backports_test_helper.depends_with_nonprod_branch()
         try:
             child.expect_exact(
-                " not found in any deployed wikiversion. Deployed wikiversions: "
+                "not found in any deployed wikiversion. Deployed wikiversions:"
             )
             child.expect_exact("Continue with Backport? [y/N]:")
             child.sendline("n")
@@ -918,3 +976,7 @@ class TestBackports(unittest.TestCase):
         announce(
             f"Finished testing operations/mediawiki-config backport --rejected change (Code-Review -2) for {change_number}"
         )
+
+    # T317795
+    def test_backport_to_checked_out_but_not_live_branch(self):
+        self.backports_test_helper.backport_non_live_mediawiki_core_change()

@@ -9,6 +9,7 @@ import subprocess
 import time
 import urllib.parse
 from datetime import datetime
+from collections import defaultdict
 
 from prettytable import PrettyTable, SINGLE_BORDER
 from random import randint
@@ -55,6 +56,8 @@ class GitRepos:
     """
     Contains base list of deployed git repos and a cache of submodules
     with functions to check whether a project/branch is currently deployable
+    Attributes:
+        versions (list) : A list of strings, each representing a MediaWiki version that is in deployment . Example: ['1.42.0-wmf.18']
     """
 
     OPERATIONS_CONFIG = None
@@ -119,9 +122,7 @@ class GitRepos:
         )
 
     def is_branch_deployable(self, project, branch):
-        """Checks if the supplied project & branch is deployed to production.
-        The associated change_number is used only for logging purposes.
-        """
+        """Checks if the supplied project & branch is deployed to production."""
         if branch == self.config_branch and project in self.config_repos:
             return True
         elif self._is_project_in_production_mediawiki(project, branch):
@@ -918,13 +919,22 @@ class Backport(cli.Application):
 
     def _collect_commit_fingerprints(self):
         """
-        Returns commit fingerprints for backported changes for each production branch
-        including merge commits and submodule update commits
+        Prepares a data structure to be used by the caller to check for extra
+        (those beyond the ones specified by the user) commits being pulled.
 
-        :returns: dict[str, set]: Dict with string directory as key and set of string
-                                  fingerprints for each active production branch
+        The data structure is a dictionary with a key for
+        /srv/mediawiki-staging, a key for each live
+        /srv/mediawiki-staging/php-<version> directory, and a key for any
+        staged-but-not-live /srv/mediawiki-staging/php-<version> directory
+        referenced by a backport.
+
+        The value for each key is a set of commit hashes corresponding to a
+        change being backported (or its corresponding submodule update commit)
+        and its merge commit (if any).
+
         """
-        repo_commits = {self.mediawiki_location: set()}
+        repo_commits = defaultdict(set)
+        repo_commits[self.mediawiki_location] = set()
 
         self.get_logger().info("Fetching new changes...")
         self._fetch_git_changes(self.mediawiki_location)
@@ -939,7 +949,11 @@ class Backport(cli.Application):
             branch = change.get("branch")
 
             repo_location = self.git_repos.get_repo_location(project, branch)
-
+            # In case the version is not an active version, the git changes wouldn't have been
+            # fetched for the repo_location. This can be checked by verifying if the repo_location
+            # is present in repo_commits.
+            if repo_location not in repo_commits:
+                self._fetch_git_changes(repo_location)
             self.get_logger().info("Collecting commit for %s..." % change_id)
             # The submodule update commit will have the same change-id as the original commit to
             # the submodule repo, so it can be searched for in the core repo using the change-id.
