@@ -1,8 +1,10 @@
 from unittest.mock import patch, Mock
 
 import scap.cli
+import scap.config
 import scap.script
 from scap.deploy import DeployLocal
+from .test_config import override_default_config
 
 import pytest
 from pytest import param as case
@@ -135,6 +137,43 @@ valid_chk_testcases = [
 ]
 
 
+def test_DeployLocal__load_config_exits_on_missing_git_server():
+    scap_deploy = scap.cli.Application.factory(
+        [
+            "deploy-local",
+            "--repo",
+            "/tmp/whatever",
+        ]
+    )
+    with pytest.raises(
+        SystemExit, match="'git_server' is not set in scap configuration"
+    ):
+        scap_deploy._load_config()
+
+
+def test_DeployLocal__load_config_passes_when_git_server_is_set():
+    git_server = "deploy001"
+    repo_path = "/tmp/whatever"
+
+    scap_deploy = scap.cli.Application.factory(
+        [
+            "deploy-local",
+            "--repo",
+            repo_path,
+        ]
+    )
+    configured = {
+        **scap.config.DEFAULT_CONFIG,
+        **{"git_server": (str, git_server)},
+    }
+    with override_default_config(configured):
+        # Avoid a HTTP call made by _get_remote_overrides
+        with patch.object(scap_deploy, "_get_config_overrides"):
+            scap_deploy._load_config()
+
+    assert scap_deploy.server_url == "http://" + git_server + repo_path
+
+
 @pytest.mark.parametrize("expected,check,stage,group,when", valid_chk_testcases)
 def test_DeployLocal_check_applies(expected, check, stage, group, when):
     assert DeployLocal._check_applies(check, stage, group, when) == expected, (
@@ -160,7 +199,14 @@ def test_DeployLocal_before_after_checks(scap_context, checks_execute, tmp_path)
             TESTED_STAGE,
         ]
     )
-    scap_deploy._load_config()
+
+    configured = {
+        **scap.config.DEFAULT_CONFIG,
+        **{"git_server": (str, "deploy001")},
+    }
+    with override_default_config(configured):
+        scap_deploy._load_config()
+
     scap_deploy._setup_loggers()
 
     scap.script.register("runme-before-stage", "/path/to/runme-before")

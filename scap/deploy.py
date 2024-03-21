@@ -94,6 +94,9 @@ class DeployLocal(cli.Application):
     def _load_config(self):
         super()._load_config()
 
+        if self.config["git_server"] is None:
+            raise SystemExit("'git_server' is not set in scap configuration")
+
         self.server_url = urllib.parse.urlunparse(
             (
                 self.config["git_scheme"],

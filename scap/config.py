@@ -70,7 +70,7 @@ DEFAULT_CONFIG = {
     "git_deploy_dir": (str, "/srv/deployment"),
     "git_fat": (bool, False),
     "git_binary_manager": (str, None),
-    "git_server": (str, "deploy1001.eqiad.wmnet"),
+    "git_server": (str, None),
     "git_scheme": (str, "http"),
     "git_submodules": (bool, False),
     "git_upstream_submodules": (bool, False),

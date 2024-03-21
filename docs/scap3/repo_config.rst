@@ -36,7 +36,7 @@ Available configuration variables
 +----------------------------+---------------------------+---------------------------------+
 | Value                      | Default                   | Explanation                     |
 +============================+===========================+=================================+
-| ``git_server``             | ``deploy1001.eqiad.wmnet``| (*String*) Server from          |
+| ``git_server``             | **NONE**                  | (*String*) Server from          |
 |                            |                           | which code is fetched.          |
 |                            |                           | **Use is not recommended!**     |
 |                            |                           | The deployment-host will have a |
