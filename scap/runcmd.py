@@ -69,10 +69,9 @@ def _runcmd(argv, **kwargs) -> str:
     # Wait for command to finish.
     (stdout, stderr) = p.communicate()
 
-    logging.debug("Command exited with code %s", p.returncode)
-
     # Check if command failed.
     if p.returncode != 0:
+        logging.debug("Command exited with code %s", p.returncode)
         raise FailedCommand(argv, p.returncode, stdout, stderr)
 
     # All good, return captured stdout or stderr.
