@@ -18,6 +18,7 @@ from scap.lock import Lock
 from scap.plugins.patches import SecurityPatches
 
 HISTORY_ABORT_STATUS = 127
+BRANCH_CUT_PRETEST_BRANCH = "branch_cut_pretest"
 
 
 def version_parser(ver):
@@ -25,7 +26,9 @@ def version_parser(ver):
     if ver == "auto":
         return ver
 
-    match = re.match(r"(1\.\d\d\.\d+-wmf\.\d+|master|branch_cut_pretest)", ver)
+    match = re.match(
+        rf"(1\.\d\d\.\d+-wmf\.\d+|master|{BRANCH_CUT_PRETEST_BRANCH})", ver
+    )
 
     if match:
         return match.group(0)
@@ -217,7 +220,7 @@ class CheckoutMediaWiki(cli.Application):
             checkout_version = "wmf/%s" % branch
 
         reference_dir = None
-        if checkout_version not in ["master", "wmf/branch_cut_pretest"]:
+        if checkout_version not in ["master", f"wmf/{BRANCH_CUT_PRETEST_BRANCH}"]:
             reference_dir = self._select_reference_directory()
 
         if checkout_version != "master":
@@ -282,6 +285,9 @@ class CheckoutMediaWiki(cli.Application):
         Returns None if unavailable.
         """
         candidates = glob.glob(os.path.join(self.config["stage_dir"], "php-*"))
+        candidates = [
+            cd for cd in candidates if cd != f"php-{BRANCH_CUT_PRETEST_BRANCH}"
+        ]
 
         if not candidates:
             return None
