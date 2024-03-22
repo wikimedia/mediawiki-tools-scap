@@ -208,8 +208,7 @@ def test_DeployLocal_before_after_checks(scap_context, checks_execute, tmp_path)
     invoked_check_names = [check.name for check in checks]
     assert invoked_check_names == ["before-runme"]
 
-    # With python 3.6 we could use assert_called()
-    run_stage.assert_called_with()
+    run_stage.assert_called()
 
     # With python 3.8 we could retrieve args directly
     # args = checks_execute.mock_calls[0].args[0]
