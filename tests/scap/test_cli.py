@@ -157,9 +157,14 @@ def test_get_get_realm_specific_filename():
     with tempfile.NamedTemporaryFile(prefix=prefix) as t1:
         tmpfile_no_realm = t1.name + ".json"
         tmpfile_with_realm = t1.name + "-testrealm.json"
+        tmpfile_noext_with_realm = t1.name + "-testrealm"
 
         # Create empty files.  The contents don't matter
-        for filename in (tmpfile_no_realm, tmpfile_with_realm):
+        for filename in (
+            tmpfile_no_realm,
+            tmpfile_with_realm,
+            tmpfile_noext_with_realm,
+        ):
             open(filename, "w").close()
 
         try:
@@ -178,6 +183,13 @@ def test_get_get_realm_specific_filename():
             res = utils.get_realm_specific_filename(tmpfile_no_realm, "testrealm")
             assert res == tmpfile_no_realm
 
+            # Test with a file that has no extension
+            res = utils.get_realm_specific_filename(t1.name, "testrealm")
+            assert res == tmpfile_noext_with_realm
+
+            os.remove(tmpfile_noext_with_realm)
+            res = utils.get_realm_specific_filename(t1.name, "testrealm")
+            assert res == t1.name
         finally:
             # Just in case.
             for filename in (tmpfile_no_realm, tmpfile_with_realm):

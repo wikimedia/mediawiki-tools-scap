@@ -671,12 +671,9 @@ def update_localization_cache(version, app, logger=None):
         .strip()
     )
 
-    # attempt to read extension-list from the branch instead of wmf-config
-    ext_list = os.path.join(cfg["stage_dir"], "php-%s" % version, "extension-list")
-
-    if not os.path.isfile(ext_list):
-        # fall back to the old location in wmf-config
-        ext_list = "%s/wmf-config/extension-list" % cfg["stage_dir"]
+    ext_list = utils.get_realm_specific_filename(
+        "%s/wmf-config/extension-list" % cfg["stage_dir"], cfg["wmf_realm"]
+    )
 
     merge_message_file_list_command = (
         "/usr/local/bin/mwscript mergeMessageFileList.php "

@@ -362,10 +362,6 @@ def get_realm_specific_filename(filename, realm):
     """
     base, ext = os.path.splitext(filename)
 
-    # FIXME: Why should an extensionless file not undergo the same treatment?
-    if ext == "":
-        return filename
-
     realm_specific = "%s-%s%s" % (base, realm, ext)
     if os.path.isfile(realm_specific):
         return realm_specific
