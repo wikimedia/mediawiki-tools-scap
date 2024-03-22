@@ -1,3 +1,12 @@
+scap (4.73.1)
+
+  * prep: filter out pretest branch from candidates for reference clone
+  * Do not debug log a command exits 0
+  * test_backport.py: Fix repo name
+  * Scap Backport: fix scap hang on patches marked with -2
+
+ -- Jaime Nuche <jnuche@wikimedia.org>  Fri, 22 Mar 2024 10:12:09 +0100
+
 scap (4.73.0)
 
   * sync_masters before k8s deployment
