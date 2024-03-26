@@ -10,7 +10,7 @@ import getpass
 import io
 import json
 import os
-from prettytable import PrettyTable
+from prettytable import PrettyTable, SINGLE_BORDER
 
 from scap import browser
 from scap import utils
@@ -199,6 +199,7 @@ class History:
 
     def __prettytable__(self):
         table = PrettyTable()
+        table.set_style(SINGLE_BORDER)
         table.field_names = ["#", "timestamp", "deployer", "branches"]
         entries = sorted(self.entries, key=lambda e: e.timestamp, reverse=True)
         for i, entry in enumerate(entries):
@@ -364,6 +365,7 @@ class Entry:
         checkouts = self.checkout_list()
 
         table = PrettyTable()
+        table.set_style(SINGLE_BORDER)
         table.field_names = ["directory", "repo", "branch", "commit"]
         for co in checkouts:
             table.add_row([co.short_directory, co.short_repo, co.branch, co.commit])
@@ -392,6 +394,7 @@ class Checkout:
 
     def __prettytable__(self):
         table = PrettyTable()
+        table.set_style(SINGLE_BORDER)
         table.header = False
 
         commit_info = []
