@@ -286,7 +286,7 @@ class CheckoutMediaWiki(cli.Application):
         """
         candidates = glob.glob(os.path.join(self.config["stage_dir"], "php-*"))
         candidates = [
-            cd for cd in candidates if cd != f"php-{BRANCH_CUT_PRETEST_BRANCH}"
+            cd for cd in candidates if f"php-{BRANCH_CUT_PRETEST_BRANCH}" not in cd
         ]
 
         if not candidates:
