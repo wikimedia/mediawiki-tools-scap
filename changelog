@@ -1,3 +1,11 @@
+scap (4.73.2)
+
+  * prep: fix filter branch in `_select_reference_directory`
+  * Remove obsolete defaults for git_server
+  * test: use newish assert_called()
+
+ -- Jaime Nuche <jnuche@wikimedia.org>  Tue, 26 Mar 2024 10:56:58 +0100
+
 scap (4.73.1)
 
   * prep: filter out pretest branch from candidates for reference clone
