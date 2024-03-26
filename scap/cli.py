@@ -32,6 +32,7 @@ import sys
 import time
 from functools import reduce
 
+import scap.ansi as ansi
 import scap.arg as arg
 import scap.config as config
 import scap.lock as lock
@@ -40,7 +41,6 @@ import scap.plugins
 import scap.targets as targets
 import scap.utils as utils
 from scap.ssh import SSH_WITH_KEY
-from scap.terminal import TERM
 
 ATTR_DEPLOYMENT_COMMAND = "_deployment_command"
 
@@ -426,8 +426,8 @@ class Application(object):
         :returns: exit status
         """
         try:
-            TERM.reset_colors()
-            TERM.close()
+            sys.stdout.write(ansi.reset())
+            sys.stdout.flush()
         except Exception:
             pass
 

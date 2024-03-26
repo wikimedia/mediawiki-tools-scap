@@ -46,7 +46,6 @@ try:
 except ImportError:
     DiffLexer = None
 
-from scap.terminal import TERM
 import scap.utils as utils
 
 # Format string for log messages. Interpolates LogRecord attributes.
@@ -315,21 +314,17 @@ class SyslogFormatter(LogstashFormatter):
         return "scap: @cee: " + super().format(record)
 
 
-def reporter(message, fancy=False, mute=False):
+def reporter(message, mute=False):
     """
     Instantiate progress reporter
 
     :message: - string that will be displayed to user
-    :fancy: - boolean that determines the progress bar type
     """
     if mute:
         return MuteReporter()
 
     if not sys.stdout.isatty():
         return RateLimitedProgressReporter(message)
-
-    if fancy:
-        return FancyProgressReporter(message)
 
     return ProgressReporter(message)
 
@@ -479,72 +474,6 @@ class RateLimitedProgressReporter(ProgressReporter):
         super()._progress(*args, **kwargs)
 
         self._last_report_time = now
-
-
-class FancyProgressReporter(ProgressReporter):
-    def __init__(self, name="", expect=0, fd=sys.stderr):
-        TERM.scroll_region(0, TERM.height - 3)
-        TERM.scroll_forward(1)
-        TERM.register_cleanup_callback(self.cleanup)
-        super().__init__(name, expect=expect, fd=fd)
-
-    def finish(self):
-        """Finish tracking progress."""
-        self._progress()
-
-        message = "Finished: %s (%s failed) " % (self._name, self._failed)
-        width = min((TERM.width, 80)) - len(message)
-        bars = width - 4
-        prog_bar = "=" * bars
-        self.cleanup()
-        TERM.fg(7).write(message).fg(4).write(prog_bar).nl()
-
-    def cleanup(self, term=TERM):
-        height = term.height
-        term.save()
-        term.move(height - 2, 0).clear_eol().move(height - 1, 0).clear_eol().move(
-            height, 0
-        ).clear_eol()
-        term.scroll_region(0, height)
-        term.reset_colors()
-        term.restore()
-
-    def _progress(self):
-        width = TERM.width
-        bottom = TERM.height
-        label_width = len(self._name) + 12
-        scale = int(width / 2)
-        scale = min(width - label_width, scale)
-        scale = max(scale, 15)
-        partial_bar = (" ", "▎", "▎", "▍", "▌", "▋", "▊", "▉", "▉", "█")
-        pct = float(self.percent_complete) / 100
-        progress = scale * pct
-        filled_bars = int(progress)
-        remain = 0
-        if filled_bars > 0 and progress > filled_bars:
-            remain = int((progress % filled_bars) * 10)
-
-        prog_bar = "█" * int(filled_bars)
-        prog_bar = prog_bar + partial_bar[remain]
-
-        TERM.save().move(bottom - 1, 0)
-        if self._in_flight is not None:
-            TERM.fg(15).write("| in-flight: ").fg(7).write(str(self._in_flight)).write(
-                " "
-            )
-        TERM.fg(0).write("| ok: ").fg(2).write(str(self.ok)).fg(15).write(
-            " | fail: "
-        ).fg(1).write(str(self.failed)).fg(15).write(" | remain: ").fg(7).write(
-            str(self.remaining), " | "
-        ).clear_eol()
-
-        TERM.move(bottom - 2, 0).fg(15).write("| ").fg(7).write(self._name).fg(
-            15
-        ).write(" | ").write(self.percent_complete, "% ").fg(4).write(
-            prog_bar
-        ).clear_eol()
-
-        TERM.restore().flush()
 
 
 class MuteReporter(ProgressReporter):

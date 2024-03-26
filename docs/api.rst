@@ -24,9 +24,6 @@ Core Application Infrastructure
   :exclude-members: __dict__,__weakref__
   :noindex:
 
-.. automodule:: scap.terminal
-  :exclude-members: __dict__,__weakref__
-
 
 Built-in scap command classes
 =============================

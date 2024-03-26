@@ -38,7 +38,7 @@ class Test(cli.Application):
         steps = int(self.arguments.steps)
         stages = ["Testing Stage Number 1", "This is Stage 2", "Just Stage 3"]
         for stage in stages:
-            reporter = log.FancyProgressReporter(name=stage, expect=steps)
+            reporter = log.ProgressReporter(name=stage, expect=steps)
             logger = logging.getLogger()
             reporter.start()
             for i in range(0, steps):
