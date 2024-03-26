@@ -10,7 +10,7 @@ import time
 import urllib.parse
 from datetime import datetime
 
-from prettytable import PrettyTable
+from prettytable import PrettyTable, SINGLE_BORDER
 from random import randint
 from scap import cli, git, log, ssh, utils, lock
 from scap.plugins.gerrit import GerritSession
@@ -18,6 +18,7 @@ from scap.plugins.gerrit import GerritSession
 
 def make_table(backports, display_mergable):
     table = PrettyTable()
+    table.set_style(SINGLE_BORDER)
     field_names = ["#", "Project", "Branch", "Subject"]
 
     if display_mergable:
