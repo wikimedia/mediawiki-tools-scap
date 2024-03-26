@@ -154,9 +154,7 @@ class Clean(main.AbstractSync):
             )
 
             remove_remote_dirs.command(cmd)
-            remove_remote_dirs.progress(
-                log.reporter("clean-remote-caches", self.config["fancy_progress"])
-            )
+            remove_remote_dirs.progress(log.reporter("clean-remote-caches"))
             success, fail = remove_remote_dirs.run()
             if fail:
                 self.get_logger().warning("%d hosts failed to remove cache", fail)

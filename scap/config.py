@@ -40,7 +40,6 @@ DEFAULT_CONFIG = {
     "delay_messageblobstore_purge": (bool, False),
     "deploy_dir": (str, "/srv/mediawiki"),
     "failure_limit": (str, "0%"),
-    "fancy_progress": (bool, False),
     "gerrit_url": (str, "https://gerrit.wikimedia.org/r/"),
     "gerrit_push_url": (str, "ssh://gerrit.wikimedia.org:29418/"),
     "gerrit_push_user": (str, None),

@@ -1139,9 +1139,7 @@ class Deploy(cli.Application):
         deploy_stage.command(deploy_local_cmd)
         display_name = self._get_stage_name(stage)
         progress_message = "{}: {} stage(s)".format(self.repo, display_name)
-        deploy_stage.progress(
-            log.reporter(progress_message, self.config["fancy_progress"])
-        )
+        deploy_stage.progress(log.reporter(progress_message))
 
         failed = 0
         for jobresult in deploy_stage.run_with_status(batch_size):

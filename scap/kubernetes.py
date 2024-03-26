@@ -287,9 +287,7 @@ class K8sOps:
             logger=self.logger,
         )
         with log.Timer("docker pull on k8s nodes"):
-            pull.progress(
-                log.reporter("docker_pull_k8s", self.app.config["fancy_progress"])
-            )
+            pull.progress(log.reporter("docker_pull_k8s"))
             _, failed = pull.run()
             if failed:
                 self.app.soft_errors = True

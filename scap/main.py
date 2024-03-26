@@ -340,7 +340,7 @@ class AbstractSync(cli.Application):
             )
             update_masters.exclude_hosts([socket.getfqdn()])
             update_masters.command(cmd)
-            update_masters.progress(log.reporter(timer, self.config["fancy_progress"]))
+            update_masters.progress(log.reporter(timer))
             succeeded, failed = update_masters.run()
             if failed:
                 self.get_logger().warning("%d masters had sync errors", failed)
@@ -413,9 +413,7 @@ class AbstractSync(cli.Application):
         if shuffle:
             job.shuffle()
 
-        job.progress(
-            log.reporter("sync-{}".format(type), self.config["fancy_progress"])
-        )
+        job.progress(log.reporter("sync-{}".format(type)))
 
         jobresults = job.run(return_jobresults=True)
         self.get_logger().info(
@@ -478,9 +476,7 @@ class AbstractSync(cli.Application):
                 "sudo -u mwdeploy -n -- %s cdb-rebuild"
                 % self.get_script_path(remote=True)
             )
-            rebuild_cdbs.progress(
-                log.reporter("scap-cdb-rebuild", self.config["fancy_progress"])
-            )
+            rebuild_cdbs.progress(log.reporter("scap-cdb-rebuild"))
             succeeded, failed = rebuild_cdbs.run()
             if failed:
                 self.get_logger().warning(

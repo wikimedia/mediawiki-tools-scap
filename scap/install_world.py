@@ -258,9 +258,7 @@ class InstallWorld(cli.Application):
         ]
         masters_sync = self._get_ssh_job_for(masters_to_sync)
         masters_sync.command(rsync_call)
-        masters_sync.progress(
-            log.reporter("scap-sync-to-masters", self.config["fancy_progress"])
-        )
+        masters_sync.progress(log.reporter("scap-sync-to-masters"))
         _, failed = masters_sync.run()
         if failed:
             self._abort(f"{failed} masters failed to sync scap installation")
@@ -315,9 +313,7 @@ class InstallWorld(cli.Application):
             ]
             targets_sync = self._get_ssh_job_for(tgts)
             targets_sync.command(rsync_call)
-            targets_sync.progress(
-                log.reporter("scap-sync-to-targets", self.config["fancy_progress"])
-            )
+            targets_sync.progress(log.reporter("scap-sync-to-targets"))
             _, failed = targets_sync.run()
             if failed:
                 self._abort(
@@ -332,9 +328,7 @@ class InstallWorld(cli.Application):
         )
         targets_install = self._get_ssh_job_for(self.targets)
         targets_install.command([install_script_path, "-u", self.install_user])
-        targets_install.progress(
-            log.reporter("scap-install-to-targets", self.config["fancy_progress"])
-        )
+        targets_install.progress(log.reporter("scap-install-to-targets"))
         _, failed = targets_install.run()
         if failed:
             self._abort(f"{failed} targets failed to install scap")

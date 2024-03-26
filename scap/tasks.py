@@ -454,9 +454,7 @@ def sync_wikiversions(hosts, cfg, key=None):
             "%(master_rsync)s::common/wikiversions*.{json,php} "
             "%(deploy_dir)s" % cfg
         )
-        return rsync.progress(
-            log.reporter("sync_wikiversions", cfg["fancy_progress"])
-        ).run()
+        return rsync.progress(log.reporter("sync_wikiversions")).run()
 
 
 # Called by update_l10n_cdb_wrapper (below)
