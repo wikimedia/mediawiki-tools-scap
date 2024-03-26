@@ -24,13 +24,15 @@
 import logging
 import time
 import random
+from unittest.mock import patch
 
+from ..train import TrainInfo, GROUPS
 from .. import cli
 from .. import log
 
 
 @cli.command("test-progress")
-class Test(cli.Application):
+class TestProgress(cli.Application):
     """Display a mock progress bar"""
 
     @cli.argument("--steps", default="25", nargs="?")
@@ -53,3 +55,24 @@ class Test(cli.Application):
                     logger.info("Success: %s of %s", i, steps)
 
             reporter.finish()
+
+
+@cli.command("test-train")
+class TestTrain(cli.Application):
+    """Display a mock of train stations"""
+
+    @patch.object(TrainInfo, "get_train_version", return_value="v2")
+    @cli.argument("--at", choices=GROUPS)
+    def main(self, x, y, *extra_args):
+        def groups(group, *_):
+            # Train is at the starting point
+            if self.arguments.at is None:
+                return ["v1"]
+
+            if GROUPS.index(self.arguments.at) >= GROUPS.index(group):
+                return ["v2"]
+
+            return ["v1"]
+
+        with patch("scap.utils.get_group_versions", side_effect=groups):
+            TrainInfo({"stage_dir": "", "wmf_realm": ""}).visualize()
