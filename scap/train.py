@@ -62,7 +62,9 @@ ____
         table.align = "l"
         table.vrules = prettytable.NONE
         table.hrules = prettytable.NONE
+        # ===== looks like a train track!
         table.horizontal_char = "="
+
         print(table)
 
     def get_train_version(self) -> str:
