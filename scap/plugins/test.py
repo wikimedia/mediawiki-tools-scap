@@ -29,6 +29,34 @@ from unittest.mock import patch
 from ..train import TrainInfo, GROUPS
 from .. import cli
 from .. import log
+from . import backport
+
+
+@cli.command("test-backport")
+class TestBackport(cli.Application):
+    """Display a mock backport prompt"""
+
+    def main(self, *extra_args):
+        table = backport.make_table(
+            [
+                {
+                    "_number": 123412,
+                    "project": "mediawiki/core",
+                    "branch": "1.42.0-wmf.2",
+                    "subject": "Fix up for foo",
+                    "mergeable": True,
+                },
+                {
+                    "_number": 123808,
+                    "project": "operations/mediawiki-config",
+                    "branch": "master",
+                    "subject": "Update InitialiseSettings.php",
+                    "mergeable": False,
+                },
+            ],
+            True,
+        )
+        print(table.get_string(sortby="Project"))
 
 
 @cli.command("test-progress")
