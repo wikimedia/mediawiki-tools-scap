@@ -201,7 +201,15 @@ class DeployPromote(cli.Application):
         change_id = re.search(r"(?m)Change-Id:.+$", gitcmd("log", "-1")).group()
         gitcmd("reset", "--hard", "HEAD^")
         self.logger.info("Waiting for jenkins to merge the patch")
+
+        timeout = self.config["version_update_patch_timeout"]
+        start = time.time()
         while not _commit_arrived_to_remote(change_id):
+            if time.time() - start > timeout:
+                utils.abort(
+                    f"Waited for {timeout} seconds but the patch was not merged"
+                )
+
             print(".", end="")
             time.sleep(5)
         print()

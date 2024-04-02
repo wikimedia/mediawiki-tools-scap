@@ -93,6 +93,8 @@ DEFAULT_CONFIG = {
     "train_blockers_url": (str, "https://train-blockers.toolforge.org/api.php"),
     # HTTP/HTTPS proxy used only for requests that need it (such as accessing train_blockers_url)
     "web_proxy": (str, None),
+    # How long scap will wait for a gerrit patch with a version change to complete CI. Default is 5m
+    "version_update_patch_timeout": (int, 300),
     # Settings related to building and deploying mediawiki container image
     # xref AbstractSync._build_container_images() in main.py
     "build_mw_container_image": (bool, False),
