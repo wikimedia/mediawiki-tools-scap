@@ -5,6 +5,7 @@ from io import StringIO
 import sys
 from textwrap import dedent
 import unittest
+from unittest.mock import patch
 from time import sleep
 
 from scap import log
@@ -291,3 +292,30 @@ def test_ecs_event_fields_to_logstash(caplog):
     assert isinstance(finish["event.duration"], int)
 
     assert finish["event.end"] > finish["event.start"]
+
+
+@patch.dict("os.environ", clear=True)
+def test_AnsiColorFormatter_colorize():
+    fmt = log.AnsiColorFormatter(colorize=True)
+    assert fmt.colorize is True
+
+
+@patch.dict("os.environ", clear=True)
+def test_AnsiColorFormatter_colorize_tty():
+    with patch("sys.stderr.isatty", return_value=True):
+        fmt = log.AnsiColorFormatter()
+        assert fmt.colorize is True
+
+
+@patch.dict("os.environ", clear=True)
+def test_AnsiColorFormatter_no_color_on_non_tty():
+    with patch("sys.stderr.isatty", return_value=False):
+        fmt = log.AnsiColorFormatter()
+        assert fmt.colorize is False
+
+
+@patch.dict("os.environ", {"FORCE_COLOR": ""}, clear=True)
+def test_AnsiColorFormatter_colorize_on_non_tty_with_FORCE_COLOR():
+    with patch("sys.stderr.isatty", return_value=False):
+        fmt = log.AnsiColorFormatter()
+        assert fmt.colorize is True

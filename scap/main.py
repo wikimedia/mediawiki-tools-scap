@@ -96,7 +96,7 @@ class AbstractSync(cli.Application):
     def main(self, *extra_args):
         """Perform a sync operation to the cluster."""
         if self.logo:
-            print(ansi.logo(color=sys.stdout.isatty()))
+            print(ansi.logo(color=sys.stdout.isatty() or "FORCE_COLOR" in os.environ))
 
         self._assert_auth_sock()
 

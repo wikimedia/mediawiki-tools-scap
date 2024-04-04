@@ -29,6 +29,7 @@ import logging
 import logging.handlers
 import math
 import operator
+import os
 import queue
 import re
 import shlex
@@ -66,19 +67,26 @@ class AnsiColorFormatter(logging.Formatter):
         "DEBUG": "36",  # cyan
     }
 
-    def __init__(self, fmt=None, datefmt=None, colors=None, colorize=False):
+    def __init__(self, fmt=None, datefmt=None, colors=None, colorize="auto"):
         """
         :param fmt: Message format string
         :param datefmt: Time format string
         :param colors: Dict of {'levelname': ANSI SGR parameters}
-        :param colorize: Set to true to colorize messages based on log level
+        :param colorize: Set to true to colorize messages based on log level.
+                         Default 'auto' enable color when stderr is a tty or
+                         'FORCE_COLOR' is found in the environment.
 
         .. seealso:: https://en.wikipedia.org/wiki/ANSI_escape_code
         """
         super().__init__(fmt, datefmt)
+
         if colors:
             self.colors.update(colors)
-        self.colorize = colorize
+
+        if colorize == "auto":
+            self.colorize = sys.stderr.isatty() or "FORCE_COLOR" in os.environ
+        else:
+            self.colorize = colorize
 
     def format(self, record):
         msg = super().format(record)
@@ -93,7 +101,7 @@ class DiffLogFormatter(AnsiColorFormatter):
     lex = None
     formatter = None
 
-    def __init__(self, fmt=None, datefmt=None, colors=None, colorize=False):
+    def __init__(self, fmt=None, datefmt=None, colors=None, colorize="auto"):
         if DiffLexer:
             self.lex = DiffLexer()
             self.formatter = TerminalFormatter()
@@ -919,9 +927,7 @@ def setup_loggers(cfg, console_level=logging.INFO, handlers=None):
         logging.root.handlers[0].setFormatter(JSONFormatter())
     else:
         logging.root.handlers[0].setFormatter(
-            DiffLogFormatter(
-                "%(asctime)s %(message)s", "%H:%M:%S", colorize=sys.stderr.isatty()
-            )
+            DiffLogFormatter("%(asctime)s %(message)s", "%H:%M:%S")
         )
 
     if cfg["udp2log_host"]:
