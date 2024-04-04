@@ -465,10 +465,45 @@ class K8sOps:
 
         return data[0].get("status")
 
-    def _helm_rollback_pending_upgrade(self, kubeconfig, helmfile_dir, release, logger):
-        # Should this use --wait ?
-        cmd = ["helm", "--kubeconfig", kubeconfig, "rollback", release]
-        self._run_timed_cmd_quietly(cmd, helmfile_dir, logger)
+    def _helm_fix_pending_state(self, datacenter, helmfile_dir, release, logger):
+        """
+        Fix the release if it is in a pending-* state
+        """
+
+        kubeconfig = self._get_kubeconfig(datacenter, helmfile_dir, release, logger)
+
+        if not kubeconfig:
+            return
+
+        status = self._get_helm_release_status(
+            kubeconfig, helmfile_dir, release, logger
+        )
+        logger.debug(
+            "Status is '%s' for datacenter %s, helmfile_dir %s, release %s",
+            status,
+            datacenter,
+            helmfile_dir,
+            release,
+        )
+
+        recovery_commands = {
+            "pending-install": "uninstall",
+            "pending-upgrade": "rollback",
+            "pending-rollback": "rollback",
+        }
+
+        recovery_command = recovery_commands.get(status)
+        if recovery_command:
+            logger.warning(
+                "Release %s for datacenter %s in %s is in %s state.  Attempting to clean up",
+                release,
+                datacenter,
+                helmfile_dir,
+                status,
+            )
+            # Should this use --wait ?
+            cmd = ["helm", "--kubeconfig", kubeconfig, recovery_command, release]
+            self._run_timed_cmd_quietly(cmd, helmfile_dir, logger)
 
     def _deploy_k8s_images_for_datacenter(self, datacenter, helmfile_dir, release):
         """
@@ -477,30 +512,7 @@ class K8sOps:
 
         logger = logging.getLogger("scap.k8s.deploy")
 
-        kubeconfig = self._get_kubeconfig(datacenter, helmfile_dir, release, logger)
-
-        if kubeconfig:
-            status = self._get_helm_release_status(
-                kubeconfig, helmfile_dir, release, logger
-            )
-            logger.debug(
-                "Status is '%s' for datacenter %s, helmfile_dir %s, release %s",
-                status,
-                datacenter,
-                helmfile_dir,
-                release,
-            )
-
-            if status == "pending-upgrade":
-                logger.warning(
-                    "Release %s for datacenter %s in %s is in pending-upgrade state.  Attempting to clean up",
-                    release,
-                    datacenter,
-                    helmfile_dir,
-                )
-                self._helm_rollback_pending_upgrade(
-                    kubeconfig, helmfile_dir, release, logger
-                )
+        self._helm_fix_pending_state(datacenter, helmfile_dir, release, logger)
 
         cmd = [
             "helmfile",
