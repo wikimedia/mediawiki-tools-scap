@@ -952,7 +952,6 @@ class Backport(cli.Application):
                 self.get_logger().error(
                     "Could not find commit for change %s" % change_id
                 )
-                self._reset_workspace()
                 raise SystemExit(1)
 
             repo_commits[repo_location].add(commit)
