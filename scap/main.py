@@ -129,6 +129,10 @@ class AbstractSync(cli.Application):
 
             if self._k8s_only_sync():
                 self._deploy_k8s_testservers()
+                if self.arguments.force:
+                    self.get_logger().warning("Test server checks skipped by --force")
+                else:
+                    self.check_testservers(baremetal_testservers=[])
                 self._pause_after_testserver_sync()
                 self._deploy_k8s_canaries()
                 self._deploy_k8s_production()
