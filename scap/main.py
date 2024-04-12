@@ -129,6 +129,7 @@ class AbstractSync(cli.Application):
 
             if self._k8s_only_sync():
                 self._deploy_k8s_testservers()
+                self._pause_after_testserver_sync()
                 self._deploy_k8s_canaries()
                 self._deploy_k8s_production()
             else:
@@ -148,27 +149,7 @@ class AbstractSync(cli.Application):
                 else:
                     self.check_testservers(baremetal_testservers)
 
-                # Not all subclasses of AbstractSync define the --pause-after-testserver-sync argument,
-                # so we can't assume it is in self.arguments.
-                if getattr(self.arguments, "pause_after_testserver_sync", False):
-                    users = " and ".join(
-                        set(
-                            [getpass.getuser()]
-                            + getattr(self.arguments, "notify_user", [])
-                        )
-                    )
-                    message = (
-                        "%s: %s synced to the testservers (https://wikitech.wikimedia.org/wiki/Mwdebug)"
-                        % (users, self.arguments.message)
-                    )
-                    self.announce(message)
-                    self.prompt_for_approval_or_exit(
-                        "Changes synced to the testservers. (see https://wikitech.wikimedia.org/wiki/Mwdebug)\n"
-                        "Please do any necessary checks before continuing.\n"
-                        "Continue with sync?",
-                        "Sync cancelled.",
-                    )
-                    self.announce(f"{users}: Continuing with sync")
+                self._pause_after_testserver_sync()
 
                 # Deploy K8s canary releases
                 self._deploy_k8s_canaries()
@@ -244,6 +225,27 @@ class AbstractSync(cli.Application):
 
     def _before_cluster_sync(self):
         pass
+
+    def _pause_after_testserver_sync(self):
+        # Not all subclasses of AbstractSync define the --pause-after-testserver-sync argument,
+        # so we can't assume it is in self.arguments.
+        if not getattr(self.arguments, "pause_after_testserver_sync", False):
+            return
+        users = " and ".join(
+            set([getpass.getuser()] + getattr(self.arguments, "notify_user", []))
+        )
+        message = (
+            "%s: %s synced to the testservers (https://wikitech.wikimedia.org/wiki/Mwdebug)"
+            % (users, self.arguments.message)
+        )
+        self.announce(message)
+        self.prompt_for_approval_or_exit(
+            "Changes synced to the testservers. (see https://wikitech.wikimedia.org/wiki/Mwdebug)\n"
+            "Please do any necessary checks before continuing.\n"
+            "Continue with sync?",
+            "Sync cancelled.",
+        )
+        self.announce(f"{users}: Continuing with sync")
 
     def _k8s_only_sync(self):
         # Not all subclasses of AbstractSync define the --k8s-only option
