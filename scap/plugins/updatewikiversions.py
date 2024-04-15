@@ -50,7 +50,10 @@ class UpdateWikiversions(cli.Application):
             self.updates[dblist] = branch
 
         self.update_wikiversions_json()
-        if self.arguments.update_php_symlink:
+        if (
+            self.arguments.update_php_symlink
+            and self.config["manage_mediawiki_php_symlink"]
+        ):
             self.update_branch_pointer()
 
     def _clean_dblist_name(self, name: str) -> str:

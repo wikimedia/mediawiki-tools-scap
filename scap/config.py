@@ -51,6 +51,7 @@ DEFAULT_CONFIG = {
     "log_json": (bool, False),
     "logstash_host": (str, "logstash1001.eqiad.wmnet:9200"),
     "mw_web_clusters": (str, "jobrunner,appserver,appserver_api,testserver"),
+    "manage_mediawiki_php_symlink": (bool, True),
     "master_rsync": (str, "localhost"),
     "statsd_host": (str, "127.0.0.1"),
     "statsd_port": (str, "2003"),

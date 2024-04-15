@@ -229,7 +229,7 @@ class DeployPromote(cli.Application):
             self.scap_check_call(["sync-wikiversions", self.announce_message])
 
         # Group1 day is also the day we sync the php symlink
-        if self.group == "group1":
+        if self.config["manage_mediawiki_php_symlink"] and self.group == "group1":
             self.logger.info("Running scap sync-file php")
             self.scap_check_call(["sync-file", "php", self.announce_message])
 
