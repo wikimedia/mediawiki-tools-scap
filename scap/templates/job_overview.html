@@ -1,0 +1,97 @@
+{% macro status_class(thing) -%}
+{% if not thing.started %}not_started{% endif %}
+{% if thing.running %}running{% endif %}
+{% if thing.finished %}finished{% endif %}
+{% if thing.skip %}skipped{% endif %}
+{%- endmacro  %}
+
+{% macro render_leaf_step(step) -%}
+<div class="step {{ status_class(step) }}">
+  {% if step.logfile_start %}
+  <!-- FIXME: use url_for -->
+  <a href="/scap/jobs/{{ job_id }}/log?position={{ step.logfile_start }}">
+  {% endif %}
+  {{ step.name|e }}
+  {% if step.logfile_start %}
+  </a>
+  {% endif %}
+  {% if step.running %}
+  Running {{ "{:.2f}".format(step.running_time) }}s
+  {% endif %}
+  {% if step.finished %}
+  {{ "{:.2f}".format(step.duration) }}s
+  {% endif %}
+</div>
+{%- endmacro  %}
+
+{% macro render_stage(stage) -%}
+<div class="stage">
+  <div class="stage-name {{ status_class(stage) }}">{{ stage.name|e }}</div>
+  <hr>
+  {% for child in stage.children %}
+  {% if child.is_a_stage %}
+  {{ render_stage(child) }}
+  {% else %}
+  {{ render_leaf_step(child) }}
+  {% endif %}
+  {% endfor %}
+</div>  
+{%- endmacro  %}
+
+<html>
+  <head>
+    <title>Spiderpig -- Job {{job_id}} Overview</title>
+    {% if plan.running %}
+    <meta http-equiv="refresh" content="2">
+    {% endif %}
+    <style>
+      .plan {
+	  background-color: lightgray;
+	  border-radius: 10px;
+	  padding: 10px;
+	  display: inline-block;
+      }
+      .stage {
+	  display: inline-block;
+	  vertical-align: top;
+	  background-color: lightgreen;
+	  border-style: solid;
+	  border-radius: 10px;
+	  border-width: 2px;
+	  padding: 10px;
+	  margin: 2px;
+      }
+      .step {
+	  padding-bottom: 10px;
+      }
+      h1, h2 {
+	  text-align: center;
+      }
+      hr {
+	  border-style: solid;
+      }
+      
+      .not_started {
+	  color: black;
+      }
+      .skipped {
+	  color: gray;
+      }
+      .running {
+	  color: blue;
+      }
+      .finished {
+	  color: green;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Job {{ job_id }} Overview</h1>
+    <h2><a href="{{ job_log_url }}">Job {{ job_id }} Log</a></h2>
+    <div class="plan">
+	{% for stage in plan.stages %}
+        {{ render_stage(stage) }}
+	{% endfor %}
+    </div>
+  </body>
+</html>

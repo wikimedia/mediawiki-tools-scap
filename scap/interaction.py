@@ -1,6 +1,8 @@
+import os
 import sys
 
 import scap.ansi as ansi
+import scap.spiderpigio as spiderpigio
 
 YES_NO_CHOICES = {"Yes": "y", "No": "n"}
 
@@ -9,7 +11,11 @@ def terminal_interactive() -> bool:
     """
     Returns True if both stdin and stdout are attached to a terminal.
     """
-    return sys.stdin.isatty() and sys.stdout.isatty()
+    return spiderpig_mode() or (sys.stdin.isatty() and sys.stdout.isatty())
+
+
+def spiderpig_mode() -> bool:
+    return bool(os.environ.get("SPIDERPIG_JOB_ID"))
 
 
 def prompt_choices(question: str, choices, default=None) -> str:
@@ -33,7 +39,7 @@ def prompt_choices(question: str, choices, default=None) -> str:
     if choices == bool:
         choices = YES_NO_CHOICES
 
-    io = TerminalInteraction
+    io = SpiderpigInteraction if spiderpig_mode() else TerminalInteraction
     while True:
         resp = io.prompt_choices(question, choices, default).strip()
         if not resp and default:
@@ -84,3 +90,9 @@ class TerminalInteraction:
         default_text = f" (default: [{default}])" if default else ""
 
         return f"{question}{default_text}: "
+
+
+class SpiderpigInteraction:
+    @classmethod
+    def prompt_choices(self, question, choices, default):
+        return spiderpigio.prompt(question, choices, default)

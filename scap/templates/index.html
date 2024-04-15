@@ -1,0 +1,67 @@
+<!doctype html>
+  <html>
+    <head>
+      <title>Spiderpig Overview</title>
+      <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js" crossorigin="anonymous"></script>
+    </head>
+    <style>
+      #history {
+	  border-style: none;
+      }
+    </style>
+    <body>
+      <img src="/static/spiderpig.png"/>
+      <h2>Scap status: <span id=scapstatus>Unknown</span></h2>
+      <h2>Operations</h2>
+      <ul>
+	<li><h2><a href="/scap/backport">scap backport</a></h2>
+	</li>
+	<li>
+	  <div>
+	    <h2>scap sync-world</h2>
+	    <div>To run scap sync-world, enter a reason for the sync, then click the Run button.</div>
+	    <input id="sync-world-justification" placeholder="Enter justification here" oninput="set_sync_world_button_status();"/>
+	    <button type="button" id="start-sync-world" disabled onclick="start_sync_world();">Run</button>
+	  </div>
+	</li>
+      </ul>
+      <!-- FIXME: Use something better than an iframe (for example, a local table that can self-refresh using Javascript) -->
+      <iframe id="history" src="/scap/history" title="Scap history" height="250" width="100%"></iframe>
+      <script>
+	var socket = io();
+
+	socket.on('update-history', function (data) {
+	    document.getElementById('history').contentWindow.location.reload();
+	});
+	
+	socket.on('update-scap-status', function (data) {
+	    status = data['status'];
+
+	    document.getElementById('scapstatus').textContent = status;
+
+	    set_sync_world_button_status();
+	});
+
+	function set_sync_world_button_status() {
+	    status_span = document.getElementById('scapstatus');
+	    just = document.getElementById('sync-world-justification');
+	    button = document.getElementById("start-sync-world");
+
+	    if (status_span.textContent == "Idle" && just.value.trim() != "") {
+		button.disabled = false;
+	    } else {
+		button.disabled = true;
+	    }
+	}
+
+	function start_sync_world() {
+	    just = document.getElementById('sync-world-justification');
+	    
+	    socket.emit("start_sync_world",
+			{ "justification": just.value }
+		       );
+	    just.value = "";
+	}
+      </script>
+    </body>
+  </html>

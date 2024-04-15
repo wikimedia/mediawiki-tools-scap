@@ -2,6 +2,10 @@ import pytest
 from scap import cli
 
 
+api_canaries = ["pigeon.w.o", "crow.w.o", "cormorant.w.o", "flamingo.w.o"]
+app_canaries = ["birdy.w.o", "hawk.w.o", "duck.w.o", "chick.w.o"]
+
+
 @pytest.fixture
 def cmd(request):
     """Fully initialized class"""
@@ -17,6 +21,8 @@ def cmd(request):
 
     # Do some basic initialization
     app.setup()
+
+    app.full_target_list = api_canaries + app_canaries
 
     return app
 
@@ -66,20 +72,16 @@ def test_increment_stat(cmd, mocker):
     stats.increment.assert_called_once_with("deploy.sync-file", 5)
 
 
-api_canaries = ["pigeon.w.o", "crow.w.o", "cormorant.w.o", "flamingo.w.o"]
-app_canaries = ["birdy.w.o", "hawk.w.o", "duck.w.o", "chick.w.o"]
-
-
 def test__get_api_canary_list(cmd, mocker):
     tl = mocker.patch("scap.targets.get")
     tl.return_value.all = api_canaries
-    assert cmd._get_api_canary_list() == api_canaries
+    assert sorted(cmd._get_api_canary_list()) == sorted(api_canaries)
 
 
 def test__get_app_canary_list(cmd, mocker):
     tl = mocker.patch("scap.targets.get")
     tl.return_value.all = app_canaries
-    assert cmd._get_app_canary_list() == app_canaries
+    assert sorted(cmd._get_app_canary_list()) == sorted(app_canaries)
 
 
 def test__get_canary_list(cmd, mocker):

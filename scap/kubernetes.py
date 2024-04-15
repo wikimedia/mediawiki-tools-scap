@@ -11,6 +11,7 @@ import shlex
 import subprocess
 import tempfile
 import threading
+import time
 from typing import List
 import queue
 
@@ -185,6 +186,14 @@ class K8sOps:
         )
         self.helm_env = self._collect_helm_env()
         self.original_helmfile_values = {}
+        self.deployments_info = {}
+
+        # if app.config["deploy_mw_container_image"]:
+        #     threading.Thread(
+        #         target=self._deployments_info_collector,
+        #         name="Deployments info collector",
+        #         daemon=True,
+        #     ).start()
 
     def build_k8s_images(self):
         def build_and_push_images():
@@ -375,6 +384,80 @@ class K8sOps:
     def _get_deployment_datacenters(self) -> List[str]:
         # FIXME: Rename this config value
         return re.split(r"[,\s]+", self.app.config["k8s_clusters"])
+
+    def get_deployments_info(self) -> dict:
+        """
+        Returns a dictionary of collected Deployment resources, grouped by stage.
+
+        See https://kubernetes.io/docs/reference/kubernetes-api/workload-resources/deployment-v1/
+        for a description of the Deployment resource fields.
+        """
+        return self.deployments_info
+
+    def get_deployments_for_stage(self, stage: str) -> list:
+        """
+        Returns a list of the Deployment resources associated with 'stage'.
+        See https://kubernetes.io/docs/reference/kubernetes-api/workload-resources/deployment-v1/
+        for a description of the Deployment resource fields.
+        """
+        res = self.deployments_info.get(stage)
+        if res:
+            return res
+        return []
+
+    def _deployments_info_collector(self):
+        """
+        It takes a fair amount of time to collect Deployments information in production,
+        so this method runs in a background thread to periodically collect up-to-date
+        information.
+        """
+        target_freshness = self.app.config["k8s_deployments_info_target_freshness"]
+
+        while True:
+            start = time.time()
+
+            for stage in STAGES:
+                self.deployments_info[stage] = self._get_deployments_for_stage(stage)
+
+            elapsed = time.time() - start
+            remaining_freshness = target_freshness - elapsed
+            if remaining_freshness > 0:
+                time.sleep(remaining_freshness)
+
+    def _get_deployments_for_stage(self, stage: str) -> list:
+        """
+        Returns a list of the Deployment resources associated with 'stage'.
+        See https://kubernetes.io/docs/reference/kubernetes-api/workload-resources/deployment-v1/
+        for a description of the Deployment resource fields.
+        """
+        res = []
+
+        for dep_config in self.k8s_deployments_config.stages[stage]:
+            namespace = dep_config[DeploymentsConfig.NAMESPACE]
+            release = dep_config[DeploymentsConfig.RELEASE]
+
+            for dc in self._get_deployment_datacenters():
+                # FIXME: This encodes some knowledge that is defined in helmfile config and the mediawiki chart
+                kubeconfig = f"/etc/kubernetes/{namespace}-deploy-{dc}.config"
+                deployment_name = (
+                    f"{namespace}.dev.{release}"
+                    if dc == "traindev"
+                    else f"{namespace}.{dc}.{release}"
+                )
+                # FIXME: If we're bootstrapping a cluster, there won't be an existing deployment.
+                cmd = [
+                    "kubectl",
+                    "--kubeconfig",
+                    kubeconfig,
+                    "get",
+                    "deployment",
+                    deployment_name,
+                    "-o",
+                    "json",
+                ]
+                deployment_data = json.loads(subprocess.check_output(cmd))
+                res.append(deployment_data)
+        return res
 
     def _disable_k8s_deployments(self):
         self.logger.warning("Disabled deploying to K8s")

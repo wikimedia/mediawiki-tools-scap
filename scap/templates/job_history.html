@@ -1,0 +1,66 @@
+<!doctype html>
+  <html>
+    <head>
+      <title>Job history</title>
+      <style>
+	th {
+	    background-color: lightgreen;
+	}
+	tr {
+	    line-height: 30px;
+	    cursor: pointer;
+	}
+	tr:nth-child(even) {
+	    background-color: #f2f2f2;
+	}
+	tr.running {
+	    background-color: lightblue;
+	}
+	tr.failed {
+	    background-color: red;
+	}
+	tr:hover {
+	    background-color: coral;
+	}
+	td {
+	    padding: 5px;
+	}
+      </style>
+    </head>
+    <body>
+      <table border>
+	<tr>
+	  <th>Job Id</th>
+	  <th>Start</th>
+	  <th>End</th>
+	  <th>Duration</th>
+	  <th>Status</th>
+	  <th>Who</th>
+	  <th>What</th>
+	  <!-- <th>Why</th> -->
+	</tr>
+	{% for histentry in history.get_entries() %}
+	<tr onClick="clickedRow(this);"
+	    {% if histentry.running %}class="running"{% endif %}
+	    {% if histentry.exitcode %}class="failed"{% endif %}
+	    >
+	  <td><a href="{{ histentry.job_overview_url }}">{{ histentry.id|e }}</a></td>
+	  <td>{{ histentry.start_time_string|e }}</td>
+	  <td>{{ histentry.stop_time_string|e }}</td>
+	  <td>{{ histentry.duration|e }}</td>
+	  <td>{{ histentry.running_status|e }}</td>
+	  <td>{{ histentry.who|e }}</td>
+	  <td>{{ histentry.what|e }}</td>
+	  <!-- <td>{{ histentry.why|e }}</td> -->
+	</tr>
+	{% endfor %}
+      </table>
+      <script>
+	function clickedRow(e) {
+	    var url = e.cells[0].childNodes[0].href;
+	    
+	    window.open(url, '_blank').focus();
+	}
+      </script>
+    </body>
+  </html>

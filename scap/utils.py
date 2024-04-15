@@ -803,7 +803,7 @@ def write_file_if_needed(filename, data: str):
 
 
 @contextlib.contextmanager
-def temp_to_permanent_file(final_filename):
+def temp_to_permanent_file(final_filename, mode="w"):
     """
     temp_to_permanent_file yields a text stream on a temporary file
     that is open for writing.  If the context body completes without
@@ -823,7 +823,7 @@ def temp_to_permanent_file(final_filename):
     # so that os.rename() can atomically replace the destination file
     # (if one exists)
     with tempfile.NamedTemporaryFile(
-        "w", dir=os.path.dirname(final_filename), delete=False
+        mode, dir=os.path.dirname(final_filename), delete=False
     ) as tmp:
         try:
             yield tmp

@@ -1,0 +1,47 @@
+<!doctype html>
+  <html>
+    <head>
+      <link rel="stylesheet" href="static/node_modules/@xterm/xterm/css/xterm.css" />
+      <script src="static/node_modules/@xterm/xterm/lib/xterm.js"></script>
+      <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js" crossorigin="anonymous"></script>
+    </head>
+    <body>
+      <div id="terminal"></div>
+      <iframe src="/deployment-status" height=300 width=800 id="status0" style="display:none"></iframe>
+      <iframe src="/deployment-status" height=300 width=800 id="status1" style="display:none"></iframe>
+      <script>
+        var term = new Terminal();
+        term.open(document.getElementById('terminal'));
+
+        var socket = io();
+	
+        socket.on('add-output', function(data) {
+            term.write(data);
+        });
+
+	
+	/* FIXME: Could stop refreshing after the job completes */
+	/* Inspired by https://codecorner.galanter.net/2016/05/05/flicker-free-iframe-refresh/ */
+	statusNo = 0;
+	function updateStatus() {
+	    /* This is the iframe we'll update */
+	    iframe = document.getElementById('status' + statusNo);
+	    statusNo = 1 - statusNo;
+	    /* This is the iframe we'll hide */
+	    iframeOther = document.getElementById('status' + statusNo);
+	    
+	    iframeOther.onload = null;
+	    iframe.onload = function() {
+		iframe.style.display = "block";
+		iframeOther.style.display = "none";
+	    }
+	    /* Initiate the load */
+	    iframe.contentWindow.location.reload();
+	}
+	
+	window.setInterval(function() {
+	    updateStatus();
+        }, 2000);
+      </script>
+    </body>
+  </html>

@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <style>
+      .ready {
+	  background-color: lightgreen;
+      }
+      .notready { 
+	  background-color: yellow;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Kubernetes Deployments</h1>
+    {% for stage in data %}
+    <h2>{{ stage.capitalize() }} Deployments</h2>
+    <table border>
+      <tr>
+	<th rowspan=2>Name</th>
+	<th colspan=4>Replicas</th>
+	<th rowspan=2>Condition</th>
+      </tr>
+      <tr>
+	<th>Configured</th>
+	<th>Ready</th>
+	<th>Up-to-date</th>
+	<th>Available</th>
+      </tr>
+      {% for deployment in data[stage] %}
+      {% set status = deployment.status %}
+      <tr class="{% if status.readyReplicas != status.replicas %}not{% endif %}ready">
+	<td>{{ deployment.metadata.name|e }}</td>
+	<td>{{ status.replicas }}</td>
+	<td>{{ status.readyReplicas }}</td>
+	<td>{{ status.updatedReplicas }}</td>
+	<td>{{ status.availableReplicas }}</td>
+	<td>
+	  {% if status.conditions %}
+	  {{ status.conditions[0].message|e }}
+	  {% endif %}
+	</td>
+      </tr>
+      {% endfor %}
+    </table>
+    {% endfor %}
+  </body>
+</html>

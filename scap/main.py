@@ -39,12 +39,14 @@ import scap.lint as lint
 import scap.lock as lock
 import scap.log as log
 import scap.php_fpm as php_fpm
+import scap.spiderpigio as spiderpigio
 import scap.ssh as ssh
 import scap.targets as targets
 import scap.tasks as tasks
 import scap.utils as utils
 import scap.version as scapversion
 from scap import ansi, history
+from scap.executionplan import ExecutionPlan, Stage
 from scap.kubernetes import K8sOps, TEST_SERVERS, CANARIES, PRODUCTION, STAGES
 from scap.runcmd import mwscript
 
@@ -103,94 +105,93 @@ class AbstractSync(cli.Application):
         """Perform a sync operation to the cluster."""
         if self.logo:
             print(ansi.logo(color=utils.should_colorize_output()))
+            sys.stdout.flush()
 
         self._assert_auth_sock()
+
+        self.full_target_list = self._get_target_list()
+
+        self.k8s_ops = K8sOps(self)
+
+        # Begin by confirming helmfile diffs, if enabled. This avoids having
+        # to clean up after operations with side-effects if cancelled.
+        self._confirm_k8s_diffs()
 
         with lock.Lock(
             self.get_lock_file(), name="sync", reason=self.arguments.message
         ):
-            self.k8s_ops = K8sOps(self)
+            # FIXME: Use the name of the subcommand
+            plan = ExecutionPlan("sync")
 
-            # Begin by confirming helmfile diffs, if enabled. This avoids having
-            # to clean up after operations with side-effects if cancelled.
-            self._confirm_k8s_diffs()
+            init_stage = plan.add_stage("Initialization")
+            deployment_stage = plan.add_stage("Deployment Stages")
+            post_stage = plan.add_stage("Post")
 
-            self._compile_wikiversions()
-            self._before_cluster_sync()
-            self._update_caches()
+            init_stage.add_step(
+                "Compile wikiversions",
+                lambda: tasks.compile_wikiversions("stage", self.config),
+            )
+            # Different programs do different stuff in this hook..
+            # it's hard to describe it generally.    Perhaps those hookers
+            # should be responsible for adding steps.
+            init_stage.add_step("_before_cluster_sync", self._before_cluster_sync)
 
-            if not self.arguments.force:
-                self.get_logger().info("Checking for new runtime errors locally")
-                self._check_fatals()
-            else:
-                self.get_logger().warning("check_fatals skipped by --force")
+            init_stage.add_step("Update caches", self._update_caches)
 
-            self.k8s_ops.build_k8s_images()
+            init_stage.add_step(
+                "Checking for new runtime errors locally",
+                self._check_fatals,
+                skip=self.arguments.force,
+            )
+
+            init_stage.add_step("Build container images", self.k8s_ops.build_k8s_images)
 
             if self.arguments.stop_before_sync:
-                self.get_logger().info("Stopping before sync operations")
-                return 0
-
-            # Preload MW multiversion image into K8s cluster nodes
-            self.k8s_ops.pull_image_on_nodes()
-
-            # Sync masters regardless of the --k8s-only flag since some of the
-            # sync'd information affects k8s deployments.
-            self._sync_masters()
-
-            if self._k8s_only_sync():
-                self._deploy_k8s_testservers()
-                if self.arguments.force:
-                    self.get_logger().warning("Test server checks skipped by --force")
-                else:
-                    self.check_testservers(baremetal_testservers=[])
-                self._pause_after_testserver_sync()
-                self._deploy_k8s_canaries()
-                self._deploy_k8s_production()
+                init_stage.add_step(
+                    "Stopping before sync",
+                    lambda: self.get_logger().info("Stopping before sync operations"),
+                )
             else:
-                full_target_list = self._get_target_list()
-
-                # Deploy K8s test releases
-                self._deploy_k8s_testservers()
-
-                baremetal_testservers = utils.list_intersection(
-                    self._get_testserver_list(), full_target_list
+                # Preload MW multiversion image into K8s cluster nodes
+                init_stage.add_step(
+                    "Pull container image onto k8s nodes",
+                    self.k8s_ops.pull_image_on_nodes,
                 )
-                if len(baremetal_testservers) > 0:
-                    with log.Timer("sync-testservers", self.get_stats()):
-                        self.sync_targets(baremetal_testservers, "testservers")
-                if self.arguments.force:
-                    self.get_logger().warning("Test server checks skipped by --force")
-                else:
-                    self.check_testservers(baremetal_testservers)
 
-                self._pause_after_testserver_sync()
+                # Sync masters regardless of the --k8s-only flag since some of the
+                # sync'd information affects k8s deployments.
+                init_stage.add_step("sync-masters", self._sync_masters)
 
-                # Deploy K8s canary releases
-                self._deploy_k8s_canaries()
+                for stagename in [TEST_SERVERS, CANARIES, PRODUCTION]:
+                    stage = Stage(stagename.capitalize())
+                    getattr(self, f"_add_{stagename}_steps")(stage)
+                    deployment_stage.add_substage(stage)
 
-                canaries = utils.list_intersection(
-                    self._get_canary_list(), full_target_list
+                post_stage.add_step(
+                    "Updating history",
+                    lambda: history.update_latest(
+                        self.config["history_log"], synced=True
+                    ),
                 )
-                with log.Timer("sync-check-canaries", self.get_stats()) as timer:
-                    if canaries:
-                        self.sync_targets(canaries, "canaries")
-                        timer.mark("Canaries Synced")
-                    if self.arguments.force:
-                        self.get_logger().warning("Canary checks skipped by --force")
-                    else:
-                        self.canary_checks()
 
-                # Deploy K8s production releases
-                self._deploy_k8s_production()
+            execution_callback = None
 
-                # Deploy to bare metal production targets
-                self._sync_proxies_and_apaches(full_target_list)
+            if interaction.spiderpig_mode():
 
-                history.update_latest(self.config["history_log"], synced=True)
+                def spiderpig_execution_callback(path_id, data):
+                    assert isinstance(path_id, list)
+                    assert isinstance(data, dict)
 
-                # php-fpm restarts happen in here
-                self._after_cluster_sync()
+                    rec = data.copy()
+                    rec["name"] = "spiderpig-message"
+                    rec["path_id"] = path_id
+                    spiderpigio.send_message(rec)
+
+                plan.finalize()
+                spiderpigio.send_plan(plan)
+                execution_callback = spiderpig_execution_callback
+
+            plan.execute(status_change_callback=execution_callback)
 
         self._after_lock_release()
         if self.soft_errors:
@@ -243,11 +244,30 @@ class AbstractSync(cli.Application):
     def _before_cluster_sync(self):
         pass
 
+    def _sync_baremetal_testservers(self, baremetal_testservers):
+        with log.Timer("sync-baremetal-testservers", self.get_stats()):
+            self.sync_targets(baremetal_testservers, "baremetal-testservers")
+
+    def _sync_baremetal_canaries(self, canaries):
+        with log.Timer("sync-baremetal-canaries", self.get_stats()):
+            self.sync_targets(canaries, "baremetal-canaries")
+
+    def _sync_proxies(self, proxies):
+        with log.Timer("sync-proxies", self.get_stats()):
+            sync_cmd = self._apache_sync_command()
+            sync_cmd.append(socket.getfqdn())
+            self._perform_sync("proxies", sync_cmd, proxies)
+
+    def _sync_baremetal_production(self, proxies):
+        with log.Timer("sync-apaches", self.get_stats()):
+            self._perform_sync(
+                "apaches",
+                self._apache_sync_command(proxies),
+                self.full_target_list,
+                shuffle=True,
+            )
+
     def _pause_after_testserver_sync(self):
-        # Not all subclasses of AbstractSync define the --pause-after-testserver-sync argument,
-        # so we can't assume it is in self.arguments.
-        if not getattr(self.arguments, "pause_after_testserver_sync", False):
-            return
         users = " and ".join(
             set([getpass.getuser()] + getattr(self.arguments, "notify_user", []))
         )
@@ -263,6 +283,64 @@ class AbstractSync(cli.Application):
             "Sync cancelled.",
         )
         self.announce(f"{users}: Continuing with sync")
+
+    def _add_testservers_steps(self, stage):
+        stage.add_step("Kubernetes", self._deploy_k8s_testservers)
+
+        baremetal_testservers = []
+
+        if not self._k8s_only_sync():
+            baremetal_testservers = self._get_testserver_list()
+            if len(baremetal_testservers) > 0:
+                stage.add_step(
+                    "Bare metal",
+                    lambda: self._sync_baremetal_testservers(baremetal_testservers),
+                )
+
+        stage.add_step(
+            "Checks",
+            lambda: self.check_testservers(baremetal_testservers),
+            skip=self.arguments.force,
+        )
+
+        # Not all subclasses of AbstractSync define the --pause-after-testserver-sync argument,
+        # so we can't assume it is in self.arguments.
+        if getattr(self.arguments, "pause_after_testserver_sync", False):
+            stage.add_step("Pause after sync", self._pause_after_testserver_sync)
+
+    def _add_canaries_steps(self, stage):
+        stage.add_step("Kubernetes", self._deploy_k8s_canaries)
+
+        if not self._k8s_only_sync():
+            canaries = self._get_canary_list()
+            if canaries:
+                stage.add_step(
+                    "Bare metal", lambda: self._sync_baremetal_canaries(canaries)
+                )
+
+        stage.add_step("Checks", self.canary_checks, skip=self.arguments.force)
+
+    def _add_production_steps(self, stage):
+        stage.add_step("Kubernetes", self._deploy_k8s_production)
+
+        if not self._k8s_only_sync():
+            proxies = utils.list_intersection(
+                self._get_proxy_list(), self.full_target_list
+            )
+
+            if len(proxies) > 0:
+                stage.add_step(
+                    "Sync baremetal proxies", lambda: self._sync_proxies(proxies)
+                )
+
+            stage.add_step(
+                "Baremetal Apaches", lambda: self._sync_baremetal_production(proxies)
+            )
+            # FIXME: needs a better description
+            # php-fpm restarts happen in here
+            stage.add_step("_after_cluster_sync", self._after_cluster_sync)
+
+        # FIXME: This should have a check phase like testservers and canaries
 
     def _k8s_only_sync(self):
         # Not all subclasses of AbstractSync define the --k8s-only option
@@ -325,6 +403,8 @@ class AbstractSync(cli.Application):
     def _check_fatals(self):
         logger = self.get_logger()
 
+        logger.info("Checking for new runtime errors locally")
+
         for version, wikidb in self.active_wikiversions(
             "stage", return_type=dict
         ).items():
@@ -352,15 +432,21 @@ class AbstractSync(cli.Application):
 
     def _get_testserver_list(self):
         """Get list of MediaWiki testservers."""
-        return targets.get("dsh_testservers", self.config).all
+        return utils.list_intersection(
+            targets.get("dsh_testservers", self.config).all, self.full_target_list
+        )
 
     def _get_api_canary_list(self):
         """Get list of MediaWiki api canaries."""
-        return targets.get("dsh_api_canaries", self.config).all
+        return utils.list_intersection(
+            targets.get("dsh_api_canaries", self.config).all, self.full_target_list
+        )
 
     def _get_app_canary_list(self):
         """Get list of MediaWiki api canaries."""
-        return targets.get("dsh_app_canaries", self.config).all
+        return utils.list_intersection(
+            targets.get("dsh_app_canaries", self.config).all, self.full_target_list
+        )
 
     def _get_canary_list(self):
         """Get list of MediaWiki canary hostnames."""
@@ -496,10 +582,6 @@ class AbstractSync(cli.Application):
 
         self.already_synced += targets
 
-    def _compile_wikiversions(self):
-        """Compile wikiversions.json to wikiversions.php in stage_dir"""
-        tasks.compile_wikiversions("stage", self.config)
-
     def _git_repo(self):
         """Flatten deploy directory into shared git repo."""
         if self.config["scap3_mediawiki"]:
@@ -512,6 +594,8 @@ class AbstractSync(cli.Application):
     def _after_cluster_sync(self):
         pass
 
+    # Some classes override this to generate an announcement and update
+    # stats at the end of the operation.
     def _after_lock_release(self):
         pass
 
@@ -1228,7 +1312,7 @@ class SyncWikiversions(AbstractSync):
 
     def _update_caches(self):
         """
-        Skip this step.
+        Skip cache updates.
 
         It currently consists only of cache_git_info and this class should
         attempt to be fast where possible.

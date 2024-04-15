@@ -1,0 +1,119 @@
+<html>
+  <head>
+    <title>Spiderpig -- Scap Backport</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js" crossorigin="anonymous"></script>
+  </head>
+  <body>
+    <h1>Scap Backport</h1>
+    <div>To run scap backport, enter one or more Gerrit change numbers separated by commas or spaces.</div>
+    <input id="backport-change-numbers" placeholder="Gerrit change numbers" oninput="set_backport_button_status();"/>
+    <button id="start-backport" disabled onclick="start_backport();">Run</button>
+    <h2>Scap status: <span id=scapstatus>Unknown</span></h2>
+
+    <iframe id="log" hidden height="500" width="100%"></iframe>
+
+    <div id="prompt" hidden>
+      <pre id="prompt-message"></pre>
+      <div id="prompt-choices">
+      </div>
+    </div>
+
+    <script>
+      var socket = io();
+      var job_id = null;
+      
+      socket.on('update-scap-status', function (data) {
+	  var status = data['status'];
+	  var log = document.getElementById('log');
+
+	  job_id = data['job_id'];
+
+	  if (job_id) {
+	      status = `Job ${job_id}: ${status}`;
+
+	      // Only cause the iframe to reload when the job_log_url actually
+	      // changes.
+	      if (log.src != data['job_log_url']) {
+		  log.src = data['job_log_url']
+	      }
+	      log.hidden = false;
+	  } else {
+	      clear_prompt();
+	  }
+
+	  document.getElementById('scapstatus').textContent = status;
+	  
+	  set_backport_button_status();
+      });
+
+      socket.on('prompt', function (message) {
+	  var msg_job_id = message['job_id'];
+	  var prompt = message['prompt_mesage'];
+	  var choices = message['choices'];
+
+	  if (msg_job_id != job_id) {
+	      return;
+	  }
+
+	  document.getElementById('prompt-message').textContent = prompt;
+
+	  choices_div = document.getElementById('prompt-choices');
+	  while (choices_div.firstChild) {
+	      choices_div.removeChild(choices_div.firstChild);
+	  }
+
+	  for (choice in choices) {
+	      let b = document.createElement('button');
+	      b.textContent = choice;
+	      b.value = choices[choice];
+	      b.addEventListener('click', () => {
+		  if (!job_id) {
+		      return;
+		  }
+		  socket.emit('prompt_response',
+			      { "job_id": job_id,
+				"response": b.value,
+			      });
+	      });
+	      choices_div.appendChild(b);
+	  }
+	  
+	  document.getElementById('prompt').hidden = false;
+      });
+
+      socket.on('clear-prompt', function (message) {
+	  var msg_job_id = message['job_id'];
+
+	  if (msg_job_id != job_id) {
+	      return;
+	  }
+
+	  clear_prompt();
+      });
+
+      function clear_prompt() {
+	  document.getElementById('prompt').hidden = true;
+      }
+
+      function set_backport_button_status() {
+	  status_span = document.getElementById('scapstatus');
+	  change_numbers = document.getElementById('backport-change-numbers');
+	  button = document.getElementById("start-backport");
+	  
+	  if (status_span.textContent == "Idle" && change_numbers.value.trim() != "") {
+	      button.disabled = false;
+	  } else {
+	      button.disabled = true;
+	  }
+      }
+	function start_backport() {
+	    change_numbers = document.getElementById('backport-change-numbers');
+
+	    socket.emit("start_backport",
+			{ "change_numbers": change_numbers.value }
+		       );
+	    change_numbers.value = "";
+	}
+    </script>
+  </body>
+</html>

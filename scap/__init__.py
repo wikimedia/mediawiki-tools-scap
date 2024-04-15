@@ -50,6 +50,8 @@ from scap.deploy_promote import DeployPromote
 from scap.stage_train import StageTrain
 from scap.train import Train
 from scap.install_world import InstallWorld
+from scap.spiderpig import SpiderPig
+
 
 __all__ = [
     "CompileWikiversions",
@@ -63,6 +65,7 @@ __all__ = [
     "RebuildCdbs",
     "RefreshCdbJsonFiles",
     "SecurityPatchCheck",
+    "SpiderPig",
     "StageTrain",
     "SyncPull",
     "SyncFile",
@@ -95,6 +98,7 @@ any(
         RebuildCdbs,
         RefreshCdbJsonFiles,
         SecurityPatchCheck,
+        SpiderPig,
         SyncPull,
         SyncFile,
         SyncMaster,

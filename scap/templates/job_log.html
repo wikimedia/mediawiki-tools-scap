@@ -1,0 +1,97 @@
+<!doctype html>
+  <html>
+    <head>
+      <title>Spiderpig -- Job {{ job_id }} log</title>
+      <link rel="stylesheet" href="/static/node_modules/@xterm/xterm/css/xterm.css" />
+      <script src="/static/node_modules/@xterm/xterm/lib/xterm.js"></script>
+      <script src="/static/node_modules/@xterm/addon-fit/lib/addon-fit.js"></script>
+      <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js" crossorigin="anonymous"></script>
+      <style>
+	#cancel-job {
+	    margin-bottom: 5px;
+	}
+      </style>
+    </head>
+    <body>
+      <h2>Job {{ job_id }} log</h2>
+      <button id="cancel-job" onclick="stop_scap();" {% if job.stopped %}hidden{% endif %}>Cancel job</button>
+      <div id="terminal"></div>
+      <script>
+	const term = new Terminal({
+	    convertEol: true
+	});
+	const fitAddon = new FitAddon.FitAddon();
+	term.loadAddon(fitAddon);
+        term.open(document.getElementById('terminal'));
+	fitAddon.fit();
+
+	window.addEventListener('resize', () => {
+	    fitAddon.fit();
+	});
+
+	var socket = io();
+	var marker = null;
+	var position = 0;
+
+	socket.on('connect', function() {
+	    term.clear();
+	    position = 0;
+	    marker = null;
+	    socket.emit('get_job_log',
+	 		{ "job_id": {{ job_id }},
+			  {% if position %}
+	 		  "size": {{ position }}
+	 		  {% endif %}
+			});
+	});
+
+	socket.on('add-output', function (message) {
+	    let data = message["data"];
+	    let filepos = message["filepos"];
+	    let filelen = message["filelen"];
+	    
+	    data = new Uint8Array(data);
+	    
+	    term.write(data, function () {
+		position += data.length;
+		{% if position %}
+		if (position == {{ position }}) {
+		    marker = term.registerMarker();
+		    // Ask for the remaining console data
+	 	    socket.emit('get_job_log',
+	 			{ "job_id": {{ job_id }},
+	 			  "start": {{ position }}
+	 			});
+		}
+		{% endif %}
+		if (filepos == filelen) { // Reach the end of the log file
+		    if (marker) {
+			term.scrollToLine(marker.line);
+			marker = null;
+		    }
+		    // FIXME: Avoid doing this for logs associated with
+		    // known-finished jobs.
+		    setTimeout(function () {
+	 		socket.emit('get_job_log',
+	 			    { "job_id": {{ job_id }},
+	 			      "start": filepos
+	 			    });
+		    }, 1000);
+		}
+	    });
+	});
+
+	socket.on('update-scap-status', function (message) {
+	    var msg_job_id = message['job_id']
+
+	    cancel_button = document.getElementById('cancel-job');
+
+	    cancel_button.hidden = msg_job_id != {{ job_id }};
+	});
+
+	function stop_scap() {
+	    socket.emit('stop_scap', { "job_id": {{ job_id }} });
+	}
+      </script>
+    </body>
+  </html>
