@@ -1,3 +1,16 @@
+scap (4.76.0)
+
+  * Run testserver checks in --k8s-only mode
+  * Support --pause-after-testserver-sync in --k8s-only mode
+  * Remove unnecessary call to _reset_workspace
+  * Use Box Drawing unicode chars in scap.history
+  * Use Box Drawing unicode chars in scap backport
+  * Add a test-backport command
+  * test-train table use "=" which look like a track
+  * Add a test-train command
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Mon, 15 Apr 2024 07:59:04 -0700
+
 scap (4.75.0)
 
   * kubernetes: fix helm release in all known pending-* states
