@@ -12,7 +12,7 @@ from datetime import datetime
 
 from prettytable import PrettyTable, SINGLE_BORDER
 from random import randint
-from scap import cli, git, log, ssh, utils, lock
+from scap import cli, git, log, ssh, utils, lock, interaction
 from scap.plugins.gerrit import GerritSession
 
 
@@ -1024,7 +1024,7 @@ class Backport(cli.Application):
                 if self.arguments.yes:
                     check_diff = True
                 else:
-                    check_diff = utils.prompt_user_for_confirmation(
+                    check_diff = interaction.prompt_user_for_confirmation(
                         "Would you like to see the diff?"
                     )
                 if check_diff:

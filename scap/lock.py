@@ -14,7 +14,9 @@ import signal
 import threading
 import time
 
+import scap.interaction as interaction
 import scap.utils as utils
+
 
 GLOBAL_LOCK_FILE = "/var/lock/scap-global-lock"
 
@@ -316,7 +318,7 @@ class Lock:
                     + "  reason: %s\n" % reason
                     + "Clear lock?"
                 )
-                if not utils.prompt_user_for_confirmation(prompt):
+                if not interaction.prompt_user_for_confirmation(prompt):
                     utils.abort("Canceled by user")
 
                 with utils.empty_file_mask():

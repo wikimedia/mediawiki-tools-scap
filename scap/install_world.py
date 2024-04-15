@@ -31,7 +31,7 @@ from os.path import expanduser
 
 import packaging.version
 
-from scap import cli, targets, utils, ssh, log
+from scap import cli, targets, utils, ssh, log, interaction
 from scap.lock import Lock
 
 
@@ -115,7 +115,7 @@ class InstallWorld(cli.Application):
             self._select_targets()
             self._select_version()
 
-            if not self.arguments.yes and not utils.prompt_user_for_confirmation(
+            if not self.arguments.yes and not interaction.prompt_user_for_confirmation(
                 f"""Scap version "{self.version}" will be installed on {len(self.targets)} host(s). Proceed?"""
             ):
                 utils.abort("Canceled by user")

@@ -35,6 +35,7 @@ from functools import reduce
 import scap.ansi as ansi
 import scap.arg as arg
 import scap.config as config
+import scap.interaction as interaction
 import scap.lock as lock
 import scap.log as log
 import scap.plugins
@@ -197,7 +198,7 @@ class Application(object):
 
     def prompt_for_approval_or_exit(self, prompt_message, exit_message):
         """Exits successfully with a message if the user does not approve."""
-        approval = utils.prompt_user_for_confirmation(prompt_message)
+        approval = interaction.prompt_user_for_confirmation(prompt_message)
         if not approval:
             # Avoid announcing (to IRC, etc) that someone has
             # cancelled an operation if there was no announcement that

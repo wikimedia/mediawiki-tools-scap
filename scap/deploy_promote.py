@@ -38,7 +38,7 @@ from functools import partial
 import requests
 from requests import RequestException, HTTPError
 
-from scap import cli, utils, config, git, train
+from scap import cli, utils, config, git, train, interaction
 from scap.runcmd import gitcmd
 from scap.utils import BRANCH_RE
 
@@ -131,7 +131,7 @@ class DeployPromote(cli.Application):
                 prev_version,
                 self.promote_version,
             )
-        return utils.prompt_user_for_confirmation(prompt_message)
+        return interaction.prompt_user_for_confirmation(prompt_message)
 
     def _update_versions(self):
         self._set_messages()

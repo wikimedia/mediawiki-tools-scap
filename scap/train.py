@@ -2,7 +2,7 @@
 import prettytable
 import re
 
-from scap import cli, utils, tasks
+from scap import cli, utils, tasks, interaction
 
 GROUPS = ["testwikis", "group0", "group1", "group2"]
 
@@ -132,19 +132,22 @@ class Train(cli.Application):
         self.old_version = info.get_prior_version()
 
         train_is_at = info.train_is_at
-        info.visualize(show_positions=True)
+        info.visualize()
+        print()
 
         stops = ["START"] + GROUPS
         current_pos = 0 if train_is_at is None else stops.index(train_is_at)
+        next_pos = current_pos + 1
+        previous_pos = current_pos - 1
 
         if self.arguments.forward:
-            target_pos = current_pos + 1
+            target_pos = next_pos
 
             if target_pos >= len(stops):
                 print(f"The train has already reached {stops[-1]}")
                 return
         elif self.arguments.backward:
-            target_pos = current_pos - 1
+            target_pos = previous_pos
 
             if target_pos <= 0:
                 print("The train is already rolled back all the way.")
@@ -155,10 +158,16 @@ class Train(cli.Application):
                     "No other train branches are checked out.  Nothing to roll back to"
                 )
         else:
-            target_pos = input(
-                f"What station do you want the train to be at (0-{len(GROUPS)})? "
+            choices = {stop: str(index) for index, stop in enumerate(stops)}
+            choices["Cancel"] = "c"
+            default = str(next_pos) if next_pos < len(stops) else "c"
+            target_pos = interaction.prompt_choices(
+                f"What station do you want the {train_version} train to be at?",
+                choices,
+                default,
             )
-            if not target_pos:
+
+            if target_pos == "c":
                 print("Cancelled")
                 return
 

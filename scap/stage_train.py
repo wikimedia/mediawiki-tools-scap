@@ -39,7 +39,7 @@
 import os
 import sys
 
-from scap import cli, utils
+from scap import cli, utils, interaction
 
 STAGE_SEQUENCE = [
     "clean",
@@ -132,8 +132,9 @@ class StageTrain(cli.Application):
 
     def _run(self, scap_cmd):
         scap_cmd_str = " ".join(scap_cmd)
-        cmd_run_approved = self.arguments.yes or utils.confirm(
-            "Run `%s` now?" % scap_cmd_str
+        cmd_run_approved = (
+            self.arguments.yes
+            or interaction.prompt_user_for_confirmation("Run `%s` now?" % scap_cmd_str)
         )
 
         if cmd_run_approved:

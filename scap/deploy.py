@@ -43,6 +43,7 @@ import scap.nrpe as nrpe
 import scap.script as script
 import scap.template as template
 import scap.cli as cli
+import scap.interaction as interaction
 import scap.lock as lock
 import scap.log as log
 import scap.ssh as ssh
@@ -887,7 +888,9 @@ class Deploy(cli.Application):
         except DeployGroupFailure as failure:
             logger.error(str(failure))
 
-            if utils.confirm("Rollback all deployed groups?", default=True):
+            if interaction.prompt_user_for_confirmation(
+                "Rollback all deployed groups?", default="y"
+            ):
                 # Rollback groups in reverse order
                 for group in attempted_groups[::-1]:
                     self._execute_for_group([ROLLBACK], group, ignore_failure=True)
@@ -976,12 +979,8 @@ class Deploy(cli.Application):
                 and not self._last_subgroup(group, label)
             ):
                 prompt = "Continue?"
-                choices = "[y]es/[n]o/[c]ontinue all groups"
-
-                while True:
-                    answer = utils.ask(prompt, "y", choices)
-                    if answer in ["y", "n", "c"]:
-                        break
+                choices = {"Yes": "y", "No": "n", "Continue all groups": "c"}
+                answer = interaction.prompt_choices(prompt, choices, "y")
 
                 if answer == "c":
                     self.continue_all = True

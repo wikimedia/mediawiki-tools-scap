@@ -257,7 +257,7 @@ class BackportsTestHelper:
 
         while True:
             index = child.expect_exact(
-                ["Backport the changes? (y/n):", "Finished scap prep auto"]
+                ["Backport the changes? [y/n]:", "Finished scap prep auto"]
             )
             if index == 0:
                 child.sendline("y")
@@ -530,7 +530,7 @@ class BackportsTestHelper:
             child.expect_exact(
                 " not found in any deployed wikiversion. Deployed wikiversions: "
             )
-            child.expect_exact("Continue with Backport? (y/n):")
+            child.expect_exact("Continue with Backport? [y/n]:")
             child.sendline("y")
             self._scap_backport_interact(child)
         finally:
@@ -783,7 +783,7 @@ class TestBackports(unittest.TestCase):
             child.expect_exact(
                 " not found in any deployed wikiversion. Deployed wikiversions: "
             )
-            child.expect_exact("Continue with Backport? (y/n):")
+            child.expect_exact("Continue with Backport? [y/n]:")
             child.sendline("n")
         finally:
             child.terminate(force=True)
@@ -848,20 +848,20 @@ class TestBackports(unittest.TestCase):
         )
         child = self.backports_test_helper.backport_with_extra_commits()
         try:
-            child.expect_exact("Backport the changes? (y/n): ")
+            child.expect_exact("Backport the changes? [y/n]: ")
             child.sendline("y")
 
             child.expect_exact(
                 "The following are unexpected commits pulled from origin for /srv/mediawiki-staging"
             )
-            child.expect_exact("Would you like to see the diff? (y/n): ")
+            child.expect_exact("Would you like to see the diff? [y/n]: ")
             child.sendline("y")
 
             child.expect_exact(
                 "There were unexpected commits pulled from origin for /srv/mediawiki-staging."
             )
             child.expect_exact(
-                "Continue with deployment (all patches will be deployed)? (y/n): "
+                "Continue with deployment (all patches will be deployed)? [y/n]: "
             )
 
             # Go ahead and "deploy" the extra commit to avoid confusing other tests by leaving
@@ -908,7 +908,7 @@ class TestBackports(unittest.TestCase):
         change_number = self.backports_test_helper.reject_change(change_url)
 
         try:
-            child.expect_exact("Backport the changes? (y/n): ")
+            child.expect_exact("Backport the changes? [y/n]: ")
             child.sendline("y")
             child.expect_exact(
                 f"The change '{change_number}' has been rejected (Code-Review -2) by 'TrainConductor"

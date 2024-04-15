@@ -34,6 +34,7 @@ from concurrent.futures import ThreadPoolExecutor
 import scap.arg as arg
 import scap.checks as checks
 import scap.cli as cli
+import scap.interaction as interaction
 import scap.lint as lint
 import scap.lock as lock
 import scap.log as log
@@ -518,6 +519,47 @@ class AbstractSync(cli.Application):
         self._after_sync_sync_wikiversions(targets)
         self._restart_php_hostgroups([targets])
 
+    def retry_continue_exit(self, description, test_func):
+        """
+        Runs test_func().  If it returns True, this function returns.
+        If test_func() does not return true:
+
+        * If an interactive terminal is not available, self.cancel() is called
+          and it is not expected to return.
+        * If an interactive terminal is available, ask the user if they want to
+          retry the test, continue with deployment anyway, or exit.   If the user
+          chooses to retry, this function starts over.  If the user chooses to
+          continue, a message is logged and this function returns.  If the user
+          chooses to exit, self.cancel() is called and it is not expected to return.
+
+        'description' is used to describe the operation to retry in the
+        retry/continue/exit prompt.
+        """
+        while True:
+            if test_func():
+                break
+
+            resp = interaction.prompt_choices(
+                "What do you want to do?",
+                {
+                    f"Retry {description}": "r",
+                    "Continue with deployment": "c",
+                    "Exit scap": "e",
+                },
+                "e",
+            )
+            if resp == "r":
+                # loop around and try again
+                continue
+            elif resp == "c":
+                self.get_logger().info("Continuing with deployment")
+                break
+            elif resp == "e":
+                self.cancel()
+                break
+            else:
+                raise Exception("This should never happen")
+
     def cancel(self):
         self.announce("Scap cancelled\nWARNING: Nothing has been rolled back.")
         sys.exit(1)
@@ -576,7 +618,7 @@ class AbstractSync(cli.Application):
                 logger.warning("Failed to complete canary checks for some reason.")
                 return False
 
-        utils.retry_continue_exit("canary checks", test_func, self.cancel, logger)
+        self.retry_continue_exit("canary checks", test_func)
 
     def check_testservers(self, baremetal_testservers: list):
         """
@@ -622,9 +664,7 @@ class AbstractSync(cli.Application):
                 success, jobs = checks.execute(checkslist, logger, concurrency=2)
                 return success
 
-            utils.retry_continue_exit(
-                "testserver checks", test_func, self.cancel, logger
-            )
+            self.retry_continue_exit("testserver checks", test_func)
 
     def _setup_php(self):
         """
