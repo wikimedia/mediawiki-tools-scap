@@ -1025,7 +1025,7 @@ class Backport(cli.Application):
                     check_diff = True
                 else:
                     check_diff = interaction.prompt_user_for_confirmation(
-                        "Would you like to see the diff?"
+                        "Would you like to see the diff?", default="y"
                     )
                 if check_diff:
                     with utils.suppress_backtrace():
