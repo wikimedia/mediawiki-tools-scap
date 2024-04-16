@@ -222,16 +222,17 @@ def test_process_arguments_nomsg(cmd):
 )
 def test_load_config(cmd, mocker):
     loader = mocker.patch("scap.config.load")
-    cmd._load_config()
+    cmd._load_config(use_global_config=False)
     loader.assert_called_with(
         cfg_file=cmd.arguments.conf_file,
         environment=cmd.arguments.environment,
         overrides={"canary_threshold": "30"},
+        use_global_config=False,
     )
 
 
 def test_setup_environ(cmd):
-    cmd._load_config()
+    cmd._load_config(use_global_config=False)
     # reset ssh_auth_sock and php env vars
     if "SSH_AUTH_SOCK" in os.environ:
         del os.environ["SSH_AUTH_SOCK"]
@@ -253,7 +254,7 @@ def test_setup_environ(cmd):
 
 @pytest.mark.parametrize("cmd", [["dummy", "--no-shared-authsock"]], indirect=True)
 def test_setup_environ_no_auth_sock(cmd):
-    cmd._load_config()
+    cmd._load_config(use_global_config=False)
     cmd.config["ssh_auth_sock"] = "authsock!"
     if "SSH_AUTH_SOCK" in os.environ:
         del os.environ["SSH_AUTH_SOCK"]
@@ -310,14 +311,14 @@ def test_assert_current_user(app, mocker):
 def test_assert_ssh_auth_sock(cmd):
     with pytest.raises(RuntimeError):
         cmd._assert_auth_sock()
-    cmd._load_config()
+    cmd._load_config(use_global_config=False)
     cmd.config["ssh_auth_sock"] = "pinkunicorn"
     cmd._setup_environ()
     cmd._assert_auth_sock()
 
 
 def test_check_user_auth_sock(cmd):
-    cmd._load_config()
+    cmd._load_config(use_global_config=False)
 
     assert "gerrit_push_user" in cmd.config
     assert cmd.config["gerrit_push_user"] is None

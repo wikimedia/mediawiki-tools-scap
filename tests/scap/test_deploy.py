@@ -148,7 +148,7 @@ def test_DeployLocal__load_config_exits_on_missing_git_server():
     with pytest.raises(
         SystemExit, match="'git_server' is not set in scap configuration"
     ):
-        scap_deploy._load_config()
+        scap_deploy._load_config(use_global_config=False)
 
 
 def test_DeployLocal__load_config_passes_when_git_server_is_set():
@@ -169,7 +169,7 @@ def test_DeployLocal__load_config_passes_when_git_server_is_set():
     with override_default_config(configured):
         # Avoid a HTTP call made by _get_remote_overrides
         with patch.object(scap_deploy, "_get_config_overrides"):
-            scap_deploy._load_config()
+            scap_deploy._load_config(use_global_config=False)
 
     assert scap_deploy.server_url == "http://" + git_server + repo_path
 
@@ -205,7 +205,7 @@ def test_DeployLocal_before_after_checks(scap_context, checks_execute, tmp_path)
         **{"git_server": (str, "deploy001")},
     }
     with override_default_config(configured):
-        scap_deploy._load_config()
+        scap_deploy._load_config(use_global_config=False)
 
     scap_deploy._setup_loggers()
 

@@ -137,7 +137,7 @@ DEFAULT_CONFIG = {
 }
 
 
-def load(cfg_file=None, environment=None, overrides=None):
+def load(cfg_file=None, environment=None, overrides=None, use_global_config=True):
     """
     Load configuration.
 
@@ -159,7 +159,7 @@ def load(cfg_file=None, environment=None, overrides=None):
 
     #. ``$(pwd)/scap/environments/<environment>/scap.cfg`` or
        ``$(pwd)/scap/scap.cfg`` (if no environment was specified)
-    #. ``/etc/scap.cfg``
+    #. ``/etc/scap.cfg`` (if use_global_config is true)
 
     For example, if a configuration parameter is set in
     ``$(pwd)/scap/scap.cfg`` and that same parameter is set in
@@ -169,6 +169,7 @@ def load(cfg_file=None, environment=None, overrides=None):
     :param cfg_file: Alternate configuration file
     :param environment: the string path under which scap.cfg is found
     :param overrides: Dict of configuration values
+    :param use_global_config: A boolean indicating if /etc/scap.cfg should be read
     :returns: dict of configuration values
     """
     local_cfg = os.path.join(os.getcwd(), "scap")
@@ -191,15 +192,19 @@ def load(cfg_file=None, environment=None, overrides=None):
         ):
             raise RuntimeError("Environment {} does not exist!".format(environment))
 
-        parser.read(
+        files = []
+        if use_global_config:
+            files.append("/etc/scap.cfg")
+        files.extend(
             [
-                "/etc/scap.cfg",
                 os.path.join(local_cfg, "scap.cfg"),
                 utils.get_env_specific_filename(
                     os.path.join(local_cfg, "scap.cfg"), environment
                 ),
             ]
         )
+
+        parser.read(files)
 
     fqdn = socket.getfqdn().rstrip(".").split(".")
     sections = ["global"]

@@ -226,17 +226,17 @@ class Application(object):
 
         return args, extra_args
 
-    def setup(self):
+    def setup(self, use_global_config=True):
         # Let each application handle `extra_args`
         self.arguments, self.extra_arguments = self._process_arguments(
             self.arguments, self.extra_arguments
         )
 
-        self._load_config()
+        self._load_config(use_global_config=use_global_config)
         self._setup_loggers()
         self._setup_environ()
 
-    def _load_config(self):
+    def _load_config(self, use_global_config=True):
         """Load configuration."""
 
         self.cli_defines = {}
@@ -258,6 +258,7 @@ class Application(object):
             cfg_file=self.arguments.conf_file,
             environment=self.arguments.environment,
             overrides=self.cli_defines,
+            use_global_config=use_global_config,
         )
         # self.cli_defines remains available for other code (such as
         # deploy.py) to use.

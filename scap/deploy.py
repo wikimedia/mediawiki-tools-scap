@@ -92,8 +92,8 @@ class DeployLocal(cli.Application):
 
     # This is called by scap.cli.Application.setup(), which is called
     # early in the application startup process.
-    def _load_config(self):
-        super()._load_config()
+    def _load_config(self, use_global_config=True):
+        super()._load_config(use_global_config=use_global_config)
 
         if self.config["git_server"] is None:
             raise SystemExit("'git_server' is not set in scap configuration")
@@ -1163,10 +1163,10 @@ class Deploy(cli.Application):
 
     # This is called by scap.cli.Application.setup(), which is called
     # early in the application startup process.
-    def _load_config(self):
+    def _load_config(self, use_global_config=True):
         """Set the host directory after the config has been loaded."""
 
-        super()._load_config()
+        super()._load_config(use_global_config=use_global_config)
         env = self.config["environment"]
         self.context = context.HostContext(os.getcwd(), environment=env)
         self.context.setup()

@@ -101,7 +101,10 @@ def test_existing_environment(monkeypatch):
                 )
             )
 
-            assert config.load(environment="staging") == expected_config
+            assert (
+                config.load(environment="staging", use_global_config=False)
+                == expected_config
+            )
 
 
 def test_nonexistent_environment(monkeypatch):
