@@ -364,6 +364,9 @@ class K8sOps:
                 gitcmd("commit", "-m", "Configuration(s) reverted")
 
     def _deploy_to_datacenters(self, datacenters, dep_configs):
+        if len(dep_configs) == 0 or len(datacenters) == 0:
+            return
+
         def deploy(datacenter, dep_config):
             namespace = dep_config[DeploymentsConfig.NAMESPACE]
             release = dep_config[DeploymentsConfig.RELEASE]
@@ -374,7 +377,10 @@ class K8sOps:
 
         def deploy_to_datacenter(datacenter):
             with concurrent.futures.ThreadPoolExecutor(
-                max_workers=max(len(dep_configs), 1)
+                max_workers=min(
+                    len(dep_configs),
+                    self.app.config["k8s_max_concurrent_deployments_per_dc"],
+                )
             ) as pool:
                 futures = []
 
@@ -402,7 +408,7 @@ class K8sOps:
                     raise Exception("\n".join(failed))
 
         with concurrent.futures.ThreadPoolExecutor(
-            max_workers=max(len(datacenters), 1)
+            max_workers=len(datacenters)
         ) as pool:
             futures = []
 
