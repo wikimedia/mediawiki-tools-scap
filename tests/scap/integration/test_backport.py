@@ -421,7 +421,7 @@ class BackportsTestHelper:
                 child.expect_exact(
                     "not found in any deployed wikiversion. Deployed wikiversions:"
                 )
-                child.expect_exact("Continue with Backport? [y/N]:")
+                child.expect_exact("Continue with backport? [y/N]:")
                 child.sendline("y")
                 self._scap_backport_interact(child)
             finally:
@@ -588,7 +588,7 @@ class BackportsTestHelper:
             child.expect_exact(
                 "not found in any deployed wikiversion. Deployed wikiversions:"
             )
-            child.expect_exact("Continue with Backport? [y/N]:")
+            child.expect_exact("Continue with backport? [y/N]:")
             child.sendline("y")
             self._scap_backport_interact(child)
         finally:
@@ -841,7 +841,7 @@ class TestBackports(unittest.TestCase):
             child.expect_exact(
                 "not found in any deployed wikiversion. Deployed wikiversions:"
             )
-            child.expect_exact("Continue with Backport? [y/N]:")
+            child.expect_exact("Continue with backport? [y/N]:")
             child.sendline("n")
         finally:
             child.terminate(force=True)
@@ -855,7 +855,7 @@ class TestBackports(unittest.TestCase):
             root_change_in_prod_branch=True
         )
         child.expect(
-            r"Change.*specified 'Depends-On'.*Ignore dependencies and continue with Backport?"
+            r"Change.*specified 'Depends-On'.*Ignore dependencies and continue with backport?"
         )
         child.sendline("y")
         self.backports_test_helper._scap_backport_interact(child)
@@ -895,7 +895,7 @@ class TestBackports(unittest.TestCase):
         child = self.backports_test_helper._start_scap_backport([change_urls[2]])
         child.expect(
             rf"Change {backported_change_number} specified 'Depends-On'.*Ignore dependencies and continue with"
-            " Backport?"
+            " backport?"
         )
         child.sendline("y")
         self.backports_test_helper._scap_backport_interact(child)

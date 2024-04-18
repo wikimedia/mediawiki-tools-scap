@@ -357,10 +357,9 @@ class Backport(cli.Application):
                     list(change.details for change in self.backports.changes.values()),
                     False,
                 )
-                self.prompt_for_approval_or_exit(
+                self._prompt_for_approval_or_exit(
                     "The following changes are scheduled for backport:\n%s\n"
-                    "Backport the changes?" % table.get_string(),
-                    "Backport cancelled.",
+                    "Backport the changes?" % table.get_string()
                 )
             self._approve_changes(self.backports.changes.values())
             self._wait_for_changes_to_be_merged()
@@ -689,9 +688,8 @@ class Backport(cli.Application):
                 % (change["_number"], project, branch, list(self.versions))
             )
             if not self.arguments.yes:
-                self.prompt_for_approval_or_exit(
-                    "Continue with %s?" % self.backport_or_revert.capitalize(),
-                    "%s Cancelled" % self.backport_or_revert,
+                self._prompt_for_approval_or_exit(
+                    "Continue with %s?" % self.backport_or_revert,
                 )
 
     def _validate_backports(self):
@@ -761,9 +759,8 @@ class Backport(cli.Application):
                 f"Change {change.number} specified 'Depends-On' but found dependencies are neither configuration"
                 f" changes nor do they belong to the same branch. Found dependencies are:\n{found_deps_links}"
             )
-            self.prompt_for_approval_or_exit(
-                f"Ignore dependencies and continue with {self.backport_or_revert.capitalize()}?",
-                f"{self.backport_or_revert} Canceled",
+            self._prompt_for_approval_or_exit(
+                f"Ignore dependencies and continue with {self.backport_or_revert}?",
             )
 
         for dep in relevant_deps:
@@ -873,7 +870,7 @@ class Backport(cli.Application):
                             new_number = change.get("revisions")[new_revision][
                                 "_number"
                             ]
-                            self.prompt_for_approval_or_exit(
+                            self._prompt_for_approval_or_exit(
                                 "Change %s has been updated from patchset %s to patchset %s. Re-approve change and "
                                 "continue with %s(s)? "
                                 % (
@@ -882,7 +879,6 @@ class Backport(cli.Application):
                                     new_number,
                                     self.backport_or_revert,
                                 ),
-                                "%s Cancelled" % self.backport_or_revert,
                             )
                             self._approve_changes([change])
 
@@ -1051,9 +1047,8 @@ class Backport(cli.Application):
                 self.get_logger().warning(
                     "There were unexpected commits pulled from origin for %s." % repo
                 )
-                self.prompt_for_approval_or_exit(
+                self._prompt_for_approval_or_exit(
                     "Continue with deployment (all patches will be deployed)?",
-                    "Backport cancelled.",
                 )
 
     def _get_file_list(self, change_number):
@@ -1096,3 +1091,9 @@ class Backport(cli.Application):
                 return False
 
         return True
+
+    def _prompt_for_approval_or_exit(self, prompt):
+        self.prompt_for_approval_or_exit(
+            prompt,
+            "%s cancelled" % self.backport_or_revert.capitalize(),
+        )
