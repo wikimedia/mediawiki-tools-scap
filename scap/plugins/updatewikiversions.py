@@ -20,12 +20,6 @@ class UpdateWikiversions(cli.Application):
         dest="check",
     )
     @cli.argument(
-        "--no-update-php-symlink",
-        help="Don't update the php symlink",
-        action="store_false",
-        dest="update_php_symlink",
-    )
-    @cli.argument(
         "pairs",
         nargs="*",
         help="A sequence of one or more DBLIST and VERSION pairs."
@@ -50,10 +44,7 @@ class UpdateWikiversions(cli.Application):
             self.updates[dblist] = branch
 
         self.update_wikiversions_json()
-        if (
-            self.arguments.update_php_symlink
-            and self.config["manage_mediawiki_php_symlink"]
-        ):
+        if self.config["manage_mediawiki_php_symlink"]:
             self.update_branch_pointer()
 
     def _clean_dblist_name(self, name: str) -> str:

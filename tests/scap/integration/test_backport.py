@@ -369,7 +369,7 @@ class BackportsTestHelper:
             [
                 "scap",
                 "update-wikiversions",
-                "--no-update-php-symlink",
+                "-Dmanage_mediawiki_php_symlink:False",
                 "all",
                 self.oldmwversion,
             ]
