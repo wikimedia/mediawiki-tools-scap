@@ -1,11 +1,11 @@
 scap (4.78.0)
 
-  * include the test file and refactor codebase by removing unused functions
+  * Fix: scap backport check prevents using it to fix an about-to-be-live branch
   * Allow tests to run on a system that has an /etc/scap.cfg file
   * tox.ini: Make 'testenv' useful
   * Fix backport tests
 
- --  <>  Thu, 18 Apr 2024 08:44:43 -0400
+ --  Sandeep Singh <sandeep.singh@wikimedia.org>  Thu, 18 Apr 2024 08:44:43 -0400
 
 scap (4.77.0)
 
