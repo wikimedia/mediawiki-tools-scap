@@ -980,3 +980,9 @@ class TestBackports(unittest.TestCase):
     # T317795
     def test_backport_to_checked_out_but_not_live_branch(self):
         self.backports_test_helper.backport_non_live_mediawiki_core_change()
+
+    def test_nonexistent_change_number(self):
+        child = self.backports_test_helper._start_scap_backport(["0"])
+        child.expect_exact("Change '0' not found")
+        child.wait()
+        self.assertNotEqual(child.exitstatus, 0)

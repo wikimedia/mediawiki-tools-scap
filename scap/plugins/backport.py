@@ -4,6 +4,7 @@
 import hashlib
 import platform
 import re
+import requests.exceptions
 import socket
 import subprocess
 import time
@@ -199,7 +200,12 @@ class GerritChange:
         if details is not None:
             self.details = details
         else:
-            self.update_details()
+            try:
+                self.update_details()
+            except requests.exceptions.HTTPError as e:
+                if e.response.status_code == 404:
+                    raise InvalidChangeException(f"Change '{self.number}' not found")
+                raise
 
         self._validate()
 
@@ -210,10 +216,8 @@ class GerritChange:
         return self.details.status == "MERGED"
 
     def update_details(self, get_all_revisions=False):
-        if get_all_revisions:
-            self.details = self.gerrit.change_detail(self.number, "all").get()
-        else:
-            self.details = self.gerrit.change_detail(self.number).get()
+        revisionid = "all" if get_all_revisions else "current"
+        self.details = self.gerrit.change_detail(self.number, revisionid).get()
 
     def _validate(self):
         def formatted_dep_chain():

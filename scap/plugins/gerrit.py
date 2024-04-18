@@ -183,6 +183,7 @@ class GerritEndpoint(object):
         return self.load(res)
 
     def load(self, res):
+        res.raise_for_status()
         if res.status_code == 200:
             try:
                 # gerrit prepends junk to the response, strip it:
@@ -195,11 +196,7 @@ class GerritEndpoint(object):
                 print(json_str)
                 raise e
         else:
-            error_log("Status: %s" % res.status_code)
-            error_log(res.text)
-            raise Exception(
-                "Request Failed: %s %s %s" % (res.url, res.status_code, res.text)
-            )
+            raise Exception(f"Unexpected HTTP response code: {res.status_code}")
 
     def post(self, data={}, **kwargs):
         """make a http POST request to this api endpoint"""
@@ -295,7 +292,7 @@ class ChangeRevisionCommit(GerritEndpoint):
     def __init__(self, project_branch_id, revisionid="current", **kwargs):
         super().__init__(
             path="changes/%s/revisions/%s/commit" % (project_branch_id, revisionid),
-            **kwargs
+            **kwargs,
         )
         self.project_branch_id = project_branch_id
         self.revision = ChangeRevisions(
@@ -312,7 +309,7 @@ class SubmittedTogether(GerritEndpoint):
     def __init__(self, changeid, revisionid="current", **kwargs):
         super().__init__(
             path="changes/%s/submitted_together?o=NON_VISIBLE_CHANGES" % changeid,
-            **kwargs
+            **kwargs,
         )
         self.changeid = changeid
         self.revision = ChangeRevisions(
