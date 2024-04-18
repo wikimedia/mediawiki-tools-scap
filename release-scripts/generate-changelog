@@ -11,6 +11,11 @@ EOF
     exit 1
 }
 
+function abort {
+    echo "$0:" "$@"
+    exit 1
+}
+
 if [ "$#" -ne 2 ]; then
     usage
 fi
@@ -25,6 +30,14 @@ cat <<EOF > "$tmp"
 scap (${new_version})
 
 EOF
+
+if [ -z "$(git config user.name)" ]; then
+    abort "user.name is not set in git config"
+fi
+if [ -z "$(git config user.email)" ]; then
+    abort "user.email is not set in git config"
+fi
+
 git log --pretty='tformat:  * %s' --no-merges --no-decorate "$old_version.." >> "$tmp"
 cat <<EOF >> "$tmp"
 
