@@ -30,6 +30,13 @@ function suggest_new_version {
     IFS=
 }
 
+function assert_jq {
+    if ! command -v jq >/dev/null; then
+        echo "$0 needs the 'jq' program to operate. Please install it first."
+        exit 1
+    fi
+}
+
 function assert_clean_checkout {
     if [ "$(git status --porcelain)" ]; then
         echo "Checkout is not clean"
@@ -39,6 +46,7 @@ function assert_clean_checkout {
 }
 
 function sanity_checks {
+    assert_jq
     assert_clean_checkout
     git pull --rebase
     assert_clean_checkout
