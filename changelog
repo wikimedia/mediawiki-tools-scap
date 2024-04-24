@@ -1,3 +1,11 @@
+scap (4.79.0)
+
+  * backport: Fix bad behavior if nonexistent change number is supplied
+  * release-scripts/generate-changelog: Require user.name and user.email
+  * backport: Fix capitalization on confirmation prompts
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Wed, 24 Apr 2024 07:49:26 -0700
+
 scap (4.78.0)
 
   * Fix: scap backport check prevents using it to fix an about-to-be-live branch
