@@ -1,5 +1,6 @@
 import base64
 import concurrent.futures
+import contextlib
 import logging
 import json
 import math
@@ -9,7 +10,9 @@ import re
 import shlex
 import subprocess
 import tempfile
+import threading
 from typing import List
+import queue
 
 import yaml
 
@@ -300,7 +303,7 @@ class K8sOps:
 
     # Called by AbstractSync.main
     def helmfile_diffs_for_stage(self, stage: str):
-        def diff_for_datacenter_and_deployment(datacenter, dep_config):
+        def diff_for_datacenter_and_deployment(datacenter, dep_config, report_queue):
             namespace = dep_config[DeploymentsConfig.NAMESPACE]
             release = dep_config[DeploymentsConfig.RELEASE]
             helmfile_dir = os.path.join(
@@ -328,7 +331,11 @@ class K8sOps:
         datacenters = self._get_deployment_datacenters()
         try:
             return self._foreach_datacenter_and_deployment(
-                datacenters, dep_configs, diff_for_datacenter_and_deployment, "Diff"
+                datacenters,
+                dep_configs,
+                diff_for_datacenter_and_deployment,
+                "Diff",
+                progress=False,
             )
         # Using BaseException so that we catch KeyboardInterrupt too
         except BaseException as e:
@@ -408,28 +415,27 @@ class K8sOps:
                 gitcmd("commit", "-m", "Configuration(s) reverted")
 
     def _deploy_to_datacenters(self, datacenters, dep_configs):
-        def deploy(datacenter, dep_config):
-            namespace = dep_config[DeploymentsConfig.NAMESPACE]
-            release = dep_config[DeploymentsConfig.RELEASE]
-            helmfile_dir = os.path.join(
-                self.app.config["helmfile_services_dir"], namespace
-            )
-            self._deploy_k8s_images_for_datacenter(datacenter, helmfile_dir, release)
-
         self._foreach_datacenter_and_deployment(
-            datacenters, dep_configs, deploy, "Deployment"
+            datacenters,
+            dep_configs,
+            self._deploy_k8s_images_for_datacenter,
+            "Deployment",
         )
 
     def _foreach_datacenter_and_deployment(
-        self, datacenters, dep_configs, func, description
+        self, datacenters, dep_configs, func, description, progress=True
     ):
         """
-        Invokes func over the product of all datacenters and dep_configs.
+        Invokes 'func' over the product of all datacenters and dep_configs.
+        'func' must take three arguments: datacenter, dep_config, report_queue.
 
-        Note: Invocations of func are concurrent and so must be threadsafe.
+        Note: Invocations of 'func' are concurrent and so must be threadsafe.
 
-        description should be a human-readable description of the action
+        'description' should be a human-readable description of the action
         performed by func (for diagnostic output / error handling).
+
+        If 'progress' is True, a progress indicator will be displayed
+        during the operation.
 
         Returns: A list of values returned by func.
         """
@@ -437,7 +443,7 @@ class K8sOps:
         if len(dep_configs) == 0 or len(datacenters) == 0:
             return []
 
-        def foreach_deployment_in_datacenter(datacenter):
+        def foreach_deployment_in_datacenter(datacenter, report_queue):
             with concurrent.futures.ThreadPoolExecutor(
                 max_workers=min(
                     len(dep_configs),
@@ -447,7 +453,7 @@ class K8sOps:
                 futures = []
 
                 for dep_config in dep_configs:
-                    future = pool.submit(func, datacenter, dep_config)
+                    future = pool.submit(func, datacenter, dep_config, report_queue)
                     future._scap_dep_config = dep_config
                     futures.append(future)
 
@@ -474,13 +480,29 @@ class K8sOps:
 
                 return results
 
+        total_expected_replicas = self._get_total_expected_replicas(
+            datacenters, dep_configs
+        )
+
+        report_queue = None
+        if progress:
+            report_queue = queue.Queue()
+            reporter = threading.Thread(
+                target=self._deployment_reporter,
+                args=(report_queue, self.logger, total_expected_replicas),
+                name="k8s deployment reporter",
+            )
+            reporter.start()
+
         with concurrent.futures.ThreadPoolExecutor(
             max_workers=len(datacenters)
         ) as pool:
             futures = []
 
             for datacenter in datacenters:
-                future = pool.submit(foreach_deployment_in_datacenter, datacenter)
+                future = pool.submit(
+                    foreach_deployment_in_datacenter, datacenter, report_queue
+                )
                 future._scap_datacenter = datacenter
                 futures.append(future)
 
@@ -494,6 +516,10 @@ class K8sOps:
                 else:
                     results.extend(future.result())
 
+            if progress:
+                report_queue.put("stop")
+                reporter.join()
+
             if failed:
                 raise Exception(
                     f"K8s {description} had the following errors:\n "
@@ -501,6 +527,57 @@ class K8sOps:
                 )
 
             return results
+
+    def _deployment_reporter(self, report_queue, logger, total_expected_replicas):
+        reports = {}
+        reporter = log.reporter("K8s deployment progress")
+        reporter.expect(total_expected_replicas)
+        reporter.start()
+
+        while True:
+            # Normal entries are added to the queue in _deployment_monitor(),
+            # and _deploy_to_datacenters() adds "stop".
+            data = report_queue.get()
+
+            if data == "stop":
+                break
+
+            deployment, availableReplicas = data
+
+            if reports.get(deployment) != availableReplicas:
+                reports[deployment] = availableReplicas
+                reporter.set_success(sum(reports.values()))
+
+        reporter.finish()
+
+    def _get_total_expected_replicas(self, datacenters, dep_configs) -> int:
+        total = 0
+
+        for datacenter in datacenters:
+            for dep_config in dep_configs:
+                release = dep_config[DeploymentsConfig.RELEASE]
+                namespace = dep_config[DeploymentsConfig.NAMESPACE]
+                helmfile_dir = os.path.join(
+                    self.app.config["helmfile_services_dir"], namespace
+                )
+
+                with tempfile.NamedTemporaryFile() as tmp:
+                    cmd = [
+                        "helmfile",
+                        "-e",
+                        datacenter,
+                        "--selector",
+                        f"name={release}",
+                        "write-values",
+                        "--output-file-template",
+                        tmp.name,
+                    ]
+                    self._run_timed_cmd_quietly(
+                        cmd, helmfile_dir, self.logger, really_quiet=True
+                    )
+                    total += yaml.safe_load(tmp)["resources"]["replicas"]
+
+        return total
 
     def _get_kubeconfig(self, datacenter, helmfile_dir, release, logger):
         cmd = ["helmfile", "-e", datacenter, "-l", "name={}".format(release), "build"]
@@ -584,12 +661,16 @@ class K8sOps:
             cmd = ["helm", "--kubeconfig", kubeconfig, recovery_command, release]
             self._run_timed_cmd_quietly(cmd, helmfile_dir, logger)
 
-    def _deploy_k8s_images_for_datacenter(self, datacenter, helmfile_dir, release):
+    def _deploy_k8s_images_for_datacenter(self, datacenter, dep_config, report_queue):
         """
         datacenter will be something like "eqiad" or "codfw" or "traindev"
         """
 
         logger = logging.getLogger("scap.k8s.deploy")
+
+        release = dep_config[DeploymentsConfig.RELEASE]
+        namespace = dep_config[DeploymentsConfig.NAMESPACE]
+        helmfile_dir = os.path.join(self.app.config["helmfile_services_dir"], namespace)
 
         self._helm_fix_pending_state(datacenter, helmfile_dir, release, logger)
 
@@ -601,7 +682,113 @@ class K8sOps:
             "name={}".format(release),
             "apply",
         ]
-        self._run_timed_cmd_quietly(cmd, helmfile_dir, logger)
+
+        with self._k8s_deployment_monitoring(dep_config, datacenter, report_queue):
+            self._run_timed_cmd_quietly(cmd, helmfile_dir, logger, really_quiet=True)
+
+    @contextlib.contextmanager
+    def _k8s_deployment_monitoring(self, dep_config, dc, report_queue):
+        stop_event = threading.Event()
+        monitor = threading.Thread(
+            target=self._deployment_monitor,
+            args=(dep_config, dc, stop_event, report_queue),
+            name="K8s deployment monitor",
+        )
+        monitor.start()
+
+        try:
+            yield
+        finally:
+            stop_event.set()
+            monitor.join()
+
+    def _deployment_monitor(self, dep_config, dc, stop_event, report_queue):
+        namespace = dep_config[DeploymentsConfig.NAMESPACE]
+        release = dep_config[DeploymentsConfig.RELEASE]
+        kubeconfig = f"/etc/kubernetes/{namespace}-deploy-{dc}.config"
+        deployment_name = (
+            f"{namespace}.dev.{release}"
+            if dc == "traindev"
+            else f"{namespace}.{dc}.{release}"
+        )
+
+        def kubectl_cmd(*args) -> tuple:
+            return ("kubectl", "--kubeconfig", kubeconfig) + args
+
+        def get_deployment():
+            cmd = kubectl_cmd(
+                "get",
+                "deployment",
+                deployment_name,
+                "-o",
+                "json",
+            )
+            ret = subprocess.run(cmd, text=True, capture_output=True)
+            if ret.returncode == 0:
+                return json.loads(ret.stdout)
+            if "(NotFound)" in ret.stderr:
+                return None
+            raise Exception(" ".join(cmd) + f" failed:\n{ret.stderr}")
+
+        def get_deployment_revision():
+            d = get_deployment()
+            if not d:
+                return None
+            return d["metadata"]["annotations"]["deployment.kubernetes.io/revision"]
+
+        def get_current_replicaset(deployment_revision):
+            cmd = kubectl_cmd(
+                "get",
+                "rs",
+                "-o",
+                "json",
+                "-l",
+                f"deployment={namespace}",
+                "-l",
+                f"release={release}",
+            )
+            data = json.loads(subprocess.check_output(cmd, text=True))
+            assert data["kind"] == "List"
+
+            for rs in data["items"]:
+                revision = rs["metadata"]["annotations"][
+                    "deployment.kubernetes.io/revision"
+                ]
+                if revision == deployment_revision:
+                    return rs
+
+            return None
+
+        initial_revision = get_deployment_revision()
+
+        # Wait for the deployment revision to change
+        while not stop_event.wait(timeout=1):
+            revision = get_deployment_revision()
+            if revision != initial_revision:
+                break
+
+        if stop_event.is_set():
+            return
+
+        # Find the corresponding replicaset
+        rs = get_current_replicaset(revision)
+        rs_name = rs["metadata"]["name"]
+
+        def do_report():
+            cmd = kubectl_cmd("get", "rs", rs_name, "-o", "json")
+            data = json.loads(subprocess.check_output(cmd, text=True))
+            status = data["status"]
+            availableReplicas = status.get("availableReplicas", 0)
+
+            report_queue.put((deployment_name, availableReplicas))
+
+        while not stop_event.wait(
+            timeout=self.app.config["k8s_deployments_info_target_freshness"]
+        ):
+            do_report()
+
+        # Perform one final report before stopping
+        do_report()
 
     def _verify_build_and_push_prereqs(self):
         if self.app.config["release_repo_dir"] is None:
@@ -763,12 +950,19 @@ class K8sOps:
 
         return None
 
-    def _run_timed_cmd_quietly(self, cmd, dir, logger, env={}):
+    def _run_timed_cmd_quietly(self, cmd, dir, logger, env={}, really_quiet=False):
         env = self._helm_augmented_environment(env)
         env["SUPPRESS_SAL"] = "true"
 
+        timer_logger = None
+        if really_quiet:
+            timer_logger = logging.Logger("silence")
+            timer_logger.addHandler(logging.NullHandler(level=0))
+
         with log.Timer(
-            "Running {} in {}".format(" ".join(cmd), dir), self.app.get_stats()
+            "Running {} in {}".format(" ".join(cmd), dir),
+            self.app.get_stats(),
+            logger=timer_logger,
         ):
             with tempfile.NamedTemporaryFile() as logstream:
                 with utils.suppress_backtrace():

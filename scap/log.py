@@ -423,6 +423,13 @@ class ProgressReporter(object):
             self._in_flight -= 1
         self._progress()
 
+    def set_success(self, value):
+        """Sets the number of done/successful jobs to the specified value."""
+        if self._in_flight is not None:
+            raise Exception("set_success cannot be used along with add_in_flight")
+        self._done = self._ok = value
+        self._progress()
+
     def add_failure(self):
         """Record a failed task completion."""
         self._done += 1
