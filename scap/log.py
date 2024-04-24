@@ -405,7 +405,8 @@ class ProgressReporter(object):
         """Finish tracking progress."""
         self._finished = True
         self._progress()
-        self._fd.write("\n")
+        if sys.stdout.isatty():
+            self._fd.write("\n")
 
     def add_in_flight(self):
         if self._in_flight is None:
