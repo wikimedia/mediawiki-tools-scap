@@ -14,7 +14,6 @@
     * Preps the new branch
     * Applies patches to the new branch
     * Deploys the new branch to testwikis
-    * Cleans up out-of-date branches
 
     The behavior associated to stage-train used to live in the `tools/release`. The file history is
     still available in that repo and can be viewed with:
@@ -42,7 +41,6 @@ import sys
 from scap import cli, utils, interaction
 
 STAGE_SEQUENCE = [
-    "clean",
     "prep",
     "patch",
     "testwikis",
@@ -124,9 +122,6 @@ class StageTrain(cli.Application):
 
     def _testwikis(self):
         self._run(["deploy-promote", "--yes", "testwikis", self.arguments.version])
-
-    def _clean(self):
-        self._run(["clean", "auto"])
 
     # End stage implementations
 
