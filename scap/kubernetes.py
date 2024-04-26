@@ -24,6 +24,9 @@ TEST_SERVERS = "testservers"
 CANARIES = "canaries"
 PRODUCTION = "production"
 
+STAGES = [TEST_SERVERS, CANARIES, PRODUCTION]
+"""All supported deployment stages, ordered by scope (increasing)."""
+
 
 class InvalidDeploymentsConfig(Exception):
     pass
@@ -214,9 +217,9 @@ class K8sOps:
                         "mediawiki_image_extra_packages"
                     ],
                     "MV_EXTRA_CA_CERT": dev_ca_crt,
-                    "FORCE_FULL_BUILD": "true"
-                    if self.app.config["full_image_build"]
-                    else "false",
+                    "FORCE_FULL_BUILD": (
+                        "true" if self.app.config["full_image_build"] else "false"
+                    ),
                 }
                 with utils.suppress_backtrace():
                     cmd = "{} {}".format(
@@ -295,14 +298,51 @@ class K8sOps:
                     f"{failed} K8s nodes failed to pull the multiversion image"
                 )
 
+    # Called by AbstractSync.main
+    def helmfile_diffs_for_stage(self, stage: str):
+        def diff_for_datacenter_and_deployment(datacenter, dep_config):
+            namespace = dep_config[DeploymentsConfig.NAMESPACE]
+            release = dep_config[DeploymentsConfig.RELEASE]
+            helmfile_dir = os.path.join(
+                self.app.config["helmfile_services_dir"], namespace
+            )
+            cmd = [
+                "helmfile",
+                "-e",
+                datacenter,
+                "--selector",
+                "name={}".format(release),
+                "diff",
+                "--context",
+                "5",
+            ]
+            logger = logging.getLogger("scap.k8s.diff")
+            return {
+                "datacenter": datacenter,
+                "namespace": namespace,
+                "release": release,
+                "diff_stdout": self._cmd_stdout(cmd, helmfile_dir, logger),
+            }
+
+        dep_configs = self.k8s_deployments_config.stages[stage]
+        datacenters = self._get_deployment_datacenters()
+        try:
+            return self._foreach_datacenter_and_deployment(
+                datacenters, dep_configs, diff_for_datacenter_and_deployment, "Diff"
+            )
+        # Using BaseException so that we catch KeyboardInterrupt too
+        except BaseException as e:
+            self.app.soft_errors = True
+            self.logger.error("K8s helmfile diffs for stage %s failed: %s", stage, e)
+        return []
+
     # Called by AbstractSync.main()
     def deploy_k8s_images_for_stage(self, stage: str):
         if not self.app.config["deploy_mw_container_image"]:
             return
 
         dep_configs = self.k8s_deployments_config.stages[stage]
-        # FIXME: Rename this config value
-        datacenters = re.split(r"[,\s]+", self.app.config["k8s_clusters"])
+        datacenters = self._get_deployment_datacenters()
         try:
             self._deploy_to_datacenters(datacenters, dep_configs)
         # Using BaseException so that we catch KeyboardInterrupt too
@@ -324,6 +364,10 @@ class K8sOps:
                     )
             else:
                 self.logger.error("No known prior state to roll back to")
+
+    def _get_deployment_datacenters(self) -> List[str]:
+        # FIXME: Rename this config value
+        return re.split(r"[,\s]+", self.app.config["k8s_clusters"])
 
     def _disable_k8s_deployments(self):
         self.logger.warning("Disabled deploying to K8s")
@@ -364,9 +408,6 @@ class K8sOps:
                 gitcmd("commit", "-m", "Configuration(s) reverted")
 
     def _deploy_to_datacenters(self, datacenters, dep_configs):
-        if len(dep_configs) == 0 or len(datacenters) == 0:
-            return
-
         def deploy(datacenter, dep_config):
             namespace = dep_config[DeploymentsConfig.NAMESPACE]
             release = dep_config[DeploymentsConfig.RELEASE]
@@ -375,7 +416,28 @@ class K8sOps:
             )
             self._deploy_k8s_images_for_datacenter(datacenter, helmfile_dir, release)
 
-        def deploy_to_datacenter(datacenter):
+        self._foreach_datacenter_and_deployment(
+            datacenters, dep_configs, deploy, "Deployment"
+        )
+
+    def _foreach_datacenter_and_deployment(
+        self, datacenters, dep_configs, func, description
+    ):
+        """
+        Invokes func over the product of all datacenters and dep_configs.
+
+        Note: Invocations of func are concurrent and so must be threadsafe.
+
+        description should be a human-readable description of the action
+        performed by func (for diagnostic output / error handling).
+
+        Returns: A list of values returned by func.
+        """
+
+        if len(dep_configs) == 0 or len(datacenters) == 0:
+            return []
+
+        def foreach_deployment_in_datacenter(datacenter):
             with concurrent.futures.ThreadPoolExecutor(
                 max_workers=min(
                     len(dep_configs),
@@ -385,10 +447,11 @@ class K8sOps:
                 futures = []
 
                 for dep_config in dep_configs:
-                    future = pool.submit(deploy, datacenter, dep_config)
+                    future = pool.submit(func, datacenter, dep_config)
                     future._scap_dep_config = dep_config
                     futures.append(future)
 
+                results = []
                 failed = []
 
                 for future in concurrent.futures.as_completed(futures):
@@ -399,13 +462,17 @@ class K8sOps:
                             future._scap_dep_config
                         )
                         failed.append(
-                            "Deployment of {} failed: {}".format(
-                                fq_release_name, exception
+                            "{} of {} failed: {}".format(
+                                description, fq_release_name, exception
                             )
                         )
+                    else:
+                        results.append(future.result())
 
                 if failed:
                     raise Exception("\n".join(failed))
+
+                return results
 
         with concurrent.futures.ThreadPoolExecutor(
             max_workers=len(datacenters)
@@ -413,21 +480,27 @@ class K8sOps:
             futures = []
 
             for datacenter in datacenters:
-                future = pool.submit(deploy_to_datacenter, datacenter)
+                future = pool.submit(foreach_deployment_in_datacenter, datacenter)
                 future._scap_datacenter = datacenter
                 futures.append(future)
 
+            results = []
             failed = []
 
             for future in concurrent.futures.as_completed(futures):
                 exception = future.exception()
                 if exception:
                     failed.append("{}: {}".format(future._scap_datacenter, exception))
+                else:
+                    results.extend(future.result())
 
             if failed:
                 raise Exception(
-                    "K8s deployment had the following errors:\n " + "\n".join(failed)
+                    f"K8s {description} had the following errors:\n "
+                    + "\n".join(failed)
                 )
+
+            return results
 
     def _get_kubeconfig(self, datacenter, helmfile_dir, release, logger):
         cmd = ["helmfile", "-e", datacenter, "-l", "name={}".format(release), "build"]

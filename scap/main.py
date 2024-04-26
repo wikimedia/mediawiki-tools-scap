@@ -45,7 +45,7 @@ import scap.tasks as tasks
 import scap.utils as utils
 import scap.version as scapversion
 from scap import ansi, history
-from scap.kubernetes import K8sOps, TEST_SERVERS, CANARIES, PRODUCTION
+from scap.kubernetes import K8sOps, TEST_SERVERS, CANARIES, PRODUCTION, STAGES
 from scap.runcmd import mwscript
 
 
@@ -93,6 +93,11 @@ class AbstractSync(cli.Application):
         action="store_true",
         help="Deploy/sync to Kubernetes targets only",
     )
+    @cli.argument(
+        "--k8s-confirm-diffs",
+        action="store_true",
+        help="Display and require confirmation of helmfile diffs before proceeding.",
+    )
     @cli.argument("message", nargs="*", help="Log message for SAL")
     def main(self, *extra_args):
         """Perform a sync operation to the cluster."""
@@ -104,6 +109,12 @@ class AbstractSync(cli.Application):
         with lock.Lock(
             self.get_lock_file(), name="sync", reason=self.arguments.message
         ):
+            self.k8s_ops = K8sOps(self)
+
+            # Begin by confirming helmfile diffs, if enabled. This avoids having
+            # to clean up after operations with side-effects if cancelled.
+            self._confirm_k8s_diffs()
+
             self._compile_wikiversions()
             self._before_cluster_sync()
             self._update_caches()
@@ -114,7 +125,6 @@ class AbstractSync(cli.Application):
             else:
                 self.get_logger().warning("check_fatals skipped by --force")
 
-            self.k8s_ops = K8sOps(self)
             self.k8s_ops.build_k8s_images()
 
             if self.arguments.stop_before_sync:
@@ -255,6 +265,37 @@ class AbstractSync(cli.Application):
     def _k8s_only_sync(self):
         # Not all subclasses of AbstractSync define the --k8s-only option
         return getattr(self.arguments, "k8s_only", False)
+
+    def _confirm_k8s_diffs(self):
+        if not getattr(self.arguments, "k8s_confirm_diffs", False):
+            return
+        logger = self.get_logger()
+        logger.info("Collecting helmfile diffs for review")
+        for stage in STAGES:
+            diffs = self.k8s_ops.helmfile_diffs_for_stage(stage)
+            if not diffs:
+                logger.warn("No diffs for stage %s", stage)
+                continue
+            formatted_diffs = [
+                "=== {datacenter}/{namespace}-{release} ===\n{diff_stdout}".format(
+                    **diff
+                )
+                for diff in sorted(
+                    diffs,
+                    key=lambda diff: (
+                        diff["datacenter"],
+                        diff["namespace"],
+                        diff["release"],
+                    ),
+                )
+            ]
+            logger.info("Diffs for stage %s:\n%s" % (stage, "\n".join(formatted_diffs)))
+        self.prompt_for_approval_or_exit(
+            "Note: Diffs are relative to the current helm charts and helmfile values. These may "
+            "become outdated if new changes are merged during sync.\n"
+            "Continue with sync?",
+            "Sync cancelled.",
+        )
 
     def _deploy_k8s_testservers(self):
         with log.Timer("sync-testservers-k8s", self.get_stats()):
@@ -935,6 +976,11 @@ class ScapWorld(AbstractSync):
         "--k8s-only",
         action="store_true",
         help="Deploy/sync to Kubernetes targets only",
+    )
+    @cli.argument(
+        "--k8s-confirm-diffs",
+        action="store_true",
+        help="Display and require confirmation of helmfile diffs before proceeding.",
     )
     @cli.argument("message", nargs="*", help="Log message for SAL")
     def main(self, *extra_args):
