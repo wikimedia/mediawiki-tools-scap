@@ -1,140 +1,331 @@
-#!/bin/bash
+#!/usr/bin/env python3
 
-set -eu -o pipefail
+# Create a new release of scap
 
-# Don't set this
-SKIP_CHECKS=${SKIP_CHECKS:-}
+import contextlib
+import datetime
+import os
+import re
+import requests
+import subprocess
+import tempfile
+import time
 
-BRANCH=master
+# Scap's default branch.
+BRANCH = "master"
 
-SCRIPTDIR="$(dirname "$0")"
+PROJECT_API_URL = "https://gitlab.wikimedia.org/api/v4/projects/repos%2freleng%2fscap"
 
-function get_last_tag {
-    git tag --sort version:refname | grep -v debian/ | tail -1
-}
 
-function suggest_new_version {
-    local old_version="$1"
+def run(cmd):
+    return subprocess.run(cmd, check=True)
 
-    # Break the version out into components
-    IFS=.
-    local parts
-    # shellcheck disable=SC2206
-    parts=($old_version)
-    # Add one to the minor version
-    : $(( parts[1] += 1 ))
-    # Reset patch version to 0
-    : $(( parts[2] = 0 ))
-    # And mush back together
-    echo "${parts[*]}"
-    IFS=
-}
 
-function assert_jq {
-    if ! command -v jq >/dev/null; then
-        echo "$0 needs the 'jq' program to operate. Please install it first."
-        exit 1
-    fi
-}
+def command_output(cmd):
+    proc = subprocess.run(
+        cmd, text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT
+    )
+    if proc.returncode == 0:
+        return proc.stdout
 
-function assert_clean_checkout {
-    if [ "$(git status --porcelain)" ]; then
-        echo "Checkout is not clean"
-        git status
-        exit 1
-    fi
-}
+    cmd_string = " ".join(cmd)
 
-function sanity_checks {
-    assert_jq
-    assert_clean_checkout
-    git pull --rebase
-    assert_clean_checkout
-    if [ "$(git rev-list origin/$BRANCH..)" ]; then
-        echo Local commits detected:
-        git log --oneline origin/$BRANCH..
-        echo Aborting
-        exit 1
-    fi
-}
+    raise SystemExit(f"{cmd_string} failed:\n{proc.stdout}")
 
-function push_gitlab {
-    local remote_branch="review/$USER/release-$VERS"
 
-    if ! git push \
-        -o merge_request.create \
-        -o merge_request.target=$BRANCH \
-        -o merge_request.merge_when_pipeline_succeeds \
-        -o merge_request.remove_source_branch \
-        origin "HEAD:$remote_branch" &> "$tmp"; then
-      cat "$tmp"
-      exit 1
-    fi
+@contextlib.contextmanager
+def temp_to_permanent_file(final_filename):
+    """
+    temp_to_permanent_file yields a text stream on a temporary file
+    that is open for writing.  If the context body completes without
+    exception, the temp file is renamed to `final_filename`,
+    atomically replacing any existing file of that name.  If an exception
+    is raised during the exception of the body, the temp file is deleted
+    and `final_filename` remains unaffected.
 
-    local mr_id
-    mr_id=$(grep /merge_requests/ "$tmp" | sed -r -e 's,^.*/merge_requests/([0-9]+).*$,\1,')
+    Example:
 
-    echo -n "Waiting for merge request $mr_id to merge..."
+    with temp_to_permanent_file("/tmp/important") as f:
+        f.write("Important information")
 
-    while true; do
-        echo -n "."
-        curl -sSf "https://gitlab.wikimedia.org/api/v4/projects/repos%2freleng%2fscap/merge_requests/$mr_id" > "$tmp"
+    """
 
-        local state status
-        state="$(jq -r .state "$tmp")"
-        status="$(jq -r .merge_status "$tmp")"
+    # Create the temp file in the same directory as the final filename
+    # so that os.rename() can atomically replace the destination file
+    # (if one exists)
+    with tempfile.NamedTemporaryFile(
+        "w", dir=os.path.dirname(final_filename), delete=False
+    ) as tmp:
+        try:
+            yield tmp
+        except BaseException as e:
+            os.unlink(tmp.name)
+            raise e
 
-        if [ "$state" == "merged" ]; then
-            echo
-            echo "Merge request $mr_id has been merged"
-            return 0
-        fi
-        if [[ "$status" =~ cannot ]]; then
-            echo
-            echo "Merge request $mr_id can't be merged"
-            exit 1
-        fi
+    # Reach here on success
+    os.chmod(tmp.name, 0o644)
+    # This is atomic
+    os.rename(tmp.name, final_filename)
 
-        sleep 5
-    done
-}
 
-if [ -z "$SKIP_CHECKS" ]; then
-    sanity_checks
-fi
+def get_last_tag():
+    return [
+        tag
+        for tag in command_output(
+            ["git", "tag", "--sort", "version:refname"]
+        ).splitlines()
+        if not tag.startswith("debian/")
+    ][-1]
 
-OLD_VERS="$(get_last_tag)"
-suggested_vers="$(suggest_new_version "$OLD_VERS")"
 
-echo "Current version: $OLD_VERS"
-echo -n "New version (default $suggested_vers): "
-read -r VERS
-if [ -z "$VERS" ]; then
-    VERS="$suggested_vers"
-fi
+def suggest_new_version(old_version):
+    old_parts = old_version.split(".")
+    if len(old_parts) != 3:
+        raise Exception(
+            f"old_version {old_version} does not have 3 components as expected"
+        )
+    major, minor, patch = old_parts
+    minor = int(minor) + 1
+    return f"{major}.{minor}.0"
 
-echo "Selected version $VERS"
 
-"$SCRIPTDIR/prepare-scap-release" "$VERS"
+def generate_changelog(old_version, new_version, user_name, user_email):
+    log = command_output(
+        [
+            "git",
+            "log",
+            "--pretty=tformat:  * %s",
+            "--no-merges",
+            "--no-decorate",
+            f"{old_version}..",
+        ]
+    )
+    date = datetime.datetime.now().astimezone().strftime("%a, %d %b %Y %H:%M:%S %z")
 
-tmp="$(mktemp)"
-trap 'rm -f $tmp' EXIT
+    entry = f"""scap ({new_version})
 
-echo Pushing commit
-push_gitlab
+{log}
+ -- {user_name} <{user_email}>  {date}
 
-git pull --rebase
+"""
 
-assert_clean_checkout
+    print(f"Proposed new changelog entry:\n{entry}", end="")
+    answer = input("OK to update changelog? ")
+    if answer != "y":
+        raise SystemExit("Aborted.")
 
-git tag --sign -m "Release $VERS" "$VERS" HEAD
-git push origin "$VERS"
+    old_changelog = ""
+    if os.path.exists("changelog"):
+        with open("changelog") as f:
+            old_changelog = f.read()
 
-cat <<EOF
-scap release $VERS has been tagged.  You can install on production hosts
+    with temp_to_permanent_file("changelog") as f:
+        f.write(entry)
+        f.write(old_changelog)
+
+    print("changelog updated")
+
+
+def assert_clean_checkout():
+    if command_output(["git", "status", "--porcelain"]):
+        print("Checkout is not clean")
+        run(["git", "status"])
+        raise SystemExit(1)
+
+
+def sanity_checks():
+    local_branch = command_output(["git", "symbolic-ref", "HEAD"])
+    if local_branch != f"refs/heads/{BRANCH}":
+        raise SystemExit("Please switch to the {BRANCH} first")
+    assert_clean_checkout()
+    run(["git", "pull", "--rebase"])
+    assert_clean_checkout()
+    if command_output(["git", "rev-list", f"origin/{BRANCH}.."]):
+        print("Local commits detected:")
+        run(["git", "log", "--oneline", f"origin/{BRANCH}.."])
+        raise SystemExit("Aborting")
+
+
+def get_mr(mr_id) -> dict:
+    resp = requests.get(f"{PROJECT_API_URL}/merge_requests/{mr_id}")
+    resp.raise_for_status()
+    return resp.json()
+
+
+def get_tag_pipeline(tag) -> dict:
+    """
+    Return a dictionary representing the pipeline for 'tag'.
+    If not found, returns None.
+    """
+    url = f"{PROJECT_API_URL}/pipelines?ref={tag}"
+    resp = requests.get(url)
+    resp.raise_for_status()
+    res = resp.json()
+    if not res:
+        return None
+    if len(res) == 1:
+        return res[0]
+    raise Exception(f"Got more hits than expected for {url}:\n{res}")
+
+
+def push_gitlab(version):
+    """
+    Push the changelog update commit, creating a merge request.
+    Wait for the merge request to merge before returning.
+    """
+    user = os.environ["USER"]
+    remote_branch = f"review/{user}/release-{version}"
+
+    push_output = command_output(
+        [
+            "git",
+            "push",
+            "-o",
+            "merge_request.create",
+            "-o",
+            f"merge_request.target={BRANCH}",
+            "-o",
+            "merge_request.merge_when_pipeline_succeeds",
+            "-o",
+            "merge_request.remove_source_branch",
+            "origin",
+            f"HEAD:{remote_branch}",
+        ]
+    )
+
+    # The push will generate output like this:
+    # ...
+    # remote:
+    # remote: View merge request for review/user/release-1.2.3:
+    # remote:   https://gitlab.wikimedia.org/repos/releng/scap/-/merge_requests/297
+    # remote:
+    # ....
+
+    m = re.search(r"/merge_requests/([0-9]+)", push_output)
+    if not m:
+        raise Exception(
+            f"Did not find the merge request URL in the push output:\n{push_output}"
+        )
+
+    mr_id = m[1]
+
+    print(f"Waiting for merge request {mr_id} to merge...", end="", flush=True)
+
+    while True:
+        print(".", end="", flush=True)
+
+        mr = get_mr(mr_id)
+        state = mr["state"]
+        status = mr["merge_status"]
+
+        if state == "merged":
+            print(f"\nMerge request {mr_id} has been merged")
+            return
+
+        if "cannot" in status:
+            print("")
+            raise SystemExit(f"Merge request {mr_id} can't be merged")
+
+        time.sleep(5)
+
+
+def wait_for_tag_pipeline(tag):
+    print(f"Waiting for pipeline for {tag} to start...")
+    while True:
+        p = get_tag_pipeline(tag)
+        if p:
+            break
+        time.sleep(5)
+
+    id = p["id"]
+
+    print(f"Pipeline {id} started")
+    print(f"Waiting for pipeline {id} to finish...")
+
+    while True:
+        p = get_tag_pipeline(tag)
+        status = p["status"]
+        if status == "success":
+            print(f"Pipeline {id} finished")
+            return
+        if status in ["failed", "canceled"]:
+            raise SystemExit(f"Pipeline {id} {status}")
+        time.sleep(5)
+
+
+def prepare_scap_release(old_version, new_version, user_name, user_email):
+    print(f"Old version: {old_version}")
+    print(f"New version: {new_version}")
+    answer = input("Ready to proceed? ")
+    if answer != "y":
+        raise SystemExit("Aborted.")
+
+    new_version_contents = f'__version__ = "{new_version}-1"\n'
+
+    with temp_to_permanent_file("scap/version.py") as f:
+        f.write(new_version_contents)
+
+    print("Updated scap/version.py")
+    print(new_version_contents)
+
+    generate_changelog(old_version, new_version, user_name, user_email)
+
+    run(
+        [
+            "git",
+            "commit",
+            "-m",
+            f"Release {new_version}-1",
+            "scap/version.py",
+            "changelog",
+        ]
+    )
+    print("Completed")
+
+
+def main():
+    if not os.getenv("SKIP_CHECKS"):
+        sanity_checks()
+
+    user_name = command_output(["git", "config", "user.name"]).strip()
+    user_email = command_output(["git", "config", "user.email"]).strip()
+
+    old_version = get_last_tag()
+    suggested_version = suggest_new_version(old_version)
+
+    print(f"Current version: {old_version}")
+    new_version = input(f"New version (default {suggested_version}): ")
+    if not new_version:
+        new_version = suggested_version
+
+    prepare_scap_release(old_version, new_version, user_name, user_email)
+
+    print("Pushing commit")
+    push_gitlab(new_version)
+
+    run(["git", "pull", "--rebase"])
+
+    assert_clean_checkout()
+
+    run(["git", "tag", "--sign", "-m", f"Release {new_version}", new_version, "HEAD"])
+    run(["git", "push", "origin", new_version])
+
+    wait_for_tag_pipeline(new_version)
+
+    print(
+        f"""
+scap release {new_version} has been tagged and the release pipeline has
+finished.
+
+You can install on production hosts
 by logging into deployment.eqiad.wmnet and running:
-scap install-world --version $VERS
+scap install-world --version {new_version}
 
 If you need to roll back, you can specify a particular version tag with e.g.
-scap install-world --version $OLD_VERS
-EOF
+scap install-world --version {old_version}
+"""
+    )
+
+
+if __name__ == "__main__":
+    main()
