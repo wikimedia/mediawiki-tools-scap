@@ -1,3 +1,11 @@
+scap (4.80.0)
+
+  * Simple k8s deployment progress reporting
+  * Optionally collect, display, and confirm helmfile diffs
+  * Very minor fix to ProgressReporter.finish()
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Fri, 26 Apr 2024 10:01:38 -0700
+
 scap (4.79.0)
 
   * backport: Fix bad behavior if nonexistent change number is supplied
