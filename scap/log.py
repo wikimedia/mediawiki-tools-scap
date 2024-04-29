@@ -29,7 +29,6 @@ import logging
 import logging.handlers
 import math
 import operator
-import os
 import queue
 import re
 import shlex
@@ -84,7 +83,7 @@ class AnsiColorFormatter(logging.Formatter):
             self.colors.update(colors)
 
         if colorize == "auto":
-            self.colorize = sys.stderr.isatty() or "FORCE_COLOR" in os.environ
+            self.colorize = utils.should_colorize_output()
         else:
             self.colorize = colorize
 

@@ -5,13 +5,7 @@ import shutil
 import subprocess
 import sys
 
-from scap import cli
-from scap import git
-from scap import log
-from scap import main
-from scap import ssh
-from scap import tasks
-from scap import utils
+from scap import ansi, cli, git, lock, log, main, ssh, tasks, utils
 
 
 @cli.command("clean", affected_by_blocked_deployments=True)
@@ -41,7 +35,10 @@ class Clean(main.AbstractSync):
     def main(self, *extra_args):
         """Clean old branches from the cluster for space savings."""
 
-        self.logo = self.arguments.logo
+        if self.arguments.logo:
+            print(ansi.logo(color=utils.should_colorize_output()))
+
+        self._assert_auth_sock()
 
         if self.arguments.branch == "auto":
             self.branches_to_remove = self._autoselect_versions_to_remove()
@@ -53,22 +50,28 @@ class Clean(main.AbstractSync):
         else:
             self.branches_to_remove = [self.arguments.branch]
 
-        self.get_logger().info(
-            "Cleaning branch(es): {}".format(", ".join(self.branches_to_remove))
-        )
-        self.arguments.message = "Pruned MediaWiki: {}".format(
-            ", ".join(self.branches_to_remove)
-        )
-        self.arguments.force = False
-        self.arguments.stop_before_sync = False
-        # There's no need to build or deploy container images during scap clean
-        self.config["build_mw_container_image"] = False
-        self.config["deploy_mw_container_image"] = False
-        return super().main(*extra_args)
+        branches_string = ", ".join(self.branches_to_remove)
 
-    def _before_cluster_sync(self):
-        for branch in self.branches_to_remove:
-            self.cleanup_branch(branch)
+        reason = "Cleaning {}: {}".format(
+            utils.pluralize("branch", self.branches_to_remove),
+            branches_string,
+        )
+
+        with lock.Lock(self.get_lock_file(), name="clean", reason=reason):
+            self.get_logger().info(reason)
+
+            for branch in self.branches_to_remove:
+                self.cleanup_branch(branch)
+
+            target_hosts = self._get_target_list()
+
+            self._sync_masters()
+            self._sync_proxies_and_apaches(target_hosts)
+            self._clean_remote_caches(target_hosts)
+
+        self.announce(
+            f"Pruned MediaWiki: {branches_string} (duration: {utils.human_duration(self.get_duration())})"
+        )
 
     def cleanup_branch(self, branch):
         """
@@ -85,22 +88,21 @@ class Clean(main.AbstractSync):
         if branch in self.active_wikiversions("stage"):
             raise SystemExit('Branch "%s" is still in use, aborting' % branch)
 
-        if os.path.exists(branch_dir):
-            for user in ["www-data"]:
-                with log.Timer("clean-{}-owned-files".format(user), self.get_stats()):
-                    utils.sudo_check_call(
-                        user, "find %s -user %s -delete" % (branch_dir, user)
-                    )
-
-        with log.Timer("clean-ExtensionMessages"):
-            ext_msg = os.path.join(
-                self.config["stage_dir"],
-                "wmf-config",
-                "ExtensionMessages-%s.php" % branch,
-            )
-            self._maybe_delete(ext_msg)
-
         logger = self.get_logger()
+
+        if os.path.exists(branch_dir):
+            logger.info("Clean files owned by www-data")
+            utils.sudo_check_call(
+                "www-data", f"find {branch_dir} -user www-data -delete"
+            )
+
+        ext_msg = os.path.join(
+            self.config["stage_dir"],
+            "wmf-config",
+            "ExtensionMessages-%s.php" % branch,
+        )
+        logger.info("Clean %s", ext_msg)
+        self._maybe_delete(ext_msg)
 
         # Moved behind a feature flag until T218750 is resolved
         if self.arguments.delete_gerrit_branch:
@@ -128,15 +130,18 @@ class Clean(main.AbstractSync):
                         subprocess.check_output(submodule_cmd, shell=True)
                         if subprocess.call(git_prune_cmd) != 0:
                             logger.info("Failed to prune core branch")
-        with log.Timer("removing-local-copy"):
-            self._maybe_delete(branch_dir)
-        with log.Timer("cleaning-unused-patches", self.get_stats()):
-            patch_base_dir = self.config["patch_path"]
-            self._maybe_delete(os.path.join(patch_base_dir, branch))
-            srv_patches_git_message = 'Scap clean for "{}"'.format(branch)
-            git.add_all(patch_base_dir, message=srv_patches_git_message)
 
-    def _after_cluster_sync(self):
+        logger.info("Clean %s", branch_dir)
+        self._maybe_delete(branch_dir)
+
+        patch_base_dir = self.config["patch_path"]
+        branch_patch_dir = os.path.join(patch_base_dir, branch)
+        logger.info("Clean %s", branch_patch_dir)
+        self._maybe_delete(branch_patch_dir)
+        srv_patches_git_message = 'Scap clean for "{}"'.format(branch)
+        git.add_all(patch_base_dir, message=srv_patches_git_message)
+
+    def _clean_remote_caches(self, target_hosts):
         """
         Need to remove cache dirs manually after sync
         """
@@ -146,7 +151,6 @@ class Clean(main.AbstractSync):
             for branch in self.branches_to_remove
         ]
 
-        target_hosts = self._get_target_list()
         cmd = ["/bin/rm", "-rf"] + cache_dirs
         with log.Timer("clean-remote-caches", self.get_stats()):
             remove_remote_dirs = ssh.Job(
@@ -169,29 +173,16 @@ class Clean(main.AbstractSync):
         else:
             self.get_logger().info("Unable to delete %s, already missing", path)
 
-    def _after_lock_release(self):
-        self.announce(
-            self.arguments.message
-            + " (duration: %s)" % utils.human_duration(self.get_duration())
-        )
-
     def _autoselect_versions_to_remove(self):
         """
         Selects all inactive versions except the most recent one
         """
         active = self.active_wikiversions("stage")
+        # Build a list of inactive versions, in ascending order (oldest first, most recent last)
         inactive_versions = [
-            (version, created)
-            for version, created in tasks.get_wikiversions_ondisk_ex(
-                self.config["stage_dir"]
-            )
+            version
+            for version in tasks.get_wikiversions_ondisk(self.config["stage_dir"])
             if version not in active
         ]
 
-        versions_to_remove = [
-            version
-            for version, _ in sorted(
-                inactive_versions, key=lambda version_created: version_created[1]
-            )
-        ]
-        return versions_to_remove[:-1]
+        return inactive_versions[:-1]

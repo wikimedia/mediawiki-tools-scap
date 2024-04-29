@@ -1041,3 +1041,26 @@ def select_latest_patches(patch_base_dir):
     latest_patches_vers = sorted(candidates, key=parse_wmf_version)[-1]
 
     return os.path.join(patch_base_dir, latest_patches_vers)
+
+
+def pluralize(word: str, quantity) -> str:
+    """
+    If 'quantity' represents a quantity of one, returns 'word',
+    otherwise, returns the pluralized version of 'word'.
+
+    'quantity' can be an int, or an object that works with len().
+    """
+    if not (isinstance(quantity, int)):
+        quantity = len(quantity)
+
+    if quantity == 1:
+        return word
+
+    for suffix in ["s", "sh", "ch", "x", "z"]:
+        if word.endswith(suffix):
+            return word + "es"
+    return word + "s"
+
+
+def should_colorize_output() -> bool:
+    return sys.stderr.isatty() or "FORCE_COLOR" in os.environ

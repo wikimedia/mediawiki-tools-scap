@@ -36,8 +36,6 @@ import sys
 import time
 import tempfile
 
-from datetime import datetime
-
 import scap.cdblib as cdblib
 import scap.checks as checks
 import scap.git as git
@@ -1002,31 +1000,3 @@ def get_wikiversions_ondisk(directory) -> list:
     ]
 
     return sorted(versions, key=utils.parse_wmf_version)
-
-
-def get_wikiversions_ondisk_ex(directory):
-    """
-    Get checked-out wikiversions in a directory.
-
-    Finds wikiversions in a directory and does its best to determine the date
-    of the oldest reflog for that branch (non recursive)
-
-    :returns: list of tuples like::
-        [("1.29.0-wmf.17", <DateCreated>)]`
-    """
-    versions_with_date = []
-
-    for version in get_wikiversions_ondisk(directory):
-        abspath = os.path.join(directory, f"php-{version}")
-
-        git_reflog = git.reflog(abspath, fmt="%at")
-
-        if not git_reflog:
-            continue
-
-        # Oldest reflog date assumed to be the branch date
-        date_branched = datetime.utcfromtimestamp(float(git_reflog[-1]))
-
-        versions_with_date.append((version, date_branched))
-
-    return versions_with_date

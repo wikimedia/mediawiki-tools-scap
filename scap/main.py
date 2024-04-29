@@ -102,7 +102,7 @@ class AbstractSync(cli.Application):
     def main(self, *extra_args):
         """Perform a sync operation to the cluster."""
         if self.logo:
-            print(ansi.logo(color=sys.stdout.isatty() or "FORCE_COLOR" in os.environ))
+            print(ansi.logo(color=utils.should_colorize_output()))
 
         self._assert_auth_sock()
 
@@ -184,25 +184,8 @@ class AbstractSync(cli.Application):
                 # Deploy K8s production releases
                 self._deploy_k8s_production()
 
-                # Update proxies
-                proxies = utils.list_intersection(
-                    self._get_proxy_list(), full_target_list
-                )
-
-                if len(proxies) > 0:
-                    with log.Timer("sync-proxies", self.get_stats()):
-                        sync_cmd = self._apache_sync_command()
-                        sync_cmd.append(socket.getfqdn())
-                        self._perform_sync("proxies", sync_cmd, proxies)
-
-                # Update apaches
-                with log.Timer("sync-apaches", self.get_stats()):
-                    self._perform_sync(
-                        "apaches",
-                        self._apache_sync_command(proxies),
-                        full_target_list,
-                        shuffle=True,
-                    )
+                # Deploy to bare metal production targets
+                self._sync_proxies_and_apaches(full_target_list)
 
                 history.update_latest(self.config["history_log"], synced=True)
 
@@ -213,6 +196,25 @@ class AbstractSync(cli.Application):
         if self.soft_errors:
             return 1
         return 0
+
+    def _sync_proxies_and_apaches(self, full_target_list):
+        # Update proxies
+        proxies = utils.list_intersection(self._get_proxy_list(), full_target_list)
+
+        if len(proxies) > 0:
+            with log.Timer("sync-proxies", self.get_stats()):
+                sync_cmd = self._apache_sync_command()
+                sync_cmd.append(socket.getfqdn())
+                self._perform_sync("proxies", sync_cmd, proxies)
+
+        # Update apaches
+        with log.Timer("sync-apaches", self.get_stats()):
+            self._perform_sync(
+                "apaches",
+                self._apache_sync_command(proxies),
+                full_target_list,
+                shuffle=True,
+            )
 
     def increment_stat(self, stat, all_stat=True, value=1):
         """Increment a stat in deploy.*
