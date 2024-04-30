@@ -10,11 +10,6 @@ title()
     echo
 }
 
-got()
-{
-    command -v "$1" > /dev/null
-}
-
 title "shellcheck"
 # shellcheck disable=SC2046
 shellcheck $(find . -type f | grep -vE '^\./(\.git|\.tox|docs/_build)' | xargs grep -l '^#!/bin/.*sh')
@@ -25,20 +20,10 @@ python3 -m pytest -q -Werror --ignore=tests/scap/integration
 title "flake8 (coding style checks)"
 flake8 --count --show-source --statistics \
        --extend-ignore=W605,E501,E203 \
-       --extend-exclude=build,docs,dist,bin,subplot . bin/scap release-scripts/perform-release
+       --extend-exclude=build,docs,dist,bin . bin/scap release-scripts/perform-release
 
 title "black (code formatting)"
 black --check --diff . bin/scap release-scripts/perform-release
-
-if got subplot
-then
-    title "Subplot (acceptance criteria)"
-    rm -f test.log test.py
-    subplot docgen scap.md -o scap.html
-    subplot docgen scap.md -o scap.pdf
-    subplot codegen scap.md -o test.py
-    python3 test.py --log test.log --save-on-failure fail.tar.gz
-fi
 
 title "sphinx (documentation)"
 sphinx-build -q -W -b html docs/ docs/_build/html
