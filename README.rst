@@ -17,10 +17,7 @@ code and configuration on production web servers.
 Running tests
 =============
 
-Automated tests can be executed with `make test`.
-
-Scap comes with an automated suite invoked via `scripts/check`. The script does
-not install any dependencies though.
+Automated tests can be executed with `make test` or `tox -e test`.
 
 For a list of Scap dependencies during testing, see `requirements.txt` and
 `test-requirements.txt`.  Some Debian packages are also required to set up the
@@ -42,7 +39,7 @@ To generate the container images and run tests in each of them, we provide a
 The `test` target builds the images using the `Blubberfile syntax
 <https://wikitech.wikimedia.org/wiki/Blubber/User_Guide#Blubberfiles>` using
 `Blubber buildkit <docker-registry.wikimedia.org/repos/releng/blubber/buildkit>`.
-The target then invokes the defined entrypoint `scripts/check` which runs the
+The target then invokes the defined entrypoint `tox` which runs the
 tests in each images.
 
 The Wikimedia CI builds those images in a similar way and run the same tests.

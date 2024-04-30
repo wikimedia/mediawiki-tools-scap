@@ -1,9 +1,9 @@
 #!/bin/bash
-# example pre-commit hook for git which runs `flake8` and `tox -e doc`
-# before each commit, aborting the commit if there is a lint error.
+# example pre-commit hook for git which runs `tox -e lint` and `tox -e doc`
+# before each commit, aborting the commit if there any error.
 
 
-if ! lint=$(tox -e flake8 2>&1); then
+if ! lint=$(tox -e lint 2>&1); then
     echo "$lint"
     exit 1
 fi

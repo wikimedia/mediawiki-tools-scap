@@ -25,8 +25,7 @@ Testing
 -------
 
 To run unit tests, lint, coverage and update documentation, simply run
-``scripts/check`` without any arguments.  For this to work you
-must have shellcheck, pytest, flake8, and sphinx-build installed.
+``tox`` without any arguments.  For this to work you must have tox installed.
 
 If you have Docker installed and you want to run tests without having
 to install prerequisite packages on your system, you can run
