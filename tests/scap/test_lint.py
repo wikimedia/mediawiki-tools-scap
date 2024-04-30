@@ -22,6 +22,7 @@
 """
 import os
 import tempfile
+import shutil
 import sys
 
 import pytest
@@ -65,6 +66,7 @@ def test_check_valid_syntax__invalid_php_file_raise_exception():
 
 
 @pytest.mark.skipif(sys.platform == "darwin", reason="Requires GNU find")
+@pytest.mark.skipif(shutil.which("php") is None, reason="Requires 'php'")
 def test_check_valid_syntax__invalid_json_file_raise_exception():
     """Make sure we raise exceptions when passed a single bad JSON file (T272756)"""
     with tempfile.NamedTemporaryFile(suffix=".json") as json_file:
@@ -76,6 +78,7 @@ def test_check_valid_syntax__invalid_json_file_raise_exception():
 
 
 @pytest.mark.skipif(sys.platform == "darwin", reason="Requires GNU find")
+@pytest.mark.skipif(shutil.which("php") is None, reason="Requires 'php'")
 def test_check_valid_syntax__skip_dir_matching_name_predicate():
     """Make sure that we skip directories that look like php files"""
     with tempfile.NamedTemporaryFile(suffix=".php") as php_file:
