@@ -24,7 +24,6 @@ test-image-%:
 		--target verify-deps-$(*F) \
 		-t $(VERIFY_DEPS_IMAGE) .
 	DOCKER_BUILDKIT=1 docker build \
-		--quiet \
 		-f .pipeline/blubber.yaml \
 		--target test-$(*F) \
 		-t $(TEST_IMAGE) .

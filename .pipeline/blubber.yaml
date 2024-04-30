@@ -54,7 +54,6 @@ variants:
         - git
         - php-cli
         - file
-    copies: [local]
     builders:
       - python:
           # Allow transitive dependencies for test-requirements.txt
@@ -63,7 +62,10 @@ variants:
             - requirements.txt
             - test-requirements.txt
             - docs/requirements.txt
-    entrypoint: [tox]
+      - custom:
+          command: [tox]
+          requirements: [.]
+    entrypoint: [echo, Tests passed during image build]
     # runs.insecurely true because pytest writes to .pytest_cache
     # (though this can be altered with a pytest.ini file) and doc
     # build writes to docs/_build
@@ -76,6 +78,23 @@ variants:
     includes: [base-bullseye, test]
   test-bookworm:
     includes: [base-bookworm, test]
+
+  test-buster-report:
+    copies:
+      - from: test-buster
+        source: /srv/app/test-reports
+        destination: /
+        test-bullseye-report:
+  test-bullseye-report:
+    copies:
+      - from: test-bullseye
+        source: /srv/app/test-reports
+        destination: /
+  test-bookworm-report:
+    copies:
+      - from: test-bookworm
+        source: /srv/app/test-reports
+        destination: /
 
   build-docs:
     includes: [test-buster]

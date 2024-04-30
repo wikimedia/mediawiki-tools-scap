@@ -21,12 +21,21 @@ verify-deps:
 
 test:
   stage: test
-  extends: .kokkuri:build-and-run-image
+  extends: .kokkuri:build-image
   parallel:
     matrix:
       - DISTRO: *supported_distros
   variables:
-    BUILD_VARIANT: test-$DISTRO
+    BUILD_VARIANT: test-$DISTRO-report
+    BUILDCTL_BUILD_FLAGS: --output type=local,dest=test-reports
+  artifacts:
+    when: always
+    reports:
+      junit: test-reports/junit.xml
+      coverage_report:
+        coverage_format: cobertura
+        path: test-reports/coverage.xml
+  coverage: /(?i)total.*? (100(?:\.0+)?\%|[1-9]?\d(?:\.\d+)?\%)$/
 
 publish-dist:
   stage: publish-dist
