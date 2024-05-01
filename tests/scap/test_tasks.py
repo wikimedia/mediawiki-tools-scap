@@ -1,7 +1,19 @@
 from unittest import mock
+
+import os
 import pytest
 
 from scap import tasks
+
+
+def test_get_wikiversions_ondisk(tmpdir):
+    for dir in ["php-1.29.0-wmf.4", "php-1.29.0-wmf.3", "php-1.29.0-wmf.2"]:
+        os.mkdir(os.path.join(tmpdir, dir))
+    assert tasks.get_wikiversions_ondisk(tmpdir) == [
+        "1.29.0-wmf.2",
+        "1.29.0-wmf.3",
+        "1.29.0-wmf.4",
+    ]
 
 
 @pytest.mark.parametrize(

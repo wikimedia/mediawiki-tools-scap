@@ -583,10 +583,13 @@ def get_active_wikiversions(directory, realm, return_type=list):
               If 'return_type' is dict (the default), returns a
               collections.OrderedDict of {version:wikidb} values sorted by
               version number in ascending order.  'wikidb' will be the
-              first-seen wikidb for 'version'.  This can be used by
+              alphabetically-first wikidb for 'version'.  This can be used by
               operations that need a db but don't care which wiki's db is
               used.
     """
+    if return_type not in [list, dict]:
+        raise ValueError(f"Unexpected return_type: {return_type}")
+
     wikiversions = read_wikiversions(directory, realm)
 
     versions = {}
@@ -605,11 +608,8 @@ def get_active_wikiversions(directory, realm, return_type=list):
 
     if return_type == dict:
         return sorted_versions
-
-    if return_type == list:
+    else:
         return list(sorted_versions.keys())
-
-    raise ValueError("Unexpected return_type: {}".format(return_type))
 
 
 def find_upwards(name, starting_point=os.getcwd()):

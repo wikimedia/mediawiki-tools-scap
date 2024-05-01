@@ -188,7 +188,7 @@ class Application(object):
 
                   If return_type is dict, returns a collections.OrderedDict of
                   {version:wikidb} values sorted by version number in ascending
-                  order.  'wikidb' will be the first-seen wikidb for 'version'.
+                  order.  'wikidb' will be the alphabetically-first wikidb for 'version'.
                   This can be used by operations that need a db but don't care
                   which wiki's db is used.
         """

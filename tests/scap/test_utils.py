@@ -1,4 +1,6 @@
+import json
 import os
+import pytest
 
 from scap import utils
 
@@ -178,3 +180,28 @@ def test_temp_to_permanent_file():
         # Cleanup
         if os.path.exists(testfile):
             os.unlink(testfile)
+
+
+def test_get_active_wikiversions(tmpdir):
+    # Test invalid return_type.
+    with pytest.raises(ValueError):
+        utils.get_active_wikiversions(None, None, return_type=str)
+
+    wikiversions_file = os.path.join(tmpdir, "wikiversions-test.json")
+
+    with open(wikiversions_file, "w") as f:
+        json.dump(
+            {
+                "mywiki": "php-1.42.0-wmf.25",
+                "yourwiki": "php-1.42.0-wmf.22",
+                "hiswiki": "php-1.42.0-wmf.25",
+                "herwiki": "php-1.42.0-wmf.22",
+            },
+            f,
+        )
+
+    res = utils.get_active_wikiversions(tmpdir, "test", return_type=list)
+    assert res == ["1.42.0-wmf.22", "1.42.0-wmf.25"]
+
+    res = utils.get_active_wikiversions(tmpdir, "test", return_type=dict)
+    assert res == {"1.42.0-wmf.22": "herwiki", "1.42.0-wmf.25": "hiswiki"}
