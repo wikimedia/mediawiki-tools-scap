@@ -295,10 +295,6 @@ def test_handle_exception(app):
     log.warning.assert_not_called()
 
 
-def test_run_as():
-    print("Lol, you really wanted a test for that?")
-
-
 def test_assert_current_user(app, mocker):
     gu = mocker.patch("scap.utils.get_username")
     gu.return_value = "pinkunicorn"
