@@ -36,7 +36,7 @@ import sys
 import time
 import tempfile
 
-from datetime import datetime, timedelta
+from datetime import datetime
 
 import scap.cdblib as cdblib
 import scap.checks as checks
@@ -1030,40 +1030,3 @@ def get_wikiversions_ondisk_ex(directory):
         versions_with_date.append((version, date_branched))
 
     return versions_with_date
-
-
-def get_old_wikiversions(versions, keep=2, keep_static=5):
-    """
-    Get lists of old MediaWiki versions to be removed
-
-    :param keep=2: Number of branches for which we want to keep everything
-    :param keep_static=5: Number of weeks to keep static assets
-
-    :returns: tuple of lists of old wikiversions
-    """
-    if len(versions) <= keep:
-        return ([], [])
-
-    def sort_versions(v):
-        ver = os.path.basename(v[0])
-        return utils.parse_wmf_version(ver[len("php-") :])
-
-    sorted_versions = sorted(versions, key=sort_versions, reverse=True)
-
-    # Don't remove a certain number of revisions
-    sorted_versions = sorted_versions[keep:]
-
-    keep_static_weeks = timedelta(weeks=keep_static)
-    remove_static_cutoff = datetime.utcnow() - keep_static_weeks
-
-    # If it's older than N weeks old, remove it
-    remove = [
-        os.path.basename(x[0]) for x in sorted_versions if x[1] < remove_static_cutoff
-    ]
-
-    # If it's newer than N weeks old, remove its static assets
-    remove_static = [
-        os.path.basename(x[0]) for x in sorted_versions if x[1] > remove_static_cutoff
-    ]
-
-    return (remove, remove_static)
