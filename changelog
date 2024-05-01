@@ -1,3 +1,11 @@
+scap (4.81.0)
+
+  * perform-release: sanity_checks fix
+  * stage-train: Remove clean stage
+  * Rewrite release-scripts/perform-release in Python
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Wed, 01 May 2024 07:36:50 -0700
+
 scap (4.80.1)
 
 
