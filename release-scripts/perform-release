@@ -134,9 +134,9 @@ def assert_clean_checkout():
 
 
 def sanity_checks():
-    local_branch = command_output(["git", "symbolic-ref", "HEAD"])
+    local_branch = command_output(["git", "symbolic-ref", "HEAD"]).strip()
     if local_branch != f"refs/heads/{BRANCH}":
-        raise SystemExit("Please switch to the {BRANCH} first")
+        raise SystemExit(f"Please switch to the {BRANCH} branch first")
     assert_clean_checkout()
     run(["git", "pull", "--rebase"])
     assert_clean_checkout()
