@@ -33,25 +33,21 @@ recent versions of testing utilities than the one frozen by Debian
 Debian distribution version.
 
 To generate the container images and run tests in each of them, we provide a
-`Makefile`. To run all tests against all supported Debian distributions use
-`make test`.
+`Makefile`.  To run tests against the default Debian distribution (defined by
+`DEFAULT_VARIANT' in `Makefile'), use `make test`.  To run all tests against all
+supported Debian distributions use `make test-all`.  To run tests against a
+specific supported Debian distribution, use `make test-<distro>`, for example
+`make test-bullseye`.
 
-The `test` target builds the images using the `Blubberfile syntax
+The `test*` targets build the images using the `Blubberfile syntax
 <https://wikitech.wikimedia.org/wiki/Blubber/User_Guide#Blubberfiles>` using
 `Blubber buildkit <docker-registry.wikimedia.org/repos/releng/blubber/buildkit>`.
-The target then invokes the defined entrypoint `tox` which runs the
-tests in each images.
+The blubberfile is configured to run tests using `tox` at image build time.
 
-The Wikimedia CI builds those images in a similar way and run the same tests.
+The Wikimedia CI builds those images in a similar way and runs the same tests.
 
 To build all images without running tests, use `make images`, useful when
 amending the Blubber config or changing dependencies.
-
-For each Debian distribution defined at the top of the `makefile`, rules let
-you build and test against a single distribution: `make test-bullseye`. You
-will probably want to use it when developing instead of testing against each of
-the distribution. When your change is ready, run it against all distributions
-to catch potential compatibility issues (`make test`).
 
 Reporting Issues
 ================
@@ -73,7 +69,7 @@ figlet font [#speedfont]_.
 License
 =======
 
-|    Copyright 2014-2022 Wikimedia Foundation & Contributors.
+|    Copyright 2014-2024 Wikimedia Foundation & Contributors.
 |
 |    Scap is free software: you can redistribute it and/or modify
 |    it under the terms of the GNU General Public License as published by

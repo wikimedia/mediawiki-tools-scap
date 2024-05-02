@@ -1,4 +1,6 @@
-BLUBBER_VARIANTS := buster bullseye
+BLUBBER_VARIANTS := buster bullseye bookworm
+# deployment.eqiad.wmnet currently runs buster
+DEFAULT_VARIANT := buster
 
 VERIFY_DEPS_IMAGE = local/scap-$(*F)-verify-deps
 TEST_IMAGE = local/scap-$(*F)-test
@@ -7,8 +9,9 @@ TEST_IMAGE = local/scap-$(*F)-test
 default:
 	$(info This Makefile does not have a default target.)
 	$(info Targets:)
-	$(info `make images` Build the images)
-	$(info `make test` Run all images (run tests))
+	$(info `make test`     Run tests for $(DEFAULT_VARIANT))
+	$(info `make test-all` Run tests for $(BLUBBER_VARIANTS))
+	$(info `make reformat` Reformat source code using 'black' formatter)
 	$(error exiting...)
 
 ########################
@@ -44,8 +47,11 @@ binary-dist-image-%:
 .PHONY: test-images
 images: $(BLUBBER_VARIANTS:%=test-image-%)
 
+.PHONY: test-all
+test-all: $(BLUBBER_VARIANTS:%=test-%)
+
 .PHONY: test
-test: $(BLUBBER_VARIANTS:%=test-%)
+test: test-$(DEFAULT_VARIANT)
 
 .PHONY: dist-images
 dist-images: $(BLUBBER_VARIANTS:%=binary-dist-image-%)
