@@ -1,10 +1,7 @@
 coverage
-flake8==5.0.4
-black==23.3.0
 mock
 pexpect
 pytest
 pytest-cov
 pytest-mock
 timeout-decorator
-shellcheck-py

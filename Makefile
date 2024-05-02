@@ -51,5 +51,5 @@ test: $(BLUBBER_VARIANTS:%=test-%)
 dist-images: $(BLUBBER_VARIANTS:%=binary-dist-image-%)
 
 .PHONY: reformat
-reformat: test-image-bullseye
-	docker run -it --rm --entrypoint black --user $$(id -u):$$(id -g) -v $$(pwd):/srv/app local/scap-bullseye-test . bin/scap
+reformat:
+	tox -e reformat
