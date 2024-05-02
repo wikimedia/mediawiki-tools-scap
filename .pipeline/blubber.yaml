@@ -54,23 +54,28 @@ variants:
         - git
         - php-cli
         - file
+        - python3-venv
     builders:
-      - python:
-          # Allow transitive dependencies for test-requirements.txt
-          no-deps: False
+      # This approach works for buster, bullseye, and bookworm.
+      # It avoids the externally-managed-environment error from pip3
+      # on bookworm by installing tox into a virtualenv.
+      - custom:
+          command: [python3, -m, venv, /tmp/scap]
+      - custom:
+          command: [/tmp/scap/bin/pip, install, tox]
+      # Set up environments.
+      - custom:
+          command: [/tmp/scap/bin/tox, run-parallel, --notest]
           requirements:
+            - tox.ini
             - requirements.txt
             - test-requirements.txt
             - docs/requirements.txt
+      # Run the tests
       - custom:
-          command: [tox]
+          command: [/tmp/scap/bin/tox]
           requirements: [.]
     entrypoint: [echo, Tests passed during image build]
-    # runs.insecurely true because pytest writes to .pytest_cache
-    # (though this can be altered with a pytest.ini file) and doc
-    # build writes to docs/_build
-    runs:
-      insecurely: True
 
   test-buster:
     includes: [base-buster, test]
