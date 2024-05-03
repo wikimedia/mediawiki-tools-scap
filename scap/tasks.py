@@ -993,10 +993,13 @@ def get_wikiversions_ondisk(directory) -> list:
         ['1.41.0-wmf.1', '1.41.0-wmf.2']
 
     """
+    is_wikiversion = (
+        lambda x: utils.BRANCH_RE.match(x[len("php-") :]) or x == "php-master"
+    )
     versions = [
         d[len("php-") :]
         for d in os.listdir(directory)
-        if d.startswith("php-") and utils.BRANCH_RE.match(d[len("php-") :])
+        if is_wikiversion(d) and os.path.isdir(os.path.join(directory, d))
     ]
 
     return sorted(versions, key=utils.parse_wmf_version)
