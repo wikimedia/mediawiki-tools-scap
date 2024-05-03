@@ -40,7 +40,7 @@ from requests import RequestException, HTTPError
 
 from scap import cli, utils, config, git, train, interaction
 from scap.runcmd import gitcmd
-from scap.utils import BRANCH_RE
+from scap.utils import BRANCH_RE_UNANCHORED
 
 print = partial(print, flush=True)
 
@@ -277,7 +277,7 @@ class DeployPromote(cli.Application):
             res.raise_for_status()
 
             actual_version_match = re.search(
-                r"(?i)MediaWiki (%s)" % BRANCH_RE.pattern, res.text
+                r"(?i)MediaWiki (%s)" % BRANCH_RE_UNANCHORED.pattern, res.text
             )
             actual_version = (
                 actual_version_match.group(1)

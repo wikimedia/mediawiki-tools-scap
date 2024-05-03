@@ -5,6 +5,7 @@
     Contains misc utility functions.
 
 """
+import argparse
 import collections
 import contextlib
 import errno
@@ -36,12 +37,16 @@ import pygments.lexers
 import pygments.formatters
 
 
-BRANCH_RE = re.compile(
+BRANCH_RE_UNANCHORED = re.compile(
     r"(?P<major>\d{1})."
     r"(?P<minor>\d{1,2})."
     r"(?P<patch>\d{1,2})"
     r"-wmf.(?P<prerelease>\d{1,2})"
 )
+# Anchored to the end of string.  Use BRANCH_RE.match() or
+# BRANCH_RE.search() according to your needs.
+BRANCH_RE = re.compile(rf"{BRANCH_RE_UNANCHORED.pattern}$")
+BRANCH_CUT_PRETEST_BRANCH = "branch_cut_pretest"
 
 
 def isclose(a, b, rel_tol=1e-9, abs_tol=0.0):
@@ -937,6 +942,18 @@ def parse_wmf_version(version: str) -> packaging.version.Version:
     # Strip all non-digit, non-dot characters from the version string, then
     # parse it.
     return packaging.version.Version(re.sub(r"[^.\d]", "", version))
+
+
+def version_argument_parser(ver: str) -> str:
+    """Validate our version number formats."""
+
+    if ver in ["auto", "master", BRANCH_CUT_PRETEST_BRANCH]:
+        return ver
+
+    if BRANCH_RE.match(ver):
+        return ver
+
+    raise argparse.ArgumentTypeError("Branch '%s' does not match required format" % ver)
 
 
 def on_real_deploy_server() -> bool:

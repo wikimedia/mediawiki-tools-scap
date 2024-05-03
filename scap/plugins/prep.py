@@ -1,6 +1,5 @@
 # -*- coding: utf-8 -*-
 """Scap plugin for setting up a new version of MediaWiki for deployment."""
-import argparse
 import glob
 import os
 import re
@@ -15,25 +14,11 @@ from scap import interaction
 from scap import log
 from scap.plugins import patches
 from scap import utils
+from scap.utils import BRANCH_CUT_PRETEST_BRANCH
 from scap.lock import Lock
 from scap.plugins.patches import SecurityPatches
 
 HISTORY_ABORT_STATUS = 127
-BRANCH_CUT_PRETEST_BRANCH = "branch_cut_pretest"
-
-
-def version_parser(ver):
-    """Validate our version number formats."""
-    if ver == "auto":
-        return ver
-
-    match = re.match(
-        rf"(1\.\d\d\.\d+-wmf\.\d+|master|{BRANCH_CUT_PRETEST_BRANCH})", ver
-    )
-
-    if match:
-        return match.group(0)
-    raise argparse.ArgumentTypeError("Branch '%s' does not match required format" % ver)
 
 
 def update_update_strategy(path):
@@ -89,7 +74,7 @@ class CheckoutMediaWiki(cli.Application):
     @cli.argument(
         "branch",
         metavar="BRANCH",
-        type=version_parser,
+        type=utils.version_argument_parser,
         help="The name of the branch to operate on.  Specify 'auto' to enable auto mode and select all active branches",
     )
     @cli.argument(

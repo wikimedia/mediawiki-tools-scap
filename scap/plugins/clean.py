@@ -14,6 +14,7 @@ class Clean(main.AbstractSync):
 
     @cli.argument(
         "branch",
+        type=utils.version_argument_parser,
         help="The name of the branch to clean. Specify 'auto' to select all inactive branches except the most recent one.",
     )
     @cli.argument(

@@ -1,3 +1,4 @@
+import argparse
 import json
 import os
 import pytest
@@ -205,3 +206,16 @@ def test_get_active_wikiversions(tmpdir):
 
     res = utils.get_active_wikiversions(tmpdir, "test", return_type=dict)
     assert res == {"1.42.0-wmf.22": "herwiki", "1.42.0-wmf.25": "hiswiki"}
+
+
+@pytest.mark.parametrize(
+    "ver", ["auto", "1.42.0-wmf.22", "master", "branch_cut_pretest"]
+)
+def test_version_argument_parser_good(ver):
+    assert utils.version_argument_parser(ver) == ver
+
+
+@pytest.mark.parametrize("ver", ["", "123", "1.42.0-wmf.22 ", "testing"])
+def test_version_argument_parser_bad(ver):
+    with pytest.raises(argparse.ArgumentTypeError):
+        utils.version_argument_parser(ver)
