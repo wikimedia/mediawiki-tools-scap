@@ -105,7 +105,7 @@ variants:
     includes: [test-buster]
     builders:
       - custom:
-          command: [tox, -e, doc]
+          command: [/tmp/scap/bin/tox, -e, doc]
           requirements: [.]
     entrypoint: [echo, docs are in docs/_build/html]
 
