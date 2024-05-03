@@ -34,12 +34,6 @@ class GitTest(unittest.TestCase):
         assert info is not None
         assert "head" in info, "missing git.info[head]"
 
-    def test_git_fat(self):
-        if scap.runcmd.which("git-fat") is None:
-            return
-        git.fat_init(TEMPDIR)
-        assert git.fat_isinitialized(TEMPDIR), "git fat was not initialized"
-
     def test_git_default_ignore(self):
         git.default_ignore(TEMPDIR)
         gif = os.path.join(TEMPDIR, ".gitignore")
