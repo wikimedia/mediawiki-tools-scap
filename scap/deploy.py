@@ -225,16 +225,22 @@ class DeployLocal(cli.Application):
             )
 
             if self.rev in os.path.realpath(filename):
-                self.noop = True
-
+                config_path = os.path.realpath(filename)
+                if os.path.lexists(filename):
+                    logger.info("path %s symlink exists" % filename)
+                    if os.path.exists(config_path):
+                        logger.info("target path %s exists" % config_path)
+                        self.noop = True
+                        continue
+                    else:
+                        logger.info("target path %s doesn't exists" % config_path)
             if self.noop and not self.arguments.force:
                 logger.info(
                     "{} is already linked to current rev"
                     "(use --force to override)".format(filename)
                 )
-                return 0
 
-            # Checks should run if the --force argument is used
+            # Checks should run if the --force argument is used or target path doesn't exist
             self.noop = False
 
             if filename.startswith("/"):
