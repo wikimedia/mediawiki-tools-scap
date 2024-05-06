@@ -1,3 +1,25 @@
+scap (4.82.0)
+
+  * wikiverisons-on-disk: handle edgecases
+  * Revise scap clean implementation
+  * Remove non-running git-fat test
+  * Makefile: test and test-all targets
+  * Update dependency versions
+  * Update tox to new location for build-docs
+  * .pipeline/blubber.yaml: Revise how test variant is built
+  * tox.ini: Add 'reformat' environment
+  * Add test coverage for significant scap clean functions
+  * Remove unused tasks.get_old_wikiversions()
+  * CI: Generate and collect test and coverage reports
+  * tests/scap/plugins/backport.py -> tests/scap/plugins/test_backport.py
+  * Allow cli.all_commands() to be called more than once.
+  * test_cli.py: remove useless test_run_as()
+  * Revive tox.ini. Drop scripts/check
+  * test_lint.py: Skip two tests if 'php' is not available
+  * Remove unused subplot test stuff
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Mon, 06 May 2024 14:10:13 -0700
+
 scap (4.81.0)
 
   * perform-release: sanity_checks fix
