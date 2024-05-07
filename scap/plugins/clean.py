@@ -175,14 +175,18 @@ class Clean(main.AbstractSync):
 
     def _autoselect_versions_to_remove(self):
         """
-        Selects all inactive versions except the most recent one
+        Returns a list of old on-disk versions, excluding the
+        most recent old version.
         """
-        active = self.active_wikiversions("stage")
-        # Build a list of inactive versions, in ascending order (oldest first, most recent last)
-        inactive_versions = [
-            version
-            for version in tasks.get_wikiversions_ondisk(self.config["stage_dir"])
-            if version not in active
-        ]
+        active_versions = self.active_wikiversions("stage")
 
-        return inactive_versions[:-1]
+        # Collect an ascending list of old versions, stopping collection
+        # once we run into a live version.
+        old_versions = []
+        for version in tasks.get_wikiversions_ondisk(self.config["stage_dir"]):
+            if version in active_versions:
+                break
+            old_versions.append(version)
+
+        # Return all but the most recent old version.
+        return old_versions[:-1]

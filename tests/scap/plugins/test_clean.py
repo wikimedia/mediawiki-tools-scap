@@ -12,9 +12,9 @@ def test_scap_clean(tmpdir):
         json.dump(
             {
                 "mywiki": "php-1.42.0-wmf.25",
-                "yourwiki": "php-1.42.0-wmf.22",
+                "yourwiki": "php-1.42.0-wmf.23",
                 "hiswiki": "php-1.42.0-wmf.25",
-                "herwiki": "php-1.42.0-wmf.22",
+                "herwiki": "php-1.42.0-wmf.23",
             },
             f,
         )
@@ -24,6 +24,7 @@ def test_scap_clean(tmpdir):
         "php-1.42.0-wmf.22",
         "php-1.42.0-wmf.23",
         "php-1.42.0-wmf.25",
+        "php-1.42.0-wmf.26",
     ]:
         dir = os.path.join(tmpdir, php)
         git.init(dir)
@@ -38,6 +39,6 @@ def test_scap_clean(tmpdir):
     assert clean._autoselect_versions_to_remove() == ["1.42.0-wmf.21"]
 
     # Ensure that we're not allowed to clean an active version
-    for version in ["1.42.0-wmf.22", "1.42.0-wmf.25"]:
+    for version in ["1.42.0-wmf.23", "1.42.0-wmf.25"]:
         with pytest.raises(SystemExit):
             clean.cleanup_branch(version)
