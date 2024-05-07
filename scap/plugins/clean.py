@@ -3,7 +3,6 @@
 import os
 import shutil
 import subprocess
-import sys
 
 from scap import ansi, cli, git, lock, log, main, ssh, tasks, utils
 
@@ -46,7 +45,7 @@ class Clean(main.AbstractSync):
 
             if not self.branches_to_remove:
                 self.get_logger().info("No eligible versions to remove.")
-                sys.exit()
+                return 0
 
         else:
             self.branches_to_remove = [self.arguments.branch]

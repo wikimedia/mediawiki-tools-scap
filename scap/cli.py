@@ -427,11 +427,12 @@ class Application(object):
 
         :returns: exit status
         """
-        try:
-            sys.stdout.write(ansi.reset())
-            sys.stdout.flush()
-        except Exception:
-            pass
+        if utils.should_colorize_output():
+            try:
+                sys.stdout.write(ansi.reset())
+                sys.stdout.flush()
+            except Exception:
+                pass
 
         return exit_status
 
