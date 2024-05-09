@@ -215,7 +215,7 @@ def test_version_argument_parser_good(ver):
     assert utils.version_argument_parser(ver) == ver
 
 
-@pytest.mark.parametrize("ver", ["", "123", "1.42.0-wmf.22 ", "testing"])
+@pytest.mark.parametrize("ver", ["", "123", "1.42.0-wmf.22 ", "testing", "auto"])
 def test_version_argument_parser_bad(ver):
     with pytest.raises(argparse.ArgumentTypeError):
-        utils.version_argument_parser(ver)
+        utils.version_argument_parser(ver, allow_auto=False)

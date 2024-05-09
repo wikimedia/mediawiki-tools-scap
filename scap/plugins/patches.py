@@ -56,6 +56,7 @@ class ApplyPatches(cli.Application):
         help='train version number (e.g., "1.35.0-wmf30")',
         metavar="TRAIN",
         required=True,
+        type=lambda arg: utils.version_argument_parser(arg, allow_auto=False),
     )
     @cli.argument(
         "--abort-git-am-on-fail",

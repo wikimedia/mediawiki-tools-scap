@@ -944,10 +944,14 @@ def parse_wmf_version(version: str) -> packaging.version.Version:
     return packaging.version.Version(re.sub(r"[^.\d]", "", version))
 
 
-def version_argument_parser(ver: str) -> str:
-    """Validate our version number formats."""
+def version_argument_parser(ver: str, allow_auto=True) -> str:
+    """Validate a mediawiki version number argument"""
 
-    if ver in ["auto", "master", BRANCH_CUT_PRETEST_BRANCH]:
+    candidates = ["master", BRANCH_CUT_PRETEST_BRANCH]
+    if allow_auto:
+        candidates.append("auto")
+
+    if ver in candidates:
         return ver
 
     if BRANCH_RE.match(ver):
