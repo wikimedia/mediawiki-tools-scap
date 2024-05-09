@@ -1,3 +1,11 @@
+scap (4.83.0)
+
+  * scap clean auto: Tweak old version selection logic
+  * Don't write ANSI reset sequence when terminating if not colorized
+  * scap clean: Validate branch argument before operating
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Thu, 09 May 2024 08:15:48 -0700
+
 scap (4.82.0)
 
   * wikiverisons-on-disk: handle edgecases
