@@ -720,6 +720,14 @@ class Deploy(cli.Application):
         if repo is None:
             sys.exit("Incomplete setup: git_repo must be defined in the configuration")
 
+        self.key = self.get_keyholder_key()
+        if self.key is None:
+            sys.exit(
+                "Unable to find keyholder key for ssh-user {}".format(
+                    self.config["ssh_user"]
+                )
+            )
+
         self.repo = repo
 
         if self.arguments.stages:
@@ -1130,7 +1138,7 @@ class Deploy(cli.Application):
         deploy_stage = ssh.Job(
             hosts=targets,
             user=self.config["ssh_user"],
-            key=self.get_keyholder_key(),
+            key=self.key,
             verbose=self.verbose,
         )
         deploy_stage.output_handler = ssh.JSONOutputHandler
@@ -1141,6 +1149,7 @@ class Deploy(cli.Application):
         deploy_stage.progress(log.reporter(progress_message))
 
         failed = 0
+
         for jobresult in deploy_stage.run_with_status(batch_size):
             if jobresult.status != 0:
                 failed += 1
