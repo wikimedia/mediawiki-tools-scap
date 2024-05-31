@@ -260,20 +260,13 @@ class K8sOps:
         release_repo_dir = self.app.config["release_repo_dir"]
         release_repo_update_cmd = self.app.config["release_repo_update_cmd"]
 
-        try:
-            if release_repo_update_cmd:
-                self.logger.info("Running {}".format(release_repo_update_cmd))
-                with utils.suppress_backtrace():
-                    subprocess.run(release_repo_update_cmd, shell=True, check=True)
+        if release_repo_update_cmd:
+            self.logger.info("Running {}".format(release_repo_update_cmd))
+            with utils.suppress_backtrace():
+                subprocess.run(release_repo_update_cmd, shell=True, check=True)
 
-            build_and_push_images()
-            update_helmfile_files()
-        except subprocess.CalledProcessError:
-            self.logger.error(
-                "Build of K8s images failed (non-K8s deployment will continue normally)"
-            )
-            self._disable_k8s_deployments()
-            self.app.soft_errors = True
+        build_and_push_images()
+        update_helmfile_files()
 
     def pull_image_on_nodes(self):
         """Pull the multiversion image down on all k8s nodes."""
@@ -375,10 +368,6 @@ class K8sOps:
     def _get_deployment_datacenters(self) -> List[str]:
         # FIXME: Rename this config value
         return re.split(r"[,\s]+", self.app.config["k8s_clusters"])
-
-    def _disable_k8s_deployments(self):
-        self.logger.warning("Disabled deploying to K8s")
-        self.app.config["deploy_mw_container_image"] = False
 
     def _read_helmfile_files(self, dep_configs) -> dict:
         res = {}
@@ -792,32 +781,19 @@ class K8sOps:
 
     def _verify_build_and_push_prereqs(self):
         if self.app.config["release_repo_dir"] is None:
-            self.logger.error(
+            raise SystemExit(
                 "release_repo_dir must be configured when build_mw_container_image is True"
             )
-            self.app.soft_errors = True
-            self.logger.warning("Disabling build/push of K8s images")
-            self.app.config["build_mw_container_image"] = False
 
     def _verify_deployment_prereqs(self):
         if self.app.config["release_repo_dir"] is None:
-            self.logger.error(
+            raise SystemExit(
                 "release_repo_dir must be configured when deploy_mw_container_image is True"
             )
-            self.app.soft_errors = True
-            self._disable_k8s_deployments()
-            return
 
-        try:
-            self.k8s_deployments_config = DeploymentsConfig.parse(
-                self.app.config["k8s_deployments_file"]
-            )
-        except InvalidDeploymentsConfig as e:
-            self.logger.error(
-                "Failed to parse K8s deployments config: {}".format(str(e))
-            )
-            self.app.soft_errors = True
-            self._disable_k8s_deployments()
+        self.k8s_deployments_config = DeploymentsConfig.parse(
+            self.app.config["k8s_deployments_file"]
+        )
 
     def _dep_config_fq_release_name(self, dep_config) -> str:
         return "{}-{}".format(
