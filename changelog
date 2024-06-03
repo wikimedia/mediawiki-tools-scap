@@ -1,3 +1,10 @@
+scap (4.84.0)
+
+  * kubernetes: Image build errors are now fatal
+  * Use version_argument_parser for scap apply-patches
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Mon, 03 Jun 2024 07:57:48 -0700
+
 scap (4.83.0)
 
   * scap clean auto: Tweak old version selection logic
