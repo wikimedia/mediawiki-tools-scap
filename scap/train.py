@@ -112,7 +112,7 @@ ____
 @cli.command(
     "train",
     help="Advance or rollback the train",
-    affected_by_blocked_deployments=True,
+    primary_deploy_server_only=True,
 )
 class Train(cli.Application):
     """

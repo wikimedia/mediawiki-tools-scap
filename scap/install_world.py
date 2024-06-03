@@ -38,7 +38,7 @@ from scap.lock import Lock
 @cli.command(
     "install-world",
     help="Install scap version on targets",
-    affected_by_blocked_deployments=True,
+    primary_deploy_server_only=True,
 )
 class InstallWorld(cli.Application):
     """

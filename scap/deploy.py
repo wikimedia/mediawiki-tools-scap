@@ -631,7 +631,7 @@ class DeployLocal(cli.Application):
 @cli.command(
     "deploy",
     help="[SCAP 3] Sync new service code across cluster",
-    affected_by_blocked_deployments=True,
+    primary_deploy_server_only=True,
 )
 class Deploy(cli.Application):
     """
@@ -1296,7 +1296,7 @@ class DeployLog(cli.Application):
 
 
 @cli.command(
-    "deploy-mediawiki", help=argparse.SUPPRESS, affected_by_blocked_deployments=True
+    "deploy-mediawiki", help=argparse.SUPPRESS, primary_deploy_server_only=True
 )
 class DeployMediaWiki(cli.Application):
     """

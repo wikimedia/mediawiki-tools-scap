@@ -7,7 +7,7 @@ import subprocess
 from scap import ansi, cli, git, lock, log, main, ssh, tasks, utils
 
 
-@cli.command("clean", affected_by_blocked_deployments=True)
+@cli.command("clean", primary_deploy_server_only=True)
 class Clean(main.AbstractSync):
     """Scap sub-command to clean old branches."""
 

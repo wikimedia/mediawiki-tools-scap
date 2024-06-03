@@ -246,7 +246,7 @@ def _get_submodule_urls(repo):
 @cli.command(
     "backport",
     help="List, apply, or revert backports",
-    affected_by_blocked_deployments=True,
+    primary_deploy_server_only=True,
 )
 class Backport(cli.Application):
     """

@@ -27,6 +27,7 @@ import operator
 import os
 import re
 import shlex
+import socket
 import subprocess
 import sys
 import time
@@ -43,7 +44,7 @@ import scap.targets as targets
 import scap.utils as utils
 from scap.ssh import SSH_WITH_KEY
 
-ATTR_DEPLOYMENT_COMMAND = "_deployment_command"
+PRIMARY_DEPLOY_SERVER_ONLY_COMMAND = "_primary_deploy_server_only"
 
 
 class Application(object):
@@ -536,15 +537,16 @@ class Application(object):
 
             app.setup()
 
-            if (
-                hasattr(app, "config")
-                and app.config["block_deployments"]
-                and getattr(app.main, ATTR_DEPLOYMENT_COMMAND, False)
-            ):
-                utils.abort(
-                    "This scap command is disabled on this host. If you really need to run it, you can override by"
-                    """ passing "-Dblock_deployments:False" to the call"""
-                )
+            if getattr(app.main, PRIMARY_DEPLOY_SERVER_ONLY_COMMAND, False):
+                if not socket.gethostname().startswith("deploy"):
+                    utils.abort(
+                        "This scap command can only be used on a deploy server."
+                    )
+                if hasattr(app, "config") and app.config["block_deployments"]:
+                    utils.abort(
+                        "This scap command is disabled on this host. If you really need to run it, you can override by"
+                        """ passing "-Dblock_deployments:False" to the call"""
+                    )
 
             if "subcommand" in app.arguments and app.arguments.subcommand:
                 method = app.arguments.subcommand
@@ -696,11 +698,11 @@ def command(*args, **kwargs):
         cmd = dict(name=name, cls=cls, args=args, kwargs=kwargs)
         COMMAND_REGISTRY[name] = cmd
 
-        affected_by_blocked_deployments = kwargs.get(
-            "affected_by_blocked_deployments", False
+        primary_deploy_server_only = kwargs.get("primary_deploy_server_only", False)
+        setattr(
+            cls.main, PRIMARY_DEPLOY_SERVER_ONLY_COMMAND, primary_deploy_server_only
         )
-        setattr(cls.main, ATTR_DEPLOYMENT_COMMAND, affected_by_blocked_deployments)
-        kwargs.pop("affected_by_blocked_deployments", None)
+        kwargs.pop("primary_deploy_server_only", None)
 
         return cls
 

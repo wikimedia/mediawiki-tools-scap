@@ -9,7 +9,7 @@ import scap.cli as cli
 import scap.utils as utils
 
 
-@cli.command("update-wikiversions", affected_by_blocked_deployments=True)
+@cli.command("update-wikiversions", primary_deploy_server_only=True)
 class UpdateWikiversions(cli.Application):
     """Scap subcommand for updating staging dir wikiversions.json to a new version."""
 

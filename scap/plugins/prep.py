@@ -50,7 +50,7 @@ def write_settings_stub(dest):
 @cli.command(
     "prep",
     help="Checkout MediaWiki version to staging",
-    affected_by_blocked_deployments=True,
+    primary_deploy_server_only=True,
 )
 class CheckoutMediaWiki(cli.Application):
     """Checkout a version of MediaWiki to staging.

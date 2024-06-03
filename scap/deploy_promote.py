@@ -48,7 +48,7 @@ print = partial(print, flush=True)
 @cli.command(
     "deploy-promote",
     help="Promote group of wikis to specific/latest wmf deployment branch",
-    affected_by_blocked_deployments=True,
+    primary_deploy_server_only=True,
 )
 class DeployPromote(cli.Application):
     """

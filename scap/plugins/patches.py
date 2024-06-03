@@ -34,7 +34,7 @@ KNOWN_RESULTS = {
 @cli.command(
     "apply-patches",
     help="Apply security patches for train",
-    affected_by_blocked_deployments=True,
+    primary_deploy_server_only=True,
 )
 class ApplyPatches(cli.Application):
     """Apply security patches for train"""
@@ -412,7 +412,7 @@ class PatchUserManipulation(cli.Application):
         pass
 
 
-@cli.command("update-patch", affected_by_blocked_deployments=True)
+@cli.command("update-patch", primary_deploy_server_only=True)
 class UpdatePatch(PatchUserManipulation):
     """
     Update/create a security patch and commit the changes
@@ -454,7 +454,7 @@ class UpdatePatch(PatchUserManipulation):
         return "update"
 
 
-@cli.command("remove-patch", affected_by_blocked_deployments=True)
+@cli.command("remove-patch", primary_deploy_server_only=True)
 class RemovePatch(PatchUserManipulation):
     """
     Remove a security patch and commit the change

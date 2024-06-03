@@ -801,7 +801,7 @@ class SecurityPatchCheck(cli.Application):
 
 
 @cli.command(
-    "wikiversions-compile", help=argparse.SUPPRESS, affected_by_blocked_deployments=True
+    "wikiversions-compile", help=argparse.SUPPRESS, primary_deploy_server_only=True
 )
 class CompileWikiversions(cli.Application):
     """Compile wikiversions.json to wikiversions.php."""
@@ -905,7 +905,7 @@ class RebuildCdbs(cli.Application):
 @cli.command(
     "sync-world",
     help="Deploy MediaWiki to the cluster",
-    affected_by_blocked_deployments=True,
+    primary_deploy_server_only=True,
 )
 class ScapWorld(AbstractSync):
     """
@@ -1156,8 +1156,8 @@ class SyncPull(cli.Application):
         return 0
 
 
-@cli.command("sync-dir", help=argparse.SUPPRESS, affected_by_blocked_deployments=True)
-@cli.command("sync-file", affected_by_blocked_deployments=True)
+@cli.command("sync-dir", help=argparse.SUPPRESS, primary_deploy_server_only=True)
+@cli.command("sync-file", primary_deploy_server_only=True)
 class SyncFile(AbstractSync):
     """Sync a specific file/directory to the cluster."""
 
@@ -1222,7 +1222,7 @@ class SyncFile(AbstractSync):
         self.increment_stat("sync-file")
 
 
-@cli.command("sync-wikiversions", affected_by_blocked_deployments=True)
+@cli.command("sync-wikiversions", primary_deploy_server_only=True)
 class SyncWikiversions(AbstractSync):
     """Rebuild and sync wikiversions.php to the cluster."""
 
@@ -1275,7 +1275,7 @@ class SyncWikiversions(AbstractSync):
 
 
 @cli.command(
-    "cdb-json-refresh", help=argparse.SUPPRESS, affected_by_blocked_deployments=True
+    "cdb-json-refresh", help=argparse.SUPPRESS, primary_deploy_server_only=True
 )
 class RefreshCdbJsonFiles(cli.Application):
     """
@@ -1335,7 +1335,7 @@ class Version(cli.Application):
 @cli.command(
     "lock",
     help="Temporarily lock deployment of this repository",
-    affected_by_blocked_deployments=True,
+    primary_deploy_server_only=True,
 )
 class LockManager(cli.Application):
     """
