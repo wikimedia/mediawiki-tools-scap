@@ -1,3 +1,9 @@
+scap (4.85.0)
+
+  * Restrict some scap subcommands to deploy servers only
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Tue, 04 Jun 2024 08:07:56 -0700
+
 scap (4.84.0)
 
   * kubernetes: Image build errors are now fatal
