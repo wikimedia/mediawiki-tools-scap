@@ -342,13 +342,30 @@ def remote_exists(location, remote):
     )
 
 
-def remote_set(location, repo, remote="origin"):
-    """set the remote at location to repo"""
+def remote_set_url(location, url, remote="origin", push=False):
+    """
+    In the git repo at 'location', set the url of the specified remote.
+    """
     ensure_dir(location)
     if remote_exists(location, remote):
-        gitcmd("remote", "set-url", remote, repo, cwd=location)
+        cmd = ["remote", "set-url"]
+        if push:
+            cmd.append("--push")
+        cmd.append(remote)
+        cmd.append(url)
+        gitcmd(*cmd, cwd=location)
     else:
-        gitcmd("remote", "add", remote, repo, cwd=location)
+        gitcmd("remote", "add", remote, url, cwd=location)
+
+
+def remote_get_url(location, remote="origin", push=False) -> str:
+    ensure_dir(location)
+    cmd = ["remote", "get-url"]
+    if push:
+        cmd.append("--push")
+    cmd.append(remote)
+
+    return gitcmd(*cmd, cwd=location).strip()
 
 
 def fetch(
@@ -367,7 +384,7 @@ def fetch(
         config = {}
 
     if is_dir(location):
-        remote_set(location, repo)
+        remote_set_url(location, repo)
         cmd = append_jobs_arg(["--tags"])
         if recurse_submodules:
             cmd.append("--recurse-submodules")

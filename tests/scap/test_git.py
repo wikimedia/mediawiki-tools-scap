@@ -91,3 +91,29 @@ class GitTest(unittest.TestCase):
         finally:
             if os.path.exists(gitmodules_path):
                 os.unlink(gitmodules_path)
+
+    def test_remote_set_and_get_url(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            git.init(tmpdir)
+            # Test the codepath where the remote doesn't exist yet
+            git.remote_set_url(tmpdir, "https://gerrit.wikimedia.org/pull1")
+            assert git.remote_get_url(tmpdir) == "https://gerrit.wikimedia.org/pull1"
+            assert (
+                git.remote_get_url(tmpdir, push=True)
+                == "https://gerrit.wikimedia.org/pull1"
+            )
+
+            # Test the codepath where the remote already exists
+            git.remote_set_url(tmpdir, "https://gerrit.wikimedia.org/pull2")
+            assert git.remote_get_url(tmpdir) == "https://gerrit.wikimedia.org/pull2"
+            assert (
+                git.remote_get_url(tmpdir, push=True)
+                == "https://gerrit.wikimedia.org/pull2"
+            )
+
+            git.remote_set_url(tmpdir, "https://gerrit.wikimedia.org/push", push=True)
+            assert git.remote_get_url(tmpdir) == "https://gerrit.wikimedia.org/pull2"
+            assert (
+                git.remote_get_url(tmpdir, push=True)
+                == "https://gerrit.wikimedia.org/push"
+            )
