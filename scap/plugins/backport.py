@@ -620,15 +620,32 @@ class Backport(cli.Application):
 
             repo_location = self.git_repos.get_repo_location(project, branch, True)
 
-            # handle security patches by resetting. They will be re-applied by scap prep
             with utils.suppress_backtrace():
-                subprocess.check_call(["git", "-C", repo_location, "checkout", branch])
+                # Make sure we're working with the same repository state as Gerrit.
+                # This will discard any local changes such as security patches.
+                # The staging directory will be restored to a deployable state at
+                # the end of this function.
                 subprocess.check_call(
-                    ["git", "-C", repo_location, "reset", "--hard", "@{u}"]
+                    ["git", "-C", repo_location, "fetch", "origin", branch]
                 )
+                subprocess.check_call(
+                    [
+                        "git",
+                        "-C",
+                        repo_location,
+                        "checkout",
+                        "--force",
+                        "-B",
+                        branch,
+                        f"origin/{branch}",
+                    ]
+                )
+
+                # Create the revert commit
                 subprocess.check_call(
                     ["git", "-C", repo_location, "revert", "--no-edit", commit]
                 )
+                # Collect the generated commit message subject
                 commit_msg = (
                     subprocess.check_output(
                         [
@@ -637,7 +654,7 @@ class Backport(cli.Application):
                             repo_location,
                             "show",
                             "--pretty=format:%s",
-                            "-s",
+                            "--no-patch",
                             "HEAD",
                         ],
                         text=True,
@@ -666,6 +683,7 @@ class Backport(cli.Application):
 
             revert_numbers.append(revert_number)
             self.get_logger().info("Change %s created" % revert_number)
+            # Add a note to the original change about the revert
             self._gerrit_ssh(
                 [
                     "review",
