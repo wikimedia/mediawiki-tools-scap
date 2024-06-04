@@ -307,14 +307,16 @@ class BackportsTestHelper:
         command = ["commit", "-m", commit_message, filepath]
         self.git_command(repo, command)
 
-    def get_change_id(self, repo) -> str:
+    def get_change_id(self, repo, branch=None) -> str:
         """
         Return the Change-Id of the HEAD commit in the specified git repo directory.
         """
+        if branch is not None:
+            args = [repo, "log", branch, "-1"]
+        else:
+            args = [repo, "log", "-1"]
         return (
-            re.search(r"(?m)Change-Id:.+$", gitcmd("-C", repo, "log", "-1"))
-            .group()
-            .split(" ")[1]
+            re.search(r"(?m)Change-Id:.+$", gitcmd("-C", *args)).group().split(" ")[1]
         )
 
     def change_and_push_file(
@@ -554,13 +556,57 @@ class BackportsTestHelper:
         child.wait()
         return child.exitstatus
 
-    def depends_with_nonprod_branch(
-        self, root_change_in_prod_branch=False
-    ) -> pexpect.spawn:
+    def setup_depends_on_included_in(self):
+        """
+        Sets up changes for backporting a commit with a merged Depends-On to a non-production branch,
+        whose commit has also been merged into a production branch.
+
+        Returns the change_url of the change to be backported
+        """
+        subprocess.check_output(
+            [
+                "ssh",
+                "-p",
+                "29418",
+                self.gerrit_domain,
+                "gerrit create-branch",
+                "mediawiki/core",
+                "test-branch",
+                "master",
+            ],
+            stderr=subprocess.DEVNULL,
+        )
+
+        filepath = self.mwcore_dir + "/README.md"
+        text = "Added by setup_depends_on_included_in on " + datetime.now().strftime(
+            "%Y-%m-%d %H:%M:%S"
+        )
+        commit_msg = f"{filepath}: setup_depends_on_included_in"
+
+        self.git_command(self.mwcore_dir, ["fetch", "origin", "test-branch"])
+        change_url = self.change_and_push_file(
+            self.mwcore_dir, "test-branch", filepath, text, commit_msg
+        )
+        change_id = self.get_change_id(self.mwcore_dir)
+        commit = subprocess.check_output(
+            ["git", "-C", self.mwcore_dir, "rev-parse", "HEAD"], text=True
+        ).strip()
+        self.git_command(self.mwcore_dir, ["reset", "--hard", "HEAD~1"])
+        self.approve_change(change_url)
+        self.git_command(self.mwcore_dir, ["checkout", self.mwbranch])
+        self.git_command(self.mwcore_dir, ["cherry-pick", commit])
+        self.scap_backport([self.push_and_collect_url(self.mwcore_dir, self.mwbranch)])
+
+        commit_msg = (
+            "Depends-On non-prod change included in prod branch\n\nDepends-On: %s"
+            % change_id
+        )
+        return self.setup_config_change("normal", context=commit_msg)
+
+    def depends_with_nonprod_branch(self) -> pexpect.spawn:
         """
         Using the configuration repository (`operations/mediawiki-config`), creates two changes in a Depends-On
-        relationship using a non-production branch. If root_change_in_prod_branch is True, then the change with the
-        "Depends-On" will use the production branch instead
+        relationship using a non-production branch as a dependency. The root change is in a production branch.
         """
 
         # Make a configuration change on non-prod branch. In the case
@@ -582,30 +628,17 @@ class BackportsTestHelper:
         change_id = self.get_change_id(self.mwconfig_dir)
         self.git_command(self.mwconfig_dir, ["reset", "--hard", "HEAD~1"])
 
-        # And deploy it, answering 'y' to the confirmation of the weird situation.
-        child = self._start_scap_backport([change_url])
-        try:
-            child.expect_exact(
-                "not found in any deployed wikiversion. Deployed wikiversions:"
-            )
-            child.expect_exact("Continue with backport? [y/N]:")
-            child.sendline("y")
-            self._scap_backport_interact(child)
-        finally:
-            child.terminate(force=True)
+        # merge
+        self.approve_change(change_url)
 
         # Now create a new patch which "Depends-On" the first one. By default, it uses the same non-prod branch
         self.setup_mediawiki_config_repo()
         text = "Added by depends_with_nonprod_branch on " + datetime.now().strftime(
             "%Y-%m-%d %H:%M:%S"
         )
-        if root_change_in_prod_branch:
-            branch = "train-dev"
-        else:
-            branch = "master"
         change_url = self.change_and_push_file(
             self.mwconfig_dir,
-            branch,
+            "train-dev",
             readme_path,
             text,
             "Depends-On references commit in non-prod branch\n\nDepends-On: %s"
@@ -832,28 +865,25 @@ class TestBackports(unittest.TestCase):
         )
         self._test_dependencies("Depends-On", change_urls)
 
-    def test_non_production_branch(self):
+    def test_depends_on_included_in(self):
         announce(
-            "Testing chain of dependencies in a non-production branch is allowed pending user approval"
+            "Testing a Depends-On commited to a non-production branch but then included in a production branch"
+            " allows backport to continue"
         )
-        child = self.backports_test_helper.depends_with_nonprod_branch()
+
         try:
-            child.expect_exact(
-                "not found in any deployed wikiversion. Deployed wikiversions:"
-            )
-            child.expect_exact("Continue with backport? [y/N]:")
-            child.sendline("n")
+            change_url = self.backports_test_helper.setup_depends_on_included_in()
+            self.backports_test_helper.scap_backport([change_url])
         finally:
-            child.terminate(force=True)
+            mwcore_dir = self.backports_test_helper.mwcore_dir
+            gitcmd("-C", mwcore_dir, "push", "origin", "-d", "test-branch")
 
     def test_depends_on_different_branch(self):
         announce(
             "Testing Depends-On a different branch makes the dependency be ignored"
         )
 
-        child = self.backports_test_helper.depends_with_nonprod_branch(
-            root_change_in_prod_branch=True
-        )
+        child = self.backports_test_helper.depends_with_nonprod_branch()
         child.expect(
             r"Change.*specified 'Depends-On'.*Ignore dependencies and continue with backport?"
         )
