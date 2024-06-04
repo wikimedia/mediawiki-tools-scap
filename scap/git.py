@@ -312,17 +312,17 @@ def ensure_dir(location):
         raise IOError(errno.ENOENT, "Location is not a git repo", location)
 
 
-def is_dir(path):
-    """Checks if path is a git, doesn't count submodule directories"""
-    git_path = os.path.join(
-        os.path.abspath(os.path.expandvars(os.path.expanduser(path))), ".git"
-    )
-    return (
-        os.path.isdir(git_path)
-        and os.path.isdir(os.path.join(git_path, "objects"))
-        and os.path.isdir(os.path.join(git_path, "refs"))
-        and os.path.isfile(os.path.join(git_path, "HEAD"))
-    )
+def is_dir(path) -> bool:
+    """
+    Returns True if 'path' is a git checkout directory, False otherwise.
+    """
+
+    path = os.path.abspath(os.path.expandvars(os.path.expanduser(path)))
+    try:
+        gitcmd("rev-parse", "--is-inside-work-tree", cwd=path)
+        return True
+    except FailedCommand:
+        return False
 
 
 def remote_exists(location, remote):
