@@ -538,9 +538,12 @@ class Application(object):
             app.setup()
 
             if getattr(app.main, PRIMARY_DEPLOY_SERVER_ONLY_COMMAND, False):
-                if not socket.gethostname().startswith("deploy"):
+                hostname = socket.gethostname()
+                if not any(
+                    hostname.startswith(prefix) for prefix in ["deploy", "releases"]
+                ):
                     utils.abort(
-                        "This scap command can only be used on a deploy server."
+                        "This scap command can only be used on a deploy server or the releases Jenkins instance."
                     )
                 if hasattr(app, "config") and app.config["block_deployments"]:
                     utils.abort(
