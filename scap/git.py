@@ -6,6 +6,7 @@
 
 """
 import collections
+import contextlib
 import errno
 import os
 import re
@@ -261,6 +262,18 @@ def set_env_vars_for_user():
 
     os.environ["GIT_COMMITTER_NAME"] = ename
     os.environ["GIT_AUTHOR_NAME"] = rname
+
+
+@contextlib.contextmanager
+def with_env_vars_set_for_user():
+    orig_env = os.environ
+
+    try:
+        os.environ = orig_env.copy()
+        set_env_vars_for_user()
+        yield
+    finally:
+        os.environ = orig_env
 
 
 def last_deploy_tag(location):

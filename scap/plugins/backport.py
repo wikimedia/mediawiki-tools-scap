@@ -343,6 +343,8 @@ class Backport(cli.Application):
 
         self._assert_auth_sock()
         self._check_ssh_auth()
+        if self.arguments.revert:
+            self._assert_gerrit_push_config()
 
         if self.arguments.list:
             self._list_available_backports()
@@ -532,9 +534,31 @@ class Backport(cli.Application):
         self.get_logger().info("Running scap prep to reset the workspace.")
         self.scap_check_call(["prep", "auto"])
 
+    def _assert_gerrit_push_config(self):
+        for setting in ["gerrit_push_user", "gerrit_push_url"]:
+            if not self.config[setting]:
+                raise SystemExit(
+                    f"scap backport --revert requires '{setting}' to be set in scap configuration"
+                )
+
+    def _push_url(self, repo_location, project) -> str:
+        gerrit_push_user = self.config["gerrit_push_user"]
+        gerrit_push_url = self.config["gerrit_push_url"]
+
+        # Whatever the user@ part of self.config["gerrit_push_url"] might be, replace it with
+        # gerrit_push_user (i.e. trainbranchbot).
+        parsed = urllib.parse.urlparse(gerrit_push_url)
+        m = re.match("(?:[^@]+@)?(.*)$", parsed.netloc)
+        assert m
+        parsed = parsed._replace(netloc=f"{gerrit_push_user}@{m[1]}")
+        parsed = parsed._replace(path=project)
+
+        return urllib.parse.urlunparse(parsed)
+
     def _push_and_collect_change_number(self, repo_location, project, branch):
         """Pushes to gerrit and parses the response to return the change number"""
         change_number = None
+
         with utils.suppress_backtrace():
             push_response = subprocess.check_output(
                 [
@@ -543,7 +567,7 @@ class Backport(cli.Application):
                     repo_location,
                     "push",
                     "--porcelain",
-                    "origin",
+                    self._push_url(repo_location, project),
                     "HEAD:refs/for/%s" % branch,
                 ],
                 text=True,
@@ -642,9 +666,10 @@ class Backport(cli.Application):
                 )
 
                 # Create the revert commit
-                subprocess.check_call(
-                    ["git", "-C", repo_location, "revert", "--no-edit", commit]
-                )
+                with git.with_env_vars_set_for_user():
+                    subprocess.check_call(
+                        ["git", "-C", repo_location, "revert", "--no-edit", commit]
+                    )
                 # Collect the generated commit message subject
                 commit_msg = (
                     subprocess.check_output(
