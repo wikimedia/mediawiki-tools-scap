@@ -42,7 +42,8 @@ class BackportsTestHelper:
     gerrit_domain = "gerrit.traindev"
 
     def setup(self):
-        self.gerrit = GerritSession(url=self.gerrit_url, use_auth=True)
+        # Any operations that require auth should use ssh.
+        self.gerrit = GerritSession(url=self.gerrit_url, use_auth=False)
 
         if not os.path.exists(self.homedir + "/new-version"):
             logging.info("Bootstrapping with ~/train first")
@@ -163,8 +164,19 @@ class BackportsTestHelper:
         self.git_command(path, ["fetch", "-q", "origin", branch])
         self.git_command(path, ["reset", "-q", "--hard", "FETCH_HEAD"])
 
+    def set_push_url(self, repo):
+        url = scap.git.remote_get_url(repo, push=True)
+
+        if not url.startswith(self.gerrit_url):
+            return
+
+        rest = url[len(self.gerrit_url) :]
+        push_url = f"ssh://traindev@{self.gerrit_domain}:29418{rest}"
+        scap.git.remote_set_url(repo, push_url, push=True)
+
     def push_and_collect_urls(self, repo, branch) -> list:
         """Returns a list of change urls after pushing to gerrit"""
+        self.set_push_url(repo)
         git_response = subprocess.check_output(
             ["git", "-C", repo, "push", "origin", "HEAD:refs/for/%s" % branch],
             text=True,
@@ -204,6 +216,25 @@ class BackportsTestHelper:
                 current_rev,
                 "--code-review",
                 "+2",
+            ],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+
+    def abandon_change(self, change_url):
+        """Abandon the specified change"""
+        change_number = self.gerrit.change_number_from_url(change_url)
+        current_rev = self.gerrit.change_detail(change_number).get()["current_revision"]
+        logging.info("Abandoning change %s" % change_number)
+        subprocess.check_call(
+            [
+                "ssh",
+                "-p",
+                "29418",
+                self.gerrit_domain,
+                "gerrit review",
+                current_rev,
+                "--abandon",
             ],
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
@@ -892,11 +923,6 @@ class TestBackports(unittest.TestCase):
 
     # Verifies T345304
     def test_depends_on_abandoned(self):
-        def abandon_change(change):
-            self.backports_test_helper.gerrit.post(
-                f"{self.backports_test_helper.gerrit_url}/a/changes/{change}/abandon"
-            )
-
         announce(
             "Testing abandoned Depends-On changes. Different branches should be ignored"
         )
@@ -908,7 +934,7 @@ class TestBackports(unittest.TestCase):
         # First change and middle change are in the same branch and middle change Depends-On first change. Abandoning
         # the first change and trying to backport the middle one should make the backport fail
         abandoned_change_number = change_urls[0].split("/")[-1]
-        abandon_change(abandoned_change_number)
+        self.backports_test_helper.abandon_change(change_urls[0])
         backported_change_number = change_urls[1].split("/")[-1]
         child = self.backports_test_helper._start_scap_backport([change_urls[1]])
         child.expect_exact(
@@ -920,7 +946,7 @@ class TestBackports(unittest.TestCase):
         # Now we abandon the middle change. Last change Depends-On middle change but they belong to different branches,
         # so backporting the last change should succeed when the user confirms the operation
         abandoned_change_number = change_urls[1].split("/")[-1]
-        abandon_change(abandoned_change_number)
+        self.backports_test_helper.abandon_change(change_urls[1])
         backported_change_number = change_urls[2].split("/")[-1]
         child = self.backports_test_helper._start_scap_backport([change_urls[2]])
         child.expect(
