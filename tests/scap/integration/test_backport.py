@@ -92,7 +92,10 @@ class BackportsTestHelper:
             self.gerrit_url + "/mediawiki/extensions/VisualEditor",
             self.mwvisualeditor_dir,
         )
-        self.git_command(self.mwvisualeditor_dir, ["submodule", "update", "--init"])
+        self.git_command(
+            self.mwvisualeditor_dir,
+            ["submodule", "update", "--init", "--checkout", "--force"],
+        )
         self.install_commit_hook(self.mwvisualeditor_dir + "/.git/modules/lib/ve")
 
     def setup_gitmodule(self, dir, submodule_config, submodule_dir):
@@ -705,56 +708,57 @@ class BackportsTestHelper:
         self.git_command(self.mwgrowthexperiments_dir, ["reset", "--hard", "HEAD~1"])
         return change_url
 
-    def cleanup_unusual_submodule_change(self):
-        """Avoids merge conflicts in future test runs by updating the submodule link"""
-        ve_dir = self.mwvisualeditor_dir + "/lib/ve"
+    def update_gitmodules_for_unusual_submodule_change(self):
+        """
+        Update the commit pointer for VisualEditor/VisualEditor in its parent submodule,
+        mediawiki/extensions/VisualEditor.
+        """
+        announce(
+            "Committing and backporting .gitmodules update in extensions/VisualEditor"
+        )
 
-        announce("cleanup_unusual_submodule_change started")
+        self.git_command(self.mwvisualeditor_dir, ["fetch", "origin", self.mwbranch])
+        self.git_command(
+            self.mwvisualeditor_dir,
+            ["checkout", "--force", "-B", self.mwbranch, f"origin/{self.mwbranch}"],
+        )
 
-        announce("Updating checkout of VisualEditor/VisualEditor")
-        self.git_command(ve_dir, ["checkout", self.mwbranch])
-        self.git_command(ve_dir, ["pull"])
-        self.git_command(self.mwvisualeditor_dir, ["checkout", self.mwbranch])
-
-        if scap.git.file_has_unstaged_changes(
-            "lib/ve", location=self.mwvisualeditor_dir
-        ):
-            announce(
-                "Committing and backporting .gitmodules update in extensions/VisualEditor"
-            )
-            self.git_commit(
-                self.mwvisualeditor_dir, "update ve submodule link", "lib/ve"
-            )
-            self.scap_backport(
-                [self.push_and_collect_url(self.mwvisualeditor_dir, self.mwbranch)]
-            )
-        announce("cleanup_unusual_submodule_change completed")
+        self.git_commit(self.mwvisualeditor_dir, "update ve submodule link", "lib/ve")
+        self.scap_backport(
+            [self.push_and_collect_url(self.mwvisualeditor_dir, self.mwbranch)]
+        )
 
     def setup_unusual_submodule_path_change(self):
-        """Creates a change in a submodule that has an unusual path and pushes to gerrit.
-        Updates the submodule link with another commit. The local commit to the submodule is discarded.
+        """
+        Creates a change in the VisualEditor/VisualEditor submodule (which has
+        the unusual path extensions/VisualEditor/lib/ve), and pushes to gerrit.
 
         Returns the change url.
         """
-        self.setup_visualeditor_repo()
-        self.cleanup_unusual_submodule_change()
         ve_dir = self.mwvisualeditor_dir + "/lib/ve"
 
+        # Make sure the checkout is up-to-date before creating a change
+        announce(f"Resetting {ve_dir} to latest {self.mwbranch}")
+
+        self.git_command(ve_dir, ["fetch", "origin", self.mwbranch])
+        self.git_command(
+            ve_dir,
+            ["checkout", "--force", "-B", self.mwbranch, f"origin/{self.mwbranch}"],
+        )
+
         readme_path = ve_dir + "/README.md"
+        announce(f"Creating a change to {readme_path}")
         text = (
             "\nAdded by setup_unusual_submodule_path_change on "
             + datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         )
-        change_url = self.change_and_push_file(
+        return self.change_and_push_file(
             ve_dir,
             self.mwbranch,
             readme_path,
             text,
             "setup_unusual_submodule_path_change: add line to bottom of README.md",
         )
-
-        self.git_command(ve_dir, ["reset", "--hard", "HEAD~1"])
-        return change_url
 
     def growthexperiments_extension_revert(self, change_url):
         """reverts a change
@@ -849,11 +853,14 @@ class TestBackports(unittest.TestCase):
     def test_unusual_submodule_path_and_revert(self):
         """Tests recognition of a submodule with a project name that differs from the submodule name"""
         announce("Testing mediawiki/extensions/VisualEditor/lib/ve change")
+        self.backports_test_helper.setup_visualeditor_repo()
         change_url = self.backports_test_helper.setup_unusual_submodule_path_change()
         self.backports_test_helper.scap_backport([change_url])
-        self.backports_test_helper.cleanup_unusual_submodule_change()
+        self.backports_test_helper.update_gitmodules_for_unusual_submodule_change()
+        # Cleanup
+        self.backports_test_helper.setup_visualeditor_repo()
+
         self.backports_test_helper.scap_backport(["--revert", change_url])
-        self.backports_test_helper.cleanup_unusual_submodule_change()
 
     def _test_dependencies(self, dep_type, change_urls):
         if len(change_urls) != 3:
