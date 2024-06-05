@@ -112,3 +112,39 @@ class GitTest(unittest.TestCase):
                 git.remote_get_url(tmpdir, push=True)
                 == "https://gerrit.wikimedia.org/push"
             )
+
+    def test_set_env_vars_for_user(self):
+        # Start with a blank environment for testing
+        with unittest.mock.patch.dict(os.environ, clear=True):
+            git_env_vars = [
+                "GIT_COMMITTER_EMAIL",
+                "GIT_AUTHOR_EMAIL",
+                "GIT_COMMITTER_NAME",
+                "GIT_AUTHOR_NAME",
+            ]
+
+            with git.with_env_vars_set_for_user():
+                for var in git_env_vars:
+                    assert os.environ.get(var)
+
+            # Verify that with_env_vars_set_for_user() restores the environment on exit.
+            for var in git_env_vars:
+                assert os.environ.get(var) is None
+
+            with tempfile.TemporaryDirectory() as fakehome:
+                os.environ["HOME"] = fakehome
+
+                with open(os.path.join(fakehome, ".gitconfig"), "w") as f:
+                    f.write(
+                        """
+[user]
+    name = Scap Tests
+    email = scap@wikimedia.org
+"""
+                    )
+                with git.with_env_vars_set_for_user():
+                    # Verify that with_env_vars_set_for_user() does not set any
+                    # environment variables when it is able to retrieve user.name and user.email from
+                    # configuration.
+                    for var in git_env_vars:
+                        assert os.environ.get(var) is None

@@ -247,10 +247,27 @@ def add_all(location, message="Update"):
         pass  # ignore errors
 
 
+def get_config(key):
+    """
+    Returns the value of the specified key in git global config (i.e. ~/.gitconfig)
+    if found, otherwise returns None.
+    """
+    try:
+        return gitcmd("config", "--global", key).strip()
+    except FailedCommand:
+        return None
+
+
 def set_env_vars_for_user():
     # None of these values can be unset or empty strings because we use
     # them as git envvars below. Unset values and empty strings will
     # cause git to shout about ident errors.
+
+    if get_config("user.name") and get_config("user.email"):
+        # Don't mess with the environment if user.name and user.email are set
+        # in ~/.gitconfig.
+        return
+
     host = socket.getfqdn() or "localhost"
     euid = utils.get_username() or "unknown"
     ruid = utils.get_real_username() or "unknown"
