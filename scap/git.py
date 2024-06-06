@@ -342,16 +342,20 @@ def ensure_dir(location):
         raise IOError(errno.ENOENT, "Location is not a git repo", location)
 
 
-def is_dir(path) -> bool:
+def is_dir(path, top_level=False) -> bool:
     """
     Returns True if 'path' is a git checkout directory, False otherwise.
+
+    If 'top_level' is true, 'path' must be the top level of a git checkout.
     """
 
     path = os.path.abspath(os.path.expandvars(os.path.expanduser(path)))
     if not os.path.isdir(path):
         return False
     try:
-        gitcmd("rev-parse", "--is-inside-work-tree", cwd=path)
+        subdir = gitcmd("rev-parse", "--show-prefix", cwd=path).strip()
+        if top_level:
+            return subdir == ""
         return True
     except FailedCommand:
         return False

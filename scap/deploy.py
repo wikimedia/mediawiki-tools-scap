@@ -676,6 +676,34 @@ class Deploy(cli.Application):
         self.deploy_groups = None
         self.deploy_info = {}
 
+    # This is called by scap.cli.Application.setup(), which is called
+    # early in the application startup process.
+    def _load_config(self, use_global_config=True):
+        """Set the host directory after the config has been loaded."""
+
+        cwd = os.getcwd()
+        if not git.is_dir(cwd, top_level=True):
+            raise SystemExit(
+                """Deployment configuration not found.
+For `scap deploy` to work, the current directory must be the top level of a git repo containing a scap/scap.cfg file."""
+            )
+
+        super()._load_config(use_global_config=use_global_config)
+        env = self.config["environment"]
+        self.context = context.HostContext(cwd, environment=env)
+        self.context.setup()
+
+    def _setup_loggers(self):
+        """Set up additional logging to `scap/deploy.log`."""
+
+        basename = git.describe(self.context.root).replace("/", "-")
+        log_file = self.context.log_path("{}.log".format(basename))
+        log.setup_loggers(
+            self.config,
+            self.arguments.loglevel,
+            handlers=[log.DeployLogHandler(log_file)],
+        )
+
     @cli.argument("-r", "--rev", help="Specify the revision to deploy")
     @cli.argument(
         "-s",
@@ -714,6 +742,9 @@ class Deploy(cli.Application):
     @cli.argument("message", nargs="*", help="Log message for SAL")
     def main(self, *extra_args):
         logger = self.get_logger()
+
+        # NOTE: _load_config() runs before main() does, so some important
+        # checks are contained there.
 
         repo = self.config.get("git_repo", None)
 
@@ -1160,27 +1191,6 @@ class Deploy(cli.Application):
         default = self.config.get("batch_size", self.MAX_BATCH_SIZE)
         size = int(self.config.get("{}_batch_size".format(stage), default))
         return min(size, self.MAX_BATCH_SIZE)
-
-    # This is called by scap.cli.Application.setup(), which is called
-    # early in the application startup process.
-    def _load_config(self, use_global_config=True):
-        """Set the host directory after the config has been loaded."""
-
-        super()._load_config(use_global_config=use_global_config)
-        env = self.config["environment"]
-        self.context = context.HostContext(os.getcwd(), environment=env)
-        self.context.setup()
-
-    def _setup_loggers(self):
-        """Set up additional logging to `scap/deploy.log`."""
-
-        basename = git.describe(self.context.root).replace("/", "-")
-        log_file = self.context.log_path("{}.log".format(basename))
-        log.setup_loggers(
-            self.config,
-            self.arguments.loglevel,
-            handlers=[log.DeployLogHandler(log_file)],
-        )
 
 
 @cli.command(

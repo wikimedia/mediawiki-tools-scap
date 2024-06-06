@@ -1,8 +1,13 @@
+import os
+import tempfile
+
+import unittest
 from unittest.mock import patch, Mock
 
 import scap.cli
 import scap.config
 import scap.script
+import scap.utils
 from scap.deploy import DeployLocal
 from .test_config import override_default_config
 
@@ -284,3 +289,20 @@ def test_DeployLocal_before_after_checks(scap_context, checks_execute, tmp_path)
     run_stage.assert_not_called()
 
     assert scap_deploy_status == 2
+
+
+class TestDeploy(unittest.TestCase):
+    def test_bad_invocation(self):
+        scap_deploy = scap.cli.Application.factory(["deploy"])
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            with scap.utils.cd(tmpdir):
+                with pytest.raises(SystemExit) as e:
+                    scap_deploy._load_config(use_global_config=False)
+                assert (
+                    e.value.code
+                    == """Deployment configuration not found.
+For `scap deploy` to work, the current directory must be the top level of a git repo containing a scap/scap.cfg file."""
+                )
+                # Verify that no files were created.
+                assert len(os.listdir(tmpdir)) == 0

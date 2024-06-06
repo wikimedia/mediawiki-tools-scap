@@ -25,11 +25,19 @@ class GitTest(unittest.TestCase):
         assert len(version) > 1
         assert version[0] >= 2, "git version too old. %s" % repr(version)
 
-    # The good case for is_dir() is tested in test_git_init()
     def test_is_dir_bad_dir(self):
         assert git.is_dir("/this/cannot/possibly/exist!") is False
         with tempfile.TemporaryDirectory() as tmpdir:
             assert git.is_dir(tmpdir) is False
+
+    def test_is_dir_top_level(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            git.init(tmpdir)
+            subdir = os.path.join(tmpdir, "sub")
+            os.mkdir(subdir)
+            assert git.is_dir(tmpdir) is True
+            assert git.is_dir(subdir) is True
+            assert git.is_dir(subdir, top_level=True) is False
 
     def test_git_init(self):
         assert os.path.exists(TEMPDIR), "Failed to create temp dir"
