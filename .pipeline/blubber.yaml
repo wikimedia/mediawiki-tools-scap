@@ -1,4 +1,4 @@
-# syntax=docker-registry.wikimedia.org/repos/releng/blubber/buildkit:v0.20.0
+# syntax=docker-registry.wikimedia.org/repos/releng/blubber/buildkit:v0.23.0
 #
 # A Blubber spec file for Docker containers where the Scap automated test suite
 # can be run.
@@ -17,7 +17,7 @@ variants:
   python-packages:
     apt:
       packages:
-        - python3-pip
+        - python3-venv
 
   base-buster:
     base: docker-registry.wikimedia.org/wikimedia-buster
@@ -54,18 +54,13 @@ variants:
         - git
         - php-cli
         - file
-        - python3-venv
     builders:
-      # This approach works for buster, bullseye, and bookworm.
-      # It avoids the externally-managed-environment error from pip3
-      # on bookworm by installing tox into a virtualenv.
-      - custom:
-          command: [python3, -m, venv, /tmp/scap]
-      - custom:
-          command: [/tmp/scap/bin/pip, install, tox]
+      # Set up python venv
+      - python:
+          requirements: [blank-requirements.txt]
       # Set up environments.
       - custom:
-          command: [/tmp/scap/bin/tox, run-parallel, --notest]
+          command: [tox, run-parallel, --notest]
           requirements:
             - tox.ini
             - requirements.txt
@@ -73,7 +68,7 @@ variants:
             - docs/requirements.txt
       # Run the tests
       - custom:
-          command: [/tmp/scap/bin/tox]
+          command: [tox]
           requirements: [.]
     entrypoint: [echo, Tests passed during image build]
 
