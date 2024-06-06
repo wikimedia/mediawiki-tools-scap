@@ -1,3 +1,10 @@
+scap (4.86.1)
+
+  * Revert "git.py: Make is_dir() work for submodule directories"
+  * test_backport.py: Use ssh for Gerrit operations that require auth
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Thu, 06 Jun 2024 09:17:02 -0700
+
 scap (4.86.0)
 
   * cli: allow restricted scap commands to run from the releases Jenkins
