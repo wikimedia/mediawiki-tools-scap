@@ -545,22 +545,28 @@ def mkdir_p(path):
         os.makedirs(path)
 
 
-def move_symlink(source, dest):
-    if os.path.realpath(dest) == source:
+def update_symlink(target, linkpath):
+    if os.path.realpath(linkpath) == target:
+        # The symlink already points to the desired target.
         return
 
-    dest_dir = os.path.dirname(dest)
-    rsource = os.path.relpath(source, dest_dir)
-    rdest = os.path.relpath(dest, dest_dir)
+    link_dir = os.path.dirname(linkpath)
+    rtarget = os.path.relpath(target, link_dir)
+    rlinkpath = os.path.relpath(linkpath, link_dir)
 
     # Make link's parent directory if it doesn't exist
-    mkdir_p(dest_dir)
+    mkdir_p(link_dir)
 
-    with cd(dest_dir):
-        if os.path.lexists(rdest):
-            os.unlink(rdest)
+    with cd(link_dir):
+        # WARNING: This is not atomic.  There will be a short period of time
+        # between when the link has been removed and when it is recreated.
+        # This could be improved by creating a temp-named symlink in link_dir
+        # and renaming it.
 
-        os.symlink(rsource, rdest)
+        if os.path.lexists(rlinkpath):
+            os.unlink(rlinkpath)
+
+        os.symlink(rtarget, rlinkpath)
 
 
 def read_wikiversions(directory, realm) -> dict:

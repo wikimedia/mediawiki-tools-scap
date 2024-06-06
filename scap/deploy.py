@@ -438,7 +438,7 @@ class DeployLocal(cli.Application):
 
                     rel_path = os.path.relpath(full_path, config_dest)
                     final_path = os.path.join("/", rel_path)
-                    utils.move_symlink(full_path, final_path)
+                    utils.update_symlink(full_path, final_path)
 
         self.context.mark_rev_current(rev)
         self.context.link_path_to_rev(self.final_path, rev, backup=True)

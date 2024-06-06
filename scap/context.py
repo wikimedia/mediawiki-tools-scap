@@ -191,7 +191,7 @@ class TargetContext(Context):
             date = datetime.utcnow().isoformat()
             os.rename(path, "{}.{}".format(path, date))
 
-        utils.move_symlink(self.rev_path(rev), path)
+        utils.update_symlink(self.rev_path(rev), path)
 
     def mark_rev_current(self, rev):
         """

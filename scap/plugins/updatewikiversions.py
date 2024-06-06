@@ -142,5 +142,5 @@ class UpdateWikiversions(cli.Application):
         real_path = os.path.join(self.config["stage_dir"], "php-%s" % cur_version)
         symlink = os.path.join(self.config["stage_dir"], "php")
         if os.path.realpath(symlink) != real_path:
-            utils.move_symlink(real_path, symlink)
+            utils.update_symlink(real_path, symlink)
             self.get_logger().info("Symlink updated")
