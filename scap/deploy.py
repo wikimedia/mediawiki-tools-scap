@@ -224,19 +224,6 @@ class DeployLocal(cli.Application):
                 overrides=overrides,
             )
 
-            if self.rev in os.path.realpath(filename):
-                self.noop = True
-
-            if self.noop and not self.arguments.force:
-                logger.info(
-                    "{} is already linked to current rev"
-                    "(use --force to override)".format(filename)
-                )
-                return 0
-
-            # Checks should run if the --force argument is used
-            self.noop = False
-
             if filename.startswith("/"):
                 # Absolute config files are written to .git/config-files and
                 # linked from their final location in the promote stage
@@ -248,8 +235,8 @@ class DeployLocal(cli.Application):
 
             utils.mkdir_p(os.path.dirname(filename))
             logger.info("Rendering config_file: {} using {}".format(filename, var_file))
-            with open(filename, "w") as f:
-                f.write(tmpl.render())
+            updated = utils.write_file_if_needed(filename, tmpl.render())
+            logger.info("%s: %s", filename, "[rendered]" if updated else "[unchanged]")
 
         return 0
 
@@ -434,11 +421,10 @@ class DeployLocal(cli.Application):
 
             for dir_path, _, conf_files in os.walk(config_dest):
                 for conf_file in conf_files:
-                    full_path = os.path.normpath("{}/{}".format(dir_path, conf_file))
-
-                    rel_path = os.path.relpath(full_path, config_dest)
-                    final_path = os.path.join("/", rel_path)
-                    utils.update_symlink(full_path, final_path)
+                    target = os.path.normpath(os.path.join(dir_path, conf_file))
+                    rel_target = os.path.relpath(target, config_dest)
+                    symlink_path = os.path.join("/", rel_target)
+                    utils.update_symlink(target, symlink_path)
 
         self.context.mark_rev_current(rev)
         self.context.link_path_to_rev(self.final_path, rev, backup=True)
