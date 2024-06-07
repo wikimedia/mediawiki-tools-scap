@@ -34,7 +34,6 @@ import socket
 import subprocess
 import sys
 import time
-import tempfile
 
 import scap.cdblib as cdblib
 import scap.checks as checks
@@ -807,18 +806,12 @@ def refresh_cdb_json_file(cdb_file_path) -> bool:
     # Remove final newline
     json_data = "".join(json_data.rsplit("\n", 1))
 
-    tmp_json = tempfile.NamedTemporaryFile(delete=False, dir=upstream_dir)
-    tmp_json.write(json_data.encode())
-    tmp_json.close()
-    os.chmod(tmp_json.name, 0o644)
-    os.rename(tmp_json.name, upstream_json)
+    with utils.temp_to_permanent_file(upstream_json, mode="wb") as f:
+        f.write(json_data.encode())
     logger.debug("Updated: %s", upstream_json)
 
-    md5 = tempfile.NamedTemporaryFile(mode="w", delete=False, dir=upstream_dir)
-    md5.write(cdb_md5)
-    md5.close()
-    os.chmod(md5.name, 0o644)
-    os.rename(md5.name, upstream_md5)
+    with utils.temp_to_permanent_file(upstream_md5) as f:
+        f.write(cdb_md5)
 
     return True
 

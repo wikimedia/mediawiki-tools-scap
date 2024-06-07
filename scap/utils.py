@@ -785,38 +785,41 @@ def read_first_line_from_file(filename) -> str:
         return f.readline().strip()
 
 
-def write_file_if_needed(filename, data: str):
+def write_file_if_needed(filename, data: str) -> bool:
     """Write 'data' to 'filename' if 'filename' doesn't already have that data in it
 
+    When updating is needed, the file is replaced atomically by writing
+    to a temp file and then renaming to the final name.
+
     Note, the file is written in text mode.
+
+    Returns a boolean indicating whether or not the file was updated.
     """
 
     if os.path.exists(filename):
         with open(filename) as f:
             if f.read() == data:
                 # Already set.  Bail out.
-                return
+                return False
 
     # Do the deed.
-    with tempfile.NamedTemporaryFile("w", dir=os.path.dirname(filename)) as f:
+    with temp_to_permanent_file(filename) as f:
         f.write(data)
 
-        if os.path.exists(filename):
-            os.unlink(filename)
-
-        os.chmod(f.name, 0o664)
-        os.link(f.name, filename)
+    return True
 
 
 @contextlib.contextmanager
-def temp_to_permanent_file(final_filename):
+def temp_to_permanent_file(final_filename, mode="w"):
     """
-    temp_to_permanent_file yields a text stream on a temporary file
+    temp_to_permanent_file yields (by default) a text stream on a temporary file
     that is open for writing.  If the context body completes without
     exception, the temp file is renamed to `final_filename`,
     atomically replacing any existing file of that name.  If an exception
     is raised during the exception of the body, the temp file is deleted
     and `final_filename` remains unaffected.
+
+    Specify mode="wb" for a binary stream.
 
     Example:
 
@@ -829,7 +832,7 @@ def temp_to_permanent_file(final_filename):
     # so that os.rename() can atomically replace the destination file
     # (if one exists)
     with tempfile.NamedTemporaryFile(
-        "w", dir=os.path.dirname(final_filename), delete=False
+        mode, dir=os.path.dirname(final_filename), delete=False
     ) as tmp:
         try:
             yield tmp
@@ -838,7 +841,7 @@ def temp_to_permanent_file(final_filename):
             raise e
 
     # Reach here on success
-    os.chmod(tmp.name, 0o644)
+    os.chmod(tmp.name, 0o666 & ~get_umask())
     # This is atomic
     os.rename(tmp.name, final_filename)
 
@@ -863,6 +866,33 @@ def open_with_lock(path, mode="r", *args, **kwargs):
 def is_phabricator_task_id(string: str) -> bool:
     """Returns true if 'string' has the format of a phabricator task id"""
     return re.match(r"T\d+$", string) is not None
+
+
+def get_umask_linux():
+    if not os.path.exists("/proc/self/status"):
+        return None
+
+    # Requires Linux 4.7.  xref man umask(2)
+    with open("/proc/self/status") as f:
+        for line in f.readlines():
+            m = re.match(r"Umask:\s*([0-7]+)", line)
+            if m:
+                return int(m[1], 8)
+
+    return None
+
+
+def get_umask() -> int:
+    res = get_umask_linux()
+    if res is not None:
+        return res
+
+    # Fall back to POSIX where, sadly you cannot retrieve the umask
+    # without setting it to something, and this affects the whole process,
+    # not just the current thread.
+    res = os.umask(0)
+    os.umask(res)
+    return res
 
 
 @contextlib.contextmanager

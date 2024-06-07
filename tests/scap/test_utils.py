@@ -150,37 +150,39 @@ stuff after
     }
 
 
-def test_temp_to_permanent_file():
-    testfile = "/tmp/test_temp_to_permanent_file"
+def test_temp_to_permanent_file(tmpdir):
+    testfile = os.path.join(tmpdir, "test_temp_to_permanent_file")
+
+    with utils.temp_to_permanent_file(testfile) as f:
+        f.write("Very important")
+
+    with open(testfile) as f:
+        assert f.read() == "Very important"
 
     try:
         with utils.temp_to_permanent_file(testfile) as f:
-            f.write("Very important")
+            tmpname = f.name
+            f.write("Overwritten")
+            raise Exception("Failed operation")
+    except Exception:
+        pass
 
-        with open(testfile) as f:
-            assert f.read() == "Very important"
+    # Verify that the final file remains unchanged
+    with open(testfile) as f:
+        assert f.read() == "Very important"
+    import subprocess
 
-        try:
-            with utils.temp_to_permanent_file(testfile) as f:
-                tmpname = f.name
-                f.write("Overwritten")
-                raise Exception("Failed operation")
-        except Exception:
-            pass
+    subprocess.run("ls -l {}".format(tmpname), shell=True)
+    # Verify that the temp file was deleted
+    assert not os.path.exists(tmpname)
 
-        # Verify that the final file remains unchanged
-        with open(testfile) as f:
-            assert f.read() == "Very important"
-        import subprocess
 
-        subprocess.run("ls -l {}".format(tmpname), shell=True)
-        # Verify that the temp file was deleted
-        assert not os.path.exists(tmpname)
+def test_write_file_if_needed(tmpdir):
+    testfile = os.path.join(tmpdir, "testfile")
 
-    finally:
-        # Cleanup
-        if os.path.exists(testfile):
-            os.unlink(testfile)
+    assert utils.write_file_if_needed(testfile, "First write") is True
+    assert utils.write_file_if_needed(testfile, "First write") is False
+    assert utils.write_file_if_needed(testfile, "Second write") is True
 
 
 def test_get_active_wikiversions(tmpdir):
