@@ -248,7 +248,7 @@ class AbstractSync(cli.Application):
         # so we can't assume it is in self.arguments.
         if not getattr(self.arguments, "pause_after_testserver_sync", False):
             return
-        users = " and ".join(
+        users = ", ".join(
             set([getpass.getuser()] + getattr(self.arguments, "notify_user", []))
         )
         message = (
