@@ -97,10 +97,16 @@ variants:
         destination: /
 
   build-docs:
-    includes: [test-buster]
+    includes: [base-buster]
+    apt:
+      packages:
+        - git
     builders:
+      # Set up python venv
+      - python:
+          requirements: [blank-requirements.txt]
       - custom:
-          command: [/tmp/scap/bin/tox, -e, doc]
+          command: [tox, -e, doc]
           requirements: [.]
     entrypoint: [echo, docs are in docs/_build/html]
 
