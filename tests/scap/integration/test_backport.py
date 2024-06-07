@@ -165,7 +165,9 @@ class BackportsTestHelper:
             self.install_commit_hook(path + "/.git/")
 
         self.git_command(path, ["fetch", "-q", "origin", branch])
-        self.git_command(path, ["reset", "-q", "--hard", "FETCH_HEAD"])
+        self.git_command(
+            path, ["checkout", "-q", "--force", "-B", branch, f"origin/{branch}"]
+        )
 
     def set_push_url(self, repo):
         url = scap.git.remote_get_url(repo, push=True)
@@ -592,24 +594,16 @@ class BackportsTestHelper:
 
     def setup_depends_on_included_in(self):
         """
-        Sets up changes for backporting a commit with a merged Depends-On to a non-production branch,
-        whose commit has also been merged into a production branch.
-
-        Returns the change_url of the change to be backported
+        1. Create a mediawiki commit on the master branch and merge it.  Store the Change-Id.
+        2. "Cherry-pick" the commit to a production branch and backport it.  Use the same Change-Id.
+        3. Create a mediawiki-config change which Depends-On the Change-Id.
+        4. Return the change_url of this final change, which the caller is expected to backport.
+           There are no expected additional prompts during the backport since the Depends-On matches
+           a change that is included in a production branch.
         """
-        subprocess.check_output(
-            [
-                "ssh",
-                "-p",
-                "29418",
-                self.gerrit_domain,
-                "gerrit create-branch",
-                "mediawiki/core",
-                "test-branch",
-                "master",
-            ],
-            stderr=subprocess.DEVNULL,
-        )
+
+        # Create and merge a change to mediawiki/core, master branch.
+        self.git_clone("master", "mediawiki/core", self.mwcore_dir)
 
         filepath = self.mwcore_dir + "/README.md"
         text = "Added by setup_depends_on_included_in on " + datetime.now().strftime(
@@ -617,22 +611,28 @@ class BackportsTestHelper:
         )
         commit_msg = f"{filepath}: setup_depends_on_included_in"
 
-        self.git_command(self.mwcore_dir, ["fetch", "origin", "test-branch"])
         change_url = self.change_and_push_file(
-            self.mwcore_dir, "test-branch", filepath, text, commit_msg
+            self.mwcore_dir, "master", filepath, text, commit_msg
         )
         change_id = self.get_change_id(self.mwcore_dir)
-        commit = subprocess.check_output(
-            ["git", "-C", self.mwcore_dir, "rev-parse", "HEAD"], text=True
-        ).strip()
-        self.git_command(self.mwcore_dir, ["reset", "--hard", "HEAD~1"])
-        self.approve_change(change_url)
-        self.git_command(self.mwcore_dir, ["checkout", self.mwbranch])
-        self.git_command(self.mwcore_dir, ["cherry-pick", commit])
-        self.scap_backport([self.push_and_collect_url(self.mwcore_dir, self.mwbranch)])
+        self.approve_and_wait_for_merge(change_url)
 
+        # Perform a fake cherry-pick by making the same change on the production branch, using
+        # the same Change-Id in the commit message.  We do a fake cherry-pick so we don't have to
+        # worry about conflicts between the master and production branches.
+        self.git_command(self.mwcore_dir, ["checkout", self.mwbranch])
+        change_url2 = self.change_and_push_file(
+            self.mwcore_dir,
+            self.mwbranch,
+            filepath,
+            text,
+            commit_msg + f"\n\nChange-Id: {change_id}",
+        )
+        self.scap_backport([change_url2])
+
+        # Finally, create a change which Depends-On the Change-Id.
         commit_msg = (
-            "Depends-On non-prod change included in prod branch\n\nDepends-On: %s"
+            "Depends-On a Change-Id which matches a prod and non-prod branch\n\nDepends-On: %s"
             % change_id
         )
         return self.setup_config_change("normal", context=commit_msg)
@@ -908,13 +908,8 @@ class TestBackports(unittest.TestCase):
             "Testing a Depends-On commited to a non-production branch but then included in a production branch"
             " allows backport to continue"
         )
-
-        try:
-            change_url = self.backports_test_helper.setup_depends_on_included_in()
-            self.backports_test_helper.scap_backport([change_url])
-        finally:
-            mwcore_dir = self.backports_test_helper.mwcore_dir
-            gitcmd("-C", mwcore_dir, "push", "origin", "-d", "test-branch")
+        change_url = self.backports_test_helper.setup_depends_on_included_in()
+        self.backports_test_helper.scap_backport([change_url])
 
     def test_depends_on_different_branch(self):
         announce(
