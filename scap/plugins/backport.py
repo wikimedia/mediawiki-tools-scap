@@ -341,6 +341,8 @@ class Backport(cli.Application):
             self.gerrit,
         )
 
+        os.umask(self.config["umask"])
+
         self._assert_auth_sock()
         self._check_ssh_auth()
         if self.arguments.revert:

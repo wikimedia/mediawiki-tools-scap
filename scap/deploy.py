@@ -775,6 +775,8 @@ For `scap deploy` to work, the current directory must be the top level of a git 
         if not git.is_dir(self.context.root):
             raise RuntimeError(errno.EPERM, "Script must be run from git repo")
 
+        os.umask(self.config["umask"])
+
         self._build_deploy_groups()
 
         if not self.all_targets:
