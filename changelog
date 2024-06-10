@@ -1,3 +1,20 @@
+scap (4.87.0)
+
+  * deploy: set umask followup
+  * Set umask at beginning of sync-*, backport, and deploy
+  * pause_after_testserver_sync: Use commas to separate usernames
+  * test_backport.py: Revised setup_depends_on_included_in()
+  * Rename utils.move_symlink to utils.update_symlink
+  * scap deploy: Fail gracefully if run outside of a git repository
+  * blubber.yaml: Update 'build-docs' target
+  * blubber.yaml: Use blubber/buildkit v0.23.0
+  * git.py: Make is_dir() work for submodule directories (v2)
+  * test_backport.py: Make "unusual submodule" tests more reliable
+  * git.py: set_env_vars_for_user: Only set env vars when needed
+  * backport --revert: Use gerrit_push_user to push revert commit to Gerrit
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Mon, 10 Jun 2024 10:19:07 -0700
+
 scap (4.86.1)
 
   * Revert "git.py: Make is_dir() work for submodule directories"
