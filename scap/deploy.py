@@ -689,6 +689,9 @@ For `scap deploy` to work, the current directory must be the top level of a git 
             )
 
         super()._load_config(use_global_config=use_global_config)
+
+        os.umask(self.config["umask"])
+
         env = self.config["environment"]
         self.context = context.HostContext(cwd, environment=env)
         self.context.setup()
@@ -771,11 +774,6 @@ For `scap deploy` to work, the current directory must be the top level of a git 
         restart_only = False
         if len(stages) == 1 and stages[0] == HANDLE_SERVICE:
             restart_only = True
-
-        if not git.is_dir(self.context.root):
-            raise RuntimeError(errno.EPERM, "Script must be run from git repo")
-
-        os.umask(self.config["umask"])
 
         self._build_deploy_groups()
 
