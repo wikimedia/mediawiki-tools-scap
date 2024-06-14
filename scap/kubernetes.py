@@ -3,7 +3,6 @@ import concurrent.futures
 import contextlib
 import logging
 import json
-import math
 import os
 import pathlib
 import re
@@ -365,6 +364,17 @@ class K8sOps:
                     )
             else:
                 self.logger.error("No known prior state to roll back to")
+
+    def get_canary_namespaces(self) -> list:
+        if not self.app.config["deploy_mw_container_image"]:
+            return []
+
+        res = set()
+
+        for dep_config in self.k8s_deployments_config.stages[CANARIES]:
+            res.add(dep_config[DeploymentsConfig.NAMESPACE])
+
+        return list(res)
 
     def _get_deployment_datacenters(self) -> List[str]:
         # FIXME: Rename this config value
@@ -973,35 +983,15 @@ class K8sOps:
                     env=env,
                 )
             with open(logfile) as logstream:
-                self._log_message(logstream.read(), logger, logging.DEBUG)
+                log.log_large_message(logstream.read(), logger, logging.DEBUG)
         except subprocess.CalledProcessError as e:
             # Print the error message, which contains the command that was executed and its
             # exit status.
             logger.error(e)
             logger.error("Stdout/stderr follows:")
             with open(logfile) as logstream:
-                self._log_message(logstream.read(), logger, logging.ERROR)
+                log.log_large_message(logstream.read(), logger, logging.ERROR)
             raise
-
-    def _log_message(self, message, logger, log_level):
-        """
-        Logs 'message' to 'logger' at the specified 'log_level'.
-        'message' is broken into multiple messages if it exceeds
-        MAX_MESSAGE_SIZE.
-        """
-        MAX_MESSAGE_SIZE = 50000
-        num_segments = math.ceil(len(message) / MAX_MESSAGE_SIZE)
-
-        if num_segments <= 1:
-            logger.log(log_level, message)
-            return
-
-        for i in range(num_segments):
-            logger.log(
-                log_level,
-                "[{}/{}] {}".format(i + 1, num_segments, message[:MAX_MESSAGE_SIZE]),
-            )
-            message = message[MAX_MESSAGE_SIZE:]
 
     # T331479
     def _collect_helm_env(self) -> dict:

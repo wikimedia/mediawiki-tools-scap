@@ -38,6 +38,7 @@ import scap.interaction as interaction
 import scap.lint as lint
 import scap.lock as lock
 import scap.log as log
+import scap.logstash_checker as logstash_checker
 import scap.php_fpm as php_fpm
 import scap.ssh as ssh
 import scap.targets as targets
@@ -181,7 +182,7 @@ class AbstractSync(cli.Application):
                     if self.arguments.force:
                         self.get_logger().warning("Canary checks skipped by --force")
                     else:
-                        self.canary_checks()
+                        self.canary_checks(canaries)
 
                 # Deploy K8s production releases
                 self._deploy_k8s_production()
@@ -609,59 +610,51 @@ class AbstractSync(cli.Application):
         self.announce("Scap cancelled\nWARNING: Nothing has been rolled back.")
         sys.exit(1)
 
-    def canary_checks(self):
+    def canary_checks(self, baremetal_canaries: list):
         """
-        Run logstash error rate checks (for bare metal and mw-on-k8s).
+        Run logstash error rate check (for bare metal and mw-on-k8s).
 
         :raises SystemExit: on canary check failure
         """
 
-        # Deployment to canaries finishes just before canary_checks()
-        # is called, so this time is when the canary deployments
-        # finished.
-        start = time.time()
-
         logger = self.get_logger()
 
-        ###########################
-        # Wait for canary traffic #
-        ###########################
-
         canary_wait_time = self.config["canary_wait_time"]
-        logger.info(f"Waiting {canary_wait_time} seconds for canary traffic...")
-        time.sleep(canary_wait_time)
 
-        ###################
-        # Logstash checks #
-        ###################
+        checker = logstash_checker.LogstashChecker(
+            self.config["logstash_host"],
+            canary_wait_time,
+            baremetal_canaries,
+            self.k8s_ops.get_canary_namespaces(),
+            logger,
+        )
+
+        need_sleep = True
+        last_check_time = time.time()
 
         def test_func() -> bool:
-            status = tasks.logstash_canary_checks(
-                self.config["canary_service"],
-                self.config["canary_threshold"],
-                self.config["logstash_host"],
-                time.time() - start,
-            )
-
-            if status == 0:
-                # Checks OK!
-                return True
-            elif status == 10:
-                logger.error(
-                    "The average error rate across "
-                    "canaries increased by {}x "
-                    "(rerun with --force to override this check, "
-                    "see {} for details).".format(
-                        self.config["canary_threshold"],
-                        self.config["canary_dashboard_url"],
+            nonlocal need_sleep, last_check_time
+            # Ensure that at least `canary_wait_time` seconds have elapsed
+            # since the last check, unless there was previously a logstash_checker.CheckServiceError,
+            # in which case we skip the wait.
+            if need_sleep:
+                time_since_last_check = time.time() - last_check_time
+                wait_remaining = round(canary_wait_time - time_since_last_check)
+                if wait_remaining > 0:
+                    logger.info(
+                        f"Waiting {wait_remaining} seconds for canary traffic..."
                     )
-                )
-                # Checks not OK!
+                    time.sleep(wait_remaining)
+
+            try:
+                last_check_time = time.time()
+                return checker.check(self.config["canary_threshold"])
+            except logstash_checker.CheckServiceError as e:
+                logger.error("The canary error rate checker failed: %s", e)
+                need_sleep = False
                 return False
             else:
-                # Something weird happened with logstash_checker.py.
-                logger.warning("Failed to complete canary checks for some reason.")
-                return False
+                need_sleep = True
 
         self.retry_continue_exit("canary checks", test_func)
 

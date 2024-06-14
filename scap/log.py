@@ -961,3 +961,27 @@ def setup_loggers(cfg, console_level=logging.INFO, handlers=None):
     if handlers is not None:
         for handler in handlers:
             logging.root.addHandler(handler)
+
+
+def log_large_message(message, logger, log_level):
+    """
+    Logs 'message' to 'logger' at the specified 'log_level'.
+    'message' is broken into multiple messages if it exceeds
+    MAX_MESSAGE_SIZE.
+    """
+    MAX_MESSAGE_SIZE = 50000
+    num_segments = math.ceil(len(message) / MAX_MESSAGE_SIZE)
+
+    if num_segments <= 1:
+        logger.log(log_level, "%s", message)
+        return
+
+    for i in range(num_segments):
+        logger.log(
+            log_level,
+            "[%d/%d] %s",
+            i + 1,
+            num_segments,
+            message[:MAX_MESSAGE_SIZE],
+        )
+        message = message[MAX_MESSAGE_SIZE:]

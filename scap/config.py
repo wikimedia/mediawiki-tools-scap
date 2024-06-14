@@ -32,7 +32,7 @@ DEFAULT_CONFIG = {
     "beta_only_config_files": (str, ""),
     "block_deployments": (bool, False),
     "canary_dashboard_url": (str, "https://logstash.wikimedia.org"),
-    "canary_threshold": (float, 10.0),
+    "canary_threshold": (int, 10),
     "canary_service": (str, "mediawiki"),
     "canary_wait_time": (int, 20),
     "testservers_check_cmd_baremetal": (str, ""),

@@ -36,7 +36,6 @@ import sys
 import time
 
 import scap.cdblib as cdblib
-import scap.checks as checks
 import scap.git as git
 import scap.log as log
 import scap.ssh as ssh
@@ -60,44 +59,6 @@ DEFAULT_RSYNC_ARGS = [
 RESTART = "restart"
 RELOAD = "reload"
 DISABLE_SECONDARY = "disable-secondary"
-
-
-def logstash_canary_checks(service, threshold, logstash, delay):
-    """
-    Run the logstash canary checks on test application servers.
-
-    :param threshold: float, average log multiple at which to fail
-    :param service: string, name of the service to check
-    :param logstash: string, logstash server
-    :param delay: float, time between deploy and now
-
-    Returns the exit status of logstash_checker.py
-    """
-    logger = utils.get_logger()
-
-    check_name = "Logstash canary error rate"
-
-    cmd = [
-        "/usr/local/bin/logstash_checker.py",
-        "--service-name",
-        service,
-        "--host",
-        "canaries",
-        "--fail-threshold",
-        threshold,
-        "--delay",
-        delay,
-        "--logstash-host",
-        logstash,
-    ]
-
-    cmd = " ".join(map(str, cmd))
-
-    check = checks.Check(check_name, "logstash-canary", command=cmd, timeout=120.0)
-
-    success, done = checks.execute(check, logger)
-
-    return done[0].proc.returncode
 
 
 def cache_git_info_helper(subdir, branch_dir, cache_dir):
