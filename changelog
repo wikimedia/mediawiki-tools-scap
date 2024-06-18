@@ -1,3 +1,11 @@
+scap (4.88.0)
+
+  * ci: Use experimental-native-llb version of blubber
+  * deploy-local: Remove "symlink is current" check
+  * utils.py: write_file_if_needed, temp_to_permanent_file, get_umask
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Tue, 18 Jun 2024 11:47:19 -0700
+
 scap (4.87.0)
 
   * deploy: set umask followup
