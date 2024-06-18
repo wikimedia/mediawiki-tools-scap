@@ -185,6 +185,7 @@ class K8sOps:
         )
         self.helm_env = self._collect_helm_env()
         self.original_helmfile_values = {}
+        self.traindev = self._get_deployment_datacenters() == ["traindev"]
 
     def build_k8s_images(self):
         def build_and_push_images():
@@ -850,6 +851,12 @@ class K8sOps:
                 }
             },
         }
+
+        # Train-dev hack.  This is to override the mw-web canary-values.yaml
+        # (which is read after values-traindev.yaml) which sets replicas to a
+        # value suitable for production but too high for train-dev.
+        if self.traindev:
+            values["resources"] = {"replicas": 1}
 
         values_file = self._dep_config_values_file(dep_config)
         utils.write_file_if_needed(values_file, yaml.dump(values))
