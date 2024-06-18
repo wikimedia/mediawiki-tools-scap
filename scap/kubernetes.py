@@ -498,16 +498,19 @@ class K8sOps:
             results = []
             failed = []
 
-            for future in concurrent.futures.as_completed(futures):
-                exception = future.exception()
-                if exception:
-                    failed.append("{}: {}".format(future._scap_datacenter, exception))
-                else:
-                    results.extend(future.result())
-
-            if progress:
-                report_queue.put("stop")
-                reporter.join()
+            try:
+                for future in concurrent.futures.as_completed(futures):
+                    exception = future.exception()
+                    if exception:
+                        failed.append(
+                            "{}: {}".format(future._scap_datacenter, exception)
+                        )
+                    else:
+                        results.extend(future.result())
+            finally:
+                if progress:
+                    report_queue.put("stop")
+                    reporter.join()
 
             if failed:
                 raise Exception(
