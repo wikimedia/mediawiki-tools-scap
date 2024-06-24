@@ -32,6 +32,11 @@ class Clean(main.AbstractSync):
         help="Do not print the Scap logo",
         dest="logo",
     )
+    @cli.argument(
+        "--dry-run",
+        action="store_true",
+        help="Print what would be cleaned without cleaning",
+    )
     def main(self, *extra_args):
         """Clean old branches from the cluster for space savings."""
 
@@ -51,6 +56,14 @@ class Clean(main.AbstractSync):
             self.branches_to_remove = [self.arguments.branch]
 
         branches_string = ", ".join(self.branches_to_remove)
+
+        if self.arguments.dry_run:
+            self.get_logger().info(
+                "DRY-RUN mode: Would clean %s: %s",
+                utils.pluralize("branch", self.branches_to_remove),
+                branches_string,
+            )
+            return 0
 
         reason = "Cleaning {}: {}".format(
             utils.pluralize("branch", self.branches_to_remove),
