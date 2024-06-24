@@ -1,3 +1,12 @@
+scap (4.89.0)
+
+  * Move logstash checker code into scap
+  * scap bin: Use /usr/bin/env python3
+  * kubernetes: Always use replicas:1 in traindev
+  * kubernetes: Ensure progress reporter is always notified
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Mon, 24 Jun 2024 08:44:46 -0700
+
 scap (4.88.0)
 
   * ci: Use experimental-native-llb version of blubber
