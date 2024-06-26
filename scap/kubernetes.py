@@ -347,7 +347,6 @@ class K8sOps:
             self._deploy_to_datacenters(datacenters, dep_configs)
         # Using BaseException so that we catch KeyboardInterrupt too
         except BaseException as e:
-            self.app.soft_errors = True
             self.logger.error("K8s deployment to stage %s failed: %s", stage, e)
 
             saved_values = self.original_helmfile_values[stage]
@@ -364,6 +363,8 @@ class K8sOps:
                     )
             else:
                 self.logger.error("No known prior state to roll back to")
+
+            raise e
 
     def get_canary_namespaces(self) -> list:
         if not self.app.config["deploy_mw_container_image"]:
