@@ -11,6 +11,7 @@ class TestGerritSession(unittest.TestCase):
             "http://gerrit.example/c/mediawiki/core/+/123456",
             "http://gerrit.example/c/mediawiki/core/+/123456/1",
             "http://gerrit.example/r/123456",
+            "http://gerrit.example/r/c/123456",
         ]
 
         unknownURLs = [
