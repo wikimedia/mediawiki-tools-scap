@@ -103,7 +103,16 @@ class Clean(main.AbstractSync):
 
         logger = self.get_logger()
 
-        if os.path.exists(branch_dir):
+        if (
+            os.path.exists(branch_dir)
+            and subprocess.run(
+                f"find {branch_dir} -user www-data",
+                shell=True,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            ).returncode
+            == 0
+        ):
             logger.info("Clean files owned by www-data")
             utils.sudo_check_call(
                 "www-data", f"find {branch_dir} -user www-data -delete"
