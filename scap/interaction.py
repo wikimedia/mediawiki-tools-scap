@@ -12,6 +12,14 @@ def terminal_interactive() -> bool:
     return sys.stdin.isatty() and sys.stdout.isatty()
 
 
+def input_line(prompt: str) -> str:
+    if not terminal_interactive():
+        return ""
+
+    io = TerminalInteraction
+    return io.input_line(prompt)
+
+
 def prompt_choices(question: str, choices, default=None) -> str:
     """
     Use the 'choices' dict to present a list of choices to the user.
@@ -53,6 +61,10 @@ def prompt_user_for_confirmation(prompt_message, default="n") -> bool:
 
 
 class TerminalInteraction:
+    @classmethod
+    def input_line(cls, prompt) -> str:
+        return input(prompt)
+
     @classmethod
     def prompt_choices(cls, question, choices, default) -> str:
         """
