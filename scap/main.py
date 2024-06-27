@@ -1001,7 +1001,7 @@ class ScapWorld(AbstractSync):
         return super().main(*extra_args)
 
     def _before_cluster_sync(self):
-        self.announce("Started scap: %s", self.arguments.message)
+        self.announce("Started scap sync-world: %s", self.arguments.message)
 
         # Validate php syntax of wmf-config and multiversion
         lint.check_valid_syntax(
