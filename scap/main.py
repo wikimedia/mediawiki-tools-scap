@@ -1047,7 +1047,7 @@ class ScapWorld(AbstractSync):
 
     def _after_lock_release(self):
         self.announce(
-            "Finished scap: %s (duration: %s)",
+            "Finished scap sync-world: %s (duration: %s)",
             self.arguments.message,
             utils.human_duration(self.get_duration()),
         )
