@@ -350,7 +350,7 @@ class Backport(cli.Application):
 
         if self.arguments.list:
             self._list_available_backports()
-            change_numbers = input(
+            change_numbers = interaction.input_line(
                 "Enter the change numbers (separated by a space) you wish to %s: "
                 % self.backport_or_revert
             )
@@ -601,7 +601,7 @@ class Backport(cli.Application):
         default_reason = "Reverted by %s via scap backport" % self.deploy_user
 
         if not self.arguments.yes:
-            reason = input(
+            reason = interaction.input_line(
                 "Please supply a reason for revert (default: %s): " % default_reason
             )
 
