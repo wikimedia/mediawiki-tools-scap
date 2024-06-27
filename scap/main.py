@@ -109,6 +109,11 @@ class AbstractSync(cli.Application):
 
         self._assert_auth_sock()
 
+        if self.arguments.message == "(no justification provided)":
+            new_message = interaction.input_line("Log message (press enter for none): ")
+            if new_message:
+                self.arguments.message = new_message
+
         with lock.Lock(
             self.get_lock_file(), name="sync", reason=self.arguments.message
         ):
