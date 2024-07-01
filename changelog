@@ -1,3 +1,16 @@
+scap (4.90.0)
+
+  * blubber.yaml: Use blubber/buildkit:v0.24.0
+  * sync: Prompt for log message if not supplied on command line
+  * backport: Use interaction.input_line
+  * interaction: Add input_line()
+  * Change "Started scap:" to "Started scap sync-world:"
+  * kubernetes: Make k8s deployment failures fatal
+  * scap backport: Also allow /r/c/ change URLs
+  * scap clean:  Add --dry-run mode
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Mon, 01 Jul 2024 09:28:38 -0700
+
 scap (4.89.0)
 
   * Move logstash checker code into scap
