@@ -128,7 +128,9 @@ def test_get_master_list(app, mocker):
     tl = mocker.patch("scap.targets.get")
     tl.return_value.all = [1, 2, 3]
     assert app.get_master_list() == [1, 2, 3]
-    tl.assert_called_with("dsh_masters", app.config)
+    tl.assert_called_with(
+        "dsh_masters", app.config, exclude_hosts=None, limit_hosts=None
+    )
 
 
 def test_announce(app, mocker):

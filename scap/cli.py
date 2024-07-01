@@ -147,10 +147,15 @@ class Application(object):
         self.get_logger().debug("Unable to find keyholder key for %s", key_safe_name)
         return None
 
-    def get_master_list(self):
+    def get_master_list(self, limit_hosts=None, exclude_hosts=None):
         """Get list of deploy master hostnames that should be updated before
         the rest of the cluster."""
-        return targets.get("dsh_masters", self.config).all
+        return targets.get(
+            "dsh_masters",
+            self.config,
+            limit_hosts=limit_hosts,
+            exclude_hosts=exclude_hosts,
+        ).all
 
     def announce(self, *args):
         """

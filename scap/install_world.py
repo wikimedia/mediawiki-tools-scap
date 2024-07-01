@@ -138,7 +138,10 @@ class InstallWorld(cli.Application):
             )
 
     def _initialize_from_config(self):
-        self.masters = self.get_master_list()
+        self.masters = self.get_master_list(
+            limit_hosts=self.arguments.limit_hosts,
+            exclude_hosts=self.arguments.exclude_hosts,
+        )
         self.install_user = self.config["install_ssh_user"]
         self.install_user_home = expanduser("~" + self.install_user)
         self.install_user_ssh_key = f"/etc/keyholder.d/{self.install_user}.pub"
