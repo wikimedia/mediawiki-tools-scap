@@ -1,4 +1,4 @@
-# syntax=docker-registry.wikimedia.org/repos/releng/blubber/buildkit:experimental-native-llb
+# syntax=docker-registry.wikimedia.org/repos/releng/blubber/buildkit:v0.24.0
 #
 # A Blubber spec file for Docker containers where the Scap automated test suite
 # can be run.
@@ -57,7 +57,7 @@ variants:
     builders:
       # Set up python venv
       - python:
-          requirements: [blank-requirements.txt]
+          requirements: []
       # Set up environments.
       - custom:
           command: [tox, run-parallel, --notest]
@@ -104,7 +104,7 @@ variants:
     builders:
       # Set up python venv
       - python:
-          requirements: [blank-requirements.txt]
+          requirements: []
       - custom:
           command: [tox, -e, doc]
           requirements: [.]
