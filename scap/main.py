@@ -22,6 +22,7 @@
 """
 import argparse
 import errno
+from dataclasses import dataclass
 import getpass
 import locale
 import os
@@ -29,6 +30,7 @@ import select
 import socket
 import sys
 import time
+from typing import Callable, List, Optional
 from concurrent.futures import ThreadPoolExecutor
 
 import scap.arg as arg
@@ -48,6 +50,14 @@ import scap.version as scapversion
 from scap import ansi, history
 from scap.kubernetes import K8sOps, TEST_SERVERS, CANARIES, PRODUCTION, STAGES
 from scap.runcmd import mwscript
+
+
+@dataclass
+class DeploymentStage:
+    name: str
+    baremetal_targets: List[str]
+    check_func: Optional[Callable]
+    post_check_func: Optional[Callable]
 
 
 class AbstractSync(cli.Application):
@@ -70,7 +80,7 @@ class AbstractSync(cli.Application):
     @cli.argument(
         "--force",
         action="store_true",
-        help="Skip canary checks, " "performs ungraceful php-fpm restarts",
+        help="Skip error checks, testserver and canary checks, performs ungraceful php-fpm restarts",
     )
     @cli.argument(
         "--stop-before-sync",
@@ -160,50 +170,57 @@ class AbstractSync(cli.Application):
                     self._get_canary_list(), baremetal_full_target_list
                 )
 
-            ################
-            # Test servers #
-            ################
+            deployment_stages = [
+                DeploymentStage(
+                    TEST_SERVERS,
+                    baremetal_testservers,
+                    self.check_testservers,
+                    self._pause_after_testserver_sync,
+                ),
+                DeploymentStage(
+                    CANARIES,
+                    baremetal_canaries,
+                    self.canary_checks,
+                    None,
+                ),
+                DeploymentStage(
+                    PRODUCTION,
+                    baremetal_full_target_list,
+                    None,
+                    self._after_cluster_sync,  # Bare metal php-fpm restarts happen in here
+                ),
+            ]
 
-            self._deploy_k8s_testservers()
+            for depstage in deployment_stages:
+                stage = depstage.name
 
-            if baremetal_testservers:
-                with log.Timer("sync-testservers", self.get_stats()):
-                    self.sync_targets(baremetal_testservers, "testservers")
+                k8s_timer_name = (
+                    "sync-prod-k8s" if stage == PRODUCTION else f"sync-{stage}-k8s"
+                )
 
-            if self.arguments.force:
-                self.get_logger().warning("Test server checks skipped by --force")
-            else:
-                self.check_testservers(baremetal_testservers)
+                # k8s deployment
+                with log.Timer(k8s_timer_name, self.get_stats()):
+                    with utils.suppress_backtrace():
+                        self.k8s_ops.deploy_k8s_images_for_stage(stage)
 
-            self._pause_after_testserver_sync()
+                # Bare metal deployment
+                if depstage.baremetal_targets:
+                    if stage == PRODUCTION:
+                        self._sync_proxies_and_apaches(depstage.baremetal_targets)
+                    else:
+                        with log.Timer(f"sync-{stage}", self.get_stats()):
+                            self.sync_targets(depstage.baremetal_targets, stage)
 
-            ############
-            # Canaries #
-            ############
+                if depstage.check_func:
+                    if self.arguments.force:
+                        self.get_logger().warning("%s checks skipped by --force", stage)
+                    else:
+                        depstage.check_func(depstage.baremetal_targets)
 
-            self._deploy_k8s_canaries()
-
-            with log.Timer("sync-check-canaries", self.get_stats()) as timer:
-                if baremetal_canaries:
-                    self.sync_targets(baremetal_canaries, "canaries")
-                    timer.mark("Canaries Synced")
-
-                if self.arguments.force:
-                    self.get_logger().warning("Canary checks skipped by --force")
-                else:
-                    self.canary_checks(baremetal_canaries)
-
-            ##############
-            # Production #
-            ##############
-
-            self._deploy_k8s_production()
-            self._sync_proxies_and_apaches(baremetal_full_target_list)
+                if depstage.post_check_func:
+                    depstage.post_check_func()
 
             history.update_latest(self.config["history_log"], synced=True)
-
-            # Bare metal php-fpm restarts happen in here
-            self._after_cluster_sync()
 
         self._after_lock_release()
         if self.soft_errors:
@@ -311,21 +328,6 @@ class AbstractSync(cli.Application):
             "Continue with sync?",
             "Sync cancelled.",
         )
-
-    def _deploy_k8s_testservers(self):
-        with log.Timer("sync-testservers-k8s", self.get_stats()):
-            with utils.suppress_backtrace():
-                self.k8s_ops.deploy_k8s_images_for_stage(TEST_SERVERS)
-
-    def _deploy_k8s_canaries(self):
-        with log.Timer("sync-canaries-k8s", self.get_stats()):
-            with utils.suppress_backtrace():
-                self.k8s_ops.deploy_k8s_images_for_stage(CANARIES)
-
-    def _deploy_k8s_production(self):
-        with log.Timer("sync-prod-k8s", self.get_stats()):
-            with utils.suppress_backtrace():
-                self.k8s_ops.deploy_k8s_images_for_stage(PRODUCTION)
 
     def _update_caches(self):
         self._git_repo()
