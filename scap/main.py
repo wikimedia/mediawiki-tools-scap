@@ -147,58 +147,63 @@ class AbstractSync(cli.Application):
             self._sync_masters()
 
             if self._k8s_only_sync():
-                self._deploy_k8s_testservers()
-                if self.arguments.force:
-                    self.get_logger().warning("Test server checks skipped by --force")
-                else:
-                    self.check_testservers(baremetal_testservers=[])
-                self._pause_after_testserver_sync()
-                self._deploy_k8s_canaries()
-                self._deploy_k8s_production()
+                baremetal_full_target_list = []
+                baremetal_testservers = []
+                baremetal_canaries = []
             else:
-                full_target_list = self._get_target_list()
-
-                # Deploy K8s test releases
-                self._deploy_k8s_testservers()
-
+                # Bare-metal targets
+                baremetal_full_target_list = self._get_target_list()
                 baremetal_testservers = utils.list_intersection(
-                    self._get_testserver_list(), full_target_list
+                    self._get_testserver_list(), baremetal_full_target_list
                 )
-                if len(baremetal_testservers) > 0:
-                    with log.Timer("sync-testservers", self.get_stats()):
-                        self.sync_targets(baremetal_testservers, "testservers")
+                baremetal_canaries = utils.list_intersection(
+                    self._get_canary_list(), baremetal_full_target_list
+                )
+
+            ################
+            # Test servers #
+            ################
+
+            self._deploy_k8s_testservers()
+
+            if baremetal_testservers:
+                with log.Timer("sync-testservers", self.get_stats()):
+                    self.sync_targets(baremetal_testservers, "testservers")
+
+            if self.arguments.force:
+                self.get_logger().warning("Test server checks skipped by --force")
+            else:
+                self.check_testservers(baremetal_testservers)
+
+            self._pause_after_testserver_sync()
+
+            ############
+            # Canaries #
+            ############
+
+            self._deploy_k8s_canaries()
+
+            with log.Timer("sync-check-canaries", self.get_stats()) as timer:
+                if baremetal_canaries:
+                    self.sync_targets(baremetal_canaries, "canaries")
+                    timer.mark("Canaries Synced")
+
                 if self.arguments.force:
-                    self.get_logger().warning("Test server checks skipped by --force")
+                    self.get_logger().warning("Canary checks skipped by --force")
                 else:
-                    self.check_testservers(baremetal_testservers)
+                    self.canary_checks(baremetal_canaries)
 
-                self._pause_after_testserver_sync()
+            ##############
+            # Production #
+            ##############
 
-                # Deploy K8s canary releases
-                self._deploy_k8s_canaries()
+            self._deploy_k8s_production()
+            self._sync_proxies_and_apaches(baremetal_full_target_list)
 
-                canaries = utils.list_intersection(
-                    self._get_canary_list(), full_target_list
-                )
-                with log.Timer("sync-check-canaries", self.get_stats()) as timer:
-                    if canaries:
-                        self.sync_targets(canaries, "canaries")
-                        timer.mark("Canaries Synced")
-                    if self.arguments.force:
-                        self.get_logger().warning("Canary checks skipped by --force")
-                    else:
-                        self.canary_checks(canaries)
+            history.update_latest(self.config["history_log"], synced=True)
 
-                # Deploy K8s production releases
-                self._deploy_k8s_production()
-
-                # Deploy to bare metal production targets
-                self._sync_proxies_and_apaches(full_target_list)
-
-                history.update_latest(self.config["history_log"], synced=True)
-
-                # php-fpm restarts happen in here
-                self._after_cluster_sync()
+            # Bare metal php-fpm restarts happen in here
+            self._after_cluster_sync()
 
         self._after_lock_release()
         if self.soft_errors:
