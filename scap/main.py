@@ -1332,6 +1332,14 @@ class RefreshCdbJsonFiles(cli.Application):
         tasks.refresh_cdb_json_files(cdb_dir, use_cores, self.verbose)
 
 
+@cli.command(
+    "mediawiki-status", help="Display information about mediawiki k8s deployments"
+)
+class MediawikiStatus(cli.Application):
+    def main(self, *extra_args):
+        K8sOps(self).deployments_status()
+
+
 @cli.command("version", help="Show the version number and exit")
 class Version(cli.Application):
     def main(self, *extra_args):

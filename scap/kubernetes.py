@@ -10,7 +10,7 @@ import shlex
 import subprocess
 import tempfile
 import threading
-from typing import List
+from typing import List, Optional
 import queue
 
 import yaml
@@ -719,23 +719,8 @@ class K8sOps:
         def kubectl_cmd(*args) -> tuple:
             return ("kubectl", "--kubeconfig", kubeconfig) + args
 
-        def get_deployment():
-            cmd = kubectl_cmd(
-                "get",
-                "deployment",
-                deployment_name,
-                "-o",
-                "json",
-            )
-            ret = subprocess.run(cmd, text=True, capture_output=True)
-            if ret.returncode == 0:
-                return json.loads(ret.stdout)
-            if "(NotFound)" in ret.stderr:
-                return None
-            raise Exception(" ".join(cmd) + f" failed:\n{ret.stderr}")
-
         def get_deployment_revision():
-            d = get_deployment()
+            d = self._get_deployment(dep_config, dc)
             if not d:
                 return None
             return d["metadata"]["annotations"]["deployment.kubernetes.io/revision"]
@@ -793,6 +778,59 @@ class K8sOps:
 
         # Perform one final report before stopping
         do_report()
+
+    def _get_deployment(self, dep_config, dc) -> Optional[dict]:
+        namespace = dep_config[DeploymentsConfig.NAMESPACE]
+        release = dep_config[DeploymentsConfig.RELEASE]
+        kubeconfig = f"/etc/kubernetes/{namespace}-deploy-{dc}.config"
+        deployment_name = (
+            f"{namespace}.dev.{release}"
+            if dc == "traindev"
+            else f"{namespace}.{dc}.{release}"
+        )
+
+        cmd = [
+            "kubectl",
+            "--kubeconfig",
+            kubeconfig,
+            "get",
+            "deployment",
+            deployment_name,
+            "-o",
+            "json",
+        ]
+        ret = subprocess.run(cmd, text=True, capture_output=True)
+        if ret.returncode == 0:
+            return json.loads(ret.stdout)
+        if "(NotFound)" in ret.stderr:
+            return None
+        raise Exception(" ".join(cmd) + f" failed:\n{ret.stderr}")
+
+    # Called by MediawikiStatus.main()
+    def deployments_status(self):
+        self.logger.info("Mediawiki deployments status")
+        for stage, dep_configs in self.k8s_deployments_config.stages.items():
+            self.logger.info("%s", stage.upper())
+            for dep_config in dep_configs:
+                for dc in self._get_deployment_datacenters():
+                    dep = self._get_deployment(dep_config, dc)
+                    status = dep["status"]
+                    self.logger.info(
+                        "%s: Ready: %d/%d, Up-to-date: %d, Available: %d",
+                        dep["metadata"]["name"],
+                        status["readyReplicas"],
+                        status["replicas"],
+                        status["updatedReplicas"],
+                        status["availableReplicas"],
+                    )
+                    for container in dep["spec"]["template"]["spec"]["containers"]:
+                        name = container["name"]
+                        if name.endswith("-app"):
+                            self.logger.info(
+                                "* %s image: %s",
+                                name,
+                                container["image"],
+                            )
 
     def _verify_build_and_push_prereqs(self):
         if self.app.config["release_repo_dir"] is None:
