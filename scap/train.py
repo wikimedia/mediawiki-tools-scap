@@ -82,7 +82,7 @@ ____
         status = train_info["status"]
         version = train_info["version"]
 
-        if status != "open":
+        if status not in ["open", "progress"]:
             utils.abort(f"Train task {task} has status '{status}'.")
 
         if version != gerrit_latest_version:
