@@ -83,7 +83,11 @@ ____
         version = train_info["version"]
 
         if status not in ["open", "progress"]:
-            utils.abort(f"Train task {task} has status '{status}'.")
+            check_status = interaction.prompt_user_for_confirmation(
+                f"Train task {task} has status '{status}'. Continue anyway?"
+            )
+            if not check_status:
+                utils.abort(f"Train task {task} has status '{status}'.")
 
         if version != gerrit_latest_version:
             utils.abort(
