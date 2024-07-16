@@ -1,3 +1,11 @@
+scap (4.92.0)
+
+  * train: allow for the Phab train task status to also be "In Progress"
+  * sync: Refactor deployment stages
+  * sync-world: Reformat --k8s-only
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Tue, 16 Jul 2024 10:51:16 -0700
+
 scap (4.91.0)
 
   * install-world: Apply -x and -l options to masters list too
