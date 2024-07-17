@@ -15,8 +15,8 @@ from scap.deploy_promote import DeployPromote
 messages_tests = [
     (
         "T777",
-        "group3 wikis to 1.42.0-wmf.00  refs T777",
-        ("group3 wikis to 1.42.0-wmf.00\n" "\n" "Bug: T777"),
+        "group3 to 1.42.0-wmf.00  refs T777",
+        ("group3 to 1.42.0-wmf.00\n" "\n" "Bug: T777"),
     ),
 ]
 

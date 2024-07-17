@@ -161,7 +161,7 @@ class DeployPromote(cli.Application):
         """
         Craft commit message and scap announcement message
         """
-        header = "%s wikis to %s" % (self.group, self.promote_version)
+        header = "%s to %s" % (self.group, self.promote_version)
         self.commit_message = header
         self.announce_message = header
 
