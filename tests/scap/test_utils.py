@@ -225,7 +225,7 @@ def test_get_active_wikiversions(tmpdir, sample_wikiversions_file):
 
 
 @pytest.mark.parametrize(
-    "ver", ["auto", "1.42.0-wmf.22", "master", "branch_cut_pretest"]
+    "ver", ["auto", "1.42.0-wmf.22", "master", "branch_cut_pretest", "next"]
 )
 def test_version_argument_parser_good(ver):
     assert utils.version_argument_parser(ver) == ver
@@ -246,4 +246,7 @@ def test_parse_wmf_version():
         < utils.parse_wmf_version("1.23.0-wmf.2")
         < utils.parse_wmf_version("branch_cut_pretest")
         < utils.parse_wmf_version("master")
+    )
+    assert utils.parse_wmf_version("branch_cut_pretest") == utils.parse_wmf_version(
+        "next"
     )

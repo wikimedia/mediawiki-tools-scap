@@ -981,14 +981,14 @@ def parse_wmf_version(version: str) -> packaging.version.Version:
     Parses a string like "1.29.0-wmf.4" and returns a packaging.version.Version
     object representing the version.  These objects can be compared using
     <, <=, >, >=, ==.  The special case version of "master" will be treated as
-    a very large version number.  "branch_cut_pretest" is second-to-highest.
+    a very large version number.  "branch_cut_pretest" and "next" are second-to-highest.
     """
     # Ensure that the supplied version string is acceptable
     version_argument_parser(version, allow_auto=False)
 
     if version == "master":
         return packaging.version.Version(str(sys.maxsize))
-    if version in [BRANCH_CUT_PRETEST_BRANCH]:
+    if version in [BRANCH_CUT_PRETEST_BRANCH, "next"]:
         return packaging.version.Version(str(sys.maxsize - 1))
 
     # Strip all non-digit, non-dot characters from the version string, then
@@ -999,7 +999,7 @@ def parse_wmf_version(version: str) -> packaging.version.Version:
 def version_argument_parser(ver: str, allow_auto=True) -> str:
     """Validate a mediawiki version number argument"""
 
-    candidates = ["master", BRANCH_CUT_PRETEST_BRANCH]
+    candidates = ["master", BRANCH_CUT_PRETEST_BRANCH, "next"]
     if allow_auto:
         candidates.append("auto")
 
