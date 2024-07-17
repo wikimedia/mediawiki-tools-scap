@@ -581,7 +581,18 @@ def read_wikiversions(directory, realm) -> dict:
     )
 
     with open(path) as f:
-        return json.load(f)
+        wikiversions = json.load(f)
+
+    force_version = os.environ.get("FORCE_MW_VERSION")
+    if force_version:
+        # Make sure FORCE_MW_VERSION has a decent value
+        version_argument_parser(force_version, allow_auto=False)
+
+        force_version = f"php-{force_version}"
+        for key in wikiversions:
+            wikiversions[key] = force_version
+
+    return wikiversions
 
 
 def get_active_wikiversions(directory, realm, return_type=list):

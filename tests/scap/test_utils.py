@@ -2,6 +2,7 @@ import argparse
 import json
 import os
 import pytest
+from unittest.mock import patch
 
 from scap import utils
 
@@ -185,11 +186,8 @@ def test_write_file_if_needed(tmpdir):
     assert utils.write_file_if_needed(testfile, "Second write") is True
 
 
-def test_get_active_wikiversions(tmpdir):
-    # Test invalid return_type.
-    with pytest.raises(ValueError):
-        utils.get_active_wikiversions(None, None, return_type=str)
-
+@pytest.fixture
+def sample_wikiversions_file(tmpdir):
     wikiversions_file = os.path.join(tmpdir, "wikiversions-test.json")
 
     with open(wikiversions_file, "w") as f:
@@ -202,6 +200,22 @@ def test_get_active_wikiversions(tmpdir):
             },
             f,
         )
+
+    return wikiversions_file
+
+
+@patch.dict("os.environ", {"FORCE_MW_VERSION": "1.23.4-wmf.5"})
+def test_read_wikiversions_force_mw_version(tmpdir, sample_wikiversions_file):
+    res = utils.read_wikiversions(tmpdir, "test")
+
+    for value in res.values():
+        assert value == "php-1.23.4-wmf.5"
+
+
+def test_get_active_wikiversions(tmpdir, sample_wikiversions_file):
+    # Test invalid return_type.
+    with pytest.raises(ValueError):
+        utils.get_active_wikiversions(None, None, return_type=str)
 
     res = utils.get_active_wikiversions(tmpdir, "test", return_type=list)
     assert res == ["1.42.0-wmf.22", "1.42.0-wmf.25"]
