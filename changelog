@@ -1,3 +1,11 @@
+scap (4.93.0)
+
+  * deploy_promote.py: Revise commit message summary
+  * utils.py: read_wikiversions handle FORCE_MW_VERSION
+  * Ask for confirmation instead of aborting if Train task status is no good
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Thu, 18 Jul 2024 12:01:23 -0700
+
 scap (4.92.0)
 
   * train: allow for the Phab train task status to also be "In Progress"
