@@ -1007,6 +1007,19 @@ def version_argument_parser(ver: str, allow_auto=True) -> str:
     raise argparse.ArgumentTypeError("Branch '%s' does not match required format" % ver)
 
 
+def valid_version(version: str) -> bool:
+    """
+    Returns True if `version` is a valid version.  In this context
+    valid means suitable for naming a <staging dir>/php-<version> directory.
+    This means that "auto" is not an acceptable version here.
+    """
+    try:
+        version_argument_parser(version, allow_auto=False)
+        return True
+    except argparse.ArgumentTypeError:
+        return False
+
+
 def on_real_deploy_server() -> bool:
     return socket.getfqdn().endswith(".wmnet")
 

@@ -229,9 +229,12 @@ def test_get_active_wikiversions(tmpdir, sample_wikiversions_file):
 )
 def test_version_argument_parser_good(ver):
     assert utils.version_argument_parser(ver) == ver
+    if ver != "auto":
+        assert utils.valid_version(ver) is True
 
 
 @pytest.mark.parametrize("ver", ["", "123", "1.42.0-wmf.22 ", "testing", "auto"])
 def test_version_argument_parser_bad(ver):
     with pytest.raises(argparse.ArgumentTypeError):
         utils.version_argument_parser(ver, allow_auto=False)
+    assert utils.valid_version(ver) is False
