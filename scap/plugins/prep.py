@@ -14,7 +14,6 @@ from scap import interaction
 from scap import log
 from scap.plugins import patches
 from scap import utils
-from scap.utils import BRANCH_CUT_PRETEST_BRANCH
 from scap.lock import Lock
 from scap.plugins.patches import SecurityPatches
 
@@ -205,9 +204,7 @@ class CheckoutMediaWiki(cli.Application):
         if branch != "master":
             checkout_version = "wmf/%s" % branch
 
-        reference_dir = None
-        if checkout_version not in ["master", f"wmf/{BRANCH_CUT_PRETEST_BRANCH}"]:
-            reference_dir = self._select_reference_directory()
+        reference_dir = self._select_reference_directory()
 
         if checkout_version != "master":
             self._setup_patches(branch)
@@ -270,15 +267,21 @@ class CheckoutMediaWiki(cli.Application):
 
         Returns None if unavailable.
         """
-        candidates = glob.glob(os.path.join(self.config["stage_dir"], "php-*"))
-        candidates = [
-            cd for cd in candidates if f"php-{BRANCH_CUT_PRETEST_BRANCH}" not in cd
-        ]
 
-        if not candidates:
-            return None
+        latest_path = None
+        latest_version = None
 
-        return sorted(candidates, key=utils.parse_wmf_version)[-1]
+        for path in glob.glob(os.path.join(self.config["stage_dir"], "php-*")):
+            version = os.path.basename(path)[len("php-") :]
+            if not utils.valid_version(version):
+                continue
+
+            version = utils.parse_wmf_version(version)
+            if latest_version is None or version > latest_version:
+                latest_version = version
+                latest_path = path
+
+        return latest_path
 
     def _setup_patches(self, version):
         logger = self.get_logger()
