@@ -238,3 +238,12 @@ def test_version_argument_parser_bad(ver):
     with pytest.raises(argparse.ArgumentTypeError):
         utils.version_argument_parser(ver, allow_auto=False)
     assert utils.valid_version(ver) is False
+
+
+def test_parse_wmf_version():
+    assert (
+        utils.parse_wmf_version("1.23.0-wmf.1")
+        < utils.parse_wmf_version("1.23.0-wmf.2")
+        < utils.parse_wmf_version("branch_cut_pretest")
+        < utils.parse_wmf_version("master")
+    )
