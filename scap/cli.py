@@ -94,18 +94,23 @@ class Application(object):
         """Get the path to scap.lock"""
         if self.config["lock_file"] is not None:
             return self.config["lock_file"]
-        try:
+
+        if "git_repo" in self.config:
             return "/var/lock/scap.%s.lock" % (
                 self.config["git_repo"].replace("/", "_")
             )
-        except KeyError:
-            # `scap sync*` can run from anywhere on the file system and
-            # doesn't actually use the value of `git_repo`. In contrast,
-            # `scap deploy` will fail almost instantly without a `git_repo`
-            # set. If we're attempting to create a lock file, and there is
-            # no git_repo, then it's likely for a sync* command and the
-            # correct git_repo is operations/mediawiki-config.
-            return "/var/lock/scap.operations_mediawiki-config.lock"
+
+        # `scap sync*` can run from anywhere on the file system and
+        # doesn't actually use the value of `git_repo`. In contrast,
+        # `scap deploy` will fail almost instantly without a `git_repo`
+        # set. If we're attempting to create a lock file, and there is
+        # no git_repo, then it's likely for a sync* command and the
+        # correct git_repo is operations/mediawiki-config.
+
+        stage_dir = self.config["stage_dir"]
+        return os.path.join(
+            "/var/lock", "scap." + stage_dir.strip("/").replace("/", "_") + ".lock"
+        )
 
     @property
     def verbose(self):

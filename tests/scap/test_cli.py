@@ -82,9 +82,9 @@ def test_get_stats(app, mocker):
 
 def test_get_lock_file(app):
     # N.B. 'lock_file' needs to be defined in any case in the config. Yuck.
-    app.config = {"lock_file": None}
+    app.config = {"lock_file": None, "stage_dir": "/srv/mediawiki-staging"}
     # Case 1 - no lockfile nor a git_repo config
-    assert app.get_lock_file() == "/var/lock/scap.operations_mediawiki-config.lock"
+    assert app.get_lock_file() == "/var/lock/scap.srv_mediawiki-staging.lock"
     # Case 2 - git_repo defined
     app.config["git_repo"] = "parsoid/deploy"
     assert app.get_lock_file() == "/var/lock/scap.parsoid_deploy.lock"
