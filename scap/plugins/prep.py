@@ -140,7 +140,7 @@ class CheckoutMediaWiki(cli.Application):
                 display_repos = ["mediawiki/core", "operations/mediawiki-config"]
                 logger.info("Browsing history")
                 hist = history.load(
-                    self.config["history_log"], display_repos=display_repos
+                    self.scap_history_logfile(), display_repos=display_repos
                 )
                 self.replay_history = hist.browse()
                 if self.replay_history is None:
@@ -186,7 +186,7 @@ class CheckoutMediaWiki(cli.Application):
 
                     self.new_history.completed = True
                 finally:
-                    history.log(self.new_history, self.config["history_log"])
+                    history.log(self.new_history, self.scap_history_logfile())
 
     def _copy_private_settings(self, src, logger):
         dest = os.path.join(self.config["stage_dir"], "private", "PrivateSettings.php")

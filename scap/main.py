@@ -220,7 +220,7 @@ class AbstractSync(cli.Application):
                 if depstage.post_check_func:
                     depstage.post_check_func()
 
-            history.update_latest(self.config["history_log"], synced=True)
+            history.update_latest(self.scap_history_logfile(), synced=True)
 
         self._after_lock_release()
         if self.soft_errors:
