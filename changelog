@@ -1,3 +1,14 @@
+scap (4.94.0)
+
+  * backport: pass argument to correct git command
+  * Make default history_log follow stage_dir
+  * cli.py: Change default path of mediawiki sync lockfile
+  * utils.py: Handle "next" version
+  * utils.py: parse_wmf_version: Handle branch_cut_pretest
+  * prep.py: _select_reference_directory() improvements
+
+ -- Jaime Nuche <jnuche@wikimedia.org>  Mon, 29 Jul 2024 15:47:44 +0200
+
 scap (4.93.0)
 
   * deploy_promote.py: Revise commit message summary
