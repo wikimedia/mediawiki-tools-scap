@@ -708,8 +708,8 @@ def list_submodules_paths_urls(repo, args):
         "submodule",
         "-q",
         "foreach",
-        'echo -n "$PWD " && git remote get-url origin',
         args,
+        'echo -n "$PWD " && git remote get-url origin',
         cwd=repo,
     ).splitlines()
 
