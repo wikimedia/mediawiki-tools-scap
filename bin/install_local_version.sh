@@ -17,17 +17,19 @@ SUPPORTED_DISTROS="buster bullseye bookworm"
 function usage {
   cat <<HERE
 
-   Usage: $0 [-u|--user <USERNAME>] [--on-deploy [-t|--tag <TAG>] [-d|--distros <D1,D2...>]]
+   Usage: $0 [-u|--user <USERNAME>] [--on-primary [-t|--tag <TAG>] [-d|--distros <D1,D2...>]] [--on-secondary]
 
-   Uses Python wheels to install scap in a Python3 venv in the user's HOME at $HOME/scap. It has two modes of operation:
-     * Install target host (DEFAULT): Wheels for the host distro must be already available in the user's HOME
-     * Install deployment server:     Wheels will be downloaded prior to installation
+   Uses Python wheels to install scap in a Python3 venv in the user's HOME at HOME/scap. It has three modes of operation:
+     * Install target host (DEFAULT):       Wheels for the host distro must be already available in the user's HOME
+     * Install primary deployment server:   Wheels will be downloaded prior to installation
+     * Install secondary deployment server: Wheels for the host distro must be available at HOME/scap-wheels
 
    Optional arguments:
      -u, --user <USERNAME>       The user to install Scap for. If not passed, the env var USER is taken instead
-     --on-deploy                 Signals this is a deployment host. Pull wheels from a distribution image before installing
-       -t, --tag <TAG>           Install wheels for <TAG>. Default is 'latest' (honored only if --on-deploy specified)
-       -d, --distros <D1,D2...>  Override supported distro codenames (honored only if --on-deploy specified)
+     --on-primary                Signals this is a primary deployment host. Pull wheels from a distribution image before installing
+       -t, --tag <TAG>           Install wheels for <TAG>. Default is 'latest' (honored only if --on-primary specified)
+       -d, --distros <D1,D2...>  Override supported distro codenames (honored only if --on-primary specified)
+     --on-secondary              Signals this is a secondary deployment host. Mutually exclusive with '--on-primary'
 
    Note the user running this script needs to have permissions to:
      * sudo as <USERNAME> (unless the user is already <USERNAME>)
@@ -54,7 +56,8 @@ function verify_distro {
 }
 
 function parseArgs {
-  ON_DEPLOY_SERVER=
+  ON_PRIMARY=
+  ON_SECONDARY=
   INSTALL_USER=
   TAG=latest
 
@@ -64,8 +67,13 @@ function parseArgs {
       --user)
         set -- "$@" '-u'
         ;;
-      --on-deploy)
-        ON_DEPLOY_SERVER=y
+      --on-primary)
+        [ "$ON_SECONDARY" = y ] && fail "--on-primary and --on-secondary options are mutually exclusive"
+        ON_PRIMARY=y
+        ;;
+      --on-secondary)
+        [ "$ON_PRIMARY" = y ] && fail "--on-primary and --on-secondary options are mutually exclusive"
+        ON_SECONDARY=y
         ;;
       --tag)
         set -- "$@" '-t'
@@ -89,14 +97,14 @@ function parseArgs {
         INSTALL_USER=$OPTARG
         ;;
       t)
-        if [ "$ON_DEPLOY_SERVER" != y ]; then
+        if [ "$ON_PRIMARY" != y ]; then
           usage
           exit 1
         fi
         TAG=$OPTARG
         ;;
       d)
-        if [ "$ON_DEPLOY_SERVER" != y ]; then
+        if [ "$ON_PRIMARY" != y ]; then
           usage
           exit 1
         fi
@@ -116,7 +124,7 @@ function parseArgs {
     INSTALL_USER=$USER
   fi
 
-  if [ "$ON_DEPLOY_SERVER" != y ]; then
+  if [ "$ON_PRIMARY" != y ] && [ "$ON_SECONDARY" != y ]; then
     TAG=n
   fi
 }
@@ -138,7 +146,7 @@ function verify_local_wheels_available {
   DIST_DIR=$BASE_DIST_DIR/$(lsb_release -cs)
 
   if [ ! -d "$DIST_DIR" ]; then
-    fail "Scap distribution dir \"$DIST_DIR\" is missing. Maybe this is a deploy server? Please check usage"
+    fail "Scap distribution dir \"$DIST_DIR\" is missing. Maybe this is a primary deploy server? Please check usage"
   fi
 }
 
@@ -224,7 +232,7 @@ function install_scap {
     AS_USER="sudo -su $INSTALL_USER"
   fi
 
-  if [ "$ON_DEPLOY_SERVER" = y ]; then
+  if [ "$ON_PRIMARY" = y ]; then
     for DISTRO in $SUPPORTED_DISTROS; do
       get_scap_distribution "$DISTRO"
     done
@@ -238,9 +246,12 @@ verify_distro
 verify_user
 
 USER_HOME=$(eval echo "~$INSTALL_USER")
-BASE_DIST_DIR=$USER_HOME/scap-wheels
-if [ "$ON_DEPLOY_SERVER" != y ]; then
+if [ "$ON_PRIMARY" = y ] || [ "$ON_SECONDARY" = y ]; then
+  BASE_DIST_DIR=$USER_HOME/scap-wheels
+else
   BASE_DIST_DIR=$USER_HOME
+fi
+if [ "$ON_PRIMARY" != y ]; then
   verify_local_wheels_available
 fi
 install_scap

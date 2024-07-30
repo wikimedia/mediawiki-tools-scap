@@ -115,13 +115,17 @@ class InstallWorld(cli.Application):
             self._select_targets()
             self._select_version()
 
+            total_install_hosts = len(self.masters) + len(self.targets)
+            if total_install_hosts == 0:
+                utils.abort("No hosts to install. Nothing to do")
+
             if not self.arguments.yes and not interaction.prompt_user_for_confirmation(
-                f"""Scap version "{self.version}" will be installed on {len(self.targets)} host(s). Proceed?"""
+                f"""Scap version "{self.version}" will be installed on {total_install_hosts} host(s). Proceed?"""
             ):
                 utils.abort("Canceled by user")
 
             self.announce(
-                f"""Installing scap version "{self.version}" for {len(self.targets)} hosts"""
+                f"""Installing scap version "{self.version}" for {total_install_hosts} hosts"""
             )
 
             if not self.arguments.install_targets_only:
@@ -131,10 +135,16 @@ class InstallWorld(cli.Application):
                 other_masters.remove(self.deploy_master)
                 if other_masters:
                     self._sync_masters_scap_installation(other_masters)
+                    # Under normal conditions, syncing scap should be enough to have a working scap on the other masters.
+                    # However, during the reimagining of deployment servers, the Python versions between different
+                    # masters may differ for a few days, leading to failed scap installations and errors during regular
+                    # deployments. Even though it's a rare occurrence, we install scap using the wheels to avoid this
+                    # problem (see https://phabricator.wikimedia.org/T371261)
+                    self._install_scap_masters(other_masters)
             self._install_scap_targets()
 
             self.announce(
-                f"""Installation of scap version "{self.version}" completed for {len(self.targets)} hosts"""
+                f"""Installation of scap version "{self.version}" completed for {total_install_hosts} hosts"""
             )
 
     def _initialize_from_config(self):
@@ -162,7 +172,7 @@ class InstallWorld(cli.Application):
             target for target in selected_targets if target not in self.masters
         ]
 
-        if not self.targets:
+        if self.arguments.install_targets_only and not self.targets:
             utils.abort("List of targets is empty")
 
     def _select_version(self):
@@ -233,7 +243,7 @@ class InstallWorld(cli.Application):
             install_script_path,
             "-u",
             self.install_user,
-            "--on-deploy",
+            "--on-primary",
             "-t",
             self.version,
             "-d",
@@ -265,6 +275,26 @@ class InstallWorld(cli.Application):
         _, failed = masters_sync.run()
         if failed:
             self._abort(f"{failed} masters failed to sync scap installation")
+
+    def _install_scap_masters(self, masters_to_install):
+        self.logger.info("Installing scap masters")
+
+        install_script_path = (
+            f"{self.install_user_home}/{InstallWorld.INSTALL_SCAP_SCRIPT_PATH}"
+        )
+        masters_install = self._get_ssh_job_for(masters_to_install)
+        masters_install.command(
+            [
+                install_script_path,
+                "-u",
+                self.install_user,
+                "--on-secondary",
+            ]
+        )
+        masters_install.progress(log.reporter("scap-install-to-masters"))
+        _, failed = masters_install.run()
+        if failed:
+            self._abort(f"{failed} masters failed to install scap")
 
     def _install_scap_targets(self):
         targets_by_master, targets_no_master = self._map_targets_to_master_by_dc()
