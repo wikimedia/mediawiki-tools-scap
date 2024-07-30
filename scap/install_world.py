@@ -132,7 +132,8 @@ class InstallWorld(cli.Application):
                 self._install_local_scap()
 
                 other_masters = list(self.masters)
-                other_masters.remove(self.deploy_master)
+                if self.deploy_master in other_masters:
+                    other_masters.remove(self.deploy_master)
                 if other_masters:
                     self._sync_masters_scap_installation(other_masters)
                     # Under normal conditions, syncing scap should be enough to have a working scap on the other masters.
