@@ -1,3 +1,9 @@
+scap (4.95.0)
+
+  * install_world: use wheels to install scap on secondary deployment servers
+
+ -- Jaime Nuche <jnuche@wikimedia.org>  Tue, 30 Jul 2024 13:40:47 +0200
+
 scap (4.94.0)
 
   * backport: pass argument to correct git command
