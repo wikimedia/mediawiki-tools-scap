@@ -185,10 +185,15 @@ class K8sOps:
         self.helm_env = self._collect_helm_env()
         self.original_helmfile_values = {}
         self.traindev = self._get_deployment_datacenters() == ["traindev"]
+        self.build_state_dir = os.path.join(
+            app.config["stage_dir"], "scap", "image-build"
+        )
 
     def build_k8s_images(self):
         def build_and_push_images():
             with log.Timer("build-and-push-container-images", self.app.get_stats()):
+                utils.mkdir_p(self.build_state_dir)
+
                 make_container_image_dir = os.path.join(
                     release_repo_dir, "make-container-image"
                 )
@@ -202,7 +207,7 @@ class K8sOps:
                         dev_ca_crt = base64.b64encode(f.read()).decode("utf-8")
 
                 make_parameters = {
-                    "GIT_BASE": self.app.config["gerrit_url"],
+                    "IMAGE_BUILD_STATE_DIR": self.build_state_dir,
                     "MW_CONFIG_BRANCH": self.app.config[
                         "operations_mediawiki_config_branch"
                     ],
@@ -888,20 +893,16 @@ class K8sOps:
         Return a data structure containing the fully qualified image names of the
         images most recently built by build_k8s_images().
         """
-        make_container_image_dir = os.path.join(
-            self.app.config["release_repo_dir"], "make-container-image"
-        )
+
+        report_file = os.path.join(self.build_state_dir, "report.json")
+
+        with open(report_file) as f:
+            report = json.load(f)
 
         return {
-            "debug": utils.read_first_line_from_file(
-                os.path.join(make_container_image_dir, "last-debug-build")
-            ),
-            "multiversion": utils.read_first_line_from_file(
-                os.path.join(make_container_image_dir, "last-build")
-            ),
-            "webserver": utils.read_first_line_from_file(
-                os.path.join(make_container_image_dir, "webserver", "last-build")
-            ),
+            "multiversion": report["mediawiki"]["multiversion-image"],
+            "debug": report["mediawiki"]["multiversion-debug-image"],
+            "webserver": report["webserver"]["image"],
         }
 
     def _helm_augmented_environment(self, env: dict) -> dict:
