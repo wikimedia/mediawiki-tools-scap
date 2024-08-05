@@ -1,3 +1,10 @@
+scap (4.96.0)
+
+  * kubernetes.py: Use new image build report file
+  * install_world: remove deploy master from list to install only if present
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Mon, 05 Aug 2024 11:44:59 -0700
+
 scap (4.95.0)
 
   * install_world: use wheels to install scap on secondary deployment servers
