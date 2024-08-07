@@ -6,11 +6,14 @@ Clone the repository with the following command:
 
     ``git clone https://gitlab.wikimedia.org/repos/releng/scap``
 
-Scap-Vagrant
-------------
-For testing scap deployments, we have created a vagrant development environment
-called `scap-vagrant
-<https://phabricator.wikimedia.org/source/scap-vagrant/>`_
+Development environment
+-----------------------
+
+For testing scap deployments, we have created a development
+environment called `train-dev
+<https://gitlab.wikimedia.org/repos/releng/train-dev>`_.  Please see
+the train-dev documentation for information on how to set it up and
+use it.
 
 Code Review
 -----------
