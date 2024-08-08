@@ -186,6 +186,19 @@ class Application(object):
             self._announce_logger.info(*args)
             self._have_announced = True
 
+    def announce_final(self, *args):
+        """
+        Use this method to avoid announcing (to IRC, etc) that an operation
+        has finished if there was no prior announcement that an operation
+        had started.  This is useful is situations where self.announce()
+        is called in an `except` or `finally` clause surrounding a larger
+        operation.
+        """
+        if self._have_announced:
+            self.announce(*args)
+        else:
+            self.get_logger().info(*args)
+
     def active_wikiversions(self, source_tree="deploy", return_type=list):
         """
          Get an ordered list or dictionary of active MediaWiki versions.
@@ -211,13 +224,7 @@ class Application(object):
         """Exits successfully with a message if the user does not approve."""
         approval = interaction.prompt_user_for_confirmation(prompt_message)
         if not approval:
-            # Avoid announcing (to IRC, etc) that someone has
-            # cancelled an operation if there was no announcement that
-            # someone started an operation.
-            if self._have_announced:
-                self.announce(exit_message)
-            else:
-                self.get_logger().info(exit_message)
+            self.announce_final(exit_message)
             sys.exit(os.EX_OK)
 
     def _process_arguments(self, args, extra_args):

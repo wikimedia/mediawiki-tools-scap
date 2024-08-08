@@ -146,7 +146,7 @@ class AbstractSync(cli.Application):
             self.k8s_ops.build_k8s_images(self.active_wikiversions("stage"))
 
             if self.arguments.stop_before_sync:
-                self.get_logger().info("Stopping before sync operations")
+                self.announce_final("Stopping before sync operations")
                 return 0
 
             # Preload MW multiversion image into K8s cluster nodes
