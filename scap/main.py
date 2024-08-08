@@ -147,6 +147,7 @@ class AbstractSync(cli.Application):
 
             if self.arguments.stop_before_sync:
                 self.get_logger().info("Stopping before sync operations")
+                self._after_lock_release()
                 return 0
 
             # Preload MW multiversion image into K8s cluster nodes
