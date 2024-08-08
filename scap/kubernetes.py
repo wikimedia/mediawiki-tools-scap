@@ -206,45 +206,38 @@ class K8sOps:
                     ) as f:
                         dev_ca_crt = base64.b64encode(f.read()).decode("utf-8")
 
-                build_images_args = [
-                    self.build_state_dir,
-                    "--staging-dir",
-                    self.app.config["stage_dir"],
-                    "--multiversion-image-name",
-                    "{}/{}".format(registry, self.app.config["mediawiki_image_name"]),
-                    "--multiversion-debug-image-name",
-                    "{}/{}".format(
+                make_parameters = {
+                    "IMAGE_BUILD_STATE_DIR": self.build_state_dir,
+                    "MW_CONFIG_BRANCH": self.app.config[
+                        "operations_mediawiki_config_branch"
+                    ],
+                    "workdir_volume": self.app.config["stage_dir"],
+                    "mv_image_name": "{}/{}".format(
+                        registry, self.app.config["mediawiki_image_name"]
+                    ),
+                    "mv_debug_image_name": "{}/{}".format(
                         registry, self.app.config["mediawiki_debug_image_name"]
                     ),
-                    "--webserver-image-name",
-                    "{}/{}".format(registry, self.app.config["webserver_image_name"]),
-                ]
-
-                if self.traindev:
-                    build_images_args.append("--train-dev")
-                if self.app.config["mediawiki_image_extra_packages"]:
-                    build_images_args += [
-                        "--mediawiki-image-extra-packages",
-                        self.app.config["mediawiki_image_extra_packages"],
-                    ]
-                if dev_ca_crt:
-                    build_images_args += ["--mediawiki-extra-ca-cert", dev_ca_crt]
-                if self.app.config["full_image_build"]:
-                    build_images_args.append("--full")
-
-                http_proxy = self.app.config["web_proxy"]
-                if http_proxy:
-                    build_images_args += [
-                        "--http-proxy",
-                        http_proxy,
-                        "--https-proxy",
-                        http_proxy,
-                    ]
-
+                    "webserver_image_name": "{}/{}".format(
+                        registry, self.app.config["webserver_image_name"]
+                    ),
+                    "MV_BASE_PACKAGES": self.app.config[
+                        "mediawiki_image_extra_packages"
+                    ],
+                    "MV_EXTRA_CA_CERT": dev_ca_crt,
+                    "FORCE_FULL_BUILD": (
+                        "true" if self.app.config["full_image_build"] else "false"
+                    ),
+                }
                 with utils.suppress_backtrace():
                     cmd = "{} {}".format(
                         self.app.config["release_repo_build_and_push_images_cmd"],
-                        " ".join(map(shlex.quote, build_images_args)),
+                        " ".join(
+                            [
+                                shlex.quote("=".join(pair))
+                                for pair in make_parameters.items()
+                            ]
+                        ),
                     )
                     self.logger.info(
                         "K8s images build/push output redirected to {}".format(

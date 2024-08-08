@@ -106,7 +106,10 @@ DEFAULT_CONFIG = {
     # This command will run with the current directory set to
     # {release_repo_dir}/make-container-image.  It will be passed some
     # additional parameters.
-    "release_repo_build_and_push_images_cmd": (str, "./build-images.py"),
+    "release_repo_build_and_push_images_cmd": (
+        str,
+        "make -f Makefile build-and-push-all-images",
+    ),
     "docker_registry": (str, "docker-registry.discovery.wmnet"),
     "mediawiki_image_name": (str, "restricted/mediawiki-multiversion"),
     "mediawiki_debug_image_name": (str, "restricted/mediawiki-multiversion-debug"),
