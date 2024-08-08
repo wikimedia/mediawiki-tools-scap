@@ -189,7 +189,7 @@ class K8sOps:
             app.config["stage_dir"], "scap", "image-build"
         )
 
-    def build_k8s_images(self):
+    def build_k8s_images(self, mediawiki_versions: list):
         def build_and_push_images():
             with log.Timer("build-and-push-container-images", self.app.get_stats()):
                 utils.mkdir_p(self.build_state_dir)
@@ -210,6 +210,8 @@ class K8sOps:
                     self.build_state_dir,
                     "--staging-dir",
                     self.app.config["stage_dir"],
+                    "--mediawiki-versions",
+                    ",".join(mediawiki_versions),
                     "--multiversion-image-name",
                     "{}/{}".format(registry, self.app.config["mediawiki_image_name"]),
                     "--multiversion-debug-image-name",
@@ -220,8 +222,6 @@ class K8sOps:
                     "{}/{}".format(registry, self.app.config["webserver_image_name"]),
                 ]
 
-                if self.traindev:
-                    build_images_args.append("--train-dev")
                 if self.app.config["mediawiki_image_extra_packages"]:
                     build_images_args += [
                         "--mediawiki-image-extra-packages",

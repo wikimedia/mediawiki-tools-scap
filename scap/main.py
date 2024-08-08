@@ -143,7 +143,7 @@ class AbstractSync(cli.Application):
             else:
                 self.get_logger().warning("check_fatals skipped by --force")
 
-            self.k8s_ops.build_k8s_images()
+            self.k8s_ops.build_k8s_images(self.active_wikiversions("stage"))
 
             if self.arguments.stop_before_sync:
                 self.get_logger().info("Stopping before sync operations")
