@@ -1,3 +1,14 @@
+scap (4.97.0)
+
+  * kubernetes: Use new way to invoke container image build
+  * Change "Finished scap:" to "Finished scap sync-world:"
+  * Revert "kubernetes: Use new way to invoke container image build"
+  * kubernetes: Use new way to invoke container image build
+  * development.rst: Replace scap-vagrant with train-dev
+  * deploy.py: Handle missing keyholder key with clear error logging
+
+ -- Tyler Cipriani <tcipriani@wikimedia.org>  Tue, 13 Aug 2024 11:16:02 -0600
+
 scap (4.96.0)
 
   * kubernetes.py: Use new image build report file
