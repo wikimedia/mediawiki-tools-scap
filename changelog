@@ -1,3 +1,9 @@
+scap (4.98.0)
+
+  * k8s: Pass the list of live mediawiki versions to build-images.py
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Mon, 19 Aug 2024 12:47:03 -0700
+
 scap (4.97.0)
 
   * kubernetes: Use new way to invoke container image build
