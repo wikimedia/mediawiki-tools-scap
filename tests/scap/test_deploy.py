@@ -1,11 +1,13 @@
 import os
 import tempfile
+import yaml
 
 import unittest
 from unittest.mock import patch, Mock
 
 import scap.cli
 import scap.config
+import scap.git
 import scap.script
 import scap.utils
 from scap.deploy import DeployLocal
@@ -308,3 +310,48 @@ For `scap deploy` to work, the current directory must be the top level of a git 
                 )
                 # Verify that no files were created.
                 assert len(os.listdir(tmpdir)) == 0
+
+    def test_blank_check(self):
+        # Test T372921/T149668
+        scap_deploy = scap.cli.Application.factory(["deploy", "--environment", "env1"])
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            with scap.utils.cd(tmpdir):
+                scap.git.init(tmpdir)
+                os.makedirs(os.path.join(tmpdir, "scap", "environments", "env1"))
+
+                with open(os.path.join(tmpdir, "scap", "scap.cfg"), "w") as f:
+                    f.write(
+                        """
+[global]
+# hello world
+"""
+                    )
+                with open(os.path.join(tmpdir, "scap", "checks.yaml"), "w") as f:
+                    checks = {
+                        "checks": {
+                            "check1": {
+                                "after": "fetch",
+                            },
+                            "check2": {
+                                "before": "promote",
+                            },
+                        }
+                    }
+                    yaml.dump(checks, f, indent=4)
+
+                with open(
+                    os.path.join(tmpdir, "scap", "environments", "env1", "checks.yaml"),
+                    "w",
+                ) as f:
+                    # Disable inherited check1.
+                    checks = {"checks": {"check1": {}}}
+                    yaml.dump(checks, f, indent=4)
+
+                scap.git.add_all(tmpdir)
+
+                scap_deploy.setup(use_global_config=False)
+                scap_deploy.checks_setup()
+
+                # Verify that the override of check1 took effect.
+                assert not scap_deploy.deploy_info["checks"]["check1"]
