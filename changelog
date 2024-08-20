@@ -1,3 +1,11 @@
+scap (4.99.0)
+
+  * test_deploy.py: Add check for proper handling of check overrides
+  * checks.py: Discard blank checks
+  * sync-world: Announce end of operation when --stop-before-sync is used
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Tue, 20 Aug 2024 14:57:06 -0700
+
 scap (4.98.0)
 
   * k8s: Pass the list of live mediawiki versions to build-images.py
