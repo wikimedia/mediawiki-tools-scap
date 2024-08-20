@@ -241,6 +241,8 @@ def test_DeployLocal_before_after_checks(scap_context, checks_execute, tmp_path)
             "command": "runme-stage",
             "stage": TESTED_STAGE,
         },
+        # Exercise T372921
+        "dontrunme": {},
     }
 
     run_stage = Mock(name="run stage")

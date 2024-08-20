@@ -167,7 +167,8 @@ def load(cfg, environment=None):
             check_type = options.get("type", "command")
 
             if not options:
-                check_type = "override"
+                # Discard blank checks.
+                continue
 
             if check_type not in _TYPES:
                 msg = "unknown check type '{}'".format(check_type)
@@ -349,17 +350,3 @@ class CheckJob(object):
         for output in self.proc.communicate():
             if output is not None:
                 self.output += output.decode("utf-8")
-
-
-@checktype("override")
-class OverrideCheck(object):
-    """Represent a loaded 'override' check."""
-
-    def __init__(self, name, environment):
-        """Initialize override check."""
-        self.name = name
-        self.environment = environment
-
-    @property
-    def stage(self):
-        utils.get_logger().info("Check %s is empty and will not be run", self.name)
