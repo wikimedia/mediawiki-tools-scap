@@ -63,13 +63,14 @@ EOF
 
 remote_cmd="
 set -e
-cd /srv/deployment/scap; umask 0002; git checkout master; git pull --rebase origin master
-sudo bin/install_local_version.sh -u scap --on-deploy $scap_tag
+cd /srv/deployment/scap
+sudo -u scap -- bash -c 'umask 0002; git checkout master; git pull --rebase origin master'
+sudo bin/install_local_version.sh -u scap --on-primary $scap_tag
 cd; scap install-world --batch
 "
 
 encoded_remote_cmd=$(echo "$remote_cmd" | base64 -w0)
 
 # shellcheck disable=SC2029
-ssh deployment-deploy03.deployment-prep.eqiad1.wikimedia.cloud \
+ssh deployment-deploy04.deployment-prep.eqiad1.wikimedia.cloud \
   "echo $encoded_remote_cmd | base64 -d | bash"
