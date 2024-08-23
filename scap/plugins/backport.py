@@ -279,6 +279,7 @@ def _get_submodule_urls(repo):
     "backport",
     help="List, apply, or revert backports",
     primary_deploy_server_only=True,
+    require_tty_multiplexer=True,
 )
 class Backport(cli.Application):
     """

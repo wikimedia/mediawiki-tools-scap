@@ -52,6 +52,7 @@ STAGE_SEQUENCE = [
     help="Wraps manual steps required to stage a typical Tuesday deploy of the RelEng train"
     " deployment: Preps new version branch, applies patches and deploys to testwikis",
     primary_deploy_server_only=True,
+    require_tty_multiplexer=True,
 )
 class StageTrain(cli.Application):
     """
@@ -78,22 +79,12 @@ class StageTrain(cli.Application):
         "-y",
         "--yes",
         action="store_true",
-        help="default to Yes for prompts, and don't check for tmux or screen running.",
+        help="default to Yes for prompts",
     )
     def main(self, *extra_args):
-        def check_term_multplxr():
-            if os.environ.get("TMUX") is None and os.environ.get("STY") is None:
-                utils.abort(
-                    "No tmux or screen process found. Try either:\n"
-                    '\tTMUX: tmux new-session -s "🚂🌈"\n'
-                    "\tSCREEN: screen -D -RR train"
-                )
-
         if self.arguments.version == "auto":
             self._setup_auto_mode()
 
-        if not self.arguments.yes:
-            check_term_multplxr()
         self._check_user_auth_sock()
 
         os.umask(self.config["umask"])

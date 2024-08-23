@@ -49,6 +49,7 @@ print = partial(print, flush=True)
     "deploy-promote",
     help="Promote group of wikis to specific/latest wmf deployment branch",
     primary_deploy_server_only=True,
+    require_tty_multiplexer=True,
 )
 class DeployPromote(cli.Application):
     """

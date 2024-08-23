@@ -91,6 +91,7 @@ DEFAULT_CONFIG = {
     "cache_revs": (int, 5),
     "use_syslog": (bool, False),
     "umask": (int, 0o002),
+    "require_terminal_multiplexer": (bool, False),
     "train_blockers_url": (str, "https://train-blockers.toolforge.org/api.php"),
     # HTTP/HTTPS proxy used only for requests that need it (such as accessing train_blockers_url)
     "web_proxy": (str, None),

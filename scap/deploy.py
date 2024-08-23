@@ -618,6 +618,7 @@ class DeployLocal(cli.Application):
     "deploy",
     help="[SCAP 3] Sync new service code across cluster",
     primary_deploy_server_only=True,
+    require_tty_multiplexer=True,
 )
 class Deploy(cli.Application):
     """

@@ -117,6 +117,7 @@ ____
     "train",
     help="Advance or rollback the train",
     primary_deploy_server_only=True,
+    require_tty_multiplexer=True,
 )
 class Train(cli.Application):
     """

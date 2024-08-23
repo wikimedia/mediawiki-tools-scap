@@ -913,6 +913,7 @@ class RebuildCdbs(cli.Application):
     "sync-world",
     help="Deploy MediaWiki to the cluster",
     primary_deploy_server_only=True,
+    require_tty_multiplexer=True,
 )
 class ScapWorld(AbstractSync):
     """
@@ -1163,8 +1164,13 @@ class SyncPull(cli.Application):
         return 0
 
 
-@cli.command("sync-dir", help=argparse.SUPPRESS, primary_deploy_server_only=True)
-@cli.command("sync-file", primary_deploy_server_only=True)
+@cli.command(
+    "sync-dir",
+    help=argparse.SUPPRESS,
+    primary_deploy_server_only=True,
+    require_tty_multiplexer=True,
+)
+@cli.command("sync-file", primary_deploy_server_only=True, require_tty_multiplexer=True)
 class SyncFile(AbstractSync):
     """Sync a specific file/directory to the cluster."""
 
@@ -1229,7 +1235,9 @@ class SyncFile(AbstractSync):
         self.increment_stat("sync-file")
 
 
-@cli.command("sync-wikiversions", primary_deploy_server_only=True)
+@cli.command(
+    "sync-wikiversions", primary_deploy_server_only=True, require_tty_multiplexer=True
+)
 class SyncWikiversions(AbstractSync):
     """Rebuild and sync wikiversions.php to the cluster."""
 
@@ -1343,6 +1351,7 @@ class Version(cli.Application):
     "lock",
     help="Temporarily lock deployment of this repository",
     primary_deploy_server_only=True,
+    require_tty_multiplexer=True,
 )
 class LockManager(cli.Application):
     """

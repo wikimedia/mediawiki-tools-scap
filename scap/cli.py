@@ -45,6 +45,7 @@ import scap.utils as utils
 from scap.ssh import SSH_WITH_KEY
 
 PRIMARY_DEPLOY_SERVER_ONLY_COMMAND = "_primary_deploy_server_only"
+REQUIRE_TTY_MULTIPLEXER_COMMAND = "_require_tty_multiplexer"
 
 
 class Application(object):
@@ -573,6 +574,18 @@ class Application(object):
                         """ passing "-Dblock_deployments:False" to the call"""
                     )
 
+            if (
+                app.config.get("require_terminal_multiplexer")
+                and getattr(app.main, REQUIRE_TTY_MULTIPLEXER_COMMAND, False)
+                and interaction.terminal_interactive()
+            ):
+                if os.environ.get("TMUX") is None and os.environ.get("STY") is None:
+                    utils.abort(
+                        "No tmux or screen process found. Try either:\n"
+                        '\tTMUX: tmux new-session -s "🚂🌈"\n'
+                        "\tSCREEN: screen -D -RR train"
+                    )
+
             if "subcommand" in app.arguments and app.arguments.subcommand:
                 method = app.arguments.subcommand
                 exit_status = method(app, app.extra_arguments)
@@ -728,6 +741,10 @@ def command(*args, **kwargs):
             cls.main, PRIMARY_DEPLOY_SERVER_ONLY_COMMAND, primary_deploy_server_only
         )
         kwargs.pop("primary_deploy_server_only", None)
+
+        require_tty_multiplexer = kwargs.get("require_tty_multiplexer", False)
+        setattr(cls.main, REQUIRE_TTY_MULTIPLEXER_COMMAND, require_tty_multiplexer)
+        kwargs.pop("require_tty_multiplexer", None)
 
         return cls
 
