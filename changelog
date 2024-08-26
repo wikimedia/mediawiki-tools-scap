@@ -1,3 +1,10 @@
+scap (4.100.0)
+
+  * cli: require_tty_multiplexer support
+  * release-scripts/update-scap-in-beta: Update deploy hostname
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Mon, 26 Aug 2024 07:39:33 -0700
+
 scap (4.99.0)
 
   * test_deploy.py: Add check for proper handling of check overrides
