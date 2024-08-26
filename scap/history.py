@@ -7,12 +7,12 @@
 
 from datetime import datetime
 import getpass
-import io
 import json
 import os
 from prettytable import PrettyTable, SINGLE_BORDER
 
 from scap import browser
+from scap import git
 from scap import utils
 from scap.runcmd import gitcmd, FailedCommand
 
@@ -58,48 +58,6 @@ def log(entry, path):
             f.seek(0)
             f.writelines(lines)
             f.truncate(f.tell())
-
-
-def update_latest(path, **kwargs):
-    """
-    Updates the metadata of the latest history log entry.
-    """
-
-    try:
-        with utils.open_with_lock(path, "r+") as f:
-            # scan back through the end of the file until we find the contents
-            # immediately following the second to last newline
-            f.seek(0, io.SEEK_END)
-            pos = f.tell()
-            scan_size = 2048
-            entry_pos = 0
-            entry_json = None
-            while pos > 0:
-                pos = f.seek(max(pos - scan_size, 0))
-                contents = f.read()
-                # use end=-1 to always ignore the final newline
-                entry_pos = contents.rfind("\n", 0, -1)
-
-                if entry_pos >= 0:
-                    entry_json = contents[entry_pos + 1 : -1]
-                    break
-
-            if entry_json is None:
-                return
-
-            # parse the currently read log line as a single history entry,
-            # update it, write it back to the same position, and truncate the
-            # file
-            entry = Entry.loads(entry_json)
-            for attr in kwargs:
-                setattr(entry, attr, kwargs[attr])
-
-            f.seek(pos + entry_pos + 1)
-            f.write(entry.dumps() + "\n")
-            f.truncate(f.tell())
-
-    except FileNotFoundError:
-        pass
 
 
 def strip_common_dirname(paths):
@@ -357,6 +315,14 @@ class Entry:
             self.checkouts[repo][branch][directory] = {}
 
         self.checkouts[repo][branch][directory] = commit
+
+    def update_from_directory_and_tag(self, directory, tag):
+        self.update(
+            git.remote_get_url(directory),
+            git.get_branch(directory),
+            directory,
+            git.sha(directory, tag),
+        )
 
     def __eq__(self, other):
         return self.__dict__ == other.__dict__

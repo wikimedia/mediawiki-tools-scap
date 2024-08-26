@@ -191,41 +191,66 @@ class AbstractSync(cli.Application):
                 ),
             ]
 
-            for depstage in deployment_stages:
-                stage = depstage.name
+            self._init_history()
+            try:
+                for depstage in deployment_stages:
+                    stage = depstage.name
 
-                k8s_timer_name = (
-                    "sync-prod-k8s" if stage == PRODUCTION else f"sync-{stage}-k8s"
-                )
+                    k8s_timer_name = (
+                        "sync-prod-k8s" if stage == PRODUCTION else f"sync-{stage}-k8s"
+                    )
 
-                # k8s deployment
-                with log.Timer(k8s_timer_name, self.get_stats()):
-                    with utils.suppress_backtrace():
-                        self.k8s_ops.deploy_k8s_images_for_stage(stage)
+                    # k8s deployment
+                    with log.Timer(k8s_timer_name, self.get_stats()):
+                        with utils.suppress_backtrace():
+                            self.k8s_ops.deploy_k8s_images_for_stage(stage)
 
-                # Bare metal deployment
-                if depstage.baremetal_targets:
-                    if stage == PRODUCTION:
-                        self._sync_proxies_and_apaches(depstage.baremetal_targets)
-                    else:
-                        with log.Timer(f"sync-{stage}", self.get_stats()):
-                            self.sync_targets(depstage.baremetal_targets, stage)
+                    # Bare metal deployment
+                    if depstage.baremetal_targets:
+                        if stage == PRODUCTION:
+                            self._sync_proxies_and_apaches(depstage.baremetal_targets)
+                        else:
+                            with log.Timer(f"sync-{stage}", self.get_stats()):
+                                self.sync_targets(depstage.baremetal_targets, stage)
 
-                if depstage.check_func:
-                    if self.arguments.force:
-                        self.get_logger().warning("%s checks skipped by --force", stage)
-                    else:
-                        depstage.check_func(depstage.baremetal_targets)
+                    if depstage.check_func:
+                        if self.arguments.force:
+                            self.get_logger().warning(
+                                "%s checks skipped by --force", stage
+                            )
+                        else:
+                            depstage.check_func(depstage.baremetal_targets)
 
-                if depstage.post_check_func:
-                    depstage.post_check_func()
+                    if depstage.post_check_func:
+                        depstage.post_check_func()
 
-            history.update_latest(self.scap_history_logfile(), synced=True)
+                # FIXME: Not sure about the difference between these two
+                self.deployment_log_entry.completed = True
+                self.deployment_log_entry.synced = True
+            finally:
+                self._finalize_history()
 
         self._after_lock_release()
         if self.soft_errors:
             return 1
         return 0
+
+    def _init_history(self):
+        self.deployment_log_entry = history.Entry.now()
+        staging_dir = self.config["stage_dir"]
+
+        self.deployment_log_entry.update_from_directory_and_tag(
+            staging_dir, "scap-prep-point"
+        )
+
+        for version in self.active_wikiversions("stage"):
+            self.deployment_log_entry.update_from_directory_and_tag(
+                os.path.join(staging_dir, f"php-{version}"), "scap-prep-point"
+            )
+
+    def _finalize_history(self):
+        self.deployment_log_entry.errors = self.soft_errors
+        history.log(self.deployment_log_entry, self.scap_history_logfile())
 
     def _sync_proxies_and_apaches(self, full_target_list):
         # Update proxies

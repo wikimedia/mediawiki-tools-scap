@@ -68,7 +68,6 @@ class CheckoutMediaWiki(cli.Application):
     """
 
     replay_history = None
-    new_history = None
 
     @cli.argument(
         "branch",
@@ -134,8 +133,6 @@ class CheckoutMediaWiki(cli.Application):
             else {}
         )
         with Lock(self.get_lock_file(), name="concurrent prep", **lock_timeout):
-            self.new_history = history.Entry.now()
-
             if self.arguments.auto and self.arguments.history:
                 display_repos = ["mediawiki/core", "operations/mediawiki-config"]
                 logger.info("Browsing history")
@@ -157,36 +154,31 @@ class CheckoutMediaWiki(cli.Application):
             with log.Timer(
                 "scap prep {}".format(self.arguments.branch), self.get_stats()
             ):
-                try:
-                    if self.arguments.auto:
-                        self._clone_or_update_repo(
-                            os.path.join(
-                                self.config["gerrit_url"], "operations/mediawiki-config"
-                            ),
-                            self.config["operations_mediawiki_config_branch"],
-                            self.config["stage_dir"],
-                            logger,
-                        )
-
-                        if self.arguments.copy_private_settings:
-                            self._copy_private_settings(
-                                self.arguments.copy_private_settings, logger
-                            )
-
-                    versions_to_prep = (
-                        self.active_wikiversions("stage")
-                        if self.arguments.branch == "auto"
-                        else [self.arguments.branch]
+                if self.arguments.auto:
+                    self._clone_or_update_repo(
+                        os.path.join(
+                            self.config["gerrit_url"], "operations/mediawiki-config"
+                        ),
+                        self.config["operations_mediawiki_config_branch"],
+                        self.config["stage_dir"],
+                        logger,
                     )
 
-                    for version in versions_to_prep:
-                        self._prep_mw_branch(
-                            version, logger, apply_patches=self.arguments.apply_patches
+                    if self.arguments.copy_private_settings:
+                        self._copy_private_settings(
+                            self.arguments.copy_private_settings, logger
                         )
 
-                    self.new_history.completed = True
-                finally:
-                    history.log(self.new_history, self.scap_history_logfile())
+                versions_to_prep = (
+                    self.active_wikiversions("stage")
+                    if self.arguments.branch == "auto"
+                    else [self.arguments.branch]
+                )
+
+                for version in versions_to_prep:
+                    self._prep_mw_branch(
+                        version, logger, apply_patches=self.arguments.apply_patches
+                    )
 
     def _copy_private_settings(self, src, logger):
         dest = os.path.join(self.config["stage_dir"], "private", "PrivateSettings.php")
@@ -322,6 +314,10 @@ class CheckoutMediaWiki(cli.Application):
             head = git.clone_or_update_repo(
                 dir, repo, branch, logger, reference, ref=ref
             )
+            # Use a tag to maintain a pointer to the head of the repo prior
+            # to security patches being applied.  This information is used
+            # when recording a deployment history entry.
+            git.tag("scap-prep-point", head, dir, force=True)
 
             # Ensure all repositories have a ssh push url
             repo_name = os.path.relpath(repo, self.config["gerrit_url"])
@@ -337,8 +333,6 @@ class CheckoutMediaWiki(cli.Application):
             # module is removed upstream from `.gitmodules`. We detect that situation
             # and clean the local checkout
             self._check_for_removed_submodules(dir)
-
-        self.new_history.update(repo, branch, dir, head)
 
     def _check_for_removed_submodules(self, local_repo_dir):
         status_output = git.gitcmd("status", "--porcelain", cwd=local_repo_dir)

@@ -157,6 +157,7 @@ class DeployPromote(cli.Application):
                 self._push_patch()
                 self.logger.info("Running git pull")
                 gitcmd("pull")
+                git.tag("scap-prep-point", "HEAD", force=True)
 
     def _set_messages(self):
         """
