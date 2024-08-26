@@ -587,20 +587,35 @@ def update_deploy_head(deploy_info, location):
             deployfile.close()
 
 
-def tag_repo(deploy_info, location=os.getcwd()):
+def tag(tag, commit_ref, location, annotated=False, force=False, messages=None):
+    if messages is None:
+        messages = []
+
+    cmd = ["tag"]
+    if annotated:
+        cmd.append("-a")
+    if force:
+        cmd.append("--force")
+    for message in messages:
+        cmd.append(f"-m{message}")
+    cmd += ["--", tag, commit_ref]
+
+    gitcmd(*cmd, cwd=location)
+
+
+def tag_repo(deploy_info, location):
     """creates new tag in deploy repo"""
 
-    ensure_dir(location)
-    with utils.cd(location):
-        gitcmd(
-            "tag",
-            "-a",
-            "-muser {}".format(deploy_info["user"]),
-            "-mtimestamp {}".format(deploy_info["timestamp"]),
-            "--",
-            deploy_info["tag"],
-            deploy_info["commit"],
-        )
+    tag(
+        deploy_info["tag"],
+        deploy_info["commit"],
+        location,
+        annotated=True,
+        messages=[
+            "user {}".format(deploy_info["user"]),
+            "timestamp {}".format(deploy_info["timestamp"]),
+        ],
+    )
 
 
 def resolve_gitdir(directory):

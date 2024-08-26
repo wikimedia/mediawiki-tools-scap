@@ -15,6 +15,8 @@ class GitTest(unittest.TestCase):
         git.default_ignore(TEMPDIR)
         scap.runcmd.touch("testfile", cwd=TEMPDIR)
         git.add_all(TEMPDIR, "first commit")
+        scap.runcmd.touch("testfile2", cwd=TEMPDIR)
+        git.add_all(TEMPDIR, "second commit")
 
     def tearDown(self):
         if TEMPDIR.startswith("/tmp") and os.path.isdir(TEMPDIR):
@@ -63,6 +65,19 @@ class GitTest(unittest.TestCase):
         git.update_server_info(has_submodules=False, location=TEMPDIR)
 
         git.update_server_info(has_submodules=True, location=TEMPDIR)
+
+    def test_tag(self):
+        git.tag("testing-git-tag", "HEAD", TEMPDIR)
+        git.tag("testing-git-tag", "HEAD~1", TEMPDIR, force=True)
+
+    def test_tag_repo(self):
+        deploy_info = {
+            "user": "scap-test-suite",
+            "timestamp": "Right now",
+            "tag": "testing-tag_repo",
+            "commit": "HEAD",
+        }
+        git.tag_repo(deploy_info, TEMPDIR)
 
     def test_clean_tags(self):
         for _ in range(10):
