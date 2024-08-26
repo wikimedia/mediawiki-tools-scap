@@ -322,6 +322,10 @@ class CheckoutMediaWiki(cli.Application):
             head = git.clone_or_update_repo(
                 dir, repo, branch, logger, reference, ref=ref
             )
+            # Use a tag to maintain a pointer to the head of the repo prior
+            # to security patches being applied.  This information is used
+            # when recording a deployment history entry.
+            git.tag("scap-prep-point", head, dir, force=True)
 
             # Ensure all repositories have a ssh push url
             repo_name = os.path.relpath(repo, self.config["gerrit_url"])
