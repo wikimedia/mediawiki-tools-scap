@@ -120,13 +120,8 @@ def lfs_install(*args):
     gitcmd("lfs", *lfsargs)
 
 
-def info(directory, remote="origin"):
-    """Compute git version information for a given directory that is
-    compatible with MediaWiki's GitInfo class.
-
-    :param directory: Directory to scan for git information
-    :returns: Dict of information about current repository state
-    """
+def get_branch(directory):
+    """Returns the name of the current branch in the git repo located in `directory`"""
     git_dir = resolve_gitdir(directory)
 
     head_file = os.path.join(git_dir, "HEAD")
@@ -136,11 +131,23 @@ def info(directory, remote="origin"):
         head = head[5:]
 
     if head.startswith("refs/heads/"):
-        branch = head[11:]
+        return head[11:]
     elif head.startswith("refs/tags/"):
-        branch = head[10:]
+        return head[10:]
     else:
-        branch = head
+        return head
+
+
+def info(directory, remote="origin"):
+    """Compute git version information for a given directory that is
+    compatible with MediaWiki's GitInfo class.
+
+    :param directory: Directory to scan for git information
+    :returns: Dict of information about current repository state
+    """
+    git_dir = resolve_gitdir(directory)
+    head = sha(directory, "HEAD")
+    branch = get_branch(directory)
 
     # This information is used by https://<site>/wiki/Special:Version
     # to construct a link to a commit in Gerrit (gitiles), so it must
