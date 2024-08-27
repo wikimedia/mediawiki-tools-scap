@@ -587,7 +587,7 @@ def update_deploy_head(deploy_info, location):
             deployfile.close()
 
 
-def tag(tag, commit_ref, location, annotated=False, force=False, messages=None):
+def tag(tag, commit_ref, location=".", annotated=False, force=False, messages=None):
     if messages is None:
         messages = []
 
