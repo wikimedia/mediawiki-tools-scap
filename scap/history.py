@@ -132,7 +132,7 @@ class History:
         self.entries = entries
         self.display_repos = display_repos
 
-    def browse(self, filter=None):
+    def browse(self, filter=None) -> "Entry":
         """
         Interactively browses the history and returns the user-selected entry.
 
@@ -203,7 +203,7 @@ class Entry:
         return cls(**attrs)
 
     @classmethod
-    def now(cls, **attrs):
+    def now(cls, **attrs) -> "Entry":
         """
         Creates a new entry with the current timestamp and meta data from the
         environment.
@@ -289,7 +289,7 @@ class Entry:
         """
         return self.checkouts.get(repo, {}).get(branch, {}).get(directory)
 
-    def summary(self, repos):
+    def summary(self, repos) -> str:
         """
         Returns a terse summary of the entry, including branch head
         information for only the given repos.
