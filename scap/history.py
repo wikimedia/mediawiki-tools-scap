@@ -137,12 +137,10 @@ class History:
         Interactively browses the history and returns the user-selected entry.
 
         :param filter: Optional lambda used to filter history entries. By
-                       default only completed and synced entries are shown.
+                       default only completed are shown.
         """
         return browser.browse(
-            self.filter(
-                (lambda e: e.completed and e.synced) if filter is None else filter
-            )
+            self.filter((lambda e: e.completed) if filter is None else filter)
         )
 
     def filter(self, fltr):
@@ -181,7 +179,6 @@ class Entry:
     """
 
     completed = False
-    synced = False
     timestamp = None
     checkouts = None
     username = None

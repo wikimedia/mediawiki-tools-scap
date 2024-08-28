@@ -224,9 +224,7 @@ class AbstractSync(cli.Application):
                     if depstage.post_check_func:
                         depstage.post_check_func()
 
-                # FIXME: Not sure about the difference between these two
                 self.deployment_log_entry.completed = True
-                self.deployment_log_entry.synced = True
             finally:
                 self._finalize_history()
 
