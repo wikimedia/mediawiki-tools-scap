@@ -40,7 +40,7 @@ def load(path, **kwargs):
         raise ValueError("failed to parse history file %s" % path) from e
 
 
-def log(entry, path):
+def log(entry: "Entry", path):
     """
     Appends the log with a new history entry and performs garbage collection
     when the log surpasses LOG_GC_BYTE_LIMIT in size.
@@ -265,7 +265,7 @@ class Entry:
             for i in range(len(repos))
         ]
 
-    def dumps(self, **kwargs):
+    def dumps(self, **kwargs) -> str:
         """
         Returns a JSON representation of the history entry, formatted for
         storage as a single file line.
