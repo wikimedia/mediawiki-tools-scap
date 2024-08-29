@@ -510,10 +510,8 @@ class Application(object):
             self.config["train_blockers_url"], self.config["web_proxy"]
         )
 
-    def scap_history_logfile(self):
-        return self.config["history_log"] or os.path.join(
-            self.config["stage_dir"], "scap/log/history.log"
-        )
+    def scap_history_dbfile(self):
+        return os.path.join(self.config["stage_dir"], "scap/log/history.db")
 
     @staticmethod
     def factory(argv=None):

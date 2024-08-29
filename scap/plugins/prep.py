@@ -136,10 +136,8 @@ class CheckoutMediaWiki(cli.Application):
             if self.arguments.auto and self.arguments.history:
                 display_repos = ["mediawiki/core", "operations/mediawiki-config"]
                 logger.info("Browsing history")
-                hist = history.load(
-                    self.scap_history_logfile(), display_repos=display_repos
-                )
-                self.replay_history = hist.browse()
+                hist = history.History(self.scap_history_dbfile())
+                self.replay_history = hist.browse(display_repos)
                 if self.replay_history is None:
                     logger.info("No history selected. Aborting.")
                     return HISTORY_ABORT_STATUS

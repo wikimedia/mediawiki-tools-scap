@@ -23,6 +23,7 @@
 import argparse
 import errno
 from dataclasses import dataclass
+import datetime
 import getpass
 import locale
 import os
@@ -36,6 +37,7 @@ from concurrent.futures import ThreadPoolExecutor
 import scap.arg as arg
 import scap.checks as checks
 import scap.cli as cli
+import scap.git as git
 import scap.interaction as interaction
 import scap.lint as lint
 import scap.lock as lock
@@ -234,21 +236,34 @@ class AbstractSync(cli.Application):
         return 0
 
     def _init_history(self):
-        self.deployment_log_entry = history.Entry.now()
-        staging_dir = self.config["stage_dir"]
+        self.deployment_history = history.History(self.scap_history_dbfile())
 
-        self.deployment_log_entry.update_from_directory_and_tag(
-            staging_dir, "scap-prep-point"
+        self.deployment_log_entry = history.Deployment(
+            starttime=datetime.datetime.now(datetime.timezone.utc),
+            username=getpass.getuser(),
         )
 
-        for version in self.active_wikiversions("stage"):
-            self.deployment_log_entry.update_from_directory_and_tag(
-                os.path.join(staging_dir, f"php-{version}"), "scap-prep-point"
+        def _add_checkout(directory):
+            self.deployment_log_entry.checkouts.append(
+                history.Checkout(
+                    repo=git.remote_get_url(directory),
+                    branch=git.get_branch(directory),
+                    directory=directory,
+                    commit_ref=git.sha(directory, "scap-prep-point"),
+                )
             )
+
+        staging_dir = self.config["stage_dir"]
+
+        _add_checkout(staging_dir)
+
+        for version in self.active_wikiversions("stage"):
+            _add_checkout(os.path.join(staging_dir, f"php-{version}"))
 
     def _finalize_history(self):
         self.deployment_log_entry.errors = self.soft_errors
-        history.log(self.deployment_log_entry, self.scap_history_logfile())
+        self.deployment_log_entry.endtime = datetime.datetime.now(datetime.timezone.utc)
+        self.deployment_history.log(self.deployment_log_entry)
 
     def _sync_proxies_and_apaches(self, full_target_list):
         # Update proxies

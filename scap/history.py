@@ -2,62 +2,229 @@
     scap.history
     ~~~~~~~~
     Interfaces for recording the git checkouts of a number of repo working
-    trees that occur during prep.
+    trees that are synced during scap sync-world.
 """
 
-from datetime import datetime
-import getpass
-import json
+import dataclasses
+from datetime import datetime, timedelta, timezone
 import os
 from prettytable import PrettyTable, SINGLE_BORDER
 
 from scap import browser
-from scap import git
-from scap import utils
 from scap.runcmd import gitcmd, FailedCommand
 
+from typing import List, Optional
+from sqlalchemy import Engine, create_engine, ForeignKey, select, delete
+from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship, Session
+from sqlalchemy.event import listen
+from sqlalchemy.pool import Pool
 
-TIMESTAMP_FORMAT = "%Y-%m-%d %H:%M:%S"
-
-# To avoid having to line-wise truncate the history log file on every run,
-# file size is used as a heuristic measure by which to detect the need to
-# GC. A typical log entry in production will be a little under 400 bytes
-# long, so this heuristic uses a file size well above the number of entries
-# we'd definitely like to keep around (say, double that number) multiplied
-# by the typical log entry size. See log() and log_gc()
-LOG_GC_TRUNCATE_TO_LINES = 40
-LOG_GC_BYTE_LIMIT = 400 * (LOG_GC_TRUNCATE_TO_LINES * 2)
+# Maximum age of a history entry before it is gc'd
+MAX_HISTORY_LENGTH = timedelta(days=365)
 
 
-def load(path, **kwargs):
-    """Loads history from a given log file."""
-    try:
-        with utils.open_with_lock(path, "r") as f:
-            return History.load(f, **kwargs)
-    except FileNotFoundError:
-        return History(**kwargs)
-    except ValueError as e:
-        raise ValueError("failed to parse history file %s" % path) from e
+class ModelBase(DeclarativeBase):
+    pass
 
 
-def log(entry: "Entry", path):
+class Deployment(ModelBase):
     """
-    Appends the log with a new history entry and performs garbage collection
-    when the log surpasses LOG_GC_BYTE_LIMIT in size.
+    Represents a scap sync-world deployment in history, including
+    information about the relevant git repo checkouts that were
+    synced, and metadata for username, start and end times, and
+    whether the sync completed successfully.
     """
-    dirname = os.path.dirname(path)
-    if dirname:
-        os.makedirs(dirname, exist_ok=True)
 
-    with utils.open_with_lock(path, "a+") as f:
-        f.write(entry.dumps() + "\n")
+    __tablename__ = "deployment"
 
-        # perform garbage collection once the log size limit is reached
-        if f.tell() >= LOG_GC_BYTE_LIMIT:
-            lines = f.readlines()[-LOG_GC_TRUNCATE_TO_LINES:]
-            f.seek(0)
-            f.writelines(lines)
-            f.truncate(f.tell())
+    id: Mapped[int] = mapped_column(primary_key=True)
+    starttime: Mapped[datetime] = mapped_column(index=True)
+    endtime: Mapped[Optional[datetime]]
+    username: Mapped[str]
+    completed: Mapped[bool] = mapped_column(default=False)
+    errors: Mapped[bool] = mapped_column(default=False)
+
+    checkouts: Mapped[List["Checkout"]] = relationship(
+        back_populates="deployment", cascade="all, delete-orphan"
+    )
+
+    def summary(self, repos) -> str:
+        """
+        Returns a terse summary of the deployment, including branch head
+        information for only the given repos.
+        """
+        return "%s: (%s): %s" % (
+            self.starttime,
+            self.username,
+            self._branch_heads(repos),
+        )
+
+    def lookup(self, repo, branch, directory) -> str:
+        """
+        Returns the commit/ref from the deployment's checkouts for the given
+        repo, branch and directory.
+        """
+        for checkout in self.checkouts:
+            if (
+                checkout.repo == repo
+                and checkout.branch == branch
+                and checkout.directory == directory
+            ):
+                return checkout.commit_ref
+
+    def _branch_heads(self, repos):
+        """
+        Returns a short head summary from the checkout log for the given
+        short repo names.
+        """
+        heads = {}
+        repos = set(repos)
+        for co in self._checkout_list():
+            if co.short_repo in repos:
+                heads[co.branch] = co.commit
+
+        return heads
+
+    def _checkout_list(self) -> List["DisplayCheckout"]:
+        """
+        Returns the checkouts as a list of DisplayCheckout objects.
+
+        Used to present various human readable output. Note that common
+        directory and repo paths are removed.
+        """
+
+        repos = []
+        branches = []
+        directories = []
+        commits = []
+
+        for checkout in sorted(self.checkouts, key=lambda checkout: checkout.repo):
+            repos.append(checkout.repo)
+            branches.append(checkout.branch)
+            directories.append(checkout.directory)
+            commits.append(checkout.commit_ref)
+
+        short_repos = strip_common_dirname(repos)
+        short_directories = strip_common_dirname(directories)
+
+        return [
+            DisplayCheckout(
+                repos[i],
+                branches[i],
+                directories[i],
+                commits[i],
+                short_repos[i],
+                short_directories[i],
+            )
+            for i in range(len(repos))
+        ]
+
+    def __prettytable__(self):
+        checkouts = self._checkout_list()
+
+        table = PrettyTable()
+        table.set_style(SINGLE_BORDER)
+        table.field_names = ["directory", "repo", "branch", "commit"]
+        for co in checkouts:
+            table.add_row([co.short_directory, co.short_repo, co.branch, co.commit])
+        table.align = "l"
+        table.align["branch"] = "r"
+        table.align["commit"] = "r"
+
+        return (table, checkouts)
+
+
+class Checkout(ModelBase):
+    """
+    Information about a git repo that was included in a scap sync-world operation.
+    """
+
+    __tablename__ = "checkout"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    deployment_id: Mapped[int] = mapped_column(ForeignKey("deployment.id"))
+    repo: Mapped[str]
+    branch: Mapped[str]
+    directory: Mapped[str]
+    commit_ref: Mapped[str]
+
+    deployment: Mapped["Deployment"] = relationship(back_populates="checkouts")
+
+
+@dataclasses.dataclass
+class HistoryResults:
+    entries: List[Deployment] = dataclasses.field(default_factory=list)
+    display_repos: List[str] = dataclasses.field(default_factory=list)
+
+    def __prettytable__(self):
+        table = PrettyTable()
+        table.set_style(SINGLE_BORDER)
+        table.field_names = ["#", "start time", "deployer", "branches"]
+        for entry in self.entries:
+            branch_heads = entry._branch_heads(self.display_repos)
+            branches = ", ".join(
+                [
+                    "%s (%s)" % (branch, head[:8])
+                    for branch, head in branch_heads.items()
+                ]
+            )
+            table.add_row([entry.id, entry.starttime, entry.username, branches])
+        table.align = "l"
+        return (table, self.entries)
+
+
+class History:
+    db_filename: str
+    engine: Engine
+
+    def __init__(self, db_filename):
+        self.db_filename = db_filename
+        self.engine = self._get_db_engine()
+
+    def _get_db_engine(self):
+        def set_sqlite_pragma(dbapi_connection, connection_record):
+            cursor = dbapi_connection.cursor()
+            cursor.execute("PRAGMA journal_mode=WAL;")
+            cursor.close()
+
+        engine = create_engine(f"sqlite:///{self.db_filename}")
+        listen(Pool, "connect", set_sqlite_pragma)
+        return engine
+
+    def log(self, deployment: Deployment):
+        """
+        Record a deployment in the history log.
+        """
+
+        # Set up tables if needed
+        ModelBase.metadata.create_all(self.engine)
+
+        with Session(self.engine) as session:
+            session.add(deployment)
+            session.add_all(deployment.checkouts)
+            session.commit()
+        self._gc()
+
+    def browse(self, display_repos=[]) -> Deployment:
+        """
+        Interactively browses the history and returns the user-selected deployment.
+        """
+        with Session(self.engine) as session:
+            deployments = list(
+                session.scalars(
+                    select(Deployment)
+                    .where(Deployment.completed)
+                    .order_by(Deployment.starttime.desc())
+                )
+            )
+            return browser.browse(HistoryResults(deployments, display_repos))
+
+    def _gc(self):
+        cutoff = datetime.now(timezone.utc) - MAX_HISTORY_LENGTH
+
+        with Session(self.engine) as session:
+            session.execute(delete(Deployment).where(Deployment.starttime < cutoff))
+            session.commit()
 
 
 def strip_common_dirname(paths):
@@ -102,247 +269,7 @@ def strip_common_dirname(paths):
     return list(map(strip, paths))
 
 
-class History:
-    """
-    Represents scap prep history.
-    """
-
-    entries = None
-
-    @classmethod
-    def load(cls, lines, **kwargs):
-        """
-        Loads history from the given iterable, typically the lines of an open
-        file object.
-        """
-
-        entries = []
-
-        for i, line in enumerate(lines):
-            try:
-                entries.append(Entry.loads(line))
-            except ValueError as e:
-                raise ValueError(
-                    "invalid history on line %d: %s" % ((i + 1), line)
-                ) from e
-
-        return cls(entries, **kwargs)
-
-    def __init__(self, entries=[], display_repos=[]):
-        self.entries = entries
-        self.display_repos = display_repos
-
-    def browse(self, filter=None) -> "Entry":
-        """
-        Interactively browses the history and returns the user-selected entry.
-
-        :param filter: Optional lambda used to filter history entries. By
-                       default only completed are shown.
-        """
-        return browser.browse(
-            self.filter((lambda e: e.completed) if filter is None else filter)
-        )
-
-    def filter(self, fltr):
-        """
-        Returns a history object with only entries for which the given lambda
-        returns True.
-        """
-
-        return self.__class__(
-            filter(fltr, self.entries), display_repos=self.display_repos
-        )
-
-    def __prettytable__(self):
-        table = PrettyTable()
-        table.set_style(SINGLE_BORDER)
-        table.field_names = ["#", "timestamp", "deployer", "branches"]
-        entries = sorted(self.entries, key=lambda e: e.timestamp, reverse=True)
-        for i, entry in enumerate(entries):
-            branch_heads = entry.branch_heads(self.display_repos)
-            branches = ", ".join(
-                [
-                    "%s (%s)" % (branch, head[:8])
-                    for branch, head in branch_heads.items()
-                ]
-            )
-            table.add_row([i, entry.timestamp, entry.username, branches])
-        table.align = "l"
-        return (table, entries)
-
-
-class Entry:
-    """
-    Represents a single entry in the history, a set of checkouts performed
-    during the scap prep session, and metadata for username, timestamp, and
-    whether the prep session completed successfully.
-    """
-
-    completed = False
-    timestamp = None
-    checkouts = None
-    username = None
-
-    def __init__(self, **kwargs):
-        self.checkouts = {}
-        for attr in kwargs:
-            setattr(self, attr, kwargs[attr])
-
-    @classmethod
-    def loads(cls, serialized):
-        """Loads a history entry from a JSON string."""
-        attrs = json.loads(serialized)
-
-        ts = attrs.get("timestamp")
-        if ts is not None:
-            attrs["timestamp"] = datetime.strptime(ts, TIMESTAMP_FORMAT)
-
-        return cls(**attrs)
-
-    @classmethod
-    def now(cls, **attrs) -> "Entry":
-        """
-        Creates a new entry with the current timestamp and meta data from the
-        environment.
-        """
-
-        return cls(
-            username=getpass.getuser(),
-            timestamp=datetime.utcnow(),
-            completed=False,
-            **attrs,
-        )
-
-    def branch_heads(self, repos):
-        """
-        Returns a short head summary from the checkout log for the given
-        short repo names.
-        """
-        heads = {}
-        repos = set(repos)
-        for co in self.checkout_list():
-            if co.short_repo in repos:
-                heads[co.branch] = co.commit
-
-        return heads
-
-    def checkout_list(self):
-        """
-        Returns the checkouts as a list of Checkout objects.
-
-        Used to present various human readable output. Note that common
-        directory and repo paths are removed.
-        """
-
-        repos = []
-        branches = []
-        directories = []
-        commits = []
-
-        for repo in self.checkouts:
-            for branch in self.checkouts[repo]:
-                for directory in self.checkouts[repo][branch]:
-                    repos.append(repo)
-                    branches.append(branch)
-                    directories.append(directory)
-                    commits.append(self.checkouts[repo][branch][directory])
-
-        short_repos = strip_common_dirname(repos)
-        short_directories = strip_common_dirname(directories)
-
-        return [
-            Checkout(
-                repos[i],
-                branches[i],
-                directories[i],
-                commits[i],
-                short_repos[i],
-                short_directories[i],
-            )
-            for i in range(len(repos))
-        ]
-
-    def dumps(self, **kwargs) -> str:
-        """
-        Returns a JSON representation of the history entry, formatted for
-        storage as a single file line.
-        """
-
-        attrs = self.__dict__
-
-        ts = attrs.get("timestamp")
-        if ts is not None:
-            attrs["timestamp"] = ts.strftime(TIMESTAMP_FORMAT)
-
-        return json.dumps(
-            attrs,
-            **{"sort_keys": True, "separators": (",", ":"), **kwargs},
-        )
-
-    def lookup(self, repo, branch, directory):
-        """
-        Returns the commit/ref from the entry's checkouts for the given
-        repo, branch and directory.
-        """
-        return self.checkouts.get(repo, {}).get(branch, {}).get(directory)
-
-    def summary(self, repos) -> str:
-        """
-        Returns a terse summary of the entry, including branch head
-        information for only the given repos.
-        """
-        return "%s: (%s): %s" % (
-            self.timestamp,
-            self.username,
-            self.branch_heads(repos),
-        )
-
-    def update(self, repo, branch, directory, commit):
-        """
-        Updates checkout record (repo/branch/commit) information for this
-        entry.
-        """
-        if repo not in self.checkouts:
-            self.checkouts[repo] = {}
-
-        if branch not in self.checkouts[repo]:
-            self.checkouts[repo][branch] = {}
-
-        if directory not in self.checkouts[repo][branch]:
-            self.checkouts[repo][branch][directory] = {}
-
-        self.checkouts[repo][branch][directory] = commit
-
-    def update_from_directory_and_tag(self, directory, tag):
-        self.update(
-            git.remote_get_url(directory),
-            git.get_branch(directory),
-            directory,
-            git.sha(directory, tag),
-        )
-
-    def __eq__(self, other):
-        return self.__dict__ == other.__dict__
-
-    def __prettytable__(self):
-        checkouts = self.checkout_list()
-
-        table = PrettyTable()
-        table.set_style(SINGLE_BORDER)
-        table.field_names = ["directory", "repo", "branch", "commit"]
-        for co in checkouts:
-            table.add_row([co.short_directory, co.short_repo, co.branch, co.commit])
-        table.align = "l"
-        table.align["branch"] = "r"
-        table.align["commit"] = "r"
-
-        return (table, checkouts)
-
-    def __repr__(self):
-        return self.__dict__.__repr__()
-
-
-class Checkout:
+class DisplayCheckout:
     """
     Used to display checkout details to the user.
     """
