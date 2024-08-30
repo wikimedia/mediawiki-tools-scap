@@ -215,6 +215,11 @@ class CheckoutMediaWiki(cli.Application):
             reference=reference_dir,
         )
 
+        cache_dir = os.path.join(dest_dir, "cache")
+        if os.geteuid() == os.stat(cache_dir).st_uid:
+            logger.debug("Making cache dir world writable")
+            os.chmod(cache_dir, os.stat(cache_dir).st_mode | 0o777)
+
         if checkout_version == "master":
             self._master_stuff(dest_dir, logger)
         else:
@@ -232,11 +237,6 @@ class CheckoutMediaWiki(cli.Application):
 
         logger.debug("Creating LocalSettings.php stub")
         write_settings_stub(os.path.join(dest_dir, "LocalSettings.php"))
-
-        cache_dir = os.path.join(dest_dir, "cache")
-        if os.geteuid() == os.stat(cache_dir).st_uid:
-            logger.debug("Making cache dir world writable")
-            os.chmod(cache_dir, os.stat(cache_dir).st_mode | 0o777)
 
         if apply_patches:
             with utils.suppress_backtrace():
