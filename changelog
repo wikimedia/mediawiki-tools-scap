@@ -1,3 +1,9 @@
+scap (4.101.2)
+
+  * install_local_version.sh: Upgrade pip to latest version
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Thu, 05 Sep 2024 13:39:02 -0700
+
 scap (4.101.1)
 
   * Ensure history.db is group-writable
