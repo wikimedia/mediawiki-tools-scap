@@ -183,6 +183,7 @@ function get_scap_distribution {
 function install_scap_venv_for_user {
   function install_venv {
     $AS_USER python3 -m venv "$SCAP_VENV_DIR"
+    $AS_USER "$SCAP_VENV_DIR"/bin/pip install --upgrade pip
     $AS_USER "$SCAP_VENV_DIR"/bin/pip install --no-deps "$DIST_DIR"/*.whl
     return $?
   }
