@@ -1,3 +1,9 @@
+scap (4.101.1)
+
+  * Ensure history.db is group-writable
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Thu, 05 Sep 2024 09:32:54 -0700
+
 scap (4.101.0)
 
   * Store scap sync-world history in a SQLite database
