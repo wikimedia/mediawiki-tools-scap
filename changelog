@@ -1,3 +1,9 @@
+scap (4.101.3)
+
+  * wheels: Include up-to-date pip along with other wheels
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Thu, 05 Sep 2024 14:47:38 -0700
+
 scap (4.101.2)
 
   * install_local_version.sh: Upgrade pip to latest version
