@@ -1,3 +1,19 @@
+scap (4.101.0)
+
+  * Store scap sync-world history in a SQLite database
+  * cli.py: add scap version to fatal error messages for better logging
+  * scap prep: Make mediawiki cache dir world writable immediately after cloning
+  * history: Drop 'synced' flag.  Just use 'completed'
+  * history.py: A couple more type declarations
+  * history.py: Add return type info to some methods
+  * Revise use of deployment history
+  * Add spiderpig.png to project
+  * git.py: Add get_branch() function
+  * git.py: tag(): Default location to ".".
+  * git.py: Add `tag` function, use it for `tag_repo`
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Thu, 05 Sep 2024 08:29:15 -0700
+
 scap (4.100.0)
 
   * cli: require_tty_multiplexer support
