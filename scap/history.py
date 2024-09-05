@@ -191,13 +191,20 @@ class History:
         listen(Pool, "connect", set_sqlite_pragma)
         return engine
 
+    def _setup_db(self):
+        # Set up tables if needed
+        ModelBase.metadata.create_all(self.engine)
+
+        # Ensure that the database is group writable
+        if os.geteuid() == os.stat(self.db_filename).st_uid:
+            os.chmod(self.db_filename, 0o664)
+
     def log(self, deployment: Deployment):
         """
         Record a deployment in the history log.
         """
 
-        # Set up tables if needed
-        ModelBase.metadata.create_all(self.engine)
+        self._setup_db()
 
         with Session(self.engine) as session:
             session.add(deployment)

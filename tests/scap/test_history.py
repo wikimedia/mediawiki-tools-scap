@@ -1,5 +1,6 @@
 from datetime import datetime, timezone
 import os
+import stat
 
 from scap import history
 
@@ -67,3 +68,6 @@ def test_history(tmpdir):
     assert deployment.lookup("does-not-exist", "foo", "foo-dir") is None
 
     hist.log(deployment)
+
+    # Verify that the database file is group writable.
+    assert os.stat(db_filename).st_mode & stat.S_IWGRP == stat.S_IWGRP
