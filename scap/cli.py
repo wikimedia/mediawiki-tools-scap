@@ -33,6 +33,7 @@ import sys
 import time
 from functools import reduce
 
+import scap.version as version
 import scap.ansi as ansi
 import scap.arg as arg
 import scap.config as config
@@ -424,7 +425,11 @@ class Application(object):
         logger = self.get_logger()
         exception_type = type(ex).__name__
         backtrace = True
-        message = "%s failed: <%s> %s"
+
+        # Retrieve scap version
+
+        scap_version = version.__version__
+        message = "%s failed: <%s> %s (scap version: %s)"
 
         if isinstance(ex, lock.LockFailedError) or getattr(
             ex, "_scap_no_backtrace", False
@@ -434,7 +439,7 @@ class Application(object):
         if backtrace:
             logger.warning("Unhandled error:", exc_info=True)
 
-        logger.error(message, self.program_name, exception_type, ex)
+        logger.error(message, self.program_name, exception_type, ex, scap_version)
         return 70
 
     def _before_exit(self, exit_status):

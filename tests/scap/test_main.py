@@ -1,5 +1,5 @@
 import pytest
-from scap import cli
+from scap import cli, version
 
 
 @pytest.fixture
@@ -110,4 +110,28 @@ def test_exclude_wikiversions():
     assert (
         "--exclude-wikiversions.php"
         not in sync_wikiversions_app._base_scap_pull_command()
+    )
+
+
+def test_handle_exception(cmd, mocker):
+    cmd.arguments = mocker.MagicMock()
+    cmd.arguments.no_log_message = False
+
+    # Mock the logger
+    get_log = mocker.patch("logging.getLogger")
+    announcer = get_log.return_value
+
+    valueError = ValueError("test")
+
+    assert cmd._handle_exception(valueError) == 1
+
+    get_log.assert_called_with("scap.announce")
+    assert cmd._announce_logger == announcer
+
+    announcer.info.assert_called_with(
+        "scap failed: <%s> %s (scap version: %s) (duration: %s)",
+        type(valueError).__name__,
+        valueError,
+        version.__version__,
+        mocker.ANY,
     )

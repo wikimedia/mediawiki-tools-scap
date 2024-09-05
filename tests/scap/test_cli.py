@@ -9,7 +9,7 @@ except ImportError:
 
 import pytest
 
-from scap import arg, cli, lock, utils
+from scap import arg, cli, lock, utils, version
 
 
 @cli.command("dummy")
@@ -287,14 +287,35 @@ def test_main_not_implemented(app):
 def test_handle_exception(app):
     app.get_logger = mock.MagicMock()
     log = app.get_logger.return_value
-    assert app._handle_exception(ValueError("test")) == 70
+    valueError = ValueError("test")
+    assert app._handle_exception(valueError) == 70
     # Full Backtrace
     assert log.warning.call_count == 1
     assert log.error.call_count == 1
+
+    # Check that the version number is included in the error message
+    log.error.assert_called_with(
+        "%s failed: <%s> %s (scap version: %s)",
+        "cmd.exe",
+        "ValueError",
+        valueError,
+        version.__version__,
+    )
+
     # No backtrace
     log.warning.reset_mock()
-    assert app._handle_exception(lock.LockFailedError("test")) == 70
+    lockFailedError = lock.LockFailedError("test")
+    assert app._handle_exception(lockFailedError) == 70
     log.warning.assert_not_called()
+
+    # Check that the version number is included in the error message
+    log.error.assert_called_with(
+        "%s failed: <%s> %s (scap version: %s)",
+        "cmd.exe",
+        "LockFailedError",
+        lockFailedError,
+        version.__version__,
+    )
 
 
 def test_assert_current_user(app, mocker):

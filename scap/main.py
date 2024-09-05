@@ -1089,12 +1089,17 @@ class ScapWorld(AbstractSync):
         if backtrace:
             self.get_logger().warning("Unhandled error:", exc_info=True)
 
+        # Retrieve scap version
+        scap_version = scapversion.__version__
+        message = "scap failed: <%s> %s (scap version: %s) (duration: %s)"
         self.announce(
-            "scap failed: %s %s (duration: %s)",
+            message,
             type(ex).__name__,
             ex,
+            scap_version,
             utils.human_duration(self.get_duration()),
         )
+
         return 1
 
     def _before_exit(self, exit_status):
