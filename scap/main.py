@@ -244,12 +244,15 @@ class AbstractSync(cli.Application):
         )
 
         def _add_checkout(directory):
+            branch = git.get_branch(directory)
+            commit_ref = git.merge_base(directory, "origin", branch)
+
             self.deployment_log_entry.checkouts.append(
                 history.Checkout(
                     repo=git.remote_get_url(directory),
-                    branch=git.get_branch(directory),
+                    branch=branch,
                     directory=directory,
-                    commit_ref=git.sha(directory, "scap-prep-point"),
+                    commit_ref=commit_ref,
                 )
             )
 

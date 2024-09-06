@@ -70,6 +70,11 @@ def describe(location):
     return gitcmd("describe", "--always", cwd=location).strip()
 
 
+def merge_base(location, remote, branch) -> str:
+    ensure_dir(location)
+    return gitcmd("merge-base", "HEAD", f"{remote}/{branch}", cwd=location).strip()
+
+
 def init(location):
     if not os.path.exists(location):
         utils.mkdir_p(location)
@@ -147,6 +152,8 @@ def info(directory, remote="origin"):
     """
     git_dir = resolve_gitdir(directory)
     head = sha(directory, "HEAD")
+    # NOTICE: branch will most likely be a plain commit hash for submodule directories
+    # since they are usually in detached HEAD state.
     branch = get_branch(directory)
 
     # This information is used by https://<site>/wiki/Special:Version
