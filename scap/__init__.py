@@ -50,6 +50,8 @@ from scap.deploy_promote import DeployPromote
 from scap.stage_train import StageTrain
 from scap.train import Train
 from scap.install_world import InstallWorld
+from scap.spiderpig.jobrunner import JobRunner
+from scap.spiderpig.testclient import TestClient
 
 __all__ = [
     "CompileWikiversions",
@@ -58,6 +60,7 @@ __all__ = [
     "DeployLog",
     "DeployPromote",
     "InstallWorld",
+    "JobRunner",
     "LockManager",
     "MWVersionsInUse",
     "RebuildCdbs",
@@ -68,6 +71,7 @@ __all__ = [
     "SyncFile",
     "SyncMaster",
     "SyncWikiversions",
+    "TestClient",
     "Train",
     "Version",
     "__version__",

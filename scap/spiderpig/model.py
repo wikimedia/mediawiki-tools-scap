@@ -1,0 +1,259 @@
+from dataclasses import dataclass
+import datetime
+import json
+import os
+
+from typing import List, Optional
+
+from sqlalchemy import ForeignKey, select, delete, text, null
+from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, Session
+from sqlalchemy.sql import func
+
+
+class Base(DeclarativeBase):
+    pass
+
+
+class AlreadyFinished(Exception):
+    pass
+
+
+class Job(Base):
+    __tablename__ = "job"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user: Mapped[str]
+    command: Mapped[str]  # Expected to be a JSON-encoded list.
+    queued_at: Mapped[datetime.datetime] = mapped_column(server_default=func.now())
+    started_at: Mapped[Optional[datetime.datetime]]
+    finished_at: Mapped[Optional[datetime.datetime]]
+    exit_status: Mapped[Optional[int]]
+    cancelled_by: Mapped[Optional[str]]
+
+    @classmethod
+    def add(cls, session, **kwargs) -> int:
+        """Create a new Job record and add it to the database.
+
+        :returns: The job id
+        """
+        job = Job(**kwargs)
+        session.add(job)
+        session.commit()
+        return job.id
+
+    @classmethod
+    def get(cls, session, job_id) -> Optional["Job"]:
+        return session.scalar(select(Job).where(Job.id == job_id))
+
+    @classmethod
+    def pop(cls, session) -> Optional["Job"]:
+        """
+        Return the next eligible job to run, if any.
+
+        This method starts and ends a transaction.
+        """
+        # This must executed as an atomic read-modify-write operation.
+        # We use BEGIN IMMEDIATE to serialize concurrent processes.
+        #   xref: https://www.sqlite.org/lang_transaction.html
+        session.execute(text("BEGIN IMMEDIATE"))
+        stmt = select(Job).where(Job.started_at == null()).order_by(Job.id).limit(1)
+        job = session.scalar(stmt)
+        if not job:
+            session.rollback()
+            return
+
+        # Claim the job by setting started_at
+        job.started_at = func.now()
+        session.commit()
+
+        return job
+
+    def interrupt(self, session: Session, user: str):
+        """
+        This method starts and ends a transaction.
+        """
+        self._signal(session, user, "interrupt")
+
+    def kill(self, session: Session, user: str):
+        """
+        This method starts and ends a transaction.
+        """
+        self._signal(session, user, "kill")
+
+    def _signal(self, session, user, type):
+        """
+        This method starts and ends a transaction.
+        """
+        session.execute(text("BEGIN IMMEDIATE"))
+        if self.finished_at:
+            session.rollback()
+            raise AlreadyFinished(
+                f"Job {self.id} cannot be interrupted because it has already finished"
+            )
+
+        Interruption.add(session, self.id, user, type)
+        session.commit()
+
+    def finish(self, session: Session, exit_status: Optional[int]):
+        """
+        This method starts and ends a transaction.
+        """
+        session.execute(text("BEGIN IMMEDIATE"))
+        self.exit_status = exit_status
+        self.finished_at = func.now()
+
+        # Clean up any unprocessed interactions and interruptions
+        session.execute(delete(Interaction).where(Interaction.job_id == self.id))
+        session.execute(delete(Interruption).where(Interruption.job_id == self.id))
+        session.commit()
+
+
+class Interruption(Base):
+    __tablename__ = "interruption"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    job_id: Mapped[int] = mapped_column(ForeignKey("job.id"))
+    created_at: Mapped[Optional[datetime.datetime]] = mapped_column(
+        server_default=func.now()
+    )
+    user: Mapped[str]
+    type: Mapped[str]  # "kill" or "interrupt"
+
+    @classmethod
+    def add(cls, session: Session, job_id: int, user: str, type: str):
+        """
+        Adds a new Interruption to the session.
+
+        Does NOT commit.
+        """
+        assert type in ["kill", "interrupt"]
+        session.add(Interruption(job_id=job_id, user=user, type=type))
+
+    @classmethod
+    def peek(cls, session: Session, job_id: int) -> Optional["Interruption"]:
+        return session.scalar(
+            select(Interruption)
+            .where(Interruption.job_id == job_id)
+            .order_by(Interruption.id)
+            .limit(1)
+        )
+
+    @classmethod
+    def pop(cls, session: Session, job_id: int) -> Optional["Interruption"]:
+        """
+        Removes and returns the next unprocessed interuption, if any.
+
+        This method starts and ends a transaction.
+        """
+        session.execute(text("BEGIN IMMEDIATE"))
+        i = Interruption.peek(session, job_id)
+        if not i:
+            session.rollback()
+            return
+        session.delete(i)
+        session.commit()
+        return i
+
+
+class AlreadyResponded(Exception):
+    pass
+
+
+@dataclass
+class Response:
+    response: str
+    responded_by: str
+
+
+class Interaction(Base):
+    __tablename__ = "interaction"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    job_id: Mapped[int] = mapped_column(ForeignKey("job.id"))
+
+    type: Mapped[str]  # "input_line" or "choices"
+    prompt: Mapped[str]
+
+    choices: Mapped[Optional[str]]  # JSON-encoded list, only set when type == "choices"
+    default: Mapped[Optional[str]]
+
+    responded_by: Mapped[Optional[str]]
+    response: Mapped[Optional[str]]
+
+    @classmethod
+    def register(
+        self,
+        session: Session,
+        job_id: int,
+        type: str,
+        prompt: str,
+        choices: Optional[List[str]] = None,
+        default: Optional[str] = None,
+    ):
+        i = Interaction(
+            job_id=job_id,
+            type=type,
+            prompt=prompt,
+            choices=json.dumps(choices) if choices else None,
+            default=default,
+        )
+        session.add(i)
+        session.commit()
+
+    @classmethod
+    def lookup_pending(self, session: Session, job_id: int) -> Optional["Interaction"]:
+        """
+        Locate a non-responded-to interaction for the specified job id.
+        """
+        stmt = (
+            select(Interaction)
+            .where(Interaction.job_id == job_id)
+            .where(Interaction.response == null())
+            .limit(1)
+        )
+        return session.scalar(stmt)
+
+    @classmethod
+    def pop_responded(self, session: Session, job_id) -> Optional[Response]:
+        """
+        If there is a responded-to interaction, transform its response into
+        a Response object and return it.  The Interaction object is deleted
+        before returning.
+        """
+        session.execute(text("BEGIN IMMEDIATE"))
+        stmt = (
+            select(Interaction)
+            .where(Interaction.job_id == job_id)
+            .where(Interaction.response != null())
+            .limit(1)
+        )
+        i = session.scalar(stmt)
+        if i is None:
+            session.rollback()
+            return
+
+        res = Response(i.response, i.responded_by)
+
+        session.delete(i)
+        session.commit()
+
+        return res
+
+    def respond(self, session: Session, responded_by: str, response: str):
+        session.execute(text("BEGIN IMMEDIATE"))
+        if self.response is not None:
+            session.rollback()
+            raise AlreadyResponded(
+                f"{self.responded_by} already responded to interaction id {self.id}"
+            )
+        self.responded_by = responded_by
+        self.response = response
+        session.commit()
+
+
+def setup_db(engine, db_filename):
+    Base.metadata.create_all(engine)
+
+    # Ensure that the database is group writable
+    if os.geteuid() == os.stat(db_filename).st_uid:
+        os.chmod(db_filename, 0o664)

@@ -1,23 +1,39 @@
+import os
 import sys
 
 import scap.ansi as ansi
+import scap.spiderpig.io as spiderpigio
 
 YES_NO_CHOICES = {"Yes": "y", "No": "n"}
 
 
-def terminal_interactive() -> bool:
+def have_terminal() -> bool:
     """
     Returns True if both stdin and stdout are attached to a terminal.
     """
     return sys.stdin.isatty() and sys.stdout.isatty()
 
 
+def interactive() -> bool:
+    """
+    Returns True if there is some means available to interact with a user.
+    """
+    return spiderpig_mode() or have_terminal()
+
+
+def spiderpig_mode() -> bool:
+    return bool(os.environ.get("SPIDERPIG_IO_KEY"))
+
+
+def _get_io():
+    return SpiderpigInteraction if spiderpig_mode() else TerminalInteraction
+
+
 def input_line(prompt: str) -> str:
-    if not terminal_interactive():
+    if not interactive():
         return ""
 
-    io = TerminalInteraction
-    return io.input_line(prompt)
+    return _get_io().input_line(prompt)
 
 
 def prompt_choices(question: str, choices, default=None) -> str:
@@ -34,16 +50,15 @@ def prompt_choices(question: str, choices, default=None) -> str:
     if the terminal is not interactive, or if the user just hits enter.
     """
 
-    if not terminal_interactive() and default:
+    if not interactive() and default:
         # NOTE: No prompt is seen at all under these circumstances.
         return default
 
     if choices == bool:
         choices = YES_NO_CHOICES
 
-    io = TerminalInteraction
     while True:
-        resp = io.prompt_choices(question, choices, default).strip()
+        resp = _get_io().prompt_choices(question, choices, default).strip()
         if not resp and default:
             return default
 
@@ -96,3 +111,13 @@ class TerminalInteraction:
         default_text = f" (default: [{default}])" if default else ""
 
         return f"{question}{default_text}: "
+
+
+class SpiderpigInteraction:
+    @classmethod
+    def input_line(cls, prompt) -> str:
+        return spiderpigio.input_line(prompt)
+
+    @classmethod
+    def prompt_choices(cls, question, choices, default):
+        return spiderpigio.prompt_choices(question, choices, default)

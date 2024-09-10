@@ -517,6 +517,12 @@ class Application(object):
     def scap_history_dbfile(self):
         return os.path.join(self.config["stage_dir"], "scap/log/history.db")
 
+    def spiderpig_dbfile(self):
+        return os.path.join(self.config["stage_dir"], "scap/log/spiderpig.db")
+
+    def spiderpig_logdir(self):
+        return os.path.join(self.config["stage_dir"], "scap/log/jobs")
+
     @staticmethod
     def factory(argv=None):
         parser = arg.build_parser()
@@ -584,7 +590,7 @@ class Application(object):
             if (
                 app.config.get("require_terminal_multiplexer")
                 and getattr(app.main, REQUIRE_TTY_MULTIPLEXER_COMMAND, False)
-                and interaction.terminal_interactive()
+                and interaction.have_terminal()
             ):
                 if os.environ.get("TMUX") is None and os.environ.get("STY") is None:
                     utils.abort(
