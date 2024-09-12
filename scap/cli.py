@@ -510,6 +510,10 @@ class Application(object):
             self.config["train_blockers_url"], self.config["web_proxy"]
         )
 
+    # NOTE: The 'scap' directory is excluded by scap pull (aka
+    # scap.tasks.sync_common()), and excluded when building mediawiki
+    # container images
+    # xref https://gitlab.wikimedia.org/repos/releng/release/-/blob/00aa9bd253c358fc7b4fb88498e4f9c806212f57/make-container-image/build-images.py#L95
     def scap_history_dbfile(self):
         return os.path.join(self.config["stage_dir"], "scap/log/history.db")
 

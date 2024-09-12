@@ -348,6 +348,8 @@ def sync_common(
     rsync = ["sudo", "-u", "mwdeploy", "-n", "--"] + DEFAULT_RSYNC_ARGS
     # Exclude .git metadata
     rsync.append("--exclude=**/.git")
+    # Exclude scap metadata
+    rsync.append("--exclude=/scap")
 
     if exclude_wikiversionsphp:
         if rsync_args and "--delete-excluded" in rsync_args:
