@@ -746,8 +746,8 @@ class Backport(cli.Application):
             )
             self.get_logger().info("Change %s approved", change.number)
 
-    def _change_number(self, number_or_url):
-        if number_or_url.isnumeric():
+    def _change_number(self, number_or_url: str) -> int:
+        if re.match("[0-9]+$", number_or_url):
             return int(number_or_url)
 
         # Assume the non-numeric string is a URL and attempt to parse it
