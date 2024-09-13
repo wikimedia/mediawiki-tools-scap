@@ -1,4 +1,3 @@
-import json
 import os
 import shlex
 import threading
@@ -28,7 +27,7 @@ class TestClient(cli.Application):
             job_id = Job.add(
                 session,
                 user=user,
-                command=json.dumps(shlex.split(cmd)),
+                command=shlex.split(cmd),
             )
             print(f"Added job {job_id}")
 

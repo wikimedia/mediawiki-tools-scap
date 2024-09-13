@@ -28,15 +28,14 @@ class Job(Base):
     started_at: Mapped[Optional[datetime.datetime]]
     finished_at: Mapped[Optional[datetime.datetime]]
     exit_status: Mapped[Optional[int]]
-    cancelled_by: Mapped[Optional[str]]
 
     @classmethod
-    def add(cls, session, **kwargs) -> int:
+    def add(cls, session, user: str, command: List[str]) -> int:
         """Create a new Job record and add it to the database.
 
         :returns: The job id
         """
-        job = Job(**kwargs)
+        job = Job(user=user, command=json.dumps(command))
         session.add(job)
         session.commit()
         return job.id
