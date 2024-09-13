@@ -627,6 +627,13 @@ class Application(object):
         # Exit
         sys.exit(exit_status)
 
+    def timed(self, fn, *args, **kwargs):
+        """
+        Call a function wrapped in a log.Timer.
+        """
+        with log.Timer(fn.__name__, self.get_stats()):
+            fn(*args, **kwargs)
+
 
 def argument(*args, **kwargs):
     """

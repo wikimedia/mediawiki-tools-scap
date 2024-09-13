@@ -189,7 +189,7 @@ class K8sOps:
             app.config["stage_dir"], "scap", "image-build"
         )
 
-    def build_k8s_images(self, mediawiki_versions: list):
+    def build_k8s_images(self, mediawiki_versions: list, force_version: bool = False):
         def build_and_push_images():
             with log.Timer("build-and-push-container-images", self.app.get_stats()):
                 utils.mkdir_p(self.build_state_dir)
@@ -221,6 +221,17 @@ class K8sOps:
                     "--webserver-image-name",
                     "{}/{}".format(registry, self.app.config["webserver_image_name"]),
                 ]
+
+                if force_version:
+                    if len(mediawiki_versions) > 1:
+                        raise ValueError(
+                            "cannot force a single version if multiple versions are given"
+                        )
+
+                    build_images_args += [
+                        "--force-version",
+                        mediawiki_versions[0],
+                    ]
 
                 if self.app.config["mediawiki_image_extra_packages"]:
                     build_images_args += [
@@ -260,6 +271,9 @@ class K8sOps:
                     )
 
         def update_helmfile_files():
+            if not self.app.config["deploy_mw_container_image"]:
+                return
+
             for stage, dep_configs in self.k8s_deployments_config.stages.items():
                 self.original_helmfile_values[stage] = self._read_helmfile_files(
                     dep_configs
