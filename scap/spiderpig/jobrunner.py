@@ -30,7 +30,7 @@ class JobRunner(cli.Application):
         "--polling-interval",
         default=2.0,
         type=float,
-        help="How often to check for new jobs (in seconds)",
+        help="How often to check for new jobs (in seconds). Default is 2.",
     )
     def main(self, *extra_args):
         logger = self.get_logger()
