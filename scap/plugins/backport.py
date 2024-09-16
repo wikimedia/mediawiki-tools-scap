@@ -332,7 +332,6 @@ class Backport(cli.Application):
             self.get_logger().warning("No active wikiversions!")
             raise SystemExit(1)
 
-        change_numbers = [self._change_number(n) for n in self.arguments.change_numbers]
         self.git_repos = GitRepos(
             self.MEDIAWIKI_CORE,
             self.OPERATIONS_CONFIG,
@@ -356,6 +355,10 @@ class Backport(cli.Application):
                 % self.backport_or_revert
             )
             change_numbers = [self._change_number(n) for n in change_numbers.split()]
+        else:
+            change_numbers = [
+                self._change_number(n) for n in self.arguments.change_numbers
+            ]
 
         if not change_numbers:
             self.get_logger().warning("No change number or url supplied!")
@@ -745,10 +748,6 @@ class Backport(cli.Application):
             self.get_logger().info("Change %s approved", change.number)
 
     def _change_number(self, number_or_url: str) -> int:
-        if re.match("[0-9]+$", number_or_url):
-            return int(number_or_url)
-
-        # Assume the non-numeric string is a URL and attempt to parse it
         number = self.gerrit.change_number_from_url(number_or_url)
 
         if number is None:

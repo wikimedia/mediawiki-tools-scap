@@ -99,8 +99,13 @@ class GerritSession(object):
             return split_url[-1].lstrip("/").replace(".git", "")
         return None
 
-    def change_number_from_url(self, url):
-        """Parses and returns the change number from the given URL."""
+    def change_number_from_url(self, url: str) -> str:
+        """Parses and returns the change number from the given URL.
+        It also accepts a plain change number (as a string).
+        """
+
+        if re.match("[0-9]+$", url):
+            return url
 
         # verify URL is pointing at this Gerrit instance
         if not url.startswith(self.url):
@@ -112,8 +117,8 @@ class GerritSession(object):
         # {project-name}/+/{change-number}
         # {project-name}/+/{change-number}/{revision}
         # (all of which are allowed to have a trailing slash)
-        match = re.search(r"/r/(?:c/)?(\d+)/?$", url) or re.search(
-            r"/\+/(\d+)(?:/\d+)?/?$", url
+        match = re.search(r"/r/(?:c/)?([0-9]+)/?$", url) or re.search(
+            r"/\+/([0-9]+)(?:/[0-9]+)?/?$", url
         )
 
         if match is None:
