@@ -1,3 +1,10 @@
+scap (4.102.1)
+
+  * setup.py: Include scap.spiderpig package
+  * Change Job.add() interface
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Mon, 16 Sep 2024 13:15:08 -0700
+
 scap (4.102.0)
 
   * deploy: Prompt for log message if not supplied on command line
