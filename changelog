@@ -1,3 +1,10 @@
+scap (4.103.0)
+
+  * cli: Define common methods for locking in `cli.Application`
+  * kubernetes: Provide `build-images` subcommand
+
+ -- Dan Duvall <dduvall@wikimedia.org>  Mon, 16 Sep 2024 15:48:08 -0700
+
 scap (4.102.1)
 
   * setup.py: Include scap.spiderpig package
