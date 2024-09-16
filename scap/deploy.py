@@ -749,6 +749,11 @@ For `scap deploy` to work, the current directory must be the top level of a git 
                 )
             )
 
+        if self.arguments.message == "(no justification provided)":
+            new_message = interaction.input_line("Log message (press enter for none): ")
+            if new_message:
+                self.arguments.message = new_message
+
         self.repo = repo
 
         if self.arguments.stages:
