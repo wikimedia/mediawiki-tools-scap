@@ -44,7 +44,6 @@ import scap.script as script
 import scap.template as template
 import scap.cli as cli
 import scap.interaction as interaction
-import scap.lock as lock
 import scap.log as log
 import scap.ssh as ssh
 import scap.targets as targets
@@ -828,9 +827,7 @@ For `scap deploy` to work, the current directory must be the top level of a git 
         if not rev:
             rev = "HEAD"
 
-        with lock.Lock(
-            self.get_lock_file(), name="deploy", reason=self.arguments.message
-        ):
+        with self.lock():
             with log.Timer(display_name):
                 timestamp = datetime.utcnow()
                 tag = git.next_deploy_tag(location=self.context.root)

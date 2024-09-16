@@ -6,7 +6,6 @@ Scap plugin for performing MediaWiki on Kubernetes related operations.
 import os
 
 from scap import cli
-import scap.lock as lock
 from scap.kubernetes import K8sOps
 import scap.tasks as tasks
 
@@ -41,11 +40,8 @@ class BuildImages(cli.Application):
         else:
             versions = self.active_wikiversions("stage")
 
-        with lock.Lock(
-            self.get_lock_file(), name="build-images", reason=self.arguments.message
-        ):
+        with self.lock_and_announce():
             k8s_ops = K8sOps(self)
-            self.announce("Started scap build-images: %s", self.arguments.message)
 
             if not force_version:
                 self.timed(tasks.compile_wikiversions, "stage", self.config)
@@ -55,5 +51,3 @@ class BuildImages(cli.Application):
                 self.timed(tasks.update_localization_cache, version, self)
 
             k8s_ops.build_k8s_images(versions, force_version=force_version)
-
-        self.announce("Finished scap build-images: %s", self.arguments.message)

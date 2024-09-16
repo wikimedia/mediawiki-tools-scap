@@ -126,9 +126,7 @@ class AbstractSync(cli.Application):
             if new_message:
                 self.arguments.message = new_message
 
-        with lock.Lock(
-            self.get_lock_file(), name="sync", reason=self.arguments.message
-        ):
+        with self.lock(name="sync"):
             self.k8s_ops = K8sOps(self)
 
             # Begin by confirming helmfile diffs, if enabled. This avoids having
@@ -1444,7 +1442,7 @@ class LockManager(cli.Application):
             # This value is used only for log messages.
             repo = self.config.get("git_repo", "mediawiki")
 
-        with lock.Lock(lock_path, name="lock-manager", reason=self.arguments.message):
+        with self.lock(lock_path):
             forced_lock_release_r = None
             forced_lock_release_w = None
 

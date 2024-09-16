@@ -15,7 +15,7 @@ from collections import defaultdict
 
 from prettytable import PrettyTable, SINGLE_BORDER
 from random import randint
-from scap import cli, git, log, ssh, utils, lock, interaction
+from scap import cli, git, log, ssh, utils, interaction
 from scap.plugins.gerrit import GerritSession
 
 
@@ -389,9 +389,7 @@ class Backport(cli.Application):
         # deadlock itself when calling "sync-world" further down the flow.
         # Also, a backport revert calls backport recursively, deferring to the lock here instead of itself locking
         # '/var/lock/scap.backport.lock'. Otherwise, deadlock again
-        with lock.Lock(
-            "/var/lock/scap.backport.lock", name="backport", reason=self._build_sal()
-        ):
+        with self.lock("/var/lock/scap.backport.lock", reason=self._build_sal()):
             self._validate_backports()
             if not self.arguments.yes:
                 table = make_table(

@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-from scap import cli, lock, main
+from scap import cli, main
 
 
 @cli.command(
@@ -15,9 +15,5 @@ class PhpRpmRestartCmd(main.AbstractSync):
 
         self._assert_auth_sock()
 
-        with lock.Lock(
-            self.get_lock_file(), name="php-fpm-restart", reason=self.arguments.message
-        ):
-            self.announce("Starting php-fpm-restarts")
+        with self.lock_and_announce():
             self._restart_php()
-            self.announce("Finished php-fpm-restarts")

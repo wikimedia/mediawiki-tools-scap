@@ -14,7 +14,6 @@ from scap import interaction
 from scap import log
 from scap.plugins import patches
 from scap import utils
-from scap.lock import Lock
 from scap.plugins.patches import SecurityPatches
 
 HISTORY_ABORT_STATUS = 127
@@ -132,7 +131,7 @@ class CheckoutMediaWiki(cli.Application):
             if self.arguments.lock_timeout
             else {}
         )
-        with Lock(self.get_lock_file(), name="concurrent prep", **lock_timeout):
+        with self.lock(name="concurrent prep", **lock_timeout):
             if self.arguments.auto and self.arguments.history:
                 display_repos = ["mediawiki/core", "operations/mediawiki-config"]
                 logger.info("Browsing history")

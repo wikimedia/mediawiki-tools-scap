@@ -4,7 +4,7 @@ import os
 import shutil
 import subprocess
 
-from scap import ansi, cli, git, lock, log, main, ssh, tasks, utils
+from scap import ansi, cli, git, log, main, ssh, tasks, utils
 
 
 @cli.command("clean", primary_deploy_server_only=True)
@@ -70,7 +70,7 @@ class Clean(main.AbstractSync):
             branches_string,
         )
 
-        with lock.Lock(self.get_lock_file(), name="clean", reason=reason):
+        with self.lock(reason=reason):
             self.get_logger().info(reason)
 
             for branch in self.branches_to_remove:

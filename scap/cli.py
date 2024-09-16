@@ -20,6 +20,7 @@
     You should have received a copy of the GNU General Public License
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """
+from contextlib import contextmanager
 import errno
 import locale
 import logging
@@ -222,6 +223,16 @@ class Application(object):
             self.config[source_tree + "_dir"], self.config["wmf_realm"], return_type
         )
 
+    @property
+    def message_argument(self) -> str:
+        """
+        The given `message` :func:`argument` if one was defined, otherwise it
+        returns "(no justification provided)".
+        """
+        if hasattr(self, "arguments") and hasattr(self.arguments, "message"):
+            return self.arguments.message
+        return "(no justification provided)"
+
     def prompt_for_approval_or_exit(self, prompt_message, exit_message):
         """Exits successfully with a message if the user does not approve."""
         approval = interaction.prompt_user_for_confirmation(prompt_message)
@@ -321,7 +332,7 @@ class Application(object):
             self.announce(
                 "{} aborted: {} (duration: {})".format(
                     self.program_name,
-                    getattr(self.arguments, "message", ""),
+                    self.message_argument,
                     utils.human_duration(self.get_duration()),
                 )
             )
@@ -510,6 +521,42 @@ class Application(object):
             self.config["train_blockers_url"], self.config["web_proxy"]
         )
 
+    @contextmanager
+    def lock(self, lock_file=None, **kwargs):
+        """
+        Acquire a lock for the main work of this application.
+        """
+        if lock_file is None:
+            lock_file = self.get_lock_file()
+
+        if "name" not in kwargs:
+            kwargs["name"] = self.program_name
+
+        if "reason" not in kwargs:
+            kwargs["reason"] = self.message_argument
+
+        with lock.Lock(lock_file, **kwargs):
+            yield
+
+    @contextmanager
+    def lock_and_announce(self, **kwargs):
+        """
+        Acquire a lock for the main work of this application and announce its
+        start and finish.
+        """
+        with self.lock(**kwargs):
+            start = time.time()
+            self.announce(
+                "Started scap %s: %s", self.program_name, self.message_argument
+            )
+            yield
+            self.announce(
+                "Finished scap %s: %s (duration: %s)",
+                self.program_name,
+                self.message_argument,
+                utils.human_duration(time.time() - start),
+            )
+
     # NOTE: The 'scap' directory is excluded by scap pull (aka
     # scap.tasks.sync_common()), and excluded when building mediawiki
     # container images
@@ -522,6 +569,13 @@ class Application(object):
 
     def spiderpig_logdir(self):
         return os.path.join(self.config["stage_dir"], "scap/log/jobs")
+
+    def timed(self, fn, *args, **kwargs):
+        """
+        Call a function wrapped in a log.Timer.
+        """
+        with log.Timer(fn.__name__, self.get_stats()):
+            fn(*args, **kwargs)
 
     @staticmethod
     def factory(argv=None):
@@ -626,13 +680,6 @@ class Application(object):
 
         # Exit
         sys.exit(exit_status)
-
-    def timed(self, fn, *args, **kwargs):
-        """
-        Call a function wrapped in a log.Timer.
-        """
-        with log.Timer(fn.__name__, self.get_stats()):
-            fn(*args, **kwargs)
 
 
 def argument(*args, **kwargs):
