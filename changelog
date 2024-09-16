@@ -1,3 +1,14 @@
+scap (4.102.0)
+
+  * deploy: Prompt for log message if not supplied on command line
+  * backport.py: Only accept change numbers consisting of ASCII digits
+  * jobrunner: Mention default polling interval
+  * Initial spiderpig jobrunner implementation and data model
+  * sync_common(): Exclude <stagedir>/scap/ directory from rsync
+  * Mediawiki Deployment history: Drop scap-prep-point tag, use git merge-base
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Mon, 16 Sep 2024 09:50:08 -0700
+
 scap (4.101.3)
 
   * wheels: Include up-to-date pip along with other wheels
