@@ -13,6 +13,26 @@ class Base(DeclarativeBase):
     pass
 
 
+class JobrunnerStatus(Base):
+    __tablename__ = "jobrunner_status"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    pid: Mapped[int]
+    status: Mapped[str]
+    job_id: Mapped[Optional[int]]
+
+    @classmethod
+    def get(self, session: Session) -> "JobrunnerStatus":
+        return session.scalar(select(JobrunnerStatus))
+
+    @classmethod
+    def set(self, session: Session, status: str, job_id: Optional[int] = None):
+        session.execute(delete(JobrunnerStatus))
+        status = JobrunnerStatus(pid=os.getpid(), status=status, job_id=job_id)
+        session.add(status)
+        session.commit()
+
+
 class AlreadyFinished(Exception):
     pass
 

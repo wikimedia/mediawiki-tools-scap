@@ -14,7 +14,13 @@ import scap.cli as cli
 from scap.interaction import TerminalInteraction
 
 import scap.spiderpig
-from scap.spiderpig.model import Job, Interaction, Interruption, setup_db
+from scap.spiderpig.model import (
+    JobrunnerStatus,
+    Job,
+    Interaction,
+    Interruption,
+    setup_db,
+)
 
 from sqlalchemy import Engine
 from sqlalchemy.orm import Session
@@ -39,6 +45,8 @@ class JobRunner(cli.Application):
             self.arguments.polling_interval,
         )
 
+        self.started_at = time.time()
+
         db_filename = self.spiderpig_dbfile()
         logdir = self.spiderpig_logdir()
         os.makedirs(logdir, exist_ok=True)
@@ -48,6 +56,8 @@ class JobRunner(cli.Application):
 
         with Session(engine) as session:
             while True:
+                self._set_status(session, "idle")
+
                 job = Job.pop(session)
                 if job is None:
                     time.sleep(self.arguments.polling_interval)
@@ -55,9 +65,27 @@ class JobRunner(cli.Application):
 
                 exit_status = None
                 try:
-                    exit_status = run_job(job, engine, session, logger, logdir)
+                    exit_status = run_job(
+                        job,
+                        engine,
+                        session,
+                        logger,
+                        logdir,
+                        self._set_running_job_status,
+                    )
                 finally:
                     job.finish(session, exit_status)
+
+    def _set_status(self, session: Session, status: str, job_id: Optional[int] = None):
+        JobrunnerStatus.set(session, status, job_id)
+
+    def _set_running_job_status(
+        self, session: Session, job_id: int, sub_status: Optional[str] = None
+    ):
+        status = f"Running job {job_id}"
+        if sub_status:
+            status += f", {sub_status}"
+        self._set_status(session, status, job_id)
 
 
 class EndOfStdout:
@@ -148,11 +176,17 @@ def running_job(engine: Engine, job_id: int, proc: subprocess.Popen, iokey: str)
 
 
 def run_job(
-    job: Job, engine: Engine, session: Session, logger: logging.Logger, logdir: str
+    job: Job,
+    engine: Engine,
+    session: Session,
+    logger: logging.Logger,
+    logdir: str,
+    set_status: callable,
 ) -> Optional[int]:
     """
     Returns the exit status of the subprocess (if any)
     """
+    set_status(session, job.id)
     logger.info("Running job %d created by %s at %s", job.id, job.user, job.queued_at)
 
     i = Interruption.peek(session, job.id)
@@ -250,6 +284,8 @@ def run_job(
                     Interaction.register(
                         session, job.id, subtype, prompt, choices, default
                     )
+                    set_status(session, job.id, "awaiting user interaction")
+                    logger.info("Waiting for an interaction")
                     continue
 
                 if isinstance(got, Interaction):
@@ -258,6 +294,7 @@ def run_job(
                     )
                     print(got.response, file=logstream, flush=True)
                     print(got.response, file=rj.proc.stdin, flush=True)
+                    set_status(session, job.id)
                     continue
 
                 raise Exception(f"Unexpected item retrieved from job_queue: {got}")
