@@ -570,6 +570,9 @@ class Application(object):
     def spiderpig_logdir(self):
         return os.path.join(self.config["stage_dir"], "scap/log/jobs")
 
+    def spiderpig_jobrunner_status_file(self):
+        return os.path.join(self.config["stage_dir"], "scap/log/jobrunner.status")
+
     def timed(self, fn, *args, **kwargs):
         """
         Call a function wrapped in a log.Timer.
