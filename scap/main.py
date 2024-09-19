@@ -42,6 +42,7 @@ import scap.lint as lint
 import scap.lock as lock
 import scap.log as log
 import scap.logstash_checker as logstash_checker
+import scap.mwscript as mwscript
 import scap.php_fpm as php_fpm
 import scap.ssh as ssh
 import scap.targets as targets
@@ -50,7 +51,6 @@ import scap.utils as utils
 import scap.version as scapversion
 from scap import ansi, history
 from scap.kubernetes import K8sOps, TEST_SERVERS, CANARIES, PRODUCTION, STAGES
-from scap.runcmd import mwscript
 
 
 @dataclass
@@ -292,7 +292,7 @@ class AbstractSync(cli.Application):
         if all_stat:
             self.get_stats().increment("deploy.all", value)
 
-    def get_keyholder_key(self):
+    def get_keyholder_key(self, *args, **kwargs):
         """
         Returns scap2-specific deploy key
 
@@ -303,7 +303,7 @@ class AbstractSync(cli.Application):
         if key:
             return key
 
-        return super().get_keyholder_key()
+        return super().get_keyholder_key(*args, **kwargs)
 
     def _before_cluster_sync(self):
         pass
@@ -380,11 +380,16 @@ class AbstractSync(cli.Application):
         ).items():
             logger.debug("Testing {} with eval.php using {}".format(version, wikidb))
             with utils.suppress_backtrace():
-                stderr = mwscript("eval.php", "--wiki", wikidb)
-                if stderr:
+                proc = mwscript.run(
+                    self,
+                    "eval.php",
+                    wiki=wikidb,
+                    check=False,
+                )
+                if proc.stderr:
                     raise SystemExit(
                         "'mwscript eval.php --wiki {}' generated unexpected output: {}".format(
-                            wikidb, stderr
+                            wikidb, proc.stderr
                         )
                     )
 
@@ -1089,7 +1094,7 @@ class ScapWorld(AbstractSync):
         self._after_sync_rebuild_cdbs(target_hosts)
         self._after_sync_sync_wikiversions(target_hosts)
         self._restart_php()
-        tasks.clear_message_blobs(self.config)
+        tasks.clear_message_blobs(self)
 
     def _after_lock_release(self):
         self.announce(
