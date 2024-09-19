@@ -15,7 +15,7 @@ import queue
 
 import yaml
 
-from scap import utils, log, git, ssh, targets
+from scap import utils, log, git
 from scap.cli import Application
 from scap.runcmd import gitcmd
 
@@ -293,32 +293,6 @@ class K8sOps:
 
         build_and_push_images()
         update_helmfile_files()
-
-    def pull_image_on_nodes(self):
-        """Pull the multiversion image down on all k8s nodes."""
-        if not self.app.config.get("mw_k8s_nodes", False):
-            return
-
-        container_image_names = self._get_container_image_names()
-        k8s_nodes = targets.get("mw_k8s_nodes", self.app.config).all
-        image_tag = container_image_names["multiversion"].split(":").pop()
-        cmd = f"/usr/bin/sudo /usr/local/sbin/mediawiki-image-download {image_tag}"
-        pull = ssh.Job(
-            hosts=k8s_nodes,
-            command=cmd,
-            user=self.app.config["ssh_user"],
-            key=self.app.get_keyholder_key(),
-            verbose=False,
-            logger=self.logger,
-        )
-        with log.Timer("docker pull on k8s nodes"):
-            pull.progress(log.reporter("docker_pull_k8s"))
-            _, failed = pull.run()
-            if failed:
-                self.app.soft_errors = True
-                self.logger.error(
-                    f"{failed} K8s nodes failed to pull the multiversion image"
-                )
 
     # Called by AbstractSync.main
     def helmfile_diffs_for_stage(self, stage: str):

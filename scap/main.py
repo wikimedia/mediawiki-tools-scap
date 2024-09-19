@@ -149,9 +149,6 @@ class AbstractSync(cli.Application):
                 self.announce_final("Stopping before sync operations")
                 return 0
 
-            # Preload MW multiversion image into K8s cluster nodes
-            self.k8s_ops.pull_image_on_nodes()
-
             # Sync masters regardless of the --k8s-only flag since some of the
             # sync'd information affects k8s deployments.
             self._sync_masters()
