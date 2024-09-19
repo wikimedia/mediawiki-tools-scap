@@ -4,7 +4,7 @@ import os
 import shutil
 import subprocess
 
-from scap import ansi, cli, git, log, main, ssh, tasks, utils
+from scap import ansi, cli, git, log, main, mwscript, ssh, tasks, utils
 
 
 @cli.command("clean", primary_deploy_server_only=True)
@@ -104,9 +104,13 @@ class Clean(main.AbstractSync):
         logger = self.get_logger()
 
         if os.path.exists(branch_dir):
-            logger.info("Clean files owned by www-data")
-            utils.sudo_check_call(
-                "www-data", f"find {branch_dir} -user www-data -delete"
+            runtime_user = self.config["mediawiki_runtime_user"]
+            logger.info(f"Clean files owned by {runtime_user}")
+            mwscript.run_shell(
+                self,
+                "find {} -user {} -delete",
+                branch_dir,
+                runtime_user,
             )
 
         ext_msg = os.path.join(
