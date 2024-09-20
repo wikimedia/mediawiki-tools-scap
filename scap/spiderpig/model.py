@@ -1,4 +1,3 @@
-from dataclasses import dataclass
 import datetime
 import json
 import os
@@ -158,12 +157,6 @@ class AlreadyResponded(Exception):
     pass
 
 
-@dataclass
-class Response:
-    response: str
-    responded_by: str
-
-
 class Interaction(Base):
     __tablename__ = "interaction"
 
@@ -213,11 +206,10 @@ class Interaction(Base):
         return session.scalar(stmt)
 
     @classmethod
-    def pop_responded(self, session: Session, job_id) -> Optional[Response]:
+    def pop_responded(self, session: Session, job_id) -> Optional["Interaction"]:
         """
-        If there is a responded-to interaction, transform its response into
-        a Response object and return it.  The Interaction object is deleted
-        before returning.
+        If there is a responded-to interaction, delete it from the database and
+        return it.
         """
         session.execute(text("BEGIN IMMEDIATE"))
         stmt = (
@@ -231,12 +223,9 @@ class Interaction(Base):
             session.rollback()
             return
 
-        res = Response(i.response, i.responded_by)
-
         session.delete(i)
         session.commit()
-
-        return res
+        return i
 
     def respond(self, session: Session, responded_by: str, response: str):
         session.execute(text("BEGIN IMMEDIATE"))

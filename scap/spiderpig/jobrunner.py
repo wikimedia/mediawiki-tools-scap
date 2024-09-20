@@ -14,7 +14,7 @@ import scap.cli as cli
 from scap.interaction import TerminalInteraction
 
 import scap.spiderpig
-from scap.spiderpig.model import Job, Interaction, Interruption, Response, setup_db
+from scap.spiderpig.model import Job, Interaction, Interruption, setup_db
 
 from sqlalchemy import Engine
 from sqlalchemy.orm import Session
@@ -252,8 +252,8 @@ def run_job(
                     )
                     continue
 
-                if isinstance(got, Response):
-                    logger.debug(
+                if isinstance(got, Interaction):
+                    logger.info(
                         "%s responded with '%s'", got.responded_by, got.response
                     )
                     print(got.response, file=logstream, flush=True)
