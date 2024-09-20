@@ -22,7 +22,6 @@ test-image-%:
 	rm -fr ./tests/scap/__pycache__
 	@# Note: This copies all of the current directory into the container image
 	DOCKER_BUILDKIT=1 docker build \
-		--quiet \
 		-f .pipeline/blubber.yaml \
 		--target verify-deps-$(*F) \
 		-t $(VERIFY_DEPS_IMAGE) .
