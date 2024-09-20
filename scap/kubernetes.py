@@ -36,11 +36,12 @@ class InvalidDeploymentsConfig(Exception):
 
 class DeploymentsConfig:
     """
-    Deployment configuration files are specified in the format laid out in https://phabricator.wikimedia.org/T299648
-    (modifications mentioned in the comments included)
+    Deployment configuration files are specified in the format originally laid out in
+    https://phabricator.wikimedia.org/T299648 (modifications mentioned in the comments
+    included) plus later generalizations in https://phabricator.wikimedia.org/T370934.
 
-    Instances of this class translate that format into one that represents Scap workflow better by organizing the
-    configurations around deployment stages.
+    Instances of this class translate that format into one that represents Scap workflow
+    better by organizing the configurations around deployment stages.
 
     For example, the following input config file:
 
@@ -65,6 +66,18 @@ class DeploymentsConfig:
       web_flavour: webserver
       debug: false
 
+    - namespace: api3
+      # New T370934 format:
+      releases:
+        main: {}
+        canary:
+          stage: canaries
+        experimental:
+          mw_flavour: publish-experimental
+      mw_flavour: publish
+      web_flavour: webserver
+      debug: false
+
     will produce the following output:
 
      {
@@ -81,7 +94,12 @@ class DeploymentsConfig:
         "mv_image_fl": "publish",
         "web_image_fl": "webserver",
         "debug": False,
-      }],
+        }, {
+        "namespace": "api3",
+        "release": "canary",
+        "mv_image_fl": "publish",
+        "web_image_fl": "webserver",
+        "debug": False,
       }],
       "production": [{
         "namespace": "api1",
@@ -93,6 +111,18 @@ class DeploymentsConfig:
         "namespace": "api2",
         "release": "main",
         "mv_image_fl": "publish",
+        "web_image_fl": "webserver",
+        "debug": False,
+        }, {
+        "namespace": "api3",
+        "release": "main",
+        "mv_image_fl": "publish",
+        "web_image_fl": "webserver",
+        "debug": False,
+        }, {
+        "namespace": "api3",
+        "release": "experimental",
+        "mv_image_fl": "publish-experimental",
         "web_image_fl": "webserver",
         "debug": False,
       }]
@@ -121,48 +151,79 @@ class DeploymentsConfig:
 
     @classmethod
     def parse(cls, deployments_file: str) -> "DeploymentsConfig":
-        def is_testservers_config(dep_config: dict) -> bool:
-            return dep_config.get("debug")
-
-        testservers = {}
-        canaries = {}
-        production = {}
+        testservers = []
+        canaries = []
+        production = []
 
         with open(deployments_file) as f:
             deployments = yaml.safe_load(f)
 
+        namespaces = set()
+
         for dep_config in deployments:
             dep_namespace = dep_config["namespace"]
 
-            if dep_namespace in {**testservers, **production}:
+            if dep_namespace in namespaces:
                 raise InvalidDeploymentsConfig(
                     """"%s" deployment is already defined""" % dep_namespace
                 )
+            namespaces.add(dep_namespace)
 
-            parsed_dep_config = {
-                cls.NAMESPACE: dep_namespace,
-                cls.RELEASE: dep_config["release"],
-                cls.MULTIVER_IMAGE_FLAVOR: dep_config["mw_flavour"],
-                cls.WEB_IMAGE_FLAVOR: dep_config["web_flavour"],
-                cls.DEBUG: is_testservers_config(dep_config),
-            }
+            release_configs = dep_config.get("releases", {})
 
-            if is_testservers_config(dep_config):
-                testservers[dep_namespace] = parsed_dep_config
-            else:
-                production[dep_namespace] = parsed_dep_config
-
+            # If this dep_config uses a T299648-style singleton release, synthesize
+            # equivalent release configs for it and its canary release.
+            if "release" in dep_config:
+                if release_configs:
+                    raise InvalidDeploymentsConfig(
+                        f'"{dep_namespace}" deployment cannot specify both "release" '
+                        'and "releases"'
+                    )
+                release_configs[dep_config["release"]] = {}
                 canary_release = str(dep_config["canary"]).strip()
                 if canary_release not in ["None", ""]:
-                    parsed_canary_dep_config = dict(parsed_dep_config)
-                    parsed_canary_dep_config[cls.RELEASE] = canary_release
-                    canaries[dep_namespace] = parsed_canary_dep_config
+                    release_configs[canary_release] = {"stage": CANARIES}
 
-        return cls(
-            list(testservers.values()),
-            list(canaries.values()),
-            list(production.values()),
-        )
+            debug = dep_config.get("debug")
+
+            # Now populate the testservers, canaries, and production stages, based on the
+            # available release configs.
+            for release, config in release_configs.items():
+                mw_flavour = config.get("mw_flavour", dep_config.get("mw_flavour"))
+                if not mw_flavour:
+                    raise InvalidDeploymentsConfig(
+                        f'"{release}" in "{dep_namespace}" has no mw_flavour set'
+                    )
+                web_flavour = config.get("web_flavour", dep_config.get("web_flavour"))
+                if not web_flavour:
+                    raise InvalidDeploymentsConfig(
+                        f'"{release}" in "{dep_namespace}" has no web_flavour set'
+                    )
+                stage = config.get("stage")
+                if stage not in (CANARIES, None):
+                    raise InvalidDeploymentsConfig(
+                        f'"{release}" in "{dep_namespace}" specified unsupported stage "{stage}"'
+                    )
+                if debug and stage == CANARIES:
+                    # All releases in a debug namespace map to the testservers stage. As
+                    # we have historically, ignore canary releases in such namespaces.
+                    # TODO: This should probably be raised as a misconfiguration.
+                    continue
+                parsed_dep_config = {
+                    cls.NAMESPACE: dep_namespace,
+                    cls.RELEASE: release,
+                    cls.MULTIVER_IMAGE_FLAVOR: mw_flavour,
+                    cls.WEB_IMAGE_FLAVOR: web_flavour,
+                    cls.DEBUG: debug,
+                }
+                if debug:
+                    testservers.append(parsed_dep_config)
+                elif stage == CANARIES:
+                    canaries.append(parsed_dep_config)
+                else:
+                    production.append(parsed_dep_config)
+
+        return cls(testservers, canaries, production)
 
 
 class K8sOps:
