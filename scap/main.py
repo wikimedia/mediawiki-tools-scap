@@ -49,9 +49,15 @@ import scap.targets as targets
 import scap.tasks as tasks
 import scap.utils as utils
 import scap.version as scapversion
-from scap import ansi, history
+from scap import ansi
 from scap.kubernetes import K8sOps, TEST_SERVERS, CANARIES, PRODUCTION, STAGES
 from scap.runcmd import mwscript
+
+import importlib.util
+
+# T374983: Use the presence of SQLAlchemy as a proxy to tell whether we are on a deployment server
+if importlib.util.find_spec("sqlalchemy") is not None:
+    from scap import history
 
 
 @dataclass

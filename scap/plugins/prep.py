@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 """Scap plugin for setting up a new version of MediaWiki for deployment."""
 import glob
+import importlib.util
 import os
 import re
 import shlex
@@ -9,7 +10,6 @@ import subprocess
 
 from scap import cli
 from scap import git
-from scap import history
 from scap import interaction
 from scap import log
 from scap.plugins import patches
@@ -17,6 +17,10 @@ from scap import utils
 from scap.plugins.patches import SecurityPatches
 
 HISTORY_ABORT_STATUS = 127
+
+# T374983: Use the presence of SQLAlchemy as a proxy to tell whether we are on a deployment server
+if importlib.util.find_spec("sqlalchemy") is not None:
+    from scap import history
 
 
 def update_update_strategy(path):

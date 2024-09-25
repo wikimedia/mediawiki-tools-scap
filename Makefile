@@ -1,4 +1,5 @@
 BLUBBER_VARIANTS := buster bullseye bookworm
+BLUBBER_DIST_VARIANTS := target-buster deploy-bullseye target-bullseye deploy-bookworm target-bookworm
 # deployment.eqiad.wmnet currently runs bullseye
 DEFAULT_VARIANT := bullseye
 
@@ -53,7 +54,7 @@ test-all: $(BLUBBER_VARIANTS:%=test-%)
 test: test-$(DEFAULT_VARIANT)
 
 .PHONY: dist-images
-dist-images: $(BLUBBER_VARIANTS:%=binary-dist-image-%)
+dist-images: $(BLUBBER_DIST_VARIANTS:%=binary-dist-image-%)
 
 .PHONY: reformat
 reformat:

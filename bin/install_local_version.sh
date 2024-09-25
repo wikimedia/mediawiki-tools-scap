@@ -143,7 +143,11 @@ function verify_user {
 
 function verify_local_wheels_available {
   local DIST_DIR
-  DIST_DIR=$BASE_DIST_DIR/$(lsb_release -cs)
+  if [ "$ON_SECONDARY" = y ]; then
+    DIST_DIR=$BASE_DIST_DIR/deploy-$(lsb_release -cs)
+  else
+    DIST_DIR=$BASE_DIST_DIR/target-$(lsb_release -cs)
+  fi
 
   if [ ! -d "$DIST_DIR" ]; then
     fail "Scap distribution dir \"$DIST_DIR\" is missing. Maybe this is a primary deploy server? Please check usage"
@@ -151,9 +155,10 @@ function verify_local_wheels_available {
 }
 
 function get_scap_distribution {
-  local DISTRO=$1
-  local IMAGE=${BASE_SCAP_IMAGE_REPO}/$DISTRO:$TAG
-  local DIST_DIR=$BASE_DIST_DIR/$DISTRO
+  local HOST_TYPE=$1
+  local DISTRO=$2
+  local IMAGE=${BASE_SCAP_IMAGE_REPO}/$HOST_TYPE-$DISTRO:$TAG
+  local DIST_DIR=$BASE_DIST_DIR/$HOST_TYPE-$DISTRO
 
   docker pull "$IMAGE" >/dev/null
 
@@ -183,16 +188,17 @@ function get_scap_distribution {
 function install_scap_venv_for_user {
   function install_venv {
     $AS_USER python3 -m venv "$SCAP_VENV_DIR"
-    # Upgrade pip first using the included wheel.
-    $AS_USER "$SCAP_VENV_DIR"/bin/pip install --upgrade --no-deps "$DIST_DIR"/pip-*.whl
-    # Then install everything else
     $AS_USER "$SCAP_VENV_DIR"/bin/pip install --no-deps "$DIST_DIR"/*.whl
     return $?
   }
 
   local DISTRO
   DISTRO=$(lsb_release -cs)
-  local DIST_DIR=$BASE_DIST_DIR/$DISTRO
+  if [ "$ON_PRIMARY" = y ] || [ "$ON_SECONDARY" = y ]; then
+    local DIST_DIR=$BASE_DIST_DIR/deploy-$DISTRO
+  else
+    local DIST_DIR=$BASE_DIST_DIR/target-$DISTRO
+  fi
   local SCAP_VENV_DIR=${USER_HOME}/scap
   local OLD_SCAP_VENV_DIR=
 
@@ -237,7 +243,10 @@ function install_scap {
 
   if [ "$ON_PRIMARY" = y ]; then
     for DISTRO in $SUPPORTED_DISTROS; do
-      get_scap_distribution "$DISTRO"
+      if [ "$DISTRO" != buster ]; then
+        get_scap_distribution deploy "$DISTRO"
+      fi
+      get_scap_distribution target "$DISTRO"
     done
   fi
 

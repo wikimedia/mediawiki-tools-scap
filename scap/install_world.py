@@ -341,7 +341,7 @@ class InstallWorld(cli.Application):
                 "--delete-delay",
                 "--compress",
                 "--new-compress",
-                f"{self.deploy_master}::{InstallWorld.SCAP_RSYNC_MODULE}/{InstallWorld.WHEELS_DIR}/$(lsb_release -cs)",
+                f"{self.deploy_master}::{InstallWorld.SCAP_RSYNC_MODULE}/{InstallWorld.WHEELS_DIR}/target-$(lsb_release -cs)",
                 f"{self.deploy_master}::{InstallWorld.SCAP_RSYNC_MODULE}/{InstallWorld.INSTALL_SCAP_SCRIPT_PATH}",
                 self.install_user_home + "/",
             ]

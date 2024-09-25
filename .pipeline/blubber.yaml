@@ -34,11 +34,12 @@ variants:
   verify-deps:
     builders:
       - python:
-          # Ensure requirements.txt is exhaustive
+          # Ensure requirements-*.txt are exhaustive
           no-deps: True
           requirements:
             - verify-requirements.txt
-            - requirements.txt
+            - requirements-common.txt
+            - requirements-deploy.txt
     entrypoint: [echo, "deps check passed"]
 
   verify-deps-buster:
@@ -63,7 +64,8 @@ variants:
           command: [tox, run-parallel, --notest]
           requirements:
             - tox.ini
-            - requirements.txt
+            - requirements-common.txt
+            - requirements-deploy.txt
             - test-requirements.txt
             - docs/requirements.txt
       # Run the tests
@@ -116,51 +118,70 @@ variants:
         source: /srv/app/docs/_build/html/
         destination: docs/
 
-  binary-dist-buster-build:
-    includes: [base-buster]
+  binary-dist-deploy-build:
     builders:
       - python:
           requirements: [binary-dist-requirements.txt]
       - custom:
-          command: [./build_wheels.sh]
+          command: [./build_wheels.sh, requirements-common.txt, requirements-deploy.txt]
           requirements: [.]
 
-  binary-dist-bullseye-build:
-    includes: [base-bullseye]
+  binary-dist-target-build:
     builders:
       - python:
           requirements: [binary-dist-requirements.txt]
       - custom:
-          command: [./build_wheels.sh]
+          command: [./build_wheels.sh, requirements-common.txt]
           requirements: [.]
 
-  binary-dist-bookworm-build:
-    includes: [base-bookworm]
-    builders:
-      - python:
-          requirements: [binary-dist-requirements.txt]
-      - custom:
-          command: [./build_wheels.sh]
-          requirements: [.]
+  # binary-dist-deploy-buster-build isn't needed as we don't run deployment servers with buster anymore
 
-  binary-dist-buster:
+  binary-dist-target-buster-build:
+    includes: [base-buster, binary-dist-target-build]
+
+  binary-dist-deploy-bullseye-build:
+    includes: [base-bullseye, binary-dist-deploy-build]
+
+  binary-dist-target-bullseye-build:
+    includes: [base-bullseye, binary-dist-target-build]
+
+  binary-dist-deploy-bookworm-build:
+    includes: [base-bullseye, binary-dist-deploy-build]
+
+  binary-dist-target-bookworm-build:
+    includes: [base-bookworm, binary-dist-target-build]
+
+  binary-dist-target-buster:
     base: docker-registry.wikimedia.org/wikimedia-buster
     copies:
-      - from: binary-dist-buster-build
+      - from: binary-dist-target-buster-build
         source: /srv/app/wheels
         destination: /wheels
 
-  binary-dist-bullseye:
+  binary-dist-deploy-bullseye:
     base: docker-registry.wikimedia.org/bullseye
     copies:
-      - from: binary-dist-bullseye-build
+      - from: binary-dist-deploy-bullseye-build
         source: /srv/app/wheels
         destination: /wheels
 
-  binary-dist-bookworm:
-    base: docker-registry.wikimedia.org/bookworm
+  binary-dist-target-bullseye:
+    base: docker-registry.wikimedia.org/bullseye
     copies:
-      - from: binary-dist-bookworm-build
+      - from: binary-dist-target-bullseye-build
         source: /srv/app/wheels
         destination: /wheels
-        
+
+  binary-dist-deploy-bookworm:
+    base: docker-registry.wikimedia.org/bookworm
+    copies:
+      - from: binary-dist-deploy-bookworm-build
+        source: /srv/app/wheels
+        destination: /wheels
+
+  binary-dist-target-bookworm:
+    base: docker-registry.wikimedia.org/bookworm
+    copies:
+      - from: binary-dist-target-bookworm-build
+        source: /srv/app/wheels
+        destination: /wheels

@@ -60,7 +60,9 @@ setup(
     packages=["scap", "scap.plugins", "scap.spiderpig"],
     package_dir={"scap": "scap"},
     scripts=["bin/scap", "bin/install_local_version.sh"],
-    install_requires=[line.strip() for line in open("requirements.txt")],
+    # Note these deps are the ones needed by Scap on a deployment server, not on a target
+    install_requires=[line.strip() for line in open("requirements-common.txt")]
+    + [line.strip() for line in open("requirements-deploy.txt")],
     keywords=["deploy", "deployment", "scap", "scap2", "scap3"],
     classifiers=[
         "Operating System :: POSIX :: Linux",

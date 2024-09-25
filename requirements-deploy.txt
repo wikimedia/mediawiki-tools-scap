@@ -1,0 +1,4 @@
+greenlet==3.0.3
+setuptools==68.0.0
+SQLAlchemy==2.0.32
+typing-extensions>=4.7.1

@@ -19,7 +19,7 @@ Running tests
 
 Automated tests can be executed with `make test` or `tox -e test`.
 
-For a list of Scap dependencies during testing, see `requirements.txt` and
+For a list of Scap dependencies during testing, see `requirements-*.txt` and
 `test-requirements.txt`.  Some Debian packages are also required to set up the
 running environment, for instance to install Python or pip.
 
