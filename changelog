@@ -1,3 +1,9 @@
+scap (4.107.0)
+
+  * prep: Support glob pattern in `--copy-private-settings` src
+
+ -- Dan Duvall <dduvall@wikimedia.org>  Thu, 26 Sep 2024 15:24:15 -0700
+
 scap (4.106.0)
 
   * Fix l10n CDB file handling on secondary masters
