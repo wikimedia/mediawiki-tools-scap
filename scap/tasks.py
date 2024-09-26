@@ -240,16 +240,18 @@ def merge_cdb_updates(directory, pool_size, trust_mtime=False, mute=False, logge
 
 
 @utils.log_context("sync_master")
-def sync_master(cfg, master, verbose=False, logger=None):
+def sync_master(app, master, verbose=False, logger=None):
     """
     Sync local staging dir with upstream rsync server's copy.
 
     Rsync from ``server::common`` to the local staging directory.
 
-    :param cfg: Dict of global configuration values.
+    :param app: cli.Application
     :param master: Master server to sync with
     :param verbose: Enable verbose logging?
     """
+
+    cfg = app.config
 
     if not os.path.isdir(cfg["stage_dir"]):
         raise IOError(
@@ -273,23 +275,13 @@ def sync_master(cfg, master, verbose=False, logger=None):
         subprocess.check_call(rsync)
 
     # Rebuild the CDB files
-    use_cores = utils.cpus_for_jobs()
-
     with log.Timer("rebuild CDB staging files", stats):
-        for version in utils.get_active_wikiversions(
-            cfg["stage_dir"], cfg["wmf_realm"]
-        ):
-            cache_dir = os.path.join(
-                cfg["stage_dir"], "php-%s" % version, "cache", "l10n"
-            )
-            _call_rebuildLocalisationCache(
-                cfg,
-                version,
-                cache_dir,
-                use_cores,
-                php_l10n=cfg["php_l10n"],
-                delay_messageblobstore_purge=cfg["delay_messageblobstore_purge"],
-            )
+        utils.sudo_check_call(
+            "www-data",
+            "%s cdb-rebuild --master" % app.get_script_path(),
+            logger=logger,
+            app=app,
+        )
 
 
 # Called via "scap pull"

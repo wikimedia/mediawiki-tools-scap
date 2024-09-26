@@ -920,10 +920,20 @@ class RebuildCdbs(cli.Application):
         dest="mute",
         help="Do not show progress indicator.",
     )
+    @cli.argument(
+        "--master",
+        action="store_true",
+        help="Operate in a mode suitable for a deploy master",
+    )
     def main(self, *extra_args):
-        user = "mwdeploy"
-        source_tree = "deploy"
-        root_dir = self.config["deploy_dir"]
+        if self.arguments.master:
+            user = "www-data"
+            source_tree = "stage"
+            root_dir = self.config["stage_dir"]
+        else:
+            user = "mwdeploy"
+            source_tree = "deploy"
+            root_dir = self.config["deploy_dir"]
 
         self._run_as(user)
         self._assert_current_user(user)
@@ -1133,9 +1143,7 @@ class SyncMaster(cli.Application):
 
     @cli.argument("master", help="Master rsync server to copy from")
     def main(self, *extra_args):
-        tasks.sync_master(
-            self.config, master=self.arguments.master, verbose=self.verbose
-        )
+        tasks.sync_master(self, master=self.arguments.master, verbose=self.verbose)
         return 0
 
 
