@@ -100,7 +100,10 @@ class CheckoutMediaWiki(cli.Application):
         "--copy-private-settings",
         default=None,
         metavar="FILE",
-        help="Copy the specified file into private/ in the staging directory.  Only used in auto mode.",
+        help=(
+            "Copy the specified file(s) into private/ in the staging "
+            "directory. Supports glob patterns. Only used in auto mode."
+        ),
     )
     @cli.argument(
         "--lock-timeout",
@@ -177,11 +180,12 @@ class CheckoutMediaWiki(cli.Application):
                         version, logger, apply_patches=self.arguments.apply_patches
                     )
 
-    def _copy_private_settings(self, src, logger):
-        dest = os.path.join(self.config["stage_dir"], "private", "PrivateSettings.php")
-        logger.info("Copying {} to {}".format(src, dest))
-        # copy2 preserves file mode and modification time
-        shutil.copy2(src, dest)
+    def _copy_private_settings(self, src_glob, logger):
+        dest = os.path.join(self.config["stage_dir"], "private")
+        for src in glob.glob(src_glob):
+            logger.info("Copying {} to {}".format(src, dest))
+            # copy2 preserves file mode and modification time
+            shutil.copy2(src, dest)
 
     def _prep_mw_branch(self, branch, logger, apply_patches=False):
         dest_dir = os.path.join(
