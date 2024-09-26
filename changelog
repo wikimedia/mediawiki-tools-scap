@@ -1,3 +1,12 @@
+scap (4.105.0)
+
+  * mwscript: Containerize MediaWiki script execution
+  * Establish a table for storing jobrunner status
+  * Makefile: Don't pass --quiet when building the verify-deps image
+  * Drop Response class.  Not needed.
+
+ -- Dan Duvall <dduvall@wikimedia.org>  Thu, 26 Sep 2024 09:21:44 -0700
+
 scap (4.104.0)
 
   * Remove Docker image pulling functionality
