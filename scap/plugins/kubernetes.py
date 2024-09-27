@@ -48,6 +48,6 @@ class BuildImages(cli.Application):
 
             for version in versions:
                 self.timed(tasks.cache_git_info, version, self.config)
-                self.timed(tasks.update_localization_cache, version, self)
+                self.timed(tasks.update_localization_cache, version, self, json=False)
 
             k8s_ops.build_k8s_images(versions, force_version=force_version)

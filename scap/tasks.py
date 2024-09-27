@@ -574,13 +574,14 @@ def ensure_extension_messages_file(cfg, version, logger):
 
 
 @utils.log_context("update_localization_cache")
-def update_localization_cache(version, app, logger=None):
+def update_localization_cache(version, app, logger=None, json=True):
     """
     Update the localization cache for a given MW version.
 
     :param version: MediaWiki version
     :param wikidb: Wiki running given version
     :param app: Application calling the function
+    :param json: Whether to generate JSON/MD5 files from CDBs when finished.
     """
 
     verbose = app.verbose
@@ -668,17 +669,18 @@ def update_localization_cache(version, app, logger=None):
 
     cache_dir_owner = pwd.getpwuid(os.stat(cache_dir).st_uid).pw_name
 
-    # Include JSON versions of the CDB files and add MD5 files
-    logger.info(
-        "Generating JSON versions and md5 files (as {})".format(cache_dir_owner)
-    )
-    utils.sudo_check_call(
-        user=cache_dir_owner,
-        cmd="%s cdb-json-refresh "
-        '--directory="%s" --threads=%s %s'
-        % (app.get_script_path(), cache_dir, use_cores, verbose_messagelist),
-        app=app,
-    )
+    if json:
+        # Include JSON versions of the CDB files and add MD5 files
+        logger.info(
+            "Generating JSON versions and md5 files (as {})".format(cache_dir_owner)
+        )
+        utils.sudo_check_call(
+            user=cache_dir_owner,
+            cmd="%s cdb-json-refresh "
+            '--directory="%s" --threads=%s %s'
+            % (app.get_script_path(), cache_dir, use_cores, verbose_messagelist),
+            app=app,
+        )
 
 
 def refresh_cdb_json_files(in_dir, pool_size, verbose):
