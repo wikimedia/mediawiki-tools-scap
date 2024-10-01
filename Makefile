@@ -1,6 +1,6 @@
 BLUBBER_VARIANTS := buster bullseye bookworm
-# deployment.eqiad.wmnet currently runs buster
-DEFAULT_VARIANT := buster
+# deployment.eqiad.wmnet currently runs bullseye
+DEFAULT_VARIANT := bullseye
 
 VERIFY_DEPS_IMAGE = local/scap-$(*F)-verify-deps
 TEST_IMAGE = local/scap-$(*F)-test
