@@ -114,13 +114,6 @@ DEFAULT_CONFIG = {
     "mediawiki_image_extra_packages": (str, ""),
     # Path to a CA cert to inject into the image
     "mediawiki_image_extra_ca_cert": (str, None),
-    # Container used to execute PHP scripts during prep, etc.
-    "mediawiki_runtime_image": (
-        str,
-        "docker-registry.wikimedia.org/php7.4-fpm-multiversion-base",
-    ),
-    "mediawiki_runtime_user": (str, "www-data"),
-    # Helmfile deployment configuration
     "helmfile_services_dir": (str, "/srv/deployment-charts/helmfile.d/services"),
     "helmfile_mediawiki_release_dir": (str, "/etc/helmfile-defaults/mediawiki/release"),
     # Comma separated list of the clusters we will deploy to

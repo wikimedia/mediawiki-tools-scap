@@ -29,6 +29,7 @@ import logging
 import multiprocessing
 import os
 import pwd
+import re
 import socket
 import subprocess
 import sys
@@ -37,7 +38,6 @@ import time
 import scap.cdblib as cdblib
 import scap.git as git
 import scap.log as log
-import scap.mwscript as mwscript
 import scap.ssh as ssh
 import scap.utils as utils
 
@@ -489,7 +489,6 @@ def update_l10n_cdb_wrapper(args, logger=None):
 
 
 def _call_rebuildLocalisationCache(
-    cfg,
     version,
     out_dir,
     use_cores=1,
@@ -502,7 +501,6 @@ def _call_rebuildLocalisationCache(
     """
     Helper for update_localization_cache.
 
-    :param cfg: Scap config
     :param version: The train version to build l10n for
     :param out_dir: The output directory
     :param use_cores: The number of cores to run in
@@ -517,49 +515,35 @@ def _call_rebuildLocalisationCache(
         # lang will remain None if SCAP_MW_LANG is not defined.
         lang = os.getenv("SCAP_MW_LANG")
 
-    mw_runtime = mwscript.Runtime(cfg)
-
     def _rebuild(store_class, file_extension):
-        logging.info("Running rebuildLocalisationCache.php")
+        logging.info("Running rebuildLocalisationCache.php as www-data")
         # Passing --skip-message-purge for T263872 (if delay_messageblobstore_purge feature
         # flag is enabled).
         # Note: mwscript runs maintenance scripts from /srv/mediawiki-staging if it exists,
         # otherwise it falls back to /srv/mediawiki.  If rebuildLocalisationCache.php is run
         # from /srv/mediawiki-staging (the usual case), it will update files in
         # /srv/mediawiki-staging/php-<vers>/cache/l10n
-        args = [
-            "--no-progress",
-            "--store-class",
-            store_class,
-            "--threads",
-            use_cores,
-        ]
-
-        if lang:
-            args += ["--lang", lang]
-        if force:
-            args += ["--force"]
-        if quiet:
-            args += ["--quiet"]
-
-        network = True
-        # If we're delaying the message purge, we don't strictly need the
-        # network or database access
-        if delay_messageblobstore_purge:
-            network = False
-            args += [
-                "--no-database",
-                "--skip-message-purge",
-            ]
-
-        mw_runtime.run_mwscript(
-            "rebuildLocalisationCache.php",
-            args,
-            version=version,
-            network=network,
-            stdout_log_level=logging.INFO,
+        utils.sudo_check_call(
+            "www-data",
+            "/usr/local/bin/mwscript rebuildLocalisationCache.php "
+            "--wiki=aawiki "
+            '--force-version "%(version)s" '
+            "--no-progress "
+            "--store-class=%(store_class)s "
+            "--threads=%(use_cores)s %(lang)s %(force)s %(quiet)s %(skip_message_purge)s"
+            % {
+                "version": version,
+                "store_class": store_class,
+                "use_cores": use_cores,
+                "lang": "--lang " + lang if lang else "",
+                "force": "--force" if force else "",
+                "quiet": "--quiet" if quiet else "",
+                "skip_message_purge": "--skip-message-purge"
+                if delay_messageblobstore_purge
+                else "",
+            },
+            logLevel=logging.INFO,
         )
-        mw_runtime.run_shell("chmod 0664 {}/*.cdb", out_dir)
 
     _rebuild("LCStoreCDB", "cdb")
 
@@ -601,7 +585,6 @@ def update_localization_cache(version, app, logger=None):
 
     verbose = app.verbose
     cfg = app.config
-    mw_runtime = mwscript.Runtime(cfg)
 
     # Calculate the number of parallel threads
     # Leave a couple of cores free for other stuff
@@ -619,22 +602,25 @@ def update_localization_cache(version, app, logger=None):
 
     if os.path.exists(cache_dir):
         # Clean up cruft from any prior interrupted run.
-        mw_runtime.run_shell("rm -f {}/*.tmp.*", cache_dir)
+        utils.sudo_check_call(
+            "www-data", "rm -f {}".format(os.path.join(cache_dir, "*.tmp.*"))
+        )
 
     if not os.path.exists(os.path.join(cache_dir, "l10n_cache-en.cdb")):
         # mergeMessageFileList.php needs a l10n file
         logger.info("Bootstrapping l10n cache for %s", version)
         _call_rebuildLocalisationCache(
-            cfg, version, cache_dir, use_cores, cfg["php_l10n"], lang="en", quiet=True
+            version, cache_dir, use_cores, cfg["php_l10n"], lang="en", quiet=True
         )
         # Force subsequent cache rebuild to overwrite bootstrap version
         force_rebuild = True
 
     logger.info("Updating ExtensionMessages-%s.php", version)
-    new_extension_messages = mw_runtime.run_shell(
-        "mktemp",
-        stdout=subprocess.PIPE,
-    ).stdout.strip()
+    new_extension_messages = (
+        subprocess.check_output(["sudo", "-u", "www-data", "-n", "--", "/bin/mktemp"])
+        .decode()
+        .strip()
+    )
 
     # attempt to read extension-list from the branch instead of wmf-config
     ext_list = os.path.join(cfg["stage_dir"], "php-%s" % version, "extension-list")
@@ -643,31 +629,34 @@ def update_localization_cache(version, app, logger=None):
         # fall back to the old location in wmf-config
         ext_list = "%s/wmf-config/extension-list" % cfg["stage_dir"]
 
-    mw_runtime.run_mwscript(
-        "mergeMessageFileList.php",
-        [
-            "--list-file",
-            ext_list,
-            "--output",
-            new_extension_messages,
-        ],
-        version=version,
-        check_warnings=True,
+    merge_message_file_list_command = (
+        "/usr/local/bin/mwscript mergeMessageFileList.php "
+        '--wiki=aawiki --force-version "%s" --list-file="%s" '
+        '--output="%s"' % (version, ext_list, new_extension_messages)
     )
+    diags = utils.sudo_check_call("www-data", merge_message_file_list_command)
+    utils.sudo_check_call("www-data", 'chmod 0664 "%s"' % new_extension_messages)
 
     try:
-        mw_runtime.run_shell("chmod 0664 {}", new_extension_messages)
+        # Check for PHP notices/warnings in mergeMessageFileList.php output.
+        if re.search(r"PHP (Notice|Warning)", diags):
+            raise SystemExit(
+                f"""
+{merge_message_file_list_command} generated PHP notices/warnings:
+{diags}
+"""
+            )
+
         with open(new_extension_messages) as f:
             utils.write_file_if_needed(extension_messages, f.read())
     finally:
-        mw_runtime.run_shell("rm {}", new_extension_messages)
+        utils.sudo_check_call("www-data", 'rm "%s"' % new_extension_messages)
 
     # Rebuild all the CDB files for each language
     logger.info(
         "Updating LocalisationCache for %s " "using %s thread(s)" % (version, use_cores)
     )
     _call_rebuildLocalisationCache(
-        cfg,
         version,
         cache_dir,
         use_cores,
@@ -871,17 +860,12 @@ def clear_message_blobs(cfg, logger=None):
     :param cfg: Scap configuration dict
     :param logger: logger instance
     """
-    mw_runtime = mwscript.Runtime(cfg)
+    cmd = "/usr/local/bin/mwscript purgeMessageBlobStore.php"
 
-    logger.info("Running purgeMessageBlobStore.php")
+    logger.info("Running {}".format(cmd))
 
-    # Note this script affects all wikis
-    mw_runtime.run_mwscript(
-        "purgeMessageBlobStore.php",
-        wiki=None,
-        network=True,
-        stdout_log_level=logging.INFO,
-    )
+    # The script affects all wikis
+    utils.sudo_check_call("www-data", cmd)
 
 
 @utils.log_context("port_check")

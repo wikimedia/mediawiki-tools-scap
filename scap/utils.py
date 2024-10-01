@@ -315,8 +315,6 @@ def log_context(context_name):
                 logger = args[argspec.args.index("logger")]
             except IndexError:
                 logger = None
-            except ValueError:
-                logger = None
 
             # Check if logger was passed as a keyword argument
             if logger is None:

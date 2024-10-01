@@ -43,7 +43,6 @@ import scap.lint as lint
 import scap.lock as lock
 import scap.log as log
 import scap.logstash_checker as logstash_checker
-import scap.mwscript as mwscript
 import scap.php_fpm as php_fpm
 import scap.ssh as ssh
 import scap.targets as targets
@@ -52,6 +51,7 @@ import scap.utils as utils
 import scap.version as scapversion
 from scap import ansi, history
 from scap.kubernetes import K8sOps, TEST_SERVERS, CANARIES, PRODUCTION, STAGES
+from scap.runcmd import mwscript
 
 
 @dataclass
@@ -78,7 +78,6 @@ class AbstractSync(cli.Application):
         self.already_synced = []
         self.already_restarted = set()
         self.k8s_ops = None
-        self.mwscript_runtime = None
 
     @cli.argument(
         "--force",
@@ -119,7 +118,6 @@ class AbstractSync(cli.Application):
             print(ansi.logo(color=utils.should_colorize_output()))
 
         os.umask(self.config["umask"])
-        self.mwscript_runtime = mwscript.Runtime(self.config)
 
         self._assert_auth_sock()
 
@@ -383,15 +381,11 @@ class AbstractSync(cli.Application):
         ).items():
             logger.debug("Testing {} with eval.php using {}".format(version, wikidb))
             with utils.suppress_backtrace():
-                proc = self.mwscript_runtime.run_mwscript(
-                    "eval.php",
-                    wiki=wikidb,
-                    check=False,
-                )
-                if proc.stderr:
+                stderr = mwscript("eval.php", "--wiki", wikidb)
+                if stderr:
                     raise SystemExit(
                         "'mwscript eval.php --wiki {}' generated unexpected output: {}".format(
-                            wikidb, proc.stderr
+                            wikidb, stderr
                         )
                     )
 
