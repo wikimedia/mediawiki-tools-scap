@@ -24,7 +24,7 @@
 
 import sys
 
-import scap.plugins
+import scap.plugins  # noqa: F401
 
 from scap.main import (
     CompileWikiversions,
@@ -43,8 +43,6 @@ from scap.main import (
 from scap.version import __version__
 
 from scap.deploy import Deploy, DeployLocal, DeployLog
-
-import scap.runcmd
 
 from scap.deploy_promote import DeployPromote
 from scap.stage_train import StageTrain
@@ -77,35 +75,5 @@ __all__ = [
     "__version__",
     "runcmd",
 ]
-
-
-def all_applications():
-    """Load all the plugins and add them to the list of applications"""
-    scap.plugins.load_plugins()
-    apps = []
-    apps.extend(__all__)
-    apps.extend(scap.plugins.__all__)
-    return apps
-
-
-any(
-    (
-        CompileWikiversions,
-        Deploy,
-        DeployLocal,
-        DeployLog,
-        LockManager,
-        MWVersionsInUse,
-        RebuildCdbs,
-        RefreshCdbJsonFiles,
-        SecurityPatchCheck,
-        SyncPull,
-        SyncFile,
-        SyncMaster,
-        SyncWikiversions,
-        Version,
-        __version__,
-    )
-)  # Ignore unused import warning
 
 assert sys.version_info > (3,)
