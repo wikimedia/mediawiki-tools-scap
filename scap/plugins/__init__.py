@@ -90,8 +90,6 @@ def load_plugins(plugin_dir=None):
 
     possible_plugin_dirs = [
         plugin_dir,
-        os.path.join(os.getcwd(), "scap", "plugins"),
-        os.path.join(os.path.expanduser("~"), ".scap", "plugins"),
     ]
     plugin_dirs = []
     for x in possible_plugin_dirs:
