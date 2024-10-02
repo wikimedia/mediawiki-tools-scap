@@ -1,5 +1,6 @@
 import os
 import sys
+import termios
 
 from typing import Optional
 
@@ -90,8 +91,19 @@ class TerminalIO(UserIOBase):
     def _output_line(self, line, sensitive):
         print(line)
 
-    def _input_line(self, prompt) -> str:
+    def _input(self, prompt) -> str:
+        """
+        When running in a terminal, discard any input that might have been
+        buffered so far.  This prevents unexpected abort of a deployment when a
+        user has repeatedly pressed the return key in their terminal.
+        """
+        if have_terminal():
+            termios.tcflush(sys.stdin, termios.TCIFLUSH)
+
         return input(prompt)
+
+    def _input_line(self, prompt) -> str:
+        return self._input(prompt)
 
     def _prompt_choices(self, question, choices, default) -> str:
         """
@@ -99,7 +111,7 @@ class TerminalIO(UserIOBase):
         Returns the user's response.  Validation of the response is not
         performed.
         """
-        return input(self.generate_prompt_text(question, choices, default))
+        return self._input(self.generate_prompt_text(question, choices, default))
 
     @classmethod
     def generate_prompt_text(self, question, choices, default=None) -> str:
