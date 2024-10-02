@@ -77,8 +77,20 @@ def prompt_user_for_confirmation(prompt_message, default="n") -> bool:
 
 class TerminalInteraction:
     @classmethod
-    def input_line(cls, prompt) -> str:
+    def _input(cls, prompt) -> str:
+        """
+        When running interactively, consume any previously entered lines before
+        reading user input.  This prevent unexpected abort of a deployment when
+        a user has repeatedly pressed the return key in their terminal.
+        """
+        if sys.stdin.isatty():
+            sys.stdin.read()
+
         return input(prompt)
+
+    @classmethod
+    def input_line(cls, prompt) -> str:
+        return cls._input(prompt)
 
     @classmethod
     def prompt_choices(cls, question, choices, default) -> str:
@@ -87,7 +99,7 @@ class TerminalInteraction:
         Returns the user's response.  Validation of the response is not
         performed.
         """
-        return input(cls.generate_prompt_text(question, choices, default))
+        return cls._input(cls.generate_prompt_text(question, choices, default))
 
     @classmethod
     def generate_prompt_text(cls, question, choices, default=None) -> str:
