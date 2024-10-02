@@ -90,8 +90,19 @@ class TerminalIO(UserIOBase):
     def _output_line(self, line, sensitive):
         print(line)
 
-    def _input_line(self, prompt) -> str:
+    def _input(self, prompt) -> str:
+        """
+        When running in a terminal, consume any previously entered lines before
+        reading user input.  This prevent unexpected abort of a deployment when
+        a user has repeatedly pressed the return key in their terminal.
+        """
+        if have_terminal():
+            sys.stdin.read()
+
         return input(prompt)
+
+    def _input_line(self, prompt) -> str:
+        return self._input(prompt)
 
     def _prompt_choices(self, question, choices, default) -> str:
         """
@@ -99,7 +110,7 @@ class TerminalIO(UserIOBase):
         Returns the user's response.  Validation of the response is not
         performed.
         """
-        return input(self.generate_prompt_text(question, choices, default))
+        return self._input(self.generate_prompt_text(question, choices, default))
 
     @classmethod
     def generate_prompt_text(self, question, choices, default=None) -> str:
