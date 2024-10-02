@@ -1,3 +1,12 @@
+scap (4.108.0)
+
+  * scap/__init__.py: Remove cruft
+  * kubernetes: generalize deployments configuration
+  * Revert "mwscript: Containerize MediaWiki script execution"
+  * Makefile: Bump DEFAULT_VARIANT to bullseye
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Wed, 02 Oct 2024 08:09:50 -0700
+
 scap (4.107.0)
 
   * prep: Support glob pattern in `--copy-private-settings` src
