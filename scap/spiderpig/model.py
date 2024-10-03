@@ -3,8 +3,8 @@ import json
 import os
 
 from typing import List, Optional
-
 from sqlalchemy import ForeignKey, select, delete, text, null
+from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, Session
 from sqlalchemy.sql import func
 
@@ -17,7 +17,7 @@ class JobrunnerStatus(Base):
     __tablename__ = "jobrunner_status"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    pid: Mapped[int]
+    pid: Mapped[Optional[int]]
     status: Mapped[str]
     job_id: Mapped[Optional[int]]
 
@@ -26,9 +26,17 @@ class JobrunnerStatus(Base):
         return session.scalar(select(JobrunnerStatus))
 
     @classmethod
-    def set(self, session: Session, status: str, job_id: Optional[int] = None):
+    def set(
+        self,
+        session: Session,
+        status: str,
+        job_id: Optional[int] = None,
+        clear_pid: bool = False,
+    ):
         session.execute(delete(JobrunnerStatus))
-        status = JobrunnerStatus(pid=os.getpid(), status=status, job_id=job_id)
+        # FIXME: Change to None once I figure out db migration.
+        pid = 0 if clear_pid else os.getpid()
+        status = JobrunnerStatus(pid=pid, status=status, job_id=job_id)
         session.add(status)
         session.commit()
 
@@ -64,6 +72,13 @@ class Job(Base):
         return session.scalar(select(Job).where(Job.id == job_id))
 
     @classmethod
+    def get_last_n(cls, session, last: int) -> List["Job"]:
+        return [
+            job
+            for job in session.scalars(select(Job).order_by(Job.id.desc()).limit(last))
+        ]
+
+    @classmethod
     def pop(cls, session) -> Optional["Job"]:
         """
         Return the next eligible job to run, if any.
@@ -86,19 +101,7 @@ class Job(Base):
 
         return job
 
-    def interrupt(self, session: Session, user: str):
-        """
-        This method starts and ends a transaction.
-        """
-        self._signal(session, user, "interrupt")
-
-    def kill(self, session: Session, user: str):
-        """
-        This method starts and ends a transaction.
-        """
-        self._signal(session, user, "kill")
-
-    def _signal(self, session, user, type):
+    def signal(self, session: Session, user: str, type: str):
         """
         This method starts and ends a transaction.
         """
@@ -106,7 +109,7 @@ class Job(Base):
         if self.finished_at:
             session.rollback()
             raise AlreadyFinished(
-                f"Job {self.id} cannot be interrupted because it has already finished"
+                f"Job {self.id} cannot be signalled because it has already finished"
             )
 
         Interruption.add(session, self.id, user, type)
@@ -137,6 +140,8 @@ class Interruption(Base):
     user: Mapped[str]
     type: Mapped[str]  # "kill" or "interrupt"
 
+    SIGNAL_TYPES = ["kill", "interrupt"]
+
     @classmethod
     def add(cls, session: Session, job_id: int, user: str, type: str):
         """
@@ -144,7 +149,7 @@ class Interruption(Base):
 
         Does NOT commit.
         """
-        assert type in ["kill", "interrupt"]
+        assert type in cls.SIGNAL_TYPES
         session.add(Interruption(job_id=job_id, user=user, type=type))
 
     @classmethod
@@ -191,6 +196,10 @@ class Interaction(Base):
 
     responded_by: Mapped[Optional[str]]
     response: Mapped[Optional[str]]
+
+    @hybrid_property
+    def choices_parsed(self) -> dict:
+        return json.loads(self.choices)
 
     @classmethod
     def register(

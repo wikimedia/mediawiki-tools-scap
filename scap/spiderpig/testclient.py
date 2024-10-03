@@ -1,14 +1,74 @@
+from contextlib import contextmanager
+import json
 import os
-import shlex
+import requests
+import sys
 import threading
 import time
+from typing import List, Tuple, Optional
+import urllib.parse
 
 import scap.cli as cli
 
-import scap.spiderpig
-from scap.spiderpig.model import Job, Interaction
 
-from sqlalchemy.orm import Session
+class SpiderpigApiClient:
+    def __init__(self, base_url: str, user: str):
+        """
+        'base_url' should be something like http://127.0.0.1:8000
+        """
+        self.base_url = base_url
+        self.user = user
+        self.session = requests.Session()
+        self.session.headers["Authorization"] = f"Bearer {user}"
+
+    def jobrunner_status(self) -> dict:
+        url = urllib.parse.urljoin(self.base_url, "/api/jobrunner/status")
+        r = self.session.get(url)
+        r.raise_for_status()
+        return r.json()
+
+    def backport(self, change_urls: List[str]) -> int:
+        """
+        Returns the job id.
+        """
+        url = urllib.parse.urljoin(self.base_url, "/api/jobs/backport")
+        r = self.session.post(url, params={"change_url": change_urls})
+        # FIXME: Improve error reporting.. use the information in the error response
+        r.raise_for_status()
+        return r.json()["id"]
+
+    def get(self, job_id: int) -> Tuple[dict, Optional[dict]]:
+        url = urllib.parse.urljoin(self.base_url, f"/api/jobs/{job_id}")
+        r = self.session.get(url)
+        r.raise_for_status()
+        r = r.json()
+        return r["job"], r["pending_interaction"]
+
+    def respond(self, interaction: dict, response: str):
+        """
+        Respond to an interaction that was returned as the second entry in the tuple
+        returned by 'get'.
+        """
+        job_id = interaction["job_id"]
+        iid = interaction["id"]
+        url = urllib.parse.urljoin(self.base_url, f"/api/jobs/{job_id}/interact/{iid}")
+        r = self.session.post(url, data=json.dumps(response))
+        r.raise_for_status()
+
+    def stream_log(self, job_id: int):
+        """
+        This is a generator that yields batches of bytes
+        """
+        url = urllib.parse.urljoin(self.base_url, f"/api/jobs/{job_id}/log")
+        r = self.session.get(url, stream=True)
+        r.raise_for_status()
+        for chunk in r.iter_content(chunk_size=None):
+            yield chunk
+
+    def signal(self, job_id: int, type: str):
+        url = urllib.parse.urljoin(self.base_url, f"/api/jobs/{job_id}/signal/{type}")
+        r = self.session.post(url)
+        r.raise_for_status()
 
 
 @cli.command(
@@ -17,87 +77,103 @@ from sqlalchemy.orm import Session
 )
 class TestClient(cli.Application):
     def main(self, *extra_args):
-        user = os.getenv("USER")
-        cmd = input("What command do you want to run?: ")
+        self.base_url = "http://127.0.0.1:8000"  # FIXME
+        self.user = os.getenv("USER")
+        client = SpiderpigApiClient(self.base_url, self.user)
 
-        db_filename = self.spiderpig_dbfile()
-        logdir = self.spiderpig_logdir()
+        while True:
+            jobrunner_status = client.jobrunner_status()
+            status = jobrunner_status["status"]
 
-        with Session(scap.spiderpig.engine(db_filename)) as session:
-            job_id = Job.add(
-                session,
-                user=user,
-                command=shlex.split(cmd),
-            )
-            print(f"Added job {job_id}")
-
-            logfile = os.path.join(logdir, f"{job_id}.log")
-
-            stop = threading.Event()
-            threading.Thread(
-                target=tail_file, args=(logfile, stop), daemon=True
-            ).start()
-
-            interrupted = False
-
-            try:
-                while True:
-                    job = Job.get(session, job_id)
-                    assert job
-
-                    try:
-                        if job.finished_at:
-                            print(
-                                f"Job finished at {job.finished_at} with status {job.exit_status}"
-                            )
-                            return job.exit_status
-
-                        i = None
-                        if not interrupted:
-                            # Locate a non-responded-to interaction for this job.
-                            i = Interaction.lookup_pending(session, job_id)
-                        if not i:
-                            session.rollback()
-                            time.sleep(1)
-                            continue
-
-                        # Collect relevant information from the Interaction object, then terminate
-                        # the transaction before waiting for the user to respond.
-                        type = i.type
-                        prompt = i.prompt
-                        choices = i.choices
-                        default = i.default
-                        session.rollback()
-
-                        # Since this sample code is tailing the log, the prompt is
-                        # already in there, so we don't need to display it here (which
-                        # is why type, prompt. We "use" the prompt information
-                        # here to satisfy the linter.
-                        type
-                        prompt
-                        choices
-                        default
-
-                        # Note, while blocked on input here, we don't notice if the job terminates
-                        resp = input()
-                        i.respond(session, user, resp)
-                    except KeyboardInterrupt:
-                        interrupted = True
-                        print("Control-c received.  Interrupting job")
-                        job.interrupt(session, user)
-            finally:
-                stop.set()
-
-
-def tail_file(filename, stop: threading.Event):
-    while not os.path.exists(filename):
-        time.sleep(1)
-
-    with open(filename) as f:
-        while not stop.is_set():
-            line = f.readline()
-            if line:
-                print(line, end="", flush=True)
+            # Wait for jobrunner to become idle
+            if status != "idle":
+                job_id = jobrunner_status["job_id"]
+                print(f"Jobrunner status: {status}")
+                if job_id:
+                    print(f"Job {job_id} is running.  Attaching to it")
+                    self.handle_job(client, job_id)
+                else:
+                    time.sleep(1)
                 continue
-            # EOF
-            time.sleep(0.5)
+
+            print("Jobrunner is idle.")
+            changes = input("What changes do you want to backport?: ").split()
+            if not changes:
+                print("Terminating")
+                return
+            job_id = client.backport(changes)
+            print(f"Added job {job_id}")
+            self.handle_job(client, job_id)
+
+    def watch_logfile(self, job_id: int, stop: threading.Event):
+        # This is intended to be run in a separate thread, so create a fresh
+        # session for it.
+        client = SpiderpigApiClient(self.base_url, self.user)
+        # FIXME: Not responsive to the stop event while waiting for the next chunk
+        for chunk in client.stream_log(job_id):
+            # Sadly sys.stdout.write(chunk) will complain because chunk
+            # is a byte array, so we have to do it this way.
+            sys.stdout.buffer.write(chunk)
+            sys.stdout.buffer.flush()
+            if stop.is_set():
+                return
+
+    @contextmanager
+    def logfile_watcher(self, job_id: int):
+        stop = threading.Event()
+        tail_thread = threading.Thread(
+            target=self.watch_logfile, args=(job_id, stop), daemon=True
+        )
+        tail_thread.start()
+
+        try:
+            yield
+        finally:
+            stop.set()
+            tail_thread.join()
+
+    def handle_job(self, client: SpiderpigApiClient, job_id: int):
+        interrupted = False
+
+        with self.logfile_watcher(job_id):
+            while True:
+                job, interaction = client.get(job_id)
+
+                try:
+                    finished_at = job["finished_at"]
+                    if finished_at:
+                        exit_status = job["exit_status"]
+                        print(
+                            f"Job finished at {finished_at} with status {exit_status}"
+                        )
+                        return exit_status
+
+                    # Don't bother processing interactions if we've tried to
+                    # interrupt the backport.... just wait for the job
+                    # to terminate.
+                    if interrupted or not interaction:
+                        time.sleep(1)
+                        continue
+
+                    # Collect relevant information from the Interaction object
+                    type = interaction["type"]
+                    prompt = interaction["prompt"]
+                    choices = interaction["choices"]
+                    default = interaction["default"]
+
+                    # Since this sample client is tailing the log, the prompt is
+                    # already in there, so we don't need to display it here (which
+                    # is why type, prompt. We "use" the prompt information
+                    # here to satisfy the linter.
+                    type
+                    prompt
+                    choices
+                    default
+
+                    # Note, while blocked on input here, we don't notice if the job terminates
+                    resp = input()
+                    client.respond(interaction, resp)
+                except KeyboardInterrupt:
+                    interrupted = True
+                    print("Control-c received.  Interrupting job")
+                    client.signal(job_id, "interrupt")

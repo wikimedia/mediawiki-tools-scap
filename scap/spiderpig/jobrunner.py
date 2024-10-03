@@ -55,29 +55,38 @@ class JobRunner(cli.Application):
         setup_db(engine, db_filename)
 
         with Session(engine) as session:
-            while True:
-                self._set_status(session, "idle")
+            try:
+                while True:
+                    self._set_status(session, "idle")
 
-                job = Job.pop(session)
-                if job is None:
-                    time.sleep(self.arguments.polling_interval)
-                    continue
+                    job = Job.pop(session)
+                    if job is None:
+                        time.sleep(self.arguments.polling_interval)
+                        continue
 
-                exit_status = None
-                try:
-                    exit_status = run_job(
-                        job,
-                        engine,
-                        session,
-                        logger,
-                        logdir,
-                        self._set_running_job_status,
-                    )
-                finally:
-                    job.finish(session, exit_status)
+                    exit_status = None
+                    try:
+                        exit_status = run_job(
+                            job,
+                            engine,
+                            session,
+                            logger,
+                            logdir,
+                            self._set_running_job_status,
+                        )
+                    finally:
+                        job.finish(session, exit_status)
+            finally:
+                self._set_status(session, "Terminated", clear_pid=True)
 
-    def _set_status(self, session: Session, status: str, job_id: Optional[int] = None):
-        JobrunnerStatus.set(session, status, job_id)
+    def _set_status(
+        self,
+        session: Session,
+        status: str,
+        job_id: Optional[int] = None,
+        clear_pid: bool = False,
+    ):
+        JobrunnerStatus.set(session, status, job_id, clear_pid)
 
     def _set_running_job_status(
         self, session: Session, job_id: int, sub_status: Optional[str] = None
