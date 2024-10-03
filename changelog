@@ -1,3 +1,9 @@
+scap (4.109.0)
+
+  * build-images: Skip JSON/MD5 l10n generation
+
+ -- Dan Duvall <dduvall@wikimedia.org>  Thu, 03 Oct 2024 11:53:44 -0700
+
 scap (4.108.0)
 
   * scap/__init__.py: Remove cruft
