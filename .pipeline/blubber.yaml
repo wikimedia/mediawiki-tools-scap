@@ -37,7 +37,6 @@ variants:
           # Ensure requirements.txt is exhaustive
           no-deps: True
           requirements:
-            - verify-requirements.txt
             - requirements.txt
     entrypoint: [echo, "deps check passed"]
 
