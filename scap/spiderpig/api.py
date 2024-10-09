@@ -1,5 +1,9 @@
 import asyncio
+from datetime import datetime, timezone, timedelta
+import functools
+import jwt
 import os
+import pyotp
 import subprocess
 
 import sys
@@ -9,18 +13,52 @@ if sys.version_info < (3, 9):
 else:
     from typing import Annotated
 
-from typing import List
+from typing import List, Optional
 
-from fastapi import Depends, FastAPI, HTTPException, Query, Body
+from fastapi import Depends, FastAPI, HTTPException, Query, Body, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
-from fastapi.security import OAuth2PasswordBearer
+from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 
-from scap import cli
+from scap import cli, utils
 import scap.plugins.gerrit
 import scap.spiderpig
 from scap.spiderpig.model import JobrunnerStatus, Job, Interaction, AlreadyResponded
+
+
+def get_pyotp() -> pyotp.TOTP:
+    seedfile = os.path.expanduser("~/.spiderpig-seed")
+
+    if os.path.exists(seedfile):
+        with open(seedfile) as f:
+            seed = f.read()
+    else:
+        seed = pyotp.random_base32()
+        with open(seedfile, "w") as f:
+            os.chmod(seedfile, 0o600)
+            f.write(seed)
+
+    return pyotp.TOTP(seed)
+
+
+def validate_otp(username, supplied_otp) -> bool:
+    expected_user = utils.get_username()
+    if username != expected_user:
+        return False
+    return get_pyotp().verify(supplied_otp)
+
+
+@cli.command(
+    "spiderpig-otp",
+    help="Generate a one-time password for logging into spiderpig",
+    primary_deploy_server_only=True,
+)
+class SpiderpigOTP(cli.Application):
+    def main(self, *extra_args):
+        otp = get_pyotp().now()
+        print(f"Login: {utils.get_username()}")
+        print(f"Password: {otp}")
 
 
 @cli.command(
@@ -57,6 +95,7 @@ class SpiderpigAPIServer(cli.Application):
                 "SPIDERPIG_GERRIT_URL": self.config["gerrit_url"],
                 "SPIDERPIG_JOB_LOG_DIR": self.spiderpig_logdir(),
                 "SPIDERPIG_DBFILE": self.spiderpig_dbfile(),
+                "SPIDERPIG_JWT_KEY_FILE": self.spiderpig_jwt_secret_file(),
             }
         )
         if self.arguments.dev:
@@ -100,20 +139,72 @@ def get_session():
         session.close()
 
 
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="login")
+ALGORITHM = "HS256"
+ISSUER = "spiderpig-auth"
+
+
+@functools.cache
+def get_jwt_secret_key() -> str:
+    filename = os.getenv("SPIDERPIG_JWT_KEY_FILE")
+
+    if os.path.exists(filename):
+        with open(filename) as f:
+            key = f.read()
+    else:
+        key = os.urandom(32).hex()  # 256 random bits
+        with open(filename, "w") as f:
+            os.chmod(filename, 0o660)
+            f.write(key)
+
+    return key
+
+
+def generate_token() -> str:
+    now = datetime.now(tz=timezone.utc)
+    claims = {
+        "sub": utils.get_username(),
+        "exp": now + timedelta(hours=1),
+        "iat": now,
+        "iss": ISSUER,
+    }
+    return jwt.encode(claims, get_jwt_secret_key(), algorithm=ALGORITHM)
+
+
+def validate_token(token: str) -> Optional[str]:
+    """
+    Returns the subject (the user) of the token if it is valid.
+    """
+    try:
+        claims = jwt.decode(
+            token,
+            get_jwt_secret_key(),
+            algorithms=[ALGORITHM],
+            options={
+                "verify_iss": True,
+                "verify_exp": True,
+                "verify_iat": True,
+            },
+            issuer=ISSUER,
+        )
+    except jwt.InvalidTokenError:
+        return None
+
+    return claims.get("sub")
+
+
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/login")
 
 
 async def get_current_user(token: Annotated[str, Depends(oauth2_scheme)]):
-    return token
-    # user = None
-    # if not user:
-    #     print(f"get_current_user punting.  btw, token is {token}")
-    #     raise HTTPException(
-    #         status_code=status.HTTP_401_UNAUTHORIZED,
-    #         detail="Invalid authentication credentials",
-    #         headers={"WWW-Authenticate": "Bearer"},
-    #     )
-    # return user
+    user = validate_token(token)
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid authentication credentials",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    return user
 
 
 async def get_job_by_id(job_id: int, session: Session = Depends(get_session)):
@@ -314,6 +405,20 @@ async def signal_job(
         "message": "Interrupted",
         "job_id": job.id,
     }
+
+
+# FIXME: Rate limiting
+@app.post("/api/login")
+async def login(form_data: Annotated[OAuth2PasswordRequestForm, Depends()]):
+    if not validate_otp(form_data.username, form_data.password):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Incorrect username or password",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    token = generate_token()
+    return {"message": "Login successful", "token": token}
 
 
 # Static content

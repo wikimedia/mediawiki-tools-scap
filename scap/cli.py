@@ -567,6 +567,9 @@ class Application(object):
     def spiderpig_dbfile(self):
         return os.path.join(self.config["stage_dir"], "scap/log/spiderpig.db")
 
+    def spiderpig_jwt_secret_file(self):
+        return os.path.join(self.config["stage_dir"], "scap/log/spiderpig-jwt.key")
+
     def spiderpig_logdir(self):
         return os.path.join(self.config["stage_dir"], "scap/log/jobs")
 

@@ -4,17 +4,55 @@ function makeApiUrl(url) {
     return new URL(url, API_BASE_URL);
 }
 
-async function apiCall(url, options, decodeJson = true, signal = null) {
-    const response = await fetch(
-        makeApiUrl(url),
-        {
-            ...options,
-            headers: {
-                "Authorization": "Bearer dancy",
+import { defineStore } from 'pinia'
+
+const authStore = defineStore('spiderpig-auth',
+    {
+        state() {
+            return {
+                token: localStorage.getItem('spiderpig-auth-token') || null,
+                authFailing: false,
+            }
+        },
+        actions: {
+            set(token) {
+                this.token = token
+                localStorage.setItem('spiderpig-auth-token', token);
             },
-            signal
+            logout() {
+                this.token = null
+                localStorage.removeItem('spiderpig-auth-token')
+            }
+        },
+        getters: {
+            isAuthenticated(state) { return state.token !== null }
+        },
+    }
+)
+
+function isAuthenticated() {
+    const auth = authStore()
+
+    return auth.isAuthenticated && !auth.authFailing
+}
+
+async function apiCall(url, options, decodeJson = true, signal = null) {
+    let localOptions = {
+        ...options,
+        signal
+    }
+
+    const auth = authStore()
+
+    if (isAuthenticated()) {
+        localOptions.headers = {
+            "Authorization": `Bearer ${auth.token}`
         }
-    )
+    }
+
+    const response = await fetch(makeApiUrl(url), localOptions)
+    auth.authFailing = (response.status == 401)
+
     if (!response.ok) {
         throw new Error(`Response status: ${response.status}`);
     }
@@ -24,6 +62,38 @@ async function apiCall(url, options, decodeJson = true, signal = null) {
     } else {
         return response;
     }
+}
+
+async function login(username, password) {
+    const auth = authStore()
+
+    const formData = new FormData()
+    formData.append("username", username)
+    formData.append("password", password)
+
+    const response = await fetch(makeApiUrl("/api/login"),
+        {
+            method: "POST",
+            body: formData,
+        }
+    )
+    auth.authFailing = (response.status == 401)
+
+    if (!response.ok) {
+        if (response.status === 401) {
+            return response
+        }
+        throw new Error(`Response status: ${response.status}`);
+    }   
+        
+    const res = await response.json();
+
+    auth.set(res.token)
+    return true
+}
+
+function logout() {
+    authStore().logout()
 }
 
 async function getJobrunnerStatus() {
@@ -83,4 +153,4 @@ async function startBackport(change_urls) {
     );
 }
 
-export { getJobrunnerStatus, getLastNJobs, getJobInfo, signalJob, respondInteraction, getJobInteraction, getJobLog, startBackport }
+export { isAuthenticated, login, logout, getJobrunnerStatus, getLastNJobs, getJobInfo, signalJob, respondInteraction, getJobInteraction, getJobLog, startBackport }

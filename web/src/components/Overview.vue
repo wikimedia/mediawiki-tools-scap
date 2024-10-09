@@ -8,7 +8,7 @@
 </template>
 
 <script>
-import { getJobrunnerStatus, getJobInteraction } from '../common.js'
+import { getJobrunnerStatus, getJobInteraction, isAuthenticated } from '../common.js'
 import Backport from './Backport.vue';
 import JobHistory from './JobHistory.vue';
 import JobViewer from './JobViewer.vue';
@@ -52,7 +52,11 @@ export default {
                 this.idle = res.status == "idle";
                 this.interaction = job_id ? await getJobInteraction(job_id) : null;
             } catch (error) {
-                console.error(`updateJobrunnerStatus caught: ${error.message}`);
+                if (!isAuthenticated()) {
+                    this.$router.push("/login")
+                } else {
+                    console.error(`updateJobrunnerStatus caught: ${error.message}`);
+                }
             }
         },
         jobHistoryRowClicked(job_id) {
