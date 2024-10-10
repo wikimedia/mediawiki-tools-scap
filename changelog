@@ -1,3 +1,9 @@
+scap (4.110.0)
+
+  * Don't load plugins from user's home directory or current directory
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Thu, 10 Oct 2024 08:29:44 -0700
+
 scap (4.109.0)
 
   * build-images: Skip JSON/MD5 l10n generation
