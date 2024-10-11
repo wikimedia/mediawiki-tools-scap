@@ -252,7 +252,7 @@ class K8sOps:
 
     def build_k8s_images(self, mediawiki_versions: list, force_version: bool = False):
         def build_and_push_images():
-            with log.Timer("build-and-push-container-images", self.app.get_stats()):
+            with self.app.Timer("build-and-push-container-images"):
                 utils.mkdir_p(self.build_state_dir)
 
                 make_container_image_dir = os.path.join(
@@ -1013,9 +1013,8 @@ class K8sOps:
             timer_logger = logging.Logger("silence")
             timer_logger.addHandler(logging.NullHandler(level=0))
 
-        with log.Timer(
+        with self.app.Timer(
             "Running {} in {}".format(" ".join(cmd), dir),
-            self.app.get_stats(),
             logger=timer_logger,
         ):
             with tempfile.NamedTemporaryFile() as logstream:

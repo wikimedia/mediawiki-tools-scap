@@ -270,12 +270,11 @@ def sync_master(app, master, verbose=False, logger=None):
         "Copying from %s to %s:/srv/mediawiki-staging", master, socket.getfqdn()
     )
     logger.debug("Running rsync command: `%s`", " ".join(rsync))
-    stats = app.get_stats()
-    with log.Timer("rsync master", stats):
+    with app.Timer("rsync master"):
         subprocess.check_call(rsync)
 
     # Rebuild the CDB files
-    with log.Timer("rebuild CDB staging files", stats):
+    with app.Timer("rebuild CDB staging files"):
         utils.sudo_check_call(
             "www-data",
             "%s cdb-rebuild --master" % app.get_script_path(),
@@ -378,7 +377,7 @@ def sync_common(
         deploy_dir,
     )
     logger.debug("Running rsync command: `%s`", " ".join(rsync))
-    with log.Timer("rsync common", app.get_stats()):
+    with app.Timer("rsync common"):
         subprocess.check_call(rsync)
 
     # Bug 58618: Invalidate local configuration cache by updating the
@@ -397,7 +396,7 @@ def sync_wikiversions(hosts, app, key=None):
     :param hosts: List of hosts to sync to
     :param app: cli.Application
     """
-    with log.Timer("sync_wikiversions", app.get_stats()):
+    with app.Timer("sync_wikiversions"):
         cfg = app.config
         compile_wikiversions("stage", cfg)
 

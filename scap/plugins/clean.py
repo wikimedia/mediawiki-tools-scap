@@ -134,7 +134,7 @@ class Clean(main.AbstractSync):
                     "--delete",
                     "wmf/%s" % branch,
                 ]
-                with log.Timer("prune-git-branches", self.get_stats()):
+                with self.Timer("prune-git-branches"):
                     # Prune all the submodules' remote branches
                     with utils.cd(branch_dir):
                         submodule_cmd = 'git submodule foreach "{} ||:"'.format(
@@ -165,7 +165,7 @@ class Clean(main.AbstractSync):
         ]
 
         cmd = ["/bin/rm", "-rf"] + cache_dirs
-        with log.Timer("clean-remote-caches", self.get_stats()):
+        with self.Timer("clean-remote-caches"):
             remove_remote_dirs = ssh.Job(
                 target_hosts, user=self.config["ssh_user"], key=self.get_keyholder_key()
             )

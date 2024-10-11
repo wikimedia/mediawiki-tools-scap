@@ -198,7 +198,7 @@ class AbstractSync(cli.Application):
                     )
 
                     # k8s deployment
-                    with log.Timer(k8s_timer_name, self.get_stats()):
+                    with self.Timer(k8s_timer_name):
                         with utils.suppress_backtrace():
                             self.k8s_ops.deploy_k8s_images_for_stage(stage)
 
@@ -207,7 +207,7 @@ class AbstractSync(cli.Application):
                         if stage == PRODUCTION:
                             self._sync_proxies_and_apaches(depstage.baremetal_targets)
                         else:
-                            with log.Timer(f"sync-{stage}", self.get_stats()):
+                            with self.Timer(f"sync-{stage}"):
                                 self.sync_targets(depstage.baremetal_targets, stage)
 
                     if depstage.check_func:
@@ -268,13 +268,13 @@ class AbstractSync(cli.Application):
         proxies = utils.list_intersection(self._get_proxy_list(), full_target_list)
 
         if len(proxies) > 0:
-            with log.Timer("sync-proxies", self.get_stats()):
+            with self.Timer("sync-proxies"):
                 sync_cmd = self._apache_sync_command()
                 sync_cmd.append(socket.getfqdn())
                 self._perform_sync("proxies", sync_cmd, proxies)
 
         # Update apaches
-        with log.Timer("sync-apaches", self.get_stats()):
+        with self.Timer("sync-apaches"):
             self._perform_sync(
                 "apaches",
                 self._apache_sync_command(proxies),
@@ -369,7 +369,7 @@ class AbstractSync(cli.Application):
         self._git_repo()
 
         # Compute git version information
-        with log.Timer("cache_git_info", self.get_stats()):
+        with self.Timer("cache_git_info"):
             for version in self.active_wikiversions("stage"):
                 tasks.cache_git_info(version, self.config)
 
@@ -435,7 +435,7 @@ class AbstractSync(cli.Application):
         """
 
         masters = self.get_master_list()
-        with log.Timer(timer, self.get_stats()):
+        with self.Timer(timer):
             update_masters = ssh.Job(
                 masters, user=self.config["ssh_user"], key=self.get_keyholder_key()
             )
@@ -568,7 +568,7 @@ class AbstractSync(cli.Application):
 
     def _after_sync_rebuild_cdbs(self, target_hosts):
         # Ask target hosts to rebuild l10n CDB files
-        with log.Timer("scap-cdb-rebuild", self.get_stats()):
+        with self.Timer("scap-cdb-rebuild"):
             rebuild_cdbs = ssh.Job(
                 target_hosts, user=self.config["ssh_user"], key=self.get_keyholder_key()
             )
@@ -744,7 +744,7 @@ class AbstractSync(cli.Application):
 
         logger = self.get_logger()
 
-        with log.Timer("check-testservers", self.get_stats()):
+        with self.Timer("check-testservers"):
 
             def test_func() -> bool:
                 success, jobs = checks.execute(checkslist, logger, concurrency=2)
@@ -812,7 +812,7 @@ class AbstractSync(cli.Application):
         num_hosts = 0
         for grp in target_hosts:
             num_hosts += len(grp)
-        with log.Timer("php-fpm-restarts", self.get_stats()):
+        with self.Timer("php-fpm-restarts"):
             self.get_logger().info(
                 "Running '{}' on {} host(s)".format(php_fpm.INSTANCE.cmd, num_hosts)
             )
@@ -1080,7 +1080,7 @@ class ScapWorld(AbstractSync):
         if self.arguments.skip_l10n_update:
             self.get_logger().warn("Skipping l10n-update")
         else:
-            with log.Timer("l10n-update", self.get_stats()):
+            with self.Timer("l10n-update"):
                 for version in self.active_wikiversions("stage"):
                     tasks.update_localization_cache(version, self)
 
@@ -1196,7 +1196,7 @@ class SyncPull(cli.Application):
         )
 
         if self.arguments.update_l10n:
-            with log.Timer("scap-cdb-rebuild", self.get_stats()):
+            with self.Timer("scap-cdb-rebuild"):
                 utils.sudo_check_call(
                     user="mwdeploy",
                     cmd=self.get_script_path() + " cdb-rebuild --no-progress",

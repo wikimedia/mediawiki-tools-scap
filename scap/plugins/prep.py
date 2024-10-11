@@ -11,7 +11,6 @@ from scap import cli
 from scap import git
 from scap import history
 from scap import interaction
-from scap import log
 from scap.plugins import patches
 from scap import utils
 from scap.plugins.patches import SecurityPatches
@@ -151,9 +150,7 @@ class CheckoutMediaWiki(cli.Application):
                         return HISTORY_ABORT_STATUS
                     logger.info("Replaying history: %s" % summary)
 
-            with log.Timer(
-                "scap prep {}".format(self.arguments.branch), self.get_stats()
-            ):
+            with self.Timer("scap prep {}".format(self.arguments.branch)):
                 if self.arguments.auto:
                     self._clone_or_update_repo(
                         os.path.join(

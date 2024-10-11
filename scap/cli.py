@@ -577,6 +577,13 @@ class Application(object):
         with log.Timer(fn.__name__, self.get_stats()):
             fn(*args, **kwargs)
 
+    def Timer(self, label, logger=None):
+        return log.Timer(
+            label,
+            stats=self.get_stats(),
+            logger=logger,
+        )
+
     @staticmethod
     def factory(argv=None):
         parser = arg.build_parser()
