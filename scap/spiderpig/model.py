@@ -47,6 +47,7 @@ class Job(Base):
     started_at: Mapped[Optional[datetime.datetime]]
     finished_at: Mapped[Optional[datetime.datetime]]
     exit_status: Mapped[Optional[int]]
+    status: Mapped[Optional[str]]
 
     @classmethod
     def add(cls, session, user: str, command: List[str]) -> int:
@@ -110,6 +111,14 @@ class Job(Base):
             )
 
         Interruption.add(session, self.id, user, type)
+        session.commit()
+
+    def set_status(self, session: Session, status: Optional[str]):
+        """
+        This method starts and ends a transaction.
+        """
+        session.execute(text("BEGIN IMMEDIATE"))
+        self.status = status
         session.commit()
 
     def finish(self, session: Session, exit_status: Optional[int]):

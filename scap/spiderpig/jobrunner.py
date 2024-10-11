@@ -257,6 +257,12 @@ def run_job(
                 if isinstance(got, dict):
                     msg = got
                     type = msg.get("type")
+
+                    if type == "status":
+                        status = msg.get("status")
+                        job.set_status(session, status)
+                        continue
+
                     if type != "interaction":
                         logger.warning(
                             "Unexpected message type '%s' received from subprocess.  Ignoring.",
@@ -302,10 +308,12 @@ def run_job(
         p.stdin.close()
         exit_status = p.wait()
         if exit_status == 0:
-            logger.info("Job %d finished normally", job.id)
+            final_status = f"Job {job.id} finished normally"
         elif exit_status < 0:
-            logger.info("Job %d terminated by signal %d", job.id, -exit_status)
+            final_status = f"Job {job.id} terminated by signal {-exit_status}"
         else:
-            logger.info("Job %d finished with status %d", job.id, exit_status)
+            final_status = f"Job {job.id} finished with status {exit_status}"
+        logger.info(final_status)
+        job.set_status(session, final_status)
 
         return exit_status
