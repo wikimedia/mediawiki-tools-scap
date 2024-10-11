@@ -270,7 +270,7 @@ def sync_master(app, master, verbose=False, logger=None):
         "Copying from %s to %s:/srv/mediawiki-staging", master, socket.getfqdn()
     )
     logger.debug("Running rsync command: `%s`", " ".join(rsync))
-    stats = log.Stats(cfg["statsd_host"], int(cfg["statsd_port"]))
+    stats = app.get_stats()
     with log.Timer("rsync master", stats):
         subprocess.check_call(rsync)
 
@@ -287,7 +287,7 @@ def sync_master(app, master, verbose=False, logger=None):
 # Called via "scap pull"
 @utils.log_context("sync_common")
 def sync_common(
-    cfg,
+    app,
     include=None,
     sync_from=None,
     verbose=False,
@@ -304,7 +304,7 @@ def sync_common(
     have issues we will fall back to using the server named by
     ``master_rsync`` in the configuration data.
 
-    :param cfg: Dict of global configuration values.
+    :param app: cli.Application
     :param include: List of rsync include patterns to limit the sync to. If
         ``None`` is given the entire ``common`` module on the target rsync
         server will be transferred. Rsync syntax for syncing a directory is
@@ -312,6 +312,7 @@ def sync_common(
     :param sync_from: List of rsync servers to fetch from.
     """
 
+    cfg = app.config
     deploy_dir = cfg["deploy_dir"]
 
     if not os.path.isdir(deploy_dir):
@@ -377,8 +378,7 @@ def sync_common(
         deploy_dir,
     )
     logger.debug("Running rsync command: `%s`", " ".join(rsync))
-    stats = log.Stats(cfg["statsd_host"], int(cfg["statsd_port"]))
-    with log.Timer("rsync common", stats):
+    with log.Timer("rsync common", app.get_stats()):
         subprocess.check_call(rsync)
 
     # Bug 58618: Invalidate local configuration cache by updating the
@@ -390,15 +390,15 @@ def sync_common(
     )
 
 
-def sync_wikiversions(hosts, cfg, key=None):
+def sync_wikiversions(hosts, app, key=None):
     """
     Rebuild and sync wikiversions.php to the cluster.
 
     :param hosts: List of hosts to sync to
-    :param cfg: Dict of global configuration values
+    :param app: cli.Application
     """
-    stats = log.Stats(cfg["statsd_host"], int(cfg["statsd_port"]))
-    with log.Timer("sync_wikiversions", stats):
+    with log.Timer("sync_wikiversions", app.get_stats()):
+        cfg = app.config
         compile_wikiversions("stage", cfg)
 
         rsync = ssh.Job(hosts, user=cfg["ssh_user"], key=key).shuffle()

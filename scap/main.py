@@ -588,7 +588,7 @@ class AbstractSync(cli.Application):
     def _after_sync_sync_wikiversions(self, target_hosts):
         # Update and sync wikiversions.php
         succeeded, failed = tasks.sync_wikiversions(
-            target_hosts, self.config, key=self.get_keyholder_key()
+            target_hosts, self, key=self.get_keyholder_key()
         )
         if failed:
             self.get_logger().warning("%d hosts had sync_wikiversions errors", failed)
@@ -1187,7 +1187,7 @@ class SyncPull(cli.Application):
     def main(self, *extra_args):
         rsync_args = ["--delete-excluded"] if self.arguments.delete_excluded else []
         tasks.sync_common(
-            self.config,
+            self,
             include=self.arguments.include,
             sync_from=self.arguments.servers,
             verbose=self.verbose,
