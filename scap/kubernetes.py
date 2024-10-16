@@ -417,10 +417,10 @@ class K8sOps:
                 try:
                     self._deploy_to_datacenters(datacenters, dep_configs)
                     self.logger.info("Rollback completed")
-                except BaseException as e:
+                except BaseException as rollback_e:
                     self.logger.error(
                         "Caught another exception while trying to roll back. Giving up: %s",
-                        e,
+                        rollback_e,
                     )
             else:
                 self.logger.error("No known prior state to roll back to")
