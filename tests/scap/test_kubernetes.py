@@ -12,104 +12,54 @@ from scap.kubernetes import (
 )
 
 deployment_configs = [
-    # Correct configuration: T299648 format.
+    # Correct configuration
     (
         """
-    - namespace: testservers
-      release: main
-      canary:
+    # single release, mapped to the testservers stage via debug: true.
+    - namespace: test
+      releases:
+        main: {}
       mw_flavour: publish
       web_flavour: webserver
       debug: true
 
+    # single release, mapped to the default production stage.
     - namespace: api1
-      release: main
-      canary: canaries
+      releases:
+        main: {}
       mw_flavour: publish
       web_flavour: webserver
       debug: false
 
-    - namespace: api2
-      release: main
-      canary:
-      mw_flavour: publish
-      web_flavour: webserver
-      debug: false
-     """,
-        {
-            "testservers": [
-                {
-                    "namespace": "testservers",
-                    "release": "main",
-                    "mv_image_fl": "publish",
-                    "web_image_fl": "webserver",
-                    "debug": True,
-                }
-            ],
-            "canaries": [
-                {
-                    "namespace": "api1",
-                    "release": "canaries",
-                    "mv_image_fl": "publish",
-                    "web_image_fl": "webserver",
-                    "debug": False,
-                }
-            ],
-            "production": [
-                {
-                    "namespace": "api1",
-                    "release": "main",
-                    "mv_image_fl": "publish",
-                    "web_image_fl": "webserver",
-                    "debug": False,
-                },
-                {
-                    "namespace": "api2",
-                    "release": "main",
-                    "mv_image_fl": "publish",
-                    "web_image_fl": "webserver",
-                    "debug": False,
-                },
-            ],
-        },
-    ),
-    # Correct configuration: mixed T299648 and T370934 format.
-    (
-        """
-    - namespace: testservers
-      release: main
-      canary:
-      mw_flavour: publish
-      web_flavour: webserver
-      debug: true
-
-    - namespace: api1
-      release: main
-      canary: canaries
-      mw_flavour: publish
-      web_flavour: webserver
-      debug: false
-
+    # multiple releases, one mapped to the canaries stage.
     - namespace: api2
       releases:
-        # main uses the top-level defaults.
         main: {}
-        # migration overrides the image flavors to something exciting.
-        migration:
-          mw_flavour: exciting-new-mediawiki
-          web_flavour: exciting-new-webserver
-        # more-canaries also uses the top-level defaults, and is updated in the
-        # canaries stage.
-        more-canaries:
+        canary:
           stage: canaries
       mw_flavour: publish
       web_flavour: webserver
       debug: false
+
+    # multiple releases, one overriding the image flavours used.
+    - namespace: api3
+      releases:
+        # main and canary use the top-level defaults.
+        main: {}
+        canary:
+          stage: canaries
+        # migration overrides the image flavours to something exciting.
+        migration:
+          mw_flavour: exciting-new-mediawiki
+          web_flavour: exciting-new-webserver
+      mw_flavour: publish
+      web_flavour: webserver
+      debug: false
      """,
         {
             "testservers": [
                 {
-                    "namespace": "testservers",
+                    "namespace": "test",
                     "release": "main",
                     "mv_image_fl": "publish",
                     "web_image_fl": "webserver",
@@ -118,15 +68,15 @@ deployment_configs = [
             ],
             "canaries": [
                 {
-                    "namespace": "api1",
-                    "release": "canaries",
+                    "namespace": "api2",
+                    "release": "canary",
                     "mv_image_fl": "publish",
                     "web_image_fl": "webserver",
                     "debug": False,
                 },
                 {
-                    "namespace": "api2",
-                    "release": "more-canaries",
+                    "namespace": "api3",
+                    "release": "canary",
                     "mv_image_fl": "publish",
                     "web_image_fl": "webserver",
                     "debug": False,
@@ -148,7 +98,14 @@ deployment_configs = [
                     "debug": False,
                 },
                 {
-                    "namespace": "api2",
+                    "namespace": "api3",
+                    "release": "main",
+                    "mv_image_fl": "publish",
+                    "web_image_fl": "webserver",
+                    "debug": False,
+                },
+                {
+                    "namespace": "api3",
                     "release": "migration",
                     "mv_image_fl": "exciting-new-mediawiki",
                     "web_image_fl": "exciting-new-webserver",
@@ -158,30 +115,6 @@ deployment_configs = [
         },
     ),
     # Correct-but-weird: Canary releases in debug namespaces are ignored.
-    (
-        """
-    - namespace: testservers
-      release: main
-      canary: canary
-      mw_flavour: publish
-      web_flavour: webserver
-      debug: true
-    """,
-        {
-            "testservers": [
-                {
-                    "namespace": "testservers",
-                    "release": "main",
-                    "mv_image_fl": "publish",
-                    "web_image_fl": "webserver",
-                    "debug": True,
-                }
-            ],
-            "canaries": [],
-            "production": [],
-        },
-    ),
-    # Correct-but-weird: Canary releases in debug namespaces are ignored (T370934 format).
     (
         """
     - namespace: testservers
@@ -211,32 +144,19 @@ deployment_configs = [
     (
         """
     - namespace: api
-      release: main
-      canary: canaries
+      releases:
+        main: {}
+        canary:
+          stage: canaries
       mw_flavour: publish
       web_flavour: webserver
       debug: false
 
     - namespace: api
-      release: main
-      canary:
-      mw_flavour: publish
-      web_flavour: webserver
-      debug: false
-     """,
-        None,
-    ),
-    # Incorrect: Specifies both release and releases.
-    (
-        """
-    - namespace: api
-      release: main
-      canary: canaries
-      mw_flavour: publish
-      web_flavour: webserver
       releases:
-        more-canaries:
-          stage: canaries
+        main: {}
+      mw_flavour: publish
+      web_flavour: webserver
       debug: false
      """,
         None,

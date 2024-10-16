@@ -36,42 +36,32 @@ class InvalidDeploymentsConfig(Exception):
 
 class DeploymentsConfig:
     """
-    Deployment configuration files are specified in the format originally laid out in
-    https://phabricator.wikimedia.org/T299648 (modifications mentioned in the comments
-    included) plus later generalizations in https://phabricator.wikimedia.org/T370934.
+    Deployment configuration files are specified in the format described in
+    https://phabricator.wikimedia.org/T370934. For historical information on the earlier format,
+    see https://phabricator.wikimedia.org/T299648 (and modifications therein).
 
-    Instances of this class translate that format into one that represents Scap workflow
-    better by organizing the configurations around deployment stages.
+    Instances of this class translate that format into one that represents Scap workflow better by
+    organizing the configurations around deployment stages.
 
     For example, the following input config file:
 
     - namespace: testservers
-      release: debug
-      canary:
+      releases:
+        debug: {}
       mw_flavour: publish
       web_flavour: webserver
       debug: true
-
     - namespace: api1
-      release: main
-      canary: canaries
-      mw_flavour: publish
-      web_flavour: webserver
-      debug: false
-
-    - namespace: api2
-      release: main
-      canary:
-      mw_flavour: publish
-      web_flavour: webserver
-      debug: false
-
-    - namespace: api3
-      # New T370934 format:
       releases:
         main: {}
         canary:
           stage: canaries
+      mw_flavour: publish
+      web_flavour: webserver
+      debug: false
+    - namespace: api2
+      releases:
+        main: {}
         experimental:
           mw_flavour: publish-experimental
       mw_flavour: publish
@@ -90,12 +80,6 @@ class DeploymentsConfig:
       }],
       "canaries": [{
         "namespace": "api1",
-        "release": "canaries",
-        "mv_image_fl": "publish",
-        "web_image_fl": "webserver",
-        "debug": False,
-        }, {
-        "namespace": "api3",
         "release": "canary",
         "mv_image_fl": "publish",
         "web_image_fl": "webserver",
@@ -114,13 +98,7 @@ class DeploymentsConfig:
         "web_image_fl": "webserver",
         "debug": False,
         }, {
-        "namespace": "api3",
-        "release": "main",
-        "mv_image_fl": "publish",
-        "web_image_fl": "webserver",
-        "debug": False,
-        }, {
-        "namespace": "api3",
+        "namespace": "api2",
         "release": "experimental",
         "mv_image_fl": "publish-experimental",
         "web_image_fl": "webserver",
@@ -169,26 +147,9 @@ class DeploymentsConfig:
                 )
             namespaces.add(dep_namespace)
 
-            release_configs = dep_config.get("releases", {})
-
-            # If this dep_config uses a T299648-style singleton release, synthesize
-            # equivalent release configs for it and its canary release.
-            if "release" in dep_config:
-                if release_configs:
-                    raise InvalidDeploymentsConfig(
-                        f'"{dep_namespace}" deployment cannot specify both "release" '
-                        'and "releases"'
-                    )
-                release_configs[dep_config["release"]] = {}
-                canary_release = str(dep_config["canary"]).strip()
-                if canary_release not in ["None", ""]:
-                    release_configs[canary_release] = {"stage": CANARIES}
-
             debug = dep_config.get("debug")
 
-            # Now populate the testservers, canaries, and production stages, based on the
-            # available release configs.
-            for release, config in release_configs.items():
+            for release, config in dep_config["releases"].items():
                 mw_flavour = config.get("mw_flavour", dep_config.get("mw_flavour"))
                 if not mw_flavour:
                     raise InvalidDeploymentsConfig(
