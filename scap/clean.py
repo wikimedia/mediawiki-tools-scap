@@ -144,8 +144,14 @@ class Clean(main.AbstractSync):
                         submodule_cmd = 'git submodule foreach "{} ||:"'.format(
                             " ".join(git_prune_cmd)
                         )
-                        subprocess.check_output(submodule_cmd, shell=True)
-                        if subprocess.call(git_prune_cmd) != 0:
+
+                        # Deletions are done as trainbranchbot if available
+                        gerrit_ssh_env = self.get_gerrit_ssh_env()
+
+                        subprocess.check_output(
+                            submodule_cmd, shell=True, env=gerrit_ssh_env
+                        )
+                        if subprocess.call(git_prune_cmd, env=gerrit_ssh_env) != 0:
                             logger.info("Failed to prune core branch")
 
         logger.info("Clean %s", branch_dir)
