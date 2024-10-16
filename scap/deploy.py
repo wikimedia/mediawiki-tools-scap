@@ -613,6 +613,7 @@ class DeployLocal(cli.Application):
         return yaml.load(r.text, yaml.loader.Loader)
 
 
+# T376995: Note "deploy --init" is handled in the code as an exception and can run on a non-primary server
 @cli.command(
     "deploy",
     help="[SCAP 3] Sync new service code across cluster",

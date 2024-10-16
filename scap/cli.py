@@ -643,10 +643,13 @@ class Application(object):
                         "This scap command can only be used on a deploy server or the releases Jenkins instance."
                     )
                 if hasattr(app, "config") and app.config["block_deployments"]:
-                    utils.abort(
-                        "This scap command is disabled on this host. If you really need to run it, you can override by"
-                        """ passing "-Dblock_deployments:False" to the call"""
-                    )
+                    # T376995: Provide an exception for "scap deploy --init". Necessary to boostrap fresh, non-primary
+                    # deployment servers
+                    if app.arguments.command != "deploy" or not app.arguments.init:
+                        utils.abort(
+                            "This scap command is disabled on this host. If you really need to run it, you can override by"
+                            """ passing "-Dblock_deployments:False" to the call"""
+                        )
 
             if (
                 app.config.get("require_terminal_multiplexer")
