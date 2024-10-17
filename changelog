@@ -1,3 +1,16 @@
+scap (4.111.0)
+
+  * scap deploy --init: allow on non-primary deployment servers
+  * kubernetes.py: Fix handling of exception during rollback
+  * build_wheels.sh: Build wheels a more modern way
+  * Drop -1 from version string
+  * scap deploy --init: Don't ask for justification
+  * Consolidate uses of "with log.Timer" pattern
+  * tasks.py: Minor sync_* function tweaks for consistency
+  * spiderpig: Add "status" field to Job
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Thu, 17 Oct 2024 11:32:03 -0700
+
 scap (4.110.0)
 
   * Don't load plugins from user's home directory or current directory
