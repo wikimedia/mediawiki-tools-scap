@@ -1,3 +1,9 @@
+scap (4.112.0)
+
+  * kubernetes: drop older DeploymentsConfig support
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Thu, 17 Oct 2024 11:58:12 -0700
+
 scap (4.111.0)
 
   * scap deploy --init: allow on non-primary deployment servers
