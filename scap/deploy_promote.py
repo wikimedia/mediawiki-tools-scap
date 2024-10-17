@@ -36,7 +36,7 @@ import time
 from functools import partial
 
 import requests
-from requests import RequestException, HTTPError
+from requests import HTTPError
 
 from scap import cli, utils, config, git, train
 from scap.runcmd import gitcmd
@@ -286,10 +286,12 @@ class DeployPromote(cli.Application):
                 if actual_version_match
                 else "Version not found on checked page"
             )
-        except RequestException as e:
-            actual_version = "Request to checked page failed" + (
-                " with %s" % e.response.status_code if isinstance(e, HTTPError) else ""
+        except HTTPError as e:
+            actual_version = (
+                f"Request to checked page failed with {e.response.status_code}"
             )
+        except Exception as e:
+            actual_version = f"{type(e).__name__} exception: {e}"
 
         return actual_version
 
