@@ -564,11 +564,14 @@ class Application(object):
     def scap_history_dbfile(self):
         return os.path.join(self.config["stage_dir"], "scap/log/history.db")
 
-    def spiderpig_dbfile(self):
-        return os.path.join(self.config["stage_dir"], "scap/log/spiderpig.db")
+    def spiderpig_dir(self):
+        return os.path.join(self.config["stage_dir"], "scap/spiderpig")
 
-    def spiderpig_logdir(self):
-        return os.path.join(self.config["stage_dir"], "scap/log/jobs")
+    def spiderpig_dbfile(self):
+        return os.path.join(self.spiderpig_dir(), "spiderpig.db")
+
+    def spiderpig_joblogdir(self):
+        return os.path.join(self.spiderpig_dir(), "jobs")
 
     def timed(self, fn, *args, **kwargs):
         """

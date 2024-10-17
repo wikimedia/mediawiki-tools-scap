@@ -21,7 +21,7 @@ class TestClient(cli.Application):
         cmd = input("What command do you want to run?: ")
 
         db_filename = self.spiderpig_dbfile()
-        logdir = self.spiderpig_logdir()
+        logdir = self.spiderpig_joblogdir()
 
         with Session(scap.spiderpig.engine(db_filename)) as session:
             job_id = Job.add(

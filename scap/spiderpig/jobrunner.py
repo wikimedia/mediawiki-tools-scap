@@ -48,7 +48,7 @@ class JobRunner(cli.Application):
         self.started_at = time.time()
 
         db_filename = self.spiderpig_dbfile()
-        logdir = self.spiderpig_logdir()
+        logdir = self.spiderpig_joblogdir()
         os.makedirs(logdir, exist_ok=True)
 
         engine = scap.spiderpig.engine(db_filename)
