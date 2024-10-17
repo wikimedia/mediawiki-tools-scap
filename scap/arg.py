@@ -45,8 +45,7 @@ import logging
 import os
 import re
 
-import scap
-import scap.plugins
+from scap.cli import COMMAND_REGISTRY
 
 ATTR_SUBPARSER = "_app_subparser"
 ATTR_ARGUMENTS = "_app_arguments"
@@ -264,7 +263,7 @@ def build_parser():
         parser_class=ScapArgParser,
         description=desc,
     )
-    cmds = scap.cli.all_commands()
+    cmds = COMMAND_REGISTRY
 
     for cmd in sorted(cmds.values(), key=lambda x: x["name"]):
         build_subparser(cmd, subparsers, global_parser)

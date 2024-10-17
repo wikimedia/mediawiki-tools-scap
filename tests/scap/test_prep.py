@@ -4,7 +4,7 @@ from unittest.mock import patch
 import scap.cli
 
 
-@patch("scap.plugins.prep.git")
+@patch("scap.prep.git")
 def test_scap_prep_sets_a_push_url(git):
     scap_prep = scap.cli.Application.factory(["prep", "1.99.0-wmf.33"])
     scap_prep.setup(use_global_config=False)

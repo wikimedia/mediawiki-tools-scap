@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-Scap plugin for performing MediaWiki on Kubernetes related operations.
+Scap command for performing MediaWiki on Kubernetes related operations.
 """
 
 import os

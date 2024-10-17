@@ -1,7 +1,7 @@
 """
-    scap.plugins.gerrit
+    scap.gerrit
     ~~~~~~~~~~~~~~~~~~~
-    Provides Gerrit REST api support for plugins
+    Provides Gerrit REST api support for commands
 """
 from json import JSONEncoder
 from requests import Session

@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-    scap.plugins.say
+    scap.say
     ~~~~~~~~~~~~~~~~
 
     Infinitely superior to cowsay.
@@ -27,8 +27,8 @@ import random
 import sys
 import textwrap
 
-from .. import ansi
-from .. import cli
+from scap import ansi
+from scap import cli
 
 
 def fortune():
@@ -46,7 +46,7 @@ def fortune():
             "S.C.A.P.: synthesizing carbs and protein",
             "S.C.A.P.: spiritually crippling, although pragmatic",
             "S.C.A.P.: smart container abstraction package",
-            "S.C.A.P.: say command as a plugin",
+            "S.C.A.P.: say command as a pidgin",
             "S.C.A.P.: staunch conservatives are pissed",
             "S.C.A.P.: still crashes after patching",
             "S.C.A.P.: say command == ascii pig",

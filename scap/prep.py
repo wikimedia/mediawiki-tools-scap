@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Scap plugin for setting up a new version of MediaWiki for deployment."""
+"""Scap command for setting up a new version of MediaWiki for deployment."""
 import glob
 import os
 import re
@@ -7,13 +7,12 @@ import shlex
 import shutil
 import subprocess
 
-from scap import cli
+from scap import cli, patches
 from scap import git
 from scap import history
 from scap import interaction
-from scap.plugins import patches
 from scap import utils
-from scap.plugins.patches import SecurityPatches
+from scap.patches import SecurityPatches
 
 HISTORY_ABORT_STATUS = 127
 

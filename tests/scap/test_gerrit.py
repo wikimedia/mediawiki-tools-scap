@@ -1,6 +1,6 @@
 import unittest
 
-from scap.plugins import gerrit
+from scap import gerrit
 
 
 class TestGerritSession(unittest.TestCase):

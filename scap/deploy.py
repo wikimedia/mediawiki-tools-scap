@@ -1310,6 +1310,7 @@ class DeployLog(cli.Application):
         pass
 
 
+# TODO: Remove?
 @cli.command(
     "deploy-mediawiki", help=argparse.SUPPRESS, primary_deploy_server_only=True
 )

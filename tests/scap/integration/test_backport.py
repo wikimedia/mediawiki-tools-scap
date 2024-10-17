@@ -13,7 +13,7 @@ import pexpect
 import scap.cli
 import scap.git
 import scap.utils
-from scap.plugins.gerrit import GerritSession
+from scap.gerrit import GerritSession
 from scap.runcmd import gitcmd
 
 """ These tests are expected to be run in the train-dev test environment:

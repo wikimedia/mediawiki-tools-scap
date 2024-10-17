@@ -25,21 +25,11 @@ Core Application Infrastructure
   :noindex:
 
 
-Built-in scap command classes
+Main scap command classes
 =============================
 
 .. automodule:: scap.main
   :exclude-members: __dict__,__weakref__
-
-
-Plug-in scap sub-command classes
-================================
-
-.. automodule:: scap.plugins
-  :exclude-members: __dict__,__weakref__
-
-.. seealso::
-    :ref:`plugins`
 
 
 Command Execution

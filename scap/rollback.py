@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-    scap.plugins.rollback
+    scap.rollback
     ~~~~~~~~~~~
     Checkout previously prepared working copies of MediaWiki repos and perform
     an immediate sync to restore production to a known working state.
@@ -24,8 +24,7 @@
 
 import subprocess
 
-from scap import cli
-from scap.plugins import prep
+from scap import cli, prep
 
 
 @cli.command(
