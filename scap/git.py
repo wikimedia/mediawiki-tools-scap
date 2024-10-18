@@ -8,6 +8,7 @@
 import collections
 import contextlib
 import errno
+import functools
 import os
 import re
 import socket
@@ -21,6 +22,7 @@ import scap.utils as utils
 from scap.runcmd import gitcmd, FailedCommand
 
 
+@functools.lru_cache()
 def version():
     try:
         v = gitcmd("version")
@@ -33,7 +35,6 @@ def version():
 
 # All tags created by scap use this prefix
 TAG_PREFIX = "scap/sync"
-GIT_VERSION = version()
 
 # Key is the pattern for .gitignore, value is a test for that pattern.
 DEFAULT_IGNORE = {"*~", "*.swp", "*/cache/l10n/*.cdb", "scap/log/*"}
@@ -451,7 +452,7 @@ def fetch(
         if shallow:
             cmd.append("--depth")
             cmd.append("1")
-        if reference is not None and GIT_VERSION[0] > 1:
+        if reference is not None and version()[0] > 1:
             ensure_dir(reference)
             cmd.append("--reference")
             cmd.append(reference)
@@ -476,7 +477,8 @@ def fetch(
 
 
 def append_jobs_arg(cmd):
-    if GIT_VERSION[0] > 2 or (GIT_VERSION[0] == 2 and GIT_VERSION[1] > 9):
+    git_version = version()
+    if git_version[0] > 2 or (git_version[0] == 2 and git_version[1] > 9):
         cmd.append("--jobs")
         cmd.append(str(utils.cpus_for_jobs()))
     return cmd
@@ -540,7 +542,7 @@ def update_submodules(
     if force:
         cmd.append("--force")
 
-    if reference is not None and GIT_VERSION[0] > 1:
+    if reference is not None and version()[0] > 1:
         logger.debug("Using --reference repository: %s", reference)
         ensure_dir(reference)
         cmd.append("--reference")
