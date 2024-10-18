@@ -43,7 +43,6 @@ import scap.nrpe as nrpe
 import scap.script as script
 import scap.template as template
 import scap.cli as cli
-import scap.interaction as interaction
 import scap.log as log
 import scap.ssh as ssh
 import scap.targets as targets
@@ -754,9 +753,7 @@ For `scap deploy` to work, the current directory must be the top level of a git 
                 # T376996
                 self.arguments.message = "scap deploy --init mode"
             else:
-                new_message = interaction.input_line(
-                    "Log message (press enter for none): "
-                )
+                new_message = self.input_line("Log message (press enter for none): ")
                 if new_message:
                     self.arguments.message = new_message
 
@@ -923,7 +920,7 @@ For `scap deploy` to work, the current directory must be the top level of a git 
         except DeployGroupFailure as failure:
             logger.error(str(failure))
 
-            if interaction.prompt_user_for_confirmation(
+            if self.prompt_user_for_confirmation(
                 "Rollback all deployed groups?", default="y"
             ):
                 # Rollback groups in reverse order
@@ -1015,7 +1012,7 @@ For `scap deploy` to work, the current directory must be the top level of a git 
             ):
                 prompt = "Continue?"
                 choices = {"Yes": "y", "No": "n", "Continue all groups": "c"}
-                answer = interaction.prompt_choices(prompt, choices, "y")
+                answer = self.prompt_choices(prompt, choices, "y")
 
                 if answer == "c":
                     self.continue_all = True

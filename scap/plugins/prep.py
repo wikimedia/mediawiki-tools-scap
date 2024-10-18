@@ -10,7 +10,6 @@ import subprocess
 from scap import cli
 from scap import git
 from scap import history
-from scap import interaction
 from scap.plugins import patches
 from scap import utils
 from scap.plugins.patches import SecurityPatches
@@ -145,7 +144,7 @@ class CheckoutMediaWiki(cli.Application):
                 else:
                     summary = self.replay_history.summary(display_repos)
                     prompt = "Replay checkouts from %s?" % summary
-                    if not interaction.prompt_user_for_confirmation(prompt):
+                    if not self.prompt_user_for_confirmation(prompt):
                         logger.info("Aborting.")
                         return HISTORY_ABORT_STATUS
                     logger.info("Replaying history: %s" % summary)

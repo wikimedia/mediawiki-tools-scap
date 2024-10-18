@@ -2,14 +2,15 @@
 import prettytable
 import re
 
-from scap import cli, utils, tasks, interaction
+from scap import cli, utils, tasks
 
 GROUPS = ["testwikis", "group0", "group1", "group2"]
 
 
 class TrainInfo:
-    def __init__(self, config):
+    def __init__(self, config, io):
         self.config = config
+        self.io = io
         self.train_version = self.get_train_version()
         self.groups = dict()
         self.train_is_at = None
@@ -83,7 +84,7 @@ ____
         version = train_info["version"]
 
         if status not in ["open", "progress"]:
-            check_status = interaction.prompt_user_for_confirmation(
+            check_status = self.io.prompt_user_for_confirmation(
                 f"Train task {task} has status '{status}'. Continue anyway?"
             )
             if not check_status:
@@ -132,7 +133,7 @@ class Train(cli.Application):
         if self.arguments.forward and self.arguments.backward:
             raise SystemExit("Please choose one of --forward or --backward")
 
-        info = TrainInfo(self.config)
+        info = TrainInfo(self.config, self.get_io())
         train_version = info.train_version
         self.old_version = info.get_prior_version()
 
@@ -166,7 +167,7 @@ class Train(cli.Application):
             choices = {stop: str(index) for index, stop in enumerate(stops)}
             choices["Cancel"] = "c"
             default = str(next_pos) if next_pos < len(stops) else "c"
-            target_pos = interaction.prompt_choices(
+            target_pos = self.prompt_choices(
                 f"What station do you want the {train_version} train to be at?",
                 choices,
                 default,

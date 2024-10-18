@@ -56,6 +56,7 @@ class Application(object):
     program_name = None
     _logger = None
     _announce_logger = None
+    _io = None
     _have_announced = False
     _stats = None
     arguments = None
@@ -233,12 +234,29 @@ class Application(object):
             return self.arguments.message
         return "(no justification provided)"
 
+    # Interaction stuff
+    def get_io(self):
+        if self._io is None:
+            self._io = interaction.GetIO()
+        return self._io
+
+    def input_line(self, prompt: str) -> str:
+        return self.get_io().input_line(prompt)
+
     def prompt_for_approval_or_exit(self, prompt_message, exit_message):
         """Exits successfully with a message if the user does not approve."""
-        approval = interaction.prompt_user_for_confirmation(prompt_message)
+        approval = self.get_io().prompt_user_for_confirmation(prompt_message)
         if not approval:
             self.announce_final(exit_message)
             sys.exit(os.EX_OK)
+
+    def prompt_choices(self, question: str, choices, default=None) -> str:
+        return self.get_io().prompt_choices(question, choices, default)
+
+    def prompt_user_for_confirmation(self, prompt_message, default="n") -> bool:
+        return self.get_io().prompt_user_for_confirmation(prompt_message, default)
+
+    # End interaction stuff
 
     def _process_arguments(self, args, extra_args):
         """

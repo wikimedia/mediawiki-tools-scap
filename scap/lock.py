@@ -14,7 +14,6 @@ import signal
 import threading
 import time
 
-import scap.interaction as interaction
 import scap.utils as utils
 
 
@@ -302,7 +301,7 @@ class Lock:
             )
 
     @staticmethod
-    def signal_gl_release(release_reason):
+    def signal_gl_release(release_reason, io):
         if os.path.exists(GLOBAL_LOCK_FILE):
             with open(GLOBAL_LOCK_FILE, encoding="UTF-8") as f:
                 lock_info = json.loads(f.read())
@@ -318,7 +317,7 @@ class Lock:
                     + "  reason: %s\n" % reason
                     + "Clear lock?"
                 )
-                if not interaction.prompt_user_for_confirmation(prompt):
+                if not io.prompt_user_for_confirmation(prompt):
                     utils.abort("Canceled by user")
 
                 with utils.empty_file_mask():

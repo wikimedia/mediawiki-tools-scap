@@ -38,7 +38,6 @@ import scap.arg as arg
 import scap.checks as checks
 import scap.cli as cli
 import scap.git as git
-import scap.interaction as interaction
 import scap.lint as lint
 import scap.lock as lock
 import scap.log as log
@@ -122,7 +121,7 @@ class AbstractSync(cli.Application):
         self._assert_auth_sock()
 
         if self.arguments.message == "(no justification provided)":
-            new_message = interaction.input_line("Log message (press enter for none): ")
+            new_message = self.input_line("Log message (press enter for none): ")
             if new_message:
                 self.arguments.message = new_message
 
@@ -638,7 +637,7 @@ class AbstractSync(cli.Application):
             if test_func():
                 break
 
-            resp = interaction.prompt_choices(
+            resp = self.prompt_choices(
                 "What do you want to do?",
                 {
                     f"Retry {description}": "r",
@@ -1437,7 +1436,7 @@ class LockManager(cli.Application):
                 return 1
 
             self.announce(f"Forcefully removing global lock: {self.arguments.message}")
-            lock.Lock.signal_gl_release(self.arguments.message)
+            lock.Lock.signal_gl_release(self.arguments.message, self.get_io())
             return
 
         if self.arguments.message == "(no justification provided)":

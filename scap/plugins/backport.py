@@ -15,7 +15,7 @@ from collections import defaultdict
 
 from prettytable import PrettyTable, SINGLE_BORDER
 from random import randint
-from scap import cli, git, log, ssh, utils, interaction
+from scap import cli, git, log, ssh, utils
 from scap.plugins.gerrit import GerritSession
 
 
@@ -350,7 +350,7 @@ class Backport(cli.Application):
 
         if self.arguments.list:
             self._list_available_backports()
-            change_numbers = interaction.input_line(
+            change_numbers = self.input_line(
                 "Enter the change numbers (separated by a space) you wish to %s: "
                 % self.backport_or_revert
             )
@@ -603,7 +603,7 @@ class Backport(cli.Application):
         default_reason = "Reverted by %s via scap backport" % self.deploy_user
 
         if not self.arguments.yes:
-            reason = interaction.input_line(
+            reason = self.input_line(
                 "Please supply a reason for revert (default: %s): " % default_reason
             )
 
@@ -1140,7 +1140,7 @@ class Backport(cli.Application):
                 if self.arguments.yes:
                     check_diff = True
                 else:
-                    check_diff = interaction.prompt_user_for_confirmation(
+                    check_diff = self.prompt_user_for_confirmation(
                         "Would you like to see the diff?", default="y"
                     )
                 if check_diff:
