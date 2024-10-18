@@ -147,10 +147,10 @@ def test_announce(app, mocker):
     app.arguments.no_log_message = False
     get_log = mocker.patch("logging.getLogger")
     announcer = get_log.return_value
-    app.announce("test", "bar")
+    app.announce("test %s", "bar")
     get_log.assert_called_with("scap.announce")
     assert app._announce_logger == announcer
-    announcer.info.assert_called_with("test", "bar")
+    announcer.info.assert_called_with("test %s", "bar")
 
 
 def test_get_get_realm_specific_filename():
