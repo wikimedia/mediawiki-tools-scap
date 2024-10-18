@@ -100,6 +100,7 @@ class TerminalInteraction:
                 prompt = "[y/n]"
             return f"{question} {prompt}: "
 
+        choices_text = ""
         for choice, key in choices.items():
             if key == default:
                 before = ansi.esc(ansi.BRIGHT)
@@ -107,10 +108,10 @@ class TerminalInteraction:
             else:
                 before = ""
                 after = ""
-            print(f"{before}[{key}] {choice}{after}")
+            choices_text += f"{before}[{key}] {choice}{after}\n"
         default_text = f" (default: [{default}])" if default else ""
 
-        return f"{question}{default_text}: "
+        return f"{choices_text}{question}{default_text}: "
 
 
 class SpiderpigInteraction:

@@ -285,7 +285,11 @@ def run_job(
                     if subtype == "input_line":
                         log(prompt)
                     else:
-                        log(TerminalInteraction.generate_prompt_text(prompt, choices))
+                        log(
+                            TerminalInteraction.generate_prompt_text(
+                                prompt, choices, default
+                            )
+                        )
 
                     Interaction.register(
                         session, job.id, subtype, prompt, choices, default
