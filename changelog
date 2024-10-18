@@ -1,3 +1,10 @@
+scap (4.113.0)
+
+  * mwscript: Containerize MediaWiki script execution
+  * move spiderpig files
+
+ -- Dan Duvall <dduvall@wikimedia.org>  Fri, 18 Oct 2024 10:05:34 -0700
+
 scap (4.112.0)
 
   * kubernetes: drop older DeploymentsConfig support
