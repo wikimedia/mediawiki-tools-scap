@@ -1,3 +1,10 @@
+scap (4.115.0)
+
+  * mwscript: Containerize MediaWiki script execution
+  * deploy_promote.py: Improve _get_special_version error reporting
+
+ -- Dan Duvall <dduvall@wikimedia.org>  Mon, 21 Oct 2024 10:45:44 -0700
+
 scap (4.114.0)
 
   * Revert "mwscript: Containerize MediaWiki script execution"
