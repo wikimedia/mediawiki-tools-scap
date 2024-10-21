@@ -3,11 +3,11 @@ chardet==5.2
 charset-normalizer==2.1.1
 greenlet==3.0.3
 idna==2.8
-Jinja2==2.10.2
+Jinja2==2.11.2
 MarkupSafe==1.1.0
-packaging==24.0
+packaging
 prettytable==3.7.0
-Pygments==2.3.1
+Pygments==2.17.2
 pyparsing==3.0.9
 PyYAML==5.1
 requests==2.31.0
@@ -16,3 +16,20 @@ SQLAlchemy==2.0.32
 typing-extensions>=4.7.1
 urllib3==2.0.4
 wcwidth==0.2.5
+
+# SpiderPig stuff
+fastapi; python_version < '3.8'
+fastapi[standard]==0.115.3; python_version >= '3.8'
+pydantic
+pydantic-core==2.23.4; python_version >= '3.8'
+pydantic-core==2.14.6; python_version < '3.8'
+annotated-types
+starlette<0.42.0,>=0.40.0; python_version >= '3.8'
+starlette<0.28.0,>=0.27.0; python_version < '3.8'
+anyio
+exceptiongroup
+sniffio
+python-multipart
+
+pyotp
+pyjwt
