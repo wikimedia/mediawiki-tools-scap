@@ -2,11 +2,10 @@ import json
 import logging
 import re
 from io import StringIO
-import subprocess
 import sys
 from textwrap import dedent
 import unittest
-from unittest.mock import call, Mock, patch
+from unittest.mock import patch
 from time import sleep
 
 from scap import log
@@ -320,18 +319,3 @@ def test_AnsiColorFormatter_colorize_on_non_tty_with_FORCE_COLOR():
     with patch("sys.stderr.isatty", return_value=False):
         fmt = log.AnsiColorFormatter()
         assert fmt.colorize is True
-
-
-def test_pipe():
-    logger = Mock()
-    logger.log = Mock()
-
-    with log.pipe(logger=logger, level=logging.DEBUG) as out:
-        subprocess.run("echo foo && echo bar", shell=True, stdout=out)
-
-    logger.log.assert_has_calls(
-        [
-            call(logging.DEBUG, "foo"),
-            call(logging.DEBUG, "bar"),
-        ]
-    )

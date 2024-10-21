@@ -338,11 +338,6 @@ def get_global_parser():
         action="store_true",
         help="Do not log messages to the public (IRC)",
     )
-    group.add_argument(
-        "--no-local-config",
-        action="store_true",
-        help="Do not load configuration from the ./scap directory",
-    )
     return parser
 
 

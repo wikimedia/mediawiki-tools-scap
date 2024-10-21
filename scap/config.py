@@ -114,17 +114,6 @@ DEFAULT_CONFIG = {
     "mediawiki_image_extra_packages": (str, ""),
     # Path to a CA cert to inject into the image
     "mediawiki_image_extra_ca_cert": (str, None),
-    # Container used to execute PHP scripts during prep, etc.
-    "mediawiki_runtime_image": (
-        str,
-        "docker-registry.wikimedia.org/php7.4-fpm-multiversion-base",
-    ),
-    # Runtime user of the containerized MediaWiki (mwscript) processes
-    "mediawiki_runtime_user": (str, "www-data"),
-    # User that has access to Docker. If set, sudo will be used to run
-    # internal scap commands that require Docker access (mwscript, mwshell).
-    "docker_user": (str, None),
-    # Helmfile deployment configuration
     "helmfile_services_dir": (str, "/srv/deployment-charts/helmfile.d/services"),
     "helmfile_mediawiki_release_dir": (str, "/etc/helmfile-defaults/mediawiki/release"),
     # Comma separated list of the clusters we will deploy to
@@ -147,13 +136,7 @@ DEFAULT_CONFIG = {
 }
 
 
-def load(
-    cfg_file=None,
-    environment=None,
-    overrides=None,
-    use_global_config=True,
-    use_local_config=True,
-):
+def load(cfg_file=None, environment=None, overrides=None, use_global_config=True):
     """
     Load configuration.
 
@@ -203,25 +186,22 @@ def load(
         else:
             parser.readfp(cfg_file)
     else:
-        if (
-            use_local_config
-            and environment
-            and not os.path.exists(os.path.join(local_cfg, "environments", environment))
+        if environment and not os.path.exists(
+            os.path.join(local_cfg, "environments", environment)
         ):
             raise RuntimeError("Environment {} does not exist!".format(environment))
 
         files = []
         if use_global_config:
             files.append("/etc/scap.cfg")
-        if use_local_config:
-            files.extend(
-                [
-                    os.path.join(local_cfg, "scap.cfg"),
-                    utils.get_env_specific_filename(
-                        os.path.join(local_cfg, "scap.cfg"), environment
-                    ),
-                ]
-            )
+        files.extend(
+            [
+                os.path.join(local_cfg, "scap.cfg"),
+                utils.get_env_specific_filename(
+                    os.path.join(local_cfg, "scap.cfg"), environment
+                ),
+            ]
+        )
 
         parser.read(files)
 

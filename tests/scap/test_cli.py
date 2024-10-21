@@ -230,20 +230,6 @@ def test_load_config(cmd, mocker):
         environment=cmd.arguments.environment,
         overrides={"canary_threshold": "30"},
         use_global_config=False,
-        use_local_config=True,
-    )
-
-
-@pytest.mark.parametrize("cmd", [["dummy", "test", "--no-local-config"]], indirect=True)
-def test_load_config_no_local_config(cmd, mocker):
-    loader = mocker.patch("scap.config.load")
-    cmd._load_config(use_global_config=False)
-    loader.assert_called_with(
-        cfg_file=cmd.arguments.conf_file,
-        environment=cmd.arguments.environment,
-        overrides={},
-        use_global_config=False,
-        use_local_config=False,
     )
 
 

@@ -315,8 +315,6 @@ def log_context(context_name):
                 logger = args[argspec.args.index("logger")]
             except IndexError:
                 logger = None
-            except ValueError:
-                logger = None
 
             # Check if logger was passed as a keyword argument
             if logger is None:
@@ -346,8 +344,6 @@ def suppress_backtrace():
     Context manager that sets the "don't backtrace" flag on any exception
     that occurs within context.
 
-    Can be overridden by setting the environment variable `SCAP_BACKTRACE`.
-
     Example:
        def my_function():
            with suppress_backtrace():
@@ -357,7 +353,7 @@ def suppress_backtrace():
         yield
     except Exception as e:
         # This value is read by _handle_exception in cli.py and main.py.
-        e._scap_no_backtrace = os.environ.get("SCAP_BACKTRACE", None) is None
+        e._scap_no_backtrace = True
         raise
 
 

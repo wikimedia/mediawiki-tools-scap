@@ -308,7 +308,6 @@ class Application(object):
             environment=self.arguments.environment,
             overrides=self.cli_defines,
             use_global_config=use_global_config,
-            use_local_config=(not self.arguments.no_local_config),
         )
         # self.cli_defines remains available for other code (such as
         # deploy.py) to use.
@@ -375,68 +374,34 @@ class Application(object):
         # Flatten and return cli args
         return reduce(operator.concat, cmd_line_args, [])
 
-    @utils.log_context("cli.Application.scap_call")
-    def scap_call(
-        self,
-        scap_cmd: list,
-        user=None,
-        env=None,
-        passthrough_arguments=True,
-        logger=None,
-        **kwargs
-    ) -> subprocess.CompletedProcess:
+    def scap_check_call(self, scap_cmd: list):
         """
         Call scap subcommand
 
-        :returns: the completed process
-        """
-
-        args = [self.get_script_path()] + scap_cmd
-
-        if passthrough_arguments:
-            args += self.format_passthrough_args()
-
-        # sudo if necessary
-        if user and user != utils.get_username():
-            args = ["sudo", "-u", user, "-n", "--"] + args
-
-        if env is None:
-            env = {}
-
-        with utils.suppress_backtrace():
-            if logger is not None:
-                logger.debug("Running {}".format(" ".join(args)))
-
-            return subprocess.run(
-                args,
-                env={**env, **self.get_gerrit_ssh_env()},
-                text=True,
-                **kwargs,
-            )
-
-    def scap_check_call(self, scap_cmd: list, **kwargs) -> subprocess.CompletedProcess:
-        """
-        Call scap subcommand and check for a non-zero exit status
-
-        :returns: the completed process
         :raises CalledProcessError: if the subcommand fails
         """
 
-        return self.scap_call(scap_cmd, check=True, **kwargs)
+        args = [self.get_script_path()] + scap_cmd + self.format_passthrough_args()
+        with utils.suppress_backtrace():
+            subprocess.run(args, check=True, env=self.get_gerrit_ssh_env())
 
-    def scap_check_output(self, scap_cmd: list, **kwargs) -> str:
+    def scap_check_output(self, scap_cmd: list) -> str:
         """
         Call scap subcommand and return output as text
 
         :returns: the output of `scap_cmd` as text
         :raises CalledProcessError: if the subcommand fails
         """
-        return self.scap_call(
-            scap_cmd,
-            check=True,
-            stdout=subprocess.PIPE,
-            **kwargs,
-        ).stdout.strip()
+
+        args = [self.get_script_path()] + scap_cmd + self.format_passthrough_args()
+        with utils.suppress_backtrace():
+            return subprocess.run(
+                args,
+                check=True,
+                stdout=subprocess.PIPE,
+                text=True,
+                env=self.get_gerrit_ssh_env(),
+            ).stdout.strip()
 
     def get_gerrit_ssh_env(self) -> dict:
         """

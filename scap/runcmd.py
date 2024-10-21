@@ -108,3 +108,8 @@ def which(name):
         path = os.path.join(dirname, name)
         if os.access(path, os.X_OK) and os.path.isfile(path):
             return path
+
+
+def mwscript(phpfile, *args, **kwargs):
+    """Run the mwcript command on a PHP file, return its stderr"""
+    return _runcmd(["mwscript", phpfile] + list(args), _want_stderr=True, **kwargs)

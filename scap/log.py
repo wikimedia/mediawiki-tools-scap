@@ -29,7 +29,6 @@ import logging
 import logging.handlers
 import math
 import operator
-import os
 import queue
 import re
 import shlex
@@ -986,38 +985,3 @@ def log_large_message(message, logger, log_level):
             message[:MAX_MESSAGE_SIZE],
         )
         message = message[MAX_MESSAGE_SIZE:]
-
-
-@contextlib.contextmanager
-def pipe(logger=None, level=logging.INFO):
-    """
-    Yields a write-only file descriptor that forwards lines to the given
-    logger.
-    """
-    if logger is None:
-        logger = logging.getLogger()
-
-    (reader, writer) = os.pipe()
-
-    def log_lines(logger, level, fd):
-        with os.fdopen(fd) as reader:
-            for line in reader:
-                logger.log(level, line.rstrip())
-
-    thread = threading.Thread(
-        target=log_lines,
-        args=(
-            logger,
-            level,
-            reader,
-        ),
-    )
-
-    thread.start()
-
-    try:
-        yield writer
-    finally:
-        # Note the reader is closed by os.fdopen in log_lines
-        os.close(writer)
-        thread.join(timeout=10)
