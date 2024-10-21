@@ -625,6 +625,9 @@ class Application(object):
     def spiderpig_joblogdir(self):
         return os.path.join(self.spiderpig_dir(), "jobs")
 
+    def spiderpig_jwt_secret_file(self):
+        return os.path.join(self.spiderpig_dir(), "spiderpig-jwt.key")
+
     def timed(self, fn, *args, **kwargs):
         """
         Call a function wrapped in a log.Timer.

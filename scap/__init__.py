@@ -60,6 +60,7 @@ from scap.prep import CheckoutMediaWiki
 from scap.rollback import Rollback
 from scap.say import Fortune, Say
 from scap.spiderpig.jobrunner import JobRunner
+from scap.spiderpig.api import SpiderpigAPIServer
 from scap.stage_train import StageTrain
 from scap.test import TestBackport, TestProgress, TestTrain
 from scap.train import Train
