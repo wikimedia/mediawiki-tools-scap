@@ -49,6 +49,7 @@ from scap.stage_train import StageTrain
 from scap.train import Train
 from scap.install_world import InstallWorld
 from scap.spiderpig.jobrunner import JobRunner
+from scap.spiderpig.api import SpiderpigAPIServer
 
 __all__ = [
     "CompileWikiversions",
@@ -63,6 +64,7 @@ __all__ = [
     "RebuildCdbs",
     "RefreshCdbJsonFiles",
     "SecurityPatchCheck",
+    "SpiderpigAPIServer",
     "StageTrain",
     "SyncPull",
     "SyncFile",
