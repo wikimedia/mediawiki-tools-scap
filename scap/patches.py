@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-"""Scap plugin for applying security patches for the train."""
+"""Scap command for applying security patches for the train."""
 import argparse
 import os
 import re

@@ -57,7 +57,7 @@ setup(
     maintainer="Wikimedia Foundation Release Engineering",
     maintainer_email="releng@wikimedia.org",
     url="https://gitlab.wikimedia.org/repos/releng/scap",
-    packages=["scap", "scap.plugins", "scap.spiderpig"],
+    packages=["scap", "scap.spiderpig"],
     package_dir={"scap": "scap"},
     scripts=["bin/scap", "bin/install_local_version.sh"],
     install_requires=[line.strip() for line in open("requirements.txt")],

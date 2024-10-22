@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-"""Scap plugin for listing, applying, and rolling back backports."""
+"""Scap command for listing, applying, and rolling back backports."""
 import hashlib
 import os
 import platform
@@ -16,7 +16,7 @@ from collections import defaultdict
 from prettytable import PrettyTable, SINGLE_BORDER
 from random import randint
 from scap import cli, git, log, ssh, utils
-from scap.plugins.gerrit import GerritSession
+from scap.gerrit import GerritSession
 
 
 def make_table(backports, display_mergable):

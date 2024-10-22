@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-    scap.plugins.test
+    scap.test
     ~~~~~~~~~~~~~~~~~
 
     For ultimate testing of progress reporters
@@ -26,10 +26,9 @@ import time
 import random
 from unittest.mock import patch
 
-from ..train import TrainInfo, GROUPS
-from .. import cli
-from .. import log
-from . import backport
+from scap.train import TrainInfo, GROUPS
+from scap import cli, backport
+from scap import log
 
 
 @cli.command("test-backport")

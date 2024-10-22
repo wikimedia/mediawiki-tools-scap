@@ -41,7 +41,6 @@ import scap.config as config
 import scap.interaction as interaction
 import scap.lock as lock
 import scap.log as log
-import scap.plugins
 import scap.targets as targets
 import scap.utils as utils
 from scap.ssh import SSH_WITH_KEY
@@ -787,46 +786,6 @@ def argument(*args, **kwargs):
 
 
 COMMAND_REGISTRY = {}
-ALL_COMMANDS = None
-
-
-def all_commands():
-    """
-    return a list of all commands that have been registered with the
-    command() decorator, including those registered via plugins.
-    """
-    global COMMAND_REGISTRY, ALL_COMMANDS
-
-    if ALL_COMMANDS:
-        return ALL_COMMANDS
-
-    # prevent plugins from overwriting built-in commands by first copying the
-    # COMMAND_REGISTRY and then verifying that none of the registered plugins
-    # write to any of the keys used by built-in commands.
-    builtin_commands = COMMAND_REGISTRY.copy()
-    COMMAND_REGISTRY.clear()
-    ALL_COMMANDS = builtin_commands.copy()
-
-    plugin_dir = os.path.dirname(scap.plugins.__file__)
-    # The process of loading plugins will add entries into COMMAND_REGISTRY,
-    # but only the first time scap.plugins.load_plugins is called.
-    scap.plugins.load_plugins(plugin_dir=plugin_dir)
-
-    # At this point COMMAND_REGISTRY will only have information
-    # for commands added by plugins.
-    for key in COMMAND_REGISTRY.keys():
-        if key in builtin_commands:
-            logger = logging.getLogger()
-            msg = "Plugin (%s) attempted to overwrite builtin command: %s" % (
-                COMMAND_REGISTRY[key],
-                key,
-            )
-            logger.warning(msg)
-        else:
-            ALL_COMMANDS[key] = COMMAND_REGISTRY[key]
-
-    COMMAND_REGISTRY = builtin_commands
-    return ALL_COMMANDS
 
 
 def command(*args, **kwargs):

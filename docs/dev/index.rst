@@ -5,4 +5,3 @@ Development
    :maxdepth: 1
 
    development
-   plugins
