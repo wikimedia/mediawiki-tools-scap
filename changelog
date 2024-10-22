@@ -1,3 +1,11 @@
+scap (4.116.0)
+
+  * build-images: Support `--latest-tag` argument
+  * prep: Support `--reference` argument for user-supplied git reference dir
+  * remove plugins abstraction from Scap
+
+ -- Dan Duvall <dduvall@wikimedia.org>  Tue, 22 Oct 2024 11:51:01 -0700
+
 scap (4.115.0)
 
   * mwscript: Containerize MediaWiki script execution
