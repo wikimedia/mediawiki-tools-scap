@@ -110,6 +110,12 @@ class CheckoutMediaWiki(cli.Application):
         action="store_false",
         help="Don't apply security patches.  Only used in auto mode.",
     )
+    @cli.argument(
+        "--reference",
+        default=None,
+        metavar="DIR",
+        help="Git reference directory to use when fetching MediaWiki branches.",
+    )
     def main(self, *extra_args):
         """Checkout next MediaWiki."""
 
@@ -169,7 +175,10 @@ class CheckoutMediaWiki(cli.Application):
 
                 for version in versions_to_prep:
                     self._prep_mw_branch(
-                        version, logger, apply_patches=self.arguments.apply_patches
+                        version,
+                        logger,
+                        apply_patches=self.arguments.apply_patches,
+                        reference_dir=self.arguments.reference,
                     )
 
     def _copy_private_settings(self, src_glob, logger):
@@ -179,7 +188,7 @@ class CheckoutMediaWiki(cli.Application):
             # copy2 preserves file mode and modification time
             shutil.copy2(src, dest)
 
-    def _prep_mw_branch(self, branch, logger, apply_patches=False):
+    def _prep_mw_branch(self, branch, logger, apply_patches=False, reference_dir=None):
         dest_dir = os.path.join(
             self.config["stage_dir"],
             "{}{}".format(self.arguments.prefix, branch),
@@ -189,7 +198,8 @@ class CheckoutMediaWiki(cli.Application):
         if branch != "master":
             checkout_version = "wmf/%s" % branch
 
-        reference_dir = self._select_reference_directory()
+        if reference_dir is None:
+            reference_dir = self._select_reference_directory()
 
         if checkout_version != "master":
             self._setup_patches(branch)
