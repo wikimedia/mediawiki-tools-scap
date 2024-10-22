@@ -211,7 +211,12 @@ class K8sOps:
             app.config["stage_dir"], "scap", "image-build"
         )
 
-    def build_k8s_images(self, mediawiki_versions: list, force_version: bool = False):
+    def build_k8s_images(
+        self,
+        mediawiki_versions: list,
+        force_version: bool = False,
+        latest_tag: str = "latest",
+    ):
         def build_and_push_images():
             with self.app.Timer("build-and-push-container-images"):
                 utils.mkdir_p(self.build_state_dir)
@@ -242,6 +247,8 @@ class K8sOps:
                     ),
                     "--webserver-image-name",
                     "{}/{}".format(registry, self.app.config["webserver_image_name"]),
+                    "--latest-tag",
+                    latest_tag,
                 ]
 
                 if force_version:

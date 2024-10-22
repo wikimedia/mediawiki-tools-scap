@@ -21,6 +21,12 @@ class BuildImages(cli.Application):
         metavar="VERSION",
         help="Perform a single-version image build using only this MediaWiki version",
     )
+    @cli.argument(
+        "--latest-tag",
+        default="latest",
+        metavar="TAG",
+        help="Tag to use that represents the latest build",
+    )
     @cli.argument("message", nargs="*", help="Log message for SAL")
     def main(self, *extra_args):
         """
@@ -50,4 +56,8 @@ class BuildImages(cli.Application):
                 self.timed(tasks.cache_git_info, version, self.config)
                 self.timed(tasks.update_localization_cache, version, self, json=False)
 
-            k8s_ops.build_k8s_images(versions, force_version=force_version)
+            k8s_ops.build_k8s_images(
+                versions,
+                force_version=force_version,
+                latest_tag=self.arguments.latest_tag,
+            )
