@@ -197,7 +197,7 @@ class Train(cli.Application):
             self._deploy_promote(stops[target_pos], train_version)
 
         # Re-read train info and show final visualization
-        TrainInfo(self.config).visualize()
+        TrainInfo(self.config, self.get_io()).visualize()
 
     def _deploy_promote(self, group, version):
         args = []
