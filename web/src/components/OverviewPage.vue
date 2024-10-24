@@ -12,7 +12,7 @@ import useApi from '../api';
 
 import Backport from './Backport.vue';
 import JobHistory from './JobHistory.vue';
-import JobViewer from './JobViewer.vue';
+import JobViewer from './JobViewerPage.vue';
 import Interaction from './Interaction.vue';
 import Train from './Train.vue';
 
