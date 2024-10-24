@@ -42,7 +42,8 @@ export default {
     },
     methods: {
         logout() {
-            this.api.logout()
+            this.api.logout();
+            this.$router.push( '/login' );
         }
     }
 
