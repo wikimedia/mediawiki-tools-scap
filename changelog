@@ -1,3 +1,10 @@
+scap (4.118.0)
+
+  * update-interwiki-cache: Give some output on success
+  * Spiderpig Web UI
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Fri, 25 Oct 2024 07:58:14 -0700
+
 scap (4.117.0)
 
   * scap train: Fix bug in final visualization
