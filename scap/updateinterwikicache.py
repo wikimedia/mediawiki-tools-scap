@@ -42,3 +42,9 @@ class UpdateInterwikiCache(cli.Application):
 
         # This shouldn't be needed, but let's be safe
         lint.check_valid_syntax(interwiki_file)
+        self.get_logger().info(
+            "wmf-config/interwiki.php updated; please commit it to Gerrit and deploy it"
+        )
+        self.get_logger().info(
+            "See <https://wikitech.wikimedia.org/wiki/Update_the_interwiki_cache>."
+        )
