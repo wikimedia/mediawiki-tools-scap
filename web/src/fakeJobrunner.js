@@ -125,15 +125,6 @@ class fakeJobrunner {
         }
     }
 
-    getJobInteraction(job_id) {
-        const job = this.#getJobById(job_id)
-
-        if (!job)
-            throw new Error(`Job with id ${job_id} does not exist`)
-
-        return job.interaction
-    }
-
     respondInteraction(job_id, interaction_id, response) {
         const job = this.#getJobById(job_id)
 
@@ -242,7 +233,7 @@ class fakeJobrunner {
         bp.on('interaction', async interaction => {
             interaction = new Interaction(job.id, interaction)
             job.interaction = interaction
-            // FIXME: Render the interaction to the log
+            // FIXME: Render the interaction (and the response) to the log
             const response = await new Promise(resolve => interaction.resolve = resolve)
             job.interaction = null
             return response

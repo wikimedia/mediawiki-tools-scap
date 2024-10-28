@@ -49,11 +49,10 @@ export default {
         async updateJobrunnerStatus() {
             try {
                 const res = await this.api.getJobrunnerStatus()
-                const job_id = res.job_id;
 
                 this.jobrunnerStatus = `Jobrunner Status: ${res.status}`;
                 this.idle = res.status == "idle";
-                this.interaction = job_id ? await this.api.getJobInteraction(job_id) : null;
+                this.interaction = res.pending_interaction
             } catch (error) {
                 if (!this.api.isAuthenticated) {
                     this.$router.push("/login")

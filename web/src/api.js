@@ -132,13 +132,6 @@ const useAuthStore = defineStore('spiderpig-auth',
 
                 return await this.call(`/api/jobs/${job_id}`);
             },
-            async getJobInteraction(job_id) {
-                if (TESTMODE)
-                    return fakeJobrunner.getJobInteraction(job_id)
-
-                const job_info = await this.getJobInfo(job_id);
-                return job_info.pending_interaction;
-            },
             async respondInteraction(job_id, interaction_id, response) {
                 if (TESTMODE) {
                     return fakeJobrunner.respondInteraction(job_id, interaction_id, response)

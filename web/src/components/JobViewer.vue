@@ -101,7 +101,7 @@ export default {
             this.job = job
             this.summary = this.generateSummary(job)
             this.jobRunning = (job.started_at && !job.finished_at)
-            this.interaction = await this.api.getJobInteraction(this.job_id)
+            this.interaction = jobinfo.pending_interaction
 
             if (!this.jobRunning) {
                 this.stopMonitor()

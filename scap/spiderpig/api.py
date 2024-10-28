@@ -16,9 +16,11 @@ else:
 from typing import List, Optional
 
 from fastapi import Depends, FastAPI, HTTPException, Query, Body, status
+from fastapi.encoders import jsonable_encoder
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
+
 from sqlalchemy.orm import Session
 
 from scap import cli, utils, gerrit
@@ -219,6 +221,16 @@ async def get_job_by_id(job_id: int, session: Session = Depends(get_session)):
     return job
 
 
+def get_parsed_interaction(session, job) -> Optional[dict]:
+    i = Interaction.lookup_pending(session, job.id)
+    if not i:
+        return None
+    choices_parsed = i.choices_parsed
+    i = jsonable_encoder(i)
+    i["choices"] = choices_parsed
+    return i
+
+
 @app.get("/api/jobrunner/status")
 async def jobrunner_status(
     user: Annotated[str, Depends(get_current_user)],
@@ -237,12 +249,22 @@ async def jobrunner_status(
     if not status.pid or not pid_exists(status.pid):
         return {
             "status": "Jobrunner not running",
-            "job_id": None,
+            "job": None,
+            "pending_interaction": None,
         }
+
+    job = None
+    i = None
+
+    if status.job_id:
+        job = Job.get(session, status.job_id)
+        if job:
+            i = get_parsed_interaction(session, job)
 
     return {
         "status": status.status,
-        "job_id": status.job_id,
+        "job": job,
+        "pending_interaction": i,
     }
 
 
@@ -317,13 +339,7 @@ async def get_job(
     user: Annotated[str, Depends(get_current_user)],
     session: Session = Depends(get_session),
 ):
-    from fastapi.encoders import jsonable_encoder
-
-    i = Interaction.lookup_pending(session, job.id)
-    if i:
-        choices_parsed = i.choices_parsed
-        i = jsonable_encoder(i)
-        i["choices"] = choices_parsed
+    i = get_parsed_interaction(session, job)
 
     return {
         "job": job,
