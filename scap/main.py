@@ -125,7 +125,7 @@ class AbstractSync(cli.Application):
             if new_message:
                 self.arguments.message = new_message
 
-        with self.lock(name="sync"):
+        with self.lock_mediawiki_staging(name="sync"):
             self.k8s_ops = K8sOps(self)
 
             # Begin by confirming helmfile diffs, if enabled. This avoids having
@@ -1474,9 +1474,16 @@ class LockManager(cli.Application):
             lock_path = lock.GLOBAL_LOCK_FILE
             repo = "ALL REPOSITORIES"
         else:
-            lock_path = self.get_lock_file()
-            # This value is used only for log messages.
-            repo = self.config.get("git_repo", "mediawiki")
+            try:
+                lock_path = self.get_scap3_lock_file()
+                repo = self.config["git_repo"]
+            except LookupError:
+                # The current directory does not appear to be a proper
+                # scap3 deploy directory, so fall back to legacy behavior
+                # and assume the user means to lock the MediaWiki staging
+                # directory.
+                lock_path = self.get_mediawiki_staging_lock_file()
+                repo = "MediaWiki"
 
         with self.lock(lock_path):
             forced_lock_release_r = None

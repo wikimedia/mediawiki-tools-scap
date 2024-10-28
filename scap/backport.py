@@ -388,8 +388,8 @@ class Backport(cli.Application):
             self.scap_check_call(arguments + reverts)
 
     def _do_backport(self):
-        # Note that the default lock file returned by `self.get_lock_file()` cannot be used here or backport would
-        # deadlock itself when calling "sync-world" further down the flow.
+        # Note that the default lock file returned by `self.get_mediawiki_staging_lock_file()` cannot be used
+        # here or backport would deadlock itself when calling "sync-world" further down the flow.
         # Also, a backport revert calls backport recursively, deferring to the lock here instead of itself locking
         # '/var/lock/scap.backport.lock'. Otherwise, deadlock again
         with self.lock("/var/lock/scap.backport.lock", reason=self._build_sal()):

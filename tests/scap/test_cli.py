@@ -80,17 +80,27 @@ def test_get_stats(app, mocker):
     stats.assert_called_with("foo_bar", 678)
 
 
-def test_get_lock_file(app):
-    # N.B. 'lock_file' needs to be defined in any case in the config. Yuck.
-    app.config = {"lock_file": None, "stage_dir": "/srv/mediawiki-staging"}
-    # Case 1 - no lockfile nor a git_repo config
-    assert app.get_lock_file() == "/var/lock/scap.srv_mediawiki-staging.lock"
-    # Case 2 - git_repo defined
+def test_get_mediawiki_staging_lock_file(app):
+    app.config = {"stage_dir": "/srv/mediawiki-staging"}
+    assert (
+        app.get_mediawiki_staging_lock_file()
+        == "/var/lock/scap.srv_mediawiki-staging.lock"
+    )
+
+
+def test_get_scap3_lock_file(app):
+    # Case 1 - lock file in config
+    app.config = {"lock_file": "pinkunicorn"}
+    assert app.get_scap3_lock_file() == "pinkunicorn"
+
+    # Case 2 - git_repo not defined
+    app.config = {"lock_file": None}
+    with pytest.raises(LookupError):
+        app.get_scap3_lock_file()
+
+    # case 3 - git_repo defined
     app.config["git_repo"] = "parsoid/deploy"
-    assert app.get_lock_file() == "/var/lock/scap.parsoid_deploy.lock"
-    # Case 3 - lock file in config
-    app.config["lock_file"] = "pinkunicorn"
-    assert app.get_lock_file() == "pinkunicorn"
+    assert app.get_scap3_lock_file() == "/var/lock/scap.parsoid_deploy.lock"
 
 
 def test_verbose(app):

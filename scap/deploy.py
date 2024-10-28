@@ -831,7 +831,7 @@ For `scap deploy` to work, the current directory must be the top level of a git 
         if not rev:
             rev = "HEAD"
 
-        with self.lock():
+        with self.lock(self.get_scap3_lock_file()):
             with self.Timer(display_name):
                 timestamp = datetime.utcnow()
                 tag = git.next_deploy_tag(location=self.context.root)

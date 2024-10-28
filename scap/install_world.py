@@ -38,7 +38,6 @@ else:
     from typing import Tuple
 
 from scap import cli, targets, utils, ssh, log
-from scap.lock import Lock
 
 
 @cli.command(
@@ -113,9 +112,10 @@ class InstallWorld(cli.Application):
             # mode. Messages will still be logged
             self.arguments.no_log_message = True
 
-        # The Lock ensures a scap installation cannot happen during a MediaWiki update
-        with Lock(
-            self.get_lock_file(), name="install-world", reason="Scap is being updated"
+        # The lock ensures a scap installation cannot happen during a MediaWiki update
+        with self.lock_mediawiki_staging(
+            name="install-world",
+            reason="Scap is being updated",
         ):
             self._initialize_from_config()
             self._select_targets()

@@ -134,7 +134,7 @@ class CheckoutMediaWiki(cli.Application):
             if self.arguments.lock_timeout
             else {}
         )
-        with self.lock(name="concurrent prep", **lock_timeout):
+        with self.lock_mediawiki_staging(name="concurrent prep", **lock_timeout):
             if self.arguments.auto and self.arguments.history:
                 display_repos = ["mediawiki/core", "operations/mediawiki-config"]
                 logger.info("Browsing history")

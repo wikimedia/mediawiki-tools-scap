@@ -15,5 +15,5 @@ class PhpRpmRestartCmd(main.AbstractSync):
 
         self._assert_auth_sock()
 
-        with self.lock_and_announce():
+        with self.lock_mediawiki_staging_and_announce():
             self._restart_php()

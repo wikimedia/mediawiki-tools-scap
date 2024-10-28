@@ -94,27 +94,24 @@ class Application(object):
             )
         return self._stats
 
-    def get_lock_file(self):
-        """Get the path to scap.lock"""
-        if self.config["lock_file"] is not None:
-            return self.config["lock_file"]
-
-        if "git_repo" in self.config:
-            return "/var/lock/scap.%s.lock" % (
-                self.config["git_repo"].replace("/", "_")
-            )
-
-        # `scap sync*` can run from anywhere on the file system and
-        # doesn't actually use the value of `git_repo`. In contrast,
-        # `scap deploy` will fail almost instantly without a `git_repo`
-        # set. If we're attempting to create a lock file, and there is
-        # no git_repo, then it's likely for a sync* command and the
-        # correct git_repo is operations/mediawiki-config.
-
+    def get_mediawiki_staging_lock_file(self):
+        """Get the path to the lock file corresponding to the MediaWiki staging directory"""
         stage_dir = self.config["stage_dir"]
         return os.path.join(
             "/var/lock", "scap." + stage_dir.strip("/").replace("/", "_") + ".lock"
         )
+
+    def get_scap3_lock_file(self):
+        """Get the path to scap.lock"""
+        if self.config["lock_file"] is not None:
+            return self.config["lock_file"]
+
+        if "git_repo" not in self.config:
+            raise LookupError(
+                "git_repo must be defined in scap config for get_scap3_lock_file to work"
+            )
+
+        return "/var/lock/scap.%s.lock" % (self.config["git_repo"].replace("/", "_"))
 
     @property
     def verbose(self):
@@ -591,13 +588,10 @@ class Application(object):
         )
 
     @contextmanager
-    def lock(self, lock_file=None, **kwargs):
+    def lock(self, lock_file, **kwargs):
         """
         Acquire a lock for the main work of this application.
         """
-        if lock_file is None:
-            lock_file = self.get_lock_file()
-
         if "name" not in kwargs:
             kwargs["name"] = self.program_name
 
@@ -608,12 +602,20 @@ class Application(object):
             yield
 
     @contextmanager
-    def lock_and_announce(self, **kwargs):
+    def lock_mediawiki_staging(self, **kwargs):
+        """
+        Acquire a lock for the main work of this MediaWiki staging related application.
+        """
+        with self.lock(self.get_mediawiki_staging_lock_file(), **kwargs):
+            yield
+
+    @contextmanager
+    def lock_mediawiki_staging_and_announce(self, **kwargs):
         """
         Acquire a lock for the main work of this application and announce its
         start and finish.
         """
-        with self.lock(**kwargs):
+        with self.lock_mediawiki_staging(**kwargs):
             start = time.time()
             self.announce(
                 "Started scap %s: %s", self.program_name, self.message_argument

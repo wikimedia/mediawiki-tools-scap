@@ -70,7 +70,7 @@ class Clean(main.AbstractSync):
             branches_string,
         )
 
-        with self.lock(reason=reason):
+        with self.lock_mediawiki_staging(reason=reason):
             self.get_logger().info(reason)
 
             for branch in self.branches_to_remove:
