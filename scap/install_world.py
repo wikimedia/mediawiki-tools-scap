@@ -27,9 +27,15 @@ import random
 import re
 import socket
 import subprocess
+import sys
 from os.path import expanduser
 
 import packaging.version
+
+if sys.version_info < (3, 9):
+    from typing_extensions import Tuple
+else:
+    from typing import Tuple
 
 from scap import cli, targets, utils, ssh, log
 from scap.lock import Lock
@@ -303,7 +309,7 @@ class InstallWorld(cli.Application):
         self._sync_targets(targets_by_master)
         self._install_targets()
 
-    def _map_targets_to_master_by_dc(self) -> (dict, list):
+    def _map_targets_to_master_by_dc(self) -> Tuple[dict, list]:
         def select_master(target):
             for master in self.masters:
                 domain = re.search(r"^[^.]+.(.+)", master).group(1)
