@@ -7,7 +7,7 @@ const API_BASE_URL = "http://localhost:8001"
 // Testmode problems:
 // * each function needs to check isAuthenticated before returning
 //   test data.... and must return an error if not...
-const TESTMODE = true
+const TESTMODE = false
 
 function makeApiUrl(url) {
     return new URL(url, API_BASE_URL);
