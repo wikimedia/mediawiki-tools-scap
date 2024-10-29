@@ -61,7 +61,7 @@ deployment_configs = [
                 {
                     "namespace": "test",
                     "release": "main",
-                    "mv_image_fl": "publish",
+                    "mw_image_fl": "publish",
                     "web_image_fl": "webserver",
                     "debug": True,
                 }
@@ -70,14 +70,14 @@ deployment_configs = [
                 {
                     "namespace": "api2",
                     "release": "canary",
-                    "mv_image_fl": "publish",
+                    "mw_image_fl": "publish",
                     "web_image_fl": "webserver",
                     "debug": False,
                 },
                 {
                     "namespace": "api3",
                     "release": "canary",
-                    "mv_image_fl": "publish",
+                    "mw_image_fl": "publish",
                     "web_image_fl": "webserver",
                     "debug": False,
                 },
@@ -86,28 +86,28 @@ deployment_configs = [
                 {
                     "namespace": "api1",
                     "release": "main",
-                    "mv_image_fl": "publish",
+                    "mw_image_fl": "publish",
                     "web_image_fl": "webserver",
                     "debug": False,
                 },
                 {
                     "namespace": "api2",
                     "release": "main",
-                    "mv_image_fl": "publish",
+                    "mw_image_fl": "publish",
                     "web_image_fl": "webserver",
                     "debug": False,
                 },
                 {
                     "namespace": "api3",
                     "release": "main",
-                    "mv_image_fl": "publish",
+                    "mw_image_fl": "publish",
                     "web_image_fl": "webserver",
                     "debug": False,
                 },
                 {
                     "namespace": "api3",
                     "release": "migration",
-                    "mv_image_fl": "exciting-new-mediawiki",
+                    "mw_image_fl": "exciting-new-mediawiki",
                     "web_image_fl": "exciting-new-webserver",
                     "debug": False,
                 },
@@ -131,7 +131,7 @@ deployment_configs = [
                 {
                     "namespace": "testservers",
                     "release": "main",
-                    "mv_image_fl": "publish",
+                    "mw_image_fl": "publish",
                     "web_image_fl": "webserver",
                     "debug": True,
                 }

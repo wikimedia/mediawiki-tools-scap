@@ -74,33 +74,33 @@ class DeploymentsConfig:
       "testservers": [{
         "namespace": "testservers",
         "release": "debug",
-        "mv_image_fl": "publish",
+        "mw_image_fl": "publish",
         "web_image_fl": "webserver",
         "debug": True,
       }],
       "canaries": [{
         "namespace": "api1",
         "release": "canary",
-        "mv_image_fl": "publish",
+        "mw_image_fl": "publish",
         "web_image_fl": "webserver",
         "debug": False,
       }],
       "production": [{
         "namespace": "api1",
         "release": "main",
-        "mv_image_fl": "publish",
+        "mw_image_fl": "publish",
         "web_image_fl": "webserver",
         "debug": False,
         }, {
         "namespace": "api2",
         "release": "main",
-        "mv_image_fl": "publish",
+        "mw_image_fl": "publish",
         "web_image_fl": "webserver",
         "debug": False,
         }, {
         "namespace": "api2",
         "release": "experimental",
-        "mv_image_fl": "publish-experimental",
+        "mw_image_fl": "publish-experimental",
         "web_image_fl": "webserver",
         "debug": False,
       }]
@@ -114,8 +114,8 @@ class DeploymentsConfig:
     NAMESPACE = "namespace"
     # Helmfile release
     RELEASE = "release"
-    MULTIVER_IMAGE_FLAVOR = "mv_image_fl"
-    WEB_IMAGE_FLAVOR = "web_image_fl"
+    MW_IMAGE_FLAVOUR = "mw_image_fl"
+    WEB_IMAGE_FLAVOUR = "web_image_fl"
     DEBUG = "debug"
 
     def __init__(
@@ -173,8 +173,8 @@ class DeploymentsConfig:
                 parsed_dep_config = {
                     cls.NAMESPACE: dep_namespace,
                     cls.RELEASE: release,
-                    cls.MULTIVER_IMAGE_FLAVOR: mw_flavour,
-                    cls.WEB_IMAGE_FLAVOR: web_flavour,
+                    cls.MW_IMAGE_FLAVOUR: mw_flavour,
+                    cls.WEB_IMAGE_FLAVOUR: web_flavour,
                     cls.DEBUG: debug,
                 }
                 if debug:
@@ -303,11 +303,12 @@ class K8sOps:
             if not self.app.config["deploy_mw_container_image"]:
                 return
 
+            built_images_info = self._get_built_images_report()
             for stage, dep_configs in self.k8s_deployments_config.stages.items():
                 self.original_helmfile_values[stage] = self._read_helmfile_files(
                     dep_configs
                 )
-                self._update_helmfile_files(dep_configs)
+                self._update_helmfile_files(dep_configs, built_images_info)
 
         if not self.app.config["build_mw_container_image"]:
             return
@@ -422,10 +423,9 @@ class K8sOps:
 
         return res
 
-    def _update_helmfile_files(self, dep_configs):
-        container_image_names = self._get_container_image_names()
+    def _update_helmfile_files(self, dep_configs, built_images_info):
         for dep_config in dep_configs:
-            self._update_helmfile_values_for(dep_config, container_image_names)
+            self._update_helmfile_values_for(dep_config, built_images_info)
 
     def _revert_helmfile_files(self, dep_configs, saved_values):
         commit = False
@@ -871,23 +871,38 @@ class K8sOps:
 
             return fqin
 
-        if dep_config[DeploymentsConfig.DEBUG]:
-            mv_img = strip_registry(images_info["debug"])
-        else:
-            mv_img = strip_registry(images_info["multiversion"])
+        def find_image_flavour(image_info, flavour, debug=False):
+            image_key = "debug-image" if debug else "image"
 
-        web_img = strip_registry(images_info["webserver"])
+            if flavour not in image_info:
+                raise RuntimeError(
+                    f"Image flavour {flavour} not found "
+                    f"among built images {image_info}"
+                )
+
+            return image_info[flavour][image_key]
+
+        mw_img = find_image_flavour(
+            images_info["mediawiki"]["by-flavour"],
+            dep_config[DeploymentsConfig.MW_IMAGE_FLAVOUR],
+            debug=dep_config[DeploymentsConfig.DEBUG],
+        )
+
+        web_img = find_image_flavour(
+            images_info["webserver"]["by-flavour"],
+            dep_config[DeploymentsConfig.WEB_IMAGE_FLAVOUR],
+        )
 
         values = {
             "docker": {
                 "registry": registry,
             },
             "main_app": {
-                "image": mv_img,
+                "image": strip_registry(mw_img),
             },
             "mw": {
                 "httpd": {
-                    "image_tag": web_img,
+                    "image_tag": strip_registry(web_img),
                 }
             },
         }
@@ -905,14 +920,14 @@ class K8sOps:
                 fq_release_name = self._dep_config_fq_release_name(dep_config)
                 msg = (
                     "Updating release '%s'\n\n"
-                    "Multiversion image is: '%s'\n"
+                    "MediaWiki image is: '%s'\n"
                     "Webserver image is: '%s'"
-                ) % (fq_release_name, mv_img, web_img)
+                ) % (fq_release_name, mw_img, web_img)
 
                 gitcmd("add", values_file)
                 gitcmd("commit", "-m", msg)
 
-    def _get_container_image_names(self) -> dict:
+    def _get_built_images_report(self) -> dict:
         """
         Return a data structure containing the fully qualified image names of the
         images most recently built by build_k8s_images().
@@ -923,11 +938,7 @@ class K8sOps:
         with open(report_file) as f:
             report = json.load(f)
 
-        return {
-            "multiversion": report["mediawiki"]["multiversion-image"],
-            "debug": report["mediawiki"]["multiversion-debug-image"],
-            "webserver": report["webserver"]["image"],
-        }
+        return report
 
     def _helm_augmented_environment(self, env: dict) -> dict:
         """
