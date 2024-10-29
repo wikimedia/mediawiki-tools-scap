@@ -54,12 +54,11 @@ class Lock:
         lock_file,
         name="exclusion",
         reason="no reason given",
-        timeout=DEFAULT_TIMEOUT,
+        timeout=DEFAULT_TIMEOUT,  # Timeout in seconds
         lock_mode=EXCLUSIVE,
     ):
         self.lock_file = lock_file
         self.name = name
-        # In seconds
         self.timeout = timeout
         if lock_mode not in (Lock.SHARED, Lock.EXCLUSIVE):
             raise LockFailedError(
@@ -131,6 +130,9 @@ class Lock:
                     """ "scap lock --unlock-all <reason>"."""
                 )
 
+            if self.timeout == 0:
+                raise LockFailedError(f"{self._get_lock_message()}\nAborting")
+
             logger.warning(
                 "%s\nWill wait up to %s minute(s) for the lock(s) to be released."
                 % (
@@ -172,7 +174,7 @@ class Lock:
             signal.alarm(0)
 
     def _get_deadline_check_interval(self) -> int:
-        return 30
+        return min(self.timeout, 30)
 
     def _get_deadline(self) -> float:
         return time.time() + self.timeout
@@ -293,10 +295,10 @@ class Lock:
                 ) from e
 
     def _ensure_sane_timeout(self):
-        if not 1 <= self.timeout <= 3600:
+        if not 0 <= self.timeout <= 3600:
             self.timeout = Lock.DEFAULT_TIMEOUT
             logger.warning(
-                "Supplied timeout for %s lock needs to be in range [1, 3600]. Timeout reset to %s"
+                "Supplied timeout for %s lock needs to be in range [0, 3600]. Timeout reset to %s"
                 " minutes" % (self.name, Lock.DEFAULT_TIMEOUT // 60)
             )
 
