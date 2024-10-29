@@ -153,6 +153,7 @@ class CheckoutMediaWiki(cli.Application):
 
             with self.Timer("scap prep {}".format(self.arguments.branch)):
                 if self.arguments.auto:
+                    self.report_status("Checking out mediawiki-config")
                     self._clone_or_update_repo(
                         os.path.join(
                             self.config["gerrit_url"], "operations/mediawiki-config"
@@ -174,12 +175,13 @@ class CheckoutMediaWiki(cli.Application):
                 )
 
                 for version in versions_to_prep:
-                    self._prep_mw_branch(
-                        version,
-                        logger,
-                        apply_patches=self.arguments.apply_patches,
-                        reference_dir=self.arguments.reference,
-                    )
+                    with self.reported_status(f"Checking out {version}"):
+                        self._prep_mw_branch(
+                            version,
+                            logger,
+                            apply_patches=self.arguments.apply_patches,
+                            reference_dir=self.arguments.reference,
+                        )
 
     def _copy_private_settings(self, src_glob, logger):
         dest = os.path.join(self.config["stage_dir"], "private")

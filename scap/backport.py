@@ -906,9 +906,10 @@ class Backport(cli.Application):
             self._confirm_change(change.details)
 
     def _wait_for_changes_to_be_merged(self):
-        self.get_logger().info(
+        self.report_status(
             "Waiting for changes to be merged. "
-            "This may take some time if there are long running tests."
+            "This may take some time if there are long running tests.",
+            log=True,
         )
 
         finished = False
@@ -997,7 +998,7 @@ class Backport(cli.Application):
         finally:
             reporter.finish()
 
-        self.get_logger().info("All changes have been merged")
+        self.report_status("All changes have been merged", log=True)
 
     def _fetch_git_changes(self, location):
         with utils.suppress_backtrace():

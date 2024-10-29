@@ -142,7 +142,8 @@ class AbstractSync(cli.Application):
             else:
                 self.get_logger().warning("check_fatals skipped by --force")
 
-            self.k8s_ops.build_k8s_images(self.active_wikiversions("stage"))
+            with self.reported_status("Building container images"):
+                self.k8s_ops.build_k8s_images(self.active_wikiversions("stage"))
 
             if self.arguments.stop_before_sync:
                 self.announce_final("Stopping before sync operations")
@@ -197,17 +198,22 @@ class AbstractSync(cli.Application):
                     )
 
                     # k8s deployment
-                    with self.Timer(k8s_timer_name):
+                    with self.Timer(k8s_timer_name), self.reported_status(
+                        f"Sync k8s {stage}"
+                    ):
                         with utils.suppress_backtrace():
                             self.k8s_ops.deploy_k8s_images_for_stage(stage)
 
                     # Bare metal deployment
                     if depstage.baremetal_targets:
-                        if stage == PRODUCTION:
-                            self._sync_proxies_and_apaches(depstage.baremetal_targets)
-                        else:
-                            with self.Timer(f"sync-{stage}"):
-                                self.sync_targets(depstage.baremetal_targets, stage)
+                        with self.reported_status(f"Sync baremetal {stage}"):
+                            if stage == PRODUCTION:
+                                self._sync_proxies_and_apaches(
+                                    depstage.baremetal_targets
+                                )
+                            else:
+                                with self.Timer(f"sync-{stage}"):
+                                    self.sync_targets(depstage.baremetal_targets, stage)
 
                     if depstage.check_func:
                         if self.arguments.force:
@@ -321,6 +327,7 @@ class AbstractSync(cli.Application):
             % (users, self.arguments.message)
         )
         self.announce(message)
+        self.report_status("Waiting user to confirm testservers deployment")
         self.prompt_for_approval_or_exit(
             "Changes synced to the testservers. (see https://wikitech.wikimedia.org/wiki/Mwdebug)\n"
             "Please do any necessary checks before continuing.\n"
@@ -328,6 +335,7 @@ class AbstractSync(cli.Application):
             "Sync cancelled.",
         )
         self.announce(f"{users}: Continuing with sync")
+        self.report_status("Continuing with sync")
 
     def _k8s_only_sync(self):
         # Not all subclasses of AbstractSync define the --k8s-only option
@@ -428,7 +436,8 @@ class AbstractSync(cli.Application):
         other_masters = [master for master in self.get_master_list() if master != us]
 
         if len(other_masters) > 0:
-            self.master_only_cmd("sync-masters", self._master_sync_command())
+            with self.reported_status("Syncing to baremetal masters"):
+                self.master_only_cmd("sync-masters", self._master_sync_command())
 
     def master_only_cmd(self, timer, cmd):
         """
@@ -693,8 +702,9 @@ class AbstractSync(cli.Application):
                 time_since_last_check = time.time() - last_check_time
                 wait_remaining = round(canary_wait_time - time_since_last_check)
                 if wait_remaining > 0:
-                    logger.info(
-                        f"Waiting {wait_remaining} seconds for canary traffic..."
+                    self.report_status(
+                        f"Waiting {wait_remaining} seconds for canary traffic...",
+                        log=True,
                     )
                     time.sleep(wait_remaining)
 
@@ -703,6 +713,7 @@ class AbstractSync(cli.Application):
                 return checker.check(self.config["canary_threshold"])
             except logstash_checker.CheckServiceError as e:
                 logger.error("The canary error rate checker failed: %s", e)
+                self.report_status("Canary error rate checker failed")
                 need_sleep = False
                 return False
             else:
@@ -759,7 +770,9 @@ class AbstractSync(cli.Application):
 
         logger = self.get_logger()
 
-        with self.Timer("check-testservers"):
+        with self.Timer("check-testservers"), self.reported_status(
+            "Checking testservers"
+        ):
 
             def test_func() -> bool:
                 success, jobs = checks.execute(
@@ -1078,6 +1091,7 @@ class ScapWorld(AbstractSync):
 
     def _before_cluster_sync(self):
         self.announce("Started scap sync-world: %s", self.arguments.message)
+        self.report_status("Starting scap sync-world")
 
         # Validate php syntax of wmf-config and multiversion
         lint.check_valid_syntax(
@@ -1097,7 +1111,7 @@ class ScapWorld(AbstractSync):
         if self.arguments.skip_l10n_update:
             self.get_logger().warn("Skipping l10n-update")
         else:
-            with self.Timer("l10n-update"):
+            with self.Timer("l10n-update"), self.reported_status("Updating l10n files"):
                 for version in self.active_wikiversions("stage"):
                     tasks.update_localization_cache(version, self)
 
