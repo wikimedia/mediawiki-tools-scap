@@ -32,6 +32,7 @@ import socket
 import subprocess
 import sys
 import time
+from typing import Optional
 from functools import reduce
 
 import scap.version as version
@@ -254,6 +255,22 @@ class Application(object):
 
     def prompt_user_for_confirmation(self, prompt_message, default="n") -> bool:
         return self.get_io().prompt_user_for_confirmation(prompt_message, default)
+
+    def report_status(self, status: Optional[str] = None, log=False):
+        if log and status:
+            self.get_logger().info(status)
+        self.get_io().report_status(status)
+
+    @contextmanager
+    def reported_status(self, status: str, log=False):
+        """
+        Set status to `status`, do work, then clear the job status.
+        """
+        self.report_status(status, log)
+        try:
+            yield
+        finally:
+            self.report_status()
 
     # End interaction stuff
 

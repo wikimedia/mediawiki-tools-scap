@@ -1,6 +1,8 @@
 import os
 import sys
 
+from typing import Optional
+
 import scap.ansi as ansi
 import scap.spiderpig.io as spiderpigio
 
@@ -78,6 +80,9 @@ class UserIOBase:
         """
         return self.prompt_choices(prompt_message, bool, default) == "y"
 
+    def report_status(self, status: Optional[str]):
+        self._report_status(status)
+
 
 class TerminalIO(UserIOBase):
     def _input_line(self, prompt) -> str:
@@ -115,6 +120,9 @@ class TerminalIO(UserIOBase):
 
         return f"{choices_text}{question}{default_text}: "
 
+    def _report_status(self, status: Optional[str]):
+        pass
+
 
 class SpiderpigIO(UserIOBase):
     def _input_line(self, prompt) -> str:
@@ -122,3 +130,6 @@ class SpiderpigIO(UserIOBase):
 
     def _prompt_choices(self, question, choices, default):
         return spiderpigio.prompt_choices(question, choices, default)
+
+    def _report_status(self, status: Optional[str]):
+        spiderpigio.report_status(status)
