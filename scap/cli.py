@@ -638,6 +638,9 @@ class Application(object):
     def spiderpig_dir(self):
         return os.path.join(self.config["stage_dir"], "scap/spiderpig")
 
+    def spiderpig_jobrunner_lockfile(self):
+        return os.path.join(self.spiderpig_dir(), "jobrunner.lock")
+
     def spiderpig_dbfile(self):
         return os.path.join(self.spiderpig_dir(), "spiderpig.db")
 

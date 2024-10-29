@@ -39,45 +39,50 @@ class JobRunner(cli.Application):
         help="How often to check for new jobs (in seconds). Default is 2.",
     )
     def main(self, *extra_args):
-        logger = self.get_logger()
-        logger.info(
-            "SpiderPig Job Runner started.  Checking for new jobs every %s seconds",
-            self.arguments.polling_interval,
-        )
+        with self.lock(
+            self.spiderpig_jobrunner_lockfile(),
+            reason="Spiderpig jobrunner running",
+            timeout=0,
+        ):
+            logger = self.get_logger()
+            logger.info(
+                "SpiderPig Job Runner started.  Checking for new jobs every %s seconds",
+                self.arguments.polling_interval,
+            )
 
-        self.started_at = time.time()
+            self.started_at = time.time()
 
-        db_filename = self.spiderpig_dbfile()
-        logdir = self.spiderpig_joblogdir()
-        os.makedirs(logdir, exist_ok=True)
+            db_filename = self.spiderpig_dbfile()
+            logdir = self.spiderpig_joblogdir()
+            os.makedirs(logdir, exist_ok=True)
 
-        engine = scap.spiderpig.engine(db_filename)
-        setup_db(engine, db_filename)
+            engine = scap.spiderpig.engine(db_filename)
+            setup_db(engine, db_filename)
 
-        with Session(engine) as session:
-            try:
-                while True:
-                    self._set_status(session, "idle")
+            with Session(engine) as session:
+                try:
+                    while True:
+                        self._set_status(session, "idle")
 
-                    job = Job.pop(session)
-                    if job is None:
-                        time.sleep(self.arguments.polling_interval)
-                        continue
+                        job = Job.pop(session)
+                        if job is None:
+                            time.sleep(self.arguments.polling_interval)
+                            continue
 
-                    exit_status = None
-                    try:
-                        exit_status = run_job(
-                            job,
-                            engine,
-                            session,
-                            logger,
-                            logdir,
-                            self._set_running_job_status,
-                        )
-                    finally:
-                        job.finish(session, exit_status)
-            finally:
-                self._set_status(session, "Terminated", clear_pid=True)
+                        exit_status = None
+                        try:
+                            exit_status = run_job(
+                                job,
+                                engine,
+                                session,
+                                logger,
+                                logdir,
+                                self._set_running_job_status,
+                            )
+                        finally:
+                            job.finish(session, exit_status)
+                finally:
+                    self._set_status(session, "Terminated", clear_pid=True)
 
     def _set_status(
         self,
