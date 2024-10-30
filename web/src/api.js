@@ -2,15 +2,13 @@ import { defineStore } from 'pinia'
 import { useLocalStorage } from "@vueuse/core"
 import fakeJobrunner from './fakeJobrunner'
 
-const API_BASE_URL = "http://localhost:8001"
-
 // Testmode problems:
 // * each function needs to check isAuthenticated before returning
 //   test data.... and must return an error if not...
 const TESTMODE = false
 
 function makeApiUrl(url) {
-    return new URL(url, API_BASE_URL);
+    return new URL(url, window.location.origin)
 }
 
 const useAuthStore = defineStore('spiderpig-auth',
@@ -120,7 +118,7 @@ const useAuthStore = defineStore('spiderpig-auth',
                 if (TESTMODE)
                     return fakeJobrunner.getLastNJobs(last)
 
-                const url = new URL("/api/jobs", API_BASE_URL)
+                const url = new URL("/api/jobs", window.location.origin)
                 if (last !== null) {
                     url.searchParams.append("last", last)
                 }

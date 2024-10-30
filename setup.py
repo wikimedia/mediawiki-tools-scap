@@ -22,6 +22,8 @@
 """
 import os.path
 from setuptools import setup
+from setuptools.command.build_py import build_py
+import subprocess
 
 AUTHORS = [
     ("Antoine Musso", "hashar@free.fr"),
@@ -45,6 +47,15 @@ FILENAME = os.path.join(os.path.dirname(__file__), "scap", "version.py")
 # pylint: disable=W0122
 exec(compile(open(FILENAME, "rb").read(), FILENAME, "exec"), VERSION)
 
+
+class CustomBuildPy(build_py):
+    def run(self):
+        print("\nBuilding SpiderPig Web UI\n")
+        subprocess.run(["npm", "install"], check=True, cwd="web")
+        subprocess.run(["npm", "run", "build"], check=True, cwd="web")
+        super().run()
+
+
 setup(
     name="Scap",
     version=VERSION["__version__"],
@@ -57,8 +68,8 @@ setup(
     maintainer="Wikimedia Foundation Release Engineering",
     maintainer_email="releng@wikimedia.org",
     url="https://gitlab.wikimedia.org/repos/releng/scap",
-    packages=["scap", "scap.spiderpig"],
-    package_dir={"scap": "scap"},
+    packages=["scap", "scap.spiderpig", "web.dist", "web.dist.assets"],
+    include_package_data=True,
     scripts=["bin/scap", "bin/install_local_version.sh"],
     install_requires=[line.strip() for line in open("requirements.txt")],
     keywords=["deploy", "deployment", "scap", "scap2", "scap3"],
@@ -70,4 +81,7 @@ setup(
         "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
     ],
     options={"bdist_wheel": {"python_tag": "py37"}},
+    cmdclass={
+        "build_py": CustomBuildPy,
+    },
 )

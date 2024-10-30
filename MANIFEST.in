@@ -1,0 +1,3 @@
+include requirements.txt
+graft web/dist
+global-exclude node_modules .vite .vscode

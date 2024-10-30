@@ -18,8 +18,9 @@ from typing import List, Optional
 from fastapi import Depends, FastAPI, HTTPException, Query, Body, status
 from fastapi.encoders import jsonable_encoder
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import StreamingResponse
+from fastapi.responses import FileResponse, StreamingResponse
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
+from fastapi.staticfiles import StaticFiles
 
 from sqlalchemy.orm import Session
 
@@ -451,3 +452,34 @@ async def login(form_data: Annotated[OAuth2PasswordRequestForm, Depends()]):
 
     token = generate_token()
     return {"message": "Login successful", "token": token}
+
+
+################
+# Web UI stuff #
+################
+
+web_dir = os.path.join(os.path.dirname(__file__), "../../web")
+dist_dir = os.path.join(web_dir, "dist")
+assets_dir = os.path.join(dist_dir, "assets")
+index_html = os.path.join(dist_dir, "index.html")
+
+# This conditional is here to allow this module to be imported
+# during tests.
+if os.path.isdir(assets_dir):
+    app.mount("/assets", StaticFiles(directory=assets_dir))
+
+
+# The following routes correspond to Vue routes established in router.js
+@app.get("/")
+async def index_page():
+    return FileResponse(index_html)
+
+
+@app.get("/login")
+async def login_page():
+    return FileResponse(index_html)
+
+
+@app.get("/jobs/{job_id}")
+async def job_details_page():
+    return FileResponse(index_html)
