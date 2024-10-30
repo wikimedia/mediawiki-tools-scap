@@ -35,6 +35,9 @@ DEFAULT_CONFIG = {
     "canary_threshold": (int, 10),
     "canary_service": (str, "mediawiki"),
     "canary_wait_time": (int, 20),
+    # These two keys contain check commands executed against the bare-metal and k8s deployments
+    # of mediawiki following the testservers-stage update. Each may contain multiple independent
+    # check (sub)commands separated by newlines, all of which will execute concurrently.
     "testservers_check_cmd_baremetal": (str, ""),
     "testservers_check_cmd_k8s": (str, ""),
     "delay_messageblobstore_purge": (bool, False),

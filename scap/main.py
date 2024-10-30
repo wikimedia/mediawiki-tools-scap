@@ -720,28 +720,39 @@ class AbstractSync(cli.Application):
         k8s_check_cmd = self.config["testservers_check_cmd_k8s"]
         checkslist = []
 
+        def split_subcommands(cmds: str) -> list:
+            subcommands = []
+            for cmd in cmds.splitlines():
+                cmd = cmd.strip()
+                if cmd:
+                    subcommands.append(cmd)
+            return subcommands
+
         if baremetal_check_cmd and baremetal_testservers:
             env = os.environ.copy()
             env["BAREMETAL_TESTSERVERS"] = ",".join(baremetal_testservers)
-
-            checkslist.append(
-                checks.Check(
-                    "check_testservers_baremetal",
-                    command=baremetal_check_cmd,
-                    timeout=120,
-                    shell=True,
-                    environment=env,
+            subcommands = split_subcommands(baremetal_check_cmd)
+            for i, cmd in enumerate(subcommands):
+                checkslist.append(
+                    checks.Check(
+                        f"check_testservers_baremetal-{i+1}_of_{len(subcommands)}",
+                        command=cmd,
+                        timeout=120,
+                        shell=True,
+                        environment=env,
+                    )
                 )
-            )
         if k8s_check_cmd:
-            checkslist.append(
-                checks.Check(
-                    "check_testservers_k8s",
-                    command=k8s_check_cmd,
-                    timeout=120,
-                    shell=True,
+            subcommands = split_subcommands(k8s_check_cmd)
+            for i, cmd in enumerate(subcommands):
+                checkslist.append(
+                    checks.Check(
+                        f"check_testservers_k8s-{i+1}_of_{len(subcommands)}",
+                        command=cmd,
+                        timeout=120,
+                        shell=True,
+                    )
                 )
-            )
 
         if not checkslist:
             return
@@ -751,7 +762,9 @@ class AbstractSync(cli.Application):
         with self.Timer("check-testservers"):
 
             def test_func() -> bool:
-                success, jobs = checks.execute(checkslist, logger, concurrency=2)
+                success, jobs = checks.execute(
+                    checkslist, logger, concurrency=len(checkslist)
+                )
                 return success
 
             self.retry_continue_exit("testserver checks", test_func)
