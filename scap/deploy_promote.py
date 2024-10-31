@@ -202,18 +202,17 @@ class DeployPromote(cli.Application):
 
         change_id = re.search(r"(?m)Change-Id:.+$", gitcmd("log", "-1")).group()
         gitcmd("reset", "--hard", "HEAD^")
-        self.logger.info("Waiting for jenkins to merge the patch")
-
-        timeout = self.config["version_update_patch_timeout"]
-        start = time.time()
-        while not _commit_arrived_to_remote(change_id):
-            if time.time() - start > timeout:
-                utils.abort(
-                    f"Waited for {timeout} seconds but the patch was not merged"
-                )
-
-            print(".", end="")
-            time.sleep(5)
+        with self.reported_status("Waiting for jenkins to merge the patch", log=True):
+            timeout = self.config["version_update_patch_timeout"]
+            start = time.time()
+            while not _commit_arrived_to_remote(change_id):
+                if time.time() - start > timeout:
+                    utils.abort(
+                        f"Waited for {timeout} seconds but the patch was not merged"
+                    )
+                # FIXME: This output does not show up in a timely manner in the spiderpig job log
+                print(".", end="", flush=True)
+                time.sleep(5)
         print()
 
     def _get_git_push_dest(self) -> str:
