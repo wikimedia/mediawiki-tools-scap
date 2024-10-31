@@ -116,6 +116,15 @@ variants:
         source: /srv/app/docs/_build/html/
         destination: docs/
 
+  build-spiderpig-ui:
+    base: docker-registry.wikimedia.org/nodejs20-slim
+    builders:
+      - node:
+          requirements:
+            - web
+      - custom:
+          command: [npm, run, build]
+
   binary-dist-buster-build:
     includes: [base-buster]
     builders:
@@ -132,7 +141,11 @@ variants:
           requirements: [binary-dist-requirements.txt]
       - custom:
           command: [./build_wheels.sh]
-          requirements: [.]
+          requirements:
+            - .
+            - from: build-spiderpig-ui
+              source: /srv/app/dist
+              destination: web/dist
 
   binary-dist-bookworm-build:
     includes: [base-bookworm]

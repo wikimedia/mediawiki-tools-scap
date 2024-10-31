@@ -22,8 +22,6 @@
 """
 import os.path
 from setuptools import setup
-from setuptools.command.build_py import build_py
-import subprocess
 
 AUTHORS = [
     ("Antoine Musso", "hashar@free.fr"),
@@ -46,14 +44,6 @@ FILENAME = os.path.join(os.path.dirname(__file__), "scap", "version.py")
 # pylint complains about exec, but that's exactly what we want here
 # pylint: disable=W0122
 exec(compile(open(FILENAME, "rb").read(), FILENAME, "exec"), VERSION)
-
-
-class CustomBuildPy(build_py):
-    def run(self):
-        print("\nBuilding SpiderPig Web UI\n")
-        subprocess.run(["npm", "install"], check=True, cwd="web")
-        subprocess.run(["npm", "run", "build"], check=True, cwd="web")
-        super().run()
 
 
 setup(
@@ -81,7 +71,4 @@ setup(
         "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
     ],
     options={"bdist_wheel": {"python_tag": "py37"}},
-    cmdclass={
-        "build_py": CustomBuildPy,
-    },
 )
