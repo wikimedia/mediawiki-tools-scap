@@ -103,8 +103,11 @@ class SpiderpigAPIServer(cli.Application):
         if self.arguments.dev:
             env["SPIDERPIG_OPEN_CORS"] = "1"
 
+        scap_bin_dir = os.path.dirname(os.path.realpath(sys.argv[0]))
+        fastapi_exe = os.path.join(scap_bin_dir, "fastapi")
+
         cmd = [
-            os.path.join(os.path.dirname(sys.argv[0]), "fastapi"),
+            fastapi_exe,
             "dev" if self.arguments.dev else "run",
             "--host",
             self.arguments.host,
