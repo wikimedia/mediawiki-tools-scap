@@ -1,3 +1,10 @@
+scap (4.119.3)
+
+  * deploy_promote.py: Report status when waiting for patch to merge
+  * spiderpig/api.py: Run fastapi from same dir as scap
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Thu, 31 Oct 2024 13:37:10 -0700
+
 scap (4.119.2)
 
   * Revise spiderpig UI building (part 2)
