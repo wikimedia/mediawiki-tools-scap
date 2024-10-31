@@ -279,7 +279,6 @@ async def start_train(
         command=[
             "scap",
             "train",
-            "-Dtrain_blockers_url:file:///workspace/fake-train-blockers.json",
         ],
     )
     return {
