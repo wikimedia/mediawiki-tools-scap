@@ -132,7 +132,11 @@ variants:
           requirements: [binary-dist-requirements.txt]
       - custom:
           command: [./build_wheels.sh]
-          requirements: [.]
+          requirements:
+            - .
+            - from: build-spiderpig-ui
+              source: /srv/app/dist
+              destination: web/dist
 
   binary-dist-bullseye-build:
     includes: [base-bullseye]
@@ -154,7 +158,11 @@ variants:
           requirements: [binary-dist-requirements.txt]
       - custom:
           command: [./build_wheels.sh]
-          requirements: [.]
+          requirements:
+            - .
+            - from: build-spiderpig-ui
+              source: /srv/app/dist
+              destination: web/dist
 
   binary-dist-buster:
     base: docker-registry.wikimedia.org/wikimedia-buster
