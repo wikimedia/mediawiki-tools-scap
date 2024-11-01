@@ -41,7 +41,7 @@ def get_pyotp() -> pyotp.TOTP:
             os.chmod(seedfile, 0o600)
             f.write(seed)
 
-    return pyotp.TOTP(seed)
+    return pyotp.TOTP(seed, interval=60)
 
 
 def validate_otp(username, supplied_otp) -> bool:
@@ -58,9 +58,12 @@ def validate_otp(username, supplied_otp) -> bool:
 )
 class SpiderpigOTP(cli.Application):
     def main(self, *extra_args):
-        otp = get_pyotp().now()
+        totp = get_pyotp()
+        now = datetime.now().timestamp()
+        otp = get_pyotp().at(now)
+        time_remaining = totp.interval - now % totp.interval
         print(f"Login: {utils.get_username()}")
-        print(f"Password: {otp}")
+        print(f"Password: {otp}  (Expires in {round(time_remaining)} seconds)")
 
 
 @cli.command(
