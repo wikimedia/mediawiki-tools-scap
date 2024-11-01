@@ -446,6 +446,13 @@ async def signal_job(
     }
 
 
+@app.get("/api/searchPatch")
+async def searchPatch(user: Annotated[str, Depends(get_current_user)], q: str, n: int):
+    gerritsession = gerrit.GerritSession(url=os.getenv("SPIDERPIG_GERRIT_URL"))
+
+    return gerritsession.changes().query(q, n)
+
+
 # FIXME: Rate limiting
 @app.post("/api/login")
 async def login(form_data: Annotated[OAuth2PasswordRequestForm, Depends()]):
