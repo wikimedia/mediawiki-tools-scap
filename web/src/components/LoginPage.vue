@@ -1,21 +1,31 @@
 <template>
-    <cdx-field :status="status" :messages="messages">
+    <form @submit.prevent="login">
+        <cdx-field :status="status" :messages="messages">
+            <template #label>
+                Please Login
+            </template>
 
-        <template #label>Please Login</template>
-        <template #description>
-            <p>Login in with the username that the <code>spiderpig-apiserver</code> process is running under.</p>
-        </template>
-        <template #help-text>
-            <p>Run <code>scap spiderpig-otp</code> to generate a password.</p>
-        </template>
+            <template #description>
+                Login in with the username that the
+                <code>spiderpig-apiserver</code> process is running under.
+            </template>
 
-        <cdx-label input-id="username">Username</cdx-label>
-        <cdx-text-input id="username" v-model="username" />
-        <cdx-label input-id="password">One time password</cdx-label>
-        <cdx-text-input id="password" v-model="password" />
-    </cdx-field>
+            <cdx-label input-id="username">Username</cdx-label>
+            <cdx-text-input id="username" v-model="username" />
 
-    <cdx-button :disabled="loginButtonDisabled" @click="login">Login</cdx-button>
+            <cdx-label input-id="password">
+                One time password
+                <template #description>Run <code>scap spiderpig-otp</code> to generate a password.</template>
+            </cdx-label>
+            <cdx-text-input id="password" input-type="password" v-model="password" />
+
+            <br />
+
+            <cdx-button action="progressive" weight="primary" :disabled="loginButtonDisabled" @click="login">
+                Login
+            </cdx-button>
+        </cdx-field>
+    </form>
 </template>
 
 <script>

@@ -1,21 +1,8 @@
 <template>
-    <div>
-        <nav class="spiderpig-nav">
-            <div class="spiderpig-nav__start">
-                <img src="./assets/spiderpig.png" />
-            </div>
-            <div class="spiderpig-nav__center">
-                <template v-if="$route.params.job_id && $route.meta.title">
-                    <h1>{{ $route.meta.title }}{{ $route.params.job_id }}</h1>
-                </template>
-                <h1 v-else>{{ $route.meta.title }}</h1>
-            </div>
-            <div class="spiderpig-nav__end">
-                <CdxButton v-if="api && api.isAuthenticated" @click="logout">Logout</CdxButton>
-            </div>
-        </nav>
+    <div id="app">
+        <navigation id="app__nav" />
 
-        <main>
+        <main id="app__content">
             <RouterView />
         </main>
     </div>
@@ -23,10 +10,8 @@
 
 <script>
 import '@wikimedia/codex/dist/codex.style.css'
-
-import useApi from './api';
-
 import { CdxButton } from '@wikimedia/codex';
+import Navigation from './components/Navigation.vue';
 
 export default {
     data() {
@@ -34,35 +19,23 @@ export default {
             api: null
         }
     },
+
     components: {
         CdxButton,
-    },
-    mounted() {
-        this.api = useApi()
-    },
-    methods: {
-        logout() {
-            this.api.logout()
-        }
+        Navigation
     }
-
 }
 </script>
 
-<style scoped>
-.spiderpig-nav {
-    display: flex;
+<style lang="less">
+@import '@wikimedia/codex-design-tokens/theme-wikimedia-ui.less';
 
-}
-
-.spiderpig-nav__start {
-    flex: 0 0 3rems;
-}
-.spiderpig-nav__center {
-    flex: 1 1 auto;
+#app__nav {
+    padding: @spacing-100;
 }
 
-.spiderpig-nav__end {
-    flex: 0 0 100px;
+#app__content {
+    padding: @spacing-100;
 }
+
 </style>

@@ -1,15 +1,13 @@
 import { createWebHistory, createRouter } from 'vue-router'
-
-import Login from './components/Login.vue'
-import Overview from './components/Overview.vue'
-import JobViewer from './components/JobViewer.vue'
-
+import LoginPage from './components/LoginPage.vue'
+import OverviewPage from './components/OverviewPage.vue'
+import JobViewerPage from './components/JobViewerPage.vue'
 import useApi from './api';
 
 const routes = [
     {
         path: '/',
-        component: Overview,
+        component: OverviewPage,
         meta: {
             requiresAuth: true,
             title: "Welcome to SpiderPig"
@@ -17,22 +15,22 @@ const routes = [
     },
     {
         path: '/login',
-        component: Login,
+        component: LoginPage,
         meta: {
             requiresAuth: false,
             title: "Welcome to SpiderPig"
         }
     },
     {
+        name: 'job',
         path: '/jobs/:job_id',
-        component: JobViewer,
+        component: JobViewerPage,
         props: true,
         meta: {
             requiresAuth: true,
             title: "Welcome to job #",
         }
     },
-
 ]
 
 const router = createRouter({

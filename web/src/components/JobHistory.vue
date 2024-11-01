@@ -1,115 +1,143 @@
 <template>
-    <h3>Job History</h3>
-    <table v-if="loaded" id="job-history-table">
-        <tr>
-            <th>Id</th>
-            <th>Queued</th>
-            <th>User</th>
-            <th>Command</th>
-            <th>Started</th>
-            <th>Finished</th>
-            <th>Status</th>
-        </tr>
-        <tr v-for="job in jobs" :key="job.id" :class="{
-            failed: Number.isInteger(job.exit_status) && job.exit_status != 0,
-            running: job.started_at && !job.finished_at
-        }" @click="rowClicked">
-            <td>{{ job.id }}</td>
-            <td>{{ job.queued_at }}</td>
-            <td>{{ job.user }}</td>
-            <td>{{ job.command_decoded }}</td>
-            <td>{{ job.started_at }}</td>
-            <td>{{ job.finished_at_massaged }}</td>
-            <td>{{ job.status }}</td>
-        </tr>
-    </table>
-    <div v-else>Loading...</div>
+    <div id="job-history">
+        <cdx-table
+            caption="Job History"
+            :columns="columns"
+            :data="jobs"
+        >
+            <template #item-id="{ item, row }">
+                <router-link :to="{ name: 'job', params: { job_id: row.id } }">
+                    {{ item }}
+                </router-link>
+            </template>
+
+            <template #item-command_decoded="{ item, row }">
+                {{ item }}
+            </template>
+
+            <template #item-user="{ item, row }">
+                {{ item }}
+            </template>
+
+            <template #item-queued_at="{ item, row }">
+                {{ getFormattedDate( item ) }}
+            </template>
+
+            <template #item-started_at="{ item, row }">
+                {{ getFormattedDate( item ) }}
+            </template>
+
+            <template #item-finished_at_message="{ item, row }">
+                {{ getFormattedDate( item ) }}
+            </template>
+
+            <template #item-status="{ item, row }">
+                <cdx-message :inline="true" :type="getStatusType( row.exit_status )">
+                    {{ item }}
+                </cdx-message>
+            </template>
+
+
+            <template #empty-state>
+                Loading...
+            </template>
+        </cdx-table>
+    </div>
 </template>
 
 <script>
-import useApi from '../api'
+import { ref, onMounted, onUnmounted } from 'vue';
+import { CdxTable, CdxMessage } from '@wikimedia/codex';
+import useApi from '../api';
+
+const INTERVAL = 1000;
+const JOB_RUNNING = '..Running...';
 
 export default {
-    emits: ['rowClicked'],
-    data() {
-        return {
-            api: null,
-            loaded: false,
-            jobs: [],
-            intervalTimer: null,
-        }
+    name: 'JobHistory',
+    components: {
+        CdxTable,
+        CdxMessage
     },
-    mounted() {
-        this.api = useApi()
-        this.intervalTimer = setInterval(this.loadHistory, 1000);
-        this.loadHistory();
-    },
-    unmounted() {
-        if (this.intervalTimer) {
-            clearInterval(this.intervalTimer);
-            this.intervalTimer = null;
-        }
-    },
-    methods: {
-        async loadHistory() {
+    emits: [
+        'rowClicked'
+    ],
+    setup( props, { emit } ) {
+        const api = useApi();
+        const loaded = ref( false );
+        const jobs = ref( [] );
+        const intervalTimer = ref( null );
+
+        const columns = [
+            { id: 'id', label: 'Id' },
+            { id: 'command_decoded', label: 'Command', width: '35%' },
+            { id: 'user', label: 'User' },
+            { id: 'started_at', label: 'Started' },
+            { id: 'finished_at_message', label: 'Finished' },
+            { id: 'status', label: 'Status', width: '15%' }
+        ];
+
+        async function loadHistory() {
             try {
-                const res = await this.api.getLastNJobs(5);
-                const jobs = res.jobs;
+                const apiResponse = await api.getLastNJobs( 5 );
+                const apiJobs = apiResponse.jobs;
 
-                for (const job of jobs) {
-                    job.command_decoded = JSON.parse(job.command).join(" ");
-                    job.finished_at_massaged = job.finished_at
-                    if (job.started_at && !job.finished_at) {
-                        job.finished_at_massaged = "..Running..."
+                for ( const job of apiJobs ) {
+                    job.command_decoded = JSON.parse( job.command ).join( " " );
+                    job.finished_at_message = job.finished_at;
+
+                    if ( job.started_at && !job.finished_at ) {
+                        job.finished_at_message = JOB_RUNNING;
                     }
+
+                    jobs.value = apiJobs;
+                    loaded.value = true;
                 }
-
-                this.jobs = jobs;
-                this.loaded = true;
-            } catch (error) {
-                console.error(error.message);
+            } catch ( error ) {
+                console.error( error.message );
             }
-        },
-        rowClicked(e) {
-            this.$emit('rowClicked', e.currentTarget.cells[0].innerText);
         }
+
+        function getFormattedDate( dateString ) {
+            // Handle the job-in-progress message by bailing early
+            if ( dateString === JOB_RUNNING ) {
+                return;
+            }
+
+            const date = new Date( dateString );
+            return date.toUTCString();
+        }
+
+        function getStatusType( exit ) {
+            const statusMap = {
+                0: 'success',
+                1: 'error'
+            }
+
+            if ( exit ) {
+                return statusMap[ exit ];
+            }
+        }
+
+        onMounted( () => {
+            loadHistory();
+            intervalTimer.value = setInterval( loadHistory, INTERVAL );
+        } );
+
+        onUnmounted( () => {
+            if ( intervalTimer.value ) {
+                clearInterval( intervalTimer.value );
+                intervalTimer.value = null;
+            }
+        } );
+
+        return {
+            columns,
+            jobs,
+            loaded,
+            getFormattedDate,
+            getStatusType
+        };
     }
-
-}
+};
 </script>
-
-<style scoped>
-#job-history-table {
-    border-style: solid;
-    border-width: 2px;
-}
-
-#job-history-table th {
-    background-color: lightgreen;
-}
-
-#job-history-table tr {
-    line-height: 30px;
-    cursor: pointer;
-}
-
-#job-history-table tr:nth-child(even) {
-    background-color: #f2f2f2;
-}
-
-#job-history-table tr.running {
-    background-color: lightblue;
-}
-
-#job-history-table tr.failed {
-    background-color: red;
-}
-
-#job-history-table tr:hover {
-    background-color: coral;
-}
-
-#job-history-table td {
-    padding: 5px;
-}
-</style>

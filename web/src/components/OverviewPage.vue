@@ -2,22 +2,24 @@
     <div id="jobrunner-status">{{ jobrunnerStatus }}</div>
 
     <Backport v-if="idle"/>
+
     <Train v-if="idle"/>
+
     <Interaction v-if="interaction" :interaction="this.interaction"/>
-    <JobHistory @rowClicked="jobHistoryRowClicked"/>
+
+    <JobHistory />
 </template>
 
 <script>
 import useApi from '../api';
-
 import Backport from './Backport.vue';
 import JobHistory from './JobHistory.vue';
-import JobViewer from './JobViewer.vue';
+import JobViewer from './JobViewerPage.vue';
 import Interaction from './Interaction.vue';
 import Train from './Train.vue';
 
 export default {
-    name: 'Overview',
+    name: 'OverviewPage',
     components: {
         Backport,
         JobHistory,
@@ -60,22 +62,10 @@ export default {
                     console.error(`updateJobrunnerStatus caught: ${error.message}`);
                 }
             }
-        },
-        jobHistoryRowClicked(job_id) {
-            this.$router.push(`/jobs/${job_id}`)
-        },
+        }
     }
 }
 </script>
 
 <style scoped>
-
-#jobrunner-status {
-    display: table;
-    border-style: solid;
-    border-radius: 10px;
-    border-width: 1px;
-    padding: 5px;
-    margin: 5px;
-}
 </style>
