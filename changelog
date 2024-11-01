@@ -1,3 +1,13 @@
+scap (4.120.0)
+
+  * Codex components part 1
+  * spiderpig api.js: Add searchPatch()
+  * spiderpig: Add Gerrit search API endpoint
+  * spiderpig-otp: Increase time interval, report expiration
+  * Report Restarting php-fpm status
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Fri, 01 Nov 2024 11:02:28 -0700
+
 scap (4.119.4)
 
   * spiderpig/api.py: Run fastapi from same dir as scap (v2)
