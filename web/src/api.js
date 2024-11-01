@@ -180,6 +180,12 @@ const useAuthStore = defineStore('spiderpig-auth',
                     method: "POST",
                 })
             },
+            async searchPatch(q, n) {
+                const url = makeApiUrl("/api/searchPatch")
+                const params = new URLSearchParams( { q, n } );
+
+                return await this.call(`${url}?${ params.toString() }`)
+            },
         },
     }
 )
