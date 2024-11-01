@@ -88,13 +88,12 @@ export default {
             const data = await fetchResults( value );
 
             const results = data.map( ( item ) => {
-                const decodedPatchName = decodeURIComponent( item.id );
-                const patchNumber = String(item._number)
+                const changeNumber = String(item._number)
 
                 return {
-                    label: decodedPatchName,    // ex: design/codex-php~1084887
+                    label: changeNumber,        // the Gerrit patch number, ex. 1084887
                     description: item.subject,  // The commit subject line
-                    value: patchNumber          // the Gerrit patch number, ex. 1084887
+                    value: changeNumber         // the Gerrit patch number, ex. 1084887
                 };
             } );
 
