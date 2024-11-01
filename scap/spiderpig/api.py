@@ -450,7 +450,10 @@ async def signal_job(
 async def searchPatch(user: Annotated[str, Depends(get_current_user)], q: str, n: int):
     gerritsession = gerrit.GerritSession(url=os.getenv("SPIDERPIG_GERRIT_URL"))
 
-    return gerritsession.changes().query(q, n)
+    try:
+        return gerritsession.changes().query(q, n)
+    except Exception:
+        return []
 
 
 # FIXME: Rate limiting
