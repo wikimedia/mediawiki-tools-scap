@@ -842,7 +842,7 @@ class AbstractSync(cli.Application):
         num_hosts = 0
         for grp in target_hosts:
             num_hosts += len(grp)
-        with self.Timer("php-fpm-restarts"):
+        with self.Timer("php-fpm-restarts"), self.reported_status("Restarting php-fpm"):
             self.get_logger().info(
                 "Running '{}' on {} host(s)".format(php_fpm.INSTANCE.cmd, num_hosts)
             )
