@@ -39,7 +39,7 @@
 
 
             <template #empty-state>
-                Loading...
+                No job data to display.
             </template>
         </cdx-table>
     </div>
@@ -89,10 +89,10 @@ export default {
                     if ( job.started_at && !job.finished_at ) {
                         job.finished_at_message = JOB_RUNNING;
                     }
-
-                    jobs.value = apiJobs;
-                    loaded.value = true;
                 }
+
+                jobs.value = apiJobs;
+                loaded.value = true;
             } catch ( error ) {
                 console.error( error.message );
             }
