@@ -26,7 +26,7 @@ const useAuthStore = defineStore('spiderpig-auth',
             },
 
             isTestMode() {
-                return import.meta.env.DEV && Boolean( import.meta.env.VITE_USE_TEST_MODE );
+                return import.meta.env.DEV && import.meta.env.VITE_USE_TEST_MODE === "true";
             }
         },
         actions: {
