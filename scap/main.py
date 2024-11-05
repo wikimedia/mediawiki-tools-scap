@@ -393,6 +393,7 @@ class AbstractSync(cli.Application):
                     "eval.php",
                     wiki=wikidb,
                     check=False,
+                    network=True,
                 )
                 if proc.stderr:
                     raise SystemExit(
