@@ -3,8 +3,6 @@
 
     <Backport v-if="idle"/>
 
-    <Train v-if="idle"/>
-
     <Interaction v-if="interaction" :interaction="this.interaction"/>
 
     <JobHistory />
@@ -25,7 +23,6 @@ export default {
         JobHistory,
         JobViewer,
         Interaction,
-        Train
     },
     data() {
         return {
