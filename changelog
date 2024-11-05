@@ -1,3 +1,12 @@
+scap (4.121.0)
+
+  * AbstractSync: run 'mwscript eval.php --wiki testwiki' with network access
+  * Remove unreferenced fakejoboutput.js
+  * Backport.vue: Revise how patch chips are constructed
+  * spiderpig api.py: searchPatch: Handle gerrit errors
+
+ -- Jaime Nuche <jnuche@wikimedia.org>  Tue, 05 Nov 2024 11:20:04 +0100
+
 scap (4.120.0)
 
   * Codex components part 1
