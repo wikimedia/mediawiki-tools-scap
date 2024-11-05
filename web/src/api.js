@@ -2,10 +2,6 @@ import { defineStore } from 'pinia'
 import { useLocalStorage } from "@vueuse/core"
 import fakeJobrunner from './fakeJobrunner'
 
-function makeApiUrl(url) {
-    return new URL(url, window.location.origin)
-}
-
 const useAuthStore = defineStore('spiderpig-auth',
     {
         state() {
@@ -27,9 +23,16 @@ const useAuthStore = defineStore('spiderpig-auth',
 
             isTestMode() {
                 return import.meta.env.DEV && import.meta.env.VITE_USE_TEST_MODE === "true";
+            },
+
+            apiserverBaseURL() {
+                return import.meta.env.VITE_APISERVER_URL ? import.meta.env.VITE_APISERVER_URL : window.location.origin
             }
         },
         actions: {
+            makeApiUrl(url) {
+                return new URL(url, this.apiserverBaseURL)
+            },
             async call(url, options, decodeJson = true, signal = null) {
                 if ( this.isTestMode ) {
                     throw new Error("Don't use call() in test mode")
@@ -46,7 +49,7 @@ const useAuthStore = defineStore('spiderpig-auth',
                     }
                 }
 
-                const response = await fetch(makeApiUrl(url), localOptions)
+                const response = await fetch(this.makeApiUrl(url), localOptions)
                 this.authFailing = (response.status == 401)
 
                 if (!response.ok) {
@@ -82,7 +85,7 @@ const useAuthStore = defineStore('spiderpig-auth',
                 var response;
 
                 try {
-                    response = await fetch(makeApiUrl("/api/login"),
+                    response = await fetch(this.makeApiUrl("/api/login"),
                         {
                             method: "POST",
                             body: formData,
@@ -125,7 +128,7 @@ const useAuthStore = defineStore('spiderpig-auth',
                     return fakeJobrunner.getLastNJobs(last)
                 }
 
-                const url = new URL("/api/jobs", window.location.origin);
+                const url = new URL("/api/jobs", this.apiserverBaseURL);
                 if (last !== null) {
                     url.searchParams.append("last", last)
                 }
@@ -174,7 +177,7 @@ const useAuthStore = defineStore('spiderpig-auth',
                     return fakeJobrunner.createJob(["scap", "backport"].concat(change_urls));
                 }
 
-                const url = makeApiUrl("/api/jobs/backport")
+                const url = this.makeApiUrl("/api/jobs/backport")
 
                 for (const change_url of change_urls) {
                     url.searchParams.append("change_url", change_url)
@@ -209,7 +212,7 @@ const useAuthStore = defineStore('spiderpig-auth',
                         return [];
                     }
                 } else {
-                    const url = makeApiUrl( "/api/searchPatch" );
+                    const url = this.makeApiUrl( "/api/searchPatch" );
                     const params = new URLSearchParams( { q, n } );
                     return await this.call( `${url}?${ params.toString() }` );
                 }
