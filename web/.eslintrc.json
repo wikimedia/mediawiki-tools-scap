@@ -1,0 +1,37 @@
+{
+	"extends": [
+		"wikimedia",
+		"wikimedia/language/es2022"
+	],
+	"parserOptions": {
+		"sourceType": "module"
+	},
+	"env": {
+		"browser": true
+	},
+	"rules": {
+		"no-unused-vars": [ "error", {
+			"argsIgnorePattern": "^_"
+		} ]
+	},
+	"overrides": [
+		{
+			"files": [ "**/*.vue" ],
+			"parser": "vue-eslint-parser",
+			"extends": [
+				"wikimedia/vue3-common",
+				"wikimedia/client-common"
+			],
+			"rules": {
+				"vue/component-name-in-template-casing": [ "error", "kebab-case" ],
+				"vue/custom-event-name-casing": [ "error", "kebab-case" ],
+				"vue/no-undef-components": [ "error", {
+					"ignorePatterns": [
+						"router-link",
+						"router-view"
+					]
+				} ]
+			}
+		}
+	]
+}
