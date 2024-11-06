@@ -11,6 +11,15 @@ def send_message(rec: dict):
     sys.stdout.flush()
 
 
+def output_line(line: str, sensitive=False):
+    rec = {
+        "type": "line",
+        "line": line,
+        "sensitive": sensitive,
+    }
+    send_message(rec)
+
+
 def input_line(prompt) -> str:
     rec = {
         "type": "interaction",

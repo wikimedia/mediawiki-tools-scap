@@ -33,9 +33,8 @@ def GetIO():
 
 
 class UserIOBase:
-    def output_line(self, line: str):
-        # This base implementation is suitable for TerminalIO and SpiderpigIO
-        print(line)
+    def output_line(self, line: str, sensitive: bool = False):
+        self._output_line(line, sensitive)
 
     def input_line(self, prompt: str) -> str:
         if not interactive():
@@ -85,6 +84,9 @@ class UserIOBase:
 
 
 class TerminalIO(UserIOBase):
+    def _output_line(self, line, sensitive):
+        print(line)
+
     def _input_line(self, prompt) -> str:
         return input(prompt)
 
@@ -125,6 +127,9 @@ class TerminalIO(UserIOBase):
 
 
 class SpiderpigIO(UserIOBase):
+    def _output_line(self, line, sensitive):
+        return spiderpigio.output_line(line, sensitive)
+
     def _input_line(self, prompt) -> str:
         return spiderpigio.input_line(prompt)
 

@@ -8,6 +8,7 @@ import shutil
 import sys
 from abc import abstractmethod
 from datetime import timedelta, datetime
+from typing import Iterator
 
 from scap import cli, utils, git
 from scap.phorge_conduit import PhorgeConduit
@@ -88,13 +89,18 @@ class ApplyPatches(cli.Application):
                 f"No security patches found for {train}!\nRun again with -Drequire_security_patches:False to disable this check."
             )
 
+        def output_line(line):
+            self.output_line(line, sensitive=True)
+
         for patch in patches:
             if patch.dirname() != curdir:
                 apply_in_curdir = True
                 curdir = patch.dirname()
 
             if apply_in_curdir:
-                ret = patch.apply(srcroot, self.arguments.abort_git_am_on_fail)
+                ret = patch.apply(
+                    srcroot, self.arguments.abort_git_am_on_fail, output_line
+                )
                 if ret not in KNOWN_RESULTS:
                     sys.exit("Patch.apply returned unknown value {!r}".format(ret))
                 if unsuccessful(ret):
@@ -105,7 +111,7 @@ class ApplyPatches(cli.Application):
             results.append((ret, patch))
 
         for ret, patch in results:
-            print("[{}] {}".format(KNOWN_RESULTS[ret], patch.path()))
+            output_line("[{}] {}".format(KNOWN_RESULTS[ret], patch.path()))
 
         any_failed = any(ret == FAILED for (ret, _) in results)
         if any_failed and self.config["notify_patch_failures"]:
@@ -533,7 +539,7 @@ class SecurityPatches:
 
         return list(sorted(patches, key=lambda p: p.path()))
 
-    def __iter__(self):
+    def __iter__(self) -> Iterator["Patch"]:
         for patch in self._patches:
             yield patch
 
@@ -603,22 +609,22 @@ class Patch:
                 state[filename] = (os.stat(filename).st_mtime, utils.md5_file(filename))
         return state
 
-    def apply(self, srcroot, abort_git_am_on_fail):
+    def apply(self, srcroot, abort_git_am_on_fail, output_line) -> int:
         srcdir = os.path.join(srcroot, self._relative)
-        print("Applying patch %s in %s" % (self.path(), srcroot))
+        output_line("Applying patch %s in %s" % (self.path(), srcroot))
 
         try:
             if not git_is_clean(srcdir):
-                print("ERROR: git is not clean: %s" % srcdir)
+                output_line("ERROR: git is not clean: %s" % srcdir)
                 return GIT_NOT_CLEAN
         except FailedCommand as e:
-            print("ERROR: while checking if git is clean: %s" % e.stderr)
+            output_line("ERROR: while checking if git is clean: %s" % e.stderr)
             return ERROR
 
         try:
             output = gitcmd("am", "--3way", self.path(), cwd=srcdir)
         except FailedCommand as e:
-            print("ERROR: git am: %s" % e.stderr)
+            output_line("ERROR: git am: %s" % e.stderr)
             if abort_git_am_on_fail:
                 try:
                     gitcmd("am", "--abort", cwd=srcdir)

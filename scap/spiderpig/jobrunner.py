@@ -277,6 +277,14 @@ def run_job(
                         job.set_status(session, status)
                         continue
 
+                    if type == "line":
+                        line = msg.get("line") + "\n"
+                        sensitive = msg.get("sensitive")
+                        if sensitive:
+                            line = f"SENSITIVE: {line}"
+                        log(line)
+                        continue
+
                     if type != "interaction":
                         logger.warning(
                             "Unexpected message type '%s' received from subprocess.  Ignoring.",

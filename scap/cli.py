@@ -237,6 +237,9 @@ class Application(object):
             self._io = interaction.GetIO()
         return self._io
 
+    def output_line(self, line: str, sensitive: bool = False):
+        return self.get_io().output_line(line, sensitive)
+
     def input_line(self, prompt: str) -> str:
         return self.get_io().input_line(prompt)
 
