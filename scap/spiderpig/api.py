@@ -503,15 +503,7 @@ if os.path.isdir(assets_dir):
 
 # The following routes correspond to Vue routes established in router.js
 @app.get("/")
-async def index_page():
-    return FileResponse(index_html)
-
-
 @app.get("/login")
-async def login_page():
-    return FileResponse(index_html)
-
-
 @app.get("/jobs/{job_id}")
-async def job_details_page():
+async def index_page():
     return FileResponse(index_html)
