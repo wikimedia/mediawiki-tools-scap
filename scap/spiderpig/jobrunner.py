@@ -309,11 +309,13 @@ def run_job(
                     continue
 
                 if isinstance(got, Interaction):
-                    logger.info(
-                        "%s responded with '%s'", got.responded_by, got.response
+                    message = (
+                        f"User '{got.responded_by}' responded with '{got.response}'"
                     )
-                    print(got.response, file=logstream, flush=True)
+                    logger.info(message)
+                    print(message, file=logstream, flush=True)
                     print(got.response, file=rj.proc.stdin, flush=True)
+                    # Clear jobrunner status
                     set_jobrunner_status(session, job.id)
                     continue
 
