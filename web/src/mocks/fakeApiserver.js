@@ -78,7 +78,7 @@ class Interaction {
     }
 }
 
-class fakeJobrunner {
+class fakeApiserver {
     status = "idle"
     currentJob = null
     history = []
@@ -245,9 +245,26 @@ class fakeJobrunner {
         job.exit_status = 0
         job.status = `Job ${job.id} terminated`
     }
+
+    async searchPatch( q, n ) {
+        const url = 'https://gerrit.wikimedia.org/r/changes/';
+        const params = new URLSearchParams( { q, n } );
+        const response = await fetch( `${ url }?${ params.toString() }` );
+        if ( response.ok ) {
+            // Remove Gerrit's security prefix before transforming response to JSON
+            const text = await response.text();
+            const clean = text.replace( ")]}'", '' );
+            const json = JSON.parse( clean );
+            return json;
+        } else {
+            const text = await response.text();
+            console.error( text );
+            return [];
+        }
+    }
 }
 
-const jobrunner = new fakeJobrunner()
-jobrunner.mainloop()
+const apiserver = new fakeApiserver()
+apiserver.mainloop()
 
-export default jobrunner
+export default apiserver

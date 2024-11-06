@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 import { useLocalStorage } from "@vueuse/core"
-import fakeJobrunner from './fakeJobrunner'
+import fakeApiserver from './mocks/fakeApiserver'
 
 const useAuthStore = defineStore('spiderpig-auth',
     {
@@ -118,14 +118,14 @@ const useAuthStore = defineStore('spiderpig-auth',
             },
             async getJobrunnerStatus() {
                 if ( this.isTestMode ) {
-                    return fakeJobrunner.getJobrunnerStatus();
+                    return fakeApiserver.getJobrunnerStatus();
                 }
 
                 return await this.call("/api/jobrunner/status");
             },
             async getLastNJobs(last = null) {
                 if ( this.isTestMode ) {
-                    return fakeJobrunner.getLastNJobs(last)
+                    return fakeApiserver.getLastNJobs(last)
                 }
 
                 const url = new URL("/api/jobs", this.apiserverBaseURL);
@@ -136,14 +136,14 @@ const useAuthStore = defineStore('spiderpig-auth',
             },
             async getJobInfo(job_id) {
                 if ( this.isTestMode ) {
-                    return fakeJobrunner.getJobInfo(job_id)
+                    return fakeApiserver.getJobInfo(job_id)
                 }
 
                 return await this.call(`/api/jobs/${job_id}`);
             },
             async respondInteraction(job_id, interaction_id, response) {
                 if ( this.isTestMode ) {
-                    return fakeJobrunner.respondInteraction(job_id, interaction_id, response);
+                    return fakeApiserver.respondInteraction(job_id, interaction_id, response);
                 }
 
                 await this.call(
@@ -156,7 +156,7 @@ const useAuthStore = defineStore('spiderpig-auth',
             },
             async signalJob(job_id, type) {
                 if ( this.isTestMode ) {
-                    return fakeJobrunner.signalJob(job_id, type);
+                    return fakeApiserver.signalJob(job_id, type);
                 }
 
                 await this.call(`/api/jobs/${job_id}/signal/${type}`,
@@ -167,14 +167,14 @@ const useAuthStore = defineStore('spiderpig-auth',
             },
             async getJobLog(job_id, abortsignal) {
                 if ( this.isTestMode ) {
-                    return fakeJobrunner.getJobLog(job_id, abortsignal);
+                    return fakeApiserver.getJobLog(job_id, abortsignal);
                 }
 
                 return await this.call(`/api/jobs/${job_id}/log`, {}, false, abortsignal);
             },
             async startBackport(change_urls) {
                 if ( this.isTestMode ) {
-                    return fakeJobrunner.createJob(["scap", "backport"].concat(change_urls));
+                    return fakeApiserver.createJob(["scap", "backport"].concat(change_urls));
                 }
 
                 const url = this.makeApiUrl("/api/jobs/backport")
@@ -195,22 +195,8 @@ const useAuthStore = defineStore('spiderpig-auth',
                 })
             },
             async searchPatch( q, n ) {
-                // @TODO: Move the testmode API request into a dedicated "fake" module
                 if ( this.isTestMode ) {
-                    const url = 'https://gerrit.wikimedia.org/r/changes/';
-                    const params = new URLSearchParams( { q, n } );
-                    const response = await fetch( `${ url }?${ params.toString() }` );
-                    if ( response.ok ) {
-                        // Remove Gerrit's security prefix before transforming response to JSON
-                        const text = await response.text();
-                        const clean = text.replace( ")]}'", '' );
-                        const json = JSON.parse( clean );
-                        return json;
-                    } else {
-                        const text = await response.text();
-                        console.error( text );
-                        return [];
-                    }
+                    return await fakeApiserver.searchPatch( q, n );
                 } else {
                     const url = this.makeApiUrl( "/api/searchPatch" );
                     const params = new URLSearchParams( { q, n } );
