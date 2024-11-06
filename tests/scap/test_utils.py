@@ -250,3 +250,7 @@ def test_parse_wmf_version():
     assert utils.parse_wmf_version("branch_cut_pretest") == utils.parse_wmf_version(
         "next"
     )
+
+
+def test_string_to_base64_string():
+    assert utils.string_to_base64_string("bruce") == "YnJ1Y2U="

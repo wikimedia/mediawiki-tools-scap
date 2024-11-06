@@ -6,6 +6,7 @@
 
 """
 import argparse
+import base64
 import collections
 import contextlib
 import errno
@@ -1154,3 +1155,10 @@ def pluralize(word: str, quantity) -> str:
 
 def should_colorize_output() -> bool:
     return sys.stderr.isatty() or "FORCE_COLOR" in os.environ
+
+
+def string_to_base64_string(input: str) -> str:
+    """
+    Returns a string representing the base64 encoding of the input string.
+    """
+    return base64.b64encode(input.encode("utf-8")).decode("utf-8")
