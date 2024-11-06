@@ -1,7 +1,9 @@
 import asyncio
+import base64
 from datetime import datetime, timezone, timedelta
 import functools
 import jwt
+import json
 import os
 import pyotp
 import subprocess
@@ -25,6 +27,7 @@ from fastapi.staticfiles import StaticFiles
 from sqlalchemy.orm import Session
 
 from scap import cli, utils, gerrit
+
 import scap.spiderpig
 from scap.spiderpig.model import JobrunnerStatus, Job, Interaction, AlreadyResponded
 
@@ -95,9 +98,11 @@ class SpiderpigAPIServer(cli.Application):
             os.chdir(os.path.dirname(__file__))
 
         env = os.environ.copy()
+        env["SPIDERPIG_SCAP_CONFIG"] = utils.string_to_base64_string(
+            json.dumps(self.config)
+        )
         env.update(
             {
-                "SPIDERPIG_GERRIT_URL": self.config["gerrit_url"],
                 "SPIDERPIG_JOB_LOG_DIR": self.spiderpig_joblogdir(),
                 "SPIDERPIG_DBFILE": self.spiderpig_dbfile(),
                 "SPIDERPIG_JWT_KEY_FILE": self.spiderpig_jwt_secret_file(),
@@ -228,6 +233,15 @@ async def get_job_by_id(job_id: int, session: Session = Depends(get_session)):
     return job
 
 
+@functools.lru_cache()
+def get_scap_config():
+    return json.loads(base64.b64decode(os.getenv("SPIDERPIG_SCAP_CONFIG")))
+
+
+def get_gerrit_session(config: Annotated[dict, Depends(get_scap_config)]):
+    return gerrit.GerritSession(url=config["gerrit_url"])
+
+
 def get_parsed_interaction(session, job) -> Optional[dict]:
     i = Interaction.lookup_pending(session, job.id)
     if not i:
@@ -304,10 +318,9 @@ async def start_backport(
         ),
     ],
     user: Annotated[str, Depends(get_current_user)],
+    gerritsession: Annotated[gerrit.GerritSession, Depends(get_gerrit_session)],
     session: Session = Depends(get_session),
 ):
-    gerritsession = gerrit.GerritSession(url=os.getenv("SPIDERPIG_GERRIT_URL"))
-
     # NOTE: 'change_url' is a list
     baddies = [
         url for url in change_url if gerritsession.change_number_from_url(url) is None
@@ -447,9 +460,12 @@ async def signal_job(
 
 
 @app.get("/api/searchPatch")
-async def searchPatch(user: Annotated[str, Depends(get_current_user)], q: str, n: int):
-    gerritsession = gerrit.GerritSession(url=os.getenv("SPIDERPIG_GERRIT_URL"))
-
+async def searchPatch(
+    user: Annotated[str, Depends(get_current_user)],
+    gerritsession: Annotated[gerrit.GerritSession, Depends(get_gerrit_session)],
+    q: str,
+    n: int,
+):
     try:
         return gerritsession.changes().query(q, n)
     except Exception:
