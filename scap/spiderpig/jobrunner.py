@@ -213,8 +213,8 @@ def run_job(
     command = json.loads(job.command)
     logger.info("Command: %s", command)
 
-    logfile = os.path.join(logdir, f"{job.id}.log")
-    logger.info("Logging to %s", logfile)
+    jsonlogfile = os.path.join(logdir, f"{job.id}.log.jsonl")
+    jsonloglasttimestamp = time.time()
 
     iokey = hex(int.from_bytes(os.urandom(32), "big"))  # 256 random bits
 
@@ -222,17 +222,28 @@ def run_job(
     env["SPIDERPIG_IO_KEY"] = iokey
     env["FORCE_COLOR"] = "1"
 
-    with open(logfile, "w") as logstream:
+    with open(jsonlogfile, "w") as jsonlogstream:
 
-        def log(line, level=logging.DEBUG):
+        def jsonlog(payload: dict):
+            nonlocal jsonloglasttimestamp
+
+            now = time.time()
+            gap = now - jsonloglasttimestamp
+            jsonloglasttimestamp = now
+
+            rec = {"timestamp": now, "payload": payload, "gap": gap}
+            print(json.dumps(rec), file=jsonlogstream, flush=True)
+
+        def log(line, level=logging.DEBUG, dojsonlog=True):
             """
             Add a line of subprocess output to the logfile.  'line' is usually
             terminated by a newline.
             """
-            logger.log(level, "%s", line.strip())
+            line_stripped = line.rstrip()
 
-            logstream.write(line)
-            logstream.flush()
+            logger.log(level, line_stripped)
+            if dojsonlog:
+                jsonlog({"type": "line", "line": line_stripped})
 
         try:
             p = subprocess.Popen(
@@ -260,6 +271,13 @@ def run_job(
                     i = got
                     msg = f"[Jobrunner: {i.user} {i.type}ed]\n"
                     log(msg, logging.WARNING)
+                    jsonlog(
+                        {
+                            "type": "signal",
+                            "user": i.user,
+                            "signal": i.type,
+                        }
+                    )
                     signo = signal.SIGINT if i.type == "interrupt" else signal.SIGKILL
                     os.killpg(os.getpgid(p.pid), signo)
                     continue
@@ -270,6 +288,8 @@ def run_job(
 
                 if isinstance(got, dict):
                     msg = got
+                    jsonlog(msg)
+
                     type = msg.get("type")
 
                     if type == "status":
@@ -280,9 +300,8 @@ def run_job(
                     if type == "line":
                         line = msg.get("line") + "\n"
                         sensitive = msg.get("sensitive")
-                        if sensitive:
-                            line = f"SENSITIVE: {line}"
-                        log(line)
+                        if not sensitive:
+                            log(line, dojsonlog=False)
                         continue
 
                     if type != "interaction":
@@ -321,7 +340,13 @@ def run_job(
                         f"User '{got.responded_by}' responded with '{got.response}'"
                     )
                     logger.info(message)
-                    print(message, file=logstream, flush=True)
+                    jsonlog(
+                        {
+                            "type": "response",
+                            "user": got.responded_by,
+                            "response": got.response,
+                        }
+                    )
                     print(got.response, file=rj.proc.stdin, flush=True)
                     # Clear jobrunner status
                     set_jobrunner_status(session, job.id)
@@ -331,6 +356,7 @@ def run_job(
 
         p.stdin.close()
         exit_status = p.wait()
+        jsonlog({"type": "exit", "status": exit_status})
         if exit_status == 0:
             final_status = f"Job {job.id} finished normally"
         elif exit_status < 0:
