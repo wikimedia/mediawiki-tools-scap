@@ -18,6 +18,13 @@
 			Close Log
 		</cdx-button>
 
+		<cdx-checkbox
+			v-model="showSensitive"
+			type="checkbox"
+			@change="onShowSensitiveChange">
+			Show sensitive information
+		</cdx-checkbox>
+
 		<div v-if="jobRunning" id="signal-buttons">
 			<cdx-button id="interrupt" @click="clickSignalButton">
 				Interrupt Job
@@ -38,7 +45,7 @@ import { Terminal } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
 import useApi from '../api';
 import SpInteraction from './Interaction.vue';
-import { CdxButton } from '@wikimedia/codex';
+import { CdxButton, CdxCheckbox } from '@wikimedia/codex';
 
 const fitAddon = new FitAddon();
 
@@ -47,35 +54,58 @@ export default {
 
 	components: {
 		CdxButton,
+		CdxCheckbox,
 		SpInteraction
 	},
 	data() {
 		return {
 			api: null,
+			// eslint-disable-next-line camelcase
+			job_id: null,
 			job: null,
 			term: null,
 			jobRunning: false,
 			monitorInterval: null,
 			summary: null,
-			interaction: null
+			interaction: null,
+			showSensitive: false,
+			abortPopulateTerminal: null
 		};
 	},
 	methods: {
 		async populateTerminal() {
-			const response = await this.api.getJobLog(
-				// eslint-disable-next-line vue/no-undef-properties
-				this.job_id,
-				// eslint-disable-next-line vue/no-undef-properties
-				this.abortcontroller.signal
-			);
-			try {
-				for await ( const chunk of response.body ) {
-					this.term.write( chunk );
-				}
-			} catch ( err ) {
-				if ( err.name !== 'AbortError' ) {
-					// eslint-disable-next-line no-console
-					console.log( `populateTerminal caught ${ err }` );
+			while ( true ) {
+				this.term.clear();
+
+				try {
+					this.abortPopulateTerminal = new AbortController();
+
+					const response = await this.api.getJobLog(
+						this.job_id,
+						this.abortPopulateTerminal.signal,
+						this.showSensitive
+					);
+					try {
+						for await ( const chunk of response.body ) {
+							this.term.write( chunk );
+						}
+						// The complete job log has been read.
+						return;
+					} catch ( err ) {
+						if ( err.name === 'AbortError' ) {
+							if ( this.abortPopulateTerminal.signal.reason === 'showSensitive changed' ) {
+								continue;
+							} else {
+								return;
+							}
+						}
+
+						// eslint-disable-next-line no-console
+						console.log( `populateTerminal caught ${ err }` );
+						return;
+					}
+				} finally {
+					this.abortPopulateTerminal = null;
 				}
 			}
 		},
@@ -118,6 +148,16 @@ export default {
 		},
 		clickSignalButton( event ) {
 			this.api.signalJob( this.job_id, event.target.id );
+		},
+		onShowSensitiveChange() {
+			if ( this.abortPopulateTerminal ) {
+				// populateTerminal will restart itself when it receives
+				// this signal.
+				this.abortPopulateTerminal.abort( 'showSensitive changed' );
+			} else {
+				// Restart populateTerminal
+				this.populateTerminal();
+			}
 		}
 	},
 	mounted() {
@@ -134,16 +174,14 @@ export default {
 
 		window.addEventListener( 'resize', this.resizeTerminal );
 		this.term = term;
-		this.abortcontroller = new AbortController();
 		this.populateTerminal();
 
 		this.monitorInterval = setInterval( this.monitorJob, 1000 );
 		this.monitorJob();
 	},
 	unmounted() {
-		if ( this.abortcontroller ) {
-			this.abortcontroller.abort();
-			this.abortcontroller = null;
+		if ( this.abortPopulateTerminal ) {
+			this.abortPopulateTerminal.abort( 'unmounted' );
 		}
 		this.stopMonitor();
 		window.removeEventListener( 'resize', this.resizeTerminal );

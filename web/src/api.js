@@ -174,13 +174,18 @@ const useAuthStore = defineStore( 'spiderpig-auth',
 				);
 			},
 			// eslint-disable-next-line camelcase
-			async getJobLog( job_id, abortsignal ) {
+			async getJobLog( job_id, abortsignal, showSensitive = false ) {
 				if ( this.isTestMode ) {
 					return fakeApiserver.getJobLog( job_id, abortsignal );
 				}
 
 				// eslint-disable-next-line camelcase
-				return await this.call( `/api/jobs/${ job_id }/log`, {}, false, abortsignal );
+				const url = this.makeApiUrl( `/api/jobs/${ job_id }/log` );
+				if ( showSensitive ) {
+					url.searchParams.append( 'include_sensitive', true );
+				}
+
+				return await this.call( url, {}, false, abortsignal );
 			},
 			// eslint-disable-next-line camelcase
 			async startBackport( change_urls ) {
