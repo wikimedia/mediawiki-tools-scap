@@ -408,8 +408,9 @@ async def interact(
 
 @app.get("/api/jobs/{job_id}/log")
 async def get_log(
-    job_id: int,
     user: Annotated[str, Depends(get_current_user)],
+    job_id: int,
+    include_sensitive: bool = False,
 ):
     with _get_session() as session:
         # Validate the job_id
@@ -418,7 +419,9 @@ async def get_log(
     async def log_streamer():
         polling_interval = 1  # seconds
 
-        logfile = os.path.join(os.environ["SPIDERPIG_JOB_LOG_DIR"], f"{job_id}.log")
+        logfile = os.path.join(
+            os.environ["SPIDERPIG_JOB_LOG_DIR"], f"{job_id}.log.jsonl"
+        )
 
         # Wait for the logfile to appear
         while True:
@@ -427,11 +430,21 @@ async def get_log(
             await asyncio.sleep(polling_interval)
         # Logfile has appeared.
 
+        last_yield_was_hidden = False
         with open(logfile) as f:
             while True:
-                got = f.read(65536)
+                got = f.readline()
                 if got:
-                    yield got
+                    payload = json.loads(got)["payload"]
+                    type = payload["type"]
+                    if type == "line":
+                        if payload.get("sensitive") and not include_sensitive:
+                            if not last_yield_was_hidden:
+                                yield "<sensitive information hidden>\n"
+                            last_yield_was_hidden = True
+                        else:
+                            yield payload["line"] + "\n"
+                            last_yield_was_hidden = False
                     continue
                 # EOF
 
