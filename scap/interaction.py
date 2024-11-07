@@ -34,6 +34,9 @@ def GetIO():
 
 class UserIOBase:
     def output_line(self, line: str, sensitive: bool = False):
+        """
+        `line` is expected to be a string without a trailing newline.
+        """
         self._output_line(line, sensitive)
 
     def input_line(self, prompt: str) -> str:
