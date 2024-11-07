@@ -1,3 +1,4 @@
+dist/
 src/mocks/fakeBackportScripts/
 src/mocks/fakeBackport.mjs
 src/mocks/fakeApiServer.js
