@@ -19,6 +19,12 @@ verify-deps:
   variables:
     BUILD_VARIANT: verify-deps-$DISTRO
 
+test-web:
+  stage: test
+  extends: .kokkuri:build-image
+  variables:
+    BUILD_VARIANT: test-web
+
 test:
   stage: test
   extends: .kokkuri:build-image

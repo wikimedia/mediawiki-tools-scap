@@ -116,6 +116,15 @@ variants:
         source: /srv/app/docs/_build/html/
         destination: docs/
 
+  test-web:
+    base: docker-registry.wikimedia.org/nodejs20-slim
+    builders:
+      - node:
+          requirements:
+            - web
+      - custom:
+          command: [npm, run, test]
+
   build-spiderpig-ui:
     base: docker-registry.wikimedia.org/nodejs20-slim
     builders:

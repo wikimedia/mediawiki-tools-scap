@@ -20,8 +20,14 @@
 			"parser": "vue-eslint-parser",
 			"extends": [
 				"wikimedia/vue3-common",
-				"wikimedia/client-common"
+				"wikimedia/client-common",
+				"plugin:@typescript-eslint/recommended"
 			],
+			"parserOptions": {
+				"parser": "@typescript-eslint/parser",
+				"extraFileExtensions": [ ".vue" ]
+			},
+			"plugins": [ "@typescript-eslint" ],
 			"rules": {
 				"vue/component-name-in-template-casing": [ "error", "kebab-case" ],
 				"vue/custom-event-name-casing": [ "error", "kebab-case" ],

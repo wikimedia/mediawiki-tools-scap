@@ -10,48 +10,49 @@
 			:value="code"
 			action="progressive"
 			:weight="code === interaction.default ? 'primary' : 'normal'"
-			@click="choiceSelected"
+			@click="choiceSelected( code )"
 		>
 			{{ choice }}
 		</cdx-button>
 	</div>
 </template>
 
-<script>
+<script lang="ts">
+import { defineComponent, PropType } from 'vue';
 import useApi from '../api';
+import Interaction from '../types/Interaction';
 import { CdxButton } from '@wikimedia/codex';
 
-export default {
+export default defineComponent( {
 	name: 'SpInteraction',
 
 	components: {
 		CdxButton
 	},
 
-	props: [
-		'interaction'
-	],
-
-	data() {
-		return {
-			api: null
-		};
-	},
-
-	methods: {
-		choiceSelected( e ) {
-			this.api.respondInteraction(
-				this.interaction.job_id,
-				this.interaction.id,
-				e.currentTarget.value
-			);
+	props: {
+		interaction: {
+			type: Object as PropType<Interaction>,
+			required: true
 		}
 	},
 
-	mounted() {
-		this.api = useApi();
+	setup( props ) {
+		const api = useApi();
+
+		function choiceSelected( code: string ) {
+			api.respondInteraction(
+				props.interaction.job_id,
+				props.interaction.id,
+				code
+			);
+		}
+
+		return {
+			choiceSelected
+		};
 	}
-};
+} );
 </script>
 
 <style scoped>
