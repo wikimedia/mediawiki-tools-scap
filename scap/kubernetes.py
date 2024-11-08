@@ -994,6 +994,7 @@ class K8sOps:
 
         with self.app.Timer(
             "Running {} in {}".format(" ".join(cmd), dir),
+            stats=None,
             logger=timer_logger,
         ):
             with tempfile.NamedTemporaryFile() as logstream:

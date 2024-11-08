@@ -660,10 +660,14 @@ class Application(object):
         with log.Timer(fn.__name__, self.get_stats()):
             fn(*args, **kwargs)
 
-    def Timer(self, label, logger=None):
+    def Timer(self, label, logger=None, stats="unsupplied"):
+        # The caller can pass stats=None to disable transmission of timing information.
+        if stats == "unsupplied":
+            stats = self.get_stats()
+
         return log.Timer(
             label,
-            stats=self.get_stats(),
+            stats=stats,
             logger=logger,
         )
 
