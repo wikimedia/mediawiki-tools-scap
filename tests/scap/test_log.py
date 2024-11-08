@@ -272,18 +272,15 @@ def test_ecs_event_fields_to_logstash(caplog):
     with t:
         # ECS start and end assume milisecond resolution
         sleep(0.001)
-        t.mark("some marker")
         sleep(0.001)
         pass
 
     formatter = log.LogstashFormatter()
-    (start, mark, finish) = map(json.loads, map(formatter.format, caplog.records))
+    (start, finish) = map(json.loads, map(formatter.format, caplog.records))
 
     assert start["event.action"] == fname
     assert finish["event.action"] == fname
-    assert mark["event.action"] == "some marker"
 
-    assert "event.end" not in mark
     assert "event.end" in finish
 
     assert isinstance(start["event.start"], int)

@@ -795,22 +795,8 @@ class Timer(object):
         self.label = label
         self.stats = stats
         self.logger = logger
-        self.mark_start = None
         self.start = None
         self.end = None
-
-    def mark(self, label):
-        """
-        Log the interval elapsed since the last mark call.
-
-        :param label: Label for block (e.g. 'scap' or 'rsync')
-        :type label: str
-        """
-        now = time.time()
-        elapsed = now - self.mark_start
-        self._record_elapsed(label, elapsed)
-        self.mark_start = now
-        return elapsed
 
     def __enter__(self):
         """
@@ -819,7 +805,6 @@ class Timer(object):
         :returns: self
         """
         self.start = time.time()
-        self.mark_start = self.start
         self.logger.info(
             "Started %s" % self.label,
             extra={
