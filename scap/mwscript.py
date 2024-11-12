@@ -160,6 +160,7 @@ class Mwscript(cli.Application):
             self.config,
             self.arguments.directory,
             self.arguments.user,
+            offline=not self.arguments.network,
         )
         proc = runtime.run_mwscript(
             self.arguments.script,
@@ -207,7 +208,7 @@ class Runtime:
     Provides containerized execution of MediaWiki scripts.
     """
 
-    def __init__(self, cfg: dict, directory, user, temp_dir=None):
+    def __init__(self, cfg: dict, directory, user, temp_dir=None, offline=True):
         """
         Initializes a MediaWiki runtime.
 
@@ -221,6 +222,7 @@ class Runtime:
         self.dir = directory
         self.user = user
         self.temp_dir = temp_dir
+        self.offline = offline
 
         if self.temp_dir is None:
             self.temp_dir = tempfile.gettempdir()
@@ -237,13 +239,17 @@ class Runtime:
         """
         php_args = ["-d", "display_errors=stderr", "-d", "log_errors=off"]
 
+        env = {
+            "WMF_DATACENTER": self.datacenter,
+        }
+
+        if self.offline:
+            env["WMF_MAINTENANCE_OFFLINE"] = "1"
+
         return self._run(
             "/usr/bin/php",
             [*php_args, "multiversion/MWScript.php", script, *args],
-            env={
-                "WMF_DATACENTER": self.datacenter,
-                "WMF_MAINTENANCE_OFFLINE": "1",
-            },
+            env=env,
             **kwargs,
         )
 
