@@ -1,3 +1,13 @@
+scap (4.123.0)
+
+  * mwscript: Don't set WMF_MAINTENANCE_OFFLINE when --network is used
+  * spiderpig ui: Allow sensitive log information to be revealed
+  * tox.ini: Modify shellcheck and flake8 filters
+  * Web: Add basic .editorconfig
+  * web/.eslintignore: Add dist/
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Tue, 12 Nov 2024 08:24:50 -0800
+
 scap (4.122.0)
 
   * interaction.py: Add docstring to UserIOBase.output_line()
