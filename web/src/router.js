@@ -9,16 +9,14 @@ const routes = [
 		path: '/',
 		component: OverviewPage,
 		meta: {
-			requiresAuth: true,
-			title: 'Welcome to SpiderPig'
+			requiresAuth: true
 		}
 	},
 	{
 		path: '/login',
 		component: LoginPage,
 		meta: {
-			requiresAuth: false,
-			title: 'Welcome to SpiderPig'
+			requiresAuth: false
 		}
 	},
 	{
@@ -27,8 +25,7 @@ const routes = [
 		component: JobViewerPage,
 		props: true,
 		meta: {
-			requiresAuth: true,
-			title: 'Welcome to job #'
+			requiresAuth: true
 		}
 	}
 ];

@@ -11,11 +11,12 @@
 
 		<div id="backport__input">
 			<cdx-multiselect-lookup
+				id="backport__input__multiselect"
 				v-model:input-chips="changeIds"
 				v-model:selected="selection"
 				:menu-items="menuItems"
 				:menu-config="menuConfig"
-				placeholder="Search for Gerrit patches"
+				placeholder="Enter change numbers"
 				aria-label="Search for one or more Gerrit patches"
 				@input="onInput"
 			>
@@ -114,9 +115,17 @@ export default {
 </script>
 
 <style lang="less">
+@import ( reference ) '@wikimedia/codex-design-tokens/theme-wikimedia-ui.less';
+
 #backport {
+	margin-bottom: @spacing-150;
+
 	&__input {
 		display: flex;
+
+		&__multiselect {
+			width: 65%;
+		}
 	}
 
 	.change-id-input {
