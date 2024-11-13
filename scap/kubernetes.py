@@ -654,7 +654,9 @@ class K8sOps:
 
         return data[0].get("status")
 
-    def _helm_fix_pending_state(self, datacenter, helmfile_dir, release, logger):
+    def _helm_fix_pending_state(
+        self, datacenter, helmfile_dir, namespace, release, logger
+    ):
         """
         Fix the release if it is in a pending-* state
         """
@@ -692,7 +694,10 @@ class K8sOps:
             )
             # Should this use --wait ?
             cmd = ["helm", "--kubeconfig", kubeconfig, recovery_command, release]
-            self._run_timed_cmd_quietly(cmd, helmfile_dir, logger)
+            timer_name = f"helm_{recovery_command}_{namespace}_{release}_{datacenter}"
+            self._run_timed_cmd_quietly(
+                cmd, helmfile_dir, logger, timer_name=timer_name
+            )
 
     def _deploy_k8s_images_for_datacenter(self, datacenter, dep_config, report_queue):
         """
@@ -705,7 +710,9 @@ class K8sOps:
         namespace = dep_config[DeploymentsConfig.NAMESPACE]
         helmfile_dir = os.path.join(self.app.config["helmfile_services_dir"], namespace)
 
-        self._helm_fix_pending_state(datacenter, helmfile_dir, release, logger)
+        self._helm_fix_pending_state(
+            datacenter, helmfile_dir, namespace, release, logger
+        )
 
         cmd = [
             "helmfile",
@@ -717,7 +724,10 @@ class K8sOps:
         ]
 
         with self._k8s_deployment_monitoring(dep_config, datacenter, report_queue):
-            self._run_timed_cmd_quietly(cmd, helmfile_dir, logger, really_quiet=True)
+            timer_name = f"helmfile_apply_{namespace}_{release}_{datacenter}"
+            self._run_timed_cmd_quietly(
+                cmd, helmfile_dir, logger, really_quiet=True, timer_name=timer_name
+            )
 
     @contextlib.contextmanager
     def _k8s_deployment_monitoring(self, dep_config, dc, report_queue):
@@ -983,7 +993,9 @@ class K8sOps:
 
         return None
 
-    def _run_timed_cmd_quietly(self, cmd, dir, logger, env={}, really_quiet=False):
+    def _run_timed_cmd_quietly(
+        self, cmd, dir, logger, env={}, really_quiet=False, timer_name=None
+    ):
         env = self._helm_augmented_environment(env)
         env["SUPPRESS_SAL"] = "true"
 
@@ -994,6 +1006,7 @@ class K8sOps:
 
         with self.app.Timer(
             "Running {} in {}".format(" ".join(cmd), dir),
+            name=timer_name,
             logger=timer_logger,
         ):
             with tempfile.NamedTemporaryFile() as logstream:
