@@ -5,7 +5,7 @@
 		</template>
 
 		<template #description>
-			To run scap backport, enter one or more Gerrit change numbers
+			To run scap backport, enter one or more Gerrit change id numbers
 			separated by spaces.
 		</template>
 
@@ -14,6 +14,7 @@
 				id="backport__input__multiselect"
 				v-model:input-chips="changeIds"
 				v-model:selected="selection"
+				id="backport__input__multiselect"
 				:menu-items="menuItems"
 				:menu-config="menuConfig"
 				placeholder="Enter change numbers"
