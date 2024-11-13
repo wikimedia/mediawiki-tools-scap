@@ -774,14 +774,6 @@ class Timer(object):
     >>> s = Stats('127.0.0.1', 2003)
     >>> with Timer('example', s):
     ...     time.sleep(0.1)
-
-    Sub-interval times can also be recorded using the :meth:`mark` method.
-
-    >>> with Timer('file copy') as t:
-    ...     time.sleep(0.1)
-    ...     x = t.mark('copy phase 1')
-    ...     time.sleep(0.1)
-    ...     y = t.mark('copy phase 2')
     """
 
     @utils.log_context("timer")
