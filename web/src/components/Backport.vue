@@ -34,7 +34,7 @@
 	</cdx-field>
 </template>
 
-<script>
+<script lang="ts">
 import { ref, computed } from 'vue';
 import { CdxButton, CdxField, CdxMultiselectLookup } from '@wikimedia/codex';
 import useApi from '../api';

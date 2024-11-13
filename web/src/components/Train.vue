@@ -8,33 +8,31 @@
 	</div>
 </template>
 
-<script>
+<script lang="ts">
+import { defineComponent } from 'vue';
 import useApi from '../api';
 import { CdxButton } from '@wikimedia/codex';
 
-export default {
+export default defineComponent( {
 	name: 'SpTrain',
 
 	components: {
 		CdxButton
 	},
 
-	data() {
-		return {
-			api: null
-		};
-	},
+	setup() {
+		// Pinia store.
+		const api = useApi();
 
-	methods: {
-		async startTrain() {
-			await this.api.startTrain();
+		async function startTrain() {
+			await api.startTrain();
 		}
-	},
 
-	mounted() {
-		this.api = useApi();
+		return {
+			startTrain
+		};
 	}
-};
+} );
 
 </script>
 

@@ -7,7 +7,7 @@
 		>
 			<template #item-id="{ item, row }">
 				<!-- eslint-disable-next-line -->
-				<router-link :to="{ name: 'job', params: { job_id: row.id } }">
+				<router-link :to="{ name: 'job', params: { jobId: row.id } }">
 					{{ item }}
 				</router-link>
 			</template>
@@ -50,7 +50,7 @@
 	</div>
 </template>
 
-<script>
+<script lang="ts">
 import { ref, onMounted, onUnmounted } from 'vue';
 import { CdxTable, CdxMessage } from '@wikimedia/codex';
 import useApi from '../api';

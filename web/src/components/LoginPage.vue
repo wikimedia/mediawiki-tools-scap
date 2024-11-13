@@ -43,66 +43,64 @@
 	</form>
 </template>
 
-<script>
+<script lang="ts">
+import { defineComponent, ref, computed, watch } from 'vue';
 import { CdxButton, CdxField, CdxTextInput, CdxLabel } from '@wikimedia/codex';
-
 import useApi from '../api';
+import { useRouter, useRoute } from 'vue-router';
 
-export default {
+export default defineComponent( {
 	components: {
 		CdxButton,
 		CdxField,
 		CdxTextInput,
 		CdxLabel
 	},
-	data() {
-		return {
-			api: null,
-			status: 'default',
-			username: '',
-			password: '',
-			messages: {}
-		};
-	},
-	computed: {
-		loginButtonDisabled() {
-			return ( this.username.trim() === '' || this.password.trim() === '' );
-		}
-	},
-	methods: {
-		async login() {
-			const username = this.username.trim();
-			const password = this.password.trim();
+	setup() {
+		// Pinia store and router.
+		const api = useApi();
+		const router = useRouter();
+		const route = useRoute();
 
-			const res = await this.api.login( username, password );
+		// Reactive data properties.
+		const status = ref( 'default' );
+		const username = ref( '' );
+		const password = ref( '' );
+		const messages = ref( {} );
+		const loginButtonDisabled = computed( () => username.value.trim() === '' || password.value.trim() === '' );
+
+		// Methods.
+		const login = async () => {
+			const trimmedUsername = username.value.trim();
+			const trimmedPassword = password.value.trim();
+			const res = await api.login( trimmedUsername, trimmedPassword );
 
 			if ( res !== true ) {
-				this.status = 'error';
-				// eslint-disable-next-line vue/no-undef-properties
-				this.messages.error = res.statusText;
+				status.value = 'error';
+				messages.value.error = res.statusText;
 				return;
 			}
 
 			// Login was successful
-			this.$router.push( this.$route.query.redirect || '/' );
-		},
-		clearErrorStatus() {
-			if ( this.status === 'error' ) {
-				this.status = 'default';
-			}
-		}
-	},
-	watch: {
-		username() {
-			this.clearErrorStatus();
-		},
-		password() {
-			this.clearErrorStatus();
-		}
-	},
+			router.push( route.query.redirect || '/' );
+		};
 
-	mounted() {
-		this.api = useApi();
+		const clearErrorStatus = () => {
+			if ( status.value === 'error' ) {
+				status.value = 'default';
+			}
+		};
+
+		watch( [ username, password ], clearErrorStatus );
+
+		return {
+			status,
+			username,
+			password,
+			messages,
+			loginButtonDisabled,
+			login
+		};
 	}
-};
+} );
 </script>

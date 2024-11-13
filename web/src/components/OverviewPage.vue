@@ -10,13 +10,15 @@
 	<sp-job-history />
 </template>
 
-<script>
+<script lang="ts">
+import { defineComponent, ref, onMounted, onUnmounted } from 'vue';
 import useApi from '../api';
+import { useRouter } from 'vue-router';
 import SpBackport from './Backport.vue';
 import SpJobHistory from './JobHistory.vue';
 import SpInteraction from './Interaction.vue';
 
-export default {
+export default defineComponent( {
 	name: 'OverviewPage',
 	components: {
 		SpBackport,
@@ -24,47 +26,56 @@ export default {
 		SpInteraction
 	},
 
-	data() {
-		return {
-			api: null,
-			idle: false,
-			interaction: null,
-			intervalTimer: null,
-			jobrunnerStatus: 'Jobrunner Status: Unknown'
-		};
-	},
+	setup() {
+		// Pinia store and router.
+		const api = useApi();
+		const router = useRouter();
 
-	methods: {
-		async updateJobrunnerStatus() {
+		// Reactive data properties.
+		const idle = ref( false );
+		const interaction = ref( null );
+		const jobrunnerStatus = ref( 'Jobrunner Status: Unknown' );
+
+		// Non-reactive data.
+		let intervalTimer = null;
+
+		// Methods.
+		async function updateJobrunnerStatus() {
 			try {
-				const res = await this.api.getJobrunnerStatus();
-				this.jobrunnerStatus = `Jobrunner Status: ${ res.status }`;
-				this.idle = res.status === 'idle';
-				this.interaction = res.pending_interaction;
+				const res = await api.getJobrunnerStatus();
+				jobrunnerStatus.value = `Jobrunner Status: ${ res.status }`;
+				idle.value = res.status === 'idle';
+				interaction.value = res.pending_interaction;
 			} catch ( error ) {
-				if ( !this.api.isAuthenticated ) {
-					this.$router.push( '/login' );
+				if ( !api.isAuthenticated ) {
+					router.push( '/login' );
 				} else {
 					// eslint-disable-next-line no-console
 					console.error( `updateJobrunnerStatus caught: ${ error.message }` );
 				}
 			}
 		}
-	},
 
-	mounted() {
-		this.api = useApi();
-		this.intervalTimer = setInterval( this.updateJobrunnerStatus, 1000 );
-		this.updateJobrunnerStatus();
-	},
+		// Lifecycle hooks.
+		onMounted( () => {
+			intervalTimer = setInterval( updateJobrunnerStatus, 1000 );
+			updateJobrunnerStatus();
+		} );
 
-	unmounted() {
-		if ( this.intervalTimer ) {
-			clearInterval( this.intervalTimer );
-			this.intervalTimer = null;
-		}
+		onUnmounted( () => {
+			if ( intervalTimer ) {
+				clearInterval( intervalTimer );
+				intervalTimer = null;
+			}
+		} );
+
+		return {
+			idle,
+			interaction,
+			jobrunnerStatus
+		};
 	}
-};
+} );
 </script>
 
 <style scoped>

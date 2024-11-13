@@ -16,7 +16,7 @@
 	</nav>
 </template>
 
-<script>
+<script lang="ts">
 import { computed } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import { CdxButton } from '@wikimedia/codex';

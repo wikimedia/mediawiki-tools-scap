@@ -8,7 +8,7 @@
 	</div>
 </template>
 
-<script>
+<script lang="ts">
 import '@wikimedia/codex/dist/codex.style.css';
 import Navigation from './components/Navigation.vue';
 

@@ -23,7 +23,7 @@ const routes = [
 	},
 	{
 		name: 'job',
-		path: '/jobs/:job_id',
+		path: '/jobs/:jobId',
 		component: JobViewerPage,
 		props: true,
 		meta: {
