@@ -772,19 +772,29 @@ class Timer(object):
     ...     time.sleep(0.1)
 
     >>> s = Stats('127.0.0.1', 2003)
-    >>> with Timer('example', s):
+    >>> with Timer('example', stats=s):
     ...     time.sleep(0.1)
     """
 
     @utils.log_context("timer")
-    def __init__(self, label, stats=None, logger=None):
+    def __init__(self, description, name="unsupplied", stats=None, logger=None):
         """
-        :param label: Label for block (e.g. 'scap' or 'rsync')
-        :type label: str
+        :param description: The human friendly description of the operation being timed.
+        :type description: str
+        :param name: The measurement name to use when transmitting the operation time the stats recording system.
+
+                     If `name` is not supplied, the description will be used as the measurement name.
+
+                     If None, no measurement will be transmitted.
+
+                     Note that the measurement name will have "scap." prefixed to it and any non-word
+                     characters in the name will be replaced with underscores.
+        :type name: str|None
         :param stats: StatsD client to record block invocation and duration
         :type stats: scap.log.Stats
         """
-        self.label = label
+        self.description = description
+        self.name = description if name == "unsupplied" else name
         self.stats = stats
         self.logger = logger
         self.start = None
@@ -798,9 +808,9 @@ class Timer(object):
         """
         self.start = time.time()
         self.logger.info(
-            "Started %s" % self.label,
+            "Started %s" % self.description,
             extra={
-                "event.action": self.label,
+                "event.action": self.name,
                 "event.start": int(self.start * pow(10, 3)),
             },
         )
@@ -809,20 +819,18 @@ class Timer(object):
     def __exit__(self, exc_type, exc_value, traceback):
         """Exit the runtime context."""
         self.end = time.time()
-        self._record_elapsed(self.label, self.end - self.start)
+        self._record_elapsed(self.end - self.start)
 
-    def _record_elapsed(self, label, elapsed):
+    def _record_elapsed(self, elapsed):
         """
         Log the elapsed duration.
 
-        :param label: Label for elapsed time
-        :type label: str
         :param elapsed: Elapsed duration
         :type elapsed: float
         """
 
         extras = {
-            "event.action": label,
+            "event.action": self.name,
             "event.start": int(self.start * pow(10, 3)),
             "event.duration": int(elapsed * pow(10, 9)),  # nanoseconds
         }
@@ -831,13 +839,13 @@ class Timer(object):
 
         self.logger.info(
             "Finished %s (duration: %s)",
-            label,
+            self.description,
             utils.human_duration(elapsed),
             extra=extras,
         )
-        if self.stats:
-            label = re.sub(r"\W", "_", label.lower())
-            self.stats.timing("scap.%s" % label, elapsed * 1000)
+        if self.name and self.stats:
+            massaged_name = re.sub(r"\W", "_", self.name.lower())
+            self.stats.timing("scap.%s" % massaged_name, elapsed * 1000)
 
 
 class Udp2LogHandler(logging.handlers.DatagramHandler):

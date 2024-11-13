@@ -268,10 +268,9 @@ def test_ecs_event_fields_to_logstash(caplog):
     caplog.set_level(logging.INFO)
     fname = "test_ecs_event_fields_to_logstash"
 
-    t = log.Timer(fname)
+    t = log.Timer(description="Testing ECS event fields are in log records", name=fname)
     with t:
         # ECS start and end assume milisecond resolution
-        sleep(0.001)
         sleep(0.001)
         pass
 

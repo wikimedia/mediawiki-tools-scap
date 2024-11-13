@@ -660,9 +660,10 @@ class Application(object):
         with log.Timer(fn.__name__, self.get_stats()):
             fn(*args, **kwargs)
 
-    def Timer(self, label, logger=None):
+    def Timer(self, description, name="unsupplied", logger=None):
         return log.Timer(
-            label,
+            description,
+            name=name,
             stats=self.get_stats(),
             logger=logger,
         )

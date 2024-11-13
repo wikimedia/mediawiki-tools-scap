@@ -151,7 +151,9 @@ class CheckoutMediaWiki(cli.Application):
                         return HISTORY_ABORT_STATUS
                     logger.info("Replaying history: %s" % summary)
 
-            with self.Timer("scap prep {}".format(self.arguments.branch)):
+            with self.Timer(
+                description="scap prep {}".format(self.arguments.branch), name="prep"
+            ):
                 if self.arguments.auto:
                     self.report_status("Checking out mediawiki-config")
                     self._clone_or_update_repo(
