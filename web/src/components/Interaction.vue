@@ -1,33 +1,46 @@
 <template>
 	<div class="interaction">
-		<h2>Job {{ interaction.job_id }} is awaiting interaction</h2>
-		<div class="prompt">
+		<cdx-message
+			class="interaction__message"
+			type="warning"
+			allow-user-dismiss
+		>
+			<router-link :to="{ name: 'job', params: { jobId: interaction.job_id } }">
+				Job #{{ interaction.job_id }}
+			</router-link>
+			is awaiting interaction.
+		</cdx-message>
+		<div v-if="isJobDetailsPage" class="interaction__prompt">
 			{{ interaction.prompt }}
 		</div>
-		<cdx-button
-			v-for="( code, choice ) in interaction.choices"
-			:key="choice"
-			:value="code"
-			action="progressive"
-			:weight="code === interaction.default ? 'primary' : 'normal'"
-			@click="choiceSelected( code )"
-		>
-			{{ choice }}
-		</cdx-button>
+		<div v-if="isJobDetailsPage" class="interaction__action">
+			<cdx-button
+				v-for="( code, choice ) in interaction.choices"
+				:key="choice"
+				:value="code"
+				action="progressive"
+				:weight="code === interaction.default ? 'primary' : 'normal'"
+				@click="choiceSelected( code )"
+			>
+				{{ choice }}
+			</cdx-button>
+		</div>
 	</div>
 </template>
 
 <script lang="ts">
-import { defineComponent, PropType } from 'vue';
+import { defineComponent, PropType, computed } from 'vue';
 import useApi from '../api';
 import Interaction from '../types/Interaction';
-import { CdxButton } from '@wikimedia/codex';
+import { CdxButton, CdxMessage } from '@wikimedia/codex';
+import { useRoute } from 'vue-router';
 
 export default defineComponent( {
 	name: 'SpInteraction',
 
 	components: {
-		CdxButton
+		CdxButton,
+		CdxMessage
 	},
 
 	props: {
@@ -38,7 +51,11 @@ export default defineComponent( {
 	},
 
 	setup( props ) {
+		// Pinia store and router.
 		const api = useApi();
+		const route = useRoute();
+
+		const isJobDetailsPage = computed( () => route.path.includes( '/jobs' ) );
 
 		function choiceSelected( code: string ) {
 			api.respondInteraction(
@@ -49,23 +66,21 @@ export default defineComponent( {
 		}
 
 		return {
-			choiceSelected
+			choiceSelected,
+			isJobDetailsPage
 		};
 	}
 } );
 </script>
 
-<style scoped>
+<style lang="less" scoped>
+@import ( reference ) '@wikimedia/codex-design-tokens/theme-wikimedia-ui.less';
+
 .interaction {
-	display: table;
-	border-style: solid;
-	border-width: 1px;
-	border-radius: 10px;
-	padding: 5px;
-	margin: 5px;
+	margin-bottom: @spacing-150;
 }
 
-.prompt {
+.interaction__prompt {
 	white-space: pre;
 	font-family: 'Courier New', Courier, monospace;
 	font-size: 15px;

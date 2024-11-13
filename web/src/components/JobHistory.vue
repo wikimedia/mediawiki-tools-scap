@@ -13,7 +13,7 @@
 			</template>
 
 			<template #item-command_decoded="{ item }">
-				{{ item }}
+				{{ getFormattedText( item ) }}
 			</template>
 
 			<template #item-user="{ item }">
@@ -68,7 +68,10 @@ export default {
 		'rowClicked'
 	],
 	setup() {
+		// Pinia store.
 		const api = useApi();
+
+		// Reactive data properties.
 		const loaded = ref( false );
 		const jobs = ref( [] );
 		const intervalTimer = ref( null );
@@ -128,6 +131,12 @@ export default {
 			}
 		}
 
+		function getFormattedText( text ) {
+			return text.split( ' ' )
+				.map( ( word ) => word[ 0 ].toUpperCase() + word.slice( 1 ) )
+				.join( ' ' );
+		}
+
 		onMounted( () => {
 			loadHistory();
 			intervalTimer.value = setInterval( loadHistory, INTERVAL );
@@ -145,8 +154,13 @@ export default {
 			jobs,
 			loaded,
 			getFormattedDate,
-			getStatusType
+			getStatusType,
+			getFormattedText
 		};
 	}
 };
 </script>
+
+<style lang="less">
+
+</style>
