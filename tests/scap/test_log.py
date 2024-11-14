@@ -291,6 +291,16 @@ def test_ecs_event_fields_to_logstash(caplog):
     assert finish["event.end"] > finish["event.start"]
 
 
+def test_timer_no_name():
+    # Verify that these operations complete without exceptions
+    with log.Timer("x", name=None):
+        sleep(0.001)
+
+    stats = Mock()
+    with log.Timer("x", name=None, stats=stats):
+        sleep(0.001)
+
+
 @patch.dict("os.environ", clear=True)
 def test_AnsiColorFormatter_colorize():
     fmt = log.AnsiColorFormatter(colorize=True)
