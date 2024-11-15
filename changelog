@@ -1,3 +1,15 @@
+scap (4.124.0)
+
+  * Reduce the cardinality of scap timers/statsd metrics (phase 2)
+  * tests/scap/test_log.py: Add tests for log.Timer() with name=None
+  * web: Convert components to Composition API
+  * Reduce the cardinality of scap timers/statsd metrics (phase 1)
+  * web: Get rid of remaining eslint warning
+  * log.py: Update docstring after removal of `mark` method
+  * log.py: Remove unused `Timer.mark()` method
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Fri, 15 Nov 2024 10:32:55 -0800
+
 scap (4.123.0)
 
   * mwscript: Don't set WMF_MAINTENANCE_OFFLINE when --network is used
