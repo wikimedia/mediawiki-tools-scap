@@ -10,7 +10,7 @@ from scap import mwscript
 def runtime(tmpdir):
     return mwscript.Runtime(
         {
-            "datacenter": "foodc",
+            "wmf_realm": "foodc",
             "mediawiki_runtime_image": "an.example/mw-php-image",
         },
         "/srv/mediawiki-staging",
