@@ -23,6 +23,11 @@ export default {
 <style lang="less">
 @import '@wikimedia/codex-design-tokens/theme-wikimedia-ui.less';
 
+#app {
+	max-width: 72rem;
+	margin: auto;
+}
+
 #app__nav {
     padding: @spacing-100;
 }

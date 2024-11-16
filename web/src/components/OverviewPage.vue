@@ -1,9 +1,5 @@
 <template>
-	<sp-backport v-if="idle" />
-	<sp-interaction
-		v-if="interaction"
-		:interaction="interaction"
-	/>
+	<sp-backport :idle="idle" />
 	<sp-job-history />
 </template>
 
@@ -13,14 +9,12 @@ import useApi from '../api';
 import { useRouter } from 'vue-router';
 import SpBackport from './Backport.vue';
 import SpJobHistory from './JobHistory.vue';
-import SpInteraction from './Interaction.vue';
 
 export default defineComponent( {
 	name: 'OverviewPage',
 	components: {
 		SpBackport,
-		SpJobHistory,
-		SpInteraction
+		SpJobHistory
 	},
 
 	setup() {
@@ -76,8 +70,7 @@ export default defineComponent( {
 		} );
 
 		return {
-			idle,
-			interaction
+			idle
 		};
 	}
 } );

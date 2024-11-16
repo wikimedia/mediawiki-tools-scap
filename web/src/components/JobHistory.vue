@@ -1,58 +1,62 @@
 <template>
-	<div id="job-history">
-		<cdx-table
-			caption="Job History"
-			:columns="columns"
-			:data="jobs"
-		>
-			<template #item-id="{ item, row }">
-				<!-- eslint-disable-next-line -->
-				<router-link :to="{ name: 'job', params: { jobId: row.id } }">
-					{{ item }}
-				</router-link>
-			</template>
+	<div id="job-history" class="job-history">
+		<h2 class="job-history__heading">
+			Job History
+		</h2>
 
-			<template #item-command_decoded="{ item }">
-				{{ getFormattedText( item ) }}
-			</template>
+		<!-- Column labels -->
+		<div v-if="!isMobile" class="job-card__labels">
+			<div class="job-card__label">
+				Id
+			</div>
 
-			<template #item-user="{ item }">
-				{{ item }}
-			</template>
+			<div class="job-card__label">
+				Command
+			</div>
 
-			<template #item-queued_at="{ item }">
-				{{ getFormattedDate( item ) }}
-			</template>
+			<div class="job-card__label">
+				User
+			</div>
 
-			<template #item-started_at="{ item }">
-				{{ getFormattedDate( item ) }}
-			</template>
+			<div class="job-card__label">
+				Started
+			</div>
 
-			<template #item-finished_at_message="{ item }">
-				{{ getFormattedDate( item ) }}
-			</template>
+			<div class="job-card__label">
+				Finished
+			</div>
 
-			<template #item-status="{ item, row }">
-				<cdx-message :inline="true" :type="getStatusType( row.exit_status )">
-					{{ item }}
-				</cdx-message>
-			</template>
+			<div class="job-card__label">
+				Status
+			</div>
+		</div>
 
-			<template #empty-state>
+		<!-- Job cards -->
+		<div class="job-history__card-list">
+			<div v-if="jobs.length > 0">
+				<sp-job-card
+					v-for="job in jobs"
+					:key="job.id"
+					v-bind="job"
+					class="job-history__card-list__card"
+				/>
+			</div>
+			<!-- Empty and loading state -->
+			<div v-else>
 				<p v-if="loaded">
 					No job data to display.
 				</p>
 				<p v-else>
 					Loading...
 				</p>
-			</template>
-		</cdx-table>
+			</div>
+		</div>
 	</div>
 </template>
 
 <script lang="ts">
 import { ref, onMounted, onUnmounted } from 'vue';
-import { CdxTable, CdxMessage } from '@wikimedia/codex';
+import SpJobCard from './JobCard.vue';
 import useApi from '../api';
 
 const INTERVAL = 1000;
@@ -61,8 +65,7 @@ const JOB_RUNNING = '..Running...';
 export default {
 	name: 'SpJobHistory',
 	components: {
-		CdxTable,
-		CdxMessage
+		SpJobCard
 	},
 	emits: [
 		'rowClicked'
@@ -75,15 +78,6 @@ export default {
 		const loaded = ref( false );
 		const jobs = ref( [] );
 		const intervalTimer = ref( null );
-
-		const columns = [
-			{ id: 'id', label: 'Id' },
-			{ id: 'command_decoded', label: 'Command', width: '35%' },
-			{ id: 'user', label: 'User' },
-			{ id: 'started_at', label: 'Started' },
-			{ id: 'finished_at_message', label: 'Finished' },
-			{ id: 'status', label: 'Status', width: '15%' }
-		];
 
 		async function loadHistory() {
 			try {
@@ -110,33 +104,6 @@ export default {
 			}
 		}
 
-		function getFormattedDate( dateString ) {
-			// Handle the job-in-progress message by bailing early
-			if ( dateString === JOB_RUNNING ) {
-				return;
-			}
-
-			const date = new Date( dateString );
-			return date.toUTCString();
-		}
-
-		function getStatusType( exit ) {
-			const statusMap = {
-				0: 'success',
-				1: 'error'
-			};
-
-			if ( exit ) {
-				return statusMap[ exit ];
-			}
-		}
-
-		function getFormattedText( text ) {
-			return text.split( ' ' )
-				.map( ( word ) => word[ 0 ].toUpperCase() + word.slice( 1 ) )
-				.join( ' ' );
-		}
-
 		onMounted( () => {
 			loadHistory();
 			intervalTimer.value = setInterval( loadHistory, INTERVAL );
@@ -149,18 +116,50 @@ export default {
 			}
 		} );
 
+		// TODO: Deduplicate isMobile code.
+		// Apply grid style and column labels on mid to large screens.
+		const isMobile = ref( window.matchMedia( '(max-width: 639px )' ).matches );
+
+		const handleResize = () => {
+			isMobile.value = window.matchMedia( '(max-width: 639px)' ).matches;
+		};
+
+		onMounted( () => {
+			window.addEventListener( 'resize', handleResize );
+		} );
+
+		onUnmounted( () => {
+			window.removeEventListener( 'resize', handleResize );
+		} );
+
 		return {
-			columns,
 			jobs,
 			loaded,
-			getFormattedDate,
-			getStatusType,
-			getFormattedText
+			isMobile
 		};
 	}
 };
 </script>
 
 <style lang="less">
+@import '@wikimedia/codex-design-tokens/theme-wikimedia-ui.less';
+
+.job-history {
+	&__heading {
+		font-size: 1.25rem;
+		margin-top: @spacing-100;
+		margin-bottom: @spacing-100;
+		padding-bottom: @spacing-25;
+		border-bottom: @border-subtle;
+	}
+
+	&__card-list__card {
+		margin-bottom: @spacing-50;
+
+			&:last-child {
+				margin-bottom: 0;
+			}
+	}
+}
 
 </style>

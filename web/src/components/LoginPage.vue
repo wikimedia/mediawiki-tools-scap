@@ -45,7 +45,7 @@
 
 <script lang="ts">
 import { defineComponent, ref, computed, watch } from 'vue';
-import { CdxButton, CdxField, CdxTextInput, CdxLabel } from '@wikimedia/codex';
+import { CdxButton, CdxField, CdxTextInput, CdxLabel, ValidationStatusType, ValidationMessages } from '@wikimedia/codex';
 import useApi from '../api';
 import { useRouter, useRoute } from 'vue-router';
 
@@ -61,16 +61,25 @@ export default defineComponent( {
 		const api = useApi();
 		const router = useRouter();
 		const route = useRoute();
+		const redirectTarget = computed( () => {
+			if ( route.query.redirect ) {
+				// We're only using single strings as redirect targets in the route
+				// definitions, so it's ok to use type coercion here for now
+				return route.query.redirect as string;
+			} else {
+				return '/';
+			}
+		} );
 
 		// Reactive data properties.
-		const status = ref( 'default' );
+		const status = ref<ValidationStatusType>( 'default' );
+		const messages = ref<ValidationMessages>( {} );
 		const username = ref( '' );
 		const password = ref( '' );
-		const messages = ref( {} );
 		const loginButtonDisabled = computed( () => username.value.trim() === '' || password.value.trim() === '' );
 
 		// Methods.
-		const login = async () => {
+		async function login() {
 			const trimmedUsername = username.value.trim();
 			const trimmedPassword = password.value.trim();
 			const res = await api.login( trimmedUsername, trimmedPassword );
@@ -80,16 +89,15 @@ export default defineComponent( {
 				messages.value.error = res.statusText;
 				return;
 			}
-
 			// Login was successful
-			router.push( route.query.redirect || '/' );
-		};
+			router.push( redirectTarget.value );
+		}
 
-		const clearErrorStatus = () => {
+		function clearErrorStatus() {
 			if ( status.value === 'error' ) {
 				status.value = 'default';
 			}
-		};
+		}
 
 		watch( [ username, password ], clearErrorStatus );
 
