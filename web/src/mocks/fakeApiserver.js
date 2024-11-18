@@ -36,6 +36,7 @@ class Job {
 	logWatcher = null;
 
 	constructor( command ) {
+		// 'command' is expected to be an array of strings.
 		this.id = nextJobId++;
 		this.queued_at = timestamp();
 		this.command = JSON.stringify( command );
@@ -95,7 +96,19 @@ class fakeApiserver {
 
 	currentJob = null;
 
+	// Jobs are stored from oldest to newest (i.e., higher job ids at the end of the list)
 	history = [];
+
+	constructor() {
+		// Generate a fake job history
+		for ( let i = 0; i < 20; i++ ) {
+			const job = this.createJob( [ 'scap', 'backport', '1234' ] );
+			job.started_at = job.queued_at;
+			job.finished_at = job.queued_at;
+			job.exit_status = 0;
+			job.status = `Job ${ job.id } terminated normally`;
+		}
+	}
 
 	getJobrunnerStatus() {
 		if ( this.currentJob ) {
