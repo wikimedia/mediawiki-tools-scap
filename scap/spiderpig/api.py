@@ -136,12 +136,16 @@ if os.getenv("SPIDERPIG_OPEN_CORS"):
     )
 
 
-# From the tutorial:
-# engine = create_engine(
-#     SQLALCHEMY_DATABASE_URL, connect_args={"check_same_thread": False}
-# )
 def _get_session():
-    return Session(scap.spiderpig.engine(os.environ["SPIDERPIG_DBFILE"]))
+    # Using check_same_thread=False allows FastAPI to use the same SQLite database
+    # in different threads. This is necessary as one single request could use more
+    # than one thread (for example in dependencies).
+    # xref: https://fastapi.tiangolo.com/tutorial/sql-databases/#create-an-engine
+    return Session(
+        scap.spiderpig.engine(
+            os.environ["SPIDERPIG_DBFILE"], connect_args={"check_same_thread": False}
+        )
+    )
 
 
 def get_session():
