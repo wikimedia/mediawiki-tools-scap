@@ -1,3 +1,9 @@
+scap (4.125.0)
+
+  * mwscript: Set WMF_DATACENTER to cfg["wmf_realm"]
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Mon, 18 Nov 2024 09:22:58 -0800
+
 scap (4.124.0)
 
   * Reduce the cardinality of scap timers/statsd metrics (phase 2)
