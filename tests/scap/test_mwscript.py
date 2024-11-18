@@ -75,6 +75,8 @@ def test_runtime_run_mwscript_with_network(mock_run, runtime):
         "--workdir", "/srv/mediawiki-staging",
         "--entrypoint", "/usr/bin/php",
         "--network", "host",
+        "--mount", "type=bind,source=/etc/ssl/certs,target=/etc/ssl/certs,readonly",
+        "--mount", "type=bind,source=/usr/local/share/ca-certificates,target=/usr/local/share/ca-certificates,readonly",
         "--env", "WMF_DATACENTER=foodc",
         "--env", "WMF_MAINTENANCE_OFFLINE=1",
         "an.example/mw-php-image",
