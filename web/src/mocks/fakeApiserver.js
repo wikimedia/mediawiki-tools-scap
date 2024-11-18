@@ -101,12 +101,14 @@ class fakeApiserver {
 		if ( this.currentJob ) {
 			return {
 				status: `Running job ${ this.currentJob.id }`,
-				job_id: this.currentJob.id
+				job_id: this.currentJob.id,
+				pending_interaction: this.currentJob.interaction
 			};
 		} else {
 			return {
 				status: 'idle',
-				job_id: null
+				job_id: null,
+				pending_interaction: null
 			};
 		}
 	}
