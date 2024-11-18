@@ -38,8 +38,8 @@ export default {
 		 * if available
 		 */
 		const title = computed( () => {
-			if ( route.params.job_id && route.meta.title ) {
-				return `${ route.meta.title }${ route.params.job_id }`;
+			if ( route.params.jobId && route.meta.title ) {
+				return `${ route.meta.title }${ route.params.jobId }`;
 			} else {
 				return route.meta.title;
 			}
