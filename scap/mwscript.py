@@ -286,6 +286,15 @@ class Runtime:
             "--network", "host" if network else "none"
         ]
 
+        if network:
+            # Ensure that environment-specific SSL certs are available (e.g., for
+            # when wmf-config accesses Etcd)
+            cmd += [
+                "--mount", "type=bind,source=/etc/ssl/certs/ca-certificates.crt,target=/etc/ssl/certs/ca-certificates.crt,readonly",
+                "--mount", "type=bind,source=/etc/ssl/certs,target=/etc/ssl/certs,readonly",
+                "--mount", "type=bind,source=/usr/local/share/ca-certificates,target=/usr/local/share/ca-certificates,readonly",
+            ]
+
         if env is not None:
             cmd += [arg for k, v in env.items() for arg in ("--env", f"{k}={v}")]
 
