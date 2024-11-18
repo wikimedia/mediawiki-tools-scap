@@ -84,7 +84,7 @@ export default {
 
 		async function loadHistory() {
 			try {
-				const apiResponse = await api.getLastNJobs( 5 );
+				const apiResponse = await api.getJobs( 5, 0 );
 				const apiJobs = apiResponse.jobs;
 
 				for ( const job of apiJobs ) {

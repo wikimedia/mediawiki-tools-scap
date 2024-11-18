@@ -125,15 +125,14 @@ const useAuthStore = defineStore( 'spiderpig-auth',
 
 				return await this.call( '/api/jobrunner/status' );
 			},
-			async getLastNJobs( last = null ) {
+			async getJobs( limit, skip ) {
 				if ( this.isTestMode ) {
-					return fakeApiserver.getLastNJobs( last );
+					return fakeApiserver.getJobs( limit, skip );
 				}
 
 				const url = new URL( '/api/jobs', this.apiserverBaseURL );
-				if ( last !== null ) {
-					url.searchParams.append( 'last', last );
-				}
+				url.searchParams.append( 'limit', limit );
+				url.searchParams.append( 'skip', skip );
 				return await this.call( url );
 			},
 			// eslint-disable-next-line camelcase

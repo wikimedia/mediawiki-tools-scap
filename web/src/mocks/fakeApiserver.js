@@ -126,16 +126,12 @@ class fakeApiserver {
 		}
 	}
 
-	getLastNJobs( last = null ) {
+	getJobs( limit, skip ) {
 		// Returns jobs from newest to oldest
-
 		let jobs = this.history;
-		if ( last ) {
-			jobs = jobs.slice( -last );
-		}
-		jobs = jobs.toReversed();
 
-		return { jobs: jobs };
+		jobs = jobs.slice( -( limit + skip ), skip ? -skip : undefined );
+		return { jobs: jobs.toReversed() };
 	}
 
 	#getJobById( job_id ) {
