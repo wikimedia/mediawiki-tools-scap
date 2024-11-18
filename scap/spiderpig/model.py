@@ -73,10 +73,12 @@ class Job(Base):
         return session.scalar(select(Job).where(Job.id == job_id))
 
     @classmethod
-    def get_last_n(cls, session, last: int) -> List["Job"]:
+    def get_jobs(cls, session, limit: int, skip: int) -> List["Job"]:
         return [
             job
-            for job in session.scalars(select(Job).order_by(Job.id.desc()).limit(last))
+            for job in session.scalars(
+                select(Job).order_by(Job.id.desc()).limit(limit).offset(skip)
+            )
         ]
 
     @classmethod

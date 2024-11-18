@@ -349,10 +349,11 @@ async def start_backport(
 async def get_jobs(
     user: Annotated[str, Depends(get_current_user)],
     session: Session = Depends(get_session),
-    last: int = 10,
+    limit: int = 10,
+    skip: Optional[int] = 0,
 ):
     return {
-        "jobs": Job.get_last_n(session, last),
+        "jobs": Job.get_jobs(session, limit, skip),
     }
 
 
