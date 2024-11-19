@@ -261,6 +261,9 @@ def run_job(
             return
 
         with running_job(engine, job.id, p, iokey) as rj:
+            job_status = None
+            old_job_status = None
+
             while True:
                 got = rj.get()
 
@@ -293,8 +296,8 @@ def run_job(
                     type = msg.get("type")
 
                     if type == "status":
-                        status = msg.get("status")
-                        job.set_status(session, status)
+                        job_status = msg.get("status")
+                        job.set_status(session, job_status)
                         continue
 
                     if type == "line":
@@ -332,6 +335,8 @@ def run_job(
                         session, job.id, subtype, prompt, choices, default
                     )
                     set_jobrunner_status(session, job.id, "awaiting user interaction")
+                    old_job_status = job_status
+                    job.set_status(session, "Awaiting user interaction")
                     logger.info("Waiting for an interaction")
                     continue
 
@@ -348,8 +353,8 @@ def run_job(
                         }
                     )
                     print(got.response, file=rj.proc.stdin, flush=True)
-                    # Clear jobrunner status
-                    set_jobrunner_status(session, job.id)
+                    set_jobrunner_status(session, job.id)  # Clear jobrunner status
+                    job.set_status(session, old_job_status)
                     continue
 
                 raise Exception(f"Unexpected item retrieved from job_queue: {got}")
