@@ -1,3 +1,10 @@
+scap (4.127.0)
+
+  * mwscript.py: Fix WMF_DATACENTER handling
+  * requirements.txt: Bump pydantic-core to 2.27.0
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Wed, 20 Nov 2024 13:53:36 -0800
+
 scap (4.126.0)
 
   * mwscript.py: Bind-mount host SSL cert directories
