@@ -217,6 +217,7 @@ class Runtime:
         :param user: MediaWiki runtime user.
         :param temp_dir: Temporary directory to mount.
         """
+        self.datacenter = cfg["datacenter"]
         self.realm = cfg["wmf_realm"]
         self.image = cfg["mediawiki_runtime_image"]
         self.dir = directory
@@ -239,10 +240,7 @@ class Runtime:
         """
         php_args = ["-d", "display_errors=stderr", "-d", "log_errors=off"]
 
-        env = {
-            # FIXME: This should be called WMF_REALM
-            "WMF_DATACENTER": self.realm,
-        }
+        env = {"WMF_DATACENTER": "labs" if self.realm == "labs" else self.datacenter}
 
         if self.offline:
             env["WMF_MAINTENANCE_OFFLINE"] = "1"
