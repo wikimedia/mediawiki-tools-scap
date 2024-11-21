@@ -347,8 +347,8 @@ class InstallWorld(cli.Application):
                 "--delete-delay",
                 "--compress",
                 "--new-compress",
-                f"{self.deploy_master}::{InstallWorld.SCAP_RSYNC_MODULE}/{InstallWorld.WHEELS_DIR}/$(lsb_release -cs)",
-                f"{self.deploy_master}::{InstallWorld.SCAP_RSYNC_MODULE}/{InstallWorld.INSTALL_SCAP_SCRIPT_PATH}",
+                f"{master}::{InstallWorld.SCAP_RSYNC_MODULE}/{InstallWorld.WHEELS_DIR}/$(lsb_release -cs)",
+                f"{master}::{InstallWorld.SCAP_RSYNC_MODULE}/{InstallWorld.INSTALL_SCAP_SCRIPT_PATH}",
                 self.install_user_home + "/",
             ]
             targets_sync = self._get_ssh_job_for(tgts)
