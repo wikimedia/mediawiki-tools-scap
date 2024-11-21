@@ -7,13 +7,7 @@ const useAuthStore = defineStore( 'spiderpig-auth',
 		state() {
 			return {
 				token: useLocalStorage( 'spiderpig-auth-token', null ),
-				authFailing: false,
-				testmodeData: useLocalStorage( 'spiderpig-testmode-data',
-					{
-						currentJob: null,
-						jobs: [],
-						lastJobId: 0
-					} )
+				authFailing: false
 			};
 		},
 		getters: {
