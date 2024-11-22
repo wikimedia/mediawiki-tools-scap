@@ -1,19 +1,18 @@
 <template>
 	<div class="interaction">
-		<h2>Job {{ interaction.job_id }} is awaiting interaction</h2>
-		<div class="prompt">
+		<div class="interaction__prompt">
 			{{ interaction.prompt }}
 		</div>
-		<cdx-button
-			v-for="( code, choice ) in interaction.choices"
-			:key="choice"
-			:value="code"
-			action="progressive"
-			:weight="code === interaction.default ? 'primary' : 'normal'"
-			@click="choiceSelected( code )"
-		>
-			{{ choice }}
-		</cdx-button>
+		<div class="interaction__action">
+			<cdx-button
+				v-for="( code, choice ) in interaction.choices"
+				:key="choice"
+				:value="code"
+				@click="choiceSelected( code )"
+			>
+				{{ choice }}
+			</cdx-button>
+		</div>
 	</div>
 </template>
 
@@ -38,6 +37,7 @@ export default defineComponent( {
 	},
 
 	setup( props ) {
+		// Pinia store and router.
 		const api = useApi();
 
 		function choiceSelected( code: string ) {
@@ -55,19 +55,26 @@ export default defineComponent( {
 } );
 </script>
 
-<style scoped>
+<style lang="less" scoped>
+@import ( reference ) '@wikimedia/codex-design-tokens/theme-wikimedia-ui.less';
+
 .interaction {
-	display: table;
-	border-style: solid;
-	border-width: 1px;
-	border-radius: 10px;
-	padding: 5px;
-	margin: 5px;
+	margin-bottom: @spacing-150;
+
+	&__prompt {
+		white-space: pre;
+		font-size: 15px;
+		overflow-x: auto;
+		padding-bottom: @spacing-50;
+	}
+
+	&__action {
+		margin-top: @spacing-100;
+
+		button:first-child {
+			margin-right: @spacing-25;
+		}
+	}
 }
 
-.prompt {
-	white-space: pre;
-	font-family: 'Courier New', Courier, monospace;
-	font-size: 15px;
-}
 </style>

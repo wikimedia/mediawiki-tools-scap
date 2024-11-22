@@ -1,12 +1,5 @@
 <template>
-	<div id="jobrunner-status">
-		{{ jobrunnerStatus }}
-	</div>
-	<sp-backport v-if="idle" />
-	<sp-interaction
-		v-if="interaction"
-		:interaction="interaction"
-	/>
+	<sp-backport :idle="idle" />
 	<sp-job-history />
 </template>
 
@@ -16,14 +9,12 @@ import useApi from '../api';
 import { useRouter } from 'vue-router';
 import SpBackport from './Backport.vue';
 import SpJobHistory from './JobHistory.vue';
-import SpInteraction from './Interaction.vue';
 
 export default defineComponent( {
 	name: 'OverviewPage',
 	components: {
 		SpBackport,
-		SpJobHistory,
-		SpInteraction
+		SpJobHistory
 	},
 
 	setup() {
@@ -40,12 +31,21 @@ export default defineComponent( {
 		let intervalTimer = null;
 
 		// Methods.
+		async function updateInteraction( id ) {
+			const jobinfo = await api.getJobInfo( id );
+
+			interaction.value = jobinfo.pending_interaction;
+		}
+
 		async function updateJobrunnerStatus() {
 			try {
 				const res = await api.getJobrunnerStatus();
 				jobrunnerStatus.value = `Jobrunner Status: ${ res.status }`;
 				idle.value = res.status === 'idle';
-				interaction.value = res.pending_interaction;
+
+				if ( res.job_id ) {
+					updateInteraction( res.job_id );
+				}
 			} catch ( error ) {
 				if ( !api.isAuthenticated ) {
 					router.push( '/login' );
@@ -70,9 +70,7 @@ export default defineComponent( {
 		} );
 
 		return {
-			idle,
-			interaction,
-			jobrunnerStatus
+			idle
 		};
 	}
 } );

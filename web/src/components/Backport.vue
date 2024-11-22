@@ -1,7 +1,9 @@
 <template>
-	<cdx-field id="backport">
+	<cdx-field id="backport" class="backport">
 		<template #label>
-			Backport patches
+			<h2 class="backport__heading">
+				Backport Patches
+			</h2>
 		</template>
 
 		<template #description>
@@ -9,13 +11,15 @@
 			separated by spaces.
 		</template>
 
-		<div id="backport__input">
+		<div class="backport__input">
 			<cdx-multiselect-lookup
 				v-model:input-chips="changeIds"
 				v-model:selected="selection"
+				class="backport__input__multiselect"
+				:disabled="!idle"
 				:menu-items="menuItems"
 				:menu-config="menuConfig"
-				placeholder="Search for Gerrit patches"
+				placeholder="Enter change numbers"
 				aria-label="Search for one or more Gerrit patches"
 				@input="onInput"
 			>
@@ -45,6 +49,12 @@ export default {
 		CdxButton,
 		CdxField,
 		CdxMultiselectLookup
+	},
+
+	props: {
+		idle: {
+			type: Boolean
+		}
 	},
 
 	setup() {
@@ -114,13 +124,33 @@ export default {
 </script>
 
 <style lang="less">
-#backport {
-	&__input {
-		display: flex;
+@import ( reference ) '@wikimedia/codex-design-tokens/theme-wikimedia-ui.less';
+
+.backport {
+	&.cdx-field {
+		margin-bottom: @spacing-150;
 	}
 
-	.change-id-input {
-		flex: 1 1 auto;
+	&__heading {
+		font-size: 1.25rem;
+	}
+
+	&__input {
+		display: flex;
+
+		&__multiselect {
+			flex: 1 0 auto;
+		}
+
+		.cdx-chip-input {
+			border-top-right-radius: 0px;
+			border-bottom-right-radius: 0px;
+		}
+
+		.cdx-button {
+			border-top-left-radius: 0px;
+			border-bottom-left-radius: 0px;
+		}
 	}
 }
 
