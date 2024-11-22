@@ -61,7 +61,7 @@ publish-dist:
 
 .docs-job:
   rules:
-    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $CI_COMMIT_REF_PROTECTED
+    - if: $CI_PROJECT_PATH == "repos/releng/scap" && $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $CI_COMMIT_REF_PROTECTED
 
 build-docs:
   stage: build-docs
