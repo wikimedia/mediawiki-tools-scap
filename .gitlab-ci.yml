@@ -10,73 +10,78 @@ stages:
   - build-docs
   - publish-docs
 
-verify-deps:
+dump-env:
   stage: test
-  extends: .kokkuri:build-and-run-image
-  parallel:
-    matrix:
-      - DISTRO: &supported_distros [buster, bullseye, bookworm]
-  variables:
-    BUILD_VARIANT: verify-deps-$DISTRO
+  script: env
 
-test-web:
-  stage: test
-  extends: .kokkuri:build-image
-  variables:
-    BUILD_VARIANT: test-web
 
-test:
-  stage: test
-  extends: .kokkuri:build-image
-  parallel:
-    matrix:
-      - DISTRO: *supported_distros
-  variables:
-    BUILD_VARIANT: test-$DISTRO-report
-    BUILDCTL_BUILD_FLAGS: --output type=local,dest=test-reports
-  artifacts:
-    when: always
-    reports:
-      junit: test-reports/junit.xml
-      coverage_report:
-        coverage_format: cobertura
-        path: test-reports/coverage.xml
-  coverage: /(?i)total.*? (100(?:\.0+)?\%|[1-9]?\d(?:\.\d+)?\%)$/
+# verify-deps:
+#   stage: test
+#   extends: .kokkuri:build-and-run-image
+#   parallel:
+#     matrix:
+#       - DISTRO: &supported_distros [buster, bullseye, bookworm]
+#   variables:
+#     BUILD_VARIANT: verify-deps-$DISTRO
 
-publish-dist:
-  stage: publish-dist
-  extends: .kokkuri:build-and-publish-image
-  parallel:
-    matrix:
-      - DISTRO: *supported_distros
-  variables:
-    BUILD_VARIANT: binary-dist-$DISTRO
-    PUBLISH_IMAGE_NAME: ${CI_PROJECT_PATH}/$DISTRO
-    PUBLISH_IMAGE_TAG: $CI_COMMIT_TAG
-    PUBLISH_IMAGE_EXTRA_TAGS: 'latest'
-  tags:
-    - trusted
-  rules:
-    - if: $CI_COMMIT_TAG && $CI_COMMIT_REF_PROTECTED
+# test-web:
+#   stage: test
+#   extends: .kokkuri:build-image
+#   variables:
+#     BUILD_VARIANT: test-web
 
-.docs-job:
-  rules:
-    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $CI_COMMIT_REF_PROTECTED
+# test:
+#   stage: test
+#   extends: .kokkuri:build-image
+#   parallel:
+#     matrix:
+#       - DISTRO: *supported_distros
+#   variables:
+#     BUILD_VARIANT: test-$DISTRO-report
+#     BUILDCTL_BUILD_FLAGS: --output type=local,dest=test-reports
+#   artifacts:
+#     when: always
+#     reports:
+#       junit: test-reports/junit.xml
+#       coverage_report:
+#         coverage_format: cobertura
+#         path: test-reports/coverage.xml
+#   coverage: /(?i)total.*? (100(?:\.0+)?\%|[1-9]?\d(?:\.\d+)?\%)$/
 
-build-docs:
-  stage: build-docs
-  extends:
-    - .kokkuri:build-image
-    - .docs-job
-    - .docpub:build-docs
-  variables:
-    BUILD_VARIANT: docs
-    # We'll end up with generated-documentation/docs/index.html, etc
-    BUILDCTL_BUILD_FLAGS: --output type=local,dest=generated-documentation
-    DOCS_DIR: generated-documentation/docs
+# publish-dist:
+#   stage: publish-dist
+#   extends: .kokkuri:build-and-publish-image
+#   parallel:
+#     matrix:
+#       - DISTRO: *supported_distros
+#   variables:
+#     BUILD_VARIANT: binary-dist-$DISTRO
+#     PUBLISH_IMAGE_NAME: ${CI_PROJECT_PATH}/$DISTRO
+#     PUBLISH_IMAGE_TAG: $CI_COMMIT_TAG
+#     PUBLISH_IMAGE_EXTRA_TAGS: 'latest'
+#   tags:
+#     - trusted
+#   rules:
+#     - if: $CI_COMMIT_TAG && $CI_COMMIT_REF_PROTECTED
 
-publish-docs:
-  stage: publish-docs
-  extends:
-    - .docs-job
-    - .docpub:publish-docs
+# .docs-job:
+#   rules:
+#     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $CI_COMMIT_REF_PROTECTED
+
+# build-docs:
+#   stage: build-docs
+#   extends:
+#     - .kokkuri:build-image
+#     - .docs-job
+#     - .docpub:build-docs
+#   variables:
+#     BUILD_VARIANT: docs
+#     # We'll end up with generated-documentation/docs/index.html, etc
+#     BUILDCTL_BUILD_FLAGS: --output type=local,dest=generated-documentation
+#     DOCS_DIR: generated-documentation/docs
+
+# publish-docs:
+#   stage: publish-docs
+#   extends:
+#     - .docs-job
+#     - .docpub:publish-docs
