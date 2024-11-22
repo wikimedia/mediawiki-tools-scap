@@ -125,8 +125,14 @@ class InstallWorld(cli.Application):
             if total_install_hosts == 0:
                 utils.abort("No hosts to install. Nothing to do")
 
+            prompt_note = (
+                ". Please note this includes the deployment server"
+                if self.arguments.limit_hosts
+                and not self.arguments.install_targets_only
+                else ""
+            )
             if not self.arguments.yes and not self.prompt_user_for_confirmation(
-                f"""Scap version "{self.version}" will be installed on {total_install_hosts} host(s). Proceed?"""
+                f"""Scap version "{self.version}" will be installed on {total_install_hosts} host(s){prompt_note}. Proceed?"""
             ):
                 utils.abort("Canceled by user")
 
@@ -159,6 +165,13 @@ class InstallWorld(cli.Application):
             limit_hosts=self.arguments.limit_hosts,
             exclude_hosts=self.arguments.exclude_hosts,
         )
+
+        # Ensure that this deploy server is in the list of masters,
+        # regardless of the user's specified limits/exclusions.  This is
+        # currently required for proper operation.
+        if self.deploy_master not in self.masters:
+            self.masters.append(self.deploy_master)
+
         self.install_user = self.config["install_ssh_user"]
         self.install_user_home = expanduser("~" + self.install_user)
         self.install_user_ssh_key = f"/etc/keyholder.d/{self.install_user}.pub"
