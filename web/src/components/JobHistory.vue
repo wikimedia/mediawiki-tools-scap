@@ -5,28 +5,28 @@
 		</h2>
 
 		<!-- Column labels -->
-		<div v-if="!isMobile" class="job-card__labels">
-			<div class="job-card__label">
+		<div class="job-history__column-labels">
+			<div class="job-history__column-labels__label">
 				Id
 			</div>
 
-			<div class="job-card__label">
+			<div class="job-history__column-labels__label">
 				Command
 			</div>
 
-			<div class="job-card__label">
+			<div class="job-history__column-labels__label">
 				User
 			</div>
 
-			<div class="job-card__label">
+			<div class="job-history__column-labels__label">
 				Started
 			</div>
 
-			<div class="job-card__label">
+			<div class="job-history__column-labels__label">
 				Finished
 			</div>
 
-			<div class="job-card__label">
+			<div class="job-history__column-labels__label">
 				Status
 			</div>
 		</div>
@@ -116,26 +116,9 @@ export default {
 			}
 		} );
 
-		// TODO: Deduplicate isMobile code.
-		// Apply grid style and column labels on mid to large screens.
-		const isMobile = ref( window.matchMedia( '(max-width: 639px )' ).matches );
-
-		const handleResize = () => {
-			isMobile.value = window.matchMedia( '(max-width: 639px)' ).matches;
-		};
-
-		onMounted( () => {
-			window.addEventListener( 'resize', handleResize );
-		} );
-
-		onUnmounted( () => {
-			window.removeEventListener( 'resize', handleResize );
-		} );
-
 		return {
 			jobs,
-			loaded,
-			isMobile
+			loaded
 		};
 	}
 };
@@ -153,6 +136,29 @@ export default {
 		border-bottom: @border-subtle;
 	}
 
+    &__column-labels {
+        // Align column labels with CdxCard padding.
+		padding: 0 12px;
+        // Hide and show column labels based on media queries.
+        display: none;
+
+        // Apply grid style and column labels on mid to large screen devices.
+        // Ensure the grid layout styles for column labels and job card content match.
+        @media screen and ( min-width: @min-width-breakpoint-tablet ) {
+            display: grid;
+            grid-template-columns: 5% 15% 10% 20% 20% 25%;
+            grid-template-rows: auto auto;
+            gap: 8px;
+            grid-gap: 8px;
+            box-sizing: border-box;
+            position: unset;
+        }
+
+        &__label {
+            font-weight: @font-weight-bold;
+        }
+    }
+
 	&__card-list__card {
 		margin-bottom: @spacing-50;
 
@@ -161,5 +167,4 @@ export default {
 			}
 	}
 }
-
 </style>
