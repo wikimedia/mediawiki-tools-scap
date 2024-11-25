@@ -3,7 +3,7 @@
 		class="job-card"
 		:class="rootClasses"
 	>
-		<template v-if="isMobile" #description>
+		<template v-if="isMobile || showJobDetails" #description>
 			<div class="job-card__content">
 				<div class="job-card__column">
 					<div class="job-card__label">
@@ -101,9 +101,45 @@
 		</template>
 		<template #supporting-text>
 			<sp-interaction
-				v-if="interaction"
+				v-if="showInteraction && interaction"
 				:interaction="interaction"
 			/>
+			<div
+				v-if="!showInteraction && showJobDetails"
+				class="job-card__details"
+			>
+				<hr>
+				<div class="job-card__details-info">
+					<div class="job-card__details-info__column1">
+						<div>
+							Queued: {{ getFormattedDate( queued_at ) }}
+						</div>
+						<div>
+							Branch:
+						</div>
+						<div>
+							Phab:
+						</div>
+						<div>
+							Topic:
+						</div>
+						<div>
+							Change number:
+						</div>
+					</div>
+					<div class="job-card__details-info__column2">
+						<div>
+							Change info:
+						</div>
+					</div>
+				</div>
+				<hr>
+				<div class="job-card__details-log">
+					<sp-job-log :job-id="id">
+						Log
+					</sp-job-log>
+				</div>
+			</div>
 		</template>
 	</cdx-card>
 </template>
@@ -114,6 +150,10 @@ import { CdxCard, CdxInfoChip } from '@wikimedia/codex';
 import { cdxIconInfoFilled } from '@wikimedia/codex-icons';
 import Interaction from '../types/Interaction';
 import SpInteraction from './Interaction.vue';
+// TODO: Fix SpJobLog path.
+import SpJobLog from './JobLog.vue';
+import { useRoute } from 'vue-router';
+import '@xterm/xterm/css/xterm.css';
 
 const JOB_RUNNING = '..Running...';
 
@@ -123,7 +163,8 @@ export default defineComponent( {
 	components: {
 		CdxCard,
 		CdxInfoChip,
-		SpInteraction
+		SpInteraction,
+		SpJobLog
 	},
 
 	props: {
@@ -155,6 +196,12 @@ export default defineComponent( {
 			default: null
 		},
 		// eslint-disable-next-line camelcase, vue/prop-name-casing
+		queued_at: {
+			type: String,
+			required: false,
+			default: null
+		},
+		// eslint-disable-next-line camelcase, vue/prop-name-casing
 		exit_status: {
 			type: Number,
 			required: false,
@@ -179,8 +226,14 @@ export default defineComponent( {
 	},
 
 	setup( props ) {
+		const route = useRoute();
+		// Prevent displaying interaction within a JobCard on JobViewerPage.
+		const showInteraction = computed( () => route.name !== 'job' );
+		const showJobDetails = computed( () => route.name === 'job' );
 		const isRunning = computed( () => props.started_at && !props.finished_at );
-		const rootClasses = computed( () => ( { 'job-card--highlighted': props.exit_status !== 0 } ) );
+		const rootClasses = computed( () => ( {
+			'job-card--highlighted': props.exit_status !== 0 && !showJobDetails.value
+		} ) );
 
 		const statusType = computed( () => {
 			if ( props.exit_status === 0 ) {
@@ -204,6 +257,12 @@ export default defineComponent( {
 			}
 		} );
 
+		// Apply grid style and column labels on mid to large screens.
+		const isMobile = ref( window.matchMedia( '(max-width: 639px )' ).matches );
+		const handleResize = () => {
+			isMobile.value = window.matchMedia( '(max-width: 639px)' ).matches;
+		};
+
 		function getFormattedDate( dateString ) {
 			// Handle the job-in-progress message.
 			if ( !dateString || dateString === JOB_RUNNING ) {
@@ -219,13 +278,6 @@ export default defineComponent( {
 				.map( ( word ) => word[ 0 ].toUpperCase() + word.slice( 1 ) )
 				.join( ' ' );
 		}
-
-		// Apply grid style and column labels on mid to large screens.
-		const isMobile = ref( window.matchMedia( '(max-width: 639px )' ).matches );
-
-		const handleResize = () => {
-			isMobile.value = window.matchMedia( '(max-width: 639px)' ).matches;
-		};
 
 		onMounted( () => {
 			window.addEventListener( 'resize', handleResize );
@@ -243,7 +295,9 @@ export default defineComponent( {
 			cdxIconInfoFilled,
 			rootClasses,
 			isRunning,
-			isMobile
+			isMobile,
+			showInteraction,
+			showJobDetails
 		};
 	}
 } );
@@ -253,6 +307,10 @@ export default defineComponent( {
 @import '@wikimedia/codex-design-tokens/theme-wikimedia-ui.less';
 
 .job-card {
+	a {
+		text-decoration: none;
+	}
+
 	.cdx-card__text {
 		width: 100%;
 
@@ -294,5 +352,4 @@ export default defineComponent( {
 		width: fit-content;
 	}
 }
-
 </style>
