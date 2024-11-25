@@ -1,3 +1,9 @@
+scap (4.129.0)
+
+  * scap clean: first delete branch from superproject
+
+ -- Antoine Musso <hashar@free.fr>  Mon, 25 Nov 2024 17:17:16 +0100
+
 scap (4.128.0)
 
   * scap clean: delete branches as gerrit_push_user
