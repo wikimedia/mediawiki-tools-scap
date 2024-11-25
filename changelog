@@ -1,3 +1,15 @@
+scap (4.128.0)
+
+  * scap clean: delete branches as gerrit_push_user
+  * web: improve main page UI
+  * web/src/api.js: Remove unused testmodeData slot
+  * .gitlab-ci.yml: Only run *-docs jobs on main repo
+  * requirements.txt: Bump pydantic-core to >= 2.27.1
+  * install_world.py: Fix rsync source bug
+  * spiderpig api: Add job history pagination support
+
+ -- Antoine Musso <hashar@free.fr>  Mon, 25 Nov 2024 12:25:10 +0100
+
 scap (4.127.0)
 
   * mwscript.py: Fix WMF_DATACENTER handling
