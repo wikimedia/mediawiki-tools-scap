@@ -2,34 +2,39 @@
 
 # This script can be used to install Scap locally from Python wheels available via docker images. It is meant for the
 # following use cases:
-#    * Bootstrap/stage a scap installation on a deploy server
+#    * Bootstrap/fix/stage a scap installation on a deploy server
 #    * Install scap on a target host (wheels must be available locally on the target)
 #    * Allow a RelEng operator to create their own installation in their home
-#
-# The script can be used to install versions >=4.42.0 of scap
 
 set -eu -o pipefail
 
-BASE_SCAP_IMAGE_REPO=docker-registry.wikimedia.org/repos/releng/scap
+REGISTRY=docker-registry.wikimedia.org
+SCAP_REPO=repos/releng/scap
+BASE_SCAP_IMAGE_REPO=$REGISTRY/$SCAP_REPO
 # When changing the supported distros, also update the authoritative list in install_world.py
 SUPPORTED_DISTROS="buster bullseye bookworm"
 
 function usage {
   cat <<HERE
 
-   Usage: $0 [-u|--user <USERNAME>] [--on-primary [-t|--tag <TAG>] [-d|--distros <D1,D2...>]] [--on-secondary]
+   Usage: $0
+     [-u|--user <USERNAME>]
+     [--on-primary -t|--tag <TAG> [-s|--skip-install] [-d|--distros <D1,D2...>]]
+     [--on-secondary -t|--tag <TAG>]
 
    Uses Python wheels to install scap in a Python3 venv in the user's HOME at HOME/scap. It has three modes of operation:
      * Install target host (DEFAULT):       Wheels for the host distro must be already available in the user's HOME
-     * Install primary deployment server:   Wheels will be downloaded prior to installation
-     * Install secondary deployment server: Wheels for the host distro must be available at HOME/scap-wheels
+     * Install primary deployment server:   Wheels for supported distros and <TAG> will be downloaded prior to installation
+     * Install secondary deployment server: Wheels for the host distro and <TAG> must be available at HOME/scap-wheels
 
-   Optional arguments:
+   Options:
      -u, --user <USERNAME>       The user to install Scap for. If not passed, the env var USER is taken instead
      --on-primary                Signals this is a primary deployment host. Pull wheels from a distribution image before installing
-       -t, --tag <TAG>           Install wheels for <TAG>. Default is 'latest' (honored only if --on-primary specified)
-       -d, --distros <D1,D2...>  Override supported distro codenames (honored only if --on-primary specified)
+       -t, --tag <TAG>           Install wheels for <TAG>. Must be a numeric version tag, 'latest' not accepted
+       -s, --skip-install        Download the wheels, if missing, for <TAG> but do not install Scap
+       -d, --distros <D1,D2...>  Override supported distro codenames
      --on-secondary              Signals this is a secondary deployment host. Mutually exclusive with '--on-primary'
+       -t, --tag <TAG>           Install wheels for <TAG>. Must be a numeric version tag, 'latest' not accepted
 
    Note the user running this script needs to have permissions to:
      * sudo as <USERNAME> (unless the user is already <USERNAME>)
@@ -47,19 +52,21 @@ function fail {
 }
 
 function verify_distro {
-  local DISTRO
-  DISTRO=$(lsb_release -cs)
-
-  if ! echo "$SUPPORTED_DISTROS" | grep -q "$DISTRO"; then
-    fail "System's distribution \"$DISTRO\" not supported by Scap"
+  if ! echo "$SUPPORTED_DISTROS" | grep -q "$HOST_DISTRO"; then
+    fail "System's distribution \"$HOST_DISTRO\" not supported by Scap"
   fi
+}
+
+function on_master {
+  [ "$ON_PRIMARY" = y ] || [ "$ON_SECONDARY" = y ]
 }
 
 function parseArgs {
   ON_PRIMARY=
   ON_SECONDARY=
   INSTALL_USER=
-  TAG=latest
+  TAG=
+  SKIP_PRIMARY_INSTALL=
 
   for arg in "$@"; do
     shift
@@ -78,6 +85,9 @@ function parseArgs {
       --tag)
         set -- "$@" '-t'
         ;;
+      --skip-install)
+        set -- "$@" '-s'
+        ;;
       --distros)
         set -- "$@" '-d'
         ;;
@@ -91,17 +101,24 @@ function parseArgs {
     esac
   done
 
-  while getopts 'u:t:d:' opt; do
+  while getopts 'u:t:d:s' opt; do
     case "$opt" in
       u)
         INSTALL_USER=$OPTARG
         ;;
       t)
-        if [ "$ON_PRIMARY" != y ]; then
+        if ! on_master; then
           usage
           exit 1
         fi
         TAG=$OPTARG
+        ;;
+      s)
+        if [ "$ON_PRIMARY" != y ]; then
+          usage
+          exit 1
+        fi
+        SKIP_PRIMARY_INSTALL=y
         ;;
       d)
         if [ "$ON_PRIMARY" != y ]; then
@@ -124,9 +141,23 @@ function parseArgs {
     INSTALL_USER=$USER
   fi
 
-  if [ "$ON_PRIMARY" != y ] && [ "$ON_SECONDARY" != y ]; then
-    TAG=n
+  if on_master; then
+    if [ -z "$TAG" ]; then
+      echo -e "\n   Please specify --tag <TAG>"
+      usage
+      exit 1
+    fi
   fi
+}
+
+function get_dist_dir_path_master {
+  local DISTRO=$1
+  echo "$BASE_DIST_DIR/$DISTRO/$TAG"
+}
+
+function get_dist_dir_path_target {
+  local DISTRO=$1
+  echo "$BASE_DIST_DIR/$DISTRO"
 }
 
 function verify_user {
@@ -141,19 +172,32 @@ function verify_user {
   fi
 }
 
+function verify_version_tag {
+  TAGS_URL="https://$REGISTRY/v2/$SCAP_REPO/$HOST_DISTRO/tags/list"
+  if ! curl -sSf "$TAGS_URL" | jq -r '.tags[]' | grep -v latest | grep -qw "$TAG"; then
+    fail "Tag \"$TAG\" is not valid. Please specify an existing numeric version tag, e.g.: 4.131.0"
+  fi
+}
+
 function verify_local_wheels_available {
   local DIST_DIR
-  DIST_DIR=$BASE_DIST_DIR/$(lsb_release -cs)
+  DIST_DIR=$($GET_DIST_DIR_PATH "$HOST_DISTRO")
 
   if [ ! -d "$DIST_DIR" ]; then
     fail "Scap distribution dir \"$DIST_DIR\" is missing. Maybe this is a primary deploy server? Please check usage"
   fi
 }
 
-function get_scap_distribution {
+function get_scap_version_distribution {
   local DISTRO=$1
   local IMAGE=${BASE_SCAP_IMAGE_REPO}/$DISTRO:$TAG
-  local DIST_DIR=$BASE_DIST_DIR/$DISTRO
+  local DIST_DIR=
+  DIST_DIR=$(get_dist_dir_path_master "$DISTRO")
+
+  if compgen -G "$DIST_DIR/*.whl" >/dev/null; then
+    log "Scap version \"$TAG\" for distribution \"$DISTRO\" already exists locally. Nothing to retrieve"
+    return
+  fi
 
   docker pull "$IMAGE" >/dev/null
 
@@ -177,10 +221,27 @@ function get_scap_distribution {
   docker rm "$CONT_ID" >/dev/null
   trap - EXIT
 
-  log "Scap distribution successfully extracted at $DIST_DIR"
+  log "Scap version \"$TAG\" for distribution \"$DISTRO\" successfully extracted at $DIST_DIR"
 }
 
-function install_scap_venv_for_user {
+function get_distributions {
+  for DISTRO in $SUPPORTED_DISTROS; do
+    get_scap_version_distribution "$DISTRO"
+  done
+}
+
+function clean_up_distributions {
+  # Keep the 3 newest version dirs for each distro (by directory creation date, not version)
+  for DISTRO in $SUPPORTED_DISTROS; do
+    # shellcheck disable=SC2012
+    for OLD_VERSION in $(ls --time=birth "$BASE_DIST_DIR/$DISTRO" | tail +4); do
+      $AS_USER rm -rf "$BASE_DIST_DIR/$DISTRO/$OLD_VERSION"
+      log "Deleted old wheels at \"$BASE_DIST_DIR/$DISTRO/$OLD_VERSION\""
+    done
+  done
+}
+
+function install_scap {
   function install_venv {
     $AS_USER python3 -m venv "$SCAP_VENV_DIR"
     # Upgrade pip first using the included wheel.
@@ -190,9 +251,8 @@ function install_scap_venv_for_user {
     return $?
   }
 
-  local DISTRO
-  DISTRO=$(lsb_release -cs)
-  local DIST_DIR=$BASE_DIST_DIR/$DISTRO
+  local DIST_DIR=
+  DIST_DIR=$($GET_DIST_DIR_PATH "$HOST_DISTRO")
   local SCAP_VENV_DIR=${USER_HOME}/scap
   local OLD_SCAP_VENV_DIR=
 
@@ -220,41 +280,39 @@ function install_scap_venv_for_user {
   fi
 
   echo
-  if [ "$TAG" = n ]; then
-    log "Scap from local $DISTRO wheels successfully installed at $SCAP_VENV_DIR"
-  elif [ "$TAG" = latest ]; then
-    log "Latest Scap for $DISTRO successfully installed at $SCAP_VENV_DIR"
-  else
-    log "Scap \"$TAG\" for $DISTRO successfully installed at $SCAP_VENV_DIR"
-  fi
-}
-
-function install_scap {
-  AS_USER=
-  if [ "$INSTALL_USER" != "$(id -un)" ]; then
-    AS_USER="sudo -su $INSTALL_USER"
-  fi
-
-  if [ "$ON_PRIMARY" = y ]; then
-    for DISTRO in $SUPPORTED_DISTROS; do
-      get_scap_distribution "$DISTRO"
-    done
-  fi
-
-  install_scap_venv_for_user
+  log "Scap \"$TAG\" for \"$HOST_DISTRO\" successfully installed at $SCAP_VENV_DIR"
 }
 
 parseArgs "$@"
-verify_distro
-verify_user
 
+HOST_DISTRO=$(lsb_release -cs)
+AS_USER=
+if [ "$INSTALL_USER" != "$(id -un)" ]; then
+  AS_USER="sudo -su $INSTALL_USER"
+fi
 USER_HOME=$(eval echo "~$INSTALL_USER")
-if [ "$ON_PRIMARY" = y ] || [ "$ON_SECONDARY" = y ]; then
+if on_master; then
   BASE_DIST_DIR=$USER_HOME/scap-wheels
+  GET_DIST_DIR_PATH=get_dist_dir_path_master
 else
   BASE_DIST_DIR=$USER_HOME
+  GET_DIST_DIR_PATH=get_dist_dir_path_target
+fi
+
+verify_distro
+verify_user
+if on_master; then
+  verify_version_tag
 fi
 if [ "$ON_PRIMARY" != y ]; then
   verify_local_wheels_available
+fi
+if [ "$ON_PRIMARY" = y ]; then
+  get_distributions
+  clean_up_distributions
+  if [ "$SKIP_PRIMARY_INSTALL" = y ]; then
+    log "Distributions downloaded. Skipping local installation on primary as requested"
+    exit 0
+  fi
 fi
 install_scap

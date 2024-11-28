@@ -7,7 +7,7 @@ class InstallWorldTest(unittest.TestCase):
     def test_classify_targets_by_dc_master(self):
         install_world = InstallWorld("TestInstallWorld")
         install_world.masters = ["m.dc1.com", "m.dc2.com"]
-        install_world.targets = [
+        install_world.selected_targets = [
             "t1.dc1.com",
             "t2.dc1.com",
             "t.dc2.com",
