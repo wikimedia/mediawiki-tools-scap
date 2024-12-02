@@ -1,3 +1,9 @@
+scap (4.131.0)
+
+  * Revert "Clear stdin before reading user input"
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Mon, 02 Dec 2024 09:48:24 -0800
+
 scap (4.130.0)
 
   * Remove check for agreement between all.dblist and wikiversions.json
