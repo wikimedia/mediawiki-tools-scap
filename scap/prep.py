@@ -320,7 +320,7 @@ class CheckoutMediaWiki(cli.Application):
         with utils.suppress_backtrace():
             git.clone_or_update_repo(dir, repo, branch, logger, reference, ref=ref)
 
-            # Ensure all repositories have a ssh push url
+            # Ensure we have a ssh push on the parent project
             repo_name = os.path.relpath(repo, self.config["gerrit_url"])
             git.gitcmd(
                 "remote",
@@ -330,6 +330,21 @@ class CheckoutMediaWiki(cli.Application):
                 os.path.join(self.config["gerrit_push_url"], repo_name),
                 cwd=dir,
             )
+
+            # And `scap clean` needs to be able to push to the branch deletions
+            # in submodules. Set pushInsteadOf in the local config
+            git.gitcmd(
+                "submodule",
+                "foreach",
+                "git",
+                "config",
+                "--local",
+                "--replace-all",
+                "url.%s.pushInsteadOf" % self.config["gerrit_push_url"].rstrip("/"),
+                self.config["gerrit_url"].rstrip("/"),
+                cwd=dir,
+            )
+
             # If the repo checkout is being reused, that can cause problems when a
             # module is removed upstream from `.gitmodules`. We detect that situation
             # and clean the local checkout
