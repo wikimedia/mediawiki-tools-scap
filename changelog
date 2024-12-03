@@ -1,3 +1,9 @@
+scap (4.132.0)
+
+  * install-world: rework installer
+
+ -- Jaime Nuche <jnuche@wikimedia.org>  Tue, 03 Dec 2024 13:21:23 +0100
+
 scap (4.131.0)
 
   * Revert "Clear stdin before reading user input"
