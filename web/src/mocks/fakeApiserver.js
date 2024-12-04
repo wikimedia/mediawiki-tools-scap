@@ -1,7 +1,9 @@
 import fakeScapBackport from './fakeBackport.mjs';
 
 async function sleep( ms ) {
-	return new Promise( ( resolve ) => setTimeout( resolve, ms ) );
+	return new Promise( ( resolve ) => {
+		setTimeout( resolve, ms );
+	} );
 }
 
 function timestamp() {
@@ -28,6 +30,8 @@ class Job {
 	status = null;
 
 	interaction = null;
+
+	signalCallback = null;
 
 	log = [];
 
@@ -80,6 +84,10 @@ class Interaction {
 	id = null;
 
 	job_id = null;
+
+	resolve = null;
+
+	error = null;
 
 	constructor( job_id, payload ) {
 		this.id = nextInteractionId++;
@@ -175,7 +183,18 @@ class fakeApiserver {
 			throw new Error( `Job with id ${ job_id } does not exist` );
 		}
 
-		job.signal( type );
+		if ( job.finished_at ) {
+			throw new Error( `Job ${ job_id } cannot be signalled because it has already finished` );
+		}
+
+		const interaction = job.interaction;
+		if ( interaction ) {
+			interaction.resolve( { signal: type } );
+		} else {
+			if ( job.signalCallback ) {
+				job.signalCallback( type );
+			}
+		}
 	}
 
 	getJobLog( job_id, abortsignal ) {
@@ -267,16 +286,32 @@ class fakeApiserver {
 			interaction = new Interaction( job.id, interaction );
 			job.interaction = interaction;
 			// FIXME: Render the interaction (and the response) to the log
-			const response = await new Promise( ( resolve ) => interaction.resolve = resolve );
+			const response = await new Promise( ( resolve ) => {
+				interaction.resolve = resolve;
+			} );
 			job.interaction = null;
 			return response;
 		} );
-		await bp.run( job.commandDecoded.slice( 2 ) );
+		job.signalCallback = ( type ) => {
+			bp.signal( type );
+		};
+		const exitStatus = await bp.run( job.commandDecoded.slice( 2 ) );
 
-		console.log( `Job ${ job.id } finished` );
+		let finalStatus;
+		if ( exitStatus === 0 ) {
+			finalStatus = `Job ${ job.id } finished normally`;
+		} else if ( exitStatus < 0 ) {
+			finalStatus = `Job ${ job.id } terminated by signal ${ -exitStatus }`;
+		} else {
+			finalStatus = `Job ${ job.id } finished with status ${ exitStatus }`;
+		}
+
+		console.log( finalStatus );
+
+		job.exit_status = exitStatus;
 		job.finished_at = timestamp();
-		job.exit_status = 0;
-		job.status = `Job ${ job.id } terminated`;
+		job.status = finalStatus;
+		job.interaction = null;
 	}
 
 	async searchPatch( q, n ) {
