@@ -352,8 +352,13 @@ async def get_jobs(
     limit: int = 10,
     skip: Optional[int] = 0,
 ):
+    jobs = Job.get_jobs(session, limit, skip)
+
+    for job in jobs:
+        job.interaction = get_parsed_interaction(session, job)
+
     return {
-        "jobs": Job.get_jobs(session, limit, skip),
+        "jobs": jobs,
     }
 
 
