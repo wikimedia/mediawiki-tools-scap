@@ -280,7 +280,11 @@ function install_scap {
   fi
 
   echo
-  log "Scap \"$TAG\" for \"$HOST_DISTRO\" successfully installed at $SCAP_VENV_DIR"
+  if on_master; then
+    log "Scap \"$TAG\" for \"$HOST_DISTRO\" successfully installed at $SCAP_VENV_DIR"
+  else
+    log "Scap for \"$HOST_DISTRO\" successfully installed at $SCAP_VENV_DIR"
+  fi
 }
 
 parseArgs "$@"

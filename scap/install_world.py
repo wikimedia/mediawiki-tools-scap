@@ -302,6 +302,10 @@ class InstallWorld(cli.Application):
                 f"""Syncing installation material to {len(tgts)} scap targets from "{master}" """
             )
 
+            # Note that changes to the directory structure of the installation material need to be reflected in
+            # the Puppet Scap bootstrapping script at:
+            # https://gerrit.wikimedia.org/r/plugins/gitiles/operations/puppet/+/refs/heads/production/modules/scap/files/bootstrap-scap-target.sh
+
             base_rsync_command = [
                 "/usr/bin/rsync",
                 "--archive",
