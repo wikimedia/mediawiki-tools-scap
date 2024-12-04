@@ -195,12 +195,12 @@ export default defineComponent( {
 		} );
 
 		const statusChipMessage = computed( () => {
-			if ( props.exit_status === 0 ) {
-				return 'Finished';
-			} else if ( props.exit_status === 1 ) {
-				return 'Error';
-			} else {
+			if ( props.exit_status === null ) {
 				return 'Pending';
+			} else if ( props.exit_status === 0 ) {
+				return 'Finished';
+			} else {
+				return 'Error';
 			}
 		} );
 
