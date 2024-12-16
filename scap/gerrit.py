@@ -178,7 +178,7 @@ class GerritEndpoint(object):
 
         return self._uri_template.safe_substitute(urlencode_map(self.__dict__, kwargs))
 
-    def get(self, **kwargs):
+    def get(self, **kwargs) -> "AttrDict":
         """Call the api with a http get request"""
         params = kwargs.pop("params", None)
         uri = self._url(**kwargs)
@@ -188,7 +188,7 @@ class GerritEndpoint(object):
         res = self._session.get(uri, params=params, timeout=30)
         return self.load(res)
 
-    def load(self, res):
+    def load(self, res) -> "AttrDict":
         res.raise_for_status()
         if res.status_code == 200:
             try:
