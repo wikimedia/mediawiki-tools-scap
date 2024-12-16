@@ -56,14 +56,15 @@ class Job(Base):
     finished_at: Mapped[Optional[datetime.datetime]]
     exit_status: Mapped[Optional[int]]
     status: Mapped[Optional[str]]
+    data: Mapped[Optional[str]]  # Optional auxiliary information in JSON format
 
     @classmethod
-    def add(cls, session, user: str, command: List[str]) -> int:
+    def add(cls, session, user: str, command: List[str], data=None) -> int:
         """Create a new Job record and add it to the database.
 
         :returns: The job id
         """
-        job = Job(user=user, command=json.dumps(command))
+        job = Job(user=user, command=json.dumps(command), data=json.dumps(data))
         session.add(job)
         session.commit()
         return job.id

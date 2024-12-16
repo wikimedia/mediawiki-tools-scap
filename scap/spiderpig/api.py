@@ -7,8 +7,8 @@ import json
 import os
 import pyotp
 import subprocess
-
 import sys
+import urllib.parse
 
 if sys.version_info < (3, 9):
     from typing_extensions import Annotated
@@ -325,10 +325,30 @@ async def start_backport(
     gerritsession: Annotated[gerrit.GerritSession, Depends(get_gerrit_session)],
     session: Session = Depends(get_session),
 ):
+    baddies = []
+    change_infos = []
+
     # NOTE: 'change_url' is a list
-    baddies = [
-        url for url in change_url if gerritsession.change_number_from_url(url) is None
-    ]
+    for url in change_url:
+        change_num = gerritsession.change_number_from_url(url)
+        if change_num is None:
+            baddies.append(url)
+            continue
+
+        change = gerritsession.change_detail(change_num).get()
+        change_infos.append(
+            {
+                "number": change._number,
+                "project": change.project,
+                "branch": change.branch,
+                "subject": change.subject,
+                "commit_msg": change.revisions[
+                    change.current_revision
+                ].commit_with_footers,
+                "url": urllib.parse.urljoin(gerritsession.url, f"/c/{change._number}"),
+            }
+        )
+
     if baddies:
         raise HTTPException(
             status_code=400,
@@ -338,7 +358,12 @@ async def start_backport(
             },
         )
 
-    job_id = Job.add(session, user=user, command=["scap", "backport"] + change_url)
+    job_id = Job.add(
+        session,
+        user=user,
+        command=["scap", "backport"] + change_url,
+        data={"change_infos": change_infos},
+    )
     return {
         "message": "Job created",
         "id": job_id,
