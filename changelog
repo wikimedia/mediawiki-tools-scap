@@ -1,3 +1,14 @@
+scap (4.133.0)
+
+  * JobCard.vue: Fix statusChipMessage logic
+  * fakeApiServer/fakeBackport: Make job signalling work.
+  * spiderpig/api.py: Return interaction info in GET /api/jobs
+  * install-world: follow-up to recent rework
+  * scap prep: set pushInsteadOf in the submodules config
+  * Clear stdin before reading user input (take 2)
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Mon, 16 Dec 2024 09:34:27 -0800
+
 scap (4.132.0)
 
   * install-world: rework installer
