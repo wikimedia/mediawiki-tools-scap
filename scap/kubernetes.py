@@ -363,7 +363,12 @@ class K8sOps:
         # Using BaseException so that we catch KeyboardInterrupt too
         except BaseException as e:
             self.app.soft_errors = True
-            self.logger.error("K8s helmfile diffs for stage %s failed: %s", stage, e)
+            self.logger.error(
+                "K8s helmfile diffs for stage %s failed: %s %s",
+                stage,
+                type(e).__name__,
+                e,
+            )
         return []
 
     # Called by AbstractSync.main()
@@ -608,7 +613,7 @@ class K8sOps:
                     self._run_timed_cmd_quietly(
                         cmd, helmfile_dir, self.logger, really_quiet=True
                     )
-                    total += yaml.safe_load(tmp)["resources"]["replicas"]
+                    total += yaml.safe_load(tmp).get("resources", {}).get("replicas", 0)
 
         return total
 
