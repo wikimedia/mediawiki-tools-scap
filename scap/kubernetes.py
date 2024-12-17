@@ -515,12 +515,11 @@ class K8sOps:
 
                 return results
 
-        total_expected_replicas = self._get_total_expected_replicas(
-            datacenters, dep_configs
-        )
-
         report_queue = None
         if progress:
+            total_expected_replicas = self._get_total_expected_replicas(
+                datacenters, dep_configs
+            )
             report_queue = queue.Queue()
             reporter = threading.Thread(
                 target=self._deployment_reporter,
