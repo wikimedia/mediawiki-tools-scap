@@ -1,3 +1,15 @@
+scap (4.134.0)
+
+  * kubernetes.py: Only call _get_total_expected_replicas when needed
+  * kubernetes: add safeties around replica check
+  * fakeApiserver.js: Add change_infos to all backport jobs
+  * Fix fake job change info (v2)
+  * fakeApiserver.js: Fix fake job change info
+  * spiderpig: backport: Store basic info about changes
+  * gerrit.py: Add some type declarations
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Tue, 17 Dec 2024 14:02:59 -0800
+
 scap (4.133.0)
 
   * JobCard.vue: Fix statusChipMessage logic
