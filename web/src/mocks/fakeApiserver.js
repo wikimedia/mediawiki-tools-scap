@@ -270,13 +270,14 @@ class fakeApiserver {
 		const change_infos = [];
 
 		for ( const changeNum of command.slice( 2 ) ) {
+			// Sample data from https://gerrit.wikimedia.org/r/c/mediawiki/core/+/1109149
 			change_infos.push(
 				{
 					number: parseInt( changeNum ),
 					project: 'mediawiki/core',
-					branch: 'wmf/1.44.0-wmf.6',
-					subject: 'LanguageConverter: Ignore content inside <math> and <svg> elements',
-					commit_msg: 'LanguageConverter: Ignore content inside <math> and <svg> elements\n\nBug: T381617\nChange-Id: Ie4a89e00da5cf691b052d62bd9e53473a8be3a2f\n(cherry picked from commit fc8ed3ce5f50bb413aed86ad61981766db5a3d5f)\n',
+					branch: 'wmf/1.44.0-wmf.11',
+					subject: 'filerepo: Fix schema compatibility constant usage',
+					commit_msg: 'filerepo: Fix schema compatibility constant usage\n\nWhy:\n\n- I8d98d187ba4f1342167820b5710f5382b2ac4831 added basic support for\n  writing to the new normalized file tables, gated between the\n  $wgFileSchemaMigrationStage config var set to use the old schema by\n  default.\n- Code checking this config var should be using SCHEMA_COMPAT_WRITE_NEW\n  when determining whether the bitfield therein enables writing to the\n  new version of the schema, but is mistakenly using MIGRATION_NEW\n  instead.\n\nWhat:\n\n- Gate the writes behind SCHEMA_COMPAT_WRITE_NEW instead, as used by\n  other migrations.\n\nBug: T383269\nChange-Id: If1e665c8259c32e54716339cd4d1123fb4ac69cf\n',
 					url: `https://gerrit.wikimedia.org/r/c/${ changeNum }`
 				}
 			);
