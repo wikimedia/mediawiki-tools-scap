@@ -13,6 +13,7 @@ RUN groupadd -g ${GID} -o deployment
 RUN useradd -m -s /bin/bash -u ${UID} -g deployment deployer01
 
 USER deployer01
+WORKDIR /home/deployer01
 
 #########
 # SETUP #
@@ -29,3 +30,11 @@ ENTRYPOINT ["/entrypoint.setup"]
 FROM base AS deploy
 COPY entrypoint.deploy /
 ENTRYPOINT ["/entrypoint.deploy"]
+
+#######
+# CAS #
+#######
+
+FROM base AS cas
+COPY cas_server.py /home/deployer01
+ENTRYPOINT ["fastapi", "run", "--host", "0.0.0.0", "--port", "8002", "cas_server.py"]

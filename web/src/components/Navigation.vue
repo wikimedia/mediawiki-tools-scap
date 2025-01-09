@@ -24,7 +24,7 @@
 				weight="quiet"
 				@click="logout"
 			>
-				Logout
+				Logout {{ user }}
 			</cdx-button>
 		</div>
 	</nav>
@@ -32,7 +32,6 @@
 
 <script lang="ts">
 import { computed } from 'vue';
-import { useRouter } from 'vue-router';
 import { CdxButton } from '@wikimedia/codex';
 import useApi from '../api';
 
@@ -43,19 +42,19 @@ export default {
 	},
 
 	setup() {
-		// Pinia store and router.
-		const router = useRouter();
 		const api = useApi();
 		const isLoggedIn = computed( () => api.isAuthenticated );
+		const user = computed( () => api.authUser );
 
-		function logout() {
-			api.logout();
-			router.push( '/login' );
+		async function logout() {
+			const SSOLogoutUrl = await api.logout();
+			document.location = SSOLogoutUrl;
 		}
 
 		return {
 			isLoggedIn,
-			logout
+			logout,
+			user
 		};
 	}
 };

@@ -41,6 +41,27 @@ services:
         read_only: true
     ports:
       - 8000:8000
+  cas:
+    build:
+      context: .
+      target: cas
+    init: true
+    hostname: cas
+    depends_on:
+      setup:
+        condition: service_completed_successfully
+    volumes:
+      - workspace:/workspace
+      - type: bind
+        source: ..
+        target: /scap-source
+        read_only: true
+    ports:
+      - 8002:8002
+    networks:
+      default:
+        aliases:
+          - cas.local.wmftest.net
       
 volumes:
   workspace:

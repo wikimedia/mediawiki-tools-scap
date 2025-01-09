@@ -1,7 +1,7 @@
 import json
 import os
-
 import time
+
 from typing import List, Optional
 from sqlalchemy import ForeignKey, select, delete, text, null
 from sqlalchemy.ext.hybrid import hybrid_property
@@ -10,6 +10,41 @@ from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, Session
 
 class Base(DeclarativeBase):
     pass
+
+
+class User(Base):
+    __tablename__ = "user"
+
+    name: Mapped[str] = mapped_column(primary_key=True)
+    otp_seed: Mapped[str]
+    last_2fa_time: Mapped[Optional[int]]
+    last_2fa_code: Mapped[Optional[str]]
+
+    @classmethod
+    def get(self, session: Session, name: str) -> Optional["User"]:
+        return session.scalar(select(User).where(User.name == name))
+
+    @classmethod
+    def add(self, session: Session, name: str, otp_seed: str) -> "User":
+        """
+        The caller is assumed to have already verified that a user
+        with the given name does not already exist in the database.
+
+        This method starts and ends a transaction.
+        """
+        user = User(name=name, otp_seed=otp_seed)
+        session.execute(text("BEGIN IMMEDIATE"))
+        session.add(user)
+        session.commit()
+        return user
+
+    def update_last_2fa_code(self, session: Session, last_2fa_code: str):
+        """
+        This method commits.
+        """
+        self.last_2fa_time = time.time()
+        self.last_2fa_code = last_2fa_code
+        session.commit()
 
 
 class JobrunnerStatus(Base):
@@ -64,6 +99,7 @@ class Job(Base):
         :returns: The job id
         """
         job = Job(user=user, command=json.dumps(command), data=json.dumps(data))
+        session.execute(text("BEGIN IMMEDIATE"))
         session.add(job)
         session.commit()
         return job.id

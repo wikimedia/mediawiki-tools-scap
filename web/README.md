@@ -21,7 +21,7 @@ local-dev/start-apiserver
 
 The apiserver will listen on local port 8000.
 
-### Get login information
+### Get 2FA one-time-password information
 
 ```sh
 local-dev/get-otp
@@ -45,7 +45,7 @@ When you start the API as described in the prior section, `npm run build` is exe
 
 ## Authentication
 
-When you are prompted for login information, run `local-dev/get-otp` to get the required information.
+To log in, the username is `deployer01` and the password is `scap100`.  When you are prompted for a run time password, run `local-dev/get-otp` to generate it.
 
 ## Hot-Reload for Development
 
