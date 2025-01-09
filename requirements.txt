@@ -33,5 +33,7 @@ python-multipart
 
 pyotp
 pyjwt
-
+python-cas
+itsdangerous
+lxml
 six

@@ -2,6 +2,7 @@ coverage
 mock
 pexpect
 pytest
+pytest-anyio
 pytest-cov
 pytest-mock
 pytest-subtests

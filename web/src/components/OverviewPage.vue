@@ -6,7 +6,6 @@
 <script lang="ts">
 import { defineComponent, ref, onMounted, onUnmounted } from 'vue';
 import useApi from '../api';
-import { useRouter } from 'vue-router';
 import SpBackport from './Backport.vue';
 import SpJobHistory from './JobHistory.vue';
 
@@ -18,9 +17,7 @@ export default defineComponent( {
 	},
 
 	setup() {
-		// Pinia store and router.
 		const api = useApi();
-		const router = useRouter();
 
 		// Reactive data properties.
 		const idle = ref( false );
@@ -47,12 +44,8 @@ export default defineComponent( {
 					updateInteraction( res.job_id );
 				}
 			} catch ( error ) {
-				if ( !api.isAuthenticated ) {
-					router.push( '/login' );
-				} else {
-					// eslint-disable-next-line no-console
-					console.error( `updateJobrunnerStatus caught: ${ error.message }` );
-				}
+				// eslint-disable-next-line no-console
+				console.error( `updateJobrunnerStatus caught: ${ error.message }` );
 			}
 		}
 

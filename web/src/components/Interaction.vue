@@ -37,7 +37,7 @@ export default defineComponent( {
 	},
 
 	setup( props ) {
-		// Pinia store and router.
+		// Pinia store
 		const api = useApi();
 
 		function choiceSelected( code: string ) {

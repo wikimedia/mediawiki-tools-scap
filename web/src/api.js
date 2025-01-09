@@ -5,13 +5,15 @@ const useAuthStore = defineStore( 'spiderpig-auth',
 	{
 		state() {
 			return {
-				token: useLocalStorage( 'spiderpig-auth-token', null ),
-				authFailing: false
+				authUser: useLocalStorage( 'spiderpig-auth-user', null ),
+				authFailing: false,
+				authCode: null,
+				authUrl: null
 			};
 		},
 		getters: {
 			isAuthenticated( state ) {
-				return state.token !== null && !state.authFailing;
+				return state.authUser && !state.authFailing;
 			},
 
 			apiserverBaseURL() {
@@ -24,69 +26,92 @@ const useAuthStore = defineStore( 'spiderpig-auth',
 			makeApiUrl( url ) {
 				return new URL( url, this.apiserverBaseURL );
 			},
-			async call( url, options, decodeJson = true, signal = null ) {
-				const localOptions = {
-					...options,
-					signal
-				};
 
-				if ( this.token !== null ) {
-					localOptions.headers = {
-						Authorization: `Bearer ${ this.token }`
-					};
+			async handle401( url, response ) {
+				const authresp = await response.json();
+
+				this.authFailing = true;
+				this.authCode = authresp.code;
+				this.authUrl = authresp.url;
+				this.authUser = authresp.user;
+				localStorage.setItem( 'spiderpig-auth-user', this.authUser );
+
+				console.log( `handle401: Auth failed for call to ${ url }: code: ${ authresp.code }, message: ${ authresp.message }` );
+
+				if ( authresp.code === 'need2fa' ) {
+					const params = new URLSearchParams( { redirect: window.location.href } );
+					const newUrl = `/login?${ params.toString() }`;
+					// console.log( `Redirecting to ${ newUrl }` );
+					window.location.href = newUrl;
+				}
+				if ( authresp.code === 'needauth' ) {
+					// console.log( `Setting window.location.href to ${ authresp.url }` );
+					window.location.href = authresp.url;
 				}
 
-				const response = await fetch( this.makeApiUrl( url ), localOptions );
-				this.authFailing = ( response.status === 401 );
+				throw new Error( `Auth failed for call to ${ url }: ${ authresp.message }` );
+			},
 
-				if ( !response.ok ) {
+			async call( url, fetchOptions = {}, callOptions = {} ) {
+				const augmentedFetchOptions = {
+					...fetchOptions,
+					credentials: import.meta.env.VITE_APISERVER_URL ? 'include' : 'same-origin'
+				};
+
+				const response = await fetch( this.makeApiUrl( url ), augmentedFetchOptions );
+
+				if ( response.status === 401 ) {
+					// This will throw an error
+					await this.handle401( url, response );
+				}
+
+				this.authFailing = false;
+
+				if ( callOptions.checkOk !== false && !response.ok ) {
 					throw new Error( `Response status: ${ response.status }` );
 				}
 
-				if ( decodeJson ) {
+				if ( callOptions.decodeJson !== false ) {
 					return await response.json();
 				} else {
 					return response;
 				}
 			},
-			async login( username, password ) {
-				const formData = new FormData();
-				formData.append( 'username', username );
-				formData.append( 'password', password );
-
-				let response;
-
-				try {
-					response = await fetch( this.makeApiUrl( '/api/login' ),
-						{
-							method: 'POST',
-							body: formData
-						}
-					);
-				} catch ( err ) {
-					this.authFailing = true;
-					return { statusText: `Login failed: ${ err.message }` };
-				}
-
-				this.authFailing = ( response.status === 401 );
-
-				if ( !response.ok ) {
-					if ( response.status === 401 ) {
-						return response;
+			async login2( otp ) {
+				const response = await this.call(
+					'/api/2fa',
+					{
+						method: 'POST',
+						body: otp
+					},
+					{
+						checkOk: false,
+						decodeJson: false
 					}
-					throw new Error( `Response status: ${ response.status }` );
+				);
+
+				let resp;
+
+				if ( response.ok || response.status === 400 ) {
+					resp = await response.json();
+					this.authUser = resp.user;
+					localStorage.setItem( 'spiderpig-auth-user', this.authUser );
+					this.authFailing = ( resp.code !== 'ok' );
+					return resp;
 				}
 
-				const res = await response.json();
+				throw new Error( `/api/2fa response status: ${ response.status }` );
 
-				this.token = res.token;
-				localStorage.setItem( 'spiderpig-auth-token', res.token );
-
-				return true;
 			},
-			logout() {
-				this.token = null;
-				localStorage.removeItem( 'spiderpig-auth-token' );
+			async logout() {
+				const resp = await this.call( '/api/logout',
+					{
+						method: 'POST'
+					}
+				);
+				this.authUser = null;
+				localStorage.removeItem( 'spiderpig-auth-user' );
+				return resp.SSOLogoutUrl;
 			},
 			async getJobrunnerStatus() {
 				return await this.call( '/api/jobrunner/status' );
@@ -130,7 +155,11 @@ const useAuthStore = defineStore( 'spiderpig-auth',
 					url.searchParams.append( 'include_sensitive', true );
 				}
 
-				return await this.call( url, {}, false, abortsignal );
+				return await this.call(
+					url,
+					{ signal: abortsignal },
+					{ decodeJson: false }
+				);
 			},
 			// eslint-disable-next-line camelcase
 			async startBackport( change_urls ) {

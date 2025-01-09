@@ -1,25 +1,10 @@
 <template>
 	<form @submit.prevent="login">
 		<cdx-field :status="status" :messages="messages">
-			<template #label>
-				Please Login
-			</template>
-
-			<template #description>
-				Login in with the username that the
-				<code>spiderpig-apiserver</code> process is running under.
-			</template>
-
-			<cdx-label input-id="username">
-				Username
-			</cdx-label>
-
-			<cdx-text-input id="username" v-model="username" />
-
 			<cdx-label input-id="password">
-				One time password
+				Please enter using your one time password
 				<template #description>
-					Run <code>scap spiderpig-otp</code> to generate a password.
+					Log into the deploy server as {{ user }} and run <code>scap spiderpig-otp</code> to generate the password.
 				</template>
 			</cdx-label>
 
@@ -46,7 +31,7 @@
 import { defineComponent, ref, computed, watch } from 'vue';
 import { CdxButton, CdxField, CdxTextInput, CdxLabel, ValidationStatusType, ValidationMessages } from '@wikimedia/codex';
 import useApi from '../api';
-import { useRouter, useRoute } from 'vue-router';
+import { useRoute } from 'vue-router';
 
 export default defineComponent( {
 	components: {
@@ -58,8 +43,8 @@ export default defineComponent( {
 	setup() {
 		// Pinia store and router.
 		const api = useApi();
-		const router = useRouter();
 		const route = useRoute();
+		const user = computed( () => api.authUser );
 		const redirectTarget = computed( () => {
 			if ( route.query.redirect ) {
 				// We're only using single strings as redirect targets in the route
@@ -73,23 +58,21 @@ export default defineComponent( {
 		// Reactive data properties.
 		const status = ref<ValidationStatusType>( 'default' );
 		const messages = ref<ValidationMessages>( {} );
-		const username = ref( '' );
 		const password = ref( '' );
-		const loginButtonDisabled = computed( () => username.value.trim() === '' || password.value.trim() === '' );
+		const loginButtonDisabled = computed( () => password.value.trim() === '' );
 
 		// Methods.
 		async function login() {
-			const trimmedUsername = username.value.trim();
 			const trimmedPassword = password.value.trim();
-			const res = await api.login( trimmedUsername, trimmedPassword );
+			const res = await api.login2( trimmedPassword );
 
-			if ( res !== true ) {
+			if ( res.code !== 'ok' ) {
 				status.value = 'error';
-				messages.value.error = res.statusText;
+				messages.value.error = res.message;
 				return;
 			}
 			// Login was successful
-			router.push( redirectTarget.value );
+			window.location.href = redirectTarget.value;
 		}
 
 		function clearErrorStatus() {
@@ -98,15 +81,15 @@ export default defineComponent( {
 			}
 		}
 
-		watch( [ username, password ], clearErrorStatus );
+		watch( [ password ], clearErrorStatus );
 
 		return {
 			status,
-			username,
 			password,
 			messages,
 			loginButtonDisabled,
-			login
+			login,
+			user
 		};
 	}
 } );

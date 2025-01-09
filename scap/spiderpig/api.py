@@ -1,15 +1,17 @@
 import asyncio
 import base64
-from datetime import datetime, timezone, timedelta
+import cas
+from datetime import datetime
+import fcntl
 import functools
 import html
-import jwt
 import json
 import os
 import pyotp
 import re
 import subprocess
 import sys
+import time
 import urllib.parse
 
 if sys.version_info < (3, 9):
@@ -19,11 +21,25 @@ else:
 
 from typing import List, Optional
 
-from fastapi import Depends, FastAPI, HTTPException, Query, Body, status
+from pydantic import BaseModel
+
+from fastapi import (
+    Depends,
+    FastAPI,
+    HTTPException,
+    Request,
+    Query,
+    Body,
+)
 from fastapi.encoders import jsonable_encoder
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, StreamingResponse
-from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
+from starlette.middleware.sessions import SessionMiddleware
+from fastapi.responses import (
+    FileResponse,
+    StreamingResponse,
+    RedirectResponse,
+    JSONResponse,
+)
 from fastapi.staticfiles import StaticFiles
 
 from sqlalchemy.orm import Session
@@ -31,29 +47,37 @@ from sqlalchemy.orm import Session
 from scap import cli, utils, gerrit
 
 import scap.spiderpig
-from scap.spiderpig.model import JobrunnerStatus, Job, Interaction, AlreadyResponded
+from scap.spiderpig.model import (
+    JobrunnerStatus,
+    Job,
+    Interaction,
+    AlreadyResponded,
+    User,
+)
+
+OTP_TIMEOUT = 60
 
 
-def get_pyotp() -> pyotp.TOTP:
-    seedfile = os.path.expanduser("~/.spiderpig-seed")
-
-    if os.path.exists(seedfile):
-        with open(seedfile) as f:
-            seed = f.read()
-    else:
-        seed = pyotp.random_base32()
-        with open(seedfile, "w") as f:
-            os.chmod(seedfile, 0o600)
-            f.write(seed)
-
-    return pyotp.TOTP(seed, interval=60)
+def get_or_init_dbuser(session: Session, username: str) -> User:
+    user = User.get(session, username)
+    if not user:
+        user = User.add(session, username, pyotp.random_base32())
+    return user
 
 
-def validate_otp(username, supplied_otp) -> bool:
-    expected_user = utils.get_username()
-    if username != expected_user:
+def get_pyotp(dbuser: User) -> pyotp.TOTP:
+    return pyotp.TOTP(dbuser.otp_seed, interval=OTP_TIMEOUT)
+
+
+def validate_otp(dbuser: User, supplied_otp: str) -> bool:
+    if (
+        supplied_otp == dbuser.last_2fa_code
+        and time.time() < dbuser.last_2fa_time + OTP_TIMEOUT
+    ):
+        # Don't allow reuse of the last code if it is still within its validity window.
         return False
-    return get_pyotp().verify(supplied_otp)
+
+    return get_pyotp(dbuser).verify(supplied_otp)
 
 
 @cli.command(
@@ -63,12 +87,20 @@ def validate_otp(username, supplied_otp) -> bool:
 )
 class SpiderpigOTP(cli.Application):
     def main(self, *extra_args):
-        totp = get_pyotp()
-        now = datetime.now().timestamp()
-        otp = get_pyotp().at(now)
-        time_remaining = totp.interval - now % totp.interval
-        print(f"Login: {utils.get_username()}")
-        print(f"Password: {otp}  (Expires in {round(time_remaining)} seconds)")
+        username = utils.get_username()
+
+        # Set SPIDERPIG_DBFILE in the environment so that get_db_session()
+        # will work.
+        os.environ["SPIDERPIG_DBFILE"] = self.spiderpig_dbfile()
+
+        with _get_db_session() as session:
+            user = get_or_init_dbuser(session, username)
+            totp = get_pyotp(user)
+            now = datetime.now().timestamp()
+            otp = totp.at(now)
+            time_remaining = totp.interval - now % totp.interval
+            print(f"Login: {utils.get_username()}")
+            print(f"Password: {otp}  (Expires in {round(time_remaining)} seconds)")
 
 
 @cli.command(
@@ -112,7 +144,7 @@ class SpiderpigAPIServer(cli.Application):
                 "SPIDERPIG_DIR": self.spiderpig_dir(),
                 "SPIDERPIG_JOB_LOG_DIR": self.spiderpig_joblogdir(),
                 "SPIDERPIG_DBFILE": self.spiderpig_dbfile(),
-                "SPIDERPIG_JWT_KEY_FILE": self.spiderpig_jwt_secret_file(),
+                "SPIDERPIG_SESSION_KEY_FILE": self.spiderpig_session_secret_file(),
             }
         )
         if self.arguments.dev:
@@ -134,16 +166,103 @@ class SpiderpigAPIServer(cli.Application):
 
 
 app = FastAPI()
-if os.getenv("SPIDERPIG_OPEN_CORS"):
-    app.add_middleware(
-        CORSMiddleware,
-        allow_origins=["*"],
-        allow_headers=["authorization"],
-        allow_methods=["GET", "POST"],
-    )
+
+#####################
+# SUPPORT FUNCTIONS #
+#####################
 
 
-def _get_session():
+def read_or_initialize_file(filename, initial_value_func) -> str:
+    """
+    initial_value_func must return a string.
+    """
+    # This results in openat(AT_FDCWD, filename, O_RDWR|O_CREAT|O_APPEND|O_CLOEXEC, 0666).
+    with open(filename, "a+") as f:
+        fd = f.fileno()
+        # Acquire read lock
+        fcntl.lockf(fd, fcntl.LOCK_SH)
+
+        try:
+            f.seek(0)
+            got = f.read()
+            if len(got):
+                return got
+        finally:
+            fcntl.lockf(fd, fcntl.LOCK_UN)
+        # Read lock has been released.
+
+        # Acquire exclusive lock to maybe initialize the file.
+        fcntl.lockf(fd, fcntl.LOCK_EX)
+
+        try:
+            # It is possible that another process has finished
+            # initializing the file between the time we released the read lock and acquired
+            # the exclusive lock, so check again.
+            f.seek(0)
+            got = f.read()
+            if len(got):
+                return got
+
+            # The file is still empty.  Initialize it.
+            os.chmod(filename, 0o660)
+
+            got = initial_value_func()
+            f.write(got)
+
+            return got
+
+        finally:
+            fcntl.lockf(fd, fcntl.LOCK_UN)
+
+
+def reset_file(filename):
+    """
+    Truncate the specified file while holding an exclusive lock on it.
+    """
+    with open(filename, "a+") as f:
+        fd = f.fileno()
+        fcntl.lockf(fd, fcntl.LOCK_EX)
+        try:
+            os.ftruncate(fd, 0)
+        finally:
+            fcntl.lockf(fd, fcntl.LOCK_UN)
+
+
+def get_session_key() -> str:
+    filename = os.getenv("SPIDERPIG_SESSION_KEY_FILE")
+
+    def generate_session_key():
+        return os.urandom(32).hex()  # 256 random bits
+
+    return read_or_initialize_file(filename, generate_session_key)
+
+
+def session_epoch_filename():
+    return os.path.join(os.getenv("SPIDERPIG_DIR"), "session-epoch")
+
+
+def get_current_epoch() -> str:
+    def generate_epoch():
+        return os.urandom(32).hex()  # 256 random bits
+
+    return read_or_initialize_file(session_epoch_filename(), generate_epoch)
+
+
+def reset_current_epoch():
+    reset_file(session_epoch_filename())
+
+
+@functools.lru_cache()
+def get_scap_config():
+    return json.loads(base64.b64decode(os.getenv("SPIDERPIG_SCAP_CONFIG")))
+
+
+@functools.lru_cache()
+def get_scap_flags():
+    return json.loads(base64.b64decode(os.getenv("SPIDERPIG_SCAP_FLAGS")))
+
+
+def _get_db_session():
     # Using check_same_thread=False allows FastAPI to use the same SQLite database
     # in different threads. This is necessary as one single request could use more
     # than one thread (for example in dependencies).
@@ -155,83 +274,143 @@ def _get_session():
     )
 
 
-def get_session():
-    session = _get_session()
+def get_db_session():
+    session = _get_db_session()
     try:
         yield session
     finally:
         session.close()
 
 
-ALGORITHM = "HS256"
-ISSUER = "spiderpig-auth"
-
-
-@functools.lru_cache()
-def get_jwt_secret_key() -> str:
-    filename = os.getenv("SPIDERPIG_JWT_KEY_FILE")
-
-    if os.path.exists(filename):
-        with open(filename) as f:
-            key = f.read()
-    else:
-        key = os.urandom(32).hex()  # 256 random bits
-        with open(filename, "w") as f:
-            os.chmod(filename, 0o660)
-            f.write(key)
-
-    return key
-
-
-def generate_token() -> str:
-    now = datetime.now(tz=timezone.utc)
-    claims = {
-        "sub": utils.get_username(),
-        "exp": now + timedelta(hours=1),
-        "iat": now,
-        "iss": ISSUER,
-    }
-    return jwt.encode(claims, get_jwt_secret_key(), algorithm=ALGORITHM)
-
-
-def validate_token(token: str) -> Optional[str]:
-    """
-    Returns the subject (the user) of the token if it is valid.
-    """
-    try:
-        claims = jwt.decode(
-            token,
-            get_jwt_secret_key(),
-            algorithms=[ALGORITHM],
-            options={
-                "verify_iss": True,
-                "verify_exp": True,
-                "verify_iat": True,
-            },
-            issuer=ISSUER,
+def guess_login_url(request):
+    host_header = request.headers.get("Host")
+    if not host_header:
+        raise HTTPException(
+            status_code=400, detail="HTTP request did not include the Host header"
         )
-    except jwt.InvalidTokenError:
+    host = host_header.split(":")[0]
+    if host == "localhost":
+        scheme = "http"
+    else:
+        scheme = "https"
+    return f"{scheme}://{host_header}/api/login"
+
+
+def cas_client(request: Request, next=None) -> cas.CASClientV3:
+    service_url = guess_login_url(request)
+
+    if next:
+        next = urllib.parse.urlencode({"next": next})
+        service_url += f"?{next}"
+
+    server_url = get_scap_config()["spiderpig_auth_server"]
+    if not server_url:
+        raise Exception(
+            "spiderpig_auth_server must be set up scap.cfg for SpiderPig authentication to work"
+        )
+
+    # server_url must end with a trailing slash for proper operation.
+    if not server_url.endswith("/"):
+        server_url += "/"
+
+    return cas.CASClientV3(
+        server_url=server_url,
+        service_url=service_url,
+    )
+
+
+# This object is stored in a cookie in the client browser, so don't
+# include any secret information in here.
+class SessionUser(BaseModel):
+    name: str  # The shell username
+    groups: List[str]
+    fully_authenticated: bool = False
+
+    @property
+    def isAdmin(self) -> bool:
+        admin_group = get_scap_config()["spiderpig_admin_group"]
+        if not admin_group:
+            return False
+        return admin_group in self.groups
+
+
+class NotAuthenticatedException(Exception):
+    def __init__(self, need2fa=False, user: SessionUser = None):
+        self.need2fa = need2fa
+        self.user = user
+
+
+ROUTE_2FA = "/api/2fa"
+
+
+@app.exception_handler(NotAuthenticatedException)
+async def auth_exception_handler(request: Request, exc: NotAuthenticatedException):
+    if exc.need2fa:
+        return JSONResponse(
+            status_code=401,
+            content={
+                "code": "need2fa",
+                "message": "Please complete 2FA first",
+                "url": ROUTE_2FA,
+                "user": exc.user.name,
+            },
+        )
+
+    return JSONResponse(
+        status_code=401,
+        content={
+            "code": "needauth",
+            "message": "Please log in first",
+            "url": cas_client(request, request.headers.get("Referer")).get_login_url(),
+        },
+    )
+
+
+def maybe_get_current_user(request: Request) -> Optional[SessionUser]:
+    """
+    Returns a SessionUser object which may or may not have completed
+    authentication.  Returns None if there is no current user.
+    """
+    user = request.session.get("user")
+    if not user:
         return None
 
-    return claims.get("sub")
+    # Discard user information from other epochs.
+    if request.session.get("epoch") != get_current_epoch():
+        return None
+
+    return SessionUser(**user)
 
 
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/login")
+def get_current_user(request: Request) -> SessionUser:
+    """
+    Returns a fully authenticated SessionUser object, or
+    raises NotAuthenticatedException if there is no current user
+    or if the current user it not fully authenticated.
+    """
+    user = maybe_get_current_user(request)
 
-
-async def get_current_user(token: Annotated[str, Depends(oauth2_scheme)]):
-    user = validate_token(token)
     if not user:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid authentication credentials",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
+        raise NotAuthenticatedException()
+    if not user.fully_authenticated:
+        raise NotAuthenticatedException(need2fa=True, user=user)
 
     return user
 
 
-async def get_job_by_id(job_id: int, session: Session = Depends(get_session)):
+def get_admin_user(request: Request) -> SessionUser:
+    user = get_current_user(request)
+    if user.isAdmin:
+        return user
+    raise HTTPException(
+        status_code=403,
+        detail={
+            "message": "Admin privileges are required for this operation",
+        },
+    )
+
+
+async def get_job_by_id(job_id: int, session: Session = Depends(get_db_session)):
     job = Job.get(session, job_id)
     if job is None:
         raise HTTPException(
@@ -242,16 +421,6 @@ async def get_job_by_id(job_id: int, session: Session = Depends(get_session)):
             },
         )
     return job
-
-
-@functools.lru_cache()
-def get_scap_config():
-    return json.loads(base64.b64decode(os.getenv("SPIDERPIG_SCAP_CONFIG")))
-
-
-@functools.lru_cache()
-def get_scap_flags():
-    return json.loads(base64.b64decode(os.getenv("SPIDERPIG_SCAP_FLAGS")))
 
 
 def get_gerrit_session(config: Annotated[dict, Depends(get_scap_config)]):
@@ -318,10 +487,14 @@ def linkify_commit_mesage(commit_message) -> List:
     return res
 
 
+##########
+# ROUTES #
+##########
+
+
 @app.get("/api/jobrunner/status")
 async def jobrunner_status(
-    user: Annotated[str, Depends(get_current_user)],
-    session: Session = Depends(get_session),
+    session: Session = Depends(get_db_session),
 ):
     def pid_exists(pid: int) -> bool:
         try:
@@ -357,12 +530,12 @@ async def jobrunner_status(
 
 @app.post("/api/jobs/train")
 async def start_train(
-    user: Annotated[str, Depends(get_current_user)],
-    session: Session = Depends(get_session),
+    user: Annotated[SessionUser, Depends(get_current_user)],
+    session: Session = Depends(get_db_session),
 ):
     job_id = Job.add(
         session,
-        user=user,
+        user=user.name,
         command=[
             "scap",
             "train",
@@ -383,9 +556,9 @@ async def start_backport(
             description="The URL or change number of the change to backport",
         ),
     ],
-    user: Annotated[str, Depends(get_current_user)],
+    user: Annotated[SessionUser, Depends(get_current_user)],
     gerritsession: Annotated[gerrit.GerritSession, Depends(get_gerrit_session)],
-    session: Session = Depends(get_session),
+    session: Session = Depends(get_db_session),
 ):
     baddies = []
     change_infos = []
@@ -424,7 +597,7 @@ async def start_backport(
 
     job_id = Job.add(
         session,
-        user=user,
+        user=user.name,
         command=["scap", operation] + get_scap_flags() + change_url,
         data={"change_infos": change_infos},
     )
@@ -436,8 +609,7 @@ async def start_backport(
 
 @app.get("/api/jobs")
 async def get_jobs(
-    user: Annotated[str, Depends(get_current_user)],
-    session: Session = Depends(get_session),
+    session: Session = Depends(get_db_session),
     limit: int = 10,
     skip: Optional[int] = 0,
 ):
@@ -459,8 +631,7 @@ async def get_jobs(
 @app.get("/api/jobs/{job_id}")
 async def get_job(
     job: Annotated[Job, Depends(get_job_by_id)],
-    user: Annotated[str, Depends(get_current_user)],
-    session: Session = Depends(get_session),
+    session: Session = Depends(get_db_session),
 ):
     scap_config = get_scap_config()
     gerrit_url = scap_config["gerrit_url"]
@@ -496,8 +667,8 @@ async def interact(
     job: Annotated[Job, Depends(get_job_by_id)],
     interaction_id: int,
     response: Annotated[str, Body()],
-    user: Annotated[str, Depends(get_current_user)],
-    session: Session = Depends(get_session),
+    user: Annotated[SessionUser, Depends(get_current_user)],
+    session: Session = Depends(get_db_session),
 ):
     i = Interaction.lookup_pending(session, job.id)
     if i is None or i.id != interaction_id:
@@ -511,7 +682,7 @@ async def interact(
         )
 
     try:
-        i.respond(session, user, response)
+        i.respond(session, user.name, response)
     except AlreadyResponded:
         raise HTTPException(
             status_code=409,
@@ -533,11 +704,10 @@ async def interact(
 
 @app.get("/api/jobs/{job_id}/log")
 async def get_log(
-    user: Annotated[str, Depends(get_current_user)],
     job_id: int,
     include_sensitive: bool = False,
 ):
-    with _get_session() as session:
+    with _get_db_session() as session:
         # Validate the job_id
         await get_job_by_id(job_id, session)
 
@@ -573,7 +743,7 @@ async def get_log(
                     continue
                 # EOF
 
-                with _get_session() as session:
+                with _get_db_session() as session:
                     job = await get_job_by_id(job_id, session)
                     if job.finished_at:
                         return
@@ -587,10 +757,10 @@ async def get_log(
 async def signal_job(
     type: str,
     job: Annotated[Job, Depends(get_job_by_id)],
-    user: Annotated[str, Depends(get_current_user)],
-    session: Session = Depends(get_session),
+    user: Annotated[SessionUser, Depends(get_current_user)],
+    session: Session = Depends(get_db_session),
 ):
-    job.signal(session, user, type)
+    job.signal(session, user.name, type)
     return {
         "message": "Interrupted",
         "job_id": job.id,
@@ -601,7 +771,6 @@ async def signal_job(
 # io that happens when querying Gerrit.
 @app.get("/api/searchPatch")
 def searchPatch(
-    user: Annotated[str, Depends(get_current_user)],
     gerritsession: Annotated[gerrit.GerritSession, Depends(get_gerrit_session)],
     q: str,
     n: int,
@@ -612,18 +781,135 @@ def searchPatch(
         return []
 
 
-# FIXME: Rate limiting
-@app.post("/api/login")
-async def login(form_data: Annotated[OAuth2PasswordRequestForm, Depends()]):
-    if not validate_otp(form_data.username, form_data.password):
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect username or password",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
+#####################
+# AUTH RELATED CODE #
+#####################
+# Also see require_user in the Middleware section near the end of this file
 
-    token = generate_token()
-    return {"message": "Login successful", "token": token}
+
+# This function is intentionally not marked "async" due to the blocking
+# io that happens in `verify_ticket()`.
+@app.get("/api/login")
+def login(
+    request: Request,
+    next: Optional[str] = None,
+    ticket: Optional[str] = None,
+):
+    """
+    A CAS server will redirect the browser to this route when the user
+    has completed login into the auth server. The redirect will include a
+    single-use ticket that we validate here.
+
+    The reference to this route comes from guess_login_url.
+    """
+    if not ticket:
+        raise NotAuthenticatedException()
+
+    # The call to verify_ticket() will take the ticket and make a request
+    # to the auth server to validate it.  If validated, the username and
+    # attributes are returned.
+    username, attributes, _ = cas_client(request, next).verify_ticket(ticket)
+
+    if not username:
+        raise NotAuthenticatedException()
+
+    uid = attributes.get("uid")
+    if not uid:
+        raise NotAuthenticatedException()
+
+    # From here on, the username is the shell username (uid)
+    username = uid
+    groups = attributes.get("memberOf")
+    if groups is None:
+        groups = []
+    if isinstance(groups, str):
+        groups = list[groups]
+
+    user = SessionUser(name=username, groups=groups)
+    # Store the logged-in-user information in a signed cookie
+    # (prepared by SessionMiddleware, which is set up near the bottom of
+    # this file).
+    request.session["user"] = user.model_dump()
+    request.session["epoch"] = get_current_epoch()
+    return RedirectResponse(next or "/")
+
+
+@app.post(ROUTE_2FA)
+async def login2(
+    otp: Annotated[str, Body()],
+    request: Request,
+    user: Annotated[Optional[SessionUser], Depends(maybe_get_current_user)],
+    session: Session = Depends(get_db_session),
+):
+    """
+    This route is for performing 2FA.
+    """
+    if not user:
+        raise NotAuthenticatedException()
+
+    if user.fully_authenticated:
+        return {"code": "ok", "message": "2FA already completed", "user": user.name}
+
+    dbuser = get_or_init_dbuser(session, user.name)
+    if not validate_otp(dbuser, otp):
+        return JSONResponse(
+            status_code=400,
+            content={"code": "invalid", "message": "Invalid OTP", "user": user.name},
+        )
+    # Success
+    dbuser.update_last_2fa_code(session, otp)
+    user.fully_authenticated = True
+    request.session["user"] = user.model_dump()
+    return {"code": "ok", "message": "2FA completed", "user": user.name}
+
+
+@app.post("/api/logout")
+async def logout(
+    request: Request,
+    user: Annotated[Optional[SessionUser], Depends(maybe_get_current_user)],
+):
+    SSOLogoutUrl = cas_client(request).get_logout_url()
+
+    if not user:
+        return {
+            "message": "Already logged out",
+            "SSOLogoutUrl": SSOLogoutUrl,
+        }
+    # Discard knowledge about the current user.
+    request.session["user"] = None
+
+    return {
+        "message": "Logged out",
+        "SSOLogoutUrl": SSOLogoutUrl,
+    }
+
+
+@app.post("/api/logoutAll")
+async def logoutAll(user: Annotated[SessionUser, Depends(get_admin_user)]):
+    # Mass logout is achieved by terminating the current session epoch.
+    # The epoch information will be freshly created the next time it is
+    # accessed.
+    reset_current_epoch()
+    return {"message": "All login sessions have been invalidated"}
+
+
+@app.get("/api/whoami")
+async def whoami(
+    request: Request,
+    user: Annotated[Optional[SessionUser], Depends(maybe_get_current_user)],
+):
+    if user:
+        return {
+            "user": user.name,
+            "fully_authenticated": user.fully_authenticated,
+            "groups": user.groups,
+            "isAdmin": user.isAdmin,
+        }
+
+    return {
+        "user": None,
+        "loginUrl": cas_client(request).get_login_url(),
+    }
 
 
 ################
@@ -644,6 +930,66 @@ if os.path.isdir(assets_dir):
 # The following routes correspond to Vue routes established in router.js
 @app.get("/")
 @app.get("/login")
+@app.get("/logout")
 @app.get("/jobs/{job_id}")
 async def index_page():
     return FileResponse(index_html)
+
+
+##############
+# Middleware #
+##############
+
+# When processing an HTTP request, middlewares are processed in the reverse
+# order of their definitions. xref: https://github.com/fastapi/fastapi/issues/4746
+# Therefore all middleware stuff is together in this section of the file to avoid
+# confusion
+
+
+# This middleware is processed last
+@app.middleware("http")
+async def require_user(request: Request, call_next):
+    # Routes outside of the /api/ space are presumed to be user interface
+    # routes are therefore not protected.
+    if not request.url.path.startswith("/api/") or request.url.path in (
+        # These routes do not _require_ a current user.
+        "/api/login",
+        "/api/logout",
+        "/api/whoami",
+    ):
+        return await call_next(request)
+
+    # Beyond here, at least a partially authenticated user is required.
+
+    user = maybe_get_current_user(request)
+    if not user:
+        return await auth_exception_handler(request, NotAuthenticatedException())
+
+    # All remainining api routes except the 2FA route require a fully authenticated user.
+    if not user.fully_authenticated and request.url.path != ROUTE_2FA:
+        return await auth_exception_handler(
+            request, NotAuthenticatedException(need2fa=True, user=user)
+        )
+
+    # Beyond here we have a fully authenticated user.
+
+    return await call_next(request)
+
+
+# SessionMiddleware must be processed before require_user() (which uses `request.session`)
+# is defined, therefore it must be added after require_user() is defined, since middlewares are
+# processed in reverse order of their definitions.
+if os.getenv("SPIDERPIG_SESSION_KEY_FILE"):
+    app.add_middleware(SessionMiddleware, secret_key=get_session_key())
+
+# CORSMiddleware must be processed before require_user(), therefore it must be
+# added after require_user() is defined, since middlewares are processed in reverse order
+# of their definitions.
+if os.getenv("SPIDERPIG_OPEN_CORS"):
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=["http://localhost:5173"],
+        allow_headers=["authorization"],
+        allow_methods=["GET", "POST"],
+        allow_credentials=True,
+    )
