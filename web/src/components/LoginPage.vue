@@ -35,7 +35,6 @@
 				action="progressive"
 				weight="primary"
 				:disabled="loginButtonDisabled"
-				@click="login"
 			>
 				Login
 			</cdx-button>
