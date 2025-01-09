@@ -274,7 +274,7 @@ class fakeApiserver {
 				{
 					number: parseInt( changeNum ),
 					project: 'mediawiki/core',
-					branch: 'wmf/wmf/1.44.0-wmf.6',
+					branch: 'wmf/1.44.0-wmf.6',
 					subject: 'LanguageConverter: Ignore content inside <math> and <svg> elements',
 					commit_msg: 'LanguageConverter: Ignore content inside <math> and <svg> elements\n\nBug: T381617\nChange-Id: Ie4a89e00da5cf691b052d62bd9e53473a8be3a2f\n(cherry picked from commit fc8ed3ce5f50bb413aed86ad61981766db5a3d5f)\n',
 					url: `https://gerrit.wikimedia.org/r/c/${ changeNum }`
