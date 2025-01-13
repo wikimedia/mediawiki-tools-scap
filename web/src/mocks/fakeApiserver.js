@@ -148,11 +148,15 @@ class fakeApiserver {
 	}
 
 	getJobInfo( job_id ) {
-		const job = this.#getJobById( job_id );
+		let job = this.#getJobById( job_id );
 
 		if ( !job ) {
 			throw new Error( `Job with id ${ job_id } does not exist` );
 		}
+
+		// JSON.parse(JSON.stringify()) to ensure that we always
+		// generate fresh objects to return from API calls.
+		job = JSON.parse( JSON.stringify( job ) );
 
 		return {
 			job: job,
