@@ -146,7 +146,7 @@ export default {
 
 .job-history {
 	&__heading {
-		font-size: 1.25rem;
+		font-size: @font-size-x-large;
 		margin-top: @spacing-100;
 		margin-bottom: @spacing-100;
 		padding-bottom: @spacing-25;

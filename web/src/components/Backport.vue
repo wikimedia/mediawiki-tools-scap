@@ -132,7 +132,7 @@ export default {
 	}
 
 	&__heading {
-		font-size: 1.25rem;
+		font-size: @font-size-x-large;
 	}
 
 	&__input {

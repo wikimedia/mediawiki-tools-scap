@@ -71,8 +71,8 @@ export default {
 	flex: 0 0 3rems;
 
 	img {
-		width: 47px;
-		height: 49px;
+		width: @size-300;
+		height: @size-300;
 	}
 }
 
@@ -81,17 +81,17 @@ export default {
 	display: flex;
 	flex-direction: column;
 	font-family: Montserrat;
-	font-size: 16px;
+	font-size: @font-size-medium;
 	font-style: normal;
 	font-weight: 800;
 	line-height: normal;
 	letter-spacing: 0.4px;
-	padding-left: 4px;
+	padding-left: @spacing-25;
 	align-self: stretch;
 
 	h1:last-child {
-		font-size: 19px;
-		font-weight: 600;
+		font-size: @font-size-x-large;
+		font-weight: @font-weight-semi-bold;
 	}
 }
 

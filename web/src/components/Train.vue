@@ -36,14 +36,16 @@ export default defineComponent( {
 
 </script>
 
-<style scoped>
+<style lang="less" scoped>
+@import ( reference ) '@wikimedia/codex-design-tokens/theme-wikimedia-ui.less';
+
 #train {
 	display: inline-flex;
 	flex-direction: column;
 	border-style: solid;
 	border-radius: 10px;
-	border-width: 1px;
-	padding: 5px;
-	margin: 5px;
+	border-width: @border-width-base;
+	padding: @spacing-30;
+	margin: @spacing-30;
 }
 </style>
