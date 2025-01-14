@@ -103,6 +103,7 @@ class SpiderpigAPIServer(cli.Application):
         )
         env.update(
             {
+                "SPIDERPIG_DIR": self.spiderpig_dir(),
                 "SPIDERPIG_JOB_LOG_DIR": self.spiderpig_joblogdir(),
                 "SPIDERPIG_DBFILE": self.spiderpig_dbfile(),
                 "SPIDERPIG_JWT_KEY_FILE": self.spiderpig_jwt_secret_file(),
