@@ -146,7 +146,7 @@ class Lock:
 
     def _wait_for_lock(self):
         """
-        Perform a blocking fnctl.lockf() call.  An exception will be raised
+        Perform a blocking fcntl.lockf() call.  An exception will be raised
         if the timeout period elapses before acquisition.
         """
         deadline_check_interval = self._get_deadline_check_interval()
