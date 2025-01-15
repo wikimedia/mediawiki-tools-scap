@@ -5,12 +5,14 @@
 		</div>
 
 		<div class="navigation__center">
-			<h1>
-				SPIDER PIG
-			</h1>
-			<h1>
-				DEPLOYMENT
-			</h1>
+			<router-link to="/">
+				<h1>
+					SPIDER PIG
+				</h1>
+				<h1>
+					DEPLOYMENT
+				</h1>
+			</router-link>
 		</div>
 
 		<div class="navigation__end">
@@ -88,6 +90,10 @@ export default {
 	letter-spacing: 0.4px;
 	padding-left: @spacing-25;
 	align-self: stretch;
+
+	a {
+		width: fit-content;
+	}
 
 	h1:last-child {
 		font-size: @font-size-x-large;
