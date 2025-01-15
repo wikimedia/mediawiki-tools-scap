@@ -2,6 +2,7 @@
 	<cdx-card
 		class="job-card"
 		:class="rootClasses"
+		:url="jobLink"
 	>
 		<template #description>
 			<div class="job-card__content">
@@ -9,9 +10,7 @@
 					<div class="job-card__label">
 						Id
 					</div>
-					<router-link :to="{ name: 'job', params: { jobId: id } }">
-						{{ id }}
-					</router-link>
+					<strong>{{ id }}</strong>
 				</div>
 
 				<div class="job-card__column">
@@ -205,7 +204,7 @@ import { cdxIconInfoFilled, cdxIconLinkExternal } from '@wikimedia/codex-icons';
 import Interaction from '../types/Interaction';
 import SpInteraction from './Interaction.vue';
 import SpJobLog from './JobLog.vue';
-import { useRoute } from 'vue-router';
+import { useRoute, useRouter } from 'vue-router';
 import '@xterm/xterm/css/xterm.css';
 
 const JOB_RUNNING = '..Running...';
@@ -281,9 +280,20 @@ export default defineComponent( {
 
 	setup( props ) {
 		const route = useRoute();
+		const router = useRouter();
+
 		const isLoading = ref( true );
 		const error = ref( null );
 		const parsedChangeInfo = JSON.parse( props.data );
+
+		// Return a string URL ( if we are not already on the page for this job)
+		// or null (if we are already on that page)
+		const jobLink = computed( () => {
+			const current = router.currentRoute;
+			const link = router.resolve( { name: 'job', params: { jobId: props.id } } );
+			return link.href !== current.value.path ? link.href : null;
+		} );
+
 		const changeInfos = computed( () => {
 			const { change_infos: infos } = parsedChangeInfo;
 			if ( !infos || infos.length === 0 ) {
@@ -433,7 +443,8 @@ export default defineComponent( {
 			changeInfos,
 			handleClick,
 			isLoading,
-			error
+			error,
+			jobLink
 		};
 	}
 } );
