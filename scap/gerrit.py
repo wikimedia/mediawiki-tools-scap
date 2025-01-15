@@ -346,7 +346,7 @@ class ChangeDetail(GerritEndpoint):
     revisionid = "current"
 
     def __init__(self, changeid, revisionid="current", **kwargs):
-        options = "?o=COMMIT_FOOTERS"
+        options = "?o=COMMIT_FOOTERS&o=CURRENT_COMMIT"
         if revisionid == "current":
             options += "&o=CURRENT_REVISION"
         elif revisionid == "all":
