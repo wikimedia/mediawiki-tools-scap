@@ -1,7 +1,9 @@
 <template>
 	<nav class="navigation">
 		<div class="navigation__start">
-			<img src="../assets/spiderpig.png">
+			<router-link to="/" tabindex="-1">
+				<img src="../assets/spiderpig.png" alt="Spiderpig logo">
+			</router-link>
 		</div>
 
 		<div class="navigation__center">
