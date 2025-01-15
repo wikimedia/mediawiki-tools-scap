@@ -282,16 +282,15 @@ class fakeApiserver {
 					branch: 'wmf/1.44.0-wmf.11',
 					subject: 'filerepo: Fix schema compatibility constant usage',
 					commit_msg: 'filerepo: Fix schema compatibility constant usage\n\nWhy:\n\n- I8d98d187ba4f1342167820b5710f5382b2ac4831 added basic support for\n  writing to the new normalized file tables, gated between the\n  $wgFileSchemaMigrationStage config var set to use the old schema by\n  default.\n- Code checking this config var should be using SCHEMA_COMPAT_WRITE_NEW\n  when determining whether the bitfield therein enables writing to the\n  new version of the schema, but is mistakenly using MIGRATION_NEW\n  instead.\n\nWhat:\n\n- Gate the writes behind SCHEMA_COMPAT_WRITE_NEW instead, as used by\n  other migrations.\n\nBug: T383269\nChange-Id: If1e665c8259c32e54716339cd4d1123fb4ac69cf\n',
-					url: `https://gerrit.wikimedia.org/r/c/${ changeNum }`
+					url: `https://gerrit.wikimedia.org/r/c/${ changeNum }`,
+					linkifiedCommitMsg: [ 'filerepo: Fix schema compatibility constant usage\n\nWhy:\n\n- ', { type: 'link', href: 'https://gerrit.wikimedia.org/r/q/I8d98d187ba4f1342167820b5710f5382b2ac4831', text: 'I8d98d187ba4f1342167820b5710f5382b2ac4831' }, ' added basic support for\n  writing to the new normalized file tables, gated between the\n  $wgFileSchemaMigrationStage config var set to use the old schema by\n  default.\n- Code checking this config var should be using SCHEMA_COMPAT_WRITE_NEW\n  when determining whether the bitfield therein enables writing to the\n  new version of the schema, but is mistakenly using MIGRATION_NEW\n  instead.\n\nWhat:\n\n- Gate the writes behind SCHEMA_COMPAT_WRITE_NEW instead, as used by\n  other migrations.\n\nBug: ', { type: 'link', href: 'https://phabricator.wikimedia.org/T383269', text: 'T383269' }, '\nChange-Id: ', { type: 'link', href: 'https://gerrit.wikimedia.org/r/q/If1e665c8259c32e54716339cd4d1123fb4ac69cf', text: 'If1e665c8259c32e54716339cd4d1123fb4ac69cf' }, '\n' ],
+					repoQueryUrl: 'https://gerrit.wikimedia.org/r/q/project:mediawiki/core',
+					branchQueryUrl: 'https://gerrit.wikimedia.org/r/q/project:mediawiki/core+branch:wmf/1.44.0-wmf.11'
 				}
 			);
 		}
 
-		job.data = JSON.stringify(
-			{
-				change_infos
-			}
-		);
+		job.data = { change_infos };
 		this.history.push( job );
 		return job;
 	}

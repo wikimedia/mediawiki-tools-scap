@@ -2,10 +2,12 @@ import asyncio
 import base64
 from datetime import datetime, timezone, timedelta
 import functools
+import html
 import jwt
 import json
 import os
 import pyotp
+import re
 import subprocess
 import sys
 import urllib.parse
@@ -257,6 +259,56 @@ def get_parsed_interaction(session, job) -> Optional[dict]:
     return i
 
 
+def linkify_commit_mesage(commit_message) -> List:
+    scap_config = get_scap_config()
+    phorge_url = scap_config["phorge_url"]
+    gerrit_url = scap_config["gerrit_url"]
+
+    # Extracted and converted from Gerrit's commentlink config.
+    LINKDEFS = {
+        "phabricator": {
+            "match": re.compile('\\bT(\\d+)(#\\d+)?\\b(?![#"]|</a>)'),
+            "link": f"{phorge_url}/T\\1\\2",
+        },
+        "changeid": {
+            "match": re.compile("\\b(I[0-9a-f]{7,40})\\b"),
+            "link": f"{gerrit_url}q/\\1",
+        },
+    }
+
+    res = [html.escape(commit_message)]
+
+    index = 0
+    while index < len(res):
+        current = res[index]
+        if not isinstance(current, str):
+            index += 1
+            continue
+
+        linkAdded = False
+        for linksettings in LINKDEFS.values():
+            m = linksettings["match"].search(current)
+            if m:
+                link = {
+                    "type": "link",
+                    "href": m.expand(linksettings["link"]),
+                    "text": m.group(),
+                }
+
+                before = current[: m.start()]
+                after = current[m.end() :]
+
+                res = res[0:index] + [before, link, after] + res[index + 1 :]
+
+                linkAdded = True
+                break
+
+        if not linkAdded:
+            index += 1
+
+    return res
+
+
 @app.get("/api/jobrunner/status")
 async def jobrunner_status(
     user: Annotated[str, Depends(get_current_user)],
@@ -381,7 +433,12 @@ async def get_jobs(
     jobs = Job.get_jobs(session, limit, skip)
 
     for job in jobs:
+        # Detach the job object from the SQLAlchemy session so that we can
+        # safely modify it without the changes being committed back to the
+        # database.
+        session.expunge(job)
         job.interaction = get_parsed_interaction(session, job)
+        job.data = json.loads(job.data)
 
     return {
         "jobs": jobs,
@@ -394,7 +451,27 @@ async def get_job(
     user: Annotated[str, Depends(get_current_user)],
     session: Session = Depends(get_session),
 ):
+    scap_config = get_scap_config()
+
     i = get_parsed_interaction(session, job)
+
+    data = json.loads(job.data)
+    for change_info in data["change_infos"]:
+        change_info["linkifiedCommitMsg"] = linkify_commit_mesage(
+            change_info["commit_msg"]
+        )
+        project = change_info["project"]
+        branch = change_info["branch"]
+        change_info["repoQueryUrl"] = urllib.parse.urljoin(
+            scap_config["gerrit_url"],
+            "/q/" + urllib.parse.quote_plus(f"project:{project}"),
+        )
+        change_info["branchQueryUrl"] = urllib.parse.urljoin(
+            scap_config["gerrit_url"],
+            "/q/" + urllib.parse.quote_plus(f"project:{project} branch:{branch}"),
+        )
+
+    job.data = data
 
     return {
         "job": job,

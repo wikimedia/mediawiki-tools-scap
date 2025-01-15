@@ -118,6 +118,7 @@
 											<a
 												class="job-card__details__change-info__link"
 												:href="info.repoURL"
+												target="_blank"
 											>
 												{{ info.project }}
 											</a>
@@ -131,6 +132,7 @@
 											<a
 												class="job-card__details__change-info__link"
 												:href="info.branchURL"
+												target="_blank"
 											>
 												{{ info.branch }}
 											</a>
@@ -146,40 +148,11 @@
 									</div>
 								</div>
 								<div class="job-card__details__change-info__label">
-									Change info
+									Commit message
 								</div>
-								<div>
-									<p class="job-card__details__change-info__subject">
-										{{ info.subject }}
-									</p>
-									<p class="job-card__details__change-info__commit-msg">
-										<pre>
-											{{ info.formattedCommitMsg }}
-										</pre>
-									</p>
-								</div>
-								<div
-									v-for="( bug, i ) in info.bugs"
-									:key="i"
-									class="job-card__details__change-info__bug"
-								>
-									Bug:
-									<a
-										class="job-card__details__change-info__link"
-										:href="bug.url"
-									>
-										{{ bug.id }}
-									</a>
-								</div>
-								<div class="job-card__details__change-info__change-id">
-									Change-Id:
-									<a
-										class="job-card__details__change-info__link"
-										:href="info.changeIdURL"
-									>
-										{{ info.changeId }}
-									</a>
-								</div>
+								<pre
+									class="job-card__details__change-info__commit-msg"
+									v-html="info.formattedCommitMsg" />
 							</div>
 						</cdx-accordion>
 					</div>
@@ -273,7 +246,7 @@ export default defineComponent( {
 			default: null
 		},
 		data: {
-			type: String,
+			type: Object,
 			required: false,
 			default: null
 		}
@@ -285,7 +258,6 @@ export default defineComponent( {
 
 		const isLoading = ref( true );
 		const error = ref( null );
-		const parsedChangeInfo = JSON.parse( props.data );
 
 		// Return a string URL ( if we are not already on the page for this job)
 		// or null (if we are already on that page)
@@ -296,7 +268,7 @@ export default defineComponent( {
 		} );
 
 		const changeInfos = computed( () => {
-			const { change_infos: infos } = parsedChangeInfo;
+			const { change_infos: infos } = props.data;
 			if ( !infos || infos.length === 0 ) {
 				return [];
 			}
@@ -304,38 +276,38 @@ export default defineComponent( {
 			return infos.map( formatChangeInfo );
 		} );
 
+		function formatCommitMsg( linkifiedCommitMsg ) {
+			// Returns an HTML string.
+			//
+			// NOTE: linkifiedCommitMsg is already processed on the
+			// server side to escape potential HTML tags.
+			let res = '';
+
+			for ( const elt of linkifiedCommitMsg ) {
+				if ( typeof ( elt ) === 'string' ) {
+					res += elt;
+				} else {
+					res += `<a href="${ elt.href }" target="_blank">${ elt.text }</a>`;
+				}
+			}
+
+			return res;
+		}
+
 		function formatChangeInfo( changeInfo ) {
-			const { commit_msg: commitMsg, project, branch, number, url } = changeInfo;
-			const splitCommitMsg = commitMsg?.split( '\n' ) || [];
-			const bugs = splitCommitMsg
-				.filter( ( line ) => line.startsWith( 'Bug:' ) )
-				.map( ( line ) => {
-					const bug = line.split( ' ' )[ 1 ];
-					return {
-						id: bug,
-						url: `https://phabricator.wikimedia.org/${ bug }`
-					};
-				} );
-			const formattedCommitMsg = splitCommitMsg
-				.slice( 1 )
-				.filter( ( line ) => !line.startsWith( 'Bug:' ) && !line.startsWith( 'Change-Id:' ) )
-				.join( '\n' )
-				.trimEnd();
-			const subject = splitCommitMsg[ 0 ] || null;
-			const changeId = splitCommitMsg.find( ( line ) => line.startsWith( 'Change-Id:' ) )?.split( ' ' )[ 1 ] || null;
+			const { linkifiedCommitMsg, subject, project, branch,
+				number, url, repoQueryUrl, branchQueryUrl } = changeInfo;
+			const formattedCommitMsg = formatCommitMsg( linkifiedCommitMsg );
 
 			return {
 				project,
 				branch,
 				number,
 				url,
-				repoURL: `https://gerrit.wikimedia.org/r/q/project:${ project }`,
-				branchURL: branch ? `https://gerrit.wikimedia.org/r/q/branch:${ branch }` : null,
-				changeIdURL: changeId ? `https://gerrit.wikimedia.org/r/q/${ changeId }` : null,
+				repoURL: repoQueryUrl,
+				branchURL: branchQueryUrl,
 				subject,
-				formattedCommitMsg,
-				bugs,
-				changeId
+				formattedCommitMsg
 			};
 		}
 
