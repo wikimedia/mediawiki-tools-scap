@@ -18,7 +18,7 @@
 					<div class="job-card__label">
 						Command
 					</div>
-					{{ getFormattedText( command_decoded ) }}
+					{{ command_decoded }}
 				</div>
 
 				<div class="job-card__column">
@@ -369,12 +369,6 @@ export default defineComponent( {
 			return date.toUTCString();
 		}
 
-		function getFormattedText( text:string ) {
-			return text.split( ' ' )
-				.map( ( word ) => word[ 0 ].toUpperCase() + word.slice( 1 ) )
-				.join( ' ' );
-		}
-
 		const calculatedDuration = computed( () => {
 			// Create Date objects from the UTC ISO 8601 timestamps.
 			const start = new Date( props.started_at );
@@ -427,7 +421,6 @@ export default defineComponent( {
 
 		return {
 			getFormattedDate,
-			getFormattedText,
 			statusType,
 			statusChipMessage,
 			cdxIconInfoFilled,
