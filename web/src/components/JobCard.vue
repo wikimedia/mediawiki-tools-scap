@@ -104,6 +104,7 @@
 											<a
 												class="job-card__details__change-info__link"
 												:href="info.url"
+												target="_blank"
 											>
 												{{ info.number }}
 											</a>
