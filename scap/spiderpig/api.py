@@ -343,9 +343,9 @@ async def start_backport(
                 "project": change.project,
                 "branch": change.branch,
                 "subject": change.subject,
-                "commit_msg": change.revisions[
-                    change.current_revision
-                ].commit_with_footers,
+                "commit_msg": change.revisions[change.current_revision]["commit"][
+                    "message"
+                ],
                 "url": urllib.parse.urljoin(gerritsession.url, f"/c/{change._number}"),
             }
         )
