@@ -63,7 +63,8 @@ export default defineComponent( {
 
 	&__prompt {
 		white-space: pre;
-		font-size: @font-size-medium;
+		font-family: 'Courier New', Courier, monospace;
+		font-size: 0.9375rem;
 		overflow-x: auto;
 		padding-bottom: @spacing-50;
 	}
