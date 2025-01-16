@@ -398,7 +398,7 @@ async def start_backport(
                 "commit_msg": change.revisions[change.current_revision]["commit"][
                     "message"
                 ],
-                "url": urllib.parse.urljoin(gerritsession.url, f"/c/{change._number}"),
+                "url": os.path.join(gerritsession.url, f"c/{change._number}"),
             }
         )
 
@@ -452,6 +452,7 @@ async def get_job(
     session: Session = Depends(get_session),
 ):
     scap_config = get_scap_config()
+    gerrit_url = scap_config["gerrit_url"]
 
     i = get_parsed_interaction(session, job)
 
@@ -462,13 +463,13 @@ async def get_job(
         )
         project = change_info["project"]
         branch = change_info["branch"]
-        change_info["repoQueryUrl"] = urllib.parse.urljoin(
-            scap_config["gerrit_url"],
-            "/q/" + urllib.parse.quote_plus(f"project:{project}"),
+        change_info["repoQueryUrl"] = os.path.join(
+            gerrit_url,
+            "q/" + urllib.parse.quote_plus(f"project:{project}"),
         )
-        change_info["branchQueryUrl"] = urllib.parse.urljoin(
-            scap_config["gerrit_url"],
-            "/q/" + urllib.parse.quote_plus(f"project:{project} branch:{branch}"),
+        change_info["branchQueryUrl"] = os.path.join(
+            gerrit_url,
+            "q/" + urllib.parse.quote_plus(f"project:{project} branch:{branch}"),
         )
 
     job.data = data
