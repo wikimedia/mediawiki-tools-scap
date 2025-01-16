@@ -67,12 +67,8 @@
 			</div>
 		</template>
 		<template #supporting-text>
-			<sp-interaction
-				v-if="showInteraction && interaction"
-				:interaction="interaction"
-			/>
 			<div
-				v-if="!showInteraction && showJobDetails"
+				v-if="showJobDetails"
 				class="job-card__details"
 			>
 				<hr>
@@ -176,7 +172,6 @@ import { defineComponent, ref, computed, PropType, watch } from 'vue';
 import { CdxCard, CdxInfoChip, CdxAccordion, CdxProgressBar } from '@wikimedia/codex';
 import { cdxIconInfoFilled, cdxIconLinkExternal } from '@wikimedia/codex-icons';
 import Interaction from '../types/Interaction';
-import SpInteraction from './Interaction.vue';
 import SpJobLog from './JobLog.vue';
 import { useRoute, useRouter } from 'vue-router';
 import '@xterm/xterm/css/xterm.css';
@@ -191,7 +186,6 @@ export default defineComponent( {
 		CdxCard,
 		CdxInfoChip,
 		CdxProgressBar,
-		SpInteraction,
 		SpJobLog
 	},
 
@@ -312,7 +306,6 @@ export default defineComponent( {
 		}
 
 		// Prevent displaying interaction within a JobCard on JobViewerPage.
-		const showInteraction = computed( () => route.name !== 'job' );
 		const showJobDetails = computed( () => route.name === 'job' );
 		const isRunning = computed( () => props.started_at && !props.finished_at );
 		const rootClasses = computed( () => ( {
@@ -410,7 +403,6 @@ export default defineComponent( {
 			cdxIconLinkExternal,
 			rootClasses,
 			isRunning,
-			showInteraction,
 			showJobDetails,
 			calculatedDuration,
 			changeInfos,
