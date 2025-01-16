@@ -3,34 +3,15 @@
 		<div class="job-log__title">
 			Log
 		</div>
-		<div class="job-log__action">
-			<div class="job-log__action__buttons">
-				<cdx-button
-					class="job-log__action__buttons__close-button"
-					@click="$router.push( '/' )"
-				>
-					Close Log
-				</cdx-button>
-				<cdx-menu-button
-					v-show="isJobInProgress"
-					v-model:selected="selection"
-					:menu-items="menuItems"
-					aria-label="Choose an option"
-					@update:selected="onSelect"
-				>
-					<cdx-icon :icon="cdxIconEllipsis" />
-				</cdx-menu-button>
-			</div>
-			<div class="job-log__action__checkbox">
-				<cdx-checkbox
-					v-model="showSensitive"
-					type="checkbox"
-					:inline="true"
-					@change="onShowSensitiveChange"
-				>
-					Show sensitive information
-				</cdx-checkbox>
-			</div>
+		<div class="job-log__checkbox">
+			<cdx-checkbox
+				v-model="showSensitive"
+				type="checkbox"
+				:inline="true"
+				@change="onShowSensitiveChange"
+			>
+				Show sensitive information
+			</cdx-checkbox>
 		</div>
 		<div id="terminal" ref="terminalRef" />
 	</div>
@@ -38,8 +19,7 @@
 
 <script lang="ts">
 import { defineComponent, onMounted, onUnmounted, ref } from 'vue';
-import { CdxButton, CdxCheckbox, CdxMenuButton, CdxIcon } from '@wikimedia/codex';
-import { cdxIconEllipsis } from '@wikimedia/codex-icons';
+import { CdxCheckbox } from '@wikimedia/codex';
 import useApi from '../api';
 import '@xterm/xterm/css/xterm.css';
 import { Terminal } from '@xterm/xterm';
@@ -51,10 +31,7 @@ export default defineComponent( {
 	name: 'SpJobLog',
 
 	components: {
-		CdxButton,
-		CdxCheckbox,
-		CdxMenuButton,
-		CdxIcon
+		CdxCheckbox
 	},
 
 	props: {
@@ -63,12 +40,6 @@ export default defineComponent( {
 			type: Number,
 			required: true,
 			default: null
-		},
-		/* Whether the job is in progress. */
-		isJobInProgress: {
-			type: Boolean,
-			required: true,
-			default: false
 		}
 	},
 	setup( props ) {
@@ -80,13 +51,6 @@ export default defineComponent( {
 		const term = ref( null );
 		const abortPopulateTerminal = ref( null );
 		const showSensitive = ref( false );
-		const selection = ref( null );
-
-		// Non-reactive data.
-		const menuItems = [
-			{ label: 'Interrupt Job', value: 'interrupt' },
-			{ label: 'Kill Job (not recommended)', value: 'kill', action: 'destructive' }
-		];
 
 		const populateTerminal = async () => {
 			while ( true ) {
@@ -140,18 +104,6 @@ export default defineComponent( {
 			}
 		};
 
-		const clickSignalButton = ( action ) => {
-			api.signalJob( props.jobId, action );
-		};
-
-		const onSelect = ( newSelection ) => {
-			// Handle menu button events.
-			clickSignalButton( newSelection );
-
-			// Reset the selection of menu buttons.
-			selection.value = null;
-		};
-
 		onMounted( () => {
 			const terminal = new Terminal( {
 				convertEol: true
@@ -178,11 +130,7 @@ export default defineComponent( {
 		return {
 			terminalRef,
 			showSensitive,
-			onShowSensitiveChange,
-			cdxIconEllipsis,
-			selection,
-			menuItems,
-			onSelect
+			onShowSensitiveChange
 		};
 	}
 } );
@@ -199,22 +147,11 @@ export default defineComponent( {
 	&__title {
 		margin-top: @spacing-50;
 		margin-bottom: @spacing-25;
+		font-size: @font-size-medium;
 	}
 
-	&__action {
-			display: flex;
-			flex-direction: column;
-			align-items: flex-end;
-
-		&__buttons {
-			display: flex;
-			margin-bottom: @spacing-25;
-
-			// Override margin.
-			&__close-button.cdx-button {
-				margin-right: @spacing-25;
-			}
-		}
+	&__checkbox {
+		text-align: end;
 	}
 }
 </style>
