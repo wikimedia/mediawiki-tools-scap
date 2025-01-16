@@ -105,5 +105,6 @@ export default {
 
 .navigation__end {
 	flex: 0 0 100px;
+	text-align: right;
 }
 </style>

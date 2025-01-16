@@ -67,144 +67,17 @@
 			</div>
 		</template>
 		<template #supporting-text>
-			<sp-interaction
-				v-if="showInteraction && interaction"
-				:interaction="interaction"
-			/>
-			<div
-				v-if="!showInteraction && showJobDetails"
-				class="job-card__details"
-			>
-				<hr>
-				<div v-if="isLoading" class="job-card__details__loading">
-					<cdx-progress-bar aria-label="Indeterminate progress bar" />
-				</div>
-				<div v-else-if="error" class="job-card__details__error">
-					{{ error }}
-				</div>
-				<div v-else>
-					<div v-for="( info, index ) in changeInfos" :key="index">
-						<cdx-accordion
-							:open="changeInfos.length === 1"
-							:action-icon="cdxIconLinkExternal"
-							action-always-visible
-							action-button-label="Open external link"
-							@action-button-click="handleClick( info.url )"
-						>
-							<template #title>
-								{{ info.number }} {{ info.subject }}
-							</template>
-							<div class="job-card__details__change-info">
-								<div class="job-card__details__change-info__grid">
-									<div class="job-card__details__change-info__grid__item">
-										<div class="job-card__details__change-info__label">
-											Change number
-										</div>
-										<div>
-											<a
-												class="job-card__details__change-info__link"
-												:href="info.url"
-												target="_blank"
-											>
-												{{ info.number }}
-											</a>
-										</div>
-									</div>
-									<div class="job-card__details__change-info__grid__item">
-										<div class="job-card__details__change-info__label">
-											Repo
-										</div>
-										<div>
-											<a
-												class="job-card__details__change-info__link"
-												:href="info.repoURL"
-											>
-												{{ info.project }}
-											</a>
-										</div>
-									</div>
-									<div class="job-card__details__change-info__grid__item">
-										<div class="job-card__details__change-info__label">
-											Branch
-										</div>
-										<div>
-											<a
-												class="job-card__details__change-info__link"
-												:href="info.branchURL"
-											>
-												{{ info.branch }}
-											</a>
-										</div>
-									</div>
-									<div class="job-card__details__change-info__grid__item">
-										<div class="job-card__details__change-info__label">
-											Duration
-										</div>
-										<div>
-											{{ calculatedDuration }}
-										</div>
-									</div>
-								</div>
-								<div class="job-card__details__change-info__label">
-									Change info
-								</div>
-								<div>
-									<p class="job-card__details__change-info__subject">
-										{{ info.subject }}
-									</p>
-									<p class="job-card__details__change-info__commit-msg">
-										<pre>
-											{{ info.formattedCommitMsg }}
-										</pre>
-									</p>
-								</div>
-								<div
-									v-for="( bug, i ) in info.bugs"
-									:key="i"
-									class="job-card__details__change-info__bug"
-								>
-									Bug:
-									<a
-										class="job-card__details__change-info__link"
-										:href="bug.url"
-									>
-										{{ bug.id }}
-									</a>
-								</div>
-								<div class="job-card__details__change-info__change-id">
-									Change-Id:
-									<a
-										class="job-card__details__change-info__link"
-										:href="info.changeIdURL"
-									>
-										{{ info.changeId }}
-									</a>
-								</div>
-							</div>
-						</cdx-accordion>
-					</div>
-				</div>
-				<hr>
-				<div class="job-card__details__log">
-					<sp-job-log
-						:job-id="id"
-						:is-job-in-progress="started_at && !finished_at"
-					>
-						Log
-					</sp-job-log>
-				</div>
-			</div>
+			<!-- Job viewer page will pass in additional details here-->
+			<slot />
 		</template>
 	</cdx-card>
 </template>
 
 <script lang="ts">
-import { defineComponent, ref, computed, PropType, watch } from 'vue';
-import { CdxCard, CdxInfoChip, CdxAccordion, CdxProgressBar } from '@wikimedia/codex';
-import { cdxIconInfoFilled, cdxIconLinkExternal } from '@wikimedia/codex-icons';
+import { defineComponent, computed, PropType } from 'vue';
+import { CdxCard, CdxInfoChip } from '@wikimedia/codex';
+import { cdxIconInfoFilled } from '@wikimedia/codex-icons';
 import Interaction from '../types/Interaction';
-import SpInteraction from './Interaction.vue';
-import SpJobLog from './JobLog.vue';
 import { useRoute, useRouter } from 'vue-router';
 import '@xterm/xterm/css/xterm.css';
 
@@ -214,12 +87,8 @@ export default defineComponent( {
 	name: 'SpJobCard',
 
 	components: {
-		CdxAccordion,
 		CdxCard,
-		CdxInfoChip,
-		CdxProgressBar,
-		SpInteraction,
-		SpJobLog
+		CdxInfoChip
 	},
 
 	props: {
@@ -271,21 +140,12 @@ export default defineComponent( {
 			type: Object as PropType<Interaction>,
 			required: false,
 			default: null
-		},
-		data: {
-			type: String,
-			required: false,
-			default: null
 		}
 	},
 
 	setup( props ) {
 		const route = useRoute();
 		const router = useRouter();
-
-		const isLoading = ref( true );
-		const error = ref( null );
-		const parsedChangeInfo = JSON.parse( props.data );
 
 		// Return a string URL ( if we are not already on the page for this job)
 		// or null (if we are already on that page)
@@ -295,52 +155,7 @@ export default defineComponent( {
 			return link.href !== current.value.path ? link.href : null;
 		} );
 
-		const changeInfos = computed( () => {
-			const { change_infos: infos } = parsedChangeInfo;
-			if ( !infos || infos.length === 0 ) {
-				return [];
-			}
-
-			return infos.map( formatChangeInfo );
-		} );
-
-		function formatChangeInfo( changeInfo ) {
-			const { commit_msg: commitMsg, project, branch, number, url } = changeInfo;
-			const splitCommitMsg = commitMsg?.split( '\n' ) || [];
-			const bugs = splitCommitMsg
-				.filter( ( line ) => line.startsWith( 'Bug:' ) )
-				.map( ( line ) => {
-					const bug = line.split( ' ' )[ 1 ];
-					return {
-						id: bug,
-						url: `https://phabricator.wikimedia.org/${ bug }`
-					};
-				} );
-			const formattedCommitMsg = splitCommitMsg
-				.slice( 1 )
-				.filter( ( line ) => !line.startsWith( 'Bug:' ) && !line.startsWith( 'Change-Id:' ) )
-				.join( '\n' )
-				.trimEnd();
-			const subject = splitCommitMsg[ 0 ] || null;
-			const changeId = splitCommitMsg.find( ( line ) => line.startsWith( 'Change-Id:' ) )?.split( ' ' )[ 1 ] || null;
-
-			return {
-				project,
-				branch,
-				number,
-				url,
-				repoURL: `https://gerrit.wikimedia.org/r/q/project:${ project }`,
-				branchURL: branch ? `https://gerrit.wikimedia.org/r/q/branch:${ branch }` : null,
-				changeIdURL: changeId ? `https://gerrit.wikimedia.org/r/q/${ changeId }` : null,
-				subject,
-				formattedCommitMsg,
-				bugs,
-				changeId
-			};
-		}
-
 		// Prevent displaying interaction within a JobCard on JobViewerPage.
-		const showInteraction = computed( () => route.name !== 'job' );
 		const showJobDetails = computed( () => route.name === 'job' );
 		const isRunning = computed( () => props.started_at && !props.finished_at );
 		const rootClasses = computed( () => ( {
@@ -380,71 +195,16 @@ export default defineComponent( {
 			return date.toUTCString();
 		}
 
-		const calculatedDuration = computed( () => {
-			// Create Date objects from the UTC ISO 8601 timestamps.
-			const start = new Date( props.started_at );
-			const end = props.finished_at ? new Date( props.finished_at ) : null;
-
-			// Indicate that the job is "in progress" when the job is not complete.
-			if ( !end ) {
-				return 'In progress';
-			}
-
-			// Check if the Date objects are valid.
-			if ( isNaN( start.getTime() ) || isNaN( end.getTime() ) ) {
-				return;
-			}
-
-			// Calculate the difference in milliseconds.
-			const durationMs = end.getTime() - start.getTime();
-
-			// Convert to more readable formats.
-			const durationSeconds = Math.floor( durationMs / 1000 );
-			const minutes = Math.floor( durationSeconds / 60 );
-			const seconds = durationSeconds % 60;
-
-			// Pad numbers with leading zeros.
-			const formattedMinutes = minutes.toString().padStart( 2, '0' );
-			const formattedSeconds = seconds.toString().padStart( 2, '0' );
-
-			// Format the duration.
-			return `${ formattedMinutes }m ${ formattedSeconds }s`;
-		} );
-
-		function handleClick( url ) {
-			// Open a new window to the Gerrit change number url.
-			window.open( url );
-		}
-
-		watch(
-			() => props.data, ( newData ) => {
-				if ( !newData ) {
-					isLoading.value = false;
-					error.value = 'No data received.';
-					return;
-				}
-
-				isLoading.value = false;
-				error.value = null;
-			},
-			{ immediate: true }
-		);
+		// @TODO restore the calculatedDuration computed property
+		// once we know where we want to display this data.
 
 		return {
 			getFormattedDate,
 			statusType,
 			statusChipMessage,
 			cdxIconInfoFilled,
-			cdxIconLinkExternal,
 			rootClasses,
 			isRunning,
-			showInteraction,
-			showJobDetails,
-			calculatedDuration,
-			changeInfos,
-			handleClick,
-			isLoading,
-			error,
 			jobLink
 		};
 	}
@@ -508,39 +268,6 @@ export default defineComponent( {
 		&__error {
 			padding-top: @spacing-50;
 			padding-bottom: @spacing-50;
-		}
-
-		&__change-info {
-			&__grid {
-				@media screen and ( min-width: @min-width-breakpoint-tablet ) {
-					display: grid;
-					grid-template-columns: repeat( 4, 1fr );
-					gap: @spacing-12;
-					grid-gap: @spacing-12;
-					padding-bottom: @spacing-100;
-				}
-			}
-
-			&__label {
-				font-weight: @font-weight-semi-bold;
-				padding-top: @spacing-50;
-			}
-
-			&__link {
-				.cdx-mixin-link();
-			}
-
-			&__subject {
-				padding-top: @spacing-50;
-			}
-
-			&__commit-msg pre {
-				font-family: inherit;
-			}
-
-			&__bug {
-				padding-bottom: @spacing-50;
-			}
 		}
 
 		&__log {
