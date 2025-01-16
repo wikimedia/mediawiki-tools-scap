@@ -10,9 +10,9 @@
 			<router-link to="/">
 				<h1>
 					SPIDER PIG
-				</h1>
-				<h1>
-					DEPLOYMENT
+					<span>
+						DEPLOYMENT
+					</span>
 				</h1>
 			</router-link>
 		</div>
@@ -69,41 +69,50 @@ export default {
 	align-items: center;
 	color: @color-base;
 
-}
+	&__start {
+		flex: 0 0 3rems;
 
-.navigation__start {
-	flex: 0 0 3rems;
-
-	img {
-		width: @size-300;
-		height: @size-300;
-	}
-}
-
-.navigation__center {
-	flex: 1 1 auto;
-	display: flex;
-	flex-direction: column;
-	font-family: Montserrat;
-	font-size: @font-size-medium;
-	font-style: normal;
-	font-weight: 800;
-	line-height: normal;
-	letter-spacing: 0.4px;
-	padding-left: @spacing-25;
-	align-self: stretch;
-
-	a {
-		width: fit-content;
+		img {
+			width: @size-300;
+			height: @size-300;
+		}
 	}
 
-	h1:last-child {
-		font-size: @font-size-x-large;
-		font-weight: @font-weight-semi-bold;
-	}
-}
+	&__center {
+		flex: 1 1 auto;
+		display: flex;
+		flex-direction: column;
+		font-family: Montserrat, serif;
+		font-size: @font-size-medium;
+		font-style: normal;
+		font-weight: @font-weight-bold;
+		line-height: normal;
+		letter-spacing: 0.4px;
+		padding-left: @spacing-50;
+		align-self: stretch;
 
-.navigation__end {
-	flex: 0 0 100px;
+		a {
+			width: fit-content;
+			color: inherit;
+			border-radius: @border-radius-base;
+			text-decoration: none;
+
+			h1 {
+				color: inherit;
+				border-radius: @border-radius-base;
+				text-decoration: none;
+
+				span {
+					display: block;
+					font-size: @font-size-x-large;
+					font-weight: @font-weight-semi-bold;
+				}
+			}
+		}
+	}
+
+	&__end {
+		flex: 0 0 100px;
+	}
 }
 </style>
