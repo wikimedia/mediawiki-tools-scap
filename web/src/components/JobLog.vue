@@ -145,9 +145,10 @@ export default defineComponent( {
 	}
 
 	&__title {
+		font-size: @font-size-medium;
+		font-weight: @font-weight-semi-bold;
 		margin-top: @spacing-50;
 		margin-bottom: @spacing-25;
-		font-size: @font-size-medium;
 	}
 
 	&__checkbox {

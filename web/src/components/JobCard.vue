@@ -76,6 +76,16 @@
 				class="job-card__details"
 			>
 				<hr>
+				<div class="job-card__details__log">
+					<sp-job-log
+						:job-id="id"
+						:is-job-in-progress="started_at && !finished_at"
+					/>
+				</div>
+				<hr>
+				<div class="job-card__details__subheader">
+					Change Info
+				</div>
 				<div v-if="isLoading" class="job-card__details__loading">
 					<cdx-progress-bar aria-label="Indeterminate progress bar" />
 				</div>
@@ -156,15 +166,6 @@
 							</div>
 						</cdx-accordion>
 					</div>
-				</div>
-				<hr>
-				<div class="job-card__details__log">
-					<sp-job-log
-						:job-id="id"
-						:is-job-in-progress="started_at && !finished_at"
-					>
-						Log
-					</sp-job-log>
 				</div>
 			</div>
 		</template>
@@ -470,6 +471,17 @@ export default defineComponent( {
 	}
 
 	&__details {
+		&__log {
+			padding-bottom: @spacing-50;
+		}
+
+		&__subheader {
+			font-size: @font-size-medium;
+			font-weight: @font-weight-semi-bold;
+			margin-top: @spacing-50;
+			margin-bottom: @spacing-25;
+		}
+
 		&__loading,
 		&__error {
 			padding-top: @spacing-50;
@@ -509,10 +521,6 @@ export default defineComponent( {
 			&__bug {
 				padding-bottom: @spacing-50;
 			}
-		}
-
-		&__log {
-			font-weight: @font-weight-semi-bold;
 		}
 	}
 }
