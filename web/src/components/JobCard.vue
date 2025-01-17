@@ -506,8 +506,10 @@ export default defineComponent( {
 				padding-top: @spacing-50;
 			}
 
-			&__commit-msg pre {
+			&__commit-msg {
 				font-family: inherit;
+				// Resolve `<pre>`tag content overflow.
+				overflow: auto;
 			}
 
 			&__bug {
