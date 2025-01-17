@@ -1,6 +1,5 @@
 import { defineStore } from 'pinia';
 import { useLocalStorage } from '@vueuse/core';
-import fakeApiserver from './mocks/fakeApiserver';
 
 const useAuthStore = defineStore( 'spiderpig-auth',
 	{
@@ -15,10 +14,6 @@ const useAuthStore = defineStore( 'spiderpig-auth',
 				return state.token !== null && !state.authFailing;
 			},
 
-			isTestMode() {
-				return import.meta.env.DEV && import.meta.env.VITE_USE_TEST_MODE === 'true';
-			},
-
 			apiserverBaseURL() {
 				return import.meta.env.VITE_APISERVER_URL ?
 					import.meta.env.VITE_APISERVER_URL :
@@ -30,10 +25,6 @@ const useAuthStore = defineStore( 'spiderpig-auth',
 				return new URL( url, this.apiserverBaseURL );
 			},
 			async call( url, options, decodeJson = true, signal = null ) {
-				if ( this.isTestMode ) {
-					throw new Error( "Don't use call() in test mode" );
-				}
-
 				const localOptions = {
 					...options,
 					signal
@@ -59,21 +50,6 @@ const useAuthStore = defineStore( 'spiderpig-auth',
 				}
 			},
 			async login( username, password ) {
-				// Test-mode specific login behavior
-				if ( this.isTestMode ) {
-					if (
-						username === import.meta.env.VITE_TEST_MODE_USERNAME &&
-                        password === import.meta.env.VITE_TEST_MODE_PASSWORD
-					) {
-						this.token = import.meta.env.VITE_TEST_MODE_TOKEN;
-						localStorage.setItem( 'spiderpig-auth-token', this.token );
-						return true;
-					} else {
-						this.authFailed = true;
-						return { statusText: 'Login failed: Unauthorized' };
-					}
-				}
-
 				const formData = new FormData();
 				formData.append( 'username', username );
 				formData.append( 'password', password );
@@ -113,17 +89,9 @@ const useAuthStore = defineStore( 'spiderpig-auth',
 				localStorage.removeItem( 'spiderpig-auth-token' );
 			},
 			async getJobrunnerStatus() {
-				if ( this.isTestMode ) {
-					return fakeApiserver.getJobrunnerStatus();
-				}
-
 				return await this.call( '/api/jobrunner/status' );
 			},
 			async getJobs( limit, skip ) {
-				if ( this.isTestMode ) {
-					return fakeApiserver.getJobs( limit, skip );
-				}
-
 				const url = new URL( '/api/jobs', this.apiserverBaseURL );
 				url.searchParams.append( 'limit', limit );
 				url.searchParams.append( 'skip', skip );
@@ -131,19 +99,11 @@ const useAuthStore = defineStore( 'spiderpig-auth',
 			},
 			// eslint-disable-next-line camelcase
 			async getJobInfo( job_id ) {
-				if ( this.isTestMode ) {
-					return fakeApiserver.getJobInfo( job_id );
-				}
-
 				// eslint-disable-next-line camelcase
 				return await this.call( `/api/jobs/${ job_id }` );
 			},
 			// eslint-disable-next-line camelcase
 			async respondInteraction( job_id, interaction_id, response ) {
-				if ( this.isTestMode ) {
-					return fakeApiserver.respondInteraction( job_id, interaction_id, response );
-				}
-
 				await this.call(
 					// eslint-disable-next-line camelcase
 					`/api/jobs/${ job_id }/interact/${ interaction_id }`,
@@ -155,10 +115,6 @@ const useAuthStore = defineStore( 'spiderpig-auth',
 			},
 			// eslint-disable-next-line camelcase
 			async signalJob( job_id, type ) {
-				if ( this.isTestMode ) {
-					return fakeApiserver.signalJob( job_id, type );
-				}
-
 				// eslint-disable-next-line camelcase
 				await this.call( `/api/jobs/${ job_id }/signal/${ type }`,
 					{
@@ -168,10 +124,6 @@ const useAuthStore = defineStore( 'spiderpig-auth',
 			},
 			// eslint-disable-next-line camelcase
 			async getJobLog( job_id, abortsignal, showSensitive = false ) {
-				if ( this.isTestMode ) {
-					return fakeApiserver.getJobLog( job_id, abortsignal );
-				}
-
 				// eslint-disable-next-line camelcase
 				const url = this.makeApiUrl( `/api/jobs/${ job_id }/log` );
 				if ( showSensitive ) {
@@ -182,10 +134,6 @@ const useAuthStore = defineStore( 'spiderpig-auth',
 			},
 			// eslint-disable-next-line camelcase
 			async startBackport( change_urls ) {
-				if ( this.isTestMode ) {
-					return fakeApiserver.createJob( [ 'scap', 'backport' ].concat( change_urls ) );
-				}
-
 				const url = this.makeApiUrl( '/api/jobs/backport' );
 
 				// eslint-disable-next-line camelcase
@@ -205,13 +153,9 @@ const useAuthStore = defineStore( 'spiderpig-auth',
 				} );
 			},
 			async searchPatch( q, n ) {
-				if ( this.isTestMode ) {
-					return await fakeApiserver.searchPatch( q, n );
-				} else {
-					const url = this.makeApiUrl( '/api/searchPatch' );
-					const params = new URLSearchParams( { q, n } );
-					return await this.call( `${ url }?${ params.toString() }` );
-				}
+				const url = this.makeApiUrl( '/api/searchPatch' );
+				const params = new URLSearchParams( { q, n } );
+				return await this.call( `${ url }?${ params.toString() }` );
 			}
 		}
 	}

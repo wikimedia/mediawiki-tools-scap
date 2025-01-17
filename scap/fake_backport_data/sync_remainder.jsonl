@@ -1,0 +1,42 @@
+{"timestamp": 1737403333.4482746, "payload": {"type": "line", "line": "\u001b[32m20:02:13 Started sync-canaries-k8s\u001b[0m"}, "gap": 0.012810707092285156}
+{"timestamp": 1737403333.448399, "payload": {"type": "status", "status": "Sync k8s canaries", "iokey": "0xa0aff4fcc657068dfef522382ff63a893ab498a4d9d8f7588664d8a5db7a1b99"}, "gap": 0.00012445449829101562}
+{"timestamp": 1737403333.6266031, "payload": {"type": "line", "line": "20:02:13 K8s deployment progress:   0% (ok: 0; fail: 0; left: 1)"}, "gap": 0.17820405960083008}
+{"timestamp": 1737403350.6907098, "payload": {"type": "line", "line": "20:02:30 K8s deployment progress: 100% (ok: 1; fail: 0; left: 0)"}, "gap": 17.064106702804565}
+{"timestamp": 1737403350.6907523, "payload": {"type": "status", "status": null, "iokey": "0xa0aff4fcc657068dfef522382ff63a893ab498a4d9d8f7588664d8a5db7a1b99"}, "gap": 4.2438507080078125e-05}
+{"timestamp": 1737403350.6985867, "payload": {"type": "line", "line": "\u001b[32m20:02:30 Finished sync-canaries-k8s (duration: 00m 17s)\u001b[0m"}, "gap": 0.007834434509277344}
+{"timestamp": 1737403350.6996498, "payload": {"type": "line", "line": "\u001b[32m20:02:30 Waiting 20 seconds for canary traffic...\u001b[0m"}, "gap": 0.0010631084442138672}
+{"timestamp": 1737403350.6997879, "payload": {"type": "status", "status": "Waiting 20 seconds for canary traffic...", "iokey": "0xa0aff4fcc657068dfef522382ff63a893ab498a4d9d8f7588664d8a5db7a1b99"}, "gap": 0.0001380443572998047}
+{"timestamp": 1737403370.7297118, "payload": {"type": "line", "line": "\u001b[32m20:02:50 Logstash checker Counted 9 error(s) in the last 20 seconds. OK.\u001b[0m"}, "gap": 20.029923915863037}
+{"timestamp": 1737403370.730519, "payload": {"type": "line", "line": "\u001b[32m20:02:50 Started sync-prod-k8s\u001b[0m"}, "gap": 0.0008072853088378906}
+{"timestamp": 1737403370.7305937, "payload": {"type": "status", "status": "Sync k8s production", "iokey": "0xa0aff4fcc657068dfef522382ff63a893ab498a4d9d8f7588664d8a5db7a1b99"}, "gap": 7.462501525878906e-05}
+{"timestamp": 1737403370.9878783, "payload": {"type": "line", "line": "20:02:50 K8s deployment progress:   0% (ok: 0; fail: 0; left: 1)"}, "gap": 0.25728464126586914}
+{"timestamp": 1737403378.1215947, "payload": {"type": "line", "line": "20:02:58 K8s deployment progress: 100% (ok: 1; fail: 0; left: 0)"}, "gap": 7.133716344833374}
+{"timestamp": 1737403378.1216383, "payload": {"type": "status", "status": null, "iokey": "0xa0aff4fcc657068dfef522382ff63a893ab498a4d9d8f7588664d8a5db7a1b99"}, "gap": 4.363059997558594e-05}
+{"timestamp": 1737403378.1277387, "payload": {"type": "line", "line": "\u001b[32m20:02:58 Finished sync-prod-k8s (duration: 00m 07s)\u001b[0m"}, "gap": 0.00610041618347168}
+{"timestamp": 1737403378.127772, "payload": {"type": "status", "status": "Sync baremetal production", "iokey": "0xa0aff4fcc657068dfef522382ff63a893ab498a4d9d8f7588664d8a5db7a1b99"}, "gap": 3.337860107421875e-05}
+{"timestamp": 1737403378.1338716, "payload": {"type": "line", "line": "\u001b[32m20:02:58 Started sync-apaches\u001b[0m"}, "gap": 0.0060994625091552734}
+{"timestamp": 1737403378.1341312, "payload": {"type": "line", "line": "20:02:58 sync-apaches:   0% (ok: 0; fail: 0; left: 1)"}, "gap": 0.00025963783264160156}
+{"timestamp": 1737403383.8423097, "payload": {"type": "line", "line": "20:03:03 sync-apaches: 100% (in-flight: 0; ok: 1; fail: 0; left: 0)"}, "gap": 5.708178520202637}
+{"timestamp": 1737403383.842558, "payload": {"type": "line", "line": "\u001b[32m20:03:03 Per-host sync duration: average 5.7s, median 5.7s\u001b[0m"}, "gap": 0.00024819374084472656}
+{"timestamp": 1737403383.8430161, "payload": {"type": "line", "line": "\u001b[32m20:03:03 rsync transfer: average 364,670 bytes/host, total 364,670 bytes\u001b[0m"}, "gap": 0.0004582405090332031}
+{"timestamp": 1737403383.8433409, "payload": {"type": "line", "line": "\u001b[32m20:03:03 Finished sync-apaches (duration: 00m 05s)\u001b[0m"}, "gap": 0.0003247261047363281}
+{"timestamp": 1737403383.8435209, "payload": {"type": "status", "status": null, "iokey": "0xa0aff4fcc657068dfef522382ff63a893ab498a4d9d8f7588664d8a5db7a1b99"}, "gap": 0.0001800060272216797}
+{"timestamp": 1737403383.853472, "payload": {"type": "line", "line": "\u001b[32m20:03:03 Started scap-cdb-rebuild\u001b[0m"}, "gap": 0.009951114654541016}
+{"timestamp": 1737403383.8537247, "payload": {"type": "line", "line": "20:03:03 scap-cdb-rebuild:   0% (ok: 0; fail: 0; left: 2)"}, "gap": 0.00025272369384765625}
+{"timestamp": 1737403384.8622386, "payload": {"type": "line", "line": "20:03:04 scap-cdb-rebuild: 100% (in-flight: 0; ok: 2; fail: 0; left: 0)"}, "gap": 1.0085139274597168}
+{"timestamp": 1737403384.8624983, "payload": {"type": "line", "line": "\u001b[32m20:03:04 Finished scap-cdb-rebuild (duration: 00m 01s)\u001b[0m"}, "gap": 0.00025963783264160156}
+{"timestamp": 1737403384.8634114, "payload": {"type": "line", "line": "\u001b[32m20:03:04 Started sync_wikiversions\u001b[0m"}, "gap": 0.0009131431579589844}
+{"timestamp": 1737403384.8678458, "payload": {"type": "line", "line": "20:03:04 sync_wikiversions:   0% (ok: 0; fail: 0; left: 2)"}, "gap": 0.004434347152709961}
+{"timestamp": 1737403385.2720673, "payload": {"type": "line", "line": "20:03:05 sync_wikiversions: 100% (in-flight: 0; ok: 2; fail: 0; left: 0)"}, "gap": 0.4042215347290039}
+{"timestamp": 1737403385.2732053, "payload": {"type": "line", "line": "\u001b[32m20:03:05 Finished sync_wikiversions (duration: 00m 00s)\u001b[0m"}, "gap": 0.0011379718780517578}
+{"timestamp": 1737403385.2772176, "payload": {"type": "line", "line": "\u001b[32m20:03:05 Started php-fpm-restarts\u001b[0m"}, "gap": 0.004012346267700195}
+{"timestamp": 1737403385.2775292, "payload": {"type": "status", "status": "Restarting php-fpm", "iokey": "0xa0aff4fcc657068dfef522382ff63a893ab498a4d9d8f7588664d8a5db7a1b99"}, "gap": 0.0003116130828857422}
+{"timestamp": 1737403385.2885718, "payload": {"type": "line", "line": "\u001b[32m20:03:05 Running '/usr/local/sbin/check-and-restart-php php7.4-fpm 9223372036854775807' on 1 host(s)\u001b[0m"}, "gap": 0.011042594909667969}
+{"timestamp": 1737403385.289548, "payload": {"type": "line", "line": "20:03:05 php-fpm-restart:   0% (ok: 0; fail: 0; left: 0)"}, "gap": 0.0009760856628417969}
+{"timestamp": 1737403385.5370843, "payload": {"type": "line", "line": "20:03:05 php-fpm-restart: 100% (in-flight: 0; ok: 1; fail: 0; left: 0)"}, "gap": 0.24753642082214355}
+{"timestamp": 1737403385.5371225, "payload": {"type": "status", "status": null, "iokey": "0xa0aff4fcc657068dfef522382ff63a893ab498a4d9d8f7588664d8a5db7a1b99"}, "gap": 3.814697265625e-05}
+{"timestamp": 1737403385.553093, "payload": {"type": "line", "line": "\u001b[32m20:03:05 Finished php-fpm-restarts (duration: 00m 00s)\u001b[0m"}, "gap": 0.015970468521118164}
+{"timestamp": 1737403385.5534027, "payload": {"type": "line", "line": "\u001b[32m20:03:05 Running purgeMessageBlobStore.php\u001b[0m"}, "gap": 0.0003097057342529297}
+{"timestamp": 1737403387.3062785, "payload": {"type": "line", "line": "\u001b[32m20:03:07 Finished scap sync-world: Backport for [[gerrit:43|Test update to README (T379413)]] (duration: 08m 57s)\u001b[0m"}, "gap": 1.752875804901123}
+{"timestamp": 1737403387.4830866, "payload": {"type": "line", "line": "\u001b[0m"}, "gap": 0.17680811882019043}
+{"timestamp": 1737403387.4831836, "payload": {"type": "exit", "status": 0}, "gap": 9.703636169433594e-05}

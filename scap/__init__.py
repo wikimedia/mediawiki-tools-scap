@@ -43,6 +43,7 @@ from scap.main import (
 )
 
 from scap.backport import Backport
+from scap.fake_backport import FakeBackport
 from scap.clean import Clean
 from scap.deploy import (
     Deploy,

@@ -103,6 +103,10 @@ class SpiderpigAPIServer(cli.Application):
         env["SPIDERPIG_SCAP_CONFIG"] = utils.string_to_base64_string(
             json.dumps(self.config)
         )
+        env["SPIDERPIG_SCAP_FLAGS"] = utils.string_to_base64_string(
+            json.dumps(self.format_passthrough_args())
+        )
+
         env.update(
             {
                 "SPIDERPIG_DIR": self.spiderpig_dir(),
@@ -243,6 +247,11 @@ async def get_job_by_id(job_id: int, session: Session = Depends(get_session)):
 @functools.lru_cache()
 def get_scap_config():
     return json.loads(base64.b64decode(os.getenv("SPIDERPIG_SCAP_CONFIG")))
+
+
+@functools.lru_cache()
+def get_scap_flags():
+    return json.loads(base64.b64decode(os.getenv("SPIDERPIG_SCAP_FLAGS")))
 
 
 def get_gerrit_session(config: Annotated[dict, Depends(get_scap_config)]):
@@ -411,10 +420,12 @@ async def start_backport(
             },
         )
 
+    operation = "fake-backport" if get_scap_config()["local_dev_mode"] else "backport"
+
     job_id = Job.add(
         session,
         user=user,
-        command=["scap", "backport"] + change_url,
+        command=["scap", operation] + get_scap_flags() + change_url,
         data={"change_infos": change_infos},
     )
     return {

@@ -719,7 +719,11 @@ class Application(object):
             app.setup()
 
             if getattr(app.main, PRIMARY_DEPLOY_SERVER_ONLY_COMMAND, False):
-                hostname = socket.gethostname()
+                hostname = (
+                    "deploy"
+                    if hasattr(app, "config") and app.config["local_dev_mode"]
+                    else socket.gethostname()
+                )
                 if not any(
                     hostname.startswith(prefix) for prefix in ["deploy", "releases"]
                 ):

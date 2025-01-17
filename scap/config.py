@@ -49,6 +49,7 @@ DEFAULT_CONFIG = {
     "php_version": (str, "php"),
     "keyholder_key": (str, None),
     "stage_dir": (str, "/srv/mediawiki-staging"),
+    "local_dev_mode": (bool, False),
     "lock_file": (str, None),
     "log_json": (bool, False),
     "logstash_host": (str, "logstash1001.eqiad.wmnet:9200"),

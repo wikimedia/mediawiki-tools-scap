@@ -27,3 +27,26 @@ npm run dev
 ```sh
 npm run build
 ```
+
+### Set up Scap for local development
+
+In the top level directory:
+
+```sh
+python3 -m venv /tmp/scap-venv
+source /tmp/scap-venv/bin/activate
+pip install -e .
+```
+
+### Start the SpiderPig Jobrunner and API server
+
+This assumes that you have previously activated a Python virtualenv
+with Scap installed in it.
+
+```sh
+scap spiderpig-jobrunner -Dlocal_dev_mode:true -Dstage_dir:/tmp/fakestaging &
+scap spiderpig-apiserver --dev -Dlocal_dev_mode:true -Dstage_dir:/tmp/fakestaging &
+```
+The apiserver will listen on local port 8000.
+
+The jobrunner and apiserver can be killed when you're done with development/testing.
