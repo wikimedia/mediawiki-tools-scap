@@ -130,6 +130,7 @@ export default {
 
 <style lang="less">
 @import '@wikimedia/codex-design-tokens/theme-wikimedia-ui.less';
+@import '../mixins/job-grid.less';
 
 .job-history {
 	&__heading {
@@ -147,15 +148,8 @@ export default {
 		display: none;
 
 		// Apply grid style and column labels on mid to large screen devices.
-		// Ensure matching grid layout styles for the JobHistory column labels and JobCard content.
 		@media screen and ( min-width: @min-width-breakpoint-tablet ) {
-			display: grid;
-			grid-template-columns: 5% 14% 8% 16% 16% 16% 15%;
-			grid-template-rows: auto auto;
-			gap: @spacing-50;
-			grid-gap: @spacing-50;
-			box-sizing: border-box;
-			position: unset;
+			.sp-mixin-job-grid();
 		}
 
 		&__label {
