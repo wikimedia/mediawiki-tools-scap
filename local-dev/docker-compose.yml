@@ -1,0 +1,46 @@
+services:
+  setup-workspace:
+    restart: no
+    build:
+      context: .
+      target: base
+    user: root
+    entrypoint: [chown, deployer01, /workspace]
+    volumes:
+      - workspace:/workspace
+  setup:
+    restart: no
+    build:
+      context: .
+      target: setup
+    init: true
+    depends_on:
+      setup-workspace:
+        condition: service_completed_successfully
+    volumes:
+      - workspace:/workspace
+      - type: bind
+        source: ..
+        target: /scap-source
+        # Looks like scap install -e  wants to modify the Scap.egg-info directory...
+        #read_only: true
+  deploy:
+    build:
+      context: .
+      target: deploy
+    init: true
+    hostname: deploy
+    depends_on:
+      setup:
+        condition: service_completed_successfully
+    volumes:
+      - workspace:/workspace
+      - type: bind
+        source: ..
+        target: /scap-source
+        read_only: true
+    ports:
+      - 8000:8000
+      
+volumes:
+  workspace:

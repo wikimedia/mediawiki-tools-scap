@@ -1,0 +1,9 @@
+#!/bin/bash
+
+set -eu -o pipefail
+
+cd $(dirname "$0")
+
+(cd ../web && npm install && npm run build)
+docker compose build --build-arg UID=$(id -u) --build-arg GID=$(id -g)
+docker compose up -d

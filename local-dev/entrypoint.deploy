@@ -1,0 +1,7 @@
+#!/bin/bash
+
+set -eu -o pipefail
+
+scap spiderpig-jobrunner &
+scap spiderpig-apiserver --dev
+
