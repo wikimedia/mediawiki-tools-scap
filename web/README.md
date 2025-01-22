@@ -33,6 +33,7 @@ npm run build
 In the top level directory:
 
 ```sh
+(cd web && npm run build)
 python3 -m venv /tmp/scap-venv
 source /tmp/scap-venv/bin/activate
 pip install -e .
@@ -48,5 +49,12 @@ scap spiderpig-jobrunner -Dlocal_dev_mode:true -Dstage_dir:/tmp/fakestaging &
 scap spiderpig-apiserver --dev -Dlocal_dev_mode:true -Dstage_dir:/tmp/fakestaging &
 ```
 The apiserver will listen on local port 8000.
+
+### One time password generation
+
+If you are prompted for username and password in the SpiderPig UI, run the following to retrieve that information:
+```sh
+scap spiderpig-otp -Dlocal_dev_mode:True -Dstage_dir:/tmp/fakestaging
+```
 
 The jobrunner and apiserver can be killed when you're done with development/testing.
