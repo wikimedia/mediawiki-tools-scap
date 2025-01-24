@@ -1,56 +1,60 @@
 # SpiderPig
 
-This template should help get you started developing with Vue 3 in Vite.
+Welcome!
 
-## Recommended IDE Setup
+## Development requirements
 
-[VSCode](https://code.visualstudio.com/) + [Volar](https://marketplace.visualstudio.com/items?itemName=Vue.volar) (and disable Vetur).
+* npm
+* Docker Compose
 
-## Customize configuration
+## Running the SpiderPig API server
 
-See [Vite Configuration Reference](https://vitejs.dev/config/).
+The SpiderPig user interface communicates with an API server to start, interact with, and retrieve information about MediaWiki deployment jobs. If you have Docker Compose installed on your computer, you can easily run an api server which will run simulated backports for testing.
+ 
+### Start the API server
 
-## Project Setup
+In the top level directory of the scap git repo:
 
 ```sh
-npm install
+local-dev/start-apiserver
 ```
 
-### Compile and Hot-Reload for Development
+The apiserver will listen on local port 8000.
+
+### Get login information
+
+```sh
+local-dev/get-otp
+```
+
+### Stop the API server
+
+```sh
+local-dev/stop-apiserver
+```
+
+### Remove all traces of the API server
+
+```sh
+local-dev/clean-apiserver
+```
+
+## Access the SpiderPig UI
+
+When you start the API as described in the prior section, `npm run build` is executed to build a static version of the UI.  You can access this static version of the UI at http://localhost:8000.
+
+## Authentication
+
+When you are prompted for login information, run `local-dev/get-otp` to get the required information.
+
+## Hot-Reload for Development
+
+To avoid having to run `npm run build` after each change to a SpiderPig UI file, you can start a development webserver which will automatically handle reloads.
+
+In this `web` directory:
 
 ```sh
 npm run dev
 ```
 
-### Compile and Minify for Production
-
-```sh
-npm run build
-```
-
-### Running the SpiderPig Jobrunner and API server
-
-In the top level directory:
-
-Start:
-```sh
-local-dev/start
-```
-The apiserver will listen on local port 8000.
-
-Get login information:
-```sh
-local-dev/get-otp
-```
-
-Stop:
-```sh
-local-dev/stop
-```
-
-Remove all traces
-```sh
-local-dev/clean
-```
-
-
+Then visit http://localhost:5173 in your browser.
