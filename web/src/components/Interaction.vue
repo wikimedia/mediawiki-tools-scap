@@ -8,7 +8,7 @@
 				v-for="( code, choice ) in interaction.choices"
 				:key="choice"
 				:value="code"
-				@click="choiceSelected( code )"
+				@click.stop.prevent="choiceSelected( code )"
 			>
 				{{ choice }}
 			</cdx-button>

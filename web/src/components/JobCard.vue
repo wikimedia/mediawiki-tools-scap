@@ -316,7 +316,7 @@ export default defineComponent( {
 		const showJobDetails = computed( () => route.name === 'job' );
 		const isRunning = computed( () => props.started_at && !props.finished_at );
 		const rootClasses = computed( () => ( {
-			'job-card--highlighted': props.exit_status !== 0 && !showJobDetails.value,
+			'job-card--highlighted': props.started_at && !props.finished_at && !showJobDetails.value,
 			'job-card--has-details': showJobDetails.value
 		} ) );
 
