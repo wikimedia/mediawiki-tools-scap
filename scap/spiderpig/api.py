@@ -597,8 +597,10 @@ async def signal_job(
     }
 
 
+# This function is intentionally not marked "async" due to the blocking
+# io that happens when querying Gerrit.
 @app.get("/api/searchPatch")
-async def searchPatch(
+def searchPatch(
     user: Annotated[str, Depends(get_current_user)],
     gerritsession: Annotated[gerrit.GerritSession, Depends(get_gerrit_session)],
     q: str,
