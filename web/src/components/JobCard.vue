@@ -181,8 +181,6 @@ import SpJobLog from './JobLog.vue';
 import { useRoute, useRouter } from 'vue-router';
 import '@xterm/xterm/css/xterm.css';
 
-const JOB_RUNNING = '..Running...';
-
 export default defineComponent( {
 	name: 'SpJobCard',
 
@@ -213,19 +211,19 @@ export default defineComponent( {
 		},
 		// eslint-disable-next-line camelcase, vue/prop-name-casing
 		started_at: {
-			type: String,
+			type: Number,
 			required: false,
 			default: null
 		},
 		// eslint-disable-next-line camelcase, vue/prop-name-casing
 		finished_at: {
-			type: String,
+			type: Number,
 			required: false,
 			default: null
 		},
 		// eslint-disable-next-line camelcase, vue/prop-name-casing
 		queued_at: {
-			type: String,
+			type: Number,
 			required: false,
 			default: null
 		},
@@ -342,20 +340,18 @@ export default defineComponent( {
 			}
 		} );
 
-		function getFormattedDate( dateString ) {
-			// Handle the job-in-progress message.
-			if ( !dateString || dateString === JOB_RUNNING ) {
+		function getFormattedDate( timestamp: number ) {
+			if ( !timestamp ) {
 				return '';
 			}
 
-			const date = new Date( dateString );
+			const date = new Date( timestamp * 1000 );
 			return date.toUTCString();
 		}
 
 		const calculatedDuration = computed( () => {
-			// Create Date objects from the UTC ISO 8601 timestamps.
-			const start = new Date( props.started_at );
-			const end = props.finished_at ? new Date( props.finished_at ) : null;
+			const start = new Date( props.started_at * 1000 );
+			const end = props.finished_at ? new Date( props.finished_at * 1000 ) : null;
 
 			// Indicate that the job is "in progress" when the job is not complete.
 			if ( !end ) {

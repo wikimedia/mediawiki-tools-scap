@@ -1,12 +1,11 @@
-import datetime
 import json
 import os
 
+import time
 from typing import List, Optional
 from sqlalchemy import ForeignKey, select, delete, text, null
 from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, Session
-from sqlalchemy.sql import func
 
 
 class Base(DeclarativeBase):
@@ -51,9 +50,9 @@ class Job(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     user: Mapped[str]
     command: Mapped[str]  # Expected to be a JSON-encoded list.
-    queued_at: Mapped[datetime.datetime] = mapped_column(server_default=func.now())
-    started_at: Mapped[Optional[datetime.datetime]]
-    finished_at: Mapped[Optional[datetime.datetime]]
+    queued_at: Mapped[float] = mapped_column(default=time.time)
+    started_at: Mapped[Optional[float]]
+    finished_at: Mapped[Optional[float]]
     exit_status: Mapped[Optional[int]]
     status: Mapped[Optional[str]]
     data: Mapped[Optional[str]]  # Optional auxiliary information in JSON format
@@ -100,7 +99,7 @@ class Job(Base):
             return
 
         # Claim the job by setting started_at
-        job.started_at = func.now()
+        job.started_at = time.time()
         session.commit()
 
         return job
@@ -133,7 +132,7 @@ class Job(Base):
         """
         session.execute(text("BEGIN IMMEDIATE"))
         self.exit_status = exit_status
-        self.finished_at = func.now()
+        self.finished_at = time.time()
 
         # Clean up any unprocessed interactions and interruptions
         session.execute(delete(Interaction).where(Interaction.job_id == self.id))
@@ -146,9 +145,7 @@ class Interruption(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     job_id: Mapped[int] = mapped_column(ForeignKey("job.id"))
-    created_at: Mapped[Optional[datetime.datetime]] = mapped_column(
-        server_default=func.now()
-    )
+    created_at: Mapped[float] = mapped_column(default=time.time)
     user: Mapped[str]
     type: Mapped[str]  # "kill" or "interrupt"
 

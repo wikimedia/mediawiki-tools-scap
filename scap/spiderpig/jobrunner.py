@@ -1,5 +1,6 @@
 from contextlib import contextmanager
 from dataclasses import dataclass, field
+import datetime
 import json
 import logging
 import os
@@ -201,7 +202,12 @@ def run_job(
     Returns the exit status of the subprocess (if any)
     """
     set_jobrunner_status(session, job.id)
-    logger.info("Running job %d created by %s at %s", job.id, job.user, job.queued_at)
+    logger.info(
+        "Running job %d created by %s at %s",
+        job.id,
+        job.user,
+        datetime.datetime.fromtimestamp(job.queued_at, datetime.timezone.utc).ctime(),
+    )
 
     i = Interruption.peek(session, job.id)
     if i:
