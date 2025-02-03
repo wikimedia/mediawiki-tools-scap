@@ -64,7 +64,6 @@ import SpJobCard from './JobCard.vue';
 import useApi from '../api';
 
 const INTERVAL = 1000;
-const JOB_RUNNING = '..Running...';
 
 export default {
 	name: 'SpJobHistory',
@@ -91,13 +90,6 @@ export default {
 				for ( const job of apiJobs ) {
 					// eslint-disable-next-line camelcase
 					job.command_decoded = JSON.parse( job.command ).join( ' ' );
-					// eslint-disable-next-line camelcase
-					job.finished_at_message = job.finished_at;
-
-					if ( job.started_at && !job.finished_at ) {
-						// eslint-disable-next-line camelcase
-						job.finished_at_message = JOB_RUNNING;
-					}
 				}
 
 				jobs.value = apiJobs;
