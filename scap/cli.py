@@ -399,7 +399,7 @@ class Application(object):
         env=None,
         passthrough_arguments=True,
         logger=None,
-        **kwargs
+        **kwargs,
     ) -> subprocess.CompletedProcess:
         """
         Call scap subcommand

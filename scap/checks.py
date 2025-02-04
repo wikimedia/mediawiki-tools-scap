@@ -220,7 +220,7 @@ class Check(object):
         timeout=30.0,
         command="",
         shell=False,
-        **opts
+        **opts,
     ):
         self.name = name
         self.environment = environment

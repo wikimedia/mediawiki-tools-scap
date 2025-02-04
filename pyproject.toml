@@ -1,0 +1,69 @@
+# Base setup stuff for packaging of scap. Version numbers, authors, all that
+# jazz
+#
+# Copyright © 2014-2025 Wikimedia Foundation and Contributors.
+#
+# This file is part of Scap.
+#
+# Scap is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, version 3.
+
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+[build-system]
+requires = ["setuptools>=42", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "Scap"
+dynamic = ["version", "dependencies"]
+description = "Deployment toolchain for Wikimedia projects"
+readme = "README.rst"
+requires-python = ">=3.7"
+license = {text = "GNU GPLv3"}
+authors = [
+    {name = "Ahmon Dancy", email = "adancy@wikimedia.org"},
+    {name = "Antoine Musso", email = "hashar@free.fr"},
+    {name = "Brennen Bearnes", email = "bbearnes@wikimedia.org"},
+    {name = "Bryan Davis", email = "bd808@wikimedia.org"},
+    {name = "Chad Horohoe", email = "chadh@wikimedia.org"},
+    {name = "Dan Duvall", email = "dduvall@wikimedia.org"},
+    {name = "Giuseppe Lavagetto", email = "joe@wikimedia.org"},
+    {name = "Jaime Nuche", email = "jnuche@wikimedia.org"},
+    {name = "Jeena Huneidi", email = "jhuneidi@wikimedia.org"},
+    {name = "Mukunda Modell", email = "mmodell@wikimedia.org"},
+    {name = "Ori Livneh", email = "ori@wikimedia.org"},
+    {name = "Tyler Cipriani", email = "tcipriani@wikimedia.org"},
+]
+maintainers = [
+    {name = "Wikimedia Foundation Release Engineering", email = "releng@wikimedia.org"},
+]
+keywords = ["deploy", "deployment", "scap", "scap2", "scap3"]
+classifiers = [
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.7",
+    "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
+]
+
+[project.urls]
+Homepage = "https://gitlab.wikimedia.org/repos/releng/scap"
+
+[project.scripts]
+scap = "scap:cli.Application.run"
+
+[tool.setuptools.dynamic]
+version = {attr = "scap.version.__version__"}
+dependencies = {file = ["requirements.txt"]}
+
+[tool.setuptools]
+packages = ["scap", "scap.spiderpig", "web.dist", "web.dist.assets"]
+script-files = ["bin/install_local_version.sh"]

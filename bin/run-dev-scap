@@ -1,0 +1,16 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+
+# This file is only used for docs generation
+
+import os
+import sys
+
+# Add scap package to search path
+SCRIPT = os.path.realpath(sys.argv[0])
+SCAP_SRC = os.path.dirname(os.path.dirname(SCRIPT))
+sys.path.insert(0, SCAP_SRC)
+
+from scap import cli  # noqa: E402
+
+cli.Application.run()

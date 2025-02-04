@@ -23,7 +23,7 @@ the deployment server to a staging or production environment.
 * If a `service_port` is specified, make sure that it is accepting
   connections, waiting up to `service_timeout` (120 seconds by default)
 
-.. program-output:: python3 ../bin/scap deploy --help
+.. program-output:: python3 ../bin/run-dev-scap deploy --help
 .. seealso::
    * :class:`scap.Deploy`
 
