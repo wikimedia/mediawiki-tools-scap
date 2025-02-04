@@ -6,6 +6,7 @@
 /.tox
 /.venv
 /build
+/wheels/
 cover/
 /dist
 /docs/_build
