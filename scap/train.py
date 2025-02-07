@@ -2,16 +2,18 @@
 import prettytable
 import re
 
-from scap import cli, utils, tasks
+from scap import cli, interaction, utils, tasks
 
 GROUPS = ["testwikis", "group0", "group1", "group2"]
 
 
 class TrainInfo:
-    def __init__(self, config, io):
+    def __init__(self, config, io, train_version=None):
         self.config = config
         self.io = io
-        self.train_version = self.get_train_version()
+        self.train_version = (
+            train_version if train_version else self.get_train_version()
+        )
         self.groups = dict()
         self.train_is_at = None
 
@@ -76,9 +78,24 @@ ____
         gerrit_latest_version = utils.get_current_train_version_from_gerrit(
             self.config["gerrit_url"]
         )
-        train_info = utils.get_current_train_info(
-            self.config["train_blockers_url"], self.config["web_proxy"]
-        )
+
+        try:
+            train_info = utils.get_current_train_info(
+                self.config["train_blockers_url"], self.config["web_proxy"]
+            )
+        except Exception as e:
+            complaint = f"Failed to automatically retrieve train information: {e}"
+            if not interaction.interactive():
+                utils.abort(complaint)
+
+            self.io.output_line(complaint)
+            version = self.io.input_line(
+                "Please enter the train version (e.g. 1.23.4-wmf.5): "
+            )
+            if not version:
+                utils.abort("No train version supplied.  Canceling")
+            return version
+
         task = train_info["task"]
         status = train_info["status"]
         version = train_info["version"]
@@ -197,7 +214,7 @@ class Train(cli.Application):
             self._deploy_promote(stops[target_pos], train_version)
 
         # Re-read train info and show final visualization
-        TrainInfo(self.config, self.get_io()).visualize()
+        TrainInfo(self.config, self.get_io(), train_version).visualize()
 
     def _deploy_promote(self, group, version):
         args = []

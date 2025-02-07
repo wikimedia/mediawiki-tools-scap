@@ -38,7 +38,7 @@ from functools import partial
 import requests
 from requests import HTTPError
 
-from scap import cli, utils, config, git, train
+from scap import cli, interaction, utils, config, git, train
 from scap.runcmd import gitcmd
 from scap.utils import BRANCH_RE_UNANCHORED
 
@@ -167,8 +167,21 @@ class DeployPromote(cli.Application):
         self.commit_message = header
         self.announce_message = header
 
-        train_info = self.get_current_train_info()
-        phabricator_task_id = train_info["task"]
+        try:
+            train_info = self.get_current_train_info()
+            phabricator_task_id = train_info["task"]
+        except Exception as e:
+            complaint = f"Failed to automatically retrieve the train task: {e}"
+            if not interaction.interactive():
+                utils.abort(complaint)
+
+            self.logger.error(complaint)
+            phabricator_task_id = self.input_line(
+                "Please enter the train blocker Phabricator task id for log messages: "
+            )
+            if not phabricator_task_id:
+                utils.abort("No train blocker task supplied.  Canceling")
+
         self.commit_message += "\n\nBug: %s" % phabricator_task_id
         self.announce_message += "  refs %s" % phabricator_task_id
 
