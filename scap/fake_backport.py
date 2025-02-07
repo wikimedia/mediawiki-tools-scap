@@ -21,6 +21,11 @@ class FakeBackport(AbstractSync):
     )
     def main(self, *extra_args):
         logger = self.get_logger()
+
+        if not self.arguments.change_numbers:
+            logger.warning("No change number or url supplied!")
+            return 1
+
         logger.info("Welcome to fake scap backport")
 
         bp = backport.Backport("scap")
