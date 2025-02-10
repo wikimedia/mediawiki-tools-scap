@@ -1,3 +1,47 @@
+scap (4.135.0)
+
+  * setup.py: Use minimal positive setup
+  * Add pyproject.toml
+  * fake_backport.py: Require at least one change number/url
+  * spiderpig: CAS auth integration
+  * .gitignore: Add /wheels/ dir
+  * MANIFEST.in: Include scap/fake_backport_data/*
+  * spiderpig: Store timestamp in DB as floats
+  * JobHistory.vue: Remove unused job.finished_at_message
+  * clean-apiserver: Added --remove-orphans flag
+  * requirements.txt: Pin pydantic-core to 2.27.2
+  * spiderpig: Make searchPatch non-async
+  * JobCard: prevent event bubbling and fix highlighted card
+  * Update spiderpig local dev docker-compose config (v2)
+  * Update spiderpig local dev docker-compose config
+  * spiderpig local dev docker-compose config
+  * Replace spiderpig.png
+  * navigation logo: add spacing and font styles
+  * styles: create a mixin for job grid styles
+  * Changes to support SpiderPig UI development
+  * main.py: Slight improvement to retry/continue/exit prompt
+  * JobCard: fix commit message font and overflow
+  * spiderpig: Fix handling of links in commit messages (bugfix)
+  * spiderpig: Fix handling of links in commit messages
+  * JobCard.vue: Open gerrit link in new window
+  * web: relocate job buttons
+  * Navigation: Make logo image clickable as well
+  * Navigation: Make the logo text clickable
+  * JobCard: Make the cards into clickable links
+  * JobCard.vue: Don't reformat the job command
+  * spiderpig: /api/jobs/backport: Use normal commit message
+  * web: improve JobViewerPage UI
+  * gerrit.py: ChangeDetail: Include current commit details
+  * styles: convert CSS values to Codex design tokens
+  * lock.py: Fix comment typo
+  * spiderpig/api.py: Set SPIDERPIG_DIR
+  * fakeApiserver.js: getJobInfo: Always return fresh objects
+  * LoginPage: remove duplicate login calls
+  * fakeApiserver.js: Update fake commit data
+  * fakeApiserver.js: Fix branch name in fake commit data
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Mon, 10 Feb 2025 10:30:11 -0800
+
 scap (4.134.0)
 
   * kubernetes.py: Only call _get_total_expected_replicas when needed
