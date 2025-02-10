@@ -18,43 +18,22 @@
 		</div>
 
 		<div class="navigation__end">
-			<cdx-button
-				v-if="isLoggedIn"
-				action="progressive"
-				weight="quiet"
-				@click="logout"
-			>
-				Logout {{ user }}
-			</cdx-button>
+			<user-menu />
 		</div>
 	</nav>
 </template>
 
 <script lang="ts">
-import { computed } from 'vue';
-import { CdxButton } from '@wikimedia/codex';
-import useApi from '../api';
+import UserMenu from './UserMenu.vue';
 
 export default {
 	name: 'SpNavigation',
 	components: {
-		CdxButton
+		UserMenu
 	},
 
 	setup() {
-		const api = useApi();
-		const isLoggedIn = computed( () => api.isAuthenticated );
-		const user = computed( () => api.authUser );
-
-		async function logout() {
-			const SSOLogoutUrl = await api.logout();
-			document.location = SSOLogoutUrl;
-		}
-
 		return {
-			isLoggedIn,
-			logout,
-			user
 		};
 	}
 };
@@ -111,7 +90,6 @@ export default {
 	}
 
 	&__end {
-		flex: 0 0 100px;
 	}
 }
 </style>

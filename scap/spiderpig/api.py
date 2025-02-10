@@ -863,12 +863,18 @@ async def login2(
     return {"code": "ok", "message": "2FA completed", "user": user.name}
 
 
+def getSSOLogoutUrl(request: Request) -> str:
+    cli = cas_client(request, request.headers.get("Referer"))
+
+    return cli.get_logout_url(cli.service_url)
+
+
 @app.post("/api/logout")
 async def logout(
     request: Request,
     user: Annotated[Optional[SessionUser], Depends(maybe_get_current_user)],
 ):
-    SSOLogoutUrl = cas_client(request).get_logout_url()
+    SSOLogoutUrl = getSSOLogoutUrl(request)
 
     if not user:
         return {
@@ -885,12 +891,20 @@ async def logout(
 
 
 @app.post("/api/logoutAll")
-async def logoutAll(user: Annotated[SessionUser, Depends(get_admin_user)]):
+async def logoutAll(
+    request: Request, user: Annotated[SessionUser, Depends(get_admin_user)]
+):
     # Mass logout is achieved by terminating the current session epoch.
     # The epoch information will be freshly created the next time it is
     # accessed.
     reset_current_epoch()
-    return {"message": "All login sessions have been invalidated"}
+
+    SSOLogoutUrl = getSSOLogoutUrl(request)
+
+    return {
+        "message": "All login sessions have been invalidated",
+        "SSOLogoutUrl": SSOLogoutUrl,
+    }
 
 
 @app.get("/api/whoami")
@@ -929,6 +943,7 @@ if os.path.isdir(assets_dir):
 
 # The following routes correspond to Vue routes established in router.js
 @app.get("/")
+@app.get("/admin")
 @app.get("/login")
 @app.get("/logout")
 @app.get("/jobs/{job_id}")

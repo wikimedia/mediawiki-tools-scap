@@ -12,10 +12,6 @@ const useAuthStore = defineStore( 'spiderpig-auth',
 			};
 		},
 		getters: {
-			isAuthenticated( state ) {
-				return state.authUser && !state.authFailing;
-			},
-
 			apiserverBaseURL() {
 				return import.meta.env.VITE_APISERVER_URL ?
 					import.meta.env.VITE_APISERVER_URL :
@@ -104,7 +100,13 @@ const useAuthStore = defineStore( 'spiderpig-auth',
 
 			},
 			async logout() {
-				const resp = await this.call( '/api/logout',
+				return await this.logoutCommon( '/api/logout' );
+			},
+			async logoutAll() {
+				return await this.logoutCommon( '/api/logoutAll' );
+			},
+			async logoutCommon( url ) {
+				const resp = await this.call( url,
 					{
 						method: 'POST'
 					}
@@ -112,6 +114,10 @@ const useAuthStore = defineStore( 'spiderpig-auth',
 				this.authUser = null;
 				localStorage.removeItem( 'spiderpig-auth-user' );
 				return resp.SSOLogoutUrl;
+
+			},
+			async whoami() {
+				return await this.call( '/api/whoami' );
 			},
 			async getJobrunnerStatus() {
 				return await this.call( '/api/jobrunner/status' );

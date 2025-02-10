@@ -192,11 +192,15 @@ async def cas_login_post(
 
 
 @app.get("/cas/logout")
-async def cas_logout(request: Request):
+async def cas_logout(request: Request, service: Optional[str] = None):
     request.session["SSO"] = None
 
+    login_url = "/cas/login"
+    if service:
+        login_url += "?" + urllib.parse.urlencode({"service": service})
+
     return HTMLResponse(
-        'You have successfully logged out of SSO.  Click <a href="/cas/login">here</a> to sign back in'
+        f'You have successfully logged out of SSO.  Click <a href="{login_url}">here</a> to sign back in'
     )
 
 

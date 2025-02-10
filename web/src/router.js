@@ -1,4 +1,5 @@
 import { createWebHistory, createRouter } from 'vue-router';
+import AdminPage from './components/AdminPage.vue';
 import LoginPage from './components/LoginPage.vue';
 import OverviewPage from './components/OverviewPage.vue';
 import JobViewerPage from './components/JobViewerPage.vue';
@@ -17,6 +18,11 @@ const routes = [
 		path: '/jobs/:jobId',
 		component: JobViewerPage,
 		props: true
+	},
+	{
+		name: 'admin',
+		path: '/admin',
+		component: AdminPage
 	}
 ];
 

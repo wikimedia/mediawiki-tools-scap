@@ -174,7 +174,10 @@ def test_get_admin_user(
 def mockrequest():
     request = Mock()
     request.session = {}
-    request.headers = {"Host": "spiderpig.example.org"}
+    request.headers = {
+        "Host": "spiderpig-apiserver.example.org",
+        "Referer": "https://spiderpig-webserver.example.org/somepage",
+    }
 
     yield request
 
@@ -201,7 +204,7 @@ async def test_require_user(mockrequest, partially_authenticated_user_session):
     assert body["code"] == "needauth"
     assert (
         body["url"]
-        == "https://cas.example.org/cas/login?service=https%3A%2F%2Fspiderpig.example.org%2Fapi%2Flogin"
+        == "https://cas.example.org/cas/login?service=https%3A%2F%2Fspiderpig-apiserver.example.org%2Fapi%2Flogin%3Fnext%3Dhttps%253A%252F%252Fspiderpig-webserver.example.org%252Fsomepage"
     )
     call_next.assert_not_awaited()
 
@@ -313,20 +316,26 @@ async def test_login2(mockrequest):
 
 @pytest.mark.anyio
 async def test_logout(mockrequest, partially_authenticated_user_session):
+    SSOLogoutUrl = "https://cas.example.org/cas/logout?service=https%3A%2F%2Fspiderpig-apiserver.example.org%2Fapi%2Flogin%3Fnext%3Dhttps%253A%252F%252Fspiderpig-webserver.example.org%252Fsomepage"
+
     assert await logout(mockrequest, None) == {
         "message": "Already logged out",
-        "SSOLogoutUrl": "https://cas.example.org/cas/logout",
+        "SSOLogoutUrl": SSOLogoutUrl,
     }
     mockrequest.session = partially_authenticated_user_session
     assert await logout(mockrequest, Mock()) == {
         "message": "Logged out",
-        "SSOLogoutUrl": "https://cas.example.org/cas/logout",
+        "SSOLogoutUrl": SSOLogoutUrl,
     }
     assert mockrequest.session.get("user") is None
 
 
 @pytest.mark.anyio
-async def test_logoutAll():
-    assert await logoutAll(Mock()) == {
-        "message": "All login sessions have been invalidated"
+async def test_logoutAll(mockrequest):
+    user = SessionUser(
+        name="bruce", groups=["cn=deployers,ou=groups,dc=example,dc=org"]
+    )
+    assert await logoutAll(mockrequest, user) == {
+        "message": "All login sessions have been invalidated",
+        "SSOLogoutUrl": "https://cas.example.org/cas/logout?service=https%3A%2F%2Fspiderpig-apiserver.example.org%2Fapi%2Flogin%3Fnext%3Dhttps%253A%252F%252Fspiderpig-webserver.example.org%252Fsomepage",
     }
