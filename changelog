@@ -1,3 +1,9 @@
+scap (4.136.0)
+
+  * Handle inaccessible train-blockers.toolforge.org
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Tue, 11 Feb 2025 07:56:53 -0800
+
 scap (4.135.0)
 
   * setup.py: Use minimal positive setup
