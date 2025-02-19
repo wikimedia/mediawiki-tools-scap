@@ -1,3 +1,9 @@
+scap (4.137.0)
+
+  * Improve k8s diff review
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Wed, 19 Feb 2025 14:34:10 -0800
+
 scap (4.136.0)
 
   * Handle inaccessible train-blockers.toolforge.org
