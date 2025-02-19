@@ -984,16 +984,16 @@ class K8sOps:
             env=self._helm_augmented_environment(env),
         )
         stdout, stderr = proc.communicate()
-        logger.debug("stdout: %s", stdout)
-        logger.debug("stderr: %s", stderr)
+        log.log_large_message(f"stdout: {stdout}", logger, logging.DEBUG)
+        log.log_large_message(f"stderr: {stderr}", logger, logging.DEBUG)
         logger.debug("exit status: %s", proc.returncode)
 
         if proc.returncode == 0:
             return stdout
 
         logger.error("Non-zero exit status (%d) from %s", proc.returncode, cmd)
-        logger.error("stdout: %s", stdout)
-        logger.error("stderr: %s", stderr)
+        log.log_large_message(f"stdout: {stdout}", logger, logging.ERROR)
+        log.log_large_message(f"stderr: {stderr}", logger, logging.ERROR)
 
         return None
 

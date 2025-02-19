@@ -351,20 +351,20 @@ class AbstractSync(cli.Application):
             if not diffs:
                 logger.warn("No diffs for stage %s", stage)
                 continue
-            formatted_diffs = [
-                "=== {datacenter}/{namespace}-{release} ===\n{diff_stdout}".format(
-                    **diff
-                )
-                for diff in sorted(
-                    diffs,
-                    key=lambda diff: (
-                        diff["datacenter"],
-                        diff["namespace"],
-                        diff["release"],
+            for diff in sorted(
+                diffs,
+                key=lambda diff: (
+                    diff["datacenter"],
+                    diff["namespace"],
+                    diff["release"],
+                ),
+            ):
+                self.output_line(
+                    "=== Diff for {datacenter}/{namespace}-{release} in {stage} ===\n{diff_stdout}".format(
+                        stage=stage, **diff
                     ),
+                    sensitive=True,  # Diffs may contain sensitive values.
                 )
-            ]
-            logger.info("Diffs for stage %s:\n%s" % (stage, "\n".join(formatted_diffs)))
         self.prompt_for_approval_or_exit(
             "Note: Diffs are relative to the current helm charts and helmfile values. These may "
             "become outdated if new changes are merged during sync.\n"
