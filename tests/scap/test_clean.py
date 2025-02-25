@@ -3,6 +3,7 @@ import os
 import pytest
 
 from scap import cli, git
+from scap.clean import Clean
 
 
 def test_scap_clean(tmpdir):
@@ -42,3 +43,29 @@ def test_scap_clean(tmpdir):
     for version in ["1.42.0-wmf.23", "1.42.0-wmf.25"]:
         with pytest.raises(SystemExit):
             clean.cleanup_branch(version)
+
+
+def test__get_submodules_path(tmpdir):
+    with open(os.path.join(tmpdir, ".gitmodules"), "w") as f:
+        f.write(
+            """
+[submodule "extensions/AbuseFilter"]
+    path = extensions/AbuseFilter
+    url = https://gerrit.wikimedia.org/r/mediawiki/extensions/AbuseFilter
+    branch = .
+[submodule "extensions/Wikibase"]
+    path = extensions/Wikibase
+    url = https://gerrit.wikimedia.org/r/mediawiki/extensions/Wikibase
+    branch = .
+[submodule "vendor"]
+    path = vendor
+    url = https://gerrit.wikimedia.org/r/mediawiki/vendor
+    branch = .
+"""
+        )
+
+    assert [
+        os.path.join(tmpdir, "extensions/AbuseFilter"),
+        os.path.join(tmpdir, "extensions/Wikibase"),
+        os.path.join(tmpdir, "vendor"),
+    ] == Clean._get_submodules_paths(tmpdir)
