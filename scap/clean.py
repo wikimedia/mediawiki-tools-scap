@@ -140,34 +140,34 @@ class Clean(main.AbstractSync):
                 ]
                 with self.Timer("prune-git-branches"):
                     # Prune all the submodules' remote branches
-                    with utils.cd(branch_dir):
-                        submodule_cmd = 'git submodule foreach "{} ||:"'.format(
-                            " ".join(git_prune_cmd)
+                    submodule_cmd = 'git -C {} submodule foreach "{} ||:"'.format(
+                        branch_dir,
+                        " ".join(git_prune_cmd)
+                    )
+
+                    # Deletions are done as trainbranchbot if available
+                    gerrit_ssh_env = self.get_gerrit_ssh_env()
+
+                    logger.info("Deleting mediawiki/core branch")
+                    if subprocess.call(git_prune_cmd, env=gerrit_ssh_env) != 0:
+                        # When the deletion for core has failed, the branch is
+                        # still a superproject in Gerrit and the deletion of
+                        # subprojects would cause it to try to craft an object
+                        # for the deletion. That is unsupported and fail in
+                        # Gerrit 3.10.2.
+                        #
+                        # We thus must have successfuly deleted the
+                        # superproject before the tracked projects and
+                        # since that failed: We Skip 'Em All ™
+                        logger.info(
+                            "Failed to prune core branch, "
+                            "skipping git branch deletions"
                         )
-
-                        # Deletions are done as trainbranchbot if available
-                        gerrit_ssh_env = self.get_gerrit_ssh_env()
-
-                        logger.info("Deleting mediawiki/core branch")
-                        if subprocess.call(git_prune_cmd, env=gerrit_ssh_env) != 0:
-                            # When the deletion for core has failed, the branch
-                            # is still a superproject in Gerrit and the
-                            # deletion of subprojects would cause it to try to
-                            # craft an object tfor the deletion. That is
-                            # unsupported and fail in Gerrit 3.10.2.
-                            #
-                            # We thus must have successfuly deleted the
-                            # superproject before the tracked projects and
-                            # since that failed: We Skip 'Em All ™
-                            logger.info(
-                                "Failed to prune core branch, "
-                                "skipping git branch deletions"
-                            )
-                        else:
-                            logger.info("Deleting branch from other projects")
-                            subprocess.check_output(
-                                submodule_cmd, shell=True, env=gerrit_ssh_env
-                            )
+                    else:
+                        logger.info("Deleting branch from other projects")
+                        subprocess.check_output(
+                            submodule_cmd, shell=True, env=gerrit_ssh_env
+                        )
 
         logger.info("Clean %s", branch_dir)
         self._maybe_delete(branch_dir)
