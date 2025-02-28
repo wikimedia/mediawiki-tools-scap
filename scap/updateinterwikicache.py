@@ -38,6 +38,7 @@ class UpdateInterwikiCache(cli.Application):
                         "extensions/WikimediaMaintenance/dumpInterwiki.php",
                     ],
                     stdout=f,
+                    env={"MESH_CHECK_SKIP": "1", **os.environ},
                 )
 
         # This shouldn't be needed, but let's be safe

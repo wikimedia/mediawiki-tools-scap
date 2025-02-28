@@ -245,6 +245,8 @@ class Runtime:
         if self.offline:
             env["WMF_MAINTENANCE_OFFLINE"] = "1"
 
+        env["MESH_CHECK_SKIP"] = "1"
+
         return self._run(
             "/usr/bin/php",
             [*php_args, "multiversion/MWScript.php", script, *args],
