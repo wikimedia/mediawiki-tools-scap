@@ -1,3 +1,10 @@
+scap (4.138.0)
+
+  * mwscript: Skip mesh check
+  * spiderpig: Add admin operations
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Fri, 28 Feb 2025 09:34:39 -0800
+
 scap (4.137.0)
 
   * Improve k8s diff review
