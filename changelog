@@ -1,3 +1,10 @@
+scap (4.139.0)
+
+  * scap clean: hide remote line on pushing deletes
+  * scap clean: have git cd to branch dir
+
+ -- Antoine Musso <hashar@free.fr>  Mon, 03 Mar 2025 11:05:34 +0100
+
 scap (4.138.0)
 
   * mwscript: Skip mesh check
