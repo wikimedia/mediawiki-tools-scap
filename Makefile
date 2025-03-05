@@ -28,7 +28,9 @@ test-image-%:
 	DOCKER_BUILDKIT=1 docker build \
 		-f .pipeline/blubber.yaml \
 		--target test-$(*F) \
-		-t $(TEST_IMAGE) .
+		-t $(TEST_IMAGE) \
+		--load \
+		.
 
 test-%: test-image-%
 	docker run -it --rm $(TEST_IMAGE)
