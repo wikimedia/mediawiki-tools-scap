@@ -49,9 +49,26 @@ class InvalidDeploymentsConfig(Exception):
 
 class DeploymentsConfig:
     """
-    Deployment configuration files are specified in the format described in
-    https://phabricator.wikimedia.org/T370934. For historical information on the earlier format,
-    see https://phabricator.wikimedia.org/T299648 (and modifications therein).
+    Represents the configuration of MediaWiki deployments for use by Scap.
+
+    The deployments config is loaded from a YAML config file, containing a list of deployments
+    config items.
+
+    Each deployments config item has the following fields:
+      namespace: A k8s namespace containing one or more helmfile releases
+      releases: A mapping from helmfile release name to release configuration
+      mw_flavour: Default image flavour for the MediaWiki image used by releases in this namespace
+      web_flavour: Default image flavour for the httpd image used by releases in this namespace
+      debug: Whether a debug MediaWiki image should be used for all releases in this namespace,
+        which also maps all releases to the testservers release stage
+
+    The configuration of each release has the following fields:
+      stage: Name of the stage in which this release should be updated - one of production, canary,
+        testservers. Optional (default: production, unless debug is set)
+      mw_flavour: Release-specific override to the namespace-level equivalent
+      web_flavour: Release-specific override to the namespace-level equivalent
+      deploy: Whether this release should be deployed by scap. If false, scap will manage only the
+        helmfile release values files for this release. Optional (default: true)
 
     Instances of this class translate that format into one that represents Scap workflow better by
     organizing the configurations around deployment stages.
@@ -77,11 +94,13 @@ class DeploymentsConfig:
         main: {}
         experimental:
           mw_flavour: publish-experimental
+        maintenance:
+          deploy: false
       mw_flavour: publish
       web_flavour: webserver
       debug: false
 
-    will produce the following output:
+    will produce the following DeploymentsConfig.stages:
 
      {
       "testservers": [{
@@ -90,6 +109,7 @@ class DeploymentsConfig:
         "mw_image_fl": "publish",
         "web_image_fl": "webserver",
         "debug": True,
+        "deploy": True,
       }],
       "canaries": [{
         "namespace": "api1",
@@ -97,6 +117,7 @@ class DeploymentsConfig:
         "mw_image_fl": "publish",
         "web_image_fl": "webserver",
         "debug": False,
+        "deploy": True,
       }],
       "production": [{
         "namespace": "api1",
@@ -104,23 +125,38 @@ class DeploymentsConfig:
         "mw_image_fl": "publish",
         "web_image_fl": "webserver",
         "debug": False,
+        "deploy": True,
         }, {
         "namespace": "api2",
         "release": "main",
         "mw_image_fl": "publish",
         "web_image_fl": "webserver",
         "debug": False,
+        "deploy": True,
         }, {
         "namespace": "api2",
         "release": "experimental",
         "mw_image_fl": "publish-experimental",
         "web_image_fl": "webserver",
         "debug": False,
+        "deploy": True,
+        }, {
+        "namespace": "api2",
+        "release": "maintenance",
+        "mw_image_fl": "publish",
+        "web_image_fl": "webserver",
+        "debug": False,
+        "deploy": False,
       }]
      }
 
-    Also, note that values of the `debug` field are interpreted as true according to Python's rules:
-    https://docs.python.org/3/library/stdtypes.html#truth-value-testing
+    Also, note that values of the `debug` and `deploy` fields are interpreted as true according to
+    Python's rules: https://docs.python.org/3/library/stdtypes.html#truth-value-testing
+
+    For historical evolution of the deployments configuration YAML format, see:
+    * https://phabricator.wikimedia.org/T299648
+    * https://phabricator.wikimedia.org/T370934
+    * https://phabricator.wikimedia.org/T387917
     """
 
     # The K8s namespace is also sometimes referred to as "cluster"
@@ -130,6 +166,7 @@ class DeploymentsConfig:
     MW_IMAGE_FLAVOUR = "mw_image_fl"
     WEB_IMAGE_FLAVOUR = "web_image_fl"
     DEBUG = "debug"
+    DEPLOY = "deploy"
 
     def __init__(
         self, testservers: List[dict], canaries: List[dict], production: List[dict]
@@ -189,6 +226,7 @@ class DeploymentsConfig:
                     cls.MW_IMAGE_FLAVOUR: mw_flavour,
                     cls.WEB_IMAGE_FLAVOUR: web_flavour,
                     cls.DEBUG: debug,
+                    cls.DEPLOY: config.get("deploy", True),
                 }
                 if debug:
                     testservers.append(parsed_dep_config)
@@ -384,6 +422,8 @@ class K8sOps:
                 diff_for_datacenter_and_deployment,
                 "Diff",
                 progress=False,
+                # Exclude non-deploy releases from diffs, since no subsequent deploy will apply them.
+                deploy_only=True,
             )
         # Using BaseException so that we catch KeyboardInterrupt too
         except BaseException as e:
@@ -433,7 +473,10 @@ class K8sOps:
         res = set()
 
         for dep_config in self.k8s_deployments_config.stages[CANARIES]:
-            res.add(dep_config[DeploymentsConfig.NAMESPACE])
+            # Exclude non-deploy releases from contributing to the canary-stage namespace list,
+            # since they will not have been deployed in that stage.
+            if dep_config[DeploymentsConfig.DEPLOY]:
+                res.add(dep_config[DeploymentsConfig.NAMESPACE])
 
         return list(res)
 
@@ -480,10 +523,17 @@ class K8sOps:
             dep_configs,
             self._deploy_k8s_images_for_datacenter,
             "Deployment",
+            deploy_only=True,  # Exclude non-deploy releases
         )
 
     def _foreach_datacenter_and_deployment(
-        self, datacenters, dep_configs, func, description, progress=True
+        self,
+        datacenters,
+        dep_configs,
+        func,
+        description,
+        progress=True,
+        deploy_only=False,
     ):
         """
         Invokes 'func' over the product of all datacenters and dep_configs.
@@ -497,8 +547,18 @@ class K8sOps:
         If 'progress' is True, a progress indicator will be displayed
         during the operation.
 
+        If 'deploy_only' is True, dep_configs corresponding to non-deploy
+        releases will be excluded.
+
         Returns: A list of values returned by func.
         """
+
+        if deploy_only:
+            dep_configs = [
+                dep_config
+                for dep_config in dep_configs
+                if dep_config[DeploymentsConfig.DEPLOY]
+            ]
 
         if len(dep_configs) == 0 or len(datacenters) == 0:
             return []
