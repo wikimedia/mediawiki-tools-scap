@@ -2,8 +2,8 @@ BLUBBER_VARIANTS := buster bullseye bookworm
 # deployment.eqiad.wmnet currently runs bullseye
 DEFAULT_VARIANT := bullseye
 
-VERIFY_DEPS_IMAGE = local/scap-$(*F)-verify-deps
-TEST_IMAGE = local/scap-$(*F)-test
+VERIFY_DEPS_IMAGE = localhost/scap-$(*F)-verify-deps
+TEST_IMAGE = localhost/scap-$(*F)-test
 
 .PHONY: default
 default:
@@ -39,7 +39,7 @@ binary-dist-image-%:
 	DOCKER_BUILDKIT=1 docker build \
 		-f .pipeline/blubber.yaml \
 		--target binary-dist-$* \
-		-t local/scap-dist-$* .
+		-t localhost/scap-dist-$* .
 
 ########################
 # TARGETS
