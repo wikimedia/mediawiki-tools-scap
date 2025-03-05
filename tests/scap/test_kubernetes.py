@@ -31,12 +31,15 @@ deployment_configs = [
       web_flavour: webserver
       debug: false
 
-    # multiple releases, one mapped to the canaries stage.
+    # multiple releases, one mapped to the canaries stage, and another marked
+    # non-deploy.
     - namespace: api2
       releases:
         main: {}
         canary:
           stage: canaries
+        maintenance:
+          deploy: false
       mw_flavour: publish
       web_flavour: webserver
       debug: false
@@ -64,6 +67,7 @@ deployment_configs = [
                     "mw_image_fl": "publish",
                     "web_image_fl": "webserver",
                     "debug": True,
+                    "deploy": True,
                 }
             ],
             "canaries": [
@@ -73,6 +77,7 @@ deployment_configs = [
                     "mw_image_fl": "publish",
                     "web_image_fl": "webserver",
                     "debug": False,
+                    "deploy": True,
                 },
                 {
                     "namespace": "api3",
@@ -80,6 +85,7 @@ deployment_configs = [
                     "mw_image_fl": "publish",
                     "web_image_fl": "webserver",
                     "debug": False,
+                    "deploy": True,
                 },
             ],
             "production": [
@@ -89,6 +95,7 @@ deployment_configs = [
                     "mw_image_fl": "publish",
                     "web_image_fl": "webserver",
                     "debug": False,
+                    "deploy": True,
                 },
                 {
                     "namespace": "api2",
@@ -96,6 +103,15 @@ deployment_configs = [
                     "mw_image_fl": "publish",
                     "web_image_fl": "webserver",
                     "debug": False,
+                    "deploy": True,
+                },
+                {
+                    "namespace": "api2",
+                    "release": "maintenance",
+                    "mw_image_fl": "publish",
+                    "web_image_fl": "webserver",
+                    "debug": False,
+                    "deploy": False,
                 },
                 {
                     "namespace": "api3",
@@ -103,6 +119,7 @@ deployment_configs = [
                     "mw_image_fl": "publish",
                     "web_image_fl": "webserver",
                     "debug": False,
+                    "deploy": True,
                 },
                 {
                     "namespace": "api3",
@@ -110,6 +127,7 @@ deployment_configs = [
                     "mw_image_fl": "exciting-new-mediawiki",
                     "web_image_fl": "exciting-new-webserver",
                     "debug": False,
+                    "deploy": True,
                 },
             ],
         },
@@ -134,6 +152,7 @@ deployment_configs = [
                     "mw_image_fl": "publish",
                     "web_image_fl": "webserver",
                     "debug": True,
+                    "deploy": True,
                 }
             ],
             "canaries": [],
