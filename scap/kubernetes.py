@@ -15,7 +15,7 @@ import queue
 
 import yaml
 
-from scap import utils, log, git
+from scap import utils, log, git, version
 from scap.cli import Application
 from scap.runcmd import gitcmd
 
@@ -28,6 +28,12 @@ PRODUCTION = "production"
 
 STAGES = [TEST_SERVERS, CANARIES, PRODUCTION]
 """All supported deployment stages, ordered by scope (increasing)."""
+
+LABEL_BUILDER_NAME = "vnd.wikimedia.builder.name"
+LABEL_BUILDER_VERSION = "vnd.wikimedia.builder.version"
+LABEL_MEDIAWIKI_VERSIONS = "vnd.wikimedia.mediawiki.versions"
+LABEL_SCAP_STAGE_DIR = "vnd.wikimedia.scap.stage_dir"
+LABEL_SCAP_BUILD_STATE_DIR = "vnd.wikimedia.scap.build_state_dir"
 
 
 class InvalidDeploymentsConfig(Exception):
@@ -233,12 +239,14 @@ class K8sOps:
                     ) as f:
                         dev_ca_crt = base64.b64encode(f.read()).decode("utf-8")
 
+                mw_versions_list = ",".join(mediawiki_versions)
+                stage_dir = self.app.config["stage_dir"]
                 build_images_args = [
                     self.build_state_dir,
                     "--staging-dir",
-                    self.app.config["stage_dir"],
+                    stage_dir,
                     "--mediawiki-versions",
-                    ",".join(mediawiki_versions),
+                    mw_versions_list,
                     "--multiversion-image-name",
                     "{}/{}".format(registry, self.app.config["mediawiki_image_name"]),
                     "--multiversion-debug-image-name",
@@ -249,6 +257,16 @@ class K8sOps:
                     "{}/{}".format(registry, self.app.config["webserver_image_name"]),
                     "--latest-tag",
                     latest_tag,
+                    "--label",
+                    f"{LABEL_BUILDER_NAME}=scap",
+                    "--label",
+                    f"{LABEL_BUILDER_VERSION}={version.__version__}",
+                    "--label",
+                    f"{LABEL_MEDIAWIKI_VERSIONS}={mw_versions_list}",
+                    "--label",
+                    f"{LABEL_SCAP_STAGE_DIR}={stage_dir}",
+                    "--label",
+                    f"{LABEL_SCAP_BUILD_STATE_DIR}={self.build_state_dir}",
                 ]
 
                 if force_version:
