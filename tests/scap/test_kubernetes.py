@@ -1,7 +1,9 @@
 from unittest import TestCase
 
+import io
 import mock
 import pytest
+import subprocess
 
 from scap.kubernetes import (
     DeploymentsConfig,
@@ -9,6 +11,8 @@ from scap.kubernetes import (
     CANARIES,
     PRODUCTION,
     TEST_SERVERS,
+    built_image_ids,
+    inspect_images,
 )
 
 deployment_configs = [
@@ -218,3 +222,65 @@ def test_deployments_config_parser(config, expected_parse):
             sort_lists(expected_parse)
             sort_lists(parsed_config.stages)
             TestCase().assertDictEqual(parsed_config.stages, expected_parse)
+
+
+@mock.patch("subprocess.Popen")
+def test_built_image_ids(mock_popen):
+    mock_popen.return_value.__enter__.return_value.stdout = io.StringIO(
+        "a0a0\n" "b0b0\n" "b0b0\n"
+    )
+
+    assert built_image_ids() == {"a0a0", "b0b0"}
+
+    mock_popen.assert_called_with(
+        [
+            "docker",
+            "image",
+            "ls",
+            "--filter",
+            "label=vnd.wikimedia.builder.name=scap",
+            "--format",
+            "{{.ID}}",
+        ],
+        stdout=subprocess.PIPE,
+        text=True,
+    )
+
+
+@mock.patch("subprocess.Popen")
+def test_inspect_images(mock_popen):
+    mock_popen.return_value.__enter__.return_value.stdout = io.StringIO(
+        """[{
+        "Id": "a0a0a",
+        "RepoTags": [
+            "foo/foo:v0"
+        ],
+        "Config": {
+            "Labels": {
+                "foo": "bar"
+            }
+        }
+    }]"""
+    )
+
+    assert inspect_images(["a0a0"]) == [
+        {
+            "Id": "a0a0a",
+            "RepoTags": ["foo/foo:v0"],
+            "Config": {
+                "Labels": {
+                    "foo": "bar",
+                },
+            },
+        }
+    ]
+
+    mock_popen.assert_called_with(
+        [
+            "docker",
+            "image",
+            "inspect",
+            "a0a0",
+        ],
+        stdout=subprocess.PIPE,
+    )

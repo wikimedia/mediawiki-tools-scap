@@ -52,7 +52,7 @@ from scap.deploy import (
 )  # `scap.deploy.DeployMediaWiki` not imported. It looks like it never saw the light of day
 from scap.deploy_promote import DeployPromote
 from scap.install_world import InstallWorld
-from scap.kubernetes_cli import BuildImages
+from scap.kubernetes_cli import BuildImages, CleanImages
 from scap.mwscript import Mwscript, Mwshell
 from scap.patch import SecurityPatchManager
 from scap.patches import ApplyPatches, UpdatePatch, RemovePatch

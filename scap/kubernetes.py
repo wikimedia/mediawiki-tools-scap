@@ -1,8 +1,10 @@
 import base64
 import concurrent.futures
 import contextlib
+import glob
 import logging
 import json
+import math
 import os
 import pathlib
 import re
@@ -34,6 +36,11 @@ LABEL_BUILDER_VERSION = "vnd.wikimedia.builder.version"
 LABEL_MEDIAWIKI_VERSIONS = "vnd.wikimedia.mediawiki.versions"
 LABEL_SCAP_STAGE_DIR = "vnd.wikimedia.scap.stage_dir"
 LABEL_SCAP_BUILD_STATE_DIR = "vnd.wikimedia.scap.build_state_dir"
+
+# An upper limit of image ID/ref args to pass to a single docker command.
+# Image refs can be up to 255 bytes, Linux ARG_MAX, yada yada. This is much
+# lower.
+_DOCKER_ARG_MAX = 500
 
 
 class InvalidDeploymentsConfig(Exception):
@@ -1090,3 +1097,138 @@ class K8sOps:
             env[m[1]] = m[2]
 
         return env
+
+
+def build_states(state_dir):
+    """
+    Yields each image build state stored in the given directory.
+    """
+    for path in glob.glob(os.path.join(state_dir, "*-state.json")):
+        try:
+            with open(path, "r") as f:
+                yield json.load(f)
+        except OSError:
+            pass
+
+
+def built_image_ids() -> list:
+    """
+    Return the IDs of all local images built by scap.
+    """
+    image_ids = set()
+
+    cmd = [
+        "docker",
+        "image",
+        "ls",
+        "--filter",
+        f"label={LABEL_BUILDER_NAME}=scap",
+        "--format",
+        "{{.ID}}",
+    ]
+
+    with subprocess.Popen(cmd, stdout=subprocess.PIPE, text=True) as proc:
+        for line in proc.stdout:
+            image_ids.add(line.rstrip())
+
+    return image_ids
+
+
+def inspect_images(image_ids: list) -> list:
+    """
+    Return details of the given images.
+    """
+    cmd = ["docker", "image", "inspect", *image_ids]
+    with subprocess.Popen(cmd, stdout=subprocess.PIPE) as proc:
+        return json.load(proc.stdout)
+
+
+@utils.log_context("kubernetes.prune_local_images")
+def prune_local_images(logger=None, dry_run=False):
+    """
+    Untag/remove local images that were built during k8s deployment but are no
+    longer referenced by any of the state files used for incremental builds.
+
+    Note that `docker image rm` only deletes the image if there are no longer
+    any tags associated with it, which is what we want, so we provide the
+    command image refs instead of image IDs.
+    """
+    verbose_level = logging.INFO if dry_run else logging.DEBUG
+    image_ids = list(built_image_ids())
+    workers = utils.cpus_for_jobs()
+    mutex = threading.Lock()
+
+    image_refs_by_dir = {}
+
+    def state_ref_exists(ref, state_dir) -> bool:
+        with mutex:
+            if state_dir not in image_refs_by_dir:
+                image_refs_by_dir[state_dir] = set()
+                for state in build_states(state_dir):
+                    if "last_image" in state:
+                        image_refs_by_dir[state_dir].add(state["last_image"])
+
+            return ref in image_refs_by_dir[state_dir]
+
+    def prune_images(iids) -> tuple:
+        refs_to_remove = []
+
+        untagged = 0
+        deleted = 0
+        skipped = 0
+
+        for image in inspect_images(iids):
+            labels = image["Config"]["Labels"]
+            state_dir = labels.get(LABEL_SCAP_BUILD_STATE_DIR)
+            for ref in image["RepoTags"]:
+                if state_dir and state_ref_exists(ref, state_dir):
+                    logger.log(
+                        verbose_level,
+                        "Skipped %s due to references in %s",
+                        ref,
+                        state_dir,
+                    )
+                    skipped += 1
+                else:
+                    logger.log(verbose_level, "Marked %s for deletion", ref)
+                    refs_to_remove.append(ref)
+
+        if refs_to_remove and not dry_run:
+            with log.pipe(logger=logger, level=logging.DEBUG) as debug:
+                with subprocess.Popen(
+                    ["docker", "image", "rm", *refs_to_remove],
+                    stderr=debug,
+                    stdout=subprocess.PIPE,
+                ) as proc:
+                    for line in proc.stdout:
+                        os.write(debug, line)
+                        if line.startswith(b"Deleted: "):
+                            deleted += 1
+                        elif line.startswith(b"Untagged: "):
+                            untagged += 1
+
+        return untagged, deleted, skipped
+
+    untagged = 0
+    deleted = 0
+    skipped = 0
+    with concurrent.futures.ThreadPoolExecutor(max_workers=workers) as pool:
+        n = min(math.ceil(len(image_ids) / workers), _DOCKER_ARG_MAX)
+        futures = [
+            pool.submit(prune_images, image_ids[i : i + n])
+            for i in range(0, len(image_ids), n)
+        ]
+        for future in concurrent.futures.as_completed(futures):
+            ex = future.exception()
+            if ex:
+                raise ex
+
+            u, d, s = future.result()
+            untagged += u
+            deleted += d
+            skipped += s
+
+    if logger:
+        logger.info("Untagged %d unused refs", untagged)
+        logger.info("Deleted %d image layers", deleted)
+        logger.info("Skipped %d used refs", skipped)

@@ -6,7 +6,7 @@ Scap command for performing MediaWiki on Kubernetes related operations.
 import os
 
 from scap import cli
-from scap.kubernetes import K8sOps
+from scap.kubernetes import K8sOps, prune_local_images
 import scap.tasks as tasks
 
 
@@ -61,3 +61,27 @@ class BuildImages(cli.Application):
                 force_version=force_version,
                 latest_tag=self.arguments.latest_tag,
             )
+
+
+@cli.command(
+    "clean-images",
+    help="Remove unused local images that were built by scap",
+)
+class CleanImages(cli.Application):
+    @cli.argument(
+        "--dry-run",
+        action="store_true",
+        help="Report intended operations without actually performing them",
+    )
+    def main(self, *extra_args):
+        """
+        Untag/remove local images that were built by scap but are no longer
+        referenced by any of the state files used for incremental builds.
+
+        This subcommand requires access to Docker and may need to be executed
+        via sudo.
+        """
+        prune_local_images(
+            logger=self.get_logger(),
+            dry_run=self.arguments.dry_run,
+        )
