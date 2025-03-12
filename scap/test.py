@@ -102,4 +102,7 @@ class TestTrain(cli.Application):
             return ["v1"]
 
         with patch("scap.utils.get_group_versions", side_effect=groups):
-            TrainInfo({"stage_dir": "", "wmf_realm": ""}).visualize()
+            TrainInfo(
+                {"stage_dir": "", "wmf_realm": ""},
+                self.get_io(),
+            ).visualize()
