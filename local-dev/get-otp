@@ -1,5 +1,23 @@
 #!/bin/bash
 
+function usage {
+    echo "Usage: $0 [user]"
+    exit 1
+}
+
 cd $(dirname "$0")
 
-docker compose exec deploy scap spiderpig-otp
+case $# in
+    0)
+        user=deployer01
+        ;;
+    1)
+        user="$1"
+        shift
+        ;;
+    *)
+        usage
+        ;;
+esac
+
+docker compose exec --user "$user" deploy scap spiderpig-otp

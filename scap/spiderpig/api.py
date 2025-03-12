@@ -319,6 +319,29 @@ def cas_client(request: Request, next=None) -> cas.CASClientV3:
     )
 
 
+@functools.lru_cache()
+def get_config_groups(setting: str) -> set:
+    return set([group.strip() for group in get_scap_config()[setting].splitlines()])
+
+
+def get_spiderpig_user_groups() -> set:
+    return get_config_groups("spiderpig_user_groups")
+
+
+def get_spiderpig_admin_groups() -> set:
+    return get_config_groups("spiderpig_admin_groups")
+
+
+def user_is_authorized(user_groups) -> bool:
+    return True if set(user_groups).intersection(get_spiderpig_user_groups()) else False
+
+
+def user_in_admin_group(user_groups) -> bool:
+    return (
+        True if set(user_groups).intersection(get_spiderpig_admin_groups()) else False
+    )
+
+
 # This object is stored in a cookie in the client browser, so don't
 # include any secret information in here.
 class SessionUser(BaseModel):
@@ -328,10 +351,7 @@ class SessionUser(BaseModel):
 
     @property
     def isAdmin(self) -> bool:
-        admin_group = get_scap_config()["spiderpig_admin_group"]
-        if not admin_group:
-            return False
-        return admin_group in self.groups
+        return user_in_admin_group(self.groups)
 
 
 class NotAuthenticatedException(Exception):
@@ -344,7 +364,7 @@ ROUTE_2FA = "/api/2fa"
 
 
 @app.exception_handler(NotAuthenticatedException)
-async def auth_exception_handler(request: Request, exc: NotAuthenticatedException):
+async def authn_exception_handler(request: Request, exc: NotAuthenticatedException):
     if exc.need2fa:
         return JSONResponse(
             status_code=401,
@@ -823,7 +843,7 @@ def login(
     if groups is None:
         groups = []
     if isinstance(groups, str):
-        groups = list[groups]
+        groups = [groups]
 
     user = SessionUser(name=username, groups=groups)
     # Store the logged-in-user information in a signed cookie
@@ -917,6 +937,7 @@ async def whoami(
             "user": user.name,
             "fully_authenticated": user.fully_authenticated,
             "groups": user.groups,
+            "isAuthorized": user_is_authorized(user.groups),
             "isAdmin": user.isAdmin,
         }
 
@@ -947,6 +968,7 @@ if os.path.isdir(assets_dir):
 @app.get("/login")
 @app.get("/logout")
 @app.get("/jobs/{job_id}")
+@app.get("/notauthorized")
 async def index_page():
     return FileResponse(index_html)
 
@@ -978,15 +1000,28 @@ async def require_user(request: Request, call_next):
 
     user = maybe_get_current_user(request)
     if not user:
-        return await auth_exception_handler(request, NotAuthenticatedException())
+        return await authn_exception_handler(request, NotAuthenticatedException())
 
-    # All remainining api routes except the 2FA route require a fully authenticated user.
-    if not user.fully_authenticated and request.url.path != ROUTE_2FA:
-        return await auth_exception_handler(
+    if request.url.path == ROUTE_2FA:
+        return await call_next(request)
+
+    # All remainining api routes require a fully authenticated user.
+    if not user.fully_authenticated:
+        return await authn_exception_handler(
             request, NotAuthenticatedException(need2fa=True, user=user)
         )
 
     # Beyond here we have a fully authenticated user.
+    # Though fully authenticated, the user may not be authorized to use SpiderPig.
+    # We validate that here.
+    if not user_is_authorized(user.groups):
+        return JSONResponse(
+            status_code=403,
+            content={
+                "code": "unauthorized",
+                "message": "You are not authorized to perform this action",
+            },
+        )
 
     return await call_next(request)
 

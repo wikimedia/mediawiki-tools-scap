@@ -150,7 +150,10 @@ DEFAULT_CONFIG = {
     "patch_bot_phorge_token": (str, None),
     # SpiderPig settings
     "spiderpig_auth_server": (str, None),
-    "spiderpig_admin_group": (str, None),
+    # One group per line
+    "spiderpig_admin_groups": (str, ""),
+    # One group per line
+    "spiderpig_user_groups": (str, ""),
 }
 
 

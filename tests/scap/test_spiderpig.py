@@ -45,7 +45,8 @@ def spiderpigdir(tmpdir):
 def scap_config():
     scap_config = {
         "spiderpig_auth_server": "https://cas.example.org/cas",
-        "spiderpig_admin_group": "cn=admins,ou=groups,dc=example,dc=org",
+        "spiderpig_admin_groups": "cn=admins,ou=groups,dc=example,dc=org",
+        "spiderpig_user_groups": "cn=deployers,ou=groups,dc=example,dc=org",
     }
 
     env = {
@@ -234,6 +235,14 @@ async def test_require_user(mockrequest, partially_authenticated_user_session):
     await require_user(mockrequest, call_next)
     call_next.assert_called_once_with(mockrequest)
 
+    # Test unauthorized user group
+    mockrequest.session["user"]["groups"] = ["cn=randos,ou=groups,dc=example,dc=org"]
+    call_next = AsyncMock()
+    res = await require_user(mockrequest, call_next)
+    assert isinstance(res, JSONResponse)
+    assert res.status_code == 403
+    call_next.assert_not_awaited()
+
 
 def test_login(mockrequest):
     with unittest.mock.patch("cas.CASClientV3.verify_ticket") as verify_ticket:
@@ -246,7 +255,7 @@ def test_login(mockrequest):
         with pytest.raises(NotAuthenticatedException):
             login(mockrequest, None, "123")
 
-        # Test good ticket
+        # Test good ticket, good group
         verify_ticket.return_value = (
             # username
             "Bruce",
@@ -267,6 +276,24 @@ def test_login(mockrequest):
         res = login(mockrequest, "/somepage", "123")
         assert isinstance(res, RedirectResponse)
         assert res.headers["location"] == "/somepage"
+
+        # Test case where "memberOf" is a single string.
+        verify_ticket.return_value = (
+            # username
+            "Bruce",
+            # LDAP attributes
+            {
+                "uid": "bruce",
+                "memberOf": "cn=deployers,ou=groups,dc=example,dc=org",
+            },
+            # proxy-granting ticket IOU
+            None,
+        )
+        res = login(mockrequest, None, "123")
+        assert isinstance(res, RedirectResponse)
+        assert mockrequest.session["user"]["groups"] == [
+            "cn=deployers,ou=groups,dc=example,dc=org"
+        ]
 
 
 @pytest.mark.anyio

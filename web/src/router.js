@@ -3,6 +3,7 @@ import AdminPage from './components/AdminPage.vue';
 import LoginPage from './components/LoginPage.vue';
 import OverviewPage from './components/OverviewPage.vue';
 import JobViewerPage from './components/JobViewerPage.vue';
+import NotAuthorized from './components/NotAuthorized.vue';
 
 const routes = [
 	{
@@ -23,6 +24,11 @@ const routes = [
 		name: 'admin',
 		path: '/admin',
 		component: AdminPage
+	},
+	{
+		name: 'notauthorized',
+		path: '/notauthorized',
+		component: NotAuthorized
 	}
 ];
 

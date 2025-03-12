@@ -34,6 +34,16 @@ USER_DB = {
             ],
         },
     },
+    "rando": {
+        "username": "rando",
+        "password": "hunter2",
+        "attributes": {
+            "uid": "rando",
+            "memberOf": [
+                "cn=randos,ou=groups,dc=example",
+            ],
+        },
+    },
 }
 
 SERVICE_DB = {"http://localhost:8000/": {"name": "SpiderPig local development"}}

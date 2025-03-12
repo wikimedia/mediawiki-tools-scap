@@ -61,6 +61,10 @@ const useAuthStore = defineStore( 'spiderpig-auth',
 					await this.handle401( url, response );
 				}
 
+				if ( response.status === 403 ) {
+					window.location.href = '/notauthorized';
+				}
+
 				this.authFailing = false;
 
 				if ( callOptions.checkOk !== false && !response.ok ) {
