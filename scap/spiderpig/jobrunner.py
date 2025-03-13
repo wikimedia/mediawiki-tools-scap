@@ -6,6 +6,7 @@ import logging
 import os
 import queue
 import signal
+import stat
 import subprocess
 import threading
 import time
@@ -53,10 +54,15 @@ class JobRunner(cli.Application):
 
             self.started_at = time.time()
 
-            db_filename = self.spiderpig_dbfile()
+            spiderpig_dir = self.spiderpig_dir()
+            os.makedirs(spiderpig_dir, exist_ok=True)
+            os.chmod(spiderpig_dir, 0o770 | stat.S_ISGID)
+
             logdir = self.spiderpig_joblogdir()
             os.makedirs(logdir, exist_ok=True)
+            os.chmod(logdir, 0o770 | stat.S_ISGID)
 
+            db_filename = self.spiderpig_dbfile()
             engine = scap.spiderpig.engine(db_filename)
             setup_db(engine, db_filename)
 

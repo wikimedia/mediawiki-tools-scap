@@ -318,4 +318,4 @@ def setup_db(engine, db_filename):
 
     # Ensure that the database is group writable
     if os.geteuid() == os.stat(db_filename).st_uid:
-        os.chmod(db_filename, 0o664)
+        os.chmod(db_filename, 0o660)
