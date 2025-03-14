@@ -86,7 +86,6 @@ deployment_configs = [
                     "debug": False,
                     "deploy": True,
                     "cluster_dir": None,
-
                 },
                 {
                     "namespace": "api3",

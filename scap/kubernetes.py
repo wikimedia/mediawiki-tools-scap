@@ -239,7 +239,7 @@ class DeploymentsConfig:
                     cls.WEB_IMAGE_FLAVOUR: web_flavour,
                     cls.DEBUG: debug,
                     cls.DEPLOY: config.get("deploy", True),
-                    cls.CLUSTER_DIR: cluster_dir
+                    cls.CLUSTER_DIR: cluster_dir,
                 }
                 if debug:
                     testservers.append(parsed_dep_config)
