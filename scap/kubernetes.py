@@ -449,7 +449,8 @@ class K8sOps:
         except BaseException as e:
             self.logger.error("K8s deployment to stage %s failed: %s", stage, e)
 
-            saved_values = self.original_helmfile_values[stage]
+            # If build_mw_container_image is False, there will be no prior state stored.
+            saved_values = self.original_helmfile_values.get(stage)
             if saved_values:
                 self.logger.error("Rolling back to prior state...")
                 self._revert_helmfile_files(dep_configs, saved_values)
