@@ -28,12 +28,14 @@ deployment_configs = [
       debug: true
 
     # single release, mapped to the default production stage.
+    # this uses a different k8s cluster
     - namespace: api1
       releases:
         main: {}
       mw_flavour: publish
       web_flavour: webserver
       debug: false
+      dir: anothercluster
 
     # multiple releases, one mapped to the canaries stage, and another marked
     # non-deploy.
@@ -72,6 +74,7 @@ deployment_configs = [
                     "web_image_fl": "webserver",
                     "debug": True,
                     "deploy": True,
+                    "cluster_dir": None,
                 }
             ],
             "canaries": [
@@ -82,6 +85,8 @@ deployment_configs = [
                     "web_image_fl": "webserver",
                     "debug": False,
                     "deploy": True,
+                    "cluster_dir": None,
+
                 },
                 {
                     "namespace": "api3",
@@ -90,6 +95,7 @@ deployment_configs = [
                     "web_image_fl": "webserver",
                     "debug": False,
                     "deploy": True,
+                    "cluster_dir": None,
                 },
             ],
             "production": [
@@ -100,6 +106,7 @@ deployment_configs = [
                     "web_image_fl": "webserver",
                     "debug": False,
                     "deploy": True,
+                    "cluster_dir": "anothercluster",
                 },
                 {
                     "namespace": "api2",
@@ -108,6 +115,7 @@ deployment_configs = [
                     "web_image_fl": "webserver",
                     "debug": False,
                     "deploy": True,
+                    "cluster_dir": None,
                 },
                 {
                     "namespace": "api2",
@@ -116,6 +124,7 @@ deployment_configs = [
                     "web_image_fl": "webserver",
                     "debug": False,
                     "deploy": False,
+                    "cluster_dir": None,
                 },
                 {
                     "namespace": "api3",
@@ -124,6 +133,7 @@ deployment_configs = [
                     "web_image_fl": "webserver",
                     "debug": False,
                     "deploy": True,
+                    "cluster_dir": None,
                 },
                 {
                     "namespace": "api3",
@@ -132,6 +142,7 @@ deployment_configs = [
                     "web_image_fl": "exciting-new-webserver",
                     "debug": False,
                     "deploy": True,
+                    "cluster_dir": None,
                 },
             ],
         },
@@ -157,6 +168,7 @@ deployment_configs = [
                     "web_image_fl": "webserver",
                     "debug": True,
                     "deploy": True,
+                    "cluster_dir": None,
                 }
             ],
             "canaries": [],

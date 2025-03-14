@@ -113,7 +113,7 @@ class DeploymentsConfig:
         "web_image_fl": "webserver",
         "debug": True,
         "deploy": True,
-        "cluster_dir": "services,
+        "cluster_dir": None,
       }],
       "canaries": [{
         "namespace": "api1",
@@ -122,7 +122,7 @@ class DeploymentsConfig:
         "web_image_fl": "webserver",
         "debug": False,
         "deploy": True,
-        "cluster_dir": "services,
+        "cluster_dir": None,
       }],
       "production": [{
         "namespace": "api1",
@@ -131,7 +131,7 @@ class DeploymentsConfig:
         "web_image_fl": "webserver",
         "debug": False,
         "deploy": True,
-        "cluster_dir": "services,
+        "cluster_dir": None,
         }, {
         "namespace": "api2",
         "release": "main",
@@ -139,6 +139,7 @@ class DeploymentsConfig:
         "web_image_fl": "webserver",
         "debug": False,
         "deploy": True,
+        "cluster_dir": "dse",
         }, {
         "namespace": "api2",
         "release": "experimental",
@@ -146,6 +147,7 @@ class DeploymentsConfig:
         "web_image_fl": "webserver",
         "debug": False,
         "deploy": True,
+        "cluster_dir": "dse",
         }, {
         "namespace": "api2",
         "release": "maintenance",
@@ -153,6 +155,7 @@ class DeploymentsConfig:
         "web_image_fl": "webserver",
         "debug": False,
         "deploy": False,
+        "cluster_dir": "dse"
       }]
      }
 
@@ -198,6 +201,7 @@ class DeploymentsConfig:
 
         for dep_config in deployments:
             dep_namespace = dep_config["namespace"]
+            cluster_dir = dep_config.get("dir", None)
 
             if dep_namespace in namespaces:
                 raise InvalidDeploymentsConfig(
@@ -235,7 +239,7 @@ class DeploymentsConfig:
                     cls.WEB_IMAGE_FLAVOUR: web_flavour,
                     cls.DEBUG: debug,
                     cls.DEPLOY: config.get("deploy", True),
-                    cls.CLUSTER_DIR: config.get("dir", config.get("helmfile_default_cluster_label"))
+                    cls.CLUSTER_DIR: cluster_dir
                 }
                 if debug:
                     testservers.append(parsed_dep_config)
@@ -488,7 +492,14 @@ class K8sOps:
         return list(res)
 
     def _get_helmfile_path_for(self, dep_config):
-        return pathlib.Path(self.app.config["helmfile_deployments_dir"]) / dep_config[DeploymentsConfig.CLUSTER_DIR] / dep_config[DeploymentsConfig.NAMESPACE]
+        cluster_dir = dep_config[DeploymentsConfig.CLUSTER_DIR]
+        if cluster_dir is None:
+            cluster_dir = self.app.config["helmfile_default_cluster_label"]
+        return (
+            pathlib.Path(self.app.config["helmfile_deployments_dir"])
+            / cluster_dir
+            / dep_config[DeploymentsConfig.NAMESPACE]
+        )
 
     def _get_deployment_datacenters(self) -> List[str]:
         # FIXME: Rename this config value
