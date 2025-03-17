@@ -44,6 +44,9 @@
 					v-bind="job"
 					class="job-history__card-list__card"
 				/>
+				<cdx-button v-if="possiblyMoreHistory" @click="loadMoreHistory">
+					Load more history
+				</cdx-button>
 			</div>
 			<!-- Empty and loading state -->
 			<div v-else>
@@ -60,6 +63,7 @@
 
 <script lang="ts">
 import { ref, onMounted, onUnmounted } from 'vue';
+import { CdxButton } from '@wikimedia/codex';
 import SpJobCard from './JobCard.vue';
 import useApi from '../api';
 
@@ -68,7 +72,8 @@ const INTERVAL = 1000;
 export default {
 	name: 'SpJobHistory',
 	components: {
-		SpJobCard
+		SpJobCard,
+		CdxButton
 	},
 	emits: [
 		'rowClicked'
@@ -81,10 +86,13 @@ export default {
 		const loaded = ref( false );
 		const jobs = ref( [] );
 		const intervalTimer = ref( null );
+		const possiblyMoreHistory = ref( false );
+
+		let numJobsToDisplay = 5;
 
 		async function loadHistory() {
 			try {
-				const apiResponse = await api.getJobs( 5, 0 );
+				const apiResponse = await api.getJobs( numJobsToDisplay, 0 );
 				const apiJobs = apiResponse.jobs;
 
 				for ( const job of apiJobs ) {
@@ -94,10 +102,16 @@ export default {
 
 				jobs.value = apiJobs;
 				loaded.value = true;
+				possiblyMoreHistory.value = ( apiJobs.length === numJobsToDisplay );
 			} catch ( error ) {
 				// eslint-disable-next-line no-console
 				console.error( error.message );
 			}
+		}
+
+		async function loadMoreHistory() {
+			numJobsToDisplay += 5;
+			await loadHistory();
 		}
 
 		onMounted( () => {
@@ -114,7 +128,9 @@ export default {
 
 		return {
 			jobs,
-			loaded
+			loaded,
+			loadMoreHistory,
+			possiblyMoreHistory
 		};
 	}
 };
