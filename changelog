@@ -1,3 +1,10 @@
+scap (4.141.1)
+
+  * spiderpig/model.py: Set pid to None to clear
+  * Add local-dev/restart-apiserver
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Mon, 17 Mar 2025 11:40:44 -0700
+
 scap (4.141.0)
 
   * kubernetes: avoid KeyError when build_mw_container_image is False
