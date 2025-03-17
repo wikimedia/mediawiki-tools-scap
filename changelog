@@ -1,3 +1,11 @@
+scap (4.141.0)
+
+  * kubernetes: avoid KeyError when build_mw_container_image is False
+  * spiderpig: Revise regular and admin user access control
+  * spiderpig: Ensure proper file/directory permissions
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Mon, 17 Mar 2025 10:50:57 -0700
+
 scap (4.140.0)
 
   * kubernetes: support non-deploy helmfile releases
