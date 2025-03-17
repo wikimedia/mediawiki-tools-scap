@@ -68,8 +68,7 @@ class JobrunnerStatus(Base):
         clear_pid: bool = False,
     ):
         session.execute(delete(JobrunnerStatus))
-        # FIXME: Change to None once I figure out db migration.
-        pid = 0 if clear_pid else os.getpid()
+        pid = None if clear_pid else os.getpid()
         status = JobrunnerStatus(pid=pid, status=status, job_id=job_id)
         session.add(status)
         session.commit()
