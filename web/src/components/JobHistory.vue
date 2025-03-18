@@ -19,10 +19,6 @@
 			</div>
 
 			<div class="job-history__column-labels__label">
-				Queued
-			</div>
-
-			<div class="job-history__column-labels__label">
 				Started
 			</div>
 

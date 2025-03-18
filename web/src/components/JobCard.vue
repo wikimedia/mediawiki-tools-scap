@@ -29,13 +29,6 @@
 
 				<div class="job-card__column">
 					<div class="job-card__label">
-						Queued
-					</div>
-					{{ getFormattedDate( queued_at ) }}
-				</div>
-
-				<div class="job-card__column">
-					<div class="job-card__label">
 						Started
 					</div>
 					{{ getFormattedDate( started_at ) }}
@@ -217,12 +210,6 @@ export default defineComponent( {
 		},
 		// eslint-disable-next-line camelcase, vue/prop-name-casing
 		finished_at: {
-			type: Number,
-			required: false,
-			default: null
-		},
-		// eslint-disable-next-line camelcase, vue/prop-name-casing
-		queued_at: {
 			type: Number,
 			required: false,
 			default: null
