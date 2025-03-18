@@ -1,3 +1,11 @@
+scap (4.141.2)
+
+  * spiderpig: Admin users are automatically authorized
+  * spiderpig: Drop queued column from JobCard
+  * JobHistory.vue: Add "Load more history" button
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Tue, 18 Mar 2025 13:13:37 -0700
+
 scap (4.141.1)
 
   * spiderpig/model.py: Set pid to None to clear
