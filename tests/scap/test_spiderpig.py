@@ -101,7 +101,6 @@ def fully_authenticated_admin_user_session():
         "user": {
             "name": "bruce",
             "groups": [
-                "cn=deployers,ou=groups,dc=example,dc=org",
                 "cn=admins,ou=groups,dc=example,dc=org",
             ],
             "fully_authenticated": True,
@@ -242,6 +241,12 @@ async def test_require_user(mockrequest, partially_authenticated_user_session):
     assert isinstance(res, JSONResponse)
     assert res.status_code == 403
     call_next.assert_not_awaited()
+
+    # Test admin user is always authorized
+    mockrequest.session["user"]["groups"] = ["cn=admins,ou=groups,dc=example,dc=org"]
+    call_next = AsyncMock()
+    await require_user(mockrequest, call_next)
+    call_next.assert_called_once_with(mockrequest)
 
 
 def test_login(mockrequest):

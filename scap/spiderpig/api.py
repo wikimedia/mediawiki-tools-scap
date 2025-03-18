@@ -333,7 +333,12 @@ def get_spiderpig_admin_groups() -> set:
 
 
 def user_is_authorized(user_groups) -> bool:
-    return True if set(user_groups).intersection(get_spiderpig_user_groups()) else False
+    # Admin users are automatically authorized.
+    if set(user_groups).intersection(
+        get_spiderpig_user_groups()
+    ) or user_in_admin_group(user_groups):
+        return True
+    return False
 
 
 def user_in_admin_group(user_groups) -> bool:
