@@ -11,6 +11,7 @@ ARG UID
 ARG GID
 RUN groupadd -g ${GID} -o deployment
 RUN useradd -m -s /bin/bash -u ${UID} -g deployment deployer01
+RUN useradd -m -s /bin/bash -g deployment deployer02
 RUN useradd -m -s /bin/bash -g deployment rando
 
 USER deployer01
