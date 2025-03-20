@@ -298,6 +298,10 @@ class K8sOps:
                     "{}/{}".format(
                         registry, self.app.config["mediawiki_debug_image_name"]
                     ),
+                    "--multiversion-cli-image-name",
+                    "{}/{}".format(
+                        registry, self.app.config["mediawiki_cli_image_name"]
+                    ),
                     "--webserver-image-name",
                     "{}/{}".format(registry, self.app.config["webserver_image_name"]),
                     "--latest-tag",
