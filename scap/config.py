@@ -130,7 +130,11 @@ DEFAULT_CONFIG = {
     # internal scap commands that require Docker access (mwscript, mwshell).
     "docker_user": (str, None),
     # Helmfile deployment configuration
-    "helmfile_services_dir": (str, "/srv/deployment-charts/helmfile.d/services"),
+    # The base directory for deployments
+    "helmfile_deployments_dir": (str, "/srv/deployment-charts/helmfile.d"),
+    # The subdirectory in the deployment-charts repository for the services in the
+    # current cluster
+    "helmfile_default_cluster_dir": (str, "services"),
     "helmfile_mediawiki_release_dir": (str, "/etc/helmfile-defaults/mediawiki/release"),
     # Comma separated list of the clusters we will deploy to
     "k8s_clusters": (str, "eqiad, codfw"),

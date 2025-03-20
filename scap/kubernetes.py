@@ -61,6 +61,8 @@ class DeploymentsConfig:
       web_flavour: Default image flavour for the httpd image used by releases in this namespace
       debug: Whether a debug MediaWiki image should be used for all releases in this namespace,
         which also maps all releases to the testservers release stage
+      dir: the directory, under the configured helmfile_deployments_dir, in which the releases are
+        found. Defaults to the value of helmfile_deployments_dir.
 
     The configuration of each release has the following fields:
       stage: Name of the stage in which this release should be updated - one of production, canary,
@@ -99,6 +101,7 @@ class DeploymentsConfig:
       mw_flavour: publish
       web_flavour: webserver
       debug: false
+      dir: dse
 
     will produce the following DeploymentsConfig.stages:
 
@@ -110,6 +113,7 @@ class DeploymentsConfig:
         "web_image_fl": "webserver",
         "debug": True,
         "deploy": True,
+        "cluster_dir": None,
       }],
       "canaries": [{
         "namespace": "api1",
@@ -118,6 +122,7 @@ class DeploymentsConfig:
         "web_image_fl": "webserver",
         "debug": False,
         "deploy": True,
+        "cluster_dir": None,
       }],
       "production": [{
         "namespace": "api1",
@@ -126,6 +131,7 @@ class DeploymentsConfig:
         "web_image_fl": "webserver",
         "debug": False,
         "deploy": True,
+        "cluster_dir": None,
         }, {
         "namespace": "api2",
         "release": "main",
@@ -133,6 +139,7 @@ class DeploymentsConfig:
         "web_image_fl": "webserver",
         "debug": False,
         "deploy": True,
+        "cluster_dir": "dse",
         }, {
         "namespace": "api2",
         "release": "experimental",
@@ -140,6 +147,7 @@ class DeploymentsConfig:
         "web_image_fl": "webserver",
         "debug": False,
         "deploy": True,
+        "cluster_dir": "dse",
         }, {
         "namespace": "api2",
         "release": "maintenance",
@@ -147,6 +155,7 @@ class DeploymentsConfig:
         "web_image_fl": "webserver",
         "debug": False,
         "deploy": False,
+        "cluster_dir": "dse"
       }]
      }
 
@@ -159,6 +168,8 @@ class DeploymentsConfig:
     * https://phabricator.wikimedia.org/T387917
     """
 
+    # The directory under which configurations for the specific cluster are located
+    CLUSTER_DIR = "cluster_dir"
     # The K8s namespace is also sometimes referred to as "cluster"
     NAMESPACE = "namespace"
     # Helmfile release
@@ -190,6 +201,7 @@ class DeploymentsConfig:
 
         for dep_config in deployments:
             dep_namespace = dep_config["namespace"]
+            cluster_dir = dep_config.get("dir", None)
 
             if dep_namespace in namespaces:
                 raise InvalidDeploymentsConfig(
@@ -227,6 +239,7 @@ class DeploymentsConfig:
                     cls.WEB_IMAGE_FLAVOUR: web_flavour,
                     cls.DEBUG: debug,
                     cls.DEPLOY: config.get("deploy", True),
+                    cls.CLUSTER_DIR: cluster_dir,
                 }
                 if debug:
                     testservers.append(parsed_dep_config)
@@ -396,9 +409,7 @@ class K8sOps:
         def diff_for_datacenter_and_deployment(datacenter, dep_config, report_queue):
             namespace = dep_config[DeploymentsConfig.NAMESPACE]
             release = dep_config[DeploymentsConfig.RELEASE]
-            helmfile_dir = os.path.join(
-                self.app.config["helmfile_services_dir"], namespace
-            )
+            helmfile_dir = self._get_helmfile_path_for(dep_config)
             cmd = [
                 "helmfile",
                 "-e",
@@ -484,6 +495,16 @@ class K8sOps:
                 res.add(dep_config[DeploymentsConfig.NAMESPACE])
 
         return list(res)
+
+    def _get_helmfile_path_for(self, dep_config):
+        cluster_dir = dep_config[DeploymentsConfig.CLUSTER_DIR]
+        if cluster_dir is None:
+            cluster_dir = self.app.config["helmfile_default_cluster_dir"]
+        return (
+            pathlib.Path(self.app.config["helmfile_deployments_dir"])
+            / cluster_dir
+            / dep_config[DeploymentsConfig.NAMESPACE]
+        )
 
     def _get_deployment_datacenters(self) -> List[str]:
         # FIXME: Rename this config value
@@ -683,10 +704,7 @@ class K8sOps:
         for datacenter in datacenters:
             for dep_config in dep_configs:
                 release = dep_config[DeploymentsConfig.RELEASE]
-                namespace = dep_config[DeploymentsConfig.NAMESPACE]
-                helmfile_dir = os.path.join(
-                    self.app.config["helmfile_services_dir"], namespace
-                )
+                helmfile_dir = self._get_helmfile_path_for(dep_config)
 
                 with tempfile.NamedTemporaryFile() as tmp:
                     cmd = [
@@ -802,7 +820,7 @@ class K8sOps:
 
         release = dep_config[DeploymentsConfig.RELEASE]
         namespace = dep_config[DeploymentsConfig.NAMESPACE]
-        helmfile_dir = os.path.join(self.app.config["helmfile_services_dir"], namespace)
+        helmfile_dir = self._get_helmfile_path_for(dep_config)
 
         self._helm_fix_pending_state(
             datacenter, helmfile_dir, namespace, release, logger
