@@ -1,3 +1,10 @@
+scap (4.142.0)
+
+  * kubernetes.py: Build mediawiki-cli image
+  * local-dev: Create deployer02 user
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Thu, 20 Mar 2025 08:36:36 -0700
+
 scap (4.141.2)
 
   * spiderpig: Admin users are automatically authorized
