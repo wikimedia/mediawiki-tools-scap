@@ -1037,6 +1037,16 @@ async def require_user(request: Request, call_next):
 if os.getenv("SPIDERPIG_SESSION_KEY_FILE"):
     app.add_middleware(SessionMiddleware, secret_key=get_session_key())
 
+
+@app.middleware("http")
+async def add_cache_control_header(request: Request, call_next):
+    response = await call_next(request)
+    # Ensure that responses to API requests are not cached by proxies.
+    if request.url.path.startswith("/api/"):
+        response.headers["Cache-Control"] = "no-cache"
+    return response
+
+
 # CORSMiddleware must be processed before require_user(), therefore it must be
 # added after require_user() is defined, since middlewares are processed in reverse order
 # of their definitions.
