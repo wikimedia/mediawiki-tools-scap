@@ -948,6 +948,8 @@ async def whoami(
 
     return {
         "user": None,
+        "sessionHasUserKey": bool(request.session.get("user")),
+        "sessionEpochOK": bool(request.session.get("epoch") == get_current_epoch()),
         "loginUrl": cas_client(request).get_login_url(),
     }
 
