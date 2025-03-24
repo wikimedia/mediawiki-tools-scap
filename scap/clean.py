@@ -47,34 +47,34 @@ class Clean(main.AbstractSync):
         self._assert_auth_sock()
 
         if self.arguments.branch == "auto":
-            self.branches_to_remove = self._autoselect_versions_to_remove()
+            self.versions_to_remove = self._autoselect_versions_to_remove()
 
-            if not self.branches_to_remove:
+            if not self.versions_to_remove:
                 self.get_logger().info("No eligible versions to remove.")
                 return 0
 
         else:
-            self.branches_to_remove = [self.arguments.branch]
+            self.versions_to_remove = [self.arguments.branch]
 
-        branches_string = ", ".join(self.branches_to_remove)
+        branches_string = ", ".join(self.versions_to_remove)
 
         if self.arguments.dry_run:
             self.get_logger().info(
                 "DRY-RUN mode: Would clean %s: %s",
-                utils.pluralize("branch", self.branches_to_remove),
+                utils.pluralize("branch", self.versions_to_remove),
                 branches_string,
             )
             return 0
 
         reason = "Cleaning {}: {}".format(
-            utils.pluralize("branch", self.branches_to_remove),
+            utils.pluralize("branch", self.versions_to_remove),
             branches_string,
         )
 
         with self.lock_mediawiki_staging(reason=reason):
             self.get_logger().info(reason)
 
-            for branch in self.branches_to_remove:
+            for branch in self.versions_to_remove:
                 self.cleanup_branch(branch)
 
             target_hosts = self._get_target_list()
@@ -217,7 +217,7 @@ class Clean(main.AbstractSync):
 
         cache_dirs = [
             os.path.join(self.config["deploy_dir"], "php-%s" % branch, "cache")
-            for branch in self.branches_to_remove
+            for branch in self.versions_to_remove
         ]
 
         cmd = ["/bin/rm", "-rf"] + cache_dirs
