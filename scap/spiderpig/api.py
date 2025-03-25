@@ -9,6 +9,7 @@ import json
 import os
 import pyotp
 import re
+import socket
 import subprocess
 import sys
 import time
@@ -960,6 +961,7 @@ async def whoami(
             "groups": user.groups,
             "isAuthorized": user_is_authorized(user.groups),
             "isAdmin": user.isAdmin,
+            "otpHost": socket.getfqdn(),
         }
 
     return {

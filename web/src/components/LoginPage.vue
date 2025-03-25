@@ -4,7 +4,8 @@
 			<cdx-label input-id="password">
 				Please enter using your one time password
 				<template #description>
-					Log into the deploy server as {{ user }} and run <code>scap spiderpig-otp</code> to generate the password.
+					To generate the one time password run:
+					<code>ssh {{ user }}@{{ otpHost }} scap spiderpig-otp</code>
 				</template>
 			</cdx-label>
 
@@ -28,7 +29,7 @@
 </template>
 
 <script lang="ts">
-import { defineComponent, ref, computed, watch } from 'vue';
+import { defineComponent, ref, computed, watch, onMounted } from 'vue';
 import { CdxButton, CdxField, CdxTextInput, CdxLabel, ValidationStatusType, ValidationMessages } from '@wikimedia/codex';
 import useApi from '../api';
 import { useRoute } from 'vue-router';
@@ -45,6 +46,7 @@ export default defineComponent( {
 		const api = useApi();
 		const route = useRoute();
 		const user = computed( () => api.authUser );
+		const otpHost = ref( '...' );
 		const redirectTarget = computed( () => {
 			if ( route.query.redirect ) {
 				// We're only using single strings as redirect targets in the route
@@ -81,7 +83,17 @@ export default defineComponent( {
 			}
 		}
 
+		async function setOtpHost() {
+			const resp = await api.whoami();
+
+			otpHost.value = resp.otpHost;
+		}
+
 		watch( [ password ], clearErrorStatus );
+
+		onMounted( () => {
+			setOtpHost();
+		} );
 
 		return {
 			status,
@@ -89,7 +101,8 @@ export default defineComponent( {
 			messages,
 			loginButtonDisabled,
 			login,
-			user
+			user,
+			otpHost
 		};
 	}
 } );
