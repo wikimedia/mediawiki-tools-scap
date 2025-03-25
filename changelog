@@ -1,3 +1,11 @@
+scap (4.144.0)
+
+  * spiderpig apiserver: Change log job transmission format
+  * Ran npm audit fix --force
+  * clean.py: Rename branches_to_remove to versions_to_remove
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Tue, 25 Mar 2025 10:14:21 -0700
+
 scap (4.143.2)
 
   * spiderpig: Add Cache-Control: no-cache to api responses
