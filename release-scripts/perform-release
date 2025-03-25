@@ -321,6 +321,10 @@ You can install on production hosts
 by logging into deployment.eqiad.wmnet and running:
 scap install-world --version {new_version}
 
+If you know for certain that the new version of scap only has changes that
+affect the deployment server, you can save a lot of time by running:
+scap install-world --version {new_version} --limit 'deploy*'
+
 If you need to roll back, you can specify a particular version tag with e.g.
 scap install-world --version {old_version}
 """
