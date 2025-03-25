@@ -736,6 +736,9 @@ async def get_log(
         # Validate the job_id
         await get_job_by_id(job_id, session)
 
+    def toRecord(record: dict) -> str:
+        return json.dumps(record) + "\n"
+
     async def log_streamer():
         polling_interval = 1  # seconds
 
@@ -743,10 +746,16 @@ async def get_log(
             os.environ["SPIDERPIG_JOB_LOG_DIR"], f"{job_id}.log.jsonl"
         )
 
+        yield toRecord({"type": "connected"})
+
         # Wait for the logfile to appear
+        notified_waiting = False
         while True:
             if os.path.exists(logfile):
                 break
+            if not notified_waiting:
+                yield toRecord({"type": "waitingForLogfile"})
+                notified_waiting = True
             await asyncio.sleep(polling_interval)
         # Logfile has appeared.
 
@@ -760,10 +769,16 @@ async def get_log(
                     if type == "line":
                         if payload.get("sensitive") and not include_sensitive:
                             if not last_yield_was_hidden:
-                                yield "<sensitive information hidden>\n"
+                                yield toRecord(
+                                    {
+                                        "type": "line",
+                                        "line": "<sensitive information hidden>",
+                                        "sensitive": True,
+                                    }
+                                )
                             last_yield_was_hidden = True
                         else:
-                            yield payload["line"] + "\n"
+                            yield toRecord({"type": "line", "line": payload["line"]})
                             last_yield_was_hidden = False
                     continue
                 # EOF
@@ -771,6 +786,7 @@ async def get_log(
                 with _get_db_session() as session:
                     job = await get_job_by_id(job_id, session)
                     if job.finished_at:
+                        yield toRecord({"type": "EOF"})
                         return
 
                 await asyncio.sleep(polling_interval)

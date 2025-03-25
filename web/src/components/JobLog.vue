@@ -52,6 +52,45 @@ export default defineComponent( {
 		const abortPopulateTerminal = ref( null );
 		const showSensitive = ref( false );
 
+		async function* logRecordsProcessor( reader ) {
+			const decoder = new TextDecoder();
+			let buffer = '';
+
+			while ( true ) {
+				const { done, value } = await reader.read();
+
+				if ( done ) {
+					// Process any remaining data in the buffer
+					if ( buffer ) {
+						try {
+							const json = JSON.parse( buffer );
+							// Process the last JSON object
+							yield json;
+						} catch ( error ) {
+							// eslint-disable-next-line no-console
+							console.error( 'Error parsing final JSON:', error );
+						}
+					}
+					break;
+				}
+
+				buffer += decoder.decode( value, { stream: true } );
+				let newlineIndex: number;
+				while ( ( newlineIndex = buffer.indexOf( '\n' ) ) !== -1 ) {
+					const jsonString = buffer.slice( 0, newlineIndex );
+					buffer = buffer.slice( newlineIndex + 1 );
+					try {
+						const json = JSON.parse( jsonString );
+						// Process the parsed JSON object
+						yield json;
+					} catch ( error ) {
+						// eslint-disable-next-line no-console
+						console.error( 'Error parsing JSON:', error );
+					}
+				}
+			}
+		}
+
 		const populateTerminal = async () => {
 			while ( true ) {
 				term.value.clear();
@@ -65,9 +104,27 @@ export default defineComponent( {
 						showSensitive.value
 					);
 					try {
-						for await ( const chunk of response.body ) {
-							term.value.write( chunk );
+						const reader = response.body.getReader();
+						let sawEOF = false;
+
+						for await ( const rec of logRecordsProcessor( reader ) ) {
+							if ( rec.type === 'line' ) {
+								term.value.write( rec.line + '\n' );
+							} else if ( rec.type === 'EOF' ) {
+								sawEOF = true;
+								break;
+							}
 						}
+						if ( sawEOF ) {
+							term.value.write( '[End of job log]\n' );
+						} else {
+							// Assume that the connection was terminated prematurely (perhaps
+							// due to timeout).  Restart the loop to recover.
+							// eslint-disable-next-line no-console
+							console.log( 'Job log stream terminated prematurely.  Restarting' );
+							continue;
+						}
+
 						// The complete job log has been read.
 						return;
 					} catch ( err ) {
