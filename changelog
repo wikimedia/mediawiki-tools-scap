@@ -1,3 +1,9 @@
+scap (4.144.1)
+
+  * spiderpig: Add Cache-Control: no-cache to index page
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Tue, 25 Mar 2025 12:07:53 -0700
+
 scap (4.144.0)
 
   * spiderpig apiserver: Change log job transmission format
