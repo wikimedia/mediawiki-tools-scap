@@ -991,7 +991,7 @@ if os.path.isdir(assets_dir):
 @app.get("/jobs/{job_id}")
 @app.get("/notauthorized")
 async def index_page():
-    return FileResponse(index_html)
+    return FileResponse(index_html, headers={"Cache-Control": "no-cache"})
 
 
 ##############
