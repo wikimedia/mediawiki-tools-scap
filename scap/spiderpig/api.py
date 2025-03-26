@@ -860,6 +860,7 @@ def login(
     uid = attributes.get("uid")
     if not uid:
         print("/api/login: user attributes missing uid field")
+        print(f"/api/login: Attributes seen: {attributes}")
         raise NotAuthenticatedException()
 
     # From here on, the username is the shell username (uid)
