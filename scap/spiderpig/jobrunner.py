@@ -231,6 +231,7 @@ def run_job(
     iokey = hex(int.from_bytes(os.urandom(32), "big"))  # 256 random bits
 
     env = os.environ.copy()
+    env["SPIDERPIG_REAL_USER"] = job.user
     env["SPIDERPIG_IO_KEY"] = iokey
     env["FORCE_COLOR"] = "1"
 
