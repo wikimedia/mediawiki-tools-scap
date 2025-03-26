@@ -1,3 +1,10 @@
+scap (4.144.2)
+
+  * LoginPage.vue: Supply ssh command to generate otp
+  * perform-release: Add advice about deploy-server-only install
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Wed, 26 Mar 2025 08:14:17 -0700
+
 scap (4.144.1)
 
   * spiderpig: Add Cache-Control: no-cache to index page
