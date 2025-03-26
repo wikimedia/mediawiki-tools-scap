@@ -845,6 +845,7 @@ def login(
     The reference to this route comes from guess_login_url.
     """
     if not ticket:
+        print("/api/login: No ticket was supplied")
         raise NotAuthenticatedException()
 
     # The call to verify_ticket() will take the ticket and make a request
@@ -853,10 +854,12 @@ def login(
     username, attributes, _ = cas_client(request, next).verify_ticket(ticket)
 
     if not username:
+        print("/api/login: cas_client.verify_ticket() returned None")
         raise NotAuthenticatedException()
 
     uid = attributes.get("uid")
     if not uid:
+        print("/api/login: user attributes missing uid field")
         raise NotAuthenticatedException()
 
     # From here on, the username is the shell username (uid)
@@ -866,6 +869,8 @@ def login(
         groups = []
     if isinstance(groups, str):
         groups = [groups]
+
+    print(f"/api/login: user {uid} validated")
 
     user = SessionUser(name=username, groups=groups)
     # Store the logged-in-user information in a signed cookie
