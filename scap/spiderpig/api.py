@@ -87,6 +87,11 @@ def validate_otp(dbuser: User, supplied_otp: str) -> bool:
     primary_deploy_server_only=True,
 )
 class SpiderpigOTP(cli.Application):
+    @cli.argument(
+        "--quiet",
+        action="store_true",
+        help="Print just the one-time password.",
+    )
     def main(self, *extra_args):
         username = utils.get_username()
 
@@ -100,8 +105,11 @@ class SpiderpigOTP(cli.Application):
             now = datetime.now().timestamp()
             otp = totp.at(now)
             time_remaining = totp.interval - now % totp.interval
-            print(f"Login: {utils.get_username()}")
-            print(f"Password: {otp}  (Expires in {round(time_remaining)} seconds)")
+            if self.arguments.quiet:
+                print(otp)
+            else:
+                print(f"Login: {utils.get_username()}")
+                print(f"Password: {otp}  (Expires in {round(time_remaining)} seconds)")
 
 
 @cli.command(
