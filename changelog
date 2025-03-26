@@ -1,3 +1,9 @@
+scap (4.144.4)
+
+  * spiderpig: Add debugging to /api/login route (v2)
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Wed, 26 Mar 2025 10:20:33 -0700
+
 scap (4.144.3)
 
   * spiderpig: Add debugging to /api/login route
