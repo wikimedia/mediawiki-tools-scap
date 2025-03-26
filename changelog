@@ -1,3 +1,9 @@
+scap (4.144.5)
+
+  * spiderpig: Attribute backport operations to the initiating user
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Wed, 26 Mar 2025 13:02:38 -0700
+
 scap (4.144.4)
 
   * spiderpig: Add debugging to /api/login route (v2)
