@@ -42,7 +42,7 @@ class ApplyPatches(cli.Application):
 
     class NotificationInfo:
         def __init__(self, patches_path, patch, target_release_for_fixes):
-            patch_info_re = rf"{patches_path}/[^/]+/(?P<module>.+)/(?P<patch_name>\d+-(?P<patch_task>T\d+).patch)$"
+            patch_info_re = rf"{patches_path}/[^/]+/(?P<module>.+)/(?P<patch_name>(\d+-)?(?P<patch_task>T\d+).patch)$"
             patch_info = re.match(patch_info_re, patch.path())
 
             self.patch_name = patch_info.group("patch_name")
