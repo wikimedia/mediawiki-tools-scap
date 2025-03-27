@@ -1,3 +1,11 @@
+scap (4.145.0)
+
+  * patches: make patch number prefix in name optional
+  * fix(css): invalid unit and robust fallback fonts
+  * spiderpig: Support `scap spiderpig-otp --quiet`
+
+ -- Jaime Nuche <jnuche@wikimedia.org>  Thu, 27 Mar 2025 16:34:47 +0100
+
 scap (4.144.5)
 
   * spiderpig: Attribute backport operations to the initiating user
