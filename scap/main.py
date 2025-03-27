@@ -24,7 +24,6 @@ import argparse
 import errno
 from dataclasses import dataclass
 import datetime
-import getpass
 import locale
 import os
 import select
@@ -240,7 +239,7 @@ class AbstractSync(cli.Application):
 
         self.deployment_log_entry = history.Deployment(
             starttime=datetime.datetime.now(datetime.timezone.utc),
-            username=getpass.getuser(),
+            username=utils.get_real_username(),
         )
 
         def _add_checkout(directory):
@@ -320,7 +319,9 @@ class AbstractSync(cli.Application):
         if not getattr(self.arguments, "pause_after_testserver_sync", False):
             return
         users = ", ".join(
-            set([getpass.getuser()] + getattr(self.arguments, "notify_user", []))
+            set(
+                [utils.get_real_username()] + getattr(self.arguments, "notify_user", [])
+            )
         )
         message = (
             "%s: %s synced to the testservers (https://wikitech.wikimedia.org/wiki/Mwdebug)"

@@ -320,9 +320,6 @@ class Backport(cli.Application):
     )
     def main(self, *extra_args):
         self.deploy_user = utils.get_real_username() + "@" + socket.gethostname()
-        if os.environ.get("SPIDERPIG_REAL_USER"):
-            self.deploy_user = os.environ["SPIDERPIG_REAL_USER"] + "@spiderpig"
-
         self.allowed_attempts = 2
         self.interval = 5
         self.backport_or_revert = "revert" if self.arguments.revert else "backport"

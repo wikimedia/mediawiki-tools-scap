@@ -169,7 +169,11 @@ def find_nearest_host(hosts, port=22, timeout=1):
 
 
 def get_real_username():
-    """Get the username of the real user."""
+    """Get the username of the user that initiated the current operation."""
+    spiderpig_user = os.environ.get("SPIDERPIG_REAL_USER")
+    if spiderpig_user:
+        return spiderpig_user
+
     try:
         # Get the username of the user owning the terminal (ie the user
         # that is running scap even if they are sudo-ing something)
