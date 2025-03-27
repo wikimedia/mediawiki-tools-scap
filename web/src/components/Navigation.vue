@@ -18,6 +18,16 @@
 		</div>
 
 		<div class="navigation__end">
+			<div class="navigation__end___first">
+				<ul>
+					<li>
+						<a href="https://logstash.wikimedia.org/app/dashboards#/view/mediawiki-errors" target="_blank">
+							Logstash<cdx-icon :icon="cdxIconLinkExternal" />
+						</a>
+					</li>
+				</ul>
+			</div>
+
 			<user-menu />
 		</div>
 	</nav>
@@ -25,15 +35,19 @@
 
 <script lang="ts">
 import UserMenu from './UserMenu.vue';
+import { CdxIcon } from '@wikimedia/codex';
+import { cdxIconLinkExternal } from '@wikimedia/codex-icons';
 
 export default {
 	name: 'SpNavigation',
 	components: {
-		UserMenu
+		UserMenu,
+		CdxIcon
 	},
 
 	setup() {
 		return {
+			cdxIconLinkExternal
 		};
 	}
 };
@@ -41,6 +55,7 @@ export default {
 
 <style lang="less" scoped>
 @import ( reference ) '@wikimedia/codex-design-tokens/theme-wikimedia-ui.less';
+@import ( reference ) '@wikimedia/codex/mixins/link.less';
 
 .navigation {
 	display: flex;
@@ -90,6 +105,22 @@ export default {
 	}
 
 	&__end {
+		display: flex;
+		&___first {
+			ul {
+				list-style-type: none;
+				li {
+					a {
+						display: block;
+						padding: 0.25rem 0.5rem;
+						.cdx-mixin-link();
+						.cdx-icon {
+							color: inherit;
+						}
+					}
+				}
+			}
+		}
 	}
 }
 </style>
