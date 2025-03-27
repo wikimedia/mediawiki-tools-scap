@@ -1,3 +1,10 @@
+scap (4.146.0)
+
+  * JobHistory.vue: Code cleanup
+  * feat: Add Logstash link in the nav bar
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Thu, 27 Mar 2025 11:15:07 -0700
+
 scap (4.145.0)
 
   * patches: make patch number prefix in name optional
