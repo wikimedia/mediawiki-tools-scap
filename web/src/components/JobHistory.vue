@@ -81,8 +81,9 @@ export default {
 		// Reactive data properties.
 		const loaded = ref( false );
 		const jobs = ref( [] );
-		const intervalTimer = ref( null );
 		const possiblyMoreHistory = ref( false );
+
+		let intervalTimer = null;
 
 		let numJobsToDisplay = 5;
 
@@ -112,13 +113,13 @@ export default {
 
 		onMounted( () => {
 			loadHistory();
-			intervalTimer.value = setInterval( loadHistory, INTERVAL );
+			intervalTimer = setInterval( loadHistory, INTERVAL );
 		} );
 
 		onUnmounted( () => {
-			if ( intervalTimer.value ) {
-				clearInterval( intervalTimer.value );
-				intervalTimer.value = null;
+			if ( intervalTimer ) {
+				clearInterval( intervalTimer );
+				intervalTimer = null;
 			}
 		} );
 
