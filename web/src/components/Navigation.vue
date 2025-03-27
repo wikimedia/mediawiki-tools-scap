@@ -48,7 +48,7 @@ export default {
 	color: @color-base;
 
 	&__start {
-		flex: 0 0 3rems;
+		flex: 0 0 3rem;
 
 		img {
 			width: @size-300;
@@ -60,7 +60,7 @@ export default {
 		flex: 1 1 auto;
 		display: flex;
 		flex-direction: column;
-		font-family: Montserrat, serif;
+		font-family: Montserrat, Avenir, Corbel, 'URW Gothic', source-sans-pro, sans-serif;
 		font-size: @font-size-medium;
 		font-style: normal;
 		font-weight: @font-weight-bold;
