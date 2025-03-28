@@ -46,7 +46,7 @@
 						Status
 					</div>
 					<span v-if="isRunning">
-						{{ status }}
+						{{ status.status }}
 					</span>
 					<cdx-info-chip
 						v-else
@@ -56,6 +56,10 @@
 					>
 						{{ statusChipMessage }}
 					</cdx-info-chip>
+					<sp-progress-bar
+						v-if="isRunning && status.progress"
+						:progress="status.progress"
+					/>
 				</div>
 			</div>
 		</template>
@@ -161,8 +165,11 @@ import { defineComponent, ref, computed, PropType, watch } from 'vue';
 import { CdxCard, CdxInfoChip, CdxAccordion, CdxProgressBar } from '@wikimedia/codex';
 import { cdxIconInfoFilled, cdxIconLinkExternal } from '@wikimedia/codex-icons';
 import Interaction from '../types/Interaction';
+import JobStatus from '../types/JobStatus';
 import SpInteraction from './Interaction.vue';
 import SpJobLog from './JobLog.vue';
+import SpProgressBar from './ProgressBar.vue';
+
 import { useRoute, useRouter } from 'vue-router';
 import '@xterm/xterm/css/xterm.css';
 
@@ -175,7 +182,8 @@ export default defineComponent( {
 		CdxInfoChip,
 		CdxProgressBar,
 		SpInteraction,
-		SpJobLog
+		SpJobLog,
+		SpProgressBar
 	},
 
 	props: {
@@ -213,9 +221,8 @@ export default defineComponent( {
 			default: null
 		},
 		status: {
-			type: String,
-			required: false,
-			default: null
+			type: Object as PropType<JobStatus>,
+			required: true
 		},
 		interaction: {
 			type: Object as PropType<Interaction>,

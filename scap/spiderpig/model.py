@@ -153,13 +153,41 @@ class Job(Base):
         Interruption.add(session, self.id, user, type)
         session.commit()
 
-    def set_status(self, session: Session, status: Optional[str]):
+    def extract_status(self) -> dict:
+        if not self.status:
+            return {"status": None, "progress": None}
+        try:
+            return json.loads(self.status)
+        except json.decoder.JSONDecodeError:
+            # Assume old style status which was a plain string
+            return {"status": self.status, "progress": None}
+
+    def _set_status(self, session: Session, status: dict):
         """
         This method starts and ends a transaction.
         """
         session.execute(text("BEGIN IMMEDIATE"))
-        self.status = status
+        self.status = json.dumps(status)
         session.commit()
+
+    def set_status(self, session: Session, status: Optional[str]):
+        """
+        Note: set_status clears out progress information.
+
+        This method starts and ends a transaction.
+        """
+        rec = self.extract_status()
+        rec["status"] = status
+        rec["progress"] = None
+        self._set_status(session, rec)
+
+    def set_progress(self, session: Session, data: Optional[dict]):
+        """
+        This method starts and ends a transaction.
+        """
+        rec = self.extract_status()
+        rec["progress"] = data
+        self._set_status(session, rec)
 
     def finish(self, session: Session, exit_status: Optional[int]):
         """

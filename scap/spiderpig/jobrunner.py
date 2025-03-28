@@ -143,6 +143,8 @@ class RunningJob:
             return
 
         if msg.get("iokey") == self.iokey:
+            # Discard the iokey before returning the message
+            del msg["iokey"]
             return msg
 
     def monitor_interruptions(self):
@@ -318,6 +320,11 @@ def run_job(
                         sensitive = msg.get("sensitive")
                         if not sensitive:
                             log(line, dojsonlog=False)
+                        continue
+
+                    if type == "progress":
+                        progress = msg["progress"]
+                        job.set_progress(session, progress)
                         continue
 
                     if type != "interaction":

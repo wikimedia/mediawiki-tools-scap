@@ -3,9 +3,10 @@ import os
 import sys
 import time
 
-from scap import cli, backport, fake_backport_data
+from scap import cli, backport, fake_backport_data, interaction
 from scap.gerrit import GerritSession
 from scap.main import AbstractSync
+import scap.spiderpig.io
 
 # fake-backport exists to aid in the development of the SpiderPig UI without
 # requiring a train-dev environment.
@@ -67,6 +68,14 @@ class FakeBackport(AbstractSync):
                     self.output_line(line, payload.get("sensitive"))
                 elif type == "status":
                     self.report_status(payload["status"])
+                elif type == "progress":
+                    progress_report = payload["progress"]
+                    if interaction.spiderpig_mode():
+                        scap.spiderpig.io.report_progress(
+                            scap.spiderpig.io.SpiderpigProgressReportRecord(
+                                **progress_report
+                            )
+                        )
                 elif type == "exit":
                     sys.exit(payload["status"])
                 else:

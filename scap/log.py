@@ -48,6 +48,8 @@ except ImportError:
     DiffLexer = None
 
 import scap.utils as utils
+import scap.interaction as interaction
+import scap.spiderpig.io
 
 # Format string for log messages. Interpolates LogRecord attributes.
 # See <http://docs.python.org/2/library/logging.html#logrecord-attributes>
@@ -322,19 +324,22 @@ class SyslogFormatter(LogstashFormatter):
         return "scap: @cee: " + super().format(record)
 
 
-def reporter(message, mute=False):
+def reporter(name, mute=False):
     """
     Instantiate progress reporter
 
-    :message: - string that will be displayed to user
+    :name: - Name of operation being monitored
     """
     if mute:
         return MuteReporter()
 
-    if not sys.stdout.isatty():
-        return RateLimitedProgressReporter(message)
+    if interaction.spiderpig_mode():
+        return SpiderpigProgressReporter(name)
 
-    return ProgressReporter(message)
+    if not sys.stdout.isatty():
+        return RateLimitedProgressReporter(name)
+
+    return ProgressReporter(name)
 
 
 class ProgressReporter(object):
@@ -342,13 +347,13 @@ class ProgressReporter(object):
     Track and display progress of a process.
 
     Report on the status of a multi-step process by displaying the completion
-    percentage and succes, failure and remaining task counts on a single
+    percentage and success, failure and remaining task counts on a single
     output line.
     """
 
     def __init__(self, name, expect=0, fd=sys.stderr, spinner=None):
         """
-        :param name: Name of command being monitored
+        :param name: Name of operation being monitored
         :param expect: Number of results to expect
         :param fd: File handle to write status messages to
         :param spinner: Cyclical iterator that returns progress spinner.
@@ -386,7 +391,7 @@ class ProgressReporter(object):
         return self._done
 
     @property
-    def percent_complete(self):
+    def percent_complete(self) -> int:
         return math.floor(100.0 * (float(self._done) / max(self._expect, 1)))
 
     def expect(self, count):
@@ -490,6 +495,25 @@ class RateLimitedProgressReporter(ProgressReporter):
         super()._progress(*args, **kwargs)
 
         self._last_report_time = now
+
+
+class SpiderpigProgressReporter(RateLimitedProgressReporter):
+    def _progress(self, *args, **kwargs):
+        super()._progress(*args, **kwargs)
+
+        scap.spiderpig.io.report_progress(
+            scap.spiderpig.io.SpiderpigProgressReportRecord(
+                name=self._name,
+                totalTasks=self._expect,
+                tasksInFlight=self._in_flight,
+                tasksFinishedOk=self.ok,
+                tasksFinishedFailed=self.failed,
+                tasksFinishedTotal=self._done,
+                tasksPercentComplete=self.percent_complete,
+                tasksRemaining=self.remaining,
+                progressFinished=self._finished,
+            )
+        )
 
 
 class MuteReporter(ProgressReporter):

@@ -661,6 +661,7 @@ async def get_jobs(
         # safely modify it without the changes being committed back to the
         # database.
         session.expunge(job)
+        job.status = job.extract_status()
         job.interaction = get_parsed_interaction(session, job)
         job.data = json.loads(job.data)
         set_job_duration(job)
@@ -684,7 +685,7 @@ async def get_job(
     # safely modify it without the changes being committed back to the
     # database.
     session.expunge(job)
-
+    job.status = job.extract_status()
     set_job_duration(job)
 
     data = json.loads(job.data)

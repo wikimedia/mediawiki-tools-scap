@@ -17,7 +17,8 @@
 		"@xterm/xterm": "^5.5.0",
 		"pinia": "^2.2.4",
 		"vue": "^3.4.27",
-		"vue-router": "^4.4.5"
+		"vue-router": "^4.4.5",
+		"vuetify": "^3.7.19"
 	},
 	"devDependencies": {
 		"@typescript-eslint/eslint-plugin": "^8.13.0",
