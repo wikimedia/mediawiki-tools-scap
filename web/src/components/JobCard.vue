@@ -38,7 +38,7 @@
 					<div class="job-card__label">
 						Finished
 					</div>
-					{{ getFormattedDate( finished_at ) }}
+					{{ finishedInfo }}
 				</div>
 
 				<div class="job-card__column">
@@ -129,14 +129,6 @@
 											>
 												{{ info.branch }}
 											</a>
-										</div>
-									</div>
-									<div class="job-card__details__change-info__grid__item">
-										<div class="job-card__details__change-info__label">
-											Duration
-										</div>
-										<div>
-											{{ calculatedDuration }}
 										</div>
 									</div>
 								</div>
@@ -232,6 +224,11 @@ export default defineComponent( {
 		},
 		data: {
 			type: Object,
+			required: false,
+			default: null
+		},
+		duration: {
+			type: Number,
 			required: false,
 			default: null
 		}
@@ -336,25 +333,9 @@ export default defineComponent( {
 			return date.toUTCString();
 		}
 
-		const calculatedDuration = computed( () => {
-			const start = new Date( props.started_at * 1000 );
-			const end = props.finished_at ? new Date( props.finished_at * 1000 ) : null;
-
-			// Indicate that the job is "in progress" when the job is not complete.
-			if ( !end ) {
-				return 'In progress';
-			}
-
-			// Check if the Date objects are valid.
-			if ( isNaN( start.getTime() ) || isNaN( end.getTime() ) ) {
-				return;
-			}
-
-			// Calculate the difference in milliseconds.
-			const durationMs = end.getTime() - start.getTime();
-
-			// Convert to more readable formats.
-			const durationSeconds = Math.floor( durationMs / 1000 );
+		function prettyDuration( durationSeconds: number ) {
+			durationSeconds = Math.floor( durationSeconds );
+			// Convert to more readable format
 			const minutes = Math.floor( durationSeconds / 60 );
 			const seconds = durationSeconds % 60;
 
@@ -364,6 +345,23 @@ export default defineComponent( {
 
 			// Format the duration.
 			return `${ formattedMinutes }m ${ formattedSeconds }s`;
+		}
+
+		const finishedInfo = computed( () => {
+			if ( !props.started_at ) {
+				return 'Not started yet';
+			}
+
+			const duration = prettyDuration( props.duration );
+
+			if ( props.finished_at ) {
+				const finishedTimestamp = getFormattedDate( props.finished_at );
+				return `${ finishedTimestamp } (Duration ${ duration })`;
+			}
+
+			// Job has started but hasn't finished yet
+			return `Running for ${ duration }`;
+
 		} );
 
 		function handleClick( url ) {
@@ -395,7 +393,7 @@ export default defineComponent( {
 			isRunning,
 			showInteraction,
 			showJobDetails,
-			calculatedDuration,
+			finishedInfo,
 			changeInfos,
 			handleClick,
 			isLoading,

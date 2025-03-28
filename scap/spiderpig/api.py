@@ -641,6 +641,13 @@ async def start_backport(
     }
 
 
+def set_job_duration(job: Job):
+    if not job.started_at:
+        return
+    end = job.finished_at if job.finished_at else time.time()
+    job.duration = end - job.started_at
+
+
 @app.get("/api/jobs")
 async def get_jobs(
     session: Session = Depends(get_db_session),
@@ -656,6 +663,7 @@ async def get_jobs(
         session.expunge(job)
         job.interaction = get_parsed_interaction(session, job)
         job.data = json.loads(job.data)
+        set_job_duration(job)
 
     return {
         "jobs": jobs,
@@ -671,6 +679,13 @@ async def get_job(
     gerrit_url = scap_config["gerrit_url"]
 
     i = get_parsed_interaction(session, job)
+
+    # Detach the job object from the SQLAlchemy session so that we can
+    # safely modify it without the changes being committed back to the
+    # database.
+    session.expunge(job)
+
+    set_job_duration(job)
 
     data = json.loads(job.data)
     for change_info in data["change_infos"]:
