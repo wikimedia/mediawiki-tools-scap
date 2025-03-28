@@ -1,6 +1,7 @@
 import base64
 import concurrent.futures
 import contextlib
+from dataclasses import dataclass
 import glob
 import logging
 import json
@@ -47,6 +48,38 @@ class InvalidDeploymentsConfig(Exception):
     pass
 
 
+# The default production image kind producted by the image build process.
+_DEFAULT_IMAGE_KIND = "image"
+
+
+@dataclass
+class _HelmfileReleaseValues:
+    """Represents the helmfile values written by scap for a given MediaWiki-on-k8s release."""
+
+    registry: str
+    """The address of the docker registry."""
+    mw_image_tag: str
+    """The mediawiki app-image tag."""
+    web_image_tag: str
+    """The httpd web-image tag."""
+
+    def to_values(self) -> dict:
+        """Returns a dict of helmfile values in the format expected by the mediawiki chart."""
+        return {
+            "docker": {
+                "registry": self.registry,
+            },
+            "main_app": {
+                "image": self.mw_image_tag,
+            },
+            "mw": {
+                "httpd": {
+                    "image_tag": self.web_image_tag,
+                }
+            },
+        }
+
+
 class DeploymentsConfig:
     """
     Represents the configuration of MediaWiki deployments for use by Scap.
@@ -57,16 +90,26 @@ class DeploymentsConfig:
     Each deployments config item has the following fields:
       namespace: A k8s namespace containing one or more helmfile releases
       releases: A mapping from helmfile release name to release configuration
-      mw_flavour: Default image flavour for the MediaWiki image used by releases in this namespace
-      web_flavour: Default image flavour for the httpd image used by releases in this namespace
+      mw_kind: Default image kind for the MediaWiki image used by releases in this namespace. At a
+        high level, an image kind is analogous to an image build target. This value must correspond
+        an image kind built and published by the build process - e.g., cli-image or debug-image.
+        Optional (default: if unset, use the default production image).
+      mw_flavour: Default image flavour for the MediaWiki image used by releases in this namespace.
+        At a high level, an image flavour corresponds to a set of image build arguments. This value
+        must correspond to an image flavour used by the build process when building and publishing
+        images for the specified image kind.
+      web_flavour: Default image flavour for the httpd image used by releases in this namespace.
+        This must correspond to an image flavour built and published by the build process.
       debug: Whether a debug MediaWiki image should be used for all releases in this namespace,
-        which also maps all releases to the testservers release stage
+        which also maps all releases to the testservers release stage. Deprecated: use mw_kind and
+        release stage explicitly.
       dir: the directory, under the configured helmfile_deployments_dir, in which the releases are
         found. Defaults to the value of helmfile_deployments_dir.
 
     The configuration of each release has the following fields:
       stage: Name of the stage in which this release should be updated - one of production, canary,
         testservers. Optional (default: production, unless debug is set)
+      mw_kind: Release-specific override to the namespace-level equivalent
       mw_flavour: Release-specific override to the namespace-level equivalent
       web_flavour: Release-specific override to the namespace-level equivalent
       deploy: Whether this release should be deployed by scap. If false, scap will manage only the
@@ -79,10 +122,11 @@ class DeploymentsConfig:
 
     - namespace: testservers
       releases:
-        debug: {}
+        debug:
+          stage: testservers
+      mw_kind: debug-image
       mw_flavour: publish
       web_flavour: webserver
-      debug: true
     - namespace: api1
       releases:
         main: {}
@@ -90,17 +134,16 @@ class DeploymentsConfig:
           stage: canaries
       mw_flavour: publish
       web_flavour: webserver
-      debug: false
     - namespace: api2
       releases:
         main: {}
         experimental:
           mw_flavour: publish-experimental
         maintenance:
+          mw_kind: cli-image
           deploy: false
       mw_flavour: publish
       web_flavour: webserver
-      debug: false
       dir: dse
 
     will produce the following DeploymentsConfig.stages:
@@ -109,51 +152,51 @@ class DeploymentsConfig:
       "testservers": [{
         "namespace": "testservers",
         "release": "debug",
+        "mw_image_kind": "debug-image",
         "mw_image_fl": "publish",
         "web_image_fl": "webserver",
-        "debug": True,
         "deploy": True,
         "cluster_dir": None,
       }],
       "canaries": [{
         "namespace": "api1",
         "release": "canary",
+        "mw_image_kind": None,
         "mw_image_fl": "publish",
         "web_image_fl": "webserver",
-        "debug": False,
         "deploy": True,
         "cluster_dir": None,
       }],
       "production": [{
         "namespace": "api1",
         "release": "main",
+        "mw_image_kind": None,
         "mw_image_fl": "publish",
         "web_image_fl": "webserver",
-        "debug": False,
         "deploy": True,
         "cluster_dir": None,
         }, {
         "namespace": "api2",
         "release": "main",
+        "mw_image_kind": None,
         "mw_image_fl": "publish",
         "web_image_fl": "webserver",
-        "debug": False,
         "deploy": True,
         "cluster_dir": "dse",
         }, {
         "namespace": "api2",
         "release": "experimental",
+        "mw_image_kind": None,
         "mw_image_fl": "publish-experimental",
         "web_image_fl": "webserver",
-        "debug": False,
         "deploy": True,
         "cluster_dir": "dse",
         }, {
         "namespace": "api2",
         "release": "maintenance",
+        "mw_image_kind": "cli-image",
         "mw_image_fl": "publish",
         "web_image_fl": "webserver",
-        "debug": False,
         "deploy": False,
         "cluster_dir": "dse"
       }]
@@ -166,6 +209,7 @@ class DeploymentsConfig:
     * https://phabricator.wikimedia.org/T299648
     * https://phabricator.wikimedia.org/T370934
     * https://phabricator.wikimedia.org/T387917
+    * https://phabricator.wikimedia.org/T389499
     """
 
     # The directory under which configurations for the specific cluster are located
@@ -174,9 +218,9 @@ class DeploymentsConfig:
     NAMESPACE = "namespace"
     # Helmfile release
     RELEASE = "release"
+    MW_IMAGE_KIND = "mw_image_kind"
     MW_IMAGE_FLAVOUR = "mw_image_fl"
     WEB_IMAGE_FLAVOUR = "web_image_fl"
-    DEBUG = "debug"
     DEPLOY = "deploy"
 
     def __init__(
@@ -209,6 +253,7 @@ class DeploymentsConfig:
                 )
             namespaces.add(dep_namespace)
 
+            # TODO: T389499 - Remove transitional support for the debug boolean.
             debug = dep_config.get("debug")
 
             for release, config in dep_config["releases"].items():
@@ -222,26 +267,29 @@ class DeploymentsConfig:
                     raise InvalidDeploymentsConfig(
                         f'"{release}" in "{dep_namespace}" has no web_flavour set'
                     )
-                stage = config.get("stage")
-                if stage not in (CANARIES, None):
+                stage = config.get("stage", PRODUCTION)
+                if stage not in STAGES:
                     raise InvalidDeploymentsConfig(
                         f'"{release}" in "{dep_namespace}" specified unsupported stage "{stage}"'
                     )
-                if debug and stage == CANARIES:
-                    # All releases in a debug namespace map to the testservers stage. As
-                    # we have historically, ignore canary releases in such namespaces.
-                    # TODO: This should probably be raised as a misconfiguration.
-                    continue
+                mw_image_kind = config.get("mw_kind", dep_config.get("mw_kind"))
+                # TODO: T389499 - Remove transitional support for the debug boolean.
+                if debug:
+                    # Historically, marking a namespace as debug: True both opts it into using the
+                    # debug image kind and puts it in the testservers stage. We're moving away from
+                    # this, in favor of explicit kind and stage selection.
+                    mw_image_kind = "debug-image"
+                    stage = TEST_SERVERS
                 parsed_dep_config = {
                     cls.NAMESPACE: dep_namespace,
                     cls.RELEASE: release,
+                    cls.MW_IMAGE_KIND: mw_image_kind,
                     cls.MW_IMAGE_FLAVOUR: mw_flavour,
                     cls.WEB_IMAGE_FLAVOUR: web_flavour,
-                    cls.DEBUG: debug,
                     cls.DEPLOY: config.get("deploy", True),
                     cls.CLUSTER_DIR: cluster_dir,
                 }
-                if debug:
+                if stage == TEST_SERVERS:
                     testservers.append(parsed_dep_config)
                 elif stage == CANARIES:
                     canaries.append(parsed_dep_config)
@@ -379,16 +427,21 @@ class K8sOps:
                         shell=True,
                     )
 
-        def update_helmfile_files():
-            if not self.app.config["deploy_mw_container_image"]:
-                return
+        def collect_helmfile_values() -> dict:
+            images_info = self._get_built_images_report()
+            values = {}
+            for stage, dep_configs in self.k8s_deployments_config.stages.items():
+                values[stage] = self._collect_helmfile_values_for(
+                    dep_configs, images_info
+                )
+            return values
 
-            built_images_info = self._get_built_images_report()
+        def update_helmfile_files(helmfile_values):
             for stage, dep_configs in self.k8s_deployments_config.stages.items():
                 self.original_helmfile_values[stage] = self._read_helmfile_files(
                     dep_configs
                 )
-                self._update_helmfile_files(dep_configs, built_images_info)
+                self._update_helmfile_files(dep_configs, helmfile_values[stage])
 
         if not self.app.config["build_mw_container_image"]:
             return
@@ -402,7 +455,15 @@ class K8sOps:
                 subprocess.run(release_repo_update_cmd, shell=True, check=True)
 
         build_and_push_images()
-        update_helmfile_files()
+
+        if not self.app.config["deploy_mw_container_image"]:
+            return
+
+        # Collect helmfile values for all stages and releases, ensuring all referenced image kinds
+        # and flavours exist prior to attempting updates.
+        helmfile_values = collect_helmfile_values()
+
+        update_helmfile_files(helmfile_values)
 
     # Called by AbstractSync.main
     def helmfile_diffs_for_stage(self, stage: str):
@@ -522,9 +583,12 @@ class K8sOps:
 
         return res
 
-    def _update_helmfile_files(self, dep_configs, built_images_info):
+    def _update_helmfile_files(self, dep_configs, helmfile_values):
         for dep_config in dep_configs:
-            self._update_helmfile_values_for(dep_config, built_images_info)
+            fq_release_name = self._dep_config_fq_release_name(dep_config)
+            self._update_helmfile_values_for(
+                dep_config, helmfile_values[fq_release_name]
+            )
 
     def _revert_helmfile_files(self, dep_configs, saved_values):
         commit = False
@@ -979,11 +1043,7 @@ class K8sOps:
             helmfile_mediawiki_release_dir, "{}.yaml".format(fq_release_name)
         )
 
-    def _update_helmfile_values_for(self, dep_config, images_info):
-        """
-        Note: Due to the git operations and change of the working directory, this function
-        is not thread safe.
-        """
+    def _collect_helmfile_values_for(self, dep_configs, images_info) -> dict:
         registry = self.app.config["docker_registry"]
 
         def strip_registry(fqin):
@@ -993,41 +1053,58 @@ class K8sOps:
 
             return fqin
 
-        def find_image_flavour(image_info, flavour, debug=False):
-            image_key = "debug-image" if debug else "image"
-
+        def find_image_flavour(image_info, flavour, image_kind=None):
             if flavour not in image_info:
-                raise RuntimeError(
-                    f"Image flavour {flavour} not found "
-                    f"among built images {image_info}"
+                raise ValueError(
+                    f"Image flavour '{flavour}' not found among built images in {image_info}"
                 )
 
-            return image_info[flavour][image_key]
+            if image_kind is None:
+                image_kind = _DEFAULT_IMAGE_KIND
 
-        mw_img = find_image_flavour(
-            images_info["mediawiki"]["by-flavour"],
-            dep_config[DeploymentsConfig.MW_IMAGE_FLAVOUR],
-            debug=dep_config[DeploymentsConfig.DEBUG],
-        )
+            if image_kind not in image_info[flavour]:
+                raise ValueError(
+                    f"Image kind '{image_kind}' not found among built images for flavour "
+                    f"'{flavour}' in {image_info[flavour]}"
+                )
 
-        web_img = find_image_flavour(
-            images_info["webserver"]["by-flavour"],
-            dep_config[DeploymentsConfig.WEB_IMAGE_FLAVOUR],
-        )
+            return image_info[flavour][image_kind]
 
-        values = {
-            "docker": {
-                "registry": registry,
-            },
-            "main_app": {
-                "image": strip_registry(mw_img),
-            },
-            "mw": {
-                "httpd": {
-                    "image_tag": strip_registry(web_img),
-                }
-            },
-        }
+        values = {}
+
+        # An exception raised by find_image_flavour indicates a misconfiguration, in which case,
+        # a backtrace is not useful.
+        with utils.suppress_backtrace():
+            for dep_config in dep_configs:
+                mw_img = find_image_flavour(
+                    images_info["mediawiki"]["by-flavour"],
+                    dep_config[DeploymentsConfig.MW_IMAGE_FLAVOUR],
+                    image_kind=dep_config[DeploymentsConfig.MW_IMAGE_KIND],
+                )
+
+                web_img = find_image_flavour(
+                    images_info["webserver"]["by-flavour"],
+                    dep_config[DeploymentsConfig.WEB_IMAGE_FLAVOUR],
+                )
+
+                fq_release_name = self._dep_config_fq_release_name(dep_config)
+                values[fq_release_name] = _HelmfileReleaseValues(
+                    registry=registry,
+                    mw_image_tag=strip_registry(mw_img),
+                    web_image_tag=strip_registry(web_img),
+                )
+
+        return values
+
+    def _update_helmfile_values_for(
+        self, dep_config, helmfile_values: _HelmfileReleaseValues
+    ):
+        """
+        Note: Due to the git operations and change of the working directory, this function
+        is not thread safe.
+        """
+
+        values = helmfile_values.to_values()
 
         # Train-dev hack.  This is to override the mw-web canary-values.yaml
         # (which is read after values-traindev.yaml) which sets replicas to a
@@ -1044,7 +1121,11 @@ class K8sOps:
                     "Updating release '%s'\n\n"
                     "MediaWiki image is: '%s'\n"
                     "Webserver image is: '%s'"
-                ) % (fq_release_name, mw_img, web_img)
+                ) % (
+                    fq_release_name,
+                    helmfile_values.mw_image_tag,
+                    helmfile_values.web_image_tag,
+                )
 
                 gitcmd("add", values_file)
                 gitcmd("commit", "-m", msg)

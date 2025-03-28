@@ -19,26 +19,35 @@ deployment_configs = [
     # Correct configuration
     (
         """
-    # single release, mapped to the testservers stage via debug: true.
-    - namespace: test
+    # single release, mapped to the testservers stage and using a debug image via debug: true.
+    # TODO: T389499 - Remove transitional support for the debug boolean.
+    - namespace: test-deprecated
       releases:
         main: {}
       mw_flavour: publish
       web_flavour: webserver
       debug: true
 
-    # single release, mapped to the default production stage.
+    # single release, explicitly mapped to the testservers stage and selecting the debug image.
+    - namespace: test
+      releases:
+        main:
+          stage: testservers
+      mw_kind: debug-image
+      mw_flavour: publish
+      web_flavour: webserver
+
+    # single release, mapped to the default production stage and image kind.
     # this uses a different k8s cluster
     - namespace: api1
       releases:
         main: {}
       mw_flavour: publish
       web_flavour: webserver
-      debug: false
       dir: anothercluster
 
     # multiple releases, one mapped to the canaries stage, and another marked
-    # non-deploy.
+    # non-deploy, which also selects the cli image kind.
     - namespace: api2
       releases:
         main: {}
@@ -46,9 +55,9 @@ deployment_configs = [
           stage: canaries
         maintenance:
           deploy: false
+          mw_kind: cli-image
       mw_flavour: publish
       web_flavour: webserver
-      debug: false
 
     # multiple releases, one overriding the image flavours used.
     - namespace: api3
@@ -63,36 +72,44 @@ deployment_configs = [
           web_flavour: exciting-new-webserver
       mw_flavour: publish
       web_flavour: webserver
-      debug: false
      """,
         {
             "testservers": [
                 {
-                    "namespace": "test",
+                    "namespace": "test-deprecated",
                     "release": "main",
+                    "mw_image_kind": "debug-image",
                     "mw_image_fl": "publish",
                     "web_image_fl": "webserver",
-                    "debug": True,
                     "deploy": True,
                     "cluster_dir": None,
-                }
+                },
+                {
+                    "namespace": "test",
+                    "release": "main",
+                    "mw_image_kind": "debug-image",
+                    "mw_image_fl": "publish",
+                    "web_image_fl": "webserver",
+                    "deploy": True,
+                    "cluster_dir": None,
+                },
             ],
             "canaries": [
                 {
                     "namespace": "api2",
                     "release": "canary",
+                    "mw_image_kind": None,
                     "mw_image_fl": "publish",
                     "web_image_fl": "webserver",
-                    "debug": False,
                     "deploy": True,
                     "cluster_dir": None,
                 },
                 {
                     "namespace": "api3",
                     "release": "canary",
+                    "mw_image_kind": None,
                     "mw_image_fl": "publish",
                     "web_image_fl": "webserver",
-                    "debug": False,
                     "deploy": True,
                     "cluster_dir": None,
                 },
@@ -101,77 +118,49 @@ deployment_configs = [
                 {
                     "namespace": "api1",
                     "release": "main",
+                    "mw_image_kind": None,
                     "mw_image_fl": "publish",
                     "web_image_fl": "webserver",
-                    "debug": False,
                     "deploy": True,
                     "cluster_dir": "anothercluster",
                 },
                 {
                     "namespace": "api2",
                     "release": "main",
+                    "mw_image_kind": None,
                     "mw_image_fl": "publish",
                     "web_image_fl": "webserver",
-                    "debug": False,
                     "deploy": True,
                     "cluster_dir": None,
                 },
                 {
                     "namespace": "api2",
                     "release": "maintenance",
+                    "mw_image_kind": "cli-image",
                     "mw_image_fl": "publish",
                     "web_image_fl": "webserver",
-                    "debug": False,
                     "deploy": False,
                     "cluster_dir": None,
                 },
                 {
                     "namespace": "api3",
                     "release": "main",
+                    "mw_image_kind": None,
                     "mw_image_fl": "publish",
                     "web_image_fl": "webserver",
-                    "debug": False,
                     "deploy": True,
                     "cluster_dir": None,
                 },
                 {
                     "namespace": "api3",
                     "release": "migration",
+                    "mw_image_kind": None,
                     "mw_image_fl": "exciting-new-mediawiki",
                     "web_image_fl": "exciting-new-webserver",
-                    "debug": False,
                     "deploy": True,
                     "cluster_dir": None,
                 },
             ],
-        },
-    ),
-    # Correct-but-weird: Canary releases in debug namespaces are ignored.
-    (
-        """
-    - namespace: testservers
-      releases:
-        main: {}
-        canary:
-          stage: canaries
-      mw_flavour: publish
-      web_flavour: webserver
-      debug: true
-    """,
-        {
-            "testservers": [
-                {
-                    "namespace": "testservers",
-                    "release": "main",
-                    "mw_image_fl": "publish",
-                    "web_image_fl": "webserver",
-                    "debug": True,
-                    "deploy": True,
-                    "cluster_dir": None,
-                }
-            ],
-            "canaries": [],
-            "production": [],
         },
     ),
     # Incorrect: Same namespace duplicated
