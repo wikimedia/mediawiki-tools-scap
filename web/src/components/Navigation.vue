@@ -19,6 +19,13 @@
 
 		<div class="navigation__end">
 			<div class="navigation__end___first">
+				<div
+					class="cdx-progress-bar"
+					role="progressbar"
+					aria-label="Faking progress"
+				>
+					<div class="cdx-progress-bar__bar spiderpig-progress-bar__bar" />
+				</div>
 				<ul>
 					<li>
 						<a href="https://logstash.wikimedia.org/app/dashboards#/view/mediawiki-errors" target="_blank">
@@ -34,6 +41,7 @@
 </template>
 
 <script lang="ts">
+import { onMounted } from 'vue';
 import UserMenu from './UserMenu.vue';
 import { CdxIcon } from '@wikimedia/codex';
 import { cdxIconLinkExternal } from '@wikimedia/codex-icons';
@@ -46,6 +54,25 @@ export default {
 	},
 
 	setup() {
+		onMounted( () => {
+			let percentage = 0;
+			const progressBar = document.querySelector( '.spiderpig-progress-bar__bar' );
+			window.thingy = progressBar;
+
+			function doProgress() {
+				if ( percentage > 99 ) {
+					percentage = 0;
+					if ( confirm( 'Are you not entertained!?' ) ) {
+						return;
+					}
+				}
+				percentage += 10;
+				progressBar.style.width = percentage + '%';
+				setTimeout( doProgress, 100 );
+			}
+
+			setTimeout( doProgress, 100 );
+		} );
 		return {
 			cdxIconLinkExternal
 		};
@@ -107,6 +134,9 @@ export default {
 	&__end {
 		display: flex;
 		&___first {
+			.spiderpig-progress-bar__bar {
+				animation: none;
+			}
 			ul {
 				list-style-type: none;
 				li {
