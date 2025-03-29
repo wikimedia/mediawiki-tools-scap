@@ -20,7 +20,8 @@ wcwidth==0.2.5
 # SpiderPig stuff
 fastapi; python_version < '3.8'
 fastapi[standard]==0.115.4; python_version >= '3.8'
-pydantic
+pydantic==2.10.6; python_version >= '3.8'
+pydantic==2.5.3; python_version < '3.8'
 pydantic-core==2.27.2; python_version >= '3.8'
 pydantic-core==2.14.6; python_version < '3.8'
 annotated-types
