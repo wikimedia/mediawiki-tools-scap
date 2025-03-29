@@ -10,6 +10,7 @@
 		"test": "eslint ."
 	},
 	"dependencies": {
+		"@mdi/font": "^7.4.47",
 		"@vueuse/core": "^11.1.0",
 		"@wikimedia/codex": "^1.23.0",
 		"@wikimedia/codex-design-tokens": "^1.23.0",

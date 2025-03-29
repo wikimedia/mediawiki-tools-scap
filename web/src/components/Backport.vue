@@ -11,29 +11,52 @@
 		</template>
 
 		<div class="backport__input">
-			<cdx-multiselect-lookup
-				v-model:input-chips="chips"
-				v-model:selected="changeNumbers"
-				class="backport__input__multiselect"
+			<v-autocomplete
+				ref="$autocomplete"
+				v-model="changeNumbers"
 				:disabled="!idle"
-				:menu-items="menuItems"
-				:menu-config="menuConfig"
-				placeholder="Enter change numbers or URLs"
+				:hide-no-data="hideNoData"
+				:items="menuItems"
+				:loading="searching"
 				aria-label="Search for one or more Gerrit patches"
-				@input="onInput"
+				auto-select-first
+				autofocus
+				chips
+				clear-on-select
+				clearable
+				closable-chips
+				density="compact"
+				menu-icon=""
+				multiple
+				no-filter
+				persistent-clear
+				persistent-placeholder
+				placeholder="Enter change numbers or URLs"
+				variant="outlined"
+				@update:search="onSearch"
+				@keydown.enter.stop.prevent="closeMenu"
 			>
-				<template #no-results>
-					No results found.
+				<template #item="{ index, props, item }">
+					<v-list-item
+						v-bind="props"
+						:key="index"
+						role="option"
+					>
+						{{ item.text }}
+					</v-list-item>
 				</template>
-			</cdx-multiselect-lookup>
-
-			<cdx-button
-				:disabled="buttonDisabled"
-				@click="startBackport"
-			>
-				Start Backport
-			</cdx-button>
-
+				<template #no-data>
+					<v-list-item>No results found.</v-list-item>
+				</template>
+				<template #append>
+					<cdx-button
+						:disabled="buttonDisabled"
+						@click="startBackport"
+					>
+						Start Backport
+					</cdx-button>
+				</template>
+			</v-autocomplete>
 			<cdx-dialog
 				v-model:open="alertDialogOpen"
 				title="Failed to start backport"
@@ -47,7 +70,8 @@
 
 <script lang="ts">
 import { ref, computed } from 'vue';
-import { CdxButton, CdxDialog, CdxField, CdxMultiselectLookup } from '@wikimedia/codex';
+import { CdxButton, CdxDialog, CdxField } from '@wikimedia/codex';
+import { VAutocomplete, VListItem } from 'vuetify/lib/components/index.mjs';
 import useApi from '../api';
 import { notificationsStore } from '@/state';
 
@@ -57,7 +81,8 @@ export default {
 		CdxButton,
 		CdxDialog,
 		CdxField,
-		CdxMultiselectLookup
+		VAutocomplete,
+		VListItem
 	},
 
 	props: {
@@ -71,23 +96,18 @@ export default {
 	},
 
 	setup( props ) {
+		const $autocomplete = ref( null );
 		const api = useApi();
 		const notifications = notificationsStore();
 		const alertDialogOpen = ref( false );
 		const alertDialogText = ref( '' );
 		const alertDialogUseCloseButton = ref( true );
-		const chips = ref( [] );
 		const changeNumbers = ref( [] );
 		const menuItems = ref( [] );
+		const hideNoData = ref( true );
+		const searching = ref( false );
 
-		// chips and changeNumbers must be in sync.
 		changeNumbers.value = props.initialChangeNumbers;
-		chips.value = props.initialChangeNumbers.map( ( id: string ) => ( { value: id } ) );
-
-		const menuConfig = {
-			boldLabel: true,
-			visibleItemLimit: 1
-		};
 
 		const buttonDisabled = computed( () => {
 			if ( changeNumbers.value.length > 0 ) {
@@ -98,10 +118,10 @@ export default {
 		} );
 
 		async function startBackport() {
+			hideNoData.value = true;
 			try {
 				const res = await api.startBackport( changeNumbers.value );
 				await notifications.setUserNotifications( res.id );
-				chips.value = [];
 				changeNumbers.value = [];
 			} catch ( error ) {
 				alertDialogOpen.value = true;
@@ -109,43 +129,52 @@ export default {
 			}
 		}
 
-		async function fetchResults( changeId:string ) {
-			return await api.searchPatch( changeId );
-		}
-
-		async function onInput( value: string ) {
-			if ( !value ) {
-				menuItems.value = [];
-				return;
-			}
-
-			const data = await fetchResults( value );
-
+		async function searchForChanges( changeId: string ) {
+			searching.value = true;
+			const data = await api.searchPatch( changeId );
 			const results = data.map( ( item ) => {
 				// eslint-disable-next-line no-underscore-dangle
 				const changeNumber = String( item._number );
-
 				return {
-					label: changeNumber, // the Gerrit patch number, ex. 1084887
-					description: item.subject, // The commit subject line
-					value: changeNumber // the Gerrit patch number, ex. 1084887
+					title: changeNumber, // Gerrit change number, ex. 1084887
+					props: {
+						subtitle: item.subject // The commit subject line
+					},
+					value: changeNumber // Gerrit change number, ex. 1084887
 				};
 			} );
+			searching.value = false;
+			return results;
+		}
 
+		async function onSearch( value: string ) {
+			if ( !value ) {
+				hideNoData.value = true;
+				menuItems.value = [];
+				return;
+			}
+			hideNoData.value = false;
+			const results = await searchForChanges( value );
 			menuItems.value = results;
 		}
 
+		async function closeMenu() {
+			$autocomplete.value.menu = false;
+		}
+
 		return {
+			$autocomplete,
 			alertDialogOpen,
 			alertDialogText,
 			alertDialogUseCloseButton,
 			buttonDisabled,
-			chips,
 			changeNumbers,
+			closeMenu,
+			hideNoData,
 			menuItems,
-			menuConfig,
-			startBackport,
-			onInput
+			onSearch,
+			searching,
+			startBackport
 		};
 	}
 };
@@ -166,18 +195,14 @@ export default {
 	&__input {
 		display: flex;
 
-		&__multiselect {
-			flex: 1 0 auto;
-		}
+		.v-input__append {
+			margin-inline-start: 0;
 
-		.cdx-chip-input {
-			border-top-right-radius: 0px;
-			border-bottom-right-radius: 0px;
-		}
-
-		.cdx-button {
-			border-top-left-radius: 0px;
-			border-bottom-left-radius: 0px;
+			.cdx-button {
+				border-top-left-radius: 0px;
+				border-bottom-left-radius: 0px;
+				min-height: 40px;
+			}
 		}
 	}
 }
