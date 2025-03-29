@@ -110,6 +110,8 @@ export default defineComponent( {
 						for await ( const rec of logRecordsProcessor( reader ) ) {
 							if ( rec.type === 'line' ) {
 								term.value.write( rec.line + '\n' );
+							} else if ( rec.type === 'response' ) {
+								term.value.write( `[User '${ rec.user }' responded with '${ rec.response }']\n` );
 							} else if ( rec.type === 'EOF' ) {
 								sawEOF = true;
 								break;
