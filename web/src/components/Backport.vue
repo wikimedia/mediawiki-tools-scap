@@ -12,35 +12,58 @@
 		</template>
 
 		<div class="backport__input">
-			<cdx-multiselect-lookup
-				v-model:input-chips="changeIds"
-				v-model:selected="selection"
-				class="backport__input__multiselect"
+			<v-autocomplete
+				ref="$autocomplete"
+				v-model="changeNumbers"
 				:disabled="!idle"
-				:menu-items="menuItems"
-				:menu-config="menuConfig"
-				placeholder="Enter change numbers"
+				:hide-no-data="searching"
+				:items="menuItems"
+				:loading="searching"
 				aria-label="Search for one or more Gerrit patches"
-				@input="onInput"
+				auto-select-first="exact"
+				autofocus
+				chips
+				clear-on-select
+				clearable
+				closable-chips
+				density="compact"
+				multiple
+				no-filter
+				persistent-clear
+				persistent-placeholder
+				placeholder="Enter change numbers"
+				variant="outlined"
+				@update:search="onSearch"
 			>
-				<template #no-results>
-					No results found.
+				<template #item="{ index, props, item }">
+					<v-list-item
+						v-bind="props"
+						:key="index"
+						role="option"
+					>
+						{{ item.text }}
+					</v-list-item>
 				</template>
-			</cdx-multiselect-lookup>
-
-			<cdx-button
-				:disabled="buttonDisabled"
-				@click="startBackport"
-			>
-				Start Backport
-			</cdx-button>
+				<template #no-data>
+					<v-list-item>No results found.</v-list-item>
+				</template>
+				<template #append>
+					<cdx-button
+						:disabled="buttonDisabled"
+						@click="startBackport"
+					>
+						Start Backport
+					</cdx-button>
+				</template>
+			</v-autocomplete>
 		</div>
 	</cdx-field>
 </template>
 
 <script lang="ts">
 import { ref, computed } from 'vue';
-import { CdxButton, CdxField, CdxMultiselectLookup } from '@wikimedia/codex';
+import { CdxButton, CdxField } from '@wikimedia/codex';
+import { VAutocomplete, VListItem } from 'vuetify/lib/components/index.mjs';
 import useApi from '../api';
 
 export default {
@@ -48,7 +71,8 @@ export default {
 	components: {
 		CdxButton,
 		CdxField,
-		CdxMultiselectLookup
+		VAutocomplete,
+		VListItem
 	},
 
 	props: {
@@ -58,18 +82,15 @@ export default {
 	},
 
 	setup() {
+		const $autocomplete = ref( null );
 		const api = useApi();
-		const changeIds = ref( [] );
-		const selection = ref( [] );
+		const changeNumbers = ref( [] );
 		const menuItems = ref( [] );
-
-		const menuConfig = {
-			boldLabel: true,
-			visibleItemLimit: 10
-		};
+		const searching = ref( false );
+		const RE_DELIMITERS = /(?:,| )+/;
 
 		const buttonDisabled = computed( () => {
-			if ( changeIds.value.length > 0 ) {
+			if ( changeNumbers.value.length > 0 ) {
 				return false;
 			} else {
 				return true;
@@ -77,47 +98,66 @@ export default {
 		} );
 
 		async function startBackport() {
-			await api.startBackport( changeIds.value.map( ( id ) => id.value ) );
-			changeIds.value = [];
-		}
-
-		async function fetchResults( changeId ) {
-			return await api.searchPatch(
-				`change:"${ changeId }"`,
-				10
+			await api.startBackport(
+				changeNumbers.value.map( ( id ) => id.value )
 			);
+			changeNumbers.value = [];
 		}
 
-		async function onInput( value ) {
+		async function searchForChanges( value ) {
+			searching.value = true;
+			// Search by change number only returns exact matches
+			const data = await api.searchPatch( `change:"${ value }"`, 1 );
+			const results = data.map( ( item ) => {
+				// eslint-disable-next-line no-underscore-dangle
+				const changeNumber = String( item._number );
+				return {
+					title: changeNumber, // Gerrit change number, ex. 1084887
+					props: {
+						subtitle: item.subject // The commit subject line
+					},
+					value: changeNumber // Gerrit change number, ex. 1084887
+				};
+			} );
+			searching.value = false;
+			return results;
+		}
+
+		async function onSearch( value ) {
 			if ( !value ) {
 				menuItems.value = [];
 				return;
 			}
 
-			const data = await fetchResults( value );
+			// Simulate VCombobox's delimiters function
+			const values = value.split( RE_DELIMITERS );
+			if ( values.length > 1 ) {
+				for ( let val of values ) {
+					val = val.trim();
+					if ( val ) {
+						const found = await searchForChanges( val );
+						if ( found.length === 1 && found[ 0 ].value === val ) {
+							changeNumbers.value.push( found[ 0 ] );
+						}
+					}
+				}
+				// Blank search-input by blurring the widget
+				$autocomplete.value.blur();
+				return;
+			}
 
-			const results = data.map( ( item ) => {
-				// eslint-disable-next-line no-underscore-dangle
-				const changeNumber = String( item._number );
-
-				return {
-					label: changeNumber, // the Gerrit patch number, ex. 1084887
-					description: item.subject, // The commit subject line
-					value: changeNumber // the Gerrit patch number, ex. 1084887
-				};
-			} );
-
+			const results = await searchForChanges( value );
 			menuItems.value = results;
 		}
 
 		return {
+			$autocomplete,
 			buttonDisabled,
-			changeIds,
-			selection,
+			changeNumbers,
 			menuItems,
-			menuConfig,
-			startBackport,
-			onInput
+			onSearch,
+			searching,
+			startBackport
 		};
 	}
 };
