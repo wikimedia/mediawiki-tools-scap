@@ -23,6 +23,10 @@ export default {
 <style lang="less">
 @import '@wikimedia/codex-design-tokens/theme-wikimedia-ui.less';
 
+body {
+	background: @background-color-neutral;
+}
+
 #app {
 	max-width: 72rem;
 	margin: auto;
