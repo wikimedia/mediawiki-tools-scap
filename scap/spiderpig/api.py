@@ -804,6 +804,9 @@ async def get_log(
                         else:
                             yield toRecord({"type": "line", "line": payload["line"]})
                             last_yield_was_hidden = False
+                    elif type == "response":
+                        yield toRecord(payload)
+
                     continue
                 # EOF
 
