@@ -25,6 +25,7 @@ export default defineComponent( {
 		const jobrunnerStatus = ref( 'Jobrunner Status: Unknown' );
 
 		// Non-reactive data.
+		const INTERVAL = 1000;
 		let intervalTimer = null;
 
 		// Methods.
@@ -51,7 +52,7 @@ export default defineComponent( {
 
 		// Lifecycle hooks.
 		onMounted( () => {
-			intervalTimer = setInterval( updateJobrunnerStatus, 1000 );
+			intervalTimer = setInterval( updateJobrunnerStatus, INTERVAL );
 			updateJobrunnerStatus();
 		} );
 
