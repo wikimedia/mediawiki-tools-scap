@@ -12,35 +12,58 @@
 		</template>
 
 		<div class="backport__input">
-			<cdx-multiselect-lookup
-				v-model:input-chips="changeIds"
-				v-model:selected="selection"
-				class="backport__input__multiselect"
+			<v-combobox
+				v-model="changeNumbers"
+				:delimiters="[ ',', ' ' ]"
 				:disabled="!idle"
-				:menu-items="menuItems"
-				:menu-config="menuConfig"
-				placeholder="Enter change numbers"
+				:hide-no-data="searching"
+				:items="menuItems"
+				:loading="searching"
 				aria-label="Search for one or more Gerrit patches"
-				@input="onInput"
+				auto-select-first="exact"
+				autofocus
+				chips
+				clear-on-select
+				clearable
+				closable-chips
+				density="compact"
+				multiple
+				no-filter
+				persistent-clear
+				persistent-placeholder
+				placeholder="Enter change numbers"
+				variant="outlined"
+				@update:search="onSearch"
 			>
-				<template #no-results>
-					No results found.
+				<template #item="{ index, props, item }">
+					<v-list-item
+						v-bind="props"
+						:key="index"
+						role="option"
+					>
+						{{ item.text }}
+					</v-list-item>
 				</template>
-			</cdx-multiselect-lookup>
-
-			<cdx-button
-				:disabled="buttonDisabled"
-				@click="startBackport"
-			>
-				Start Backport
-			</cdx-button>
+				<template #no-data>
+					<v-list-item>No results found.</v-list-item>
+				</template>
+				<template #append>
+					<cdx-button
+						:disabled="buttonDisabled"
+						@click="startBackport"
+					>
+						Start Backport
+					</cdx-button>
+				</template>
+			</v-combobox>
 		</div>
 	</cdx-field>
 </template>
 
 <script lang="ts">
 import { ref, computed } from 'vue';
-import { CdxButton, CdxField, CdxMultiselectLookup } from '@wikimedia/codex';
+import { CdxButton, CdxField } from '@wikimedia/codex';
+import { VCombobox, VListItem } from 'vuetify/lib/components/index.mjs';
 import useApi from '../api';
 
 export default {
@@ -48,7 +71,8 @@ export default {
 	components: {
 		CdxButton,
 		CdxField,
-		CdxMultiselectLookup
+		VCombobox,
+		VListItem
 	},
 
 	props: {
@@ -59,17 +83,12 @@ export default {
 
 	setup() {
 		const api = useApi();
-		const changeIds = ref( [] );
-		const selection = ref( [] );
+		const changeNumbers = ref( [] );
 		const menuItems = ref( [] );
-
-		const menuConfig = {
-			boldLabel: true,
-			visibleItemLimit: 10
-		};
+		const searching = ref( false );
 
 		const buttonDisabled = computed( () => {
-			if ( changeIds.value.length > 0 ) {
+			if ( changeNumbers.value.length > 0 ) {
 				return false;
 			} else {
 				return true;
@@ -77,47 +96,50 @@ export default {
 		} );
 
 		async function startBackport() {
-			await api.startBackport( changeIds.value.map( ( id ) => id.value ) );
-			changeIds.value = [];
+			await api.startBackport(
+				changeNumbers.value.map( ( id ) => id.value )
+			);
+			changeNumbers.value = [];
 		}
 
 		async function fetchResults( changeId ) {
-			return await api.searchPatch(
+			searching.value = true;
+			const data = await api.searchPatch(
 				`change:"${ changeId }"`,
 				10
 			);
+			searching.value = false;
+			return data;
 		}
 
-		async function onInput( value ) {
+		async function onSearch( value ) {
 			if ( !value ) {
 				menuItems.value = [];
 				return;
 			}
-
 			const data = await fetchResults( value );
-
 			const results = data.map( ( item ) => {
 				// eslint-disable-next-line no-underscore-dangle
 				const changeNumber = String( item._number );
 
 				return {
-					label: changeNumber, // the Gerrit patch number, ex. 1084887
-					description: item.subject, // The commit subject line
-					value: changeNumber // the Gerrit patch number, ex. 1084887
+					title: changeNumber, // Gerrit patch number, ex. 1084887
+					props: {
+						subtitle: item.subject // The commit subject line
+					},
+					value: changeNumber // Gerrit patch number, ex. 1084887
 				};
 			} );
-
 			menuItems.value = results;
 		}
 
 		return {
 			buttonDisabled,
-			changeIds,
-			selection,
+			changeNumbers,
 			menuItems,
-			menuConfig,
-			startBackport,
-			onInput
+			onSearch,
+			searching,
+			startBackport
 		};
 	}
 };
