@@ -1,3 +1,12 @@
+scap (4.148.0)
+
+  * spiderpig: Fix handling of responses in job log
+  * requirements.txt: Pin pydantic to v2.10.6/v2.5.3
+  * spiderpig: Show job duration information
+  * kubernetes: support image "kind" and deprecate the debug boolean
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Mon, 31 Mar 2025 08:00:08 -0700
+
 scap (4.147.0)
 
   * utils.get_real_username: Use SPIDERPIG_REAL_USER if available
