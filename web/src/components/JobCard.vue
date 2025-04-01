@@ -45,7 +45,7 @@
 					<div class="job-card__label">
 						Status
 					</div>
-					<span v-if="isRunning">
+					<span v-if="isRunning" class="job-card__status">
 						{{ status.status }}
 					</span>
 					<cdx-info-chip
@@ -451,6 +451,10 @@ export default defineComponent( {
 	&__column {
 		display: flex;
 		flex-direction: column;
+	}
+
+	&__status {
+		font-weight: bold;
 	}
 
 	&__chip {
