@@ -1135,30 +1135,8 @@ class ScapWorld(AbstractSync):
         )
         self.increment_stat("scap")
 
-    def _handle_exception(self, ex):
-        # Logic copied from cli.py:_handle_exception.  FIXME: There has to be a better
-        # way to do this.
-        backtrace = True
-        if isinstance(ex, lock.LockFailedError) or getattr(
-            ex, "_scap_no_backtrace", False
-        ):
-            backtrace = False
-
-        if backtrace:
-            self.get_logger().warning("Unhandled error:", exc_info=True)
-
-        # Retrieve scap version
-        scap_version = scapversion.__version__
-        message = "scap failed: <%s> %s (scap version: %s) (duration: %s)"
-        self.announce(
-            message,
-            type(ex).__name__,
-            ex,
-            scap_version,
-            utils.human_duration(self.get_duration()),
-        )
-
-        return 1
+    def _handle_exception_log_message(self, message):
+        self.announce(message)
 
     def _before_exit(self, exit_status):
         if self.config:

@@ -502,25 +502,25 @@ class Application(object):
 
         :returns: exit status
         """
-        logger = self.get_logger()
-        exception_type = type(ex).__name__
         backtrace = True
-
-        # Retrieve scap version
-
-        scap_version = version.__version__
-        message = "%s failed: <%s> %s (scap version: %s)"
-
         if isinstance(ex, lock.LockFailedError) or getattr(
             ex, "_scap_no_backtrace", False
         ):
             backtrace = False
 
         if backtrace:
-            logger.warning("Unhandled error:", exc_info=True)
+            self.get_logger().warning("Unhandled error:", exc_info=True)
 
-        logger.error(message, self.program_name, exception_type, ex, scap_version)
-        return 70
+        exception_type = type(ex).__name__
+        scap_version = version.__version__
+        duration = utils.human_duration(self.get_duration())
+
+        message = f"{self.program_name} failed: <{exception_type}> {ex} (scap version: {scap_version}) (duration: {duration})"
+        self._handle_exception_log_message(message)
+        return 1
+
+    def _handle_exception_log_message(self, message: str):
+        self.get_logger().error(message)
 
     def _before_exit(self, exit_status):
         """

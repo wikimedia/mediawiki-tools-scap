@@ -311,35 +311,27 @@ def test_main_not_implemented(app):
 def test_handle_exception(app):
     app.get_logger = mock.MagicMock()
     log = app.get_logger.return_value
-    valueError = ValueError("test")
-    assert app._handle_exception(valueError) == 70
-    # Full Backtrace
-    assert log.warning.call_count == 1
-    assert log.error.call_count == 1
 
-    # Check that the version number is included in the error message
-    log.error.assert_called_with(
-        "%s failed: <%s> %s (scap version: %s)",
-        "cmd.exe",
-        "ValueError",
-        valueError,
-        version.__version__,
-    )
+    # Ensure that the duration is always 100 seconds (1m40s)
+    with mock.patch("time.time", return_value=100):
 
-    # No backtrace
-    log.warning.reset_mock()
-    lockFailedError = lock.LockFailedError("test")
-    assert app._handle_exception(lockFailedError) == 70
-    log.warning.assert_not_called()
+        def generate_expected_message(ex):
+            return f"cmd.exe failed: <{type(ex).__name__}> test (scap version: {version.__version__}) (duration: 01m 40s)"
 
-    # Check that the version number is included in the error message
-    log.error.assert_called_with(
-        "%s failed: <%s> %s (scap version: %s)",
-        "cmd.exe",
-        "LockFailedError",
-        lockFailedError,
-        version.__version__,
-    )
+        # Full Backtrace case
+        valueError = ValueError("test")
+        assert app._handle_exception(valueError) == 1
+        assert log.warning.call_count == 1
+        log.error.assert_called_once_with(generate_expected_message(valueError))
+
+        log.warning.reset_mock()
+        log.error.reset_mock()
+
+        # No backtrace case
+        lockFailedError = lock.LockFailedError("test")
+        assert app._handle_exception(lockFailedError) == 1
+        log.warning.assert_not_called()
+        log.error.assert_called_once_with(generate_expected_message(lockFailedError))
 
 
 def test_assert_current_user(app, mocker):

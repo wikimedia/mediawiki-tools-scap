@@ -1,5 +1,5 @@
 import pytest
-from scap import cli, version
+from scap import cli
 
 
 @pytest.fixture
@@ -127,11 +127,4 @@ def test_handle_exception(cmd, mocker):
 
     get_log.assert_called_with("scap.announce")
     assert cmd._announce_logger == announcer
-
-    announcer.info.assert_called_with(
-        "scap failed: <%s> %s (scap version: %s) (duration: %s)",
-        type(valueError).__name__,
-        valueError,
-        version.__version__,
-        mocker.ANY,
-    )
+    announcer.info.assert_called()
