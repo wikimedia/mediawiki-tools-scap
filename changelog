@@ -1,3 +1,14 @@
+scap (4.149.0)
+
+  * web: Ran npm audit fix
+  * JobCard.vue: Use font-weight: bold for the job status
+  * spiderpig: Render progress reports
+  * spiderpig: use const for OverviewPage status poll interval
+  * spiderpig: Set page background color
+  * spiderpig: Add <noscript/> instructions
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Thu, 03 Apr 2025 10:57:25 -0700
+
 scap (4.148.0)
 
   * spiderpig: Fix handling of responses in job log
