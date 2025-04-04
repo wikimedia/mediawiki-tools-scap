@@ -69,6 +69,10 @@ class UserIOBase:
 
         while True:
             resp = self._prompt_choices(question, choices, default).strip()
+            # For Reedy (T380924)
+            if choices == YES_NO_CHOICES:
+                resp = resp.lower()
+
             if not resp and default:
                 return default
 
