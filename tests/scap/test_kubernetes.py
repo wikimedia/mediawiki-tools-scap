@@ -19,15 +19,6 @@ deployment_configs = [
     # Correct configuration
     (
         """
-    # single release, mapped to the testservers stage and using a debug image via debug: true.
-    # TODO: T389499 - Remove transitional support for the debug boolean.
-    - namespace: test-deprecated
-      releases:
-        main: {}
-      mw_flavour: publish
-      web_flavour: webserver
-      debug: true
-
     # single release, explicitly mapped to the testservers stage and selecting the debug image.
     - namespace: test
       releases:
@@ -75,15 +66,6 @@ deployment_configs = [
      """,
         {
             "testservers": [
-                {
-                    "namespace": "test-deprecated",
-                    "release": "main",
-                    "mw_image_kind": "debug-image",
-                    "mw_image_fl": "publish",
-                    "web_image_fl": "webserver",
-                    "deploy": True,
-                    "cluster_dir": None,
-                },
                 {
                     "namespace": "test",
                     "release": "main",
@@ -173,14 +155,12 @@ deployment_configs = [
           stage: canaries
       mw_flavour: publish
       web_flavour: webserver
-      debug: false
 
     - namespace: api
       releases:
         main: {}
       mw_flavour: publish
       web_flavour: webserver
-      debug: false
      """,
         None,
     ),
@@ -191,7 +171,6 @@ deployment_configs = [
       releases:
         main:
           web_flavour: webserver
-      debug: false
      """,
         None,
     ),
@@ -202,7 +181,6 @@ deployment_configs = [
       releases:
         main:
           mw_flavour: publish
-      debug: false
      """,
         None,
     ),
@@ -215,7 +193,6 @@ deployment_configs = [
           stage: staging  # not a real stage
       mw_flavour: publish
       web_flavour: webserver
-      debug: false
      """,
         None,
     ),

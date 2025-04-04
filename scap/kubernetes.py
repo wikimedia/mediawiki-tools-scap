@@ -100,15 +100,12 @@ class DeploymentsConfig:
         images for the specified image kind.
       web_flavour: Default image flavour for the httpd image used by releases in this namespace.
         This must correspond to an image flavour built and published by the build process.
-      debug: Whether a debug MediaWiki image should be used for all releases in this namespace,
-        which also maps all releases to the testservers release stage. Deprecated: use mw_kind and
-        release stage explicitly.
       dir: the directory, under the configured helmfile_deployments_dir, in which the releases are
         found. Defaults to the value of helmfile_deployments_dir.
 
     The configuration of each release has the following fields:
       stage: Name of the stage in which this release should be updated - one of production, canary,
-        testservers. Optional (default: production, unless debug is set)
+        testservers. Optional (default: production)
       mw_kind: Release-specific override to the namespace-level equivalent
       mw_flavour: Release-specific override to the namespace-level equivalent
       web_flavour: Release-specific override to the namespace-level equivalent
@@ -202,8 +199,8 @@ class DeploymentsConfig:
       }]
      }
 
-    Also, note that values of the `debug` and `deploy` fields are interpreted as true according to
-    Python's rules: https://docs.python.org/3/library/stdtypes.html#truth-value-testing
+    Note that if a non-boolean value is provided for the `deploy` field, it is interpreted
+    according to https://docs.python.org/3/library/stdtypes.html#truth-value-testing.
 
     For historical evolution of the deployments configuration YAML format, see:
     * https://phabricator.wikimedia.org/T299648
@@ -253,9 +250,6 @@ class DeploymentsConfig:
                 )
             namespaces.add(dep_namespace)
 
-            # TODO: T389499 - Remove transitional support for the debug boolean.
-            debug = dep_config.get("debug")
-
             for release, config in dep_config["releases"].items():
                 mw_flavour = config.get("mw_flavour", dep_config.get("mw_flavour"))
                 if not mw_flavour:
@@ -273,13 +267,6 @@ class DeploymentsConfig:
                         f'"{release}" in "{dep_namespace}" specified unsupported stage "{stage}"'
                     )
                 mw_image_kind = config.get("mw_kind", dep_config.get("mw_kind"))
-                # TODO: T389499 - Remove transitional support for the debug boolean.
-                if debug:
-                    # Historically, marking a namespace as debug: True both opts it into using the
-                    # debug image kind and puts it in the testservers stage. We're moving away from
-                    # this, in favor of explicit kind and stage selection.
-                    mw_image_kind = "debug-image"
-                    stage = TEST_SERVERS
                 parsed_dep_config = {
                     cls.NAMESPACE: dep_namespace,
                     cls.RELEASE: release,
