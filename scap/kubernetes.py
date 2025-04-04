@@ -924,7 +924,7 @@ class K8sOps:
             d = get_deployment()
             if not d:
                 return None
-            return d["metadata"]["annotations"]["deployment.kubernetes.io/revision"]
+            return d["metadata"]["annotations"].get("deployment.kubernetes.io/revision")
 
         def get_current_replicaset(deployment_revision):
             cmd = kubectl_cmd(
