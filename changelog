@@ -1,3 +1,13 @@
+scap (4.150.0)
+
+  * Allow restarting multiple services when require_valid_service is True
+  * web: Use vite-plugin-vuetify
+  * interaction.py: Downcase y/n response
+  * kubernetes: remove support for the deprecated debug boolean
+  * Refactor exception handler code in cli.py and main.py
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Mon, 07 Apr 2025 09:16:50 -0700
+
 scap (4.149.0)
 
   * web: Ran npm audit fix
