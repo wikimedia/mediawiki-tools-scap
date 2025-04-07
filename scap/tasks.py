@@ -796,7 +796,7 @@ def handle_services(services, require_valid_service=False, on_secondary_host=Fal
         # Can be used to check if service is masked, require_valid_service
         # is False by default to preserve existing behavior
         if require_valid_service and not utils.service_exists(service):
-            return
+            continue
 
         if on_secondary_host and secondary_action == DISABLE_SECONDARY:
             disable_service(service)
