@@ -144,6 +144,8 @@ class AbstractSync(cli.Application):
             with self.reported_status("Building container images"):
                 self.k8s_ops.build_k8s_images(self.active_wikiversions("stage"))
 
+            self.k8s_ops.update_helmfile_files()
+
             if self.arguments.stop_before_sync:
                 self.announce_final("Stopping before sync operations")
                 return 0

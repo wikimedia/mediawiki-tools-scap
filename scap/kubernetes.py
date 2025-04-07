@@ -316,120 +316,6 @@ class K8sOps:
         force_version: bool = False,
         latest_tag: str = "latest",
     ):
-        def build_and_push_images():
-            with self.app.Timer("build-and-push-container-images"):
-                utils.mkdir_p(self.build_state_dir)
-
-                make_container_image_dir = os.path.join(
-                    release_repo_dir, "make-container-image"
-                )
-                registry = self.app.config["docker_registry"]
-
-                dev_ca_crt = ""
-                if self.app.config["mediawiki_image_extra_ca_cert"]:
-                    with open(
-                        self.app.config["mediawiki_image_extra_ca_cert"], "rb"
-                    ) as f:
-                        dev_ca_crt = base64.b64encode(f.read()).decode("utf-8")
-
-                mw_versions_list = ",".join(mediawiki_versions)
-                stage_dir = self.app.config["stage_dir"]
-                build_images_args = [
-                    self.build_state_dir,
-                    "--staging-dir",
-                    stage_dir,
-                    "--mediawiki-versions",
-                    mw_versions_list,
-                    "--multiversion-image-name",
-                    "{}/{}".format(registry, self.app.config["mediawiki_image_name"]),
-                    "--multiversion-debug-image-name",
-                    "{}/{}".format(
-                        registry, self.app.config["mediawiki_debug_image_name"]
-                    ),
-                    "--multiversion-cli-image-name",
-                    "{}/{}".format(
-                        registry, self.app.config["mediawiki_cli_image_name"]
-                    ),
-                    "--webserver-image-name",
-                    "{}/{}".format(registry, self.app.config["webserver_image_name"]),
-                    "--latest-tag",
-                    latest_tag,
-                    "--label",
-                    f"{LABEL_BUILDER_NAME}=scap",
-                    "--label",
-                    f"{LABEL_BUILDER_VERSION}={version.__version__}",
-                    "--label",
-                    f"{LABEL_MEDIAWIKI_VERSIONS}={mw_versions_list}",
-                    "--label",
-                    f"{LABEL_SCAP_STAGE_DIR}={stage_dir}",
-                    "--label",
-                    f"{LABEL_SCAP_BUILD_STATE_DIR}={self.build_state_dir}",
-                ]
-
-                if force_version:
-                    if len(mediawiki_versions) > 1:
-                        raise ValueError(
-                            "cannot force a single version if multiple versions are given"
-                        )
-
-                    build_images_args += [
-                        "--force-version",
-                        mediawiki_versions[0],
-                    ]
-
-                if self.app.config["mediawiki_image_extra_packages"]:
-                    build_images_args += [
-                        "--mediawiki-image-extra-packages",
-                        self.app.config["mediawiki_image_extra_packages"],
-                    ]
-                if dev_ca_crt:
-                    build_images_args += ["--mediawiki-extra-ca-cert", dev_ca_crt]
-                if self.app.config["full_image_build"]:
-                    build_images_args.append("--full")
-
-                http_proxy = self.app.config["web_proxy"]
-                if http_proxy:
-                    build_images_args += [
-                        "--http-proxy",
-                        http_proxy,
-                        "--https-proxy",
-                        http_proxy,
-                    ]
-
-                with utils.suppress_backtrace():
-                    cmd = "{} {}".format(
-                        self.app.config["release_repo_build_and_push_images_cmd"],
-                        " ".join(map(shlex.quote, build_images_args)),
-                    )
-                    self.logger.info(
-                        "K8s images build/push output redirected to {}".format(
-                            self.build_logfile
-                        )
-                    )
-                    self._run_cmd(
-                        cmd,
-                        make_container_image_dir,
-                        self.build_logfile,
-                        logging.getLogger("scap.k8s.build"),
-                        shell=True,
-                    )
-
-        def collect_helmfile_values() -> dict:
-            images_info = self._get_built_images_report()
-            values = {}
-            for stage, dep_configs in self.k8s_deployments_config.stages.items():
-                values[stage] = self._collect_helmfile_values_for(
-                    dep_configs, images_info
-                )
-            return values
-
-        def update_helmfile_files(helmfile_values):
-            for stage, dep_configs in self.k8s_deployments_config.stages.items():
-                self.original_helmfile_values[stage] = self._read_helmfile_files(
-                    dep_configs
-                )
-                self._update_helmfile_files(dep_configs, helmfile_values[stage])
-
         if not self.app.config["build_mw_container_image"]:
             return
 
@@ -441,16 +327,96 @@ class K8sOps:
             with utils.suppress_backtrace():
                 subprocess.run(release_repo_update_cmd, shell=True, check=True)
 
-        build_and_push_images()
+        with self.app.Timer("build-and-push-container-images"):
+            utils.mkdir_p(self.build_state_dir)
 
-        if not self.app.config["deploy_mw_container_image"]:
-            return
+            make_container_image_dir = os.path.join(
+                release_repo_dir, "make-container-image"
+            )
+            registry = self.app.config["docker_registry"]
 
-        # Collect helmfile values for all stages and releases, ensuring all referenced image kinds
-        # and flavours exist prior to attempting updates.
-        helmfile_values = collect_helmfile_values()
+            dev_ca_crt = ""
+            if self.app.config["mediawiki_image_extra_ca_cert"]:
+                with open(self.app.config["mediawiki_image_extra_ca_cert"], "rb") as f:
+                    dev_ca_crt = base64.b64encode(f.read()).decode("utf-8")
 
-        update_helmfile_files(helmfile_values)
+            mw_versions_list = ",".join(mediawiki_versions)
+            stage_dir = self.app.config["stage_dir"]
+            build_images_args = [
+                self.build_state_dir,
+                "--staging-dir",
+                stage_dir,
+                "--mediawiki-versions",
+                mw_versions_list,
+                "--multiversion-image-name",
+                "{}/{}".format(registry, self.app.config["mediawiki_image_name"]),
+                "--multiversion-debug-image-name",
+                "{}/{}".format(registry, self.app.config["mediawiki_debug_image_name"]),
+                "--multiversion-cli-image-name",
+                "{}/{}".format(registry, self.app.config["mediawiki_cli_image_name"]),
+                "--webserver-image-name",
+                "{}/{}".format(registry, self.app.config["webserver_image_name"]),
+                "--latest-tag",
+                latest_tag,
+                "--label",
+                f"{LABEL_BUILDER_NAME}=scap",
+                "--label",
+                f"{LABEL_BUILDER_VERSION}={version.__version__}",
+                "--label",
+                f"{LABEL_MEDIAWIKI_VERSIONS}={mw_versions_list}",
+                "--label",
+                f"{LABEL_SCAP_STAGE_DIR}={stage_dir}",
+                "--label",
+                f"{LABEL_SCAP_BUILD_STATE_DIR}={self.build_state_dir}",
+            ]
+
+            if force_version:
+                if len(mediawiki_versions) > 1:
+                    raise ValueError(
+                        "cannot force a single version if multiple versions are given"
+                    )
+
+                build_images_args += [
+                    "--force-version",
+                    mediawiki_versions[0],
+                ]
+
+            if self.app.config["mediawiki_image_extra_packages"]:
+                build_images_args += [
+                    "--mediawiki-image-extra-packages",
+                    self.app.config["mediawiki_image_extra_packages"],
+                ]
+            if dev_ca_crt:
+                build_images_args += ["--mediawiki-extra-ca-cert", dev_ca_crt]
+            if self.app.config["full_image_build"]:
+                build_images_args.append("--full")
+
+            http_proxy = self.app.config["web_proxy"]
+            if http_proxy:
+                build_images_args += [
+                    "--http-proxy",
+                    http_proxy,
+                    "--https-proxy",
+                    http_proxy,
+                ]
+
+            with utils.suppress_backtrace():
+                cmd = "{} {}".format(
+                    self.app.config["release_repo_build_and_push_images_cmd"],
+                    " ".join(map(shlex.quote, build_images_args)),
+                )
+                self.logger.info(
+                    "K8s images build/push output redirected to {}".format(
+                        self.build_logfile
+                    )
+                )
+                self._run_cmd(
+                    cmd,
+                    make_container_image_dir,
+                    self.build_logfile,
+                    logging.getLogger("scap.k8s.build"),
+                    shell=True,
+                )
 
     # Called by AbstractSync.main
     def helmfile_diffs_for_stage(self, stage: str):
@@ -498,6 +464,24 @@ class K8sOps:
                 e,
             )
         return []
+
+    # Called by AbstractSync.main()
+    def update_helmfile_files(self):
+        if not self.app.config["deploy_mw_container_image"]:
+            return
+
+        # Collect helmfile values for all stages and releases, ensuring all
+        # referenced image kinds and flavours exist prior to attempting updates.
+        images_info = self._get_built_images_report()
+        values = {}
+        for stage, dep_configs in self.k8s_deployments_config.stages.items():
+            values[stage] = self._collect_helmfile_values_for(dep_configs, images_info)
+
+        for stage, dep_configs in self.k8s_deployments_config.stages.items():
+            self.original_helmfile_values[stage] = self._read_helmfile_files(
+                dep_configs
+            )
+            self._update_helmfile_files(dep_configs, values[stage])
 
     # Called by AbstractSync.main()
     def deploy_k8s_images_for_stage(self, stage: str):
