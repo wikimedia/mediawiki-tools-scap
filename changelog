@@ -1,3 +1,9 @@
+scap (4.151.0)
+
+  * spiderpig: manually split vendor chunks
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Mon, 07 Apr 2025 09:54:47 -0700
+
 scap (4.150.0)
 
   * Allow restarting multiple services when require_valid_service is True
