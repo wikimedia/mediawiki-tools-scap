@@ -1,3 +1,9 @@
+scap (4.152.0)
+
+  * kubernetes.py: Move update_helmfile_files() into deployment phase
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Tue, 08 Apr 2025 11:34:26 -0700
+
 scap (4.151.0)
 
   * spiderpig: manually split vendor chunks
