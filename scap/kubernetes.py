@@ -419,7 +419,7 @@ class K8sOps:
                 )
 
     # Called by AbstractSync.main
-    def helmfile_diffs_for_stage(self, stage: str):
+    def helmfile_diffs_for_stage(self, stage):
         def diff_for_datacenter_and_deployment(datacenter, dep_config, report_queue):
             namespace = dep_config[DeploymentsConfig.NAMESPACE]
             release = dep_config[DeploymentsConfig.RELEASE]
@@ -484,14 +484,14 @@ class K8sOps:
             self._update_helmfile_files(dep_configs, values[stage])
 
     # Called by AbstractSync.main()
-    def deploy_k8s_images_for_stage(self, stage: str):
+    def deploy_k8s_images_for_stage(self, stage: str, timer):
         if not self.app.config["deploy_mw_container_image"]:
             return
 
         dep_configs = self.k8s_deployments_config.stages[stage]
         datacenters = self._get_deployment_datacenters()
         try:
-            self._deploy_to_datacenters(datacenters, dep_configs)
+            self._deploy_to_datacenters(datacenters, dep_configs, timer)
         # Using BaseException so that we catch KeyboardInterrupt too
         except BaseException as e:
             self.logger.error("K8s deployment to stage %s failed: %s", stage, e)
@@ -502,7 +502,8 @@ class K8sOps:
                 self.logger.error("Rolling back to prior state...")
                 self._revert_helmfile_files(dep_configs, saved_values)
                 try:
-                    self._deploy_to_datacenters(datacenters, dep_configs)
+                    # FIXME: Time estimation is definitely going to be wrong here
+                    self._deploy_to_datacenters(datacenters, dep_configs, timer)
                     self.logger.info("Rollback completed")
                 except BaseException as rollback_e:
                     self.logger.error(
@@ -578,12 +579,13 @@ class K8sOps:
             if commit:
                 gitcmd("commit", "-m", "Configuration(s) reverted")
 
-    def _deploy_to_datacenters(self, datacenters, dep_configs):
+    def _deploy_to_datacenters(self, datacenters, dep_configs, timer):
         self._foreach_datacenter_and_deployment(
             datacenters,
             dep_configs,
             self._deploy_k8s_images_for_datacenter,
             "Deployment",
+            timer,
             deploy_only=True,  # Exclude non-deploy releases
         )
 
@@ -593,6 +595,7 @@ class K8sOps:
         dep_configs,
         func,
         description,
+        timer=None,
         progress=True,
         deploy_only=False,
     ):
@@ -669,7 +672,7 @@ class K8sOps:
             report_queue = queue.Queue()
             reporter = threading.Thread(
                 target=self._deployment_reporter,
-                args=(report_queue, self.logger, total_expected_replicas),
+                args=(report_queue, timer, total_expected_replicas),
                 name="k8s deployment reporter",
             )
             reporter.start()
@@ -711,9 +714,9 @@ class K8sOps:
 
             return results
 
-    def _deployment_reporter(self, report_queue, logger, total_expected_replicas):
+    def _deployment_reporter(self, report_queue, timer, total_expected_replicas):
         reports = {}
-        reporter = log.reporter("K8s deployment progress")
+        reporter = log.reporter("K8s deployment progress", timer=timer)
         reporter.expect(total_expected_replicas)
         reporter.start()
 

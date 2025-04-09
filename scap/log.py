@@ -1,24 +1,24 @@
 # -*- coding: utf-8 -*-
 """
-    scap.log
-    ~~~~~~~~
-    Helpers for routing and formatting log data.
+scap.log
+~~~~~~~~
+Helpers for routing and formatting log data.
 
-    Copyright © 2014-2017 Wikimedia Foundation and Contributors.
+Copyright © 2014-2017 Wikimedia Foundation and Contributors.
 
-    This file is part of Scap.
+This file is part of Scap.
 
-    Scap is free software: you can redistribute it and/or modify
-    it under the terms of the GNU General Public License as published by
-    the Free Software Foundation, version 3.
+Scap is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, version 3.
 
-    This program is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-    GNU General Public License for more details.
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
 
-    You should have received a copy of the GNU General Public License
-    along with this program.  If not, see <http://www.gnu.org/licenses/>.
+You should have received a copy of the GNU General Public License
+along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """
 import contextlib
 import fnmatch
@@ -38,6 +38,7 @@ import sys
 import threading
 import time
 import traceback
+from typing import Optional
 
 import pygments
 
@@ -324,7 +325,7 @@ class SyslogFormatter(LogstashFormatter):
         return "scap: @cee: " + super().format(record)
 
 
-def reporter(name, mute=False):
+def reporter(name, mute=False, timer: Optional["Timer"] = None):
     """
     Instantiate progress reporter
 
@@ -333,13 +334,14 @@ def reporter(name, mute=False):
     if mute:
         return MuteReporter()
 
+    reporterClass = ProgressReporter
+
     if interaction.spiderpig_mode():
-        return SpiderpigProgressReporter(name)
+        reporterClass = SpiderpigProgressReporter
+    elif not sys.stdout.isatty():
+        reporterClass = RateLimitedProgressReporter
 
-    if not sys.stdout.isatty():
-        return RateLimitedProgressReporter(name)
-
-    return ProgressReporter(name)
+    return reporterClass(name, timer=timer)
 
 
 class ProgressReporter(object):
@@ -351,7 +353,14 @@ class ProgressReporter(object):
     output line.
     """
 
-    def __init__(self, name, expect=0, fd=sys.stderr, spinner=None):
+    def __init__(
+        self,
+        name,
+        expect=0,
+        fd=sys.stderr,
+        spinner=None,
+        timer: Optional["Timer"] = None,
+    ):
         """
         :param name: Name of operation being monitored
         :param expect: Number of results to expect
@@ -370,6 +379,7 @@ class ProgressReporter(object):
         self._fd = fd
         self._spinner = spinner
         self._finished = False
+        self._timer = timer
 
     @property
     def ok(self):
@@ -452,20 +462,32 @@ class ProgressReporter(object):
             fmt = "%-80s\n"
             show_spinner = False
 
-        output = "%s %s: %3.0f%% (%sok: %d; fail: %d; left: %d) %s" % (
+        output = "%s %s: %3.0f%% (%sok: %d; fail: %d; left: %d) %s%s" % (
             time.strftime(TIMESTAMP_FORMAT),
             self._name,
             self.percent_complete,
-            ""
-            if self._in_flight is None
-            else "in-flight: {}; ".format(self._in_flight),
+            (
+                ""
+                if self._in_flight is None
+                else "in-flight: {}; ".format(self._in_flight)
+            ),
             self.ok,
             self.failed,
             self.remaining,
+            self._get_eta(),
             next(self._spinner) if show_spinner else "",
         )
 
         self._fd.write(fmt % output)
+
+    def _get_eta(self) -> str:
+        if not self._timer or self._finished:
+            return ""
+        estimate = self._timer.get_estimated_remaining_time()
+        if estimate is None:
+            return ""
+        estimate = utils.human_duration(estimate)
+        return f"ETA: {estimate} "
 
 
 class RateLimitedProgressReporter(ProgressReporter):
@@ -801,7 +823,9 @@ class Timer(object):
     """
 
     @utils.log_context("timer")
-    def __init__(self, description, name="unsupplied", stats=None, logger=None):
+    def __init__(
+        self, description, name="unsupplied", stats=None, logger=None, db=None
+    ):
         """
         :param description: The human friendly description of the operation being timed.
         :type description: str
@@ -821,6 +845,7 @@ class Timer(object):
         self.name = description if name == "unsupplied" else name
         self.stats = stats
         self.logger = logger
+        self.db = db
         self.start = None
         self.end = None
 
@@ -831,8 +856,13 @@ class Timer(object):
         :returns: self
         """
         self.start = time.time()
+        estimate = self.db.estimate(self.name) if self.db else None
         self.logger.info(
-            "Started %s" % self.description,
+            "Started %s%s"
+            % (
+                self.description,
+                " (estimate: %s)" % utils.human_duration(estimate) if estimate else "",
+            ),
             extra={
                 "event.action": self.name,
                 "event.start": int(self.start * pow(10, 3)),
@@ -844,6 +874,13 @@ class Timer(object):
         """Exit the runtime context."""
         self.end = time.time()
         self._record_elapsed(self.end - self.start)
+
+    def get_estimated_remaining_time(self) -> Optional[float]:
+        estimate = self.db.estimate(self.name) if self.db else None
+        if estimate is None:
+            return None
+        estimatedEnd = self.start + estimate
+        return max(estimatedEnd - time.time(), 0)
 
     def _record_elapsed(self, elapsed):
         """
@@ -870,6 +907,8 @@ class Timer(object):
         if self.name and self.stats:
             massaged_name = re.sub(r"\W", "_", self.name.lower())
             self.stats.timing("scap.%s" % massaged_name, elapsed * 1000)
+        if self.db and self.name:
+            self.db.add(self.name, elapsed)
 
 
 class Udp2LogHandler(logging.handlers.DatagramHandler):

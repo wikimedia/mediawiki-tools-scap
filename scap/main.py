@@ -199,11 +199,11 @@ class AbstractSync(cli.Application):
                     )
 
                     # k8s deployment
-                    with self.Timer(k8s_timer_name), self.reported_status(
+                    with self.Timer(k8s_timer_name) as timer, self.reported_status(
                         f"Sync k8s {stage}"
                     ):
                         with utils.suppress_backtrace():
-                            self.k8s_ops.deploy_k8s_images_for_stage(stage)
+                            self.k8s_ops.deploy_k8s_images_for_stage(stage, timer)
 
                     # Bare metal deployment
                     if depstage.baremetal_targets:
@@ -213,8 +213,10 @@ class AbstractSync(cli.Application):
                                     depstage.baremetal_targets
                                 )
                             else:
-                                with self.Timer(f"sync-{stage}"):
-                                    self.sync_targets(depstage.baremetal_targets, stage)
+                                with self.Timer(f"sync-{stage}") as timer:
+                                    self.sync_targets(
+                                        depstage.baremetal_targets, stage, timer
+                                    )
 
                     if depstage.check_func:
                         if self.arguments.force:
@@ -274,17 +276,18 @@ class AbstractSync(cli.Application):
         proxies = utils.list_intersection(self._get_proxy_list(), full_target_list)
 
         if len(proxies) > 0:
-            with self.Timer("sync-proxies"):
+            with self.Timer("sync-proxies") as timer:
                 sync_cmd = self._apache_sync_command()
                 sync_cmd.append(socket.getfqdn())
-                self._perform_sync("proxies", sync_cmd, proxies)
+                self._perform_sync("proxies", sync_cmd, proxies, timer)
 
         # Update apaches
-        with self.Timer("sync-apaches"):
+        with self.Timer("sync-apaches") as timer:
             self._perform_sync(
                 "apaches",
                 self._apache_sync_command(proxies),
                 full_target_list,
+                timer,
                 shuffle=True,
             )
 
@@ -443,22 +446,22 @@ class AbstractSync(cli.Application):
             with self.reported_status("Syncing to baremetal masters"):
                 self.master_only_cmd("sync-masters", self._master_sync_command())
 
-    def master_only_cmd(self, timer, cmd):
+    def master_only_cmd(self, operation_name: str, cmd):
         """
         Run a command on all other master servers than the one we're on
 
-        :param timer: String name to use in timer/logging
+        :param operation_name: The name of the operation, used in timer/log messages
         :param cmd: List of command/parameters to be executed
         """
 
         masters = self.get_master_list()
-        with self.Timer(timer):
+        with self.Timer(operation_name) as timer:
             update_masters = ssh.Job(
                 masters, user=self.config["ssh_user"], key=self.get_keyholder_key()
             )
             update_masters.exclude_hosts([socket.getfqdn()])
             update_masters.command(cmd)
-            update_masters.progress(log.reporter(timer))
+            update_masters.progress(log.reporter(operation_name, timer=timer))
             succeeded, failed = update_masters.run()
             if failed:
                 self.get_logger().warning("%d masters had sync errors", failed)
@@ -512,11 +515,14 @@ class AbstractSync(cli.Application):
             self.get_master_list(), proxies
         )
 
-    def _perform_sync(self, type: str, command: list, targets: list, shuffle=False):
+    def _perform_sync(
+        self, type: str, command: list, targets: list, timer: log.Timer, shuffle=False
+    ):
         """
         :param type: A string like "apaches" or "proxies" naming the type of target.
         :param command: The command to run on the targets, specified as a list.
         :param targets: A list of strings naming hosts to sync.
+        :param timer: A Timer object used for time estimation.
         :param shuffle: If true, the target host list will be randomized.
         """
         job = ssh.Job(
@@ -531,7 +537,7 @@ class AbstractSync(cli.Application):
         if shuffle:
             job.shuffle()
 
-        job.progress(log.reporter("sync-{}".format(type)))
+        job.progress(log.reporter(f"sync-{type}", timer=timer))
 
         jobresults = job.run(return_jobresults=True)
         self.get_logger().info(
@@ -588,7 +594,7 @@ class AbstractSync(cli.Application):
         `stage` must be a string like "testservers", "canaries", or "prod".
         """
         # Ask target hosts to rebuild l10n CDB files
-        with self.Timer(f"scap-cdb-rebuild-{stage}"):
+        with self.Timer(f"scap-cdb-rebuild-{stage}") as timer:
             rebuild_cdbs = ssh.Job(
                 target_hosts, user=self.config["ssh_user"], key=self.get_keyholder_key()
             )
@@ -597,7 +603,7 @@ class AbstractSync(cli.Application):
                 "sudo -u mwdeploy -n -- %s cdb-rebuild"
                 % self.get_script_path(remote=True)
             )
-            rebuild_cdbs.progress(log.reporter("scap-cdb-rebuild"))
+            rebuild_cdbs.progress(log.reporter("scap-cdb-rebuild", timer=timer))
             succeeded, failed = rebuild_cdbs.run()
             if failed:
                 self.get_logger().warning(
@@ -614,7 +620,7 @@ class AbstractSync(cli.Application):
             self.get_logger().warning("%d hosts had sync_wikiversions errors", failed)
             self.soft_errors = True
 
-    def sync_targets(self, targets=None, stage=None):
+    def sync_targets(self, targets, stage: str, timer: log.Timer):
         """
         This function is used to sync to bare metal testservers and canaries.
 
@@ -622,13 +628,13 @@ class AbstractSync(cli.Application):
         and php-fpm restart. The pull source will be this deploy server.
 
         :param targets: Iterable of target servers to sync
-
         :param stage: A string like "testservers" or "canaries".
+        :param timer: A Timer object used for time estimation
         """
         sync_cmd = self._apache_sync_command()
         sync_cmd.append(socket.getfqdn())
 
-        self._perform_sync(stage, sync_cmd, targets)
+        self._perform_sync(stage, sync_cmd, targets, timer)
         self._after_sync_rebuild_cdbs(targets, stage)
         self._after_sync_sync_wikiversions(targets, stage)
         self._restart_php_hostgroups([targets], stage)

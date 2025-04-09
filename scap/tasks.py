@@ -380,7 +380,7 @@ def sync_wikiversions(hosts, app, stage: str, key=None):
     :param app: cli.Application
     :param stage: The deployment stage ("testservers", "canaries", or "prod")
     """
-    with app.Timer(f"sync-wikiversions-{stage}"):
+    with app.Timer(f"sync-wikiversions-{stage}") as timer:
         cfg = app.config
         compile_wikiversions("stage", cfg)
 
@@ -390,7 +390,7 @@ def sync_wikiversions(hosts, app, stage: str, key=None):
             "%(master_rsync)s::common/wikiversions*.{json,php} "
             "%(deploy_dir)s" % cfg
         )
-        return rsync.progress(log.reporter("sync-wikiversions")).run()
+        return rsync.progress(log.reporter("sync-wikiversions", timer=timer)).run()
 
 
 # Called by update_l10n_cdb_wrapper (below)

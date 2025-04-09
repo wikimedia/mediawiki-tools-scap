@@ -221,13 +221,15 @@ class Clean(main.AbstractSync):
         ]
 
         cmd = ["/bin/rm", "-rf"] + cache_dirs
-        with self.Timer("clean-remote-caches"):
+        with self.Timer("clean-remote-caches") as timer:
             remove_remote_dirs = ssh.Job(
                 target_hosts, user=self.config["ssh_user"], key=self.get_keyholder_key()
             )
 
             remove_remote_dirs.command(cmd)
-            remove_remote_dirs.progress(log.reporter("clean-remote-caches"))
+            remove_remote_dirs.progress(
+                log.reporter("clean-remote-caches", timer=timer)
+            )
             success, fail = remove_remote_dirs.run()
             if fail:
                 self.get_logger().warning("%d hosts failed to remove cache", fail)

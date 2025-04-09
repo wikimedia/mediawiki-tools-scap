@@ -43,6 +43,7 @@ import scap.interaction as interaction
 import scap.lock as lock
 import scap.log as log
 import scap.targets as targets
+import scap.timings as timings
 import scap.utils as utils
 from scap.ssh import SSH_WITH_KEY
 
@@ -59,6 +60,7 @@ class Application(object):
     _io = None
     _have_announced = False
     _stats = None
+    _timings_db = None
     arguments = None
     config = None
     # Dictionary representing configuration options that were
@@ -653,11 +655,20 @@ class Application(object):
     def spiderpig_session_secret_file(self):
         return os.path.join(self.spiderpig_dir(), "session.key")
 
+    def get_timings_db(self):
+        if self._timings_db:
+            return self._timings_db
+        # FIXME: Find a better place to store this.  /tmp is fine in the meantime
+        # since there is no security sensitivity to the data.  The worst thing someone
+        # can do is manipulate the time estimates.
+        self._timings_db = timings.TimingsDatabase("/tmp/scap-timings.json")
+        return self._timings_db
+
     def timed(self, fn, *args, **kwargs):
         """
         Call a function wrapped in a log.Timer.
         """
-        with log.Timer(fn.__name__, self.get_stats()):
+        with log.Timer(fn.__name__, stats=self.get_stats(), db=self.get_timings_db()):
             fn(*args, **kwargs)
 
     def Timer(self, description, name="unsupplied", logger=None):
@@ -666,6 +677,7 @@ class Application(object):
             name=name,
             stats=self.get_stats(),
             logger=logger,
+            db=self.get_timings_db(),
         )
 
     @staticmethod
