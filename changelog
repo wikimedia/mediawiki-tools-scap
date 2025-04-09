@@ -1,3 +1,11 @@
+scap (4.153.0)
+
+  * config: update mediawiki_runtime_image to use PHP 8.1
+  * timers: Append stage name to some per-stage timers
+  * kubernetes.py: Fix monitoring of deployment to fresh cluster
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Wed, 09 Apr 2025 12:28:31 -0700
+
 scap (4.152.0)
 
   * kubernetes.py: Move update_helmfile_files() into deployment phase
