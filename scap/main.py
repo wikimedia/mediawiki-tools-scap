@@ -583,9 +583,12 @@ class AbstractSync(cli.Application):
     def _after_lock_release(self):
         pass
 
-    def _after_sync_rebuild_cdbs(self, target_hosts):
+    def _after_sync_rebuild_cdbs(self, target_hosts, stage: str):
+        """
+        `stage` must be a string like "testservers", "canaries", or "prod".
+        """
         # Ask target hosts to rebuild l10n CDB files
-        with self.Timer("scap-cdb-rebuild"):
+        with self.Timer(f"scap-cdb-rebuild-{stage}"):
             rebuild_cdbs = ssh.Job(
                 target_hosts, user=self.config["ssh_user"], key=self.get_keyholder_key()
             )
@@ -602,16 +605,16 @@ class AbstractSync(cli.Application):
                 )
                 self.soft_errors = True
 
-    def _after_sync_sync_wikiversions(self, target_hosts):
+    def _after_sync_sync_wikiversions(self, target_hosts, stage: str):
         # Update and sync wikiversions.php
         succeeded, failed = tasks.sync_wikiversions(
-            target_hosts, self, key=self.get_keyholder_key()
+            target_hosts, self, stage, key=self.get_keyholder_key()
         )
         if failed:
             self.get_logger().warning("%d hosts had sync_wikiversions errors", failed)
             self.soft_errors = True
 
-    def sync_targets(self, targets=None, type=None):
+    def sync_targets(self, targets=None, stage=None):
         """
         This function is used to sync to bare metal testservers and canaries.
 
@@ -620,15 +623,15 @@ class AbstractSync(cli.Application):
 
         :param targets: Iterable of target servers to sync
 
-        :param type: A string like "testservers" or "canaries" naming the type of target.
+        :param stage: A string like "testservers" or "canaries".
         """
         sync_cmd = self._apache_sync_command()
         sync_cmd.append(socket.getfqdn())
 
-        self._perform_sync(type, sync_cmd, targets)
-        self._after_sync_rebuild_cdbs(targets)
-        self._after_sync_sync_wikiversions(targets)
-        self._restart_php_hostgroups([targets])
+        self._perform_sync(stage, sync_cmd, targets)
+        self._after_sync_rebuild_cdbs(targets, stage)
+        self._after_sync_sync_wikiversions(targets, stage)
+        self._restart_php_hostgroups([targets], stage)
 
     def retry_continue_exit(self, description, test_func):
         """
@@ -836,19 +839,22 @@ class AbstractSync(cli.Application):
             if target_hosts:
                 group_hosts.append(list(target_hosts))
                 self.already_restarted |= target_hosts
-        self._restart_php_hostgroups(group_hosts)
+        self._restart_php_hostgroups(group_hosts, "prod")
 
-    def _restart_php_hostgroups(self, target_hosts=None):
+    def _restart_php_hostgroups(self, target_hosts, stage: str):
         """Perform php restart for sets of hosts (if configured).
 
-        Parameter target_hosts is a list of lists of hostnames.
+        :param target_hosts: A list of lists of hostnames.
+        :param stage: The deployment stage ("testservers", "canaries", or "prod")
         """
         if not self._setup_php():
             return
         num_hosts = 0
         for grp in target_hosts:
             num_hosts += len(grp)
-        with self.Timer("php-fpm-restarts"), self.reported_status("Restarting php-fpm"):
+        with self.Timer(f"php-fpm-restarts-{stage}"), self.reported_status(
+            "Restarting php-fpm"
+        ):
             self.get_logger().info(
                 "Running '{}' on {} host(s)".format(php_fpm.INSTANCE.cmd, num_hosts)
             )
@@ -1124,8 +1130,8 @@ class ScapWorld(AbstractSync):
     def _after_cluster_sync(self):
         target_hosts = self._get_target_list()
 
-        self._after_sync_rebuild_cdbs(target_hosts)
-        self._after_sync_sync_wikiversions(target_hosts)
+        self._after_sync_rebuild_cdbs(target_hosts, "prod")
+        self._after_sync_sync_wikiversions(target_hosts, "prod")
         self._restart_php()
         tasks.clear_message_blobs(self)
 

@@ -372,14 +372,15 @@ def sync_common(
     )
 
 
-def sync_wikiversions(hosts, app, key=None):
+def sync_wikiversions(hosts, app, stage: str, key=None):
     """
     Rebuild and sync wikiversions.php to the cluster.
 
     :param hosts: List of hosts to sync to
     :param app: cli.Application
+    :param stage: The deployment stage ("testservers", "canaries", or "prod")
     """
-    with app.Timer("sync_wikiversions"):
+    with app.Timer(f"sync_wikiversions-{stage}"):
         cfg = app.config
         compile_wikiversions("stage", cfg)
 
