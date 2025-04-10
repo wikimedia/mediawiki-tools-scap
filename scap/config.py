@@ -81,7 +81,6 @@ DEFAULT_CONFIG = {
     "operations_mediawiki_config_branch": (str, "master"),
     "nrpe_dir": (str, "/etc/nagios/nrpe.d"),
     "require_valid_service": (bool, False),
-    "scap3_mediawiki": (bool, False),
     "secondary_host_signal_file": (str, "/etc/scap.secondary"),
     "service_timeout": (float, 120.0),
     "tags_to_keep": (int, 20),

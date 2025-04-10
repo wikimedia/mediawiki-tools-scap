@@ -376,8 +376,6 @@ class AbstractSync(cli.Application):
         )
 
     def _update_caches(self):
-        self._git_repo()
-
         # Compute git version information
         with self.Timer("cache_git_info"):
             for version in self.active_wikiversions("stage"):
@@ -567,15 +565,6 @@ class AbstractSync(cli.Application):
     def _compile_wikiversions(self):
         """Compile wikiversions.json to wikiversions.php in stage_dir"""
         tasks.compile_wikiversions("stage", self.config)
-
-    def _git_repo(self):
-        """Flatten deploy directory into shared git repo."""
-        if self.config["scap3_mediawiki"]:
-            self.get_logger().info("Setting up deploy git directory")
-            cmd = '{} deploy-mediawiki -v "{}"'.format(
-                self.get_script_path(), self.arguments.message
-            )
-            utils.sudo_check_call("mwdeploy", cmd)
 
     def _after_cluster_sync(self):
         pass
