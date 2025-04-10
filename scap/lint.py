@@ -41,6 +41,7 @@ def check_valid_syntax(paths, procs=1):
         "-O2 "  # -O2 get -type executed after
         "%s "
         "-not -type d "  # makes no sense to lint a dir named 'less.php'
+        "-name 'internal_stubs' -prune "  # skip phan internal stubs (T340862)
         "-name '*.php' -not -name 'autoload_static.php' "
         " -or -name '*.inc' | xargs -n1 -P%d -exec php -l 2>&1"
     ) % (" ".join(quoted_paths), procs)
