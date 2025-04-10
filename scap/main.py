@@ -1,24 +1,24 @@
 # -*- coding: utf-8 -*-
 """
-    scap.main
-    ~~~~~~~~~~
-    Command wrappers for scap tasks
+scap.main
+~~~~~~~~~~
+Command wrappers for scap tasks
 
-    Copyright © 2014-2017 Wikimedia Foundation and Contributors.
+Copyright © 2014-2017 Wikimedia Foundation and Contributors.
 
-    This file is part of Scap.
+This file is part of Scap.
 
-    Scap is free software: you can redistribute it and/or modify
-    it under the terms of the GNU General Public License as published by
-    the Free Software Foundation, version 3.
+Scap is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, version 3.
 
-    This program is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-    GNU General Public License for more details.
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
 
-    You should have received a copy of the GNU General Public License
-    along with this program.  If not, see <http://www.gnu.org/licenses/>.
+You should have received a copy of the GNU General Public License
+along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """
 import argparse
 import errno
