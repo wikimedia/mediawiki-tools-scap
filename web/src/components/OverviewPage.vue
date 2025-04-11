@@ -1,10 +1,12 @@
 <template>
-	<sp-backport :idle="idle" />
+	<sp-backport :idle="idle" :initial-change-numbers="backportChangeNumbers" />
 	<sp-job-history />
 </template>
 
 <script lang="ts">
 import { defineComponent, ref, onMounted, onUnmounted } from 'vue';
+import { useRouter, useRoute } from 'vue-router';
+
 import useApi from '../api';
 import SpBackport from './Backport.vue';
 import SpJobHistory from './JobHistory.vue';
@@ -23,10 +25,27 @@ export default defineComponent( {
 		const idle = ref( false );
 		const interaction = ref( null );
 		const jobrunnerStatus = ref( 'Jobrunner Status: Unknown' );
+		const backportChangeNumbers = ref( [] );
 
 		// Non-reactive data.
 		const INTERVAL = 1000;
 		let intervalTimer = null;
+
+		const router = useRouter();
+		const route = useRoute();
+
+		let backportRequests = route.query.backport;
+		if ( typeof backportRequests === 'string' ) {
+			backportRequests = [ backportRequests ];
+		}
+
+		if ( backportRequests ) {
+			backportChangeNumbers.value = backportRequests;
+			// Remove the backport query parameter from the URL.
+			router.replace( {
+				query: {}
+			} );
+		}
 
 		// Methods.
 		async function updateInteraction( id ) {
@@ -64,7 +83,8 @@ export default defineComponent( {
 		} );
 
 		return {
-			idle
+			idle,
+			backportChangeNumbers
 		};
 	}
 } );

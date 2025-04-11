@@ -34,19 +34,28 @@
 			>
 				Start Backport
 			</cdx-button>
+
+			<cdx-dialog
+				v-model:open="alertDialogOpen"
+				title="Failed to start backport"
+				:use-close-button="alertDialogUseCloseButton"
+			>
+				{{ alertDialogText }}
+			</cdx-dialog>
 		</div>
 	</cdx-field>
 </template>
 
 <script lang="ts">
 import { ref, computed } from 'vue';
-import { CdxButton, CdxField, CdxMultiselectLookup } from '@wikimedia/codex';
+import { CdxButton, CdxDialog, CdxField, CdxMultiselectLookup } from '@wikimedia/codex';
 import useApi from '../api';
 
 export default {
 	name: 'SpBackport',
 	components: {
 		CdxButton,
+		CdxDialog,
 		CdxField,
 		CdxMultiselectLookup
 	},
@@ -54,14 +63,26 @@ export default {
 	props: {
 		idle: {
 			type: Boolean
+		},
+		initialChangeNumbers: {
+			type: Array<string>,
+			default: () => []
 		}
 	},
 
-	setup() {
+	setup( props ) {
 		const api = useApi();
+		const alertDialogOpen = ref( false );
+		const alertDialogText = ref( '' );
+		const alertDialogUseCloseButton = ref( true );
 		const changeIds = ref( [] );
 		const selection = ref( [] );
 		const menuItems = ref( [] );
+
+		changeIds.value = props.initialChangeNumbers.map( ( id: string ) => ( { value: id } ) );
+		// This is needed to prevent the MultiselectLookup from clearing the prepopulated chips
+		// when the user adds a new chip to the list.
+		selection.value = props.initialChangeNumbers;
 
 		const menuConfig = {
 			boldLabel: true,
@@ -77,8 +98,14 @@ export default {
 		} );
 
 		async function startBackport() {
-			await api.startBackport( changeIds.value.map( ( id ) => id.value ) );
-			changeIds.value = [];
+			try {
+				await api.startBackport( changeIds.value.map( ( id ) => id.value ) );
+				changeIds.value = [];
+				selection.value = [];
+			} catch ( error ) {
+				alertDialogOpen.value = true;
+				alertDialogText.value = error.respJson.detail.message || error.message;
+			}
 		}
 
 		async function fetchResults( changeId ) {
@@ -111,6 +138,9 @@ export default {
 		}
 
 		return {
+			alertDialogOpen,
+			alertDialogText,
+			alertDialogUseCloseButton,
 			buttonDisabled,
 			changeIds,
 			selection,
