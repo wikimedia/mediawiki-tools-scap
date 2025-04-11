@@ -54,14 +54,20 @@ export default {
 	props: {
 		idle: {
 			type: Boolean
+		},
+		initialChangeNumbers: {
+			type: Array<string>,
+			default: () => []
 		}
 	},
 
-	setup() {
+	setup( props ) {
 		const api = useApi();
 		const changeIds = ref( [] );
 		const selection = ref( [] );
 		const menuItems = ref( [] );
+
+		changeIds.value = props.initialChangeNumbers.map( ( id: string ) => ( { value: id } ) );
 
 		const menuConfig = {
 			boldLabel: true,
