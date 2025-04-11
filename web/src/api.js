@@ -1,6 +1,15 @@
 import { defineStore } from 'pinia';
 import { useLocalStorage } from '@vueuse/core';
 
+class ApiError extends Error {
+	constructor( message, properties ) {
+		super( message );
+		this.name = 'ApiError';
+		this.response = properties.response;
+		this.respJson = properties.respJson;
+	}
+}
+
 const useAuthStore = defineStore( 'spiderpig-auth',
 	{
 		state() {
@@ -68,7 +77,16 @@ const useAuthStore = defineStore( 'spiderpig-auth',
 				this.authFailing = false;
 
 				if ( callOptions.checkOk !== false && !response.ok ) {
-					throw new Error( `Response status: ${ response.status }` );
+					let respJson = null;
+					try {
+						respJson = await response.json();
+					} catch ( e ) {
+						// Ignore JSON parsing error
+					}
+
+					throw new ApiError( `HTTP request failed with status: ${ response.status }`,
+						{ response, respJson }
+					);
 				}
 
 				if ( callOptions.decodeJson !== false ) {

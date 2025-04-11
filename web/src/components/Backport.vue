@@ -13,8 +13,8 @@
 
 		<div class="backport__input">
 			<cdx-multiselect-lookup
-				v-model:input-chips="changeIds"
-				v-model:selected="selection"
+				v-model:input-chips="chips"
+				v-model:selected="changeNumbers"
 				class="backport__input__multiselect"
 				:disabled="!idle"
 				:menu-items="menuItems"
@@ -34,19 +34,28 @@
 			>
 				Start Backport
 			</cdx-button>
+
+			<cdx-dialog
+				v-model:open="alertDialogOpen"
+				title="Failed to start backport"
+				:use-close-button="alertDialogUseCloseButton"
+			>
+				{{ alertDialogText }}
+			</cdx-dialog>
 		</div>
 	</cdx-field>
 </template>
 
 <script lang="ts">
 import { ref, computed } from 'vue';
-import { CdxButton, CdxField, CdxMultiselectLookup } from '@wikimedia/codex';
+import { CdxButton, CdxDialog, CdxField, CdxMultiselectLookup } from '@wikimedia/codex';
 import useApi from '../api';
 
 export default {
 	name: 'SpBackport',
 	components: {
 		CdxButton,
+		CdxDialog,
 		CdxField,
 		CdxMultiselectLookup
 	},
@@ -54,14 +63,25 @@ export default {
 	props: {
 		idle: {
 			type: Boolean
+		},
+		initialChangeNumbers: {
+			type: Array<string>,
+			default: () => []
 		}
 	},
 
-	setup() {
+	setup( props ) {
 		const api = useApi();
-		const changeIds = ref( [] );
-		const selection = ref( [] );
+		const alertDialogOpen = ref( false );
+		const alertDialogText = ref( '' );
+		const alertDialogUseCloseButton = ref( true );
+		const chips = ref( [] );
+		const changeNumbers = ref( [] );
 		const menuItems = ref( [] );
+
+		// chips and changeNumbers must be in sync.
+		changeNumbers.value = props.initialChangeNumbers;
+		chips.value = props.initialChangeNumbers.map( ( id: string ) => ( { value: id } ) );
 
 		const menuConfig = {
 			boldLabel: true,
@@ -69,7 +89,7 @@ export default {
 		};
 
 		const buttonDisabled = computed( () => {
-			if ( changeIds.value.length > 0 ) {
+			if ( changeNumbers.value.length > 0 ) {
 				return false;
 			} else {
 				return true;
@@ -77,8 +97,14 @@ export default {
 		} );
 
 		async function startBackport() {
-			await api.startBackport( changeIds.value.map( ( id ) => id.value ) );
-			changeIds.value = [];
+			try {
+				await api.startBackport( changeNumbers.value );
+				chips.value = [];
+				changeNumbers.value = [];
+			} catch ( error ) {
+				alertDialogOpen.value = true;
+				alertDialogText.value = error.respJson.detail.message || error.message;
+			}
 		}
 
 		async function fetchResults( changeId ) {
@@ -111,9 +137,12 @@ export default {
 		}
 
 		return {
+			alertDialogOpen,
+			alertDialogText,
+			alertDialogUseCloseButton,
 			buttonDisabled,
-			changeIds,
-			selection,
+			chips,
+			changeNumbers,
 			menuItems,
 			menuConfig,
 			startBackport,
