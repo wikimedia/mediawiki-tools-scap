@@ -1,3 +1,11 @@
+scap (4.155.0)
+
+  * cli.py: Allow None return from Application main function
+  * spiderpig: Fix auth loop bug
+  * local-dev/cas_server.py: Fix delete expired tickets bug
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Wed, 23 Apr 2025 13:48:35 -0700
+
 scap (4.154.0)
 
   * spiderpig: Add means to prepopulate backport change numbers
