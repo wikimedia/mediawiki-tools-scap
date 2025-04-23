@@ -1,3 +1,14 @@
+scap (4.154.0)
+
+  * spiderpig: Add means to prepopulate backport change numbers
+  * Remove remnants of scap3-mediawiki
+  * Revert "Reformat header of main.py and tasks.py"
+  * .gitignore: Add /.python-version
+  * Reformat header of main.py and tasks.py
+  * sync_wikiversions -> sync-wikiversions in log messages
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Wed, 23 Apr 2025 08:47:43 -0700
+
 scap (4.153.0)
 
   * config: update mediawiki_runtime_image to use PHP 8.1
