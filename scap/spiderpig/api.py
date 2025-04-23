@@ -53,7 +53,7 @@ from fastapi.staticfiles import StaticFiles
 
 from sqlalchemy.orm import Session
 
-from scap import cli, log, utils, gerrit
+from scap import cli, log, utils, gerrit, logstash_poller
 
 import scap.spiderpig
 from scap.spiderpig.model import (
@@ -898,6 +898,25 @@ async def signal_job(
     }
 
 
+@app.get("/api/monitoring/logs/mediawiki")
+async def get_logs():
+    log_file = os.path.join(os.environ["SPIDERPIG_DIR"], logstash_poller.LOG_FILE)
+
+    try:
+        with open(log_file, "r") as f:
+            logs = json.load(f)
+    except FileNotFoundError:
+        return {
+            "message": "No log file - creation may be pending",
+            "log": {},
+        }
+
+    return {
+        "message": "Log retrieved",
+        "log": logs,
+    }
+
+
 # This function is intentionally not marked "async" due to the blocking
 # io that happens when querying Gerrit.
 @app.get("/api/searchPatch")
@@ -1090,6 +1109,7 @@ if os.path.isdir(assets_dir):
 @app.get("/logout")
 @app.get("/jobs/{job_id}")
 @app.get("/notauthorized")
+@app.get("/logs")
 async def index_page():
     return FileResponse(index_html, headers={"Cache-Control": "no-cache"})
 
