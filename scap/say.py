@@ -119,9 +119,6 @@ class Fortune(cli.Application):
     def main(self, *extra_args):
         print(fortune())
 
-        # If we don't return 0, this will ring the term bell!
-        return 0
-
 
 @cli.command("say", help=argparse.SUPPRESS)
 class Say(cli.Application):

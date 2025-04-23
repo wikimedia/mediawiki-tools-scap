@@ -771,6 +771,9 @@ class Application(object):
         # Flush logger before exiting
         logging.shutdown()
 
+        if exit_status is None:
+            exit_status = 0
+
         # Make a beep
         if exit_status != 0:
             sys.stdout.write("\a")
