@@ -165,6 +165,9 @@ const useAuthStore = defineStore( 'spiderpig-auth',
 				// eslint-disable-next-line camelcase
 				return await this.call( `/api/jobs/${ job_id }` );
 			},
+			async getLogs() {
+				return await this.call( '/api/monitoring/logs/mediawiki' );
+			},
 			// eslint-disable-next-line camelcase
 			async respondInteraction( job_id, interaction_id, response ) {
 				await this.call(

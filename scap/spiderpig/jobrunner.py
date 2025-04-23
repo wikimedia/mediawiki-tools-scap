@@ -14,6 +14,7 @@ from typing import Optional
 
 import scap.cli as cli
 from scap.interaction import TerminalIO
+import scap.logstash_poller as logstash_poller
 
 import scap.spiderpig
 from scap.spiderpig.model import (
@@ -62,6 +63,11 @@ class JobRunner(cli.Application):
             os.makedirs(logdir, exist_ok=True)
             os.chmod(logdir, 0o770 | stat.S_ISGID)
 
+            threading.Thread(
+                target=logstash_poller.main,
+                daemon=True,
+                args=(self.config, logger, spiderpig_dir),
+            ).start()
             db_filename = self.spiderpig_dbfile()
             engine = scap.spiderpig.engine(db_filename)
             setup_db(engine, db_filename)

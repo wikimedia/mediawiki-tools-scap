@@ -1,16 +1,8 @@
 import collections
-import json
-import logging
 import math
-import os
 import statistics
-import urllib3
 
-from scap import cli, kubernetes, log, logstash_checker, targets
-
-
-class CheckServiceError(Exception):
-    pass
+from scap import cli, kubernetes, logstash, logstash_checker, targets
 
 
 @cli.command(
@@ -52,11 +44,11 @@ class LogstashChecker:
         k8s_canary_namespaces,
         logger,
     ):
-        self.logstash_host = logstash_host
         self.window_size = window_size
         self.baremetal_canaries = baremetal_canaries
         self.k8s_canary_namespaces = k8s_canary_namespaces
         self.logger = logger
+        self.logstash = logstash.Logstash(logstash_host, logger)
 
     def check(self, threshold) -> bool:
         """
@@ -65,7 +57,7 @@ class LogstashChecker:
         returns False after logging the top 5 errors.
         """
         q = self._build_query()
-        r = self._run_query(q)
+        r = self.logstash.run_query(q)
 
         hits_total = r["hits"]["total"]
         count = hits_total["value"]
@@ -88,7 +80,7 @@ class LogstashChecker:
         # The Zscore used to suggest an error count threshold.
         THRESHOLD_ZSCORE = 3
 
-        r = self._run_query(self._build_history_query())
+        r = self.logstash.run_query(self._build_history_query())
 
         orig_samples = samples = [
             bucket["doc_count"] for bucket in r["aggregations"]["counts"]["buckets"]
@@ -237,58 +229,6 @@ class LogstashChecker:
         )
 
         return q
-
-    def _run_query(self, query_object) -> dict:
-        self.logger.debug("logstash query: %s", json.dumps(query_object))
-
-        try:
-            pool = urllib3.PoolManager(
-                retries=1,
-                timeout=10,
-                ca_certs="/etc/ssl/certs/ca-certificates.crt",
-                cert_reqs="CERT_REQUIRED",
-            )
-            logstash_search_url = os.path.join(
-                self.logstash_host, "logstash-*", "_search"
-            )
-            response = pool.urlopen(
-                "POST",
-                logstash_search_url,
-                headers={"Content-Type": "application/json"},
-                body=json.dumps(query_object),
-            )
-            resp = response.data.decode("utf-8")
-            log.log_large_message(
-                f"logstash response {resp}", self.logger, logging.DEBUG
-            )
-            r = json.loads(resp)
-        except urllib3.exceptions.SSLError:
-            raise CheckServiceError("Invalid certificate")
-        except (
-            urllib3.exceptions.ConnectTimeoutError,
-            urllib3.exceptions.TimeoutError,
-            urllib3.exceptions.ConnectionError,
-            urllib3.exceptions.ReadTimeoutError,
-        ):
-            raise CheckServiceError(
-                f"Timeout on connection while downloading {logstash_search_url}"
-            )
-        except Exception as e:
-            raise CheckServiceError(f"Generic connection error: {e}")
-
-        if type(r) is not dict:
-            raise ValueError(
-                "Unexpected response from %s. Expected a dict but got: %s\n\nQuery was: %s"
-                % (logstash_search_url, json.dumps(r), json.dumps(query_object))
-            )
-
-        if "error" in r:
-            raise ValueError(
-                "Logstash request to %s returned error:\n%s\n\nQuery was: %s"
-                % (logstash_search_url, r, json.dumps(query_object))
-            )
-
-        return r
 
     def _summarize_errors(self, r):
         hits = collections.Counter()

@@ -1,6 +1,7 @@
 <template>
 	<sp-backport :idle="idle" :initial-change-numbers="backportChangeNumbers" />
 	<sp-job-history />
+	<sp-logs />
 </template>
 
 <script lang="ts">
@@ -10,12 +11,14 @@ import { useRouter, useRoute } from 'vue-router';
 import useApi from '../api';
 import SpBackport from './Backport.vue';
 import SpJobHistory from './JobHistory.vue';
+import SpLogs from './Log.vue';
 
 export default defineComponent( {
 	name: 'OverviewPage',
 	components: {
 		SpBackport,
-		SpJobHistory
+		SpJobHistory,
+		SpLogs
 	},
 
 	setup() {
