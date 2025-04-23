@@ -15,9 +15,10 @@ const useAuthStore = defineStore( 'spiderpig-auth',
 		state() {
 			return {
 				authUser: useLocalStorage( 'spiderpig-auth-user', null ),
-				authFailing: false,
+				authFailing: false, // FIXME: This is set in several places but never read.
 				authCode: null,
-				authUrl: null
+				authUrl: null,
+				windowLocationSet: false
 			};
 		},
 		getters: {
@@ -30,6 +31,17 @@ const useAuthStore = defineStore( 'spiderpig-auth',
 		actions: {
 			makeApiUrl( url ) {
 				return new URL( url, this.apiserverBaseURL );
+			},
+
+			setWindowLocation( url ) {
+				if ( this.windowLocationSet ) {
+					// eslint-disable-next-line max-len
+					// console.log( `setWindowLocation: Not setting window.location.href to ${ url } because it was already set` );
+					return;
+				}
+				// console.log( `Setting window.location.href to ${ url }` );
+				this.windowLocationSet = true;
+				window.location.href = url;
 			},
 
 			async handle401( url, response ) {
@@ -46,12 +58,10 @@ const useAuthStore = defineStore( 'spiderpig-auth',
 				if ( authresp.code === 'need2fa' ) {
 					const params = new URLSearchParams( { redirect: window.location.href } );
 					const newUrl = `/login?${ params.toString() }`;
-					// console.log( `Redirecting to ${ newUrl }` );
-					window.location.href = newUrl;
+					this.setWindowLocation( newUrl );
 				}
 				if ( authresp.code === 'needauth' ) {
-					// console.log( `Setting window.location.href to ${ authresp.url }` );
-					window.location.href = authresp.url;
+					this.setWindowLocation( authresp.url );
 				}
 
 				throw new Error( `Auth failed for call to ${ url }: ${ authresp.message }` );
@@ -71,7 +81,7 @@ const useAuthStore = defineStore( 'spiderpig-auth',
 				}
 
 				if ( response.status === 403 ) {
-					window.location.href = '/notauthorized';
+					this.setWindowLocation( '/notauthorized' );
 				}
 
 				this.authFailing = false;
