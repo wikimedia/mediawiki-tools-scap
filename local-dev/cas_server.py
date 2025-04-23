@@ -79,9 +79,13 @@ def read_ticket_db() -> dict:
 
     # Discard any expired tickets
     now = time.time()
+    oldies = []
     for ticket, info in db.items():
         if now >= info["expires_at"]:
-            del db[ticket]
+            oldies.append(ticket)
+
+    for ticket in oldies:
+        del db[ticket]
 
     return db
 
