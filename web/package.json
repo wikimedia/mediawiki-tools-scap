@@ -11,12 +11,12 @@
 	},
 	"dependencies": {
 		"@vueuse/core": "^11.1.0",
-		"@wikimedia/codex": "^1.15.0",
-		"@wikimedia/codex-design-tokens": "^1.15.0",
+		"@wikimedia/codex": "^1.23.0",
+		"@wikimedia/codex-design-tokens": "^1.23.0",
 		"@xterm/addon-fit": "^0.10.0",
 		"@xterm/xterm": "^5.5.0",
 		"pinia": "^2.2.4",
-		"vue": "^3.4.27",
+		"vue": "^3.5.13",
 		"vue-router": "^4.4.5",
 		"vuetify": "^3.7.19"
 	},
