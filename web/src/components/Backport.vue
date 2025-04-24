@@ -97,9 +97,13 @@ export default {
 
 		async function startBackport() {
 			try {
-				await api.startBackport( changeNumbers.value );
+				const res = await api.startBackport( changeNumbers.value );
+				localStorage.setItem( 'spiderpig-bp-job', res.id );
 				chips.value = [];
 				changeNumbers.value = [];
+				if ( Notification.permission === 'default' ) {
+					await Notification.requestPermission();
+				}
 			} catch ( error ) {
 				alertDialogOpen.value = true;
 				alertDialogText.value = error.respJson.detail.message || error.message;

@@ -208,7 +208,7 @@ const useAuthStore = defineStore( 'spiderpig-auth',
 					url.searchParams.append( 'change_url', change_url );
 				}
 
-				await this.call( url,
+				return await this.call( url,
 					{
 						method: 'POST'
 					}

@@ -17,7 +17,7 @@
 </template>
 
 <script lang="ts">
-import { defineComponent, PropType } from 'vue';
+import { defineComponent, onMounted, PropType } from 'vue';
 import useApi from '../api';
 import Interaction from '../types/Interaction';
 import { CdxButton } from '@wikimedia/codex';
@@ -47,6 +47,22 @@ export default defineComponent( {
 				code
 			);
 		}
+
+		// Lifecycle hooks
+		onMounted( () => {
+			if (
+				Notification.permission === 'granted' &&
+				localStorage.getItem( 'spiderpig-bp-job' ) === props.interaction.job_id.toString() &&
+				// Keep in sync with the prompt message in scap/backport.py#Backport._do_backport
+				!props.interaction.prompt.includes( 'Backport the changes?' )
+			) {
+				// eslint-disable-next-line no-new
+				new Notification( 'SpiderPig needs you!', {
+					body: `Job ${ props.interaction.job_id } requires user input`,
+					requireInteraction: true
+				} );
+			}
+		} );
 
 		return {
 			choiceSelected

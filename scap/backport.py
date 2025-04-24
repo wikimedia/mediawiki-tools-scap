@@ -399,6 +399,7 @@ class Backport(cli.Application):
                     list(change.details for change in self.backports.changes.values()),
                     False,
                 )
+                # Keep message in sync with the code in web/src/components/Interaction.vue#onMounted
                 self._prompt_for_approval_or_exit(
                     "The following changes are scheduled for backport:\n%s\n"
                     "Backport the changes?" % table.get_string()
