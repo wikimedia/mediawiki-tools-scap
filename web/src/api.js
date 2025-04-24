@@ -219,9 +219,9 @@ const useAuthStore = defineStore( 'spiderpig-auth',
 					method: 'POST'
 				} );
 			},
-			async searchPatch( q, n ) {
+			async searchPatch( changeNumOrUrl ) {
 				const url = this.makeApiUrl( '/api/searchPatch' );
-				const params = new URLSearchParams( { q, n } );
+				const params = new URLSearchParams( { changeNumOrUrl } );
 				return await this.call( `${ url }?${ params.toString() }` );
 			}
 		}

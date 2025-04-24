@@ -841,11 +841,14 @@ async def signal_job(
 @app.get("/api/searchPatch")
 def searchPatch(
     gerritsession: Annotated[gerrit.GerritSession, Depends(get_gerrit_session)],
-    q: str,
-    n: int,
+    changeNumOrUrl: str,
 ):
+    change_num = gerritsession.change_number_from_url(changeNumOrUrl)
+    if change_num is None:
+        return []
+
     try:
-        return gerritsession.changes().query(q, n)
+        return gerritsession.changes().query(f"change:{change_num}", 1)
     except Exception:
         return []
 

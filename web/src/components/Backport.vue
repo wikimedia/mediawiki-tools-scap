@@ -7,8 +7,7 @@
 		</template>
 
 		<template #description>
-			To run scap backport, enter one or more Gerrit change numbers
-			separated by spaces.
+			To run scap backport, enter one or more Gerrit change numbers or URLs
 		</template>
 
 		<div class="backport__input">
@@ -19,7 +18,7 @@
 				:disabled="!idle"
 				:menu-items="menuItems"
 				:menu-config="menuConfig"
-				placeholder="Enter change numbers"
+				placeholder="Enter change numbers or URLs"
 				aria-label="Search for one or more Gerrit patches"
 				@input="onInput"
 			>
@@ -85,7 +84,7 @@ export default {
 
 		const menuConfig = {
 			boldLabel: true,
-			visibleItemLimit: 10
+			visibleItemLimit: 1
 		};
 
 		const buttonDisabled = computed( () => {
@@ -107,14 +106,11 @@ export default {
 			}
 		}
 
-		async function fetchResults( changeId ) {
-			return await api.searchPatch(
-				`change:"${ changeId }"`,
-				10
-			);
+		async function fetchResults( changeId:string ) {
+			return await api.searchPatch( changeId );
 		}
 
-		async function onInput( value ) {
+		async function onInput( value: string ) {
 			if ( !value ) {
 				menuItems.value = [];
 				return;
