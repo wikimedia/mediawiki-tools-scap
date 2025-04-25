@@ -27,7 +27,7 @@ dynamic = ["version", "dependencies"]
 description = "Deployment toolchain for Wikimedia projects"
 readme = "README.rst"
 requires-python = ">=3.7"
-license = "GPL-3.0-only"
+license = {text = "GNU GPLv3"}
 authors = [
     {name = "Ahmon Dancy", email = "adancy@wikimedia.org"},
     {name = "Antoine Musso", email = "hashar@free.fr"},
@@ -51,6 +51,7 @@ classifiers = [
     "Programming Language :: Python",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.7",
+    "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
 ]
 
 [project.urls]
