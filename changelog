@@ -1,3 +1,12 @@
+scap (4.156.0)
+
+  * web: Bump Codex from 1.15.0 to 1.23.0
+  * spiderpig: Revise /api/searchPatch interface
+  * Fix license in pyproject.toml to -only variant
+  * pyproject.toml: Modernize license specification
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Fri, 25 Apr 2025 07:16:16 -0700
+
 scap (4.155.0)
 
   * cli.py: Allow None return from Application main function
