@@ -276,7 +276,7 @@ export default defineComponent( {
 				if ( typeof ( elt ) === 'string' ) {
 					res += elt;
 				} else {
-					res += `<a href="${ elt.href }" target="_blank">${ elt.text }</a>`;
+					res += `<a href="${ elt.href }" target="_blank" class="job-card__details__change-info__link">${ elt.text }</a>`;
 				}
 			}
 
