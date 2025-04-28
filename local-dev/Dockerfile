@@ -1,7 +1,6 @@
 FROM debian:11 AS base
 
-RUN apt-get update
-RUN DEBIAN_FRONTEND=noninteractive apt-get install -y procps python3-venv
+RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y procps python3-venv
 
 ENV PATH=${PATH}:/workspace/scap-venv/bin
 
