@@ -1,11 +1,13 @@
 import asyncio
 import base64
 import cas
+from contextlib import asynccontextmanager
 from datetime import datetime
 import fcntl
 import functools
 import html
 import json
+import logging
 import os
 import pyotp
 import re
@@ -14,6 +16,12 @@ import subprocess
 import sys
 import time
 import urllib.parse
+
+# Workaround for Debian Buster
+try:
+    import uvicorn
+except ImportError:
+    uvicorn = None
 
 if sys.version_info < (3, 9):
     from typing_extensions import Annotated
@@ -45,7 +53,7 @@ from fastapi.staticfiles import StaticFiles
 
 from sqlalchemy.orm import Session
 
-from scap import cli, utils, gerrit
+from scap import cli, log, utils, gerrit
 
 import scap.spiderpig
 from scap.spiderpig.model import (
@@ -174,7 +182,41 @@ class SpiderpigAPIServer(cli.Application):
         subprocess.run(cmd, env=env)
 
 
-app = FastAPI()
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Copied from cli.Application.run()
+    logging.basicConfig(
+        level=logging.INFO,
+        format=log.CONSOLE_LOG_FORMAT,
+        datefmt=log.TIMESTAMP_FORMAT,
+        stream=sys.stdout,
+    )
+
+    cfg = get_scap_config()
+
+    log.setup_loggers(cfg)
+
+    # Configure HTTP access logging
+    if uvicorn:
+        logger = logging.getLogger("uvicorn.access")
+        formatter = uvicorn.logging.AccessFormatter(
+            '%(asctime)s %(client_addr)s "%(request_line)s" %(status_code)s'
+        )
+        logger.handlers[0].setFormatter(formatter)
+
+        if cfg["use_syslog"]:
+            syslog_handler = logging.handlers.SysLogHandler("/dev/log")
+            syslog_handler.setLevel(logging.DEBUG)
+            syslog_handler.setFormatter(log.SyslogAccessLogFormatter())
+            while logger.handlers:
+                logger.removeHandler(logger.handlers[0])
+            logger.addHandler(syslog_handler)
+
+    yield
+
+
+app = FastAPI(lifespan=lifespan)
+
 
 #####################
 # SUPPORT FUNCTIONS #

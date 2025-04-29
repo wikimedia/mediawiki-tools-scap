@@ -21,6 +21,7 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """
 import contextlib
+from copy import copy
 import fnmatch
 from functools import partial
 import itertools
@@ -322,6 +323,33 @@ class SyslogFormatter(LogstashFormatter):
         # The cookie is recognized by rsyslog for json parsing:
         # https://www.rsyslog.com/doc/v8-stable/configuration/modules/mmjsonparse.html
         return "scap: @cee: " + super().format(record)
+
+
+class SyslogAccessLogFormatter(SyslogFormatter):
+    def format(self, record):
+        # Copied from https://github.com/encode/uvicorn/blob/master/uvicorn/logging.py#L98
+        recordcopy = copy(record)
+        (
+            client_addr,
+            method,
+            full_path,
+            http_version,
+            status_code,
+        ) = recordcopy.args
+
+        client_addr, _, client_port = client_addr.rpartition(":")
+
+        recordcopy.__dict__.update(
+            {
+                "client_addr": client_addr,
+                "client_port": int(client_port),
+                "method": method,
+                "full_path": full_path,
+                "http_version": http_version,
+                "status_code": status_code,
+            }
+        )
+        return super().format(recordcopy)
 
 
 def reporter(name, mute=False):
