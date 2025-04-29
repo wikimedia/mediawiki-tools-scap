@@ -293,7 +293,7 @@ class LogstashFormatter(logging.Formatter):
             fields.pop(field, None)
 
         logstash_record = {
-            "@version": 1,
+            "@version": "1",
             "type": self.type,
             "host": self.host,
             "script": self.script,
