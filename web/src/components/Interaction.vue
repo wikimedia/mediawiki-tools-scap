@@ -21,6 +21,7 @@ import { defineComponent, onMounted, PropType } from 'vue';
 import useApi from '../api';
 import Interaction from '../types/Interaction';
 import { CdxButton } from '@wikimedia/codex';
+import { notificationsStore } from '@/state';
 
 export default defineComponent( {
 	name: 'SpInteraction',
@@ -39,6 +40,7 @@ export default defineComponent( {
 	setup( props ) {
 		// Pinia store
 		const api = useApi();
+		const notifications = notificationsStore();
 
 		function choiceSelected( code: string ) {
 			api.respondInteraction(
@@ -51,8 +53,7 @@ export default defineComponent( {
 		// Lifecycle hooks
 		onMounted( () => {
 			if (
-				Notification.permission === 'granted' &&
-				localStorage.getItem( 'spiderpig-bp-job' ) === props.interaction.job_id.toString() &&
+				notifications.userShouldBeNotified( props.interaction ) &&
 				// Keep in sync with the prompt message in scap/backport.py#Backport._do_backport
 				!props.interaction.prompt.includes( 'Backport the changes?' )
 			) {
@@ -61,6 +62,7 @@ export default defineComponent( {
 					body: `Job ${ props.interaction.job_id } requires user input`,
 					requireInteraction: true
 				} );
+				notifications.rememberNotified( props.interaction.id );
 			}
 		} );
 

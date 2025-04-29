@@ -49,6 +49,7 @@
 import { ref, computed } from 'vue';
 import { CdxButton, CdxDialog, CdxField, CdxMultiselectLookup } from '@wikimedia/codex';
 import useApi from '../api';
+import { notificationsStore } from '@/state';
 
 export default {
 	name: 'SpBackport',
@@ -71,6 +72,7 @@ export default {
 
 	setup( props ) {
 		const api = useApi();
+		const notifications = notificationsStore();
 		const alertDialogOpen = ref( false );
 		const alertDialogText = ref( '' );
 		const alertDialogUseCloseButton = ref( true );
@@ -98,12 +100,9 @@ export default {
 		async function startBackport() {
 			try {
 				const res = await api.startBackport( changeNumbers.value );
-				localStorage.setItem( 'spiderpig-bp-job', res.id );
+				await notifications.setUserNotifications( res.id );
 				chips.value = [];
 				changeNumbers.value = [];
-				if ( Notification.permission === 'default' ) {
-					await Notification.requestPermission();
-				}
 			} catch ( error ) {
 				alertDialogOpen.value = true;
 				alertDialogText.value = error.respJson.detail.message || error.message;
