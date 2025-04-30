@@ -29,6 +29,8 @@ sniffio
 python-multipart
 
 pyotp
+qrcode
+pypng
 pyjwt
 python-cas
 itsdangerous

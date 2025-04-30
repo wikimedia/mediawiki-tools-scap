@@ -11,6 +11,7 @@ import json
 import logging
 import os
 import pyotp
+import qrcode
 import re
 import socket
 import subprocess
@@ -69,7 +70,8 @@ from scap.spiderpig.model import (
 )
 from scap.spiderpig.session import SessionCookie
 
-OTP_TIMEOUT = 60
+# Must be 30 seconds to be compatible with apps such as Google Authenticator.
+OTP_TIMEOUT = 30
 
 
 def get_or_init_dbuser(session: Session, username: str) -> User:
@@ -111,6 +113,11 @@ class SpiderpigOTP(cli.Application):
         default=5,
         help="Minimum expiration time in seconds.  Default is 5 seconds.",
     )
+    @cli.argument(
+        "--qr",
+        action="store_true",
+        help="Print a QR code for importing into an authenticator app.",
+    )
     def main(self, *extra_args):
         username = utils.get_username()
 
@@ -126,6 +133,18 @@ class SpiderpigOTP(cli.Application):
         with _get_db_session() as session:
             user = get_or_init_dbuser(session, username)
             totp = get_pyotp(user)
+
+            if self.arguments.qr:
+                uri = totp.provisioning_uri(
+                    name=f"{username}@{socket.getfqdn()}",
+                    issuer_name="SpiderPig",
+                )
+                qr = qrcode.QRCode()
+                qr.add_data(uri)
+                qr.make()
+                qr.print_ascii()
+                return
+
             now = datetime.now().timestamp()
             time_remaining = totp.interval - now % totp.interval
             if time_remaining >= self.arguments.minimum_expiration:
