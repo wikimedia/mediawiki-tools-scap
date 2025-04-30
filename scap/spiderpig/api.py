@@ -100,6 +100,12 @@ class SpiderpigOTP(cli.Application):
         action="store_true",
         help="Print just the one-time password.",
     )
+    @cli.argument(
+        "--minimum-expiration",
+        type=int,
+        default=5,
+        help="Minimum expiration time in seconds.  Default is 5 seconds.",
+    )
     def main(self, *extra_args):
         username = utils.get_username()
 
@@ -110,14 +116,25 @@ class SpiderpigOTP(cli.Application):
         with _get_db_session() as session:
             user = get_or_init_dbuser(session, username)
             totp = get_pyotp(user)
-            now = datetime.now().timestamp()
-            otp = totp.at(now)
-            time_remaining = totp.interval - now % totp.interval
-            if self.arguments.quiet:
-                print(otp)
-            else:
-                print(f"Login: {utils.get_username()}")
-                print(f"Password: {otp}  (Expires in {round(time_remaining)} seconds)")
+
+            while True:
+                now = datetime.now().timestamp()
+                otp = totp.at(now)
+                time_remaining = totp.interval - now % totp.interval
+
+                if time_remaining < self.arguments.minimum_expiration:
+                    # The OTP will expire too soon.  Wait for the next one.
+                    time.sleep(time_remaining)
+                    continue
+
+                if self.arguments.quiet:
+                    print(otp)
+                else:
+                    print(f"Login: {utils.get_username()}")
+                    print(
+                        f"Password: {otp}  (Expires in {round(time_remaining)} seconds)"
+                    )
+                return
 
 
 @cli.command(
