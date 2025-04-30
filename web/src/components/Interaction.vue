@@ -41,6 +41,7 @@ export default defineComponent( {
 		// Pinia store
 		const api = useApi();
 		const notifications = notificationsStore();
+		let userNotification = null;
 
 		function choiceSelected( code: string ) {
 			api.respondInteraction(
@@ -48,6 +49,9 @@ export default defineComponent( {
 				props.interaction.id,
 				code
 			);
+			if ( userNotification ) {
+				userNotification.close();
+			}
 		}
 
 		// Lifecycle hooks
@@ -57,8 +61,7 @@ export default defineComponent( {
 				// Keep in sync with the prompt message in scap/backport.py#Backport._do_backport
 				!props.interaction.prompt.includes( 'Backport the changes?' )
 			) {
-				// eslint-disable-next-line no-new
-				new Notification( 'SpiderPig needs you!', {
+				userNotification = new Notification( 'SpiderPig needs you!', {
 					body: `Job ${ props.interaction.job_id } requires user input`,
 					requireInteraction: true
 				} );
