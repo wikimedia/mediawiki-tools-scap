@@ -53,14 +53,17 @@ from fastapi.staticfiles import StaticFiles
 
 from sqlalchemy.orm import Session
 
-from scap import cli, log, utils, gerrit
+from scap import cli, log, utils, gerrit, train
 
 import scap.spiderpig
 from scap.spiderpig.model import (
     JobrunnerStatus,
     Job,
+    JobType,
     Interaction,
     AlreadyResponded,
+    TrainPromotion,
+    TrainStatus,
     User,
 )
 
@@ -583,6 +586,30 @@ def linkify_commit_mesage(commit_message) -> List:
     return res
 
 
+def load_job_data(job_data):
+    scap_config = get_scap_config()
+    gerrit_url = scap_config["gerrit_url"]
+    data = json.loads(job_data)
+
+    if data is not None and "change_infos" in data:
+        for change_info in data["change_infos"]:
+            change_info["linkifiedCommitMsg"] = linkify_commit_mesage(
+                change_info["commit_msg"]
+            )
+            project = change_info["project"]
+            branch = change_info["branch"]
+            change_info["repoQueryUrl"] = os.path.join(
+                gerrit_url,
+                "q/" + urllib.parse.quote_plus(f"project:{project}"),
+            )
+            change_info["branchQueryUrl"] = os.path.join(
+                gerrit_url,
+                "q/" + urllib.parse.quote_plus(f"project:{project} branch:{branch}"),
+            )
+
+    return data
+
+
 ##########
 # ROUTES #
 ##########
@@ -615,6 +642,8 @@ async def jobrunner_status(
     if status.job_id:
         job = Job.get(session, status.job_id)
         if job:
+            session.expunge(job)
+            job.data = load_job_data(job.data)
             i = get_parsed_interaction(session, job)
 
     return {
@@ -626,20 +655,13 @@ async def jobrunner_status(
 
 @app.post("/api/jobs/train")
 async def start_train(
+    promotion: TrainPromotion,
     user: Annotated[SessionUser, Depends(get_current_user)],
     session: Session = Depends(get_db_session),
 ):
-    job_id = Job.add(
-        session,
-        user=user.name,
-        command=[
-            "scap",
-            "train",
-        ],
-    )
     return {
         "message": "Job created",
-        "id": job_id,
+        "id": promotion.add_job(session=session, user=user.name),
     }
 
 
@@ -692,6 +714,7 @@ async def start_backport(
     operation = "fake-backport" if get_scap_config()["local_dev_mode"] else "backport"
 
     job_id = Job.add(
+        JobType.BACKPORT,
         session,
         user=user.name,
         command=["scap", operation] + get_scap_flags() + change_url,
@@ -725,7 +748,7 @@ async def get_jobs(
         session.expunge(job)
         job.status = job.extract_status()
         job.interaction = get_parsed_interaction(session, job)
-        job.data = json.loads(job.data)
+        job.data = load_job_data(job.data)
         set_job_duration(job)
 
     return {
@@ -738,9 +761,6 @@ async def get_job(
     job: Annotated[Job, Depends(get_job_by_id)],
     session: Session = Depends(get_db_session),
 ):
-    scap_config = get_scap_config()
-    gerrit_url = scap_config["gerrit_url"]
-
     i = get_parsed_interaction(session, job)
 
     # Detach the job object from the SQLAlchemy session so that we can
@@ -749,24 +769,7 @@ async def get_job(
     session.expunge(job)
     job.status = job.extract_status()
     set_job_duration(job)
-
-    data = json.loads(job.data)
-    for change_info in data["change_infos"]:
-        change_info["linkifiedCommitMsg"] = linkify_commit_mesage(
-            change_info["commit_msg"]
-        )
-        project = change_info["project"]
-        branch = change_info["branch"]
-        change_info["repoQueryUrl"] = os.path.join(
-            gerrit_url,
-            "q/" + urllib.parse.quote_plus(f"project:{project}"),
-        )
-        change_info["branchQueryUrl"] = os.path.join(
-            gerrit_url,
-            "q/" + urllib.parse.quote_plus(f"project:{project} branch:{branch}"),
-        )
-
-    job.data = data
+    job.data = load_job_data(job.data)
 
     return {
         "job": job,
@@ -896,6 +899,14 @@ async def signal_job(
         "message": "Interrupted",
         "job_id": job.id,
     }
+
+
+# Retrieve the current state of MediaWiki train.
+@app.get("/api/train/status")
+async def train_status(
+    config: Annotated[dict, Depends(get_scap_config)],
+) -> TrainStatus:
+    return TrainStatus.from_info(train.fetch_remote_train_info(config))
 
 
 # This function is intentionally not marked "async" due to the blocking

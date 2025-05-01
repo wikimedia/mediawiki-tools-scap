@@ -1,11 +1,5 @@
 <template>
 	<cdx-field id="backport" class="backport">
-		<template #label>
-			<h2 class="backport__heading">
-				Backport Patches
-			</h2>
-		</template>
-
 		<template #description>
 			To run scap backport, enter one or more Gerrit change numbers or URLs
 		</template>
