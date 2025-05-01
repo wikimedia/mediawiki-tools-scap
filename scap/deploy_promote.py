@@ -84,6 +84,11 @@ class DeployPromote(cli.Application):
         "then set the new version on all train groups up to and including the target group",
     )
     @cli.argument("--old-version", help="The old train version to be used with --train")
+    @cli.argument(
+        "--exclude-wikis",
+        help="Wikis to exclude from promotion, separated by commas.",
+        default="",
+    )
     def main(self, *extra_args):
         self.logger = self.get_logger()
 
@@ -91,6 +96,7 @@ class DeployPromote(cli.Application):
             utils.abort("--old-version must be used along with --train")
 
         self.group = self.arguments.group
+        self.excludes = self.arguments.exclude_wikis.split(",")
         self._check_group()
         self._check_user_auth_sock()
 

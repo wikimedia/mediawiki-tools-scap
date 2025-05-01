@@ -578,7 +578,7 @@ def update_symlink(target, linkpath):
         os.symlink(rtarget, rlinkpath)
 
 
-def read_wikiversions(directory, realm) -> dict:
+def read_wikiversions(directory, realm, trim_version=False) -> dict:
     """
     Return a dictionary representing the contents of the realm-specific wikiversions.json
     file in the specified directory.
@@ -592,12 +592,17 @@ def read_wikiversions(directory, realm) -> dict:
     with open(path) as f:
         wikiversions = json.load(f)
 
+    if trim_version:
+        for wiki in wikiversions:
+            wikiversions[wiki] = re.sub("^php-", "", wikiversions[wiki])
+
     force_version = os.environ.get("FORCE_MW_VERSION")
     if force_version:
         # Make sure FORCE_MW_VERSION has a decent value
         version_argument_parser(force_version, allow_auto=False)
 
-        force_version = f"php-{force_version}"
+        if not trim_version:
+            force_version = f"php-{force_version}"
         for key in wikiversions:
             wikiversions[key] = force_version
 
@@ -1106,16 +1111,26 @@ def get_group_versions(group, directory, realm) -> list:
     """
     Returns a list of versions used by 'group', in ascending version order.
     """
-    dblist = expand_dblist(directory, group)
+    dblist = set(expand_dblist(directory, group))
 
     versions = set()
 
-    for wikidb, version in read_wikiversions(directory, realm).items():
-        version = re.sub("^php-", "", version)
+    wikiversions = read_wikiversions(directory, realm, trim_version=True)
+    for wikidb, version in wikiversions.items():
         if wikidb in dblist:
             versions.add(version)
 
     return sorted(versions, key=parse_wmf_version)
+
+
+def get_group_wikidbs(group, directory, realm) -> list:
+    """
+    Returns a sorted list of wikidbs for 'group'.
+    """
+    dblist = set(expand_dblist(directory, group))
+    wikidbs = set(read_wikiversions(directory, realm).keys())
+
+    return sorted(wikidbs & dblist)
 
 
 def select_latest_patches(patch_base_dir):

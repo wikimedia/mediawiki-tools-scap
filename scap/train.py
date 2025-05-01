@@ -8,13 +8,13 @@ GROUPS = ["testwikis", "group0", "group1", "group2"]
 
 
 class TrainInfo:
-    def __init__(self, config, io, train_version=None):
+    def __init__(self, config, io=None, train_version=None):
         self.config = config
         self.io = io
         self.train_version = (
             train_version if train_version else self.get_train_version()
         )
-        self.groups = dict()
+        self.groups = {}
         self.train_is_at = None
 
         # FIXME: Verify that versions are ascending as we advance through groups.
@@ -27,6 +27,27 @@ class TrainInfo:
 
             if versions == [self.train_version]:
                 self.train_is_at = group
+
+        self.group_wikis = {
+            group: utils.get_group_wikidbs(
+                group, config["stage_dir"], config["wmf_realm"]
+            )
+            for group in self.groups
+        }
+        self.wiki_versions = utils.read_wikiversions(
+            self.config["stage_dir"],
+            config["wmf_realm"],
+            trim_version=True,
+        )
+
+        self.task = None
+        self.task_url = None
+        try:
+            info = self.current_train_info()
+            self.task = info["task"]
+            self.task_url = self.config["phorge_url"] + "/" + info["task"]
+        except Exception:
+            pass
 
     def visualize(self, show_positions=False):
         # Copied from https://www.asciiart.eu/vehicles/trains
@@ -70,6 +91,11 @@ ____
 
         print(table)
 
+    def current_train_info(self) -> dict:
+        return utils.get_current_train_info(
+            self.config["train_blockers_url"], self.config["web_proxy"]
+        )
+
     def get_train_version(self) -> str:
         """
         Returns the version of the current train.  Validation is performed
@@ -80,12 +106,10 @@ ____
         )
 
         try:
-            train_info = utils.get_current_train_info(
-                self.config["train_blockers_url"], self.config["web_proxy"]
-            )
+            train_info = self.current_train_info()
         except Exception as e:
             complaint = f"Failed to automatically retrieve train information: {e}"
-            if not interaction.interactive():
+            if not interaction.interactive() or self.io is None:
                 utils.abort(complaint)
 
             self.io.output_line(complaint)
@@ -100,7 +124,7 @@ ____
         status = train_info["status"]
         version = train_info["version"]
 
-        if status not in ["open", "progress"]:
+        if status not in ["open", "progress"] and self.io is not None:
             check_status = self.io.prompt_user_for_confirmation(
                 f"Train task {task} has status '{status}'. Continue anyway?"
             )
@@ -150,7 +174,7 @@ class Train(cli.Application):
         if self.arguments.forward and self.arguments.backward:
             raise SystemExit("Please choose one of --forward or --backward")
 
-        info = TrainInfo(self.config, self.get_io())
+        info = TrainInfo(self.config, io=self.get_io())
         train_version = info.train_version
         self.old_version = info.get_prior_version()
 

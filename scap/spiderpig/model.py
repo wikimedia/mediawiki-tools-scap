@@ -1,9 +1,11 @@
+import enum
 import json
 import os
 import time
 
 from typing import List, Optional
-from sqlalchemy import ForeignKey, select, delete, text, null
+from pydantic import BaseModel
+from sqlalchemy import ForeignKey, select, delete, text, null, Enum
 from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, Session
 
@@ -78,10 +80,20 @@ class AlreadyFinished(Exception):
     pass
 
 
+class JobType(enum.Enum):
+    BACKPORT = "backport"
+    TRAIN = "train"
+
+
 class Job(Base):
     __tablename__ = "job"
 
     id: Mapped[int] = mapped_column(primary_key=True)
+    type: Mapped[JobType] = mapped_column(
+        Enum(JobType, length=50),
+        default=JobType.BACKPORT,
+        nullable=False,
+    )
     user: Mapped[str]
     command: Mapped[str]  # Expected to be a JSON-encoded list.
     queued_at: Mapped[float] = mapped_column(default=time.time)
@@ -92,12 +104,16 @@ class Job(Base):
     data: Mapped[Optional[str]]  # Optional auxiliary information in JSON format
 
     @classmethod
-    def add(cls, session, user: str, command: List[str], data=None) -> int:
+    def add(
+        cls, type: JobType, session, user: str, command: List[str], data=None
+    ) -> int:
         """Create a new Job record and add it to the database.
 
         :returns: The job id
         """
-        job = Job(user=user, command=json.dumps(command), data=json.dumps(data))
+        job = Job(
+            type=type, user=user, command=json.dumps(command), data=json.dumps(data)
+        )
         session.execute(text("BEGIN IMMEDIATE"))
         session.add(job)
         session.commit()
@@ -338,6 +354,41 @@ class Interaction(Base):
         self.responded_by = responded_by
         self.response = response
         session.commit()
+
+
+class TrainPromotion(BaseModel):
+    group: str
+    version: str
+    old_version: str
+    excluded_wikis: List[str] = []
+
+    def add_job(self, **kwargs) -> int:
+        return Job.add(
+            JobType.TRAIN,
+            command=self.command,
+            data=self.data,
+            **kwargs,
+        )
+
+    @property
+    def command(self):
+        cmd = [
+            "scap",
+            "deploy-promote",
+            "--yes",
+            "--train",
+            "--old-version",
+            self.old_version,
+        ]
+
+        if self.excluded_wikis:
+            cmd += ["--exclude-wikis", ",".join(self.excluded_wikis)]
+
+        return cmd + [self.group, self.version]
+
+    @property
+    def data(self):
+        return self.dict()
 
 
 def setup_db(engine, db_filename):
