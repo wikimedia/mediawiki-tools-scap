@@ -1,124 +1,115 @@
 <template>
-	<nav class="navigation">
-		<div class="navigation__start">
-			<router-link to="/" tabindex="-1">
-				<img src="../assets/spiderpig.png" alt="Spiderpig logo">
-			</router-link>
-		</div>
+	<v-app-bar
+		class="sp-navigation"
+		color="surface-variant"
+		flat
+		:elevation="2"
+	>
+		<router-link to="/">
+			<img
+				class="sp-logo"
+				:src="spLogo"
+				alt="Spiderpig logo"
+			>
+		</router-link>
 
-		<div class="navigation__center">
+		<v-app-bar-title class="sp-banner">
 			<router-link to="/">
-				<h1>
-					SPIDER PIG
-					<span>
-						DEPLOYMENT
-					</span>
-				</h1>
+				SPIDER PIG
 			</router-link>
-		</div>
+		</v-app-bar-title>
 
-		<div class="navigation__end">
-			<div class="navigation__end___first">
-				<ul>
-					<li>
-						<a href="https://logstash.wikimedia.org/app/dashboards#/view/mediawiki-errors" target="_blank">
-							Logstash<cdx-icon :icon="cdxIconLinkExternal" />
-						</a>
-					</li>
-				</ul>
-			</div>
+		<v-spacer />
 
+		<v-btn>
+			<a href="https://logstash.wikimedia.org/app/dashboards#/view/mediawiki-errors" target="_blank">
+				Logstash<cdx-icon :icon="cdxIconLinkExternal" />
+			</a>
+		</v-btn>
+		<v-btn icon>
 			<user-menu />
-		</div>
-	</nav>
+		</v-btn>
+
+		<template #extension>
+			<v-tabs fixed>
+				<v-tab to="/mediawiki/backport">
+					MediaWiki Backport
+				</v-tab>
+				<v-tab to="/mediawiki/train">
+					MediaWiki Train
+				</v-tab>
+			</v-tabs>
+		</template>
+	</v-app-bar>
 </template>
 
 <script lang="ts">
+import { VAppBar, VAppBarTitle } from 'vuetify/components/VAppBar';
+import { VBtn } from 'vuetify/components/VBtn';
+import { VSpacer } from 'vuetify/components/VGrid';
+import { VTab, VTabs } from 'vuetify/components/VTabs';
 import UserMenu from './UserMenu.vue';
 import { CdxIcon } from '@wikimedia/codex';
 import { cdxIconLinkExternal } from '@wikimedia/codex-icons';
+import spLogo from '../assets/spiderpig.png';
 
 export default {
 	name: 'SpNavigation',
 	components: {
 		UserMenu,
-		CdxIcon
+		CdxIcon,
+		VAppBar,
+		VAppBarTitle,
+		VBtn,
+		VSpacer,
+		VTab,
+		VTabs
 	},
 
 	setup() {
 		return {
-			cdxIconLinkExternal
+			cdxIconLinkExternal,
+			spLogo
 		};
 	}
 };
 </script>
 
-<style lang="less" scoped>
+<style lang="less">
 @import ( reference ) '@wikimedia/codex-design-tokens/theme-wikimedia-ui.less';
 @import ( reference ) '@wikimedia/codex/mixins/link.less';
 
-.navigation {
-	display: flex;
-	align-items: center;
-	color: @color-base;
-
-	&__start {
-		flex: 0 0 3rem;
-
-		img {
-			width: @size-300;
-			height: @size-300;
-		}
+.sp-navigation {
+	.v-toolbar__content {
+		overflow: inherit;
 	}
 
-	&__center {
-		flex: 1 1 auto;
-		display: flex;
-		flex-direction: column;
-		font-family: Montserrat, Avenir, Corbel, 'URW Gothic', source-sans-pro, sans-serif;
-		font-size: @font-size-medium;
-		font-style: normal;
+	.sp-logo {
+		max-width: 64px;
+	}
+
+	a {
+		color: inherit;
+		text-decoration: none;
 		font-weight: @font-weight-bold;
+	}
+
+	.sp-banner {
+		font-family: Montserrat, Avenir, Corbel, 'URW Gothic', source-sans-pro, sans-serif;
+		font-size: @font-size-xxx-large;
+		font-style: normal;
 		line-height: normal;
 		letter-spacing: 0.4px;
-		padding-left: @spacing-50;
-		align-self: stretch;
-
-		a {
-			width: fit-content;
-			color: inherit;
-			border-radius: @border-radius-base;
-			text-decoration: none;
-
-			h1 {
-				color: inherit;
-				border-radius: @border-radius-base;
-				text-decoration: none;
-
-				span {
-					display: block;
-					font-size: @font-size-x-large;
-					font-weight: @font-weight-semi-bold;
-				}
-			}
-		}
 	}
 
-	&__end {
-		display: flex;
-		&___first {
-			ul {
-				list-style-type: none;
-				li {
-					a {
-						display: block;
-						padding: 0.25rem 0.5rem;
-						.cdx-mixin-link();
-						.cdx-icon {
-							color: inherit;
-						}
-					}
-				}
+	.cdx-icon {
+		color: rgb(var(--v-theme-on-surface-variant));
+	}
+
+	.cdx-toggle-button {
+		&.cdx-toggle-button--toggled-on:not(:enabled:hover) {
+			.cdx-icon {
+				color: rgb(var(--v-theme-on-surface-variant));
 			}
 		}
 	}

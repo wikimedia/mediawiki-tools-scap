@@ -20,6 +20,11 @@ class UpdateWikiversions(cli.Application):
         dest="check",
     )
     @cli.argument(
+        "--exclude",
+        help="Wiki dbs to exclude from updates, separated by commas.",
+        default="",
+    )
+    @cli.argument(
         "pairs",
         nargs="*",
         help="A sequence of one or more DBLIST and VERSION pairs."
@@ -38,6 +43,7 @@ class UpdateWikiversions(cli.Application):
             utils.abort(f"""Missing branch after '{" ".join(self.arguments.pairs)}'""")
 
         self.updates = collections.OrderedDict()
+        self.excludes = set(self.arguments.exclude.split(","))
         while self.arguments.pairs:
             dblist = self._clean_dblist_name(self.arguments.pairs.pop(0))
             branch = self.arguments.pairs.pop(0)
@@ -96,7 +102,8 @@ class UpdateWikiversions(cli.Application):
         for dblist, version in self.updates.items():
             new_dir = "php-%s" % version
             for dbname in dblists[dblist]:
-                version_rows[dbname] = new_dir
+                if dbname not in self.excludes:
+                    version_rows[dbname] = new_dir
 
         # Safely write a fresh wikiversions.json file
         tmp = json_path + ".tmp"

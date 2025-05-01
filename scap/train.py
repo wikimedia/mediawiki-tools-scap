@@ -2,31 +2,108 @@
 import prettytable
 import re
 
-from scap import cli, interaction, utils
+from scap import cli, utils
 
 GROUPS = ["testwikis", "group0", "group1", "group2"]
 
 
-class TrainInfo:
-    def __init__(self, config, io, train_version=None):
-        self.config = config
-        self.io = io
-        self.train_version = (
-            train_version if train_version else self.get_train_version()
+def fetch_remote_train_info(config) -> "TrainInfo":
+    """
+    Return a TrainInfo based on information from remote systems (Gerrit,
+    trian-blockers) and the local on-disk wikiversions from the staging
+    directory.
+
+    The TrainInfo may contain warnings that should be shown to the user in
+    interactive contexts.
+    """
+    version = utils.get_current_train_version_from_gerrit(config["gerrit_url"])
+
+    info = TrainInfo(config, version)
+
+    try:
+        tb = utils.get_current_train_info(
+            config["train_blockers_url"],
+            config["web_proxy"],
         )
-        self.groups = dict()
+        tb_version = tb["version"]
+        info.task = tb["task"]
+        info.task_url = config["phorge_url"] + "/" + tb["task"]
+        info.task_status = tb["status"]
+
+        if tb["version"] != version:
+            info.warnings.append(
+                f"Phabricator task {info.task} reports train version "
+                f"{tb_version} while Gerrit reports version {version}."
+            )
+
+    except Exception as e:
+        info.warnings.append(f"Failed to retrieve train blocker info: {e}")
+
+    info.validate()
+
+    return info
+
+
+class TrainInfo:
+    def __init__(self, config, train_version):
+        self.config = config
+        self.warnings = []
+        self.train_version = train_version
+        self.groups = {}
         self.train_is_at = None
+        self.task = None
+        self.task_status = None
+        self.task_url = None
+        self.old_version = None
+        self.group_wikis = {}
+        self.wiki_versions = {}
+
+        self.update()
+
+    def update(self):
+        """
+        Updates this TrainInfo instance with the latest on-disk information
+        (versions for each group, wikiversions, old version). Note that
+        old_version will be None if there are no old on-disk wikiversions.
+        """
 
         # FIXME: Verify that versions are ascending as we advance through groups.
         # Warn if there is an unusual arrangement.
         for group in GROUPS:
             versions = utils.get_group_versions(
-                group, config["stage_dir"], config["wmf_realm"]
+                group, self.config["stage_dir"], self.config["wmf_realm"]
             )
             self.groups[group] = versions
 
             if versions == [self.train_version]:
                 self.train_is_at = group
+
+        self.group_wikis = {
+            group: utils.get_group_wikidbs(
+                group, self.config["stage_dir"], self.config["wmf_realm"]
+            )
+            for group in self.groups
+        }
+        self.wiki_versions = utils.read_wikiversions(
+            self.config["stage_dir"],
+            self.config["wmf_realm"],
+            trim_version=True,
+        )
+
+        versions = utils.get_wikiversions_ondisk(self.config["stage_dir"])
+        if self.train_version in versions:
+            versions.remove(self.train_version)
+
+        self.old_version = versions[-1] if versions else None
+
+        return self
+
+    def validate(self):
+        if self.task_status not in ["open", "progress"]:
+            self.warnings.append(
+                f"Phabricator train task {self.task} has already been closed "
+                f"with status {self.task_status}."
+            )
 
     def visualize(self, show_positions=False):
         # Copied from https://www.asciiart.eu/vehicles/trains
@@ -70,66 +147,6 @@ ____
 
         print(table)
 
-    def get_train_version(self) -> str:
-        """
-        Returns the version of the current train.  Validation is performed
-        first to ensure that a good version will be returned.
-        """
-        gerrit_latest_version = utils.get_current_train_version_from_gerrit(
-            self.config["gerrit_url"]
-        )
-
-        try:
-            train_info = utils.get_current_train_info(
-                self.config["train_blockers_url"], self.config["web_proxy"]
-            )
-        except Exception as e:
-            complaint = f"Failed to automatically retrieve train information: {e}"
-            if not interaction.interactive():
-                utils.abort(complaint)
-
-            self.io.output_line(complaint)
-            version = self.io.input_line(
-                "Please enter the train version (e.g. 1.23.4-wmf.5): "
-            )
-            if not version:
-                utils.abort("No train version supplied.  Canceling")
-            return version
-
-        task = train_info["task"]
-        status = train_info["status"]
-        version = train_info["version"]
-
-        if status not in ["open", "progress"]:
-            check_status = self.io.prompt_user_for_confirmation(
-                f"Train task {task} has status '{status}'. Continue anyway?"
-            )
-            if not check_status:
-                utils.abort(f"Train task {task} has status '{status}'.")
-
-        if version != gerrit_latest_version:
-            utils.abort(
-                "Phabricator task {} says the train version is '{}', but '{}' is the latest available in Gerrit.".format(
-                    task, version, gerrit_latest_version
-                )
-            )
-
-        return version
-
-    def get_prior_version(self):
-        """
-        Returns the latest on-disk train version that's not the current train version, or None
-        if nothing found.
-        """
-        versions = utils.get_wikiversions_ondisk(self.config["stage_dir"])
-        if self.train_version in versions:
-            versions.remove(self.train_version)
-
-        if not versions:
-            return None
-
-        return versions[-1]
-
 
 @cli.command(
     "train",
@@ -155,10 +172,16 @@ class Train(cli.Application):
         if self.arguments.forward and self.arguments.backward:
             raise SystemExit("Please choose one of --forward or --backward")
 
-        info = TrainInfo(self.config, self.get_io())
-        train_version = info.train_version
-        self.old_version = info.get_prior_version()
+        info = fetch_remote_train_info(self.config)
+        io = self.get_io()
+        if info.warnings and io is not None:
+            if not io.prompt_user_for_confirmation(
+                "WARNING:\n\n" + "\n".join(info.warnings) + "\n\nContinue?",
+            ):
+                utils.abort("Canceled due to warnings.")
 
+        train_version = info.train_version
+        self.old_version = info.old_version
         train_is_at = info.train_is_at
         info.visualize()
         print()
@@ -219,7 +242,7 @@ class Train(cli.Application):
             self._deploy_promote(stops[target_pos], train_version)
 
         # Re-read train info and show final visualization
-        TrainInfo(self.config, self.get_io(), train_version).visualize()
+        info.update().visualize()
 
     def _deploy_promote(self, group, version):
         args = []

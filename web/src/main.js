@@ -1,6 +1,7 @@
 import { createApp } from 'vue';
 import { createPinia } from 'pinia';
 import router from './router';
+import { spLight } from './themes';
 import App from './App.vue';
 import './assets/reset.css';
 
@@ -11,7 +12,10 @@ import { createVuetify } from 'vuetify';
 
 const vuetify = createVuetify( {
 	theme: {
-		defaultTheme: 'light'
+		defaultTheme: 'spLight',
+		themes: {
+			spLight
+		}
 	},
 	defaults: {
 		VField: {

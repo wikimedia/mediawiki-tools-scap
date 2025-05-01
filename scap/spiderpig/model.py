@@ -1,10 +1,17 @@
+import enum
 import json
 import logging
 import os
 import time
 
-from typing import List, Optional
-from sqlalchemy import ForeignKey, select, delete, text, null
+from typing import Dict, List, Optional
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+)
+from pydantic.alias_generators import to_camel
+from sqlalchemy import ForeignKey, select, delete, text, null, Enum
 from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, Session
 from alembic.autogenerate import produce_migrations
@@ -12,8 +19,27 @@ from alembic.migration import MigrationContext
 from alembic.operations import Operations
 from alembic.operations.ops import ModifyTableOps
 
+from scap import train
+
+
+class BasePydantic(BaseModel):
+    """
+    BasePydantic should be used for models that are not database backed
+    (non-ORM).
+    """
+
+    model_config = ConfigDict(
+        alias_generator=to_camel,
+        populate_by_name=True,
+        from_attributes=True,
+    )
+
 
 class Base(DeclarativeBase):
+    """
+    Base should be used for database backed models (ORMs).
+    """
+
     pass
 
 
@@ -83,10 +109,20 @@ class AlreadyFinished(Exception):
     pass
 
 
+class JobType(enum.Enum):
+    BACKPORT = "backport"
+    TRAIN = "train"
+
+
 class Job(Base):
     __tablename__ = "job"
 
     id: Mapped[int] = mapped_column(primary_key=True)
+    type: Mapped[JobType] = mapped_column(
+        Enum(JobType, length=50),
+        server_default="BACKPORT",
+        nullable=False,
+    )
     user: Mapped[str]
     command: Mapped[str]  # Expected to be a JSON-encoded list.
     queued_at: Mapped[float] = mapped_column(default=time.time)
@@ -97,12 +133,16 @@ class Job(Base):
     data: Mapped[Optional[str]]  # Optional auxiliary information in JSON format
 
     @classmethod
-    def add(cls, session, user: str, command: List[str], data=None) -> int:
+    def add(
+        cls, type: JobType, session, user: str, command: List[str], data=None
+    ) -> int:
         """Create a new Job record and add it to the database.
 
         :returns: The job id
         """
-        job = Job(user=user, command=json.dumps(command), data=json.dumps(data))
+        job = Job(
+            type=type, user=user, command=json.dumps(command), data=json.dumps(data)
+        )
         session.execute(text("BEGIN IMMEDIATE"))
         session.add(job)
         session.commit()
@@ -345,6 +385,95 @@ class Interaction(Base):
         self.responded_by = responded_by
         self.response = response
         session.commit()
+
+
+class TrainGroup(BasePydantic):
+    name: str
+    versions: List[str]
+    wikis: List[str]
+    selected_wikis: List[str] = Field(
+        default_factory=lambda data: data["wikis"],
+    )
+    has_rolled: bool = False
+
+
+class TrainStatus(BasePydantic):
+    groups: List[TrainGroup]
+    version: str
+    old_version: str
+    at_group: str
+    wiki_versions: Dict[str, str]
+    wiki_count: int
+    task: str
+    task_url: str
+    task_status: str
+    warnings: List[str]
+
+    @classmethod
+    def from_info(cls, info: train.TrainInfo):
+        rolled_group_i = -1
+        if info.train_is_at is not None:
+            try:
+                rolled_group_i = train.GROUPS.index(info.train_is_at)
+            except ValueError:
+                pass
+
+        return cls(
+            groups=[
+                TrainGroup(
+                    name=name,
+                    versions=[version for version in info.groups[name]],
+                    wikis=[wiki for wiki in info.group_wikis[name]],
+                    has_rolled=rolled_group_i >= i,
+                )
+                for i, name in enumerate(train.GROUPS)
+            ],
+            version=info.train_version,
+            old_version=info.old_version,
+            at_group=info.train_is_at,
+            wiki_versions=info.wiki_versions,
+            wiki_count=len(info.wiki_versions),
+            task=info.task,
+            task_url=info.task_url,
+            task_status=info.task_status,
+            warnings=info.warnings,
+        )
+
+
+class TrainPromotion(BasePydantic):
+    group: str
+    version: str
+    old_version: str
+    excluded_wikis: List[str] = []
+    original_train_status: TrainStatus
+
+    def add_job(self, **kwargs) -> int:
+        return Job.add(
+            JobType.TRAIN,
+            command=self.command,
+            data=self.data,
+            **kwargs,
+        )
+
+    @property
+    def command(self):
+        cmd = [
+            "scap",
+            "deploy-promote",
+            "--yes",
+            "--train",
+            "--old-version",
+            self.old_version,
+        ]
+
+        if self.excluded_wikis:
+            cmd += ["--exclude-wikis", ",".join(self.excluded_wikis)]
+
+        return cmd + [self.group, self.version]
+
+    @property
+    def data(self):
+        return self.dict(by_alias=True)
 
 
 def setup_db(engine, db_filename):
