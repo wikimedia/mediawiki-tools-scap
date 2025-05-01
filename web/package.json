@@ -16,6 +16,8 @@
 		"@wikimedia/codex-design-tokens": "^1.23.0",
 		"@xterm/addon-fit": "^0.10.0",
 		"@xterm/xterm": "^5.5.0",
+		"linkify-string": "^4.2.0",
+		"linkifyjs": "^4.2.0",
 		"pinia": "^2.2.4",
 		"vue": "^3.5.13",
 		"vue-router": "^4.4.5",
