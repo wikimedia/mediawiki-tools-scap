@@ -1,35 +1,39 @@
 <template>
-	<cdx-menu-button
-		v-model:selected="selection"
-		:menu-items="menuItems"
-		aria-label="Choose an option"
-		@update:selected="onSelect"
-	>
-		<cdx-icon :icon="cdxIconUserActive" />
-	</cdx-menu-button>
+	<v-menu>
+		<template #activator="{ props }">
+			<v-btn color="surface-variant" v-bind="props">
+				<cdx-icon :icon="cdxIconUserActive" />
+			</v-btn>
+		</template>
+		<v-list>
+			<v-list-item
+				v-for="( item, i ) in menuItems"
+				:key="i"
+				v-bind="item"
+				@click="onSelect( item.value )"
+			/>
+		</v-list>
+	</v-menu>
 </template>
 
 <script>
 import { defineComponent, ref, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
-import { CdxMenuButton, CdxIcon } from '@wikimedia/codex';
-import { cdxIconUserActive, cdxIconLogOut } from '@wikimedia/codex-icons';
+import { CdxIcon } from '@wikimedia/codex';
+import { cdxIconUserActive } from '@wikimedia/codex-icons';
 import useApi from '../api';
 
 const menuItems = ref( [] );
 
 export default defineComponent( {
 	name: 'UserMenu',
-	components: { CdxMenuButton, CdxIcon },
+	components: { CdxIcon },
 	setup() {
 		const api = useApi();
 		const router = useRouter();
 		const adminUrl = router.resolve( { name: 'admin' } ).href;
-		const selection = ref( null );
 
 		async function onSelect( operation ) {
-			selection.value = null;
-
 			if ( operation === 'signout' ) {
 				const SSOLogoutUrl = await api.logout();
 				document.location = SSOLogoutUrl;
@@ -43,7 +47,7 @@ export default defineComponent( {
 
 			if ( !resp.user ) {
 				// The user is not signed in.
-				menuItems.value = [ { label: 'Sign In', value: 'signin', url: resp.loginUrl } ];
+				menuItems.value = [ { title: 'Sign In', value: 'signin', href: resp.loginUrl } ];
 				return;
 			}
 
@@ -53,11 +57,11 @@ export default defineComponent( {
 
 			// The menuitem for the user doesn't do anything, so make it disabled.
 			// In the future it could send the user to a user settings page.
-			items.push( { label: `Welcome ${ resp.user }!`, value: 'user', disabled: true, boldLabel: true } );
+			items.push( { title: `Welcome ${ resp.user }!`, value: 'user', link: false, color: 'primary' } );
 			if ( resp.isAdmin ) {
-				items.push( { label: 'Admin operations', value: 'admin', url: adminUrl } );
+				items.push( { title: 'Admin operations', value: 'admin', href: adminUrl } );
 			}
-			items.push( { label: 'Sign Out', value: 'signout', icon: cdxIconLogOut } );
+			items.push( { title: 'Sign Out', value: 'signout', 'append-icon': 'mdi-logout' } );
 
 			menuItems.value = items;
 		}
@@ -67,7 +71,6 @@ export default defineComponent( {
 		} );
 
 		return {
-			selection,
 			menuItems,
 			onSelect,
 			cdxIconUserActive
