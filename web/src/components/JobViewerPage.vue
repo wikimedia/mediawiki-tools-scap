@@ -1,11 +1,11 @@
 <template>
-	<div class="job-view__header">
-		<h2 v-if="job">
-			Job #{{ job.id }}
-		</h2>
-		<div class="job-view__header__buttons">
+	<v-toolbar v-if="job">
+		<template #title>
+			<h2>Job #{{ job.id }}</h2>
+		</template>
+		<template #append>
 			<cdx-button
-				@click="$router.push( '/' )"
+				@click="$router.back()"
 			>
 				Close
 			</cdx-button>
@@ -18,23 +18,26 @@
 			>
 				<cdx-icon :icon="cdxIconEllipsis" />
 			</cdx-menu-button>
-		</div>
-	</div>
-	<br>
-	<sp-interaction
-		v-if="interaction"
-		:interaction="interaction"
-	/>
+		</template>
+	</v-toolbar>
+	<v-sheet color="surface-light">
+		<sp-interaction
+			v-if="interaction"
+			:interaction="interaction"
+		/>
 
-	<sp-job-card
-		v-if="job"
-		:key="job.id"
-		v-bind="job"
-	/>
+		<sp-job-card
+			v-if="job"
+			:key="job.id"
+			v-bind="job"
+		/>
+	</v-sheet>
 </template>
 
 <script lang="ts">
 import { defineComponent, ref, onMounted, onUnmounted } from 'vue';
+import { VSheet } from 'vuetify/components/VSheet';
+import { VToolbar } from 'vuetify/components/VToolbar';
 import useApi from '../api';
 import SpInteraction from './Interaction.vue';
 import SpJobCard from './JobCard.vue';
@@ -49,7 +52,9 @@ export default defineComponent( {
 		SpJobCard,
 		CdxButton,
 		CdxMenuButton,
-		CdxIcon
+		CdxIcon,
+		VSheet,
+		VToolbar
 	},
 
 	props: {
@@ -134,19 +139,3 @@ export default defineComponent( {
 	}
 } );
 </script>
-
-<style lang="less">
-@import '@wikimedia/codex-design-tokens/theme-wikimedia-ui.less';
-
-.job-view {
-	&__header {
-		display: flex;
-		justify-content: space-between;
-
-		&__buttons {
-				display: flex;
-				gap: @spacing-75;
-		}
-	}
-}
-</style>

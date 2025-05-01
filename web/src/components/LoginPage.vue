@@ -1,30 +1,33 @@
 <template>
-	<form @submit.prevent="login">
-		<cdx-field :status="status" :messages="messages">
-			<cdx-label input-id="password">
-				Please enter using your one time password
-				<template #description>
-					To generate the one time password run:
-					<code>ssh {{ user }}@{{ otpHost }} scap spiderpig-otp</code>
-				</template>
-			</cdx-label>
+	<v-sheet color="suface-light">
+		<form @submit.prevent="login">
+			<cdx-field :status="status" :messages="messages">
+				<cdx-label input-id="password">
+					Please enter using your one time password
+					<template #description>
+						To generate the one time password run:
+						<code>ssh {{ user }}@{{ otpHost }} scap spiderpig-otp</code>
+					</template>
+				</cdx-label>
 
-			<cdx-text-input
-				id="password"
-				v-model="password"
-			/>
+				<cdx-text-input
+					id="password"
+					v-model="password"
+					input-type="password"
+				/>
 
-			<br>
+				<br>
 
-			<cdx-button
-				action="progressive"
-				weight="primary"
-				:disabled="loginButtonDisabled"
-			>
-				Login
-			</cdx-button>
-		</cdx-field>
-	</form>
+				<cdx-button
+					action="progressive"
+					weight="primary"
+					:disabled="loginButtonDisabled"
+				>
+					Login
+				</cdx-button>
+			</cdx-field>
+		</form>
+	</v-sheet>
 </template>
 
 <script lang="ts">
