@@ -97,6 +97,20 @@ const useAuthStore = defineStore( 'spiderpig-auth',
 					return response;
 				}
 			},
+			async post( url, obj, fetchOptions = {}, callOptions = {} ) {
+				return await this.call(
+					url,
+					{
+						method: 'POST',
+						body: JSON.stringify( obj ),
+						headers: {
+							'Content-Type': 'application/json'
+						},
+						...fetchOptions
+					},
+					callOptions
+				);
+			},
 			async login2( otp ) {
 				const response = await this.call(
 					'/api/2fa',
@@ -208,10 +222,11 @@ const useAuthStore = defineStore( 'spiderpig-auth',
 					}
 				);
 			},
-			async startTrain() {
-				await this.call( '/api/jobs/train', {
-					method: 'POST'
-				} );
+			async startTrain( promotion ) {
+				return await this.post( '/api/jobs/train', promotion );
+			},
+			async trainStatus() {
+				return await this.call( '/api/train/status' );
 			},
 			async searchPatch( changeNumOrUrl ) {
 				const url = this.makeApiUrl( '/api/searchPatch' );

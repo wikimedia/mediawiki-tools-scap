@@ -89,6 +89,11 @@ class DeployPromote(cli.Application):
         action="store_true",
         help="Pause after syncing testservers and prompt the user to confirm to continue syncing",
     )
+    @cli.argument(
+        "--exclude-wikis",
+        help="Wikis to exclude from promotion, separated by commas.",
+        default="",
+    )
     def main(self, *extra_args):
         self.logger = self.get_logger()
 
@@ -96,6 +101,7 @@ class DeployPromote(cli.Application):
             utils.abort("--old-version must be used along with --train")
 
         self.group = self.arguments.group
+
         self._check_group()
         self._check_user_auth_sock()
 
@@ -142,16 +148,21 @@ class DeployPromote(cli.Application):
     def _update_versions(self):
         self._set_messages()
 
+        cmd = ["update-wikiversions", "--no-check"]
+
+        if self.arguments.exclude_wikis != "":
+            cmd += ["--exclude", self.arguments.exclude_wikis]
+
         if self.arguments.train:
-            args = ["all", self.arguments.old_version]
+            cmd += ["all", self.arguments.old_version]
             for group in train.GROUPS:
-                args += [group, self.promote_version]
+                cmd += [group, self.promote_version]
                 if group == self.group:
                     break
         else:
-            args = [self.group, self.promote_version]
+            cmd += [self.group, self.promote_version]
 
-        self.scap_check_call(["update-wikiversions", "--no-check"] + args)
+        self.scap_check_call(cmd)
         self._create_version_update_patch()
         self._sync_versions()
 

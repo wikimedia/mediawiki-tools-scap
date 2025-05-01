@@ -139,9 +139,11 @@
 								<div class="job-card__details__change-info__label">
 									Commit message
 								</div>
+								<!-- eslint-disable vue/no-v-html -->
 								<pre
 									class="job-card__details__change-info__commit-msg"
 									v-html="info.formattedCommitMsg" />
+								<!-- eslint-enable vue/no-v-html -->
 							</div>
 						</cdx-accordion>
 					</div>

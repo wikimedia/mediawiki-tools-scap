@@ -1,5 +1,5 @@
 <template>
-	<div id="job-history" class="job-history">
+	<v-sheet id="job-history" class="job-history">
 		<h2 class="job-history__heading">
 			Job History
 		</h2>
@@ -54,11 +54,12 @@
 				</p>
 			</div>
 		</div>
-	</div>
+	</v-sheet>
 </template>
 
 <script lang="ts">
 import { ref, onMounted, onUnmounted } from 'vue';
+import { VSheet } from 'vuetify/components/VSheet';
 import { CdxButton } from '@wikimedia/codex';
 import SpJobCard from './JobCard.vue';
 import useApi from '../api';
@@ -69,7 +70,8 @@ export default {
 	name: 'SpJobHistory',
 	components: {
 		SpJobCard,
-		CdxButton
+		CdxButton,
+		VSheet
 	},
 	emits: [
 		'rowClicked'

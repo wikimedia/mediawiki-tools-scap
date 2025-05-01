@@ -34,8 +34,15 @@
 				"vue/no-undef-components": [ "error", {
 					"ignorePatterns": [
 						"router-link",
-						"router-view"
+						"router-view",
+						"v-*"
 					]
+				} ],
+				"vue/max-attributes-per-line": [ "warn", {
+					"singleline": 4
+				} ],
+				"vue/no-parsing-error": [ "error", {
+					"unexpected-character-in-attribute-name": false
 				} ]
 			}
 		}

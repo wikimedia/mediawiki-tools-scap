@@ -1,14 +1,23 @@
 import { createWebHistory, createRouter } from 'vue-router';
 import AdminPage from './components/AdminPage.vue';
 import LoginPage from './components/LoginPage.vue';
-import OverviewPage from './components/OverviewPage.vue';
 import JobViewerPage from './components/JobViewerPage.vue';
 import NotAuthorized from './components/NotAuthorized.vue';
+import BackportPage from './components/BackportPage.vue';
+import TrainPage from './components/TrainPage.vue';
 
 const routes = [
 	{
 		path: '/',
-		component: OverviewPage
+		component: BackportPage
+	},
+	{
+		path: '/mediawiki/backport',
+		component: BackportPage
+	},
+	{
+		path: '/mediawiki/train',
+		component: TrainPage
 	},
 	{
 		path: '/login',
