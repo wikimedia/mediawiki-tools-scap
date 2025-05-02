@@ -36,6 +36,7 @@ deployment_configs = [
       mw_flavour: publish
       web_flavour: webserver
       dir: anothercluster
+      clusters: [another-k8s-cluster]
 
     # multiple releases, one mapped to the canaries stage, and another marked
     # non-deploy, which also selects the cli image kind.
@@ -74,6 +75,7 @@ deployment_configs = [
                     "web_image_fl": "webserver",
                     "deploy": True,
                     "cluster_dir": None,
+                    "clusters": None,
                 },
             ],
             "canaries": [
@@ -85,6 +87,7 @@ deployment_configs = [
                     "web_image_fl": "webserver",
                     "deploy": True,
                     "cluster_dir": None,
+                    "clusters": None,
                 },
                 {
                     "namespace": "api3",
@@ -94,6 +97,7 @@ deployment_configs = [
                     "web_image_fl": "webserver",
                     "deploy": True,
                     "cluster_dir": None,
+                    "clusters": None,
                 },
             ],
             "production": [
@@ -105,6 +109,7 @@ deployment_configs = [
                     "web_image_fl": "webserver",
                     "deploy": True,
                     "cluster_dir": "anothercluster",
+                    "clusters": ["another-k8s-cluster"],
                 },
                 {
                     "namespace": "api2",
@@ -114,6 +119,7 @@ deployment_configs = [
                     "web_image_fl": "webserver",
                     "deploy": True,
                     "cluster_dir": None,
+                    "clusters": None,
                 },
                 {
                     "namespace": "api2",
@@ -123,6 +129,7 @@ deployment_configs = [
                     "web_image_fl": "webserver",
                     "deploy": False,
                     "cluster_dir": None,
+                    "clusters": None,
                 },
                 {
                     "namespace": "api3",
@@ -132,6 +139,7 @@ deployment_configs = [
                     "web_image_fl": "webserver",
                     "deploy": True,
                     "cluster_dir": None,
+                    "clusters": None,
                 },
                 {
                     "namespace": "api3",
@@ -141,6 +149,7 @@ deployment_configs = [
                     "web_image_fl": "exciting-new-webserver",
                     "deploy": True,
                     "cluster_dir": None,
+                    "clusters": None,
                 },
             ],
         },
