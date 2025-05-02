@@ -1,16 +1,40 @@
-import collections
 import json
 import logging
-import math
 import os
-import statistics
+import time
 import urllib3
 
-from scap import cli, kubernetes, log, logstash_poller, targets
+from scap import cli, log, utils
 
 
 class CheckServiceError(Exception):
     pass
+
+
+LOG_FILE = "logstash_errors.json"
+DEFAULT_WINDOW = 600
+POLL_INTERVAL = 15
+
+
+def main(cfg, logger, results_dir):
+    """
+    Start the logstash poller.
+    """
+    poller = LogstashPoller(
+        cfg["logstash_host"],
+        DEFAULT_WINDOW,
+        logger,
+    )
+    while True:
+        try:
+            results = poller.poll()
+            summary = poller.summarize_errors(results)
+            with utils.temp_to_permanent_file(os.path.join(results_dir, LOG_FILE)) as f:
+                json.dump(summary, f)
+        except Exception as e:
+            logger.error(f"Polling error: {e}")
+
+        time.sleep(POLL_INTERVAL)
 
 
 @cli.command(
@@ -21,24 +45,17 @@ class LogstashPollCommand(cli.Application):
     @cli.argument(
         "--window",
         dest="window",
+        default=DEFAULT_WINDOW,
         metavar="INT",
         help="Window (seconds into the past) to poll",
         type=int,
     )
-    @cli.argument(
-        "--plain",
-        action="store_true",
-        help="Output summary in plaintext",
-    )
     def main(self, *extra_args):
-        if self.arguments.window:
-            window = self.arguments.window
-        else:
-            window = 600
+        window = self.arguments.window
 
         logger = self.get_logger()
 
-        poller = logstash_poller.LogstashPoller(
+        poller = LogstashPoller(
             self.config["logstash_host"],
             window,
             logger,
@@ -46,10 +63,8 @@ class LogstashPollCommand(cli.Application):
         results = poller.poll()
         summary = poller.summarize_errors(results)
 
-        if self.arguments.plain:
-            print(summary)
-        else:
-            logger.info(summary)
+        for message, count in summary.items():
+            logger.info(f"{count}\t{message}")
 
 
 class LogstashPoller:
@@ -65,7 +80,7 @@ class LogstashPoller:
 
     def poll(self) -> bool:
         """
-        Retrieve canary errors for the last self.window_size seconds.
+        Retrieve errors for the last self.window_size seconds.
         """
 
         q = self._build_query()
@@ -76,8 +91,8 @@ class LogstashPoller:
         hits_rel = hits_total["relation"]
         assert hits_rel in ["eq", "gte"]
 
-        prefix = f"Logstash poller counted {count} error(s) in the last {self.window_size} seconds"
-        self.logger.debug("%s", prefix)
+        log_count_msg = f"Logstash poller counted {count} error(s) in the last {self.window_size} seconds"
+        self.logger.debug(log_count_msg)
 
         return r
 
@@ -93,27 +108,25 @@ class LogstashPoller:
         Build a query filtering for the relevant hosts/labels, record type, and channel.
         """
 
-        query = f"type:mediawiki AND channel:(exception OR error)"
+        query = "type:mediawiki AND channel:(exception OR error)"
 
         return {
-            # TODO: This doesn't work - figure out why.
-            # "aggs": {
-            #     "by_normalized_message": {
-            #         "terms": {
-            #             "field": "labels.normalized_message",
-            #             "order": {
-            #                 "_count": "desc"
-            #             }
-            #         }
-            #     }
-            # },
+            # TODO: Figure out how to make aggregations actually-useful:
+            "aggs": {
+                "normalized_message": {
+                    "terms": {
+                        "field": "normalized_message.keyword",
+                        "order": {"_count": "desc"},
+                    },
+                },
+            },
             "query": {
                 "bool": {
                     "filter": [
-                        { "query_string": {"query": query} },
+                        {"query_string": {"query": query}},
                     ],
                     "must_not": [
-                        { "terms": { "level": ["DEBUG"] } },
+                        {"terms": {"level": ["DEBUG"]}},
                     ],
                 }
             },
@@ -122,7 +135,13 @@ class LogstashPoller:
     def _build_query(self) -> dict:
         q = self._build_base_query()
 
-        # TODO: Really we just want everything
+        # Longterm TODO:
+        #
+        #   - Really we just want everything here.
+        #   - Per docs, the default is 10:
+        #     https://docs.opensearch.org/docs/latest/api-reference/search/
+        #   - Unclear at what point you have to paginate or something.
+
         # Return up to 500 log records
         q["size"] = 500
 
@@ -193,21 +212,29 @@ class LogstashPoller:
         return r
 
     def summarize_errors(self, r):
-        hits = collections.Counter()
-        for hit in r["hits"]["hits"]:
-            hit = hit["_source"]
-            message = hit.get("normalized_message") or hit.get("message")
-            message = message.replace("\n", " ")
+        errors = {}
 
+        for hit in r.get("hits", {}).get("hits"):
+            hit = hit.get("_source", {})
+            message = hit.get("normalized_message") or hit.get("message")
+
+            # Trim some boilerplate:
             if message.startswith("[{reqId}] {exception_url}   "):
                 message = message[len("[{reqId}] {exception_url}   ") :]
 
-            hits[message] += 1
+            # Potential TODO: Use aggregations here instead
+            if message not in errors:
+                errors[message] = {}
+                errors[message]["count"] = 0
+                errors[message]["versions"] = []
+                # TODO: first seen
+                # TODO: last seen
+                # TODO: little sparkline / histogram?
 
-        hit_counts = hits.most_common()
+            # This could be a set, but sets aren't JSON-serializable
+            mwversion = hit.get("mwversion")
+            if mwversion and mwversion not in errors[message]["versions"]:
+                errors[message]["versions"].append(hit.get("mwversion"))
+            errors[message]["count"] = errors[message]["count"] + 1
 
-        msg = []
-        for message, count in hit_counts:
-            msg.append(f"[{count} hits] {message}")
-
-        return "\n".join(msg)
+        return errors

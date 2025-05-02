@@ -41,7 +41,6 @@ import scap.lint as lint
 import scap.lock as lock
 import scap.log as log
 import scap.logstash_checker as logstash_checker
-import scap.logstash_poller as logstash_poller
 import scap.mwscript as mwscript
 import scap.php_fpm as php_fpm
 import scap.ssh as ssh
