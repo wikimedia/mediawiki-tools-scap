@@ -1,3 +1,12 @@
+scap (4.159.0)
+
+  * spiderpig: auto select first backport search match
+  * spiderpig: Send HTTP access log to syslog if use_syslog enabled
+  * spiderpig: dismiss notifications when user selects interaction choice
+  * log.py: @version should be "1"
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Fri, 02 May 2025 07:38:24 -0700
+
 scap (4.158.0)
 
   * spiderpig: ensure each interaction is notified only once
