@@ -12,7 +12,7 @@
 
 		<div class="backport__input">
 			<v-autocomplete
-				ref="$autocomplete"
+				ref="autocomplete"
 				v-model="changeNumbers"
 				:disabled="!idle"
 				:hide-no-data="hideNoData"
@@ -96,7 +96,7 @@ export default {
 	},
 
 	setup( props ) {
-		const $autocomplete = ref( null );
+		const autocomplete = ref( null );
 		const api = useApi();
 		const notifications = notificationsStore();
 		const alertDialogOpen = ref( false );
@@ -159,11 +159,11 @@ export default {
 		}
 
 		async function closeMenu() {
-			$autocomplete.value.menu = false;
+			autocomplete.value.menu = false;
 		}
 
 		return {
-			$autocomplete,
+			autocomplete,
 			alertDialogOpen,
 			alertDialogText,
 			alertDialogUseCloseButton,
