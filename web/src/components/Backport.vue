@@ -36,14 +36,12 @@
 				@update:search="onSearch"
 				@keydown.enter.stop.prevent="closeMenu"
 			>
-				<template #item="{ index, props, item }">
+				<template #item="{ index, props }">
 					<v-list-item
 						v-bind="props"
 						:key="index"
 						role="option"
-					>
-						{{ item.text }}
-					</v-list-item>
+					/>
 				</template>
 				<template #no-data>
 					<v-list-item>No results found.</v-list-item>
