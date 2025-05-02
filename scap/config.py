@@ -138,7 +138,7 @@ DEFAULT_CONFIG = {
     # Comma separated list of the clusters we will deploy to
     "k8s_clusters": (str, "eqiad, codfw"),
     "k8s_deployments_file": (str, "/etc/helmfile-defaults/mediawiki-deployments.yaml"),
-    "k8s_max_concurrent_deployments_per_dc": (int, 20),
+    "k8s_max_concurrent_deployments_per_cluster": (int, 20),
     "k8s_deployments_info_target_freshness": (int, 10),
     # End settings related to building and deploying mediawiki container image
     # Settings related to scap installation

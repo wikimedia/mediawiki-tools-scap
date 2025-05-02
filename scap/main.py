@@ -381,13 +381,13 @@ class AbstractSync(cli.Application):
             for diff in sorted(
                 diffs,
                 key=lambda diff: (
-                    diff["datacenter"],
+                    diff["cluster"],
                     diff["namespace"],
                     diff["release"],
                 ),
             ):
                 self.output_line(
-                    "=== Diff for {datacenter}/{namespace}-{release} in {stage} ===\n{diff_stdout}".format(
+                    "=== Diff for {cluster}/{namespace}-{release} in {stage} ===\n{diff_stdout}".format(
                         stage=stage, **diff
                     ),
                     sensitive=True,  # Diffs may contain sensitive values.

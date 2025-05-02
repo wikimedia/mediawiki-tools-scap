@@ -1,4 +1,5 @@
 import base64
+from collections import defaultdict
 import concurrent.futures
 import contextlib
 from dataclasses import dataclass
@@ -100,8 +101,12 @@ class DeploymentsConfig:
         images for the specified image kind.
       web_flavour: Default image flavour for the httpd image used by releases in this namespace.
         This must correspond to an image flavour built and published by the build process.
-      dir: the directory, under the configured helmfile_deployments_dir, in which the releases are
-        found. Defaults to the value of helmfile_deployments_dir.
+      dir: The directory, under the configured helmfile_deployments_dir, in which the releases are
+        found. Optional (default: the value of helmfile_default_cluster_dir).
+      clusters: A list of k8s clusters where this namespace and associated releases are deployed.
+        In practice, these align with the helmfile environment names relevant to these releases,
+        which we use as a mechanism to select cluster-specific configuration. Optional (default:
+        the value of k8s_clusters).
 
     The configuration of each release has the following fields:
       stage: Name of the stage in which this release should be updated - one of production, canary,
@@ -142,6 +147,7 @@ class DeploymentsConfig:
       mw_flavour: publish
       web_flavour: webserver
       dir: dse
+      clusters: ["dse-eqiad"]
 
     will produce the following DeploymentsConfig.stages:
 
@@ -154,6 +160,7 @@ class DeploymentsConfig:
         "web_image_fl": "webserver",
         "deploy": True,
         "cluster_dir": None,
+        "clusters": None,
       }],
       "canaries": [{
         "namespace": "api1",
@@ -163,6 +170,7 @@ class DeploymentsConfig:
         "web_image_fl": "webserver",
         "deploy": True,
         "cluster_dir": None,
+        "clusters": None,
       }],
       "production": [{
         "namespace": "api1",
@@ -172,6 +180,7 @@ class DeploymentsConfig:
         "web_image_fl": "webserver",
         "deploy": True,
         "cluster_dir": None,
+        "clusters": None,
         }, {
         "namespace": "api2",
         "release": "main",
@@ -180,6 +189,7 @@ class DeploymentsConfig:
         "web_image_fl": "webserver",
         "deploy": True,
         "cluster_dir": "dse",
+        "clusters": ["dse-eqiad"],
         }, {
         "namespace": "api2",
         "release": "experimental",
@@ -188,6 +198,7 @@ class DeploymentsConfig:
         "web_image_fl": "webserver",
         "deploy": True,
         "cluster_dir": "dse",
+        "clusters": ["dse-eqiad"],
         }, {
         "namespace": "api2",
         "release": "maintenance",
@@ -196,6 +207,7 @@ class DeploymentsConfig:
         "web_image_fl": "webserver",
         "deploy": False,
         "cluster_dir": "dse"
+        "clusters": ["dse-eqiad"],
       }]
      }
 
@@ -207,11 +219,13 @@ class DeploymentsConfig:
     * https://phabricator.wikimedia.org/T370934
     * https://phabricator.wikimedia.org/T387917
     * https://phabricator.wikimedia.org/T389499
+    * https://phabricator.wikimedia.org/T388761
     """
 
-    # The directory under which configurations for the specific cluster are located
+    # The k8s clusters in which this namespace is defined and associated releases are deployed.
+    CLUSTERS = "clusters"
+    # The directory under which helmfile configurations for these k8s clusters are located.
     CLUSTER_DIR = "cluster_dir"
-    # The K8s namespace is also sometimes referred to as "cluster"
     NAMESPACE = "namespace"
     # Helmfile release
     RELEASE = "release"
@@ -243,6 +257,7 @@ class DeploymentsConfig:
         for dep_config in deployments:
             dep_namespace = dep_config["namespace"]
             cluster_dir = dep_config.get("dir", None)
+            clusters = dep_config.get("clusters")
 
             if dep_namespace in namespaces:
                 raise InvalidDeploymentsConfig(
@@ -275,6 +290,7 @@ class DeploymentsConfig:
                     cls.WEB_IMAGE_FLAVOUR: web_flavour,
                     cls.DEPLOY: config.get("deploy", True),
                     cls.CLUSTER_DIR: cluster_dir,
+                    cls.CLUSTERS: clusters,
                 }
                 if stage == TEST_SERVERS:
                     testservers.append(parsed_dep_config)
@@ -305,7 +321,8 @@ class K8sOps:
         )
         self.helm_env = self._collect_helm_env()
         self.original_helmfile_values = {}
-        self.traindev = self._get_deployment_datacenters() == ["traindev"]
+        self.default_clusters = re.split(r"[,\s]+", self.app.config["k8s_clusters"])
+        self.traindev = self.default_clusters == ["traindev"]
         self.build_state_dir = os.path.join(
             app.config["stage_dir"], "scap", "image-build"
         )
@@ -420,14 +437,14 @@ class K8sOps:
 
     # Called by AbstractSync.main
     def helmfile_diffs_for_stage(self, stage: str):
-        def diff_for_datacenter_and_deployment(datacenter, dep_config, report_queue):
+        def diff_for_cluster_and_deployment(cluster, dep_config, report_queue):
             namespace = dep_config[DeploymentsConfig.NAMESPACE]
             release = dep_config[DeploymentsConfig.RELEASE]
             helmfile_dir = self._get_helmfile_path_for(dep_config)
             cmd = [
                 "helmfile",
                 "-e",
-                datacenter,
+                cluster,
                 "--selector",
                 "name={}".format(release),
                 "diff",
@@ -436,19 +453,17 @@ class K8sOps:
             ]
             logger = logging.getLogger("scap.k8s.diff")
             return {
-                "datacenter": datacenter,
+                "cluster": cluster,
                 "namespace": namespace,
                 "release": release,
                 "diff_stdout": self._cmd_stdout(cmd, helmfile_dir, logger),
             }
 
         dep_configs = self.k8s_deployments_config.stages[stage]
-        datacenters = self._get_deployment_datacenters()
         try:
-            return self._foreach_datacenter_and_deployment(
-                datacenters,
+            return self._foreach_cluster_and_deployment(
                 dep_configs,
-                diff_for_datacenter_and_deployment,
+                diff_for_cluster_and_deployment,
                 "Diff",
                 progress=False,
                 # Exclude non-deploy releases from diffs, since no subsequent deploy will apply them.
@@ -489,9 +504,8 @@ class K8sOps:
             return
 
         dep_configs = self.k8s_deployments_config.stages[stage]
-        datacenters = self._get_deployment_datacenters()
         try:
-            self._deploy_to_datacenters(datacenters, dep_configs)
+            self._deploy_to_clusters(dep_configs)
         # Using BaseException so that we catch KeyboardInterrupt too
         except BaseException as e:
             self.logger.error("K8s deployment to stage %s failed: %s", stage, e)
@@ -502,7 +516,7 @@ class K8sOps:
                 self.logger.error("Rolling back to prior state...")
                 self._revert_helmfile_files(dep_configs, saved_values)
                 try:
-                    self._deploy_to_datacenters(datacenters, dep_configs)
+                    self._deploy_to_clusters(dep_configs)
                     self.logger.info("Rollback completed")
                 except BaseException as rollback_e:
                     self.logger.error(
@@ -528,6 +542,10 @@ class K8sOps:
 
         return list(res)
 
+    def _get_clusters_for_dep_config(self, dep_config):
+        clusters = dep_config[DeploymentsConfig.CLUSTERS]
+        return self.default_clusters if clusters is None else clusters
+
     def _get_helmfile_path_for(self, dep_config):
         cluster_dir = dep_config[DeploymentsConfig.CLUSTER_DIR]
         if cluster_dir is None:
@@ -537,10 +555,6 @@ class K8sOps:
             / cluster_dir
             / dep_config[DeploymentsConfig.NAMESPACE]
         )
-
-    def _get_deployment_datacenters(self) -> List[str]:
-        # FIXME: Rename this config value
-        return re.split(r"[,\s]+", self.app.config["k8s_clusters"])
 
     def _read_helmfile_files(self, dep_configs) -> dict:
         res = {}
@@ -578,18 +592,16 @@ class K8sOps:
             if commit:
                 gitcmd("commit", "-m", "Configuration(s) reverted")
 
-    def _deploy_to_datacenters(self, datacenters, dep_configs):
-        self._foreach_datacenter_and_deployment(
-            datacenters,
+    def _deploy_to_clusters(self, dep_configs):
+        self._foreach_cluster_and_deployment(
             dep_configs,
-            self._deploy_k8s_images_for_datacenter,
+            self._deploy_k8s_images_for_cluster,
             "Deployment",
             deploy_only=True,  # Exclude non-deploy releases
         )
 
-    def _foreach_datacenter_and_deployment(
+    def _foreach_cluster_and_deployment(
         self,
-        datacenters,
         dep_configs,
         func,
         description,
@@ -597,8 +609,8 @@ class K8sOps:
         deploy_only=False,
     ):
         """
-        Invokes 'func' over the product of all datacenters and dep_configs.
-        'func' must take three arguments: datacenter, dep_config, report_queue.
+        Invokes 'func' over all dep_configs and their relevant clusters.
+        'func' must take three arguments: cluster, dep_config, report_queue.
 
         Note: Invocations of 'func' are concurrent and so must be threadsafe.
 
@@ -621,20 +633,25 @@ class K8sOps:
                 if dep_config[DeploymentsConfig.DEPLOY]
             ]
 
-        if len(dep_configs) == 0 or len(datacenters) == 0:
+        cluster_dep_configs = defaultdict(list)
+        for dep_config in dep_configs:
+            for cluster in self._get_clusters_for_dep_config(dep_config):
+                cluster_dep_configs[cluster].append(dep_config)
+
+        if not cluster_dep_configs:
             return []
 
-        def foreach_deployment_in_datacenter(datacenter, report_queue):
+        def foreach_deployment_in_cluster(cluster, report_queue):
             with concurrent.futures.ThreadPoolExecutor(
                 max_workers=min(
-                    len(dep_configs),
-                    self.app.config["k8s_max_concurrent_deployments_per_dc"],
+                    len(cluster_dep_configs[cluster]),
+                    self.app.config["k8s_max_concurrent_deployments_per_cluster"],
                 )
             ) as pool:
                 futures = []
 
-                for dep_config in dep_configs:
-                    future = pool.submit(func, datacenter, dep_config, report_queue)
+                for dep_config in cluster_dep_configs[cluster]:
+                    future = pool.submit(func, cluster, dep_config, report_queue)
                     future._scap_dep_config = dep_config
                     futures.append(future)
 
@@ -663,9 +680,7 @@ class K8sOps:
 
         report_queue = None
         if progress:
-            total_expected_replicas = self._get_total_expected_replicas(
-                datacenters, dep_configs
-            )
+            total_expected_replicas = self._get_total_expected_replicas(dep_configs)
             report_queue = queue.Queue()
             reporter = threading.Thread(
                 target=self._deployment_reporter,
@@ -675,15 +690,15 @@ class K8sOps:
             reporter.start()
 
         with concurrent.futures.ThreadPoolExecutor(
-            max_workers=len(datacenters)
+            max_workers=len(cluster_dep_configs)
         ) as pool:
             futures = []
 
-            for datacenter in datacenters:
+            for cluster in cluster_dep_configs:
                 future = pool.submit(
-                    foreach_deployment_in_datacenter, datacenter, report_queue
+                    foreach_deployment_in_cluster, cluster, report_queue
                 )
-                future._scap_datacenter = datacenter
+                future._scap_cluster = cluster
                 futures.append(future)
 
             results = []
@@ -693,9 +708,7 @@ class K8sOps:
                 for future in concurrent.futures.as_completed(futures):
                     exception = future.exception()
                     if exception:
-                        failed.append(
-                            "{}: {}".format(future._scap_datacenter, exception)
-                        )
+                        failed.append("{}: {}".format(future._scap_cluster, exception))
                     else:
                         results.extend(future.result())
             finally:
@@ -719,7 +732,7 @@ class K8sOps:
 
         while True:
             # Normal entries are added to the queue in _deployment_monitor(),
-            # and _deploy_to_datacenters() adds "stop".
+            # and _deploy_to_clusters() adds "stop".
             data = report_queue.get()
 
             if data == "stop":
@@ -733,19 +746,18 @@ class K8sOps:
 
         reporter.finish()
 
-    def _get_total_expected_replicas(self, datacenters, dep_configs) -> int:
+    def _get_total_expected_replicas(self, dep_configs) -> int:
         total = 0
 
-        for datacenter in datacenters:
-            for dep_config in dep_configs:
-                release = dep_config[DeploymentsConfig.RELEASE]
-                helmfile_dir = self._get_helmfile_path_for(dep_config)
-
+        for dep_config in dep_configs:
+            release = dep_config[DeploymentsConfig.RELEASE]
+            helmfile_dir = self._get_helmfile_path_for(dep_config)
+            for cluster in self._get_clusters_for_dep_config(dep_config):
                 with tempfile.NamedTemporaryFile() as tmp:
                     cmd = [
                         "helmfile",
                         "-e",
-                        datacenter,
+                        cluster,
                         "--selector",
                         f"name={release}",
                         "write-values",
@@ -759,8 +771,8 @@ class K8sOps:
 
         return total
 
-    def _get_kubeconfig(self, datacenter, helmfile_dir, release, logger):
-        cmd = ["helmfile", "-e", datacenter, "-l", "name={}".format(release), "build"]
+    def _get_kubeconfig(self, cluster, helmfile_dir, release, logger):
+        cmd = ["helmfile", "-e", cluster, "-l", "name={}".format(release), "build"]
         stdout = self._cmd_stdout(cmd, helmfile_dir, logger)
         if not stdout:
             return None
@@ -770,8 +782,8 @@ class K8sOps:
             if re.search(r"/etc/kubernetes/", arg):
                 return arg
         logger.warning(
-            "Could not figure out which kubeconfig file to use for datacenter %s, helmfile_dir %s, release %s",
-            datacenter,
+            "Could not figure out which kubeconfig file to use for cluster %s, helmfile_dir %s, release %s",
+            cluster,
             helmfile_dir,
             release,
         )
@@ -802,13 +814,13 @@ class K8sOps:
         return data[0].get("status")
 
     def _helm_fix_pending_state(
-        self, datacenter, helmfile_dir, namespace, release, logger
+        self, cluster, helmfile_dir, namespace, release, logger
     ):
         """
         Fix the release if it is in a pending-* state
         """
 
-        kubeconfig = self._get_kubeconfig(datacenter, helmfile_dir, release, logger)
+        kubeconfig = self._get_kubeconfig(cluster, helmfile_dir, release, logger)
 
         if not kubeconfig:
             return
@@ -817,9 +829,9 @@ class K8sOps:
             kubeconfig, helmfile_dir, release, logger
         )
         logger.debug(
-            "Status is '%s' for datacenter %s, helmfile_dir %s, release %s",
+            "Status is '%s' for cluster %s, helmfile_dir %s, release %s",
             status,
-            datacenter,
+            cluster,
             helmfile_dir,
             release,
         )
@@ -833,22 +845,22 @@ class K8sOps:
         recovery_command = recovery_commands.get(status)
         if recovery_command:
             logger.warning(
-                "Release %s for datacenter %s in %s is in %s state.  Attempting to clean up",
+                "Release %s for cluster %s in %s is in %s state.  Attempting to clean up",
                 release,
-                datacenter,
+                cluster,
                 helmfile_dir,
                 status,
             )
             # Should this use --wait ?
             cmd = ["helm", "--kubeconfig", kubeconfig, recovery_command, release]
-            timer_name = f"helm_{recovery_command}_{namespace}_{release}_{datacenter}"
+            timer_name = f"helm_{recovery_command}_{namespace}_{release}_{cluster}"
             self._run_timed_cmd_quietly(
                 cmd, helmfile_dir, logger, timer_name=timer_name
             )
 
-    def _deploy_k8s_images_for_datacenter(self, datacenter, dep_config, report_queue):
+    def _deploy_k8s_images_for_cluster(self, cluster, dep_config, report_queue):
         """
-        datacenter will be something like "eqiad" or "codfw" or "traindev"
+        cluster will be something like "eqiad" or "codfw" or "traindev"
         """
 
         logger = logging.getLogger("scap.k8s.deploy")
@@ -857,31 +869,29 @@ class K8sOps:
         namespace = dep_config[DeploymentsConfig.NAMESPACE]
         helmfile_dir = self._get_helmfile_path_for(dep_config)
 
-        self._helm_fix_pending_state(
-            datacenter, helmfile_dir, namespace, release, logger
-        )
+        self._helm_fix_pending_state(cluster, helmfile_dir, namespace, release, logger)
 
         cmd = [
             "helmfile",
             "-e",
-            datacenter,
+            cluster,
             "--selector",
             "name={}".format(release),
             "apply",
         ]
 
-        with self._k8s_deployment_monitoring(dep_config, datacenter, report_queue):
-            timer_name = f"helmfile_apply_{namespace}_{release}_{datacenter}"
+        with self._k8s_deployment_monitoring(dep_config, cluster, report_queue):
+            timer_name = f"helmfile_apply_{namespace}_{release}_{cluster}"
             self._run_timed_cmd_quietly(
                 cmd, helmfile_dir, logger, really_quiet=True, timer_name=timer_name
             )
 
     @contextlib.contextmanager
-    def _k8s_deployment_monitoring(self, dep_config, dc, report_queue):
+    def _k8s_deployment_monitoring(self, dep_config, cluster, report_queue):
         stop_event = threading.Event()
         monitor = threading.Thread(
             target=self._deployment_monitor,
-            args=(dep_config, dc, stop_event, report_queue),
+            args=(dep_config, cluster, stop_event, report_queue),
             name="K8s deployment monitor",
         )
         monitor.start()
@@ -892,14 +902,14 @@ class K8sOps:
             stop_event.set()
             monitor.join()
 
-    def _deployment_monitor(self, dep_config, dc, stop_event, report_queue):
+    def _deployment_monitor(self, dep_config, cluster, stop_event, report_queue):
         namespace = dep_config[DeploymentsConfig.NAMESPACE]
         release = dep_config[DeploymentsConfig.RELEASE]
-        kubeconfig = f"/etc/kubernetes/{namespace}-deploy-{dc}.config"
+        kubeconfig = f"/etc/kubernetes/{namespace}-deploy-{cluster}.config"
         deployment_name = (
             f"{namespace}.dev.{release}"
-            if dc == "traindev"
-            else f"{namespace}.{dc}.{release}"
+            if cluster == "traindev"
+            else f"{namespace}.{cluster}.{release}"
         )
 
         def kubectl_cmd(*args) -> tuple:
