@@ -1,3 +1,10 @@
+scap (4.160.0)
+
+  * spiderpig-otp: Don't offer a code that will expire too soon
+  * Backport.vue: Rename $autocomplete variable
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Mon, 05 May 2025 08:15:37 -0700
+
 scap (4.159.0)
 
   * spiderpig: auto select first backport search match
