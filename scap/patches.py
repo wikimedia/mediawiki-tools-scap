@@ -235,6 +235,7 @@ class ApplyPatches(cli.Application):
         self.phorge_conduit.edit_task(
             notification_info.patch_task,
             [
+                {"type": "status", "value": "open"},
                 {"type": "priority", "value": "unbreak"},
                 {"type": "parents.add", "value": [release_task_phid]},
                 {"type": "comment", "value": notification},
@@ -242,13 +243,15 @@ class ApplyPatches(cli.Application):
         )
 
     def _patch_task_has_been_notified(self, notification_info):
+        base_task_info = self.phorge_conduit.base_task_info(
+            notification_info.patch_task
+        )
+
+        def task_is_open():
+            return base_task_info["fields"]["status"]["name"] == "Open"
+
         def priority_is_unbreak():
-            return (
-                self.phorge_conduit.base_task_info(notification_info.patch_task)[
-                    "fields"
-                ]["priority"]["name"]
-                == "Unbreak Now!"
-            )
+            return base_task_info["fields"]["priority"]["name"] == "Unbreak Now!"
 
         def is_subtask_of_release_task():
             release_task = notification_info.target_release_for_fixes["task_id"]
@@ -272,7 +275,8 @@ class ApplyPatches(cli.Application):
             return False
 
         return (
-            priority_is_unbreak()
+            task_is_open()
+            and priority_is_unbreak()
             and is_subtask_of_release_task()
             and bot_comment_for_patch_is_present()
         )
