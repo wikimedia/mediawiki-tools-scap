@@ -1,3 +1,9 @@
+scap (4.161.0)
+
+  * patches: ensure a security task notified of a failure is open
+
+ -- Jaime Nuche <jnuche@wikimedia.org>  Tue, 06 May 2025 15:00:48 +0200
+
 scap (4.160.0)
 
   * spiderpig-otp: Don't offer a code that will expire too soon
