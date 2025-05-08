@@ -1,3 +1,9 @@
+scap (4.162.0)
+
+  * spiderpig: api.py: Disable openapi URL
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Thu, 08 May 2025 10:52:05 -0700
+
 scap (4.161.0)
 
   * patches: ensure a security task notified of a failure is open
