@@ -86,7 +86,7 @@ def validate_otp(dbuser: User, supplied_otp: str) -> bool:
         # Don't allow reuse of the last code if it is still within its validity window.
         return False
 
-    return get_pyotp(dbuser).verify(supplied_otp)
+    return get_pyotp(dbuser).verify(supplied_otp, valid_window=1)
 
 
 @cli.command(
@@ -113,28 +113,31 @@ class SpiderpigOTP(cli.Application):
         # will work.
         os.environ["SPIDERPIG_DBFILE"] = self.spiderpig_dbfile()
 
+        if self.arguments.minimum_expiration >= OTP_TIMEOUT:
+            raise SystemExit(
+                f"Minimum expiration time must be less than {OTP_TIMEOUT} seconds"
+            )
+
         with _get_db_session() as session:
             user = get_or_init_dbuser(session, username)
             totp = get_pyotp(user)
+            now = datetime.now().timestamp()
+            time_remaining = totp.interval - now % totp.interval
+            if time_remaining >= self.arguments.minimum_expiration:
+                # Plenty of time!
+                offset = 0
+            else:
+                # Not enough time left, so use the next OTP.
+                offset = 1
+                time_remaining += totp.interval
 
-            while True:
-                now = datetime.now().timestamp()
-                otp = totp.at(now)
-                time_remaining = totp.interval - now % totp.interval
+            otp = totp.at(now, offset)
 
-                if time_remaining < self.arguments.minimum_expiration:
-                    # The OTP will expire too soon.  Wait for the next one.
-                    time.sleep(time_remaining)
-                    continue
-
-                if self.arguments.quiet:
-                    print(otp)
-                else:
-                    print(f"Login: {utils.get_username()}")
-                    print(
-                        f"Password: {otp}  (Expires in {round(time_remaining)} seconds)"
-                    )
-                return
+            if self.arguments.quiet:
+                print(otp)
+            else:
+                print(f"Login: {utils.get_username()}")
+                print(f"Password: {otp}  (Expires in {round(time_remaining)} seconds)")
 
 
 @cli.command(
