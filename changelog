@@ -1,3 +1,10 @@
+scap (4.163.0)
+
+  * spiderpig: Accept unconsumed TOTP tokens from the T-1, T+0, and T+1 windows
+  * Backport.vue: Remove unnecessary {{ item.text }}
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Mon, 12 May 2025 07:41:33 -0700
+
 scap (4.162.0)
 
   * spiderpig: api.py: Disable openapi URL
