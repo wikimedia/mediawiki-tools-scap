@@ -774,13 +774,15 @@ class Backport(cli.Application):
         if not self.git_repos.are_any_branches_in_production(
             project, included_in_branches
         ):
-            self.get_logger().warning(
+            complaint = (
                 "Change '%s', project '%s', branch '%s' not found in any deployed wikiversion. Deployed wikiversions: %s"
                 % (change_details["_number"], project, branch, list(self.versions))
             )
-            if not self.arguments.yes:
+            if self.arguments.yes:
+                self.get_logger().warning(complaint)
+            else:
                 self._prompt_for_approval_or_exit(
-                    "Continue with %s?" % self.backport_or_revert,
+                    f"{complaint}\nContinue with {self.backport_or_revert}?"
                 )
 
     def _validate_backports(self):
@@ -863,11 +865,9 @@ class Backport(cli.Application):
             found_deps_links = "\n".join(
                 [get_link(dep_changeinfo) for dep_changeinfo in change.depends_ons]
             )
-            self.get_logger().warning(
-                f"Change {change.number} specified 'Depends-On' but found dependencies are neither configuration"
-                f" changes nor do they belong to the same branch. Found dependencies are:\n{found_deps_links}"
-            )
             self._prompt_for_approval_or_exit(
+                f"Change {change.number} specified 'Depends-On' but found dependencies are neither configuration\n"
+                f" changes nor do they belong to the same branch. Found dependencies are:\n{found_deps_links}\n"
                 f"Ignore dependencies and continue with {self.backport_or_revert}?",
             )
 
@@ -1152,10 +1152,8 @@ class Backport(cli.Application):
                             + list(extra_commits)
                         )
 
-                self.get_logger().warning(
-                    "There were unexpected commits pulled from origin for %s." % repo
-                )
                 self._prompt_for_approval_or_exit(
+                    f"There were unexpected commits pulled from origin for {repo}.\n"
                     "Continue with deployment (all patches will be deployed)?",
                 )
         return len(repo_commits)
