@@ -1143,7 +1143,8 @@ class Backport(cli.Application):
                     check_diff = True
                 else:
                     check_diff = self.prompt_user_for_confirmation(
-                        "Would you like to see the diff?", default="y"
+                        f"There were unexpected commits pulled from origin for {repo}.\nWould you like to see the diff?",
+                        default="y",
                     )
                 if check_diff:
                     with utils.suppress_backtrace():
