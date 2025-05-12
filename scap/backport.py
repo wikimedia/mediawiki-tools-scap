@@ -1149,7 +1149,15 @@ class Backport(cli.Application):
                 if check_diff:
                     with utils.suppress_backtrace():
                         subprocess.check_call(
-                            ["git", "--no-pager", "-C", repo, "show"]
+                            [
+                                "git",
+                                "--no-pager",
+                                "-C",
+                                repo,
+                                "-c",
+                                "show",
+                                "--submodule=diff",
+                            ]
                             + list(extra_commits)
                         )
 
