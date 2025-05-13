@@ -27,9 +27,9 @@ export const notificationsStore = defineStore( 'spiderpig-notifications',
 			alreadyNotified( interactionId ) {
 				return JSON.parse( this.alreadyNotifiedInters ).includes( interactionId );
 			},
-			rememberNotified( interaction ) {
+			rememberNotified( interactionId ) {
 				const alreadyNotified = JSON.parse( this.alreadyNotifiedInters );
-				alreadyNotified.push( interaction );
+				alreadyNotified.push( interactionId );
 				this.alreadyNotifiedInters = JSON.stringify( alreadyNotified );
 			},
 			reset() {
