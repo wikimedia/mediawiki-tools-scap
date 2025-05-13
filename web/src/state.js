@@ -21,15 +21,15 @@ export const notificationsStore = defineStore( 'spiderpig-notifications',
 			},
 			userShouldBeNotified( interaction ) {
 				return Notification.permission === 'granted' &&
-				interaction.job_id === this.backportJob &&
+				interaction.job_id.toString() === this.backportJob.toString() &&
 				!this.alreadyNotified( interaction.id );
 			},
 			alreadyNotified( interactionId ) {
 				return JSON.parse( this.alreadyNotifiedInters ).includes( interactionId );
 			},
-			rememberNotified( interaction ) {
+			rememberNotified( interactionId ) {
 				const alreadyNotified = JSON.parse( this.alreadyNotifiedInters );
-				alreadyNotified.push( interaction );
+				alreadyNotified.push( interactionId );
 				this.alreadyNotifiedInters = JSON.stringify( alreadyNotified );
 			},
 			reset() {
