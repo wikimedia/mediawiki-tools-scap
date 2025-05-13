@@ -16,12 +16,14 @@ export const notificationsStore = defineStore( 'spiderpig-notifications',
 					await Notification.requestPermission();
 				}
 				if ( Notification.permission === 'granted' ) {
-					this.backportJob = jobId;
+					// LocalStorage values must be strings.
+					// https://developer.mozilla.org/en-US/docs/Web/API/Window/localStorage#description
+					this.backportJob = JSON.stringify( jobId );
 				}
 			},
 			userShouldBeNotified( interaction ) {
 				return Notification.permission === 'granted' &&
-				interaction.job_id === this.backportJob &&
+				interaction.job_id === JSON.parse( this.backportJob ) &&
 				!this.alreadyNotified( interaction.id );
 			},
 			alreadyNotified( interactionId ) {
