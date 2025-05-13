@@ -1,3 +1,9 @@
+scap (4.166.0)
+
+  * backport: Use `--submodule=diff` when showing diffs
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Tue, 13 May 2025 09:27:44 -0700
+
 scap (4.165.0)
 
   * backport: Augment "Would you like to see the diff?" prompt
