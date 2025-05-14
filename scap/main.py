@@ -56,6 +56,7 @@ from scap.kubernetes import K8sOps, TEST_SERVERS, CANARIES, PRODUCTION, STAGES
 class DeploymentStage:
     name: str
     baremetal_targets: List[str]
+    pre_check_func: Optional[Callable]
     check_func: Optional[Callable]
     post_check_func: Optional[Callable]
 
@@ -172,18 +173,21 @@ class AbstractSync(cli.Application):
                 DeploymentStage(
                     TEST_SERVERS,
                     baremetal_testservers,
+                    self._announce_testservers_synced,
                     self.check_testservers,
                     self._pause_after_testserver_sync,
                 ),
                 DeploymentStage(
                     CANARIES,
                     baremetal_canaries,
+                    None,
                     self.canary_checks,
                     None,
                 ),
                 DeploymentStage(
                     PRODUCTION,
                     baremetal_full_target_list,
+                    None,
                     None,
                     self._after_cluster_sync,  # Bare metal php-fpm restarts happen in here
                 ),
@@ -215,6 +219,9 @@ class AbstractSync(cli.Application):
                             else:
                                 with self.Timer(f"sync-{stage}"):
                                     self.sync_targets(depstage.baremetal_targets, stage)
+
+                    if depstage.pre_check_func:
+                        depstage.pre_check_func()
 
                     if depstage.check_func:
                         if self.arguments.force:
@@ -315,29 +322,40 @@ class AbstractSync(cli.Application):
     def _before_cluster_sync(self):
         pass
 
+    def _get_notify_users(self):
+        return ", ".join(
+            set(
+                [utils.get_real_username()] + getattr(self.arguments, "notify_user", [])
+            )
+        )
+
+    def _get_testservers_synced_message(self, brief=False):
+        url = "https://wikitech.wikimedia.org/wiki/Mwdebug"
+        if brief:
+            what = "Changes"
+        else:
+            what = f"{self._get_notify_users()}: {self.arguments.message}"
+
+        return f"{what} synced to the testservers (see {url})"
+
+    def _announce_testservers_synced(self):
+        message = self._get_testservers_synced_message()
+        self.announce(f"{message}. Changes can now be verified there.")
+
     def _pause_after_testserver_sync(self):
         # Not all subclasses of AbstractSync define the --pause-after-testserver-sync argument,
         # so we can't assume it is in self.arguments.
         if not getattr(self.arguments, "pause_after_testserver_sync", False):
             return
-        users = ", ".join(
-            set(
-                [utils.get_real_username()] + getattr(self.arguments, "notify_user", [])
-            )
-        )
-        message = (
-            "%s: %s synced to the testservers (https://wikitech.wikimedia.org/wiki/Mwdebug)"
-            % (users, self.arguments.message)
-        )
-        self.announce(message)
+
         self.report_status("Waiting user to confirm testservers deployment")
+        message = self._get_testservers_synced_message(brief=True)
         self.prompt_for_approval_or_exit(
-            "Changes synced to the testservers. (see https://wikitech.wikimedia.org/wiki/Mwdebug)\n"
-            "Please do any necessary checks before continuing.\n"
+            f"{message}\nBefore continuing, please do any necessary checks if you haven't already.\n"
             "Continue with sync?",
             "Sync cancelled.",
         )
-        self.announce(f"{users}: Continuing with sync")
+        self.announce(f"{self._get_notify_users()}: Continuing with sync")
         self.report_status("Continuing with sync")
 
     def _k8s_only_sync(self):
