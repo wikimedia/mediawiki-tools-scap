@@ -1,3 +1,12 @@
+scap (4.167.0)
+
+  * web/src/state.js: Ensure that this.backportJob is always a string
+  * Revert "web/state/state.js: Add debugging"
+  * web/state/state.js: Add debugging
+  * web/src/state.js: Rename interaction to interactionId
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Wed, 14 May 2025 07:56:45 -0700
+
 scap (4.166.0)
 
   * backport: Use `--submodule=diff` when showing diffs
