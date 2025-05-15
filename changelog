@@ -1,3 +1,9 @@
+scap (4.168.0)
+
+  * Announce testserver sync complete before running checks
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Thu, 15 May 2025 08:37:43 -0700
+
 scap (4.167.0)
 
   * web/src/state.js: Ensure that this.backportJob is always a string
