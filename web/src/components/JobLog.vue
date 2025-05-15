@@ -18,6 +18,7 @@
 </template>
 
 <script lang="ts">
+/* eslint-disable no-console */
 import { defineComponent, onMounted, onUnmounted, ref } from 'vue';
 import { CdxCheckbox } from '@wikimedia/codex';
 import useApi from '../api';
@@ -67,7 +68,6 @@ export default defineComponent( {
 							// Process the last JSON object
 							yield json;
 						} catch ( error ) {
-							// eslint-disable-next-line no-console
 							console.error( 'Error parsing final JSON:', error );
 						}
 					}
@@ -84,7 +84,6 @@ export default defineComponent( {
 						// Process the parsed JSON object
 						yield json;
 					} catch ( error ) {
-						// eslint-disable-next-line no-console
 						console.error( 'Error parsing JSON:', error );
 					}
 				}
@@ -122,7 +121,6 @@ export default defineComponent( {
 						} else {
 							// Assume that the connection was terminated prematurely (perhaps
 							// due to timeout).  Restart the loop to recover.
-							// eslint-disable-next-line no-console
 							console.log( 'Job log stream terminated prematurely.  Restarting' );
 							continue;
 						}
@@ -130,17 +128,20 @@ export default defineComponent( {
 						// The complete job log has been read.
 						return;
 					} catch ( err ) {
-						if ( err.name === 'AbortError' ) {
-							if ( abortPopulateTerminal.value.signal.reason === 'showSensitive changed' ) {
+						if ( abortPopulateTerminal.value.signal.aborted ) {
+							const reason = abortPopulateTerminal.value.signal.reason;
+							if ( reason === 'showSensitive changed' ) {
 								// Restart the loop if the showSensitive changed.
 								continue;
-							} else {
+							}
+							if ( reason === 'unmounted' ) {
 								return;
 							}
+							console.error( `populateTerminal: Unexpected abort reason: ${ reason }` );
+							return;
 						}
 
-						// eslint-disable-next-line no-console
-						console.log( `populateTerminal caught ${ err }` );
+						console.error( `populateTerminal unhandled error: ${ JSON.stringify( err ) }` );
 						return;
 					}
 				} finally {
