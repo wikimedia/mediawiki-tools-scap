@@ -338,14 +338,20 @@ class AbstractSync(cli.Application):
 
         return f"{what} synced to the testservers (see {url})"
 
+    def _should_pause_after_testserver_sync(self) -> bool:
+        # Not all subclasses of AbstractSync define the --pause-after-testserver-sync argument,
+        # so we can't assume it is in self.arguments.
+        return getattr(self.arguments, "pause_after_testserver_sync", False)
+
     def _announce_testservers_synced(self):
+        if not self._should_pause_after_testserver_sync():
+            return
+
         message = self._get_testservers_synced_message()
         self.announce(f"{message}. Changes can now be verified there.")
 
     def _pause_after_testserver_sync(self):
-        # Not all subclasses of AbstractSync define the --pause-after-testserver-sync argument,
-        # so we can't assume it is in self.arguments.
-        if not getattr(self.arguments, "pause_after_testserver_sync", False):
+        if not self._should_pause_after_testserver_sync():
             return
 
         self.report_status("Waiting user to confirm testservers deployment")
