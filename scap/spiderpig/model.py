@@ -1,11 +1,15 @@
 import json
+import logging
 import os
+import re
 import time
 
 from typing import List, Optional
-from sqlalchemy import ForeignKey, select, delete, text, null
+from sqlalchemy import ForeignKey, inspect, select, delete, text, null, MetaData
 from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, Session
+from sqlalchemy.sql.schema import Table
+from sqlalchemy.sql.ddl import CreateColumn
 
 
 class Base(DeclarativeBase):
@@ -346,3 +350,84 @@ def setup_db(engine, db_filename):
     # Ensure that the database is group writable
     if os.geteuid() == os.stat(db_filename).st_uid:
         os.chmod(db_filename, 0o660)
+
+    sync_table_schemas(engine)
+
+
+def sync_table_schemas(engine):
+    for table in list(Base.metadata.tables.values()):
+        sync_table_schema(engine, table)
+
+
+def sync_table_schema(engine, table: Table):
+    table_name = table.name
+    inspector = inspect(engine)
+    live_columns = {col["name"] for col in inspector.get_columns(table_name)}
+    orm_columns = {col.name for col in table.columns}
+
+    drop_columns = [col for col in live_columns if col not in orm_columns]
+    add_columns = [col for col in orm_columns if col not in live_columns]
+
+    logger = logging.getLogger()
+
+    if drop_columns:
+        logger.info(f"Dropping columns '{drop_columns}' from table '{table_name}'")
+        alter_table_drop_columns(engine, table_name, drop_columns)
+
+    if add_columns:
+        logger.info(f"Adding columns '{add_columns}' to table '{table_name}'")
+        alter_table_add_columns(engine, table, add_columns)
+
+
+def alter_table_add_columns(engine, table: Table, column_names: List[str]):
+    with engine.begin() as conn:
+        for col_name in column_names:
+            col = table.columns[col_name]
+            ddl = CreateColumn(col).compile(dialect=engine.dialect)
+            sql = f'ALTER TABLE "{table.name}" ADD COLUMN {str(ddl).strip()}'
+            conn.execute(text(sql))
+
+
+def alter_table_drop_columns(engine, table_name, drop_column_names: List[str]):
+    with engine.begin() as conn:
+        metadata = MetaData()
+        metadata.reflect(bind=engine)
+        table = metadata.tables[table_name]
+
+        remaining_cols = [
+            col.name for col in table.columns if col.name not in drop_column_names
+        ]
+        remaining_cols_str = ", ".join([f'"{col}"' for col in remaining_cols])
+
+        # Get CREATE TABLE statement for the original table
+        res = conn.execute(
+            text("SELECT sql FROM sqlite_master WHERE type='table' AND name=:name"),
+            {"name": table_name},
+        ).first()
+
+        sql = res[0]
+
+        # Remove the unwanted column definitions from the CREATE TABLE statement
+        for drop_col in drop_column_names:
+            pattern = r",?\s*`?%s`?\s+\w+[^,)]*" % re.escape(drop_col)
+            sql = re.sub(pattern, "", sql, count=1)
+
+        new_table_name = f"{table_name}_new"
+
+        # Create new table
+        conn.execute(text(sql.replace(table_name, new_table_name, 1)))
+
+        # Copy data
+        conn.execute(
+            text(
+                f'INSERT INTO "{new_table_name}" ({remaining_cols_str}) SELECT {remaining_cols_str} FROM "{table_name}"'
+            )
+        )
+
+        # Drop old table
+        conn.execute(text(f'DROP TABLE "{table_name}"'))
+
+        # Rename new table to original name
+        conn.execute(text(f'ALTER TABLE "{new_table_name}" RENAME TO "{table_name}"'))
+
+        conn.commit()
