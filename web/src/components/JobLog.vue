@@ -3,16 +3,21 @@
 		<div class="job-log__title">
 			Log
 		</div>
-		<div class="job-log__checkbox">
-			<cdx-checkbox
-				v-model="showSensitive"
-				type="checkbox"
-				:inline="true"
-				@change="onShowSensitiveChange"
-			>
-				Show sensitive information
-			</cdx-checkbox>
-		</div>
+		<v-tooltip :text="showSensitiveToolTipText" location="bottom">
+			<template #activator="{ props }">
+				<div class="job-log__checkbox">
+					<cdx-checkbox
+						v-bind="props"
+						v-model="showSensitive"
+						type="checkbox"
+						:inline="true"
+						@change="onShowSensitiveChange"
+					>
+						Show sensitive information
+					</cdx-checkbox>
+				</div>
+			</template>
+		</v-tooltip>
 		<div id="terminal" ref="terminalRef" />
 	</div>
 </template>
@@ -20,6 +25,7 @@
 <script lang="ts">
 /* eslint-disable no-console */
 import { defineComponent, onMounted, onUnmounted, ref } from 'vue';
+import { VTooltip } from 'vuetify/components/VTooltip';
 import { CdxCheckbox } from '@wikimedia/codex';
 import useApi from '../api';
 import '@xterm/xterm/css/xterm.css';
@@ -32,7 +38,8 @@ export default defineComponent( {
 	name: 'SpJobLog',
 
 	components: {
-		CdxCheckbox
+		CdxCheckbox,
+		VTooltip
 	},
 
 	props: {
@@ -193,10 +200,14 @@ export default defineComponent( {
 			window.removeEventListener( 'resize', resizeTerminal );
 		} );
 
+		const showSensitiveToolTipText = 'Show information from the job log that we usually want to avoid revealing' +
+		' (such as security patch information or secrets) when copying and pasting the log into a Phabricator ticket.';
+
 		return {
 			terminalRef,
 			showSensitive,
-			onShowSensitiveChange
+			onShowSensitiveChange,
+			showSensitiveToolTipText
 		};
 	}
 } );
