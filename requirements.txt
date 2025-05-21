@@ -38,3 +38,9 @@ python-cas
 itsdangerous
 lxml
 six
+
+# Alembic stuff
+alembic
+importlib-resources
+zipp
+mako

@@ -1,4 +1,5 @@
 import json
+import logging
 import os
 import time
 
@@ -6,6 +7,10 @@ from typing import List, Optional
 from sqlalchemy import ForeignKey, select, delete, text, null
 from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, Session
+from alembic.autogenerate import produce_migrations
+from alembic.migration import MigrationContext
+from alembic.operations import Operations
+from alembic.operations.ops import ModifyTableOps
 
 
 class Base(DeclarativeBase):
@@ -346,3 +351,39 @@ def setup_db(engine, db_filename):
     # Ensure that the database is group writable
     if os.geteuid() == os.stat(db_filename).st_uid:
         os.chmod(db_filename, 0o660)
+
+    migrate_db(engine)
+
+
+def migrate_db(engine):
+    logger = logging.getLogger()
+    logger.info("Running db migration (if needed)")
+
+    # xref https://alembic.sqlalchemy.org/en/latest/cookbook.html#run-alembic-operation-objects-directly-as-in-from-autogenerate
+    with engine.connect() as conn:
+        mc = MigrationContext.configure(conn)
+
+        migrations = produce_migrations(mc, Base.metadata)
+
+        operations = Operations(mc)
+
+        use_batch = engine.name == "sqlite"
+
+        stack = [migrations.upgrade_ops]
+        while stack:
+            elem = stack.pop(0)
+
+            if use_batch and isinstance(elem, ModifyTableOps):
+                with operations.batch_alter_table(
+                    elem.table_name, schema=elem.schema
+                ) as batch_ops:
+                    for table_elem in elem.ops:
+                        batch_ops.invoke(table_elem)
+
+            elif hasattr(elem, "ops"):
+                stack.extend(elem.ops)
+            else:
+                operations.invoke(elem)
+        conn.commit()
+
+    logger.info("db migration finished")
