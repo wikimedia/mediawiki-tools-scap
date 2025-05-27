@@ -1,3 +1,12 @@
+scap (4.171.0)
+
+  * Revert "Release y"
+  * Release y
+  * backport: git remove extra -c flag
+  * spiderpig: Automatically handle db schema changes at startup
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Tue, 27 May 2025 16:05:50 -0700
+
 scap (4.170.0)
 
   * Allow deployments to specify custom k8s clusters
