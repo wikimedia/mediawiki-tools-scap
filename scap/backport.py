@@ -1154,7 +1154,6 @@ class Backport(cli.Application):
                                 "--no-pager",
                                 "-C",
                                 repo,
-                                "-c",
                                 "show",
                                 "--submodule=diff",
                             ]
