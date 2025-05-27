@@ -1,3 +1,9 @@
+scap (4.170.0)
+
+  * Allow deployments to specify custom k8s clusters
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Tue, 27 May 2025 08:04:48 -0700
+
 scap (4.169.1)
 
   * Fix announce testserver sync complete before running checks
