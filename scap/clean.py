@@ -5,7 +5,7 @@ import shutil
 import subprocess
 import sys
 
-from scap import ansi, cli, git, log, main, mwscript, ssh, tasks, utils
+from scap import ansi, cli, git, log, main, mwscript, ssh, utils
 
 
 @cli.command("clean", primary_deploy_server_only=True)
@@ -252,7 +252,7 @@ class Clean(main.AbstractSync):
         # Collect an ascending list of old versions, stopping collection
         # once we run into a live version.
         old_versions = []
-        for version in tasks.get_wikiversions_ondisk(self.config["stage_dir"]):
+        for version in utils.get_wikiversions_ondisk(self.config["stage_dir"]):
             if version in active_versions:
                 break
             old_versions.append(version)

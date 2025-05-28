@@ -926,24 +926,3 @@ def check_patch_files(version, cfg):
 
             if p.returncode > 0:
                 logger.warning("Patch(s) for %s have not been applied.", apply_dir)
-
-
-def get_wikiversions_ondisk(directory) -> list:
-    """
-    Returns a list of the train branch versions that are currently
-    checked out in DIRECTORY.  The list is sorted in ascending order.
-
-    :returns: list like::
-        ['1.41.0-wmf.1', '1.41.0-wmf.2']
-
-    """
-    is_wikiversion = (
-        lambda x: utils.BRANCH_RE.match(x[len("php-") :]) or x == "php-master"
-    )
-    versions = [
-        d[len("php-") :]
-        for d in os.listdir(directory)
-        if is_wikiversion(d) and os.path.isdir(os.path.join(directory, d))
-    ]
-
-    return sorted(versions, key=utils.parse_wmf_version)

@@ -2,7 +2,7 @@
 import prettytable
 import re
 
-from scap import cli, interaction, utils, tasks
+from scap import cli, interaction, utils
 
 GROUPS = ["testwikis", "group0", "group1", "group2"]
 
@@ -121,7 +121,7 @@ ____
         Returns the latest on-disk train version that's not the current train version, or None
         if nothing found.
         """
-        versions = tasks.get_wikiversions_ondisk(self.config["stage_dir"])
+        versions = utils.get_wikiversions_ondisk(self.config["stage_dir"])
         if self.train_version in versions:
             versions.remove(self.train_version)
 

@@ -643,6 +643,28 @@ def get_active_wikiversions(directory, realm, return_type=list):
         return list(sorted_versions.keys())
 
 
+def get_wikiversions_ondisk(directory) -> list:
+    """
+    Returns a list of the train branch versions that are currently
+    checked out in DIRECTORY.  The list is sorted in ascending order.
+
+    :returns: list like::
+        ['1.41.0-wmf.1', '1.41.0-wmf.2']
+
+    """
+
+    def is_wikiversion(name):
+        return BRANCH_RE.match(name[len("php-") :]) or name == "php-master"
+
+    versions = [
+        d[len("php-") :]
+        for d in os.listdir(directory)
+        if is_wikiversion(d) and os.path.isdir(os.path.join(directory, d))
+    ]
+
+    return sorted(versions, key=parse_wmf_version)
+
+
 def find_upwards(name, starting_point=os.getcwd()):
     """
     Search the specified directory, and all parent directories, for a given

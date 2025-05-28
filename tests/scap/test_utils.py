@@ -252,5 +252,22 @@ def test_parse_wmf_version():
     )
 
 
+def test_get_wikiversions_ondisk(tmpdir):
+    for dir in [
+        "php-master",
+        "php-1.40.0-wmf.4",
+        "php-1.29.0-wmf.3",
+        "php-1.29.0-wmf.2",
+    ]:
+        os.mkdir(os.path.join(tmpdir, dir))
+    open(tmpdir / "php-1.40.0-wmf.2", "w").close()
+    assert utils.get_wikiversions_ondisk(tmpdir) == [
+        "1.29.0-wmf.2",
+        "1.29.0-wmf.3",
+        "1.40.0-wmf.4",
+        "master",
+    ]
+
+
 def test_string_to_base64_string():
     assert utils.string_to_base64_string("bruce") == "YnJ1Y2U="
