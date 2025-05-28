@@ -143,7 +143,7 @@ class AbstractSync(cli.Application):
                 self.get_logger().warning("check_fatals skipped by --force")
 
             with self.reported_status("Building container images"):
-                self.k8s_ops.build_k8s_images(self.active_wikiversions("stage"))
+                self.k8s_ops.build_k8s_images(self.get_versions_to_include_in_image())
 
             self.k8s_ops.update_helmfile_files()
 

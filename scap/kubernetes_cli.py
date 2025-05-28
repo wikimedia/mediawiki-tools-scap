@@ -44,7 +44,7 @@ class BuildImages(cli.Application):
             force_version = True
             versions = [self.arguments.single_version]
         else:
-            versions = self.active_wikiversions("stage")
+            versions = self.get_versions_to_include_in_image()
 
         with self.lock_mediawiki_staging_and_announce():
             k8s_ops = K8sOps(self)

@@ -32,7 +32,7 @@ import socket
 import subprocess
 import sys
 import time
-from typing import Optional
+from typing import List, Optional
 from functools import reduce
 
 import scap.version as version
@@ -220,6 +220,32 @@ class Application(object):
         return utils.get_active_wikiversions(
             self.config[source_tree + "_dir"], self.config["wmf_realm"], return_type
         )
+
+    def get_versions_to_include_in_image(self) -> List[str]:
+        versions = self.active_wikiversions("stage")
+
+        if len(versions) == 1:
+            # If only one version is active, this means that the train has
+            # rolled from group1 (which has two active versions) to group2
+            # (which only has one active version).  In this case, we still
+            # want to include the inactive old version in the image so that
+            # rolling back from group2 to group1 is fast.  (T395514)
+
+            active_version = versions[0]
+            on_disk_versions = utils.get_wikiversions_ondisk(self.config["stage_dir"])
+            try:
+                index = on_disk_versions.index(active_version)
+            except ValueError:
+                # This should never happen
+                raise Exception(
+                    f"active version {active_version} is not present in on disk versions {on_disk_versions}"
+                )
+
+            if index > 0:
+                # We have an old version that we can include
+                versions.insert(0, on_disk_versions[index - 1])
+
+        return versions
 
     @property
     def message_argument(self) -> str:
