@@ -31,18 +31,57 @@ prompt you for confirmation.
 ## Beta Release
 
 (For the following steps to work you must have ssh access to and sudo privileges on 
-**deployment-cumin.deployment-prep.eqiad.wmflabs** and **deployment-deploy03.deployment-prep.
+**deployment-cumin-3.deployment-prep.eqiad.wmflabs** and **deployment-deploy03.deployment-prep.
 eqiad1.wikimedia.cloud**)
 
 1. Run `release-scripts/scaps-installed-in-beta`.  It will print a
 list of the versions of Scap that are installed on beta hosts.  Save
 this information in case a rollback is needed.  Ideally there will
-just be one version reported but sometimes (read: frequently)
-situations arise on beta cluster that result in mismatches.
+be one version installed on all hosts. If there is more than one scap version
+save the most installed scap version for rollback.
 
-1. Run `release-scripts/update-scap-in-beta`.  This will retrieve the
-latest available code revision of Scap, prompt you for confirmation, and (if
-you answer `y` or `yes`) install it on beta Scap hosts.
+Example output:
+
+```
+$ ./release-scripts/scaps-installed-in-beta
+11 hosts will be targeted:
+deployment-deploy04.deployment-prep.eqiad1.wikimedia.cloud,deployment-echostore02.deployment-prep.eqiad1.wikimedia.cloud,deployment-jobrunner05.deployment-prep.eqiad1.wikimedia.cloud,deployment-mediawiki[13-14].deployment-prep.eqiad1.wikimedia.cloud,deployment-mwmaint03.deployment-prep.eqiad1.wikimedia.cloud,deployment-restbase05.deployment-prep.eqiad1.wikimedia.cloud,deployment-sessionstore06.deployment-prep.eqiad1.wikimedia.cloud,deployment-snapshot05.deployment-prep.eqiad1.wikimedia.cloud,deployment-webperf[21-22].deployment-prep.eqiad1.wikimedia.cloud
+FORCE mode enabled, continuing without confirmation
+100.0% (11/11) success ratio (>= 100.0% threshold) for command: 'sudo -u scap scap version'.
+100.0% (11/11) success ratio (>= 100.0% threshold) of nodes successfully executed all commands.
+4.182.0
+```
+
+2. Run `release-scripts/update-scap-in-beta`. This script will list the latest
+tagged releases of Scap and asked you to pick which version to deploy. Once you've
+selected a version to deploy the script will install that version of Scap on all
+beta scap hosts.
+
+Example output:
+
+```
+No scap version specified!
+
+Pick a scap version to deploy:
+     1  4.182.0
+     2  4.181.0
+     3  4.180.0
+     4  4.179.1
+     5  4.179.0
+Enter the number of the version above (empty or 0 to cancel) → 1
+
+    Selected version '4.182.0'
+
+Use this log message in #wikimedia-releng IRC:
+
+    !log Upgrading scap to 4.182.0 in beta cluster
+
+Press enter to deploy (Ctrl-C to cancel)
+
+<...lots of output while scap installs...>
+
+17:06:48 Installation of scap version "4.182.0" completed for 11 hosts
+```
 
 ### Test the Scap deployment
 

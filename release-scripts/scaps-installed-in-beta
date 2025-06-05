@@ -5,6 +5,8 @@
 
 set -eu -o pipefail
 
+CUMIN_HOST="deployment-cumin-3.deployment-prep.eqiad1.wikimedia.cloud"
+
 function usage {
     cat <<EOF
 Usage: $0 [ -v ]
@@ -35,7 +37,7 @@ remote_cmd='sudo -u scap scap version'
 case "$format" in
     verbose)
         # shellcheck disable=SC2029
-        ssh deployment-cumin.deployment-prep.eqiad.wmflabs \
+        ssh "$CUMIN_HOST" \
             sudo cumin \
             --no-progress \
             --force \
@@ -46,7 +48,7 @@ case "$format" in
         # Alternate output which just shows all versions in use, w/o
         # the hostnames
         # shellcheck disable=SC2029
-        ssh deployment-cumin.deployment-prep.eqiad.wmflabs \
+        ssh "$CUMIN_HOST" \
             sudo cumin \
             --no-progress \
             --force \

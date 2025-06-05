@@ -2,13 +2,15 @@
 
 set -eu -o pipefail
 
+BASE_DIR="$(dirname "$(realpath "$0")")"
+
 function usage {
     cat <<EOF
 Usage: $0 [ version ]
 
 Updates scap to the specified version on all deployment-prep hosts
-that already have scap installed.  If the version is not supplied, the
-latest code revision will be used.
+that already have scap installed.  If the version is not supplied, we try
+to determine the latest version from git tags.
 
 EOF
     exit 1
@@ -16,25 +18,60 @@ EOF
 
 version=
 
-function confirm_latest_code_rev {
-    local answer
-    read -r -p "Update scap to latest code revision? " answer
+function prompt_user_for_version {
+    local prompt inside_worktree versions_to_show latest_versions=()
 
-    case "$answer" in
-        y*)
-            version="latest_rev"
-            return
-            ;;
-        *)
-            echo "Cancelled"
+    # how many versions to show the user
+    versions_to_show=5
+
+    # Note: can't use the exit code of rev-parse --is-inside-work-tree
+    # It outputs either "true" or "false", but exit code is always 0
+    inside_worktree="$(git -C "$BASE_DIR" rev-parse --is-inside-work-tree)"
+    if [[ "$inside_worktree" == "true" ]]; then
+        read -r -a latest_versions <<< "$(git -C "$BASE_DIR" --no-pager tag --list '[0-9][0-9.]*' --no-column --sort=-v:refname \
+            | head -n "$versions_to_show" \
+            | tr '\n' ' ')"
+    else
+        echo "Unable to determine latest versions from git. Try again using the version argument." >&2
+        usage
+    fi
+
+    echo "No scap version specified!"
+    echo
+    echo "Pick a scap version to deploy:"
+
+    for v in "${latest_versions[@]}"; do
+        echo "$v"
+    done | nl | less -FirSX
+    prompt="Enter the number of the version above (empty or 0 to cancel) → "
+    while :; do
+        read -r -p "$prompt" index
+
+        [[ -z "$index" || "$index" == 0 ]] && {
+            echo "Cancelled by user"
             exit 1
-            ;;
-    esac
+        }
+
+        # validation of input
+        case $index in
+            [1-${#latest_versions[@]}]) break ;;
+            *) echo "    '$index' is invalid, please enter a number between 0 and ${#latest_versions[@]}" ;;
+        esac
+    done
+
+    versions_offset=$(( index - 1 ));
+    version="${latest_versions[$versions_offset]}"
+
+    echo
+    echo "    Selected version '${version}'"
+    echo
+
+    return
 }
 
 
 if [ $# -eq 0 ]; then
-    confirm_latest_code_rev
+    prompt_user_for_version
 elif [ $# -eq 1 ]; then
     case "$1" in
         -h|--help)
@@ -48,27 +85,23 @@ else
     usage
 fi
 
-if [ "$version" = latest_rev ]; then
-  irc_message_ver='latest code revision'
-  scap_tag=
-else
-  irc_message_ver=$version
-  scap_tag="-t $version"
-fi
-
 cat <<EOF
 Use this log message in #wikimedia-releng IRC:
-!log Upgrading scap to $irc_message_ver in beta cluster
+
+    !log Upgrading scap to $version in beta cluster
+
+Press enter to deploy (Ctrl-C to cancel)
 EOF
+
+read -r
 
 remote_cmd="
 set -e
 cd /srv/deployment/scap
 sudo -u scap -- bash -c 'umask 0002; git checkout master; git pull --rebase origin master'
-sudo bin/install_local_version.sh -u scap --on-primary $scap_tag
-cd; scap install-world --batch
+sudo bin/install_local_version.sh -u scap --on-primary -t $version
+cd; scap install-world --yes --version $version
 "
-
 encoded_remote_cmd=$(echo "$remote_cmd" | base64 -w0)
 
 # shellcheck disable=SC2029
