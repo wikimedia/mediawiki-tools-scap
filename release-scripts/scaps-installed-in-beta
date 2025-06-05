@@ -35,7 +35,7 @@ remote_cmd='sudo -u scap scap version'
 case "$format" in
     verbose)
         # shellcheck disable=SC2029
-        ssh deployment-cumin.deployment-prep.eqiad.wmflabs \
+        ssh deployment-cumin-3.deployment-prep.eqiad1.wikimedia.cloud \
             sudo cumin \
             --no-progress \
             --force \
@@ -46,7 +46,7 @@ case "$format" in
         # Alternate output which just shows all versions in use, w/o
         # the hostnames
         # shellcheck disable=SC2029
-        ssh deployment-cumin.deployment-prep.eqiad.wmflabs \
+        ssh deployment-cumin-3.deployment-prep.eqiad1.wikimedia.cloud \
             sudo cumin \
             --no-progress \
             --force \
