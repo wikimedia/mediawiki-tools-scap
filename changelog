@@ -1,3 +1,10 @@
+scap (4.172.0)
+
+  * Always include an old mediawiki version in container images
+  * Move get_wikiversions_ondisk to utils module
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Mon, 09 Jun 2025 08:37:26 -0700
+
 scap (4.171.0)
 
   * Revert "Release y"
