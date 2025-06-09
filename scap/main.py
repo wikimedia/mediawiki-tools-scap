@@ -823,16 +823,11 @@ class AbstractSync(cli.Application):
         """
         If php_fpm_restart_script is set in the configuration then
         on all dsh groups referenced by the mw_web_clusters config parameter
-        do the following:
+        will run it.
 
-        Check if php-fpm opcache is full, if so restart php-fpm.  If
-        the php_fpm_always_restart config parameter is true, the
-        opcache is treated as always full, so php-fpm will always
-        restart.
-
-        If the operator invoked scap with the --force flag, restart
-        php-fpm unsafely (i.e., without depooling and repooling
-        around the service restart).  T243009
+        If the operator invoked scap with the --force flag, then --force will
+        be passed to php_fpm_restart_script to restart php-fpm unsafely (i.e.,
+        without depooling and repooling around the service restart).  T243009
 
         Targets that have already been restarted will not be restarted again.
         """

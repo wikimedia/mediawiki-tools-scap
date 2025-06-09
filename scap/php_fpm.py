@@ -8,7 +8,6 @@
 import math
 import shlex
 import subprocess
-import sys
 
 from scap import log
 
@@ -34,31 +33,24 @@ class PHPRestart(object):
         self.ssh_user = cfg["ssh_user"]
         self.logger = logger
 
-        if unsafe:
-            script = cfg.get("php_fpm_unsafe_restart_script")
-            if script:
-                self.cmd = "{} --force".format(script)
-            else:
-                if logger:
-                    logger.warn(
-                        "Unsafe mode requested but "
-                        "php_fpm_unsafe_restart_script "
-                        "not defined in config"
-                    )
+        restart_script = cfg.get("php_fpm_restart_script")
+        unsafe_restart_script = cfg.get("php_fpm_unsafe_restart_script")
 
-        elif cfg.get("php_fpm_restart_script"):
-            threshold = cfg["php_fpm_opcache_threshold"]
-
-            # Override opcache threshold in cases we always want to restart
-            if cfg.get("php_fpm_always_restart"):
-                threshold = sys.maxsize
-
-            self.cmd = "{} {} {}".format(
-                cfg["php_fpm_restart_script"], cfg["php_fpm"], str(threshold)
-            )
-        else:
+        if not restart_script:
             if logger:
                 logger.debug("php_fpm_restart_script not configured")
+            return
+
+        # Sanity check while preparing to remove support for php_fpm_unsafe_restart_script
+        if unsafe_restart_script and unsafe_restart_script != restart_script:
+            raise SystemExit(
+                f"`php_fpm_unsafe_restart_script` is set to {unsafe_restart_script}, but it must match `php_fpm_restart_script` which is set to {restart_script}"
+            )
+
+        self.cmd = restart_script
+
+        if unsafe:
+            self.cmd += " --force"
 
     def set_progress_queue(self, queue):
         self.progress_queue = queue
