@@ -24,7 +24,7 @@
 					<div class="job-card__label">
 						User
 					</div>
-					{{ user }}
+					{{ getFormattedUser( user ) }}
 				</div>
 
 				<div class="job-card__column">
@@ -340,6 +340,14 @@ export default defineComponent( {
 			return date.toUTCString();
 		}
 
+		function getFormattedUser( user: string ) {
+			return {
+				// U+00AD SOFT HYPHEN encourages better line wrapping
+				'lucaswerkmeister-wmde': 'lucas\u00ADwerkmeister-wmde'
+				// (more user names can be added here as needed)
+			}[ user ] ?? user;
+		}
+
 		function prettyDuration( durationSeconds: number ) {
 			durationSeconds = Math.floor( durationSeconds );
 			// Convert to more readable format
@@ -392,6 +400,7 @@ export default defineComponent( {
 
 		return {
 			getFormattedDate,
+			getFormattedUser,
 			statusType,
 			statusChipMessage,
 			cdxIconInfoFilled,
