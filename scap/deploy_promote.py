@@ -223,8 +223,8 @@ class DeployPromote(cli.Application):
                     utils.abort(
                         f"Waited for {timeout} seconds but the patch was not merged"
                     )
-                # FIXME: This output does not show up in a timely manner in the spiderpig job log
-                print(".", end="", flush=True)
+                if interaction.have_terminal():
+                    print(".", end="", flush=True)
                 time.sleep(5)
         print()
 
