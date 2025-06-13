@@ -36,11 +36,14 @@
 			v-if="interaction"
 			:interaction="interaction"
 		/>
-
 		<sp-job-card
 			v-if="job"
 			:key="job.id"
 			v-bind="job"
+		/>
+		<sp-interaction
+			v-if="interaction"
+			:interaction="interaction"
 		/>
 	</v-sheet>
 </template>

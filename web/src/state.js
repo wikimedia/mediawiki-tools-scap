@@ -6,7 +6,8 @@ export const notificationsStore = defineStore( 'spiderpig-notifications',
 		state() {
 			return {
 				backportJob: useLocalStorage( 'spiderpig-bp-job', null ),
-				alreadyNotifiedInters: useLocalStorage( 'spiderpig-notified-interactions', '[]' )
+				alreadyNotifiedInters: useLocalStorage( 'spiderpig-notified-interactions', '[]' ),
+				userNotification: null
 			};
 		},
 		actions: {
@@ -34,10 +35,30 @@ export const notificationsStore = defineStore( 'spiderpig-notifications',
 				alreadyNotified.push( interactionId );
 				this.alreadyNotifiedInters = JSON.stringify( alreadyNotified );
 			},
+			notifyUser( interaction ) {
+				if (
+					this.userShouldBeNotified( interaction ) &&
+					// Keep in sync with the prompt message in scap/backport.py#Backport._do_backport
+					!interaction.prompt.includes( 'Backport the changes?' )
+				) {
+					this.userNotification = new Notification( 'SpiderPig needs you!', {
+						body: `Job ${ interaction.job_id } requires user input`,
+						requireInteraction: true
+					} );
+					this.rememberNotified( interaction.id );
+				}
+			},
+			closeNotification() {
+				if ( this.userNotification ) {
+					this.userNotification.close();
+					this.userNotification = null;
+				}
+			},
 			reset() {
 				this.$reset();
 				this.backportJob = null;
 				this.alreadyNotifiedInters = '[]';
+				this.userNotification = null;
 			}
 		}
 	}
