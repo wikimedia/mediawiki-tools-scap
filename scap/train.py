@@ -146,6 +146,11 @@ class Train(cli.Application):
     @cli.argument(
         "--backward", "--rollback", action="store_true", help="Rollback the train"
     )
+    @cli.argument(
+        "--pause-after-testserver-sync",
+        action="store_true",
+        help="Pause after syncing testservers and prompt the user to confirm to continue syncing",
+    )
     def main(self, *extra_args):
         if self.arguments.forward and self.arguments.backward:
             raise SystemExit("Please choose one of --forward or --backward")
@@ -218,7 +223,11 @@ class Train(cli.Application):
 
     def _deploy_promote(self, group, version):
         args = []
+
         if group != "all" and self.old_version:
             args = ["--train", "--old-version", self.old_version]
+
+        if self.arguments.pause_after_testserver_sync:
+            args.insert(0, "--pause-after-testserver-sync")
 
         self.scap_check_call(["deploy-promote"] + args + [group, version])

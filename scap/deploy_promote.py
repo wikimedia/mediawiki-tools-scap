@@ -84,6 +84,11 @@ class DeployPromote(cli.Application):
         "then set the new version on all train groups up to and including the target group",
     )
     @cli.argument("--old-version", help="The old train version to be used with --train")
+    @cli.argument(
+        "--pause-after-testserver-sync",
+        action="store_true",
+        help="Pause after syncing testservers and prompt the user to confirm to continue syncing",
+    )
     def main(self, *extra_args):
         self.logger = self.get_logger()
 
@@ -233,14 +238,20 @@ class DeployPromote(cli.Application):
         return "refs/for/%s%%topic=%s,l=Code-Review+2" % (branch, self.promote_version)
 
     def _sync_versions(self):
+        flags = []
+        if self.arguments.pause_after_testserver_sync:
+            flags.append("--pause-after-testserver-sync")
+
         if self.group == "testwikis":
             self.logger.info("Running scap prep auto")
             self.scap_check_call(["prep", "auto"])
             self.logger.info("Running scap sync-world")
-            self.scap_check_call(["sync-world", self.announce_message])
+            self.scap_check_call(["sync-world"] + flags + [self.announce_message])
         else:
             self.logger.info("Running scap sync-wikiversions")
-            self.scap_check_call(["sync-wikiversions", self.announce_message])
+            self.scap_check_call(
+                ["sync-wikiversions"] + flags + [self.announce_message]
+            )
 
         # Group1 day is also the day we sync the php symlink
         if self.config["manage_mediawiki_php_symlink"] and self.group == "group1":
