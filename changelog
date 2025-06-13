@@ -1,3 +1,10 @@
+scap (4.174.0)
+
+  * scap train: Add --pause-after-testserver-sync flag
+  * deploy-promote: No progress dots unless there's a terminal
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Fri, 13 Jun 2025 09:26:17 -0700
+
 scap (4.173.0)
 
   * spiderpig: JobCard: Show some user names with soft hyphens
