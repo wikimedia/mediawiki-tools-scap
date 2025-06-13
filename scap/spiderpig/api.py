@@ -881,7 +881,9 @@ async def get_log(
 
                 await asyncio.sleep(polling_interval)
 
-    return StreamingResponse(log_streamer())
+    return StreamingResponse(
+        log_streamer(), headers={"Content-Type": "application/jsonl"}
+    )
 
 
 @app.post("/api/jobs/{job_id}/signal/{type}")
