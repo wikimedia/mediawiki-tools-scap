@@ -1,3 +1,10 @@
+scap (4.175.0)
+
+  * spiderpig: add log polling, API, and web log view
+  * spiderpig/api.py: Include Content-Type header in job log response
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Mon, 16 Jun 2025 08:46:03 -0700
+
 scap (4.174.0)
 
   * scap train: Add --pause-after-testserver-sync flag
