@@ -276,7 +276,9 @@ class Interaction(Base):
 
     @hybrid_property
     def choices_parsed(self) -> dict:
-        return json.loads(self.choices)
+        if self.type == "choices":
+            return json.loads(self.choices)
+        return {}
 
     @classmethod
     def register(
