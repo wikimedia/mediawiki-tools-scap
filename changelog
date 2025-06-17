@@ -1,3 +1,11 @@
+scap (4.176.0)
+
+  * Revert "spiderpig/api.py: Include Content-Type header in job log response"
+  * spiderpig/model.py: Fix Interaction.choices_parsed
+  * tox.ini: add flake8 settings
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Tue, 17 Jun 2025 07:36:19 -0700
+
 scap (4.175.0)
 
   * spiderpig: add log polling, API, and web log view
