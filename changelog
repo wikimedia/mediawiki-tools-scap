@@ -1,3 +1,9 @@
+scap (4.177.0)
+
+  * Drop several php_fpm* config parameters
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Tue, 17 Jun 2025 08:09:23 -0700
+
 scap (4.176.0)
 
   * Revert "spiderpig/api.py: Include Content-Type header in job log response"
