@@ -1,3 +1,10 @@
+scap (4.180.0)
+
+  * spiderpig/api.py: Include Content-Type header in job log response (v2)
+  * Revert "spiderpig: Debugging setup for T397097"
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Wed, 18 Jun 2025 13:53:27 -0700
+
 scap (4.179.1)
 
   * spiderpig: Debugging setup for T397097 (followup)
