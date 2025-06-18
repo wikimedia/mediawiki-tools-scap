@@ -4,7 +4,6 @@ import LoginPage from './components/LoginPage.vue';
 import OverviewPage from './components/OverviewPage.vue';
 import JobViewerPage from './components/JobViewerPage.vue';
 import NotAuthorized from './components/NotAuthorized.vue';
-import TestChunking from './components/TestChunking.vue';
 
 const routes = [
 	{
@@ -30,11 +29,6 @@ const routes = [
 		name: 'notauthorized',
 		path: '/notauthorized',
 		component: NotAuthorized
-	},
-	{
-		name: 'testchunking',
-		path: '/testchunking',
-		component: TestChunking
 	}
 ];
 
