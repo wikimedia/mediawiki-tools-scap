@@ -515,10 +515,11 @@ class SecurityPatches:
         core = os.path.abspath(os.path.join(root, "core"))
         exts = os.path.abspath(os.path.join(root, "extensions"))
         skins = os.path.abspath(os.path.join(root, "skins"))
+        vendor = os.path.abspath(os.path.join(root, "vendor"))
 
         patches = []
 
-        simples = [(core, "."), ("vendor", "vendor")]
+        simples = [(core, "."), (vendor, "vendor")]
         for dirname, relative in simples:
             if os.path.exists(dirname):
                 for filename in os.listdir(dirname):
