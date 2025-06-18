@@ -814,6 +814,35 @@ async def interact(
     }
 
 
+@app.get("/api/test/log")
+async def test_log(
+    interval: int = 5,
+    size: int = 50,
+    count: int = 0,
+    contentType: Optional[str] = None,
+    mediaType: Optional[str] = None,
+):
+    def toRecord(record: dict) -> str:
+        return json.dumps(record) + "\n"
+
+    async def log_streamer():
+        lineno = 0
+        remaining = count
+
+        while count == 0 or remaining > 0:
+            lineno += 1
+            yield toRecord({"type": "line", "line": f"Line {lineno}: " + "A" * size})
+            remaining -= 1
+            await asyncio.sleep(interval)
+        yield toRecord({"type": "EOF"})
+
+    headers = {}
+    if contentType:
+        headers["Content-Type"] = contentType
+
+    return StreamingResponse(log_streamer(), headers=headers, media_type=mediaType)
+
+
 @app.get("/api/jobs/{job_id}/log")
 async def get_log(
     job_id: int,
@@ -1128,11 +1157,16 @@ async def index_page():
 async def require_user(request: Request, call_next):
     # Routes outside of the /api/ space are presumed to be user interface
     # routes are therefore not protected.
-    if not request.url.path.startswith("/api/") or request.url.path in (
-        # These routes do not _require_ a current user.
-        "/api/login",
-        "/api/logout",
-        "/api/whoami",
+    if (
+        not request.url.path.startswith("/api/")
+        or request.url.path.startswith("/api/test/")
+        or request.url.path
+        in (
+            # These routes do not _require_ a current user.
+            "/api/login",
+            "/api/logout",
+            "/api/whoami",
+        )
     ):
         return await call_next(request)
 
