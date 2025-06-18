@@ -518,7 +518,7 @@ class SecurityPatches:
 
         patches = []
 
-        simples = [(core, ".")]
+        simples = [(core, "."), ("vendor", "vendor")]
         for dirname, relative in simples:
             if os.path.exists(dirname):
                 for filename in os.listdir(dirname):
