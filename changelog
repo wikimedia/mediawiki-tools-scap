@@ -1,3 +1,9 @@
+scap (4.178.3)
+
+  * patches.py: Use correct path for vendor patches
+
+ -- Jaime Nuche <jnuche@wikimedia.org>  Wed, 18 Jun 2025 16:04:11 +0200
+
 scap (4.178.2)
 
   * patches.py: Apply vendor patches too if they exist
