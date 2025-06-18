@@ -515,6 +515,7 @@ class SecurityPatches:
         core = os.path.abspath(os.path.join(root, "core"))
         exts = os.path.abspath(os.path.join(root, "extensions"))
         skins = os.path.abspath(os.path.join(root, "skins"))
+        vendor = os.path.abspath(os.path.join(root, "vendor"))
 
         patches = []
 
@@ -530,16 +531,23 @@ class SecurityPatches:
             extradirs.append(exts)
         if os.path.exists(skins):
             extradirs.append(skins)
+        if os.path.exists(vendor):
+            extradirs.append(vendor)
 
         for extradir in extradirs:
             basename = os.path.basename(extradir)
-            for subdir in os.listdir(extradir):
-                dirname = os.path.join(extradir, subdir)
-                for filename in os.listdir(dirname):
-                    patch_pathname = os.path.join(dirname, filename)
-                    patches.append(
-                        Patch(patch_pathname, os.path.join(basename, subdir))
-                    )
+            for item in os.listdir(extradir):
+                itempath = os.path.join(extradir, item)
+                if os.path.isfile(itempath):
+                    patches.append(Patch(itempath, os.path.join(basename, item)))
+                else:
+                    for filename in os.listdir(itempath):
+                        patches.append(
+                            Patch(
+                                os.path.join(itempath, filename),
+                                os.path.join(basename, item),
+                            )
+                        )
 
         return list(sorted(patches, key=lambda p: p.path()))
 
