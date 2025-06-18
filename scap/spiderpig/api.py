@@ -1138,6 +1138,7 @@ if os.path.isdir(assets_dir):
 @app.get("/logout")
 @app.get("/jobs/{job_id}")
 @app.get("/notauthorized")
+@app.get("/testchunking")
 async def index_page():
     return FileResponse(index_html, headers={"Cache-Control": "no-cache"})
 
