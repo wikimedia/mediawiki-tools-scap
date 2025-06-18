@@ -881,7 +881,12 @@ async def get_log(
 
                 await asyncio.sleep(polling_interval)
 
-    return StreamingResponse(log_streamer())
+    # media_type sets the Content-Type header. Though the response is actually
+    # application/jsonl, we use application/octet-stream since that's the only
+    # content-type that the proxy servers will accept without doing weird things
+    # to the transmission (such as collecting all the chunks before transmitting
+    # to the browser) (T397097).
+    return StreamingResponse(log_streamer(), media_type="application/octet-stream")
 
 
 @app.post("/api/jobs/{job_id}/signal/{type}")
