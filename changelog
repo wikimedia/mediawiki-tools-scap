@@ -1,3 +1,9 @@
+scap (4.181.0)
+
+  * LoginPage.vue: Don’t obscure the typed OTP in SpiderPig
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Fri, 20 Jun 2025 08:39:34 -0700
+
 scap (4.180.0)
 
   * spiderpig/api.py: Include Content-Type header in job log response (v2)
