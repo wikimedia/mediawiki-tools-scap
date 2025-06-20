@@ -12,7 +12,6 @@
 			<cdx-text-input
 				id="password"
 				v-model="password"
-				input-type="password"
 			/>
 
 			<br>
