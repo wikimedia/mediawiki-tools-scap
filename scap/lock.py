@@ -56,6 +56,7 @@ class Lock:
         reason="no reason given",
         timeout=DEFAULT_TIMEOUT,  # Timeout in seconds
         lock_mode=EXCLUSIVE,
+        do_global_lock=True,
     ):
         self.lock_file = lock_file
         self.name = name
@@ -67,6 +68,7 @@ class Lock:
             )
         self.lock_mode = lock_mode
         self.lock_fd = None
+        self.do_global_lock = do_global_lock
         self.global_lock = None
         self.reason = reason
 
@@ -77,13 +79,14 @@ class Lock:
         if self.lock_file == GLOBAL_LOCK_FILE:
             self._get_lock()
         else:
-            self.global_lock = Lock(
-                GLOBAL_LOCK_FILE,
-                name="global lock",
-                timeout=self.timeout,
-                lock_mode=Lock.SHARED,
-            )
-            self.global_lock.__enter__()
+            if self.do_global_lock:
+                self.global_lock = Lock(
+                    GLOBAL_LOCK_FILE,
+                    name="global lock",
+                    timeout=self.timeout,
+                    lock_mode=Lock.SHARED,
+                )
+                self.global_lock.__enter__()
             self._get_lock()
         return self
 

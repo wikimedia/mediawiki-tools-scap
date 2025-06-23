@@ -46,6 +46,7 @@ class JobRunner(cli.Application):
             self.spiderpig_jobrunner_lockfile(),
             reason="Spiderpig jobrunner running",
             timeout=0,
+            do_global_lock=False,
         ):
             logger = self.get_logger()
             logger.info(
