@@ -1,5 +1,6 @@
 import asyncio
 import base64
+import uuid
 import cas
 from contextlib import asynccontextmanager
 from datetime import datetime
@@ -216,21 +217,11 @@ async def lifespan(app: FastAPI):
 
     log.setup_loggers(cfg)
 
-    # Configure HTTP access logging
     if uvicorn:
+        # Disable uvicorn's access logging, since we do our own
+        # logging in access_log_middleware()
         logger = logging.getLogger("uvicorn.access")
-        formatter = uvicorn.logging.AccessFormatter(
-            '%(asctime)s %(client_addr)s "%(request_line)s" %(status_code)s'
-        )
-        logger.handlers[0].setFormatter(formatter)
-
-        if cfg["use_syslog"]:
-            syslog_handler = logging.handlers.SysLogHandler("/dev/log")
-            syslog_handler.setLevel(logging.DEBUG)
-            syslog_handler.setFormatter(log.SyslogAccessLogFormatter())
-            while logger.handlers:
-                logger.removeHandler(logger.handlers[0])
-            logger.addHandler(syslog_handler)
+        logger.handlers.clear()
 
     yield
 
@@ -1131,6 +1122,8 @@ async def index_page():
 # This middleware is processed last
 @app.middleware("http")
 async def require_user(request: Request, call_next):
+    user = maybe_get_current_user(request)
+
     # Routes outside of the /api/ space are presumed to be user interface
     # routes are therefore not protected.
     if not request.url.path.startswith("/api/") or request.url.path in (
@@ -1142,15 +1135,13 @@ async def require_user(request: Request, call_next):
         return await call_next(request)
 
     # Beyond here, at least a partially authenticated user is required.
-
-    user = maybe_get_current_user(request)
     if not user:
         return await authn_exception_handler(request, NotAuthenticatedException())
 
     if request.url.path == ROUTE_2FA:
         return await call_next(request)
 
-    # All remainining api routes require a fully authenticated user.
+    # All remaining api routes require a fully authenticated user.
     if not user.fully_authenticated:
         return await authn_exception_handler(
             request, NotAuthenticatedException(need2fa=True, user=user)
@@ -1198,3 +1189,56 @@ if os.getenv("SPIDERPIG_OPEN_CORS"):
         allow_methods=["GET", "POST"],
         allow_credentials=True,
     )
+
+
+@app.middleware("http")
+async def access_log_middleware(request: Request, call_next):
+    request_id = str(uuid.uuid4())
+
+    response = await call_next(request)
+    response.headers["X-Request-ID"] = request_id
+
+    user = maybe_get_current_user(request)
+    user_roles = []
+    if user:
+        if user_is_authorized(user.groups):
+            user_roles.append("authorized")
+        if user.isAdmin:
+            user_roles.append("admin")
+        if user.fully_authenticated:
+            user_roles.append("fully_authenticated")
+
+    logger = logging.getLogger("spiderpig.access")
+    http_version = request.scope.get("http_version", "1.0")
+    msg = f'{request.client.host} - "{request.method} {request.url.path} HTTP/{http_version}" {response.status_code}'
+    logger.info(
+        msg,
+        extra={
+            "http": {
+                "request": {
+                    "id": request_id,
+                    "method": request.method,
+                    "referrer": request.headers.get("Referer"),
+                },
+                "response": {
+                    "status_code": response.status_code,
+                },
+                "version": http_version,
+            },
+            "source": {
+                "ip": request.client.host,
+            },
+            "url": {
+                "original": request.url.path,
+            },
+            "user": {
+                "name": user.name if user else None,
+                "roles": user_roles,
+            },
+            "user_agent": {
+                "original": request.headers.get("User-Agent"),
+            },
+        },
+    )
+
+    return response
