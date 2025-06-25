@@ -120,6 +120,57 @@ def _run_flags(app) -> list:
 
 
 @cli.command(
+    "php",
+    help="Execute PHP scripts within a Docker container",
+)
+class PHPApp(cli.Application):
+    @cli.argument(
+        "--directory",
+        type=str,
+        required=True,
+        help="MediaWiki directory to mount within the container.",
+    )
+    @cli.argument(
+        "--user",
+        type=str,
+        required=True,
+        help="MediaWiki runtime user.",
+    )
+    @cli.argument(
+        "--network",
+        default=False,
+        action="store_true",
+        help="Enable network access for the script.",
+    )
+    @cli.argument(
+        "script",
+        nargs="?",
+        help="PHP script to run.",
+    )
+    @cli.argument(
+        "arguments",
+        nargs="...",
+        help="script arguments",
+    )
+    def main(self, *extra_args):
+        """
+        Execute containerized PHP scripts.
+        """
+        runtime = Runtime(
+            self.config,
+            self.arguments.directory,
+            self.arguments.user,
+            offline=not self.arguments.network,
+        )
+        proc = runtime.run_php(
+            self.arguments.script,
+            self.arguments.arguments,
+            network=self.arguments.network,
+        )
+        sys.exit(proc.returncode)
+
+
+@cli.command(
     "mwscript",
     help="Execute MediaWiki scripts within a Docker container",
 )
@@ -228,15 +279,14 @@ class Runtime:
         if self.temp_dir is None:
             self.temp_dir = tempfile.gettempdir()
 
-    def run_mwscript(
+    def run_php(
         self,
         script,
         args=[],
         **kwargs,
     ) -> subprocess.CompletedProcess:
         """
-        Execute the given MediaWiki PHP script via multiversion's
-        MWScript.php.
+        Execute the given MediaWiki PHP script.
         """
         php_args = ["-d", "display_errors=stderr", "-d", "log_errors=off"]
 
@@ -249,10 +299,22 @@ class Runtime:
 
         return self._run(
             "/usr/bin/php",
-            [*php_args, "multiversion/MWScript.php", script, *args],
+            [*php_args, script, *args],
             env=env,
             **kwargs,
         )
+
+    def run_mwscript(
+        self,
+        script,
+        args=[],
+        **kwargs,
+    ) -> subprocess.CompletedProcess:
+        """
+        Execute the given MediaWiki PHP script via multiversion's
+        MWScript.php.
+        """
+        return self.run_php("multiversion/MWScript.php", [script, *args], **kwargs)
 
     def run_shell(self, command: str, **kwargs) -> subprocess.CompletedProcess:
         """
