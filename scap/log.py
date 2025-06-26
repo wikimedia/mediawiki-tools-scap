@@ -275,16 +275,21 @@ class LogstashFormatter(logging.Formatter):
             "created",
             "exc_info",
             "exc_text",
+            "filename",
             "levelno",
+            "module",
             "msecs",
             "msg",
             "processName",
             "relativeCreated",
             "thread",
             "threadName",
+            "stack_info",
         ]
         for field in ignore_fields:
             fields.pop(field, None)
+
+        logger = fields.pop("name", "unnamed")
 
         logstash_record = {
             "ecs": {"version": "1.7.0"},
@@ -292,27 +297,40 @@ class LogstashFormatter(logging.Formatter):
             "host": {
                 "name": self.host,
             },
-            "labels": {"channel": fields.pop("name", "unnamed")},
+            "labels": {"channel": logger},
             "log": {
-                "logger": fields.pop("module", None),
+                "level": fields.pop("levelname", None),
+                "logger": logger,
                 "origin": {
                     "file": {
-                        "name": fields.pop("filename", None),
+                        "name": fields.pop("pathname", None),
                         "line": fields.pop("lineno", None),
                     },
                     "function": fields.pop("funcName", None),
                 },
             },
-            "process": {"pid": fields.pop("process", None)},
+            "process": {
+                "executable": self.script,
+                "pid": fields.pop("process", None),
+            },
             "service": {
                 "type": self.type,
             },
-            "script": self.script,  # FIXME: This field is dropped by logstash
-            "user": {
-                "name": self.user,
-            },
         }
         logstash_record.update(fields)
+
+        effective_user = {
+            "name": self.user,
+        }
+
+        user = logstash_record.get("user")
+
+        if user:
+            assert isinstance(user, dict)
+            # NOTE: This modifies a caller-supplied dict
+            user["effective"] = effective_user
+        else:
+            logstash_record["user"] = effective_user
 
         return json.dumps(logstash_record, default=str)
 
