@@ -1,3 +1,10 @@
+scap (4.183.0)
+
+  * spiderpig: Revise HTTP access logging
+  * Update scap beta release scripts
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Thu, 26 Jun 2025 07:09:18 -0700
+
 scap (4.182.0)
 
   * lock.py: Add do_global_lock keyword arg to Lock class
