@@ -227,8 +227,6 @@ class JSONFormatter(logging.Formatter):
 class LogstashFormatter(logging.Formatter):
     """Format log messages for logstash."""
 
-    converter = time.gmtime
-
     def __init__(self, fmt=None, datefmt="%Y-%m-%dT%H:%M:%SZ", log_type="scap"):
         """
         :param fmt: Message format string (not used)
@@ -244,10 +242,6 @@ class LogstashFormatter(logging.Formatter):
     def format(self, record):
         """Format a record as a logstash v1 JSON string."""
         fields = record.__dict__.copy()
-
-        # Rename fields
-        fields["channel"] = fields.pop("name", "unnamed")
-        fields["@timestamp"] = self.formatTime(record, self.datefmt)
 
         # Ensure message is populated
         if "message" not in fields:
@@ -275,7 +269,7 @@ class LogstashFormatter(logging.Formatter):
             fields["exception"] = self.formatException(fields["exc_info"])
 
         # Remove fields
-        remove_fields = [
+        ignore_fields = [
             "args",
             "asctime",
             "created",
@@ -289,15 +283,34 @@ class LogstashFormatter(logging.Formatter):
             "thread",
             "threadName",
         ]
-        for field in remove_fields:
+        for field in ignore_fields:
             fields.pop(field, None)
 
         logstash_record = {
-            "@version": "1",
-            "type": self.type,
-            "host": self.host,
-            "script": self.script,
-            "user": self.user,
+            "ecs": {"version": "1.7.0"},
+            "@timestamp": self.formatTime(record, self.datefmt),
+            "host": {
+                "name": self.host,
+            },
+            "labels": {"channel": fields.pop("name", "unnamed")},
+            "log": {
+                "logger": fields.pop("module", None),
+                "origin": {
+                    "file": {
+                        "name": fields.pop("filename", None),
+                        "line": fields.pop("lineno", None),
+                    },
+                    "function": fields.pop("funcName", None),
+                },
+            },
+            "process": {"pid": fields.pop("process", None)},
+            "service": {
+                "type": self.type,
+            },
+            "script": self.script,  # FIXME: This field is dropped by logstash
+            "user": {
+                "name": self.user,
+            },
         }
         logstash_record.update(fields)
 
