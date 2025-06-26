@@ -5,7 +5,6 @@
     Contains misc utility functions.
 
 """
-import copy
 import pytest
 
 from scap import php_fpm, ssh
@@ -28,19 +27,6 @@ def php_restart():
 def test_init(php_restart):
     """Test php_restart initialization"""
     assert php_restart.cmd == "/bin/foo"
-
-
-def test_init_unsafe(php_restart):
-    """Test php_restart initialization, unsafe mode"""
-    params = copy.deepcopy(PHPRESTART_PARAMS)
-    params["php_fpm_unsafe_restart_script"] = "/bin/foo-unsafe"
-    with pytest.raises(SystemExit):
-        php_fpm.PHPRestart(params, ssh.Job(), True)
-
-    params = copy.deepcopy(PHPRESTART_PARAMS)
-    params["php_fpm_unsafe_restart_script"] = "/bin/foo"
-    pr = php_fpm.PHPRestart(params, ssh.Job(), True)
-    assert pr.cmd == "/bin/foo --force"
 
 
 def test_build_job(php_restart):

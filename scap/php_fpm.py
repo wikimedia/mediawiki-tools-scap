@@ -34,18 +34,11 @@ class PHPRestart(object):
         self.logger = logger
 
         restart_script = cfg.get("php_fpm_restart_script")
-        unsafe_restart_script = cfg.get("php_fpm_unsafe_restart_script")
 
         if not restart_script:
             if logger:
                 logger.debug("php_fpm_restart_script not configured")
             return
-
-        # Sanity check while preparing to remove support for php_fpm_unsafe_restart_script
-        if unsafe_restart_script and unsafe_restart_script != restart_script:
-            raise SystemExit(
-                f"`php_fpm_unsafe_restart_script` is set to {unsafe_restart_script}, but it must match `php_fpm_restart_script` which is set to {restart_script}"
-            )
 
         self.cmd = restart_script
 
