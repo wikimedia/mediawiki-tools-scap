@@ -1,3 +1,9 @@
+scap (4.184.0)
+
+  * log.py: Emit logstash records in ECS 1.7.0 format
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Thu, 26 Jun 2025 11:26:40 -0700
+
 scap (4.183.0)
 
   * spiderpig: Revise HTTP access logging
