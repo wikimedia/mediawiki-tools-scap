@@ -1,3 +1,10 @@
+scap (4.184.1)
+
+  * Emit logstash records in ECS 1.7.0 format (v2)
+  * Drop php_fpm_restart_script support
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Fri, 27 Jun 2025 12:14:04 -0700
+
 scap (4.184.0)
 
   * log.py: Emit logstash records in ECS 1.7.0 format
