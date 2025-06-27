@@ -57,12 +57,16 @@ class _HelmfileReleaseValues:
     """The address of the docker registry."""
     mw_image_tag: str
     """The mediawiki app-image tag."""
+    mw_metadata: dict
+    """The metadata attributes describing the mediawiki app image."""
     web_image_tag: str
     """The httpd web-image tag."""
+    web_metadata: dict
+    """The metadata attributes describing the httpd web image."""
 
     def to_values(self) -> dict:
         """Returns a dict of helmfile values in the format expected by the mediawiki chart."""
-        return {
+        values = {
             "docker": {
                 "registry": self.registry,
             },
@@ -75,6 +79,9 @@ class _HelmfileReleaseValues:
                 }
             },
         }
+        if "php_version" in self.mw_metadata:
+            values["php"] = {"version": self.mw_metadata["php_version"]}
+        return values
 
 
 class DeploymentsConfig:
@@ -1073,37 +1080,42 @@ class K8sOps:
 
             return fqin
 
-        def find_image_flavour(image_info, flavour, image_kind=None):
-            if flavour not in image_info:
+        def find_image_and_metadata(flavours, flavour, image_kind=None):
+            if flavour not in flavours:
                 raise ValueError(
-                    f"Image flavour '{flavour}' not found among built images in {image_info}"
+                    f"Image flavour '{flavour}' not found among built images in {flavours}"
                 )
+
+            kinds = flavours[flavour]["kinds"]
 
             if image_kind is None:
                 image_kind = _DEFAULT_IMAGE_KIND
 
-            if image_kind not in image_info[flavour]:
+            if image_kind not in kinds:
                 raise ValueError(
                     f"Image kind '{image_kind}' not found among built images for flavour "
-                    f"'{flavour}' in {image_info[flavour]}"
+                    f"'{flavour}' in {kinds}"
                 )
 
-            return image_info[flavour][image_kind]
+            return (
+                kinds[image_kind]["image_name"],
+                flavours[flavour]["metadata"],
+            )
 
         values = {}
 
-        # An exception raised by find_image_flavour indicates a misconfiguration, in which case,
-        # a backtrace is not useful.
+        # An exception raised by find_image_and_metadata indicates a misconfiguration, in which
+        # case, a backtrace is not useful.
         with utils.suppress_backtrace():
             for dep_config in dep_configs:
-                mw_img = find_image_flavour(
-                    images_info["mediawiki"]["by-flavour"],
+                mw_img, mw_metadata = find_image_and_metadata(
+                    images_info["mediawiki"]["flavours"],
                     dep_config[DeploymentsConfig.MW_IMAGE_FLAVOUR],
                     image_kind=dep_config[DeploymentsConfig.MW_IMAGE_KIND],
                 )
 
-                web_img = find_image_flavour(
-                    images_info["webserver"]["by-flavour"],
+                web_img, web_metadata = find_image_and_metadata(
+                    images_info["webserver"]["flavours"],
                     dep_config[DeploymentsConfig.WEB_IMAGE_FLAVOUR],
                 )
 
@@ -1111,7 +1123,9 @@ class K8sOps:
                 values[fq_release_name] = _HelmfileReleaseValues(
                     registry=registry,
                     mw_image_tag=strip_registry(mw_img),
+                    mw_metadata=mw_metadata,
                     web_image_tag=strip_registry(web_img),
+                    web_metadata=web_metadata,
                 )
 
         return values
