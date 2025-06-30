@@ -28,7 +28,7 @@
 </template>
 
 <script>
-import { onMounted, defineComponent, ref } from 'vue';
+import { onMounted, onUnmounted, defineComponent, ref } from 'vue';
 import { CdxAccordion, CdxIcon, CdxInfoChip, CdxTable } from '@wikimedia/codex';
 import { cdxIconChart, cdxIconLinkExternal } from '@wikimedia/codex-icons';
 
@@ -52,6 +52,8 @@ export default defineComponent( {
 		const total = ref();
 		const api = useApi();
 		const maxMessageLength = 200;
+		const INTERVAL = 15000;
+		let intervalTimer = null;
 
 		const createOpenSearchLink = ( errorMessage, fieldName = 'normalized_message', timeRange = '24h' ) => {
 			const dashboard = 'https://logstash.wikimedia.org/app/dashboards#/view/mediawiki-errors';
@@ -101,9 +103,17 @@ export default defineComponent( {
 		};
 
 		onMounted( () => {
-			window.setInterval( populateLogs, 15000 );
+			intervalTimer = window.setInterval( populateLogs, INTERVAL );
 			populateLogs();
 		} );
+
+		onUnmounted( () => {
+			if ( intervalTimer ) {
+				clearInterval( intervalTimer );
+				intervalTimer = null;
+			}
+		} );
+
 		return {
 			columns,
 			data,
