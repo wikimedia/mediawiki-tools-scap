@@ -1166,7 +1166,7 @@ async def require_user(request: Request, call_next):
 # is defined, therefore it must be added after require_user() is defined, since middlewares are
 # processed in reverse order of their definitions.
 if os.getenv("SPIDERPIG_SESSION_KEY_FILE"):
-    app.add_middleware(SessionMiddleware, secret_key=get_session_key())
+    app.add_middleware(SessionMiddleware, secret_key=get_session_key(), https_only=True)
 
 
 @app.middleware("http")
