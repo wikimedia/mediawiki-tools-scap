@@ -15,9 +15,6 @@ const useAuthStore = defineStore( 'spiderpig-auth',
 		state() {
 			return {
 				authUser: useLocalStorage( 'spiderpig-auth-user', null ),
-				authFailing: false, // FIXME: This is set in several places but never read.
-				authCode: null,
-				authUrl: null,
 				windowLocationSet: false
 			};
 		},
@@ -47,9 +44,6 @@ const useAuthStore = defineStore( 'spiderpig-auth',
 			async handle401( url, response ) {
 				const authresp = await response.json();
 
-				this.authFailing = true;
-				this.authCode = authresp.code;
-				this.authUrl = authresp.url;
 				this.authUser = authresp.user;
 				localStorage.setItem( 'spiderpig-auth-user', this.authUser );
 
@@ -83,8 +77,6 @@ const useAuthStore = defineStore( 'spiderpig-auth',
 				if ( response.status === 403 ) {
 					this.setWindowLocation( '/notauthorized' );
 				}
-
-				this.authFailing = false;
 
 				if ( callOptions.checkOk !== false && !response.ok ) {
 					let respJson = null;
@@ -124,7 +116,6 @@ const useAuthStore = defineStore( 'spiderpig-auth',
 					resp = await response.json();
 					this.authUser = resp.user;
 					localStorage.setItem( 'spiderpig-auth-user', this.authUser );
-					this.authFailing = ( resp.code !== 'ok' );
 					return resp;
 				}
 
