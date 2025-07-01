@@ -1211,7 +1211,7 @@ async def access_log_middleware(request: Request, call_next):
 
     logger = logging.getLogger("spiderpig.access")
     http_version = request.scope.get("http_version", "1.0")
-    msg = f'{request.client.host} - "{request.method} {request.url.path} HTTP/{http_version}" {response.status_code}'
+    msg = f'{request.client.host} {user.name if user else "-"} "{request.method} {request.url.path} HTTP/{http_version}" {response.status_code}'
     logger.info(
         msg,
         extra={
