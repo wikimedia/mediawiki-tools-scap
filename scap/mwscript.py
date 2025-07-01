@@ -144,7 +144,6 @@ class PHPApp(cli.Application):
     )
     @cli.argument(
         "script",
-        nargs="?",
         help="PHP script to run.",
     )
     @cli.argument(
@@ -195,7 +194,6 @@ class Mwscript(cli.Application):
     )
     @cli.argument(
         "script",
-        nargs="?",
         help="MediaWiki maintenance script to run.",
     )
     @cli.argument(
