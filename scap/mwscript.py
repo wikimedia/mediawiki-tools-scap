@@ -119,22 +119,42 @@ def _run_flags(app) -> list:
     ]
 
 
+DIRECTORY_HELP = "MediaWiki directory to mount within the container.  Default is stage_dir from scap.cfg."
+USER_HELP = "MediaWiki runtime user.  Default is mediawiki_runtime_user from scap.cfg."
+
+
+class MediaWikiRuntimeApp(cli.Application):
+    def main(self, *extra_args):
+        """
+        Execute containerized PHP scripts.
+        """
+        if not self.arguments.directory:
+            self.arguments.directory = self.config["stage_dir"]
+        if not self.arguments.user:
+            self.arguments.user = self.config["mediawiki_runtime_user"]
+
+        self.runtime = Runtime(
+            self.config,
+            self.arguments.directory,
+            self.arguments.user,
+            offline=not self.arguments.network,
+        )
+
+
 @cli.command(
     "php",
     help="Execute PHP scripts within a Docker container",
 )
-class PHPApp(cli.Application):
+class PHPApp(MediaWikiRuntimeApp):
     @cli.argument(
         "--directory",
         type=str,
-        required=True,
-        help="MediaWiki directory to mount within the container.",
+        help=DIRECTORY_HELP,
     )
     @cli.argument(
         "--user",
         type=str,
-        required=True,
-        help="MediaWiki runtime user.",
+        help=USER_HELP,
     )
     @cli.argument(
         "--network",
@@ -155,13 +175,8 @@ class PHPApp(cli.Application):
         """
         Execute containerized PHP scripts.
         """
-        runtime = Runtime(
-            self.config,
-            self.arguments.directory,
-            self.arguments.user,
-            offline=not self.arguments.network,
-        )
-        proc = runtime.run_php(
+        super().main(*extra_args)
+        proc = self.runtime.run_php(
             self.arguments.script,
             self.arguments.arguments,
             network=self.arguments.network,
@@ -173,18 +188,16 @@ class PHPApp(cli.Application):
     "mwscript",
     help="Execute MediaWiki scripts within a Docker container",
 )
-class Mwscript(cli.Application):
+class Mwscript(MediaWikiRuntimeApp):
     @cli.argument(
         "--directory",
         type=str,
-        required=True,
-        help="MediaWiki directory to mount within the container.",
+        help=DIRECTORY_HELP,
     )
     @cli.argument(
         "--user",
         type=str,
-        required=True,
-        help="MediaWiki runtime user.",
+        help=USER_HELP,
     )
     @cli.argument(
         "--network",
@@ -205,13 +218,8 @@ class Mwscript(cli.Application):
         """
         Execute containerized MediaWiki PHP scripts via MWScript.php.
         """
-        runtime = Runtime(
-            self.config,
-            self.arguments.directory,
-            self.arguments.user,
-            offline=not self.arguments.network,
-        )
-        proc = runtime.run_mwscript(
+        super().main(*extra_args)
+        proc = self.runtime.run_mwscript(
             self.arguments.script,
             self.arguments.arguments,
             network=self.arguments.network,
