@@ -1093,11 +1093,17 @@ web_dir = os.path.join(os.path.dirname(__file__), "../../web")
 dist_dir = os.path.join(web_dir, "dist")
 assets_dir = os.path.join(dist_dir, "assets")
 index_html = os.path.join(dist_dir, "index.html")
+favicon = os.path.join(dist_dir, "favicon.ico")
 
 # This conditional is here to allow this module to be imported
 # during tests.
 if os.path.isdir(assets_dir):
     app.mount("/assets", StaticFiles(directory=assets_dir))
+
+
+@app.get("/favicon.ico")
+async def get_favicon():
+    return FileResponse(favicon)
 
 
 # The following routes correspond to Vue routes established in router.js
