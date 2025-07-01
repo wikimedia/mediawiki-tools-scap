@@ -64,11 +64,13 @@ class JobRunner(cli.Application):
             os.makedirs(logdir, exist_ok=True)
             os.chmod(logdir, 0o770 | stat.S_ISGID)
 
-            threading.Thread(
-                target=logstash_poller.main,
-                daemon=True,
-                args=(self.config, logger, spiderpig_dir),
-            ).start()
+            if self.config["logstash_host"]:
+                threading.Thread(
+                    target=logstash_poller.main,
+                    daemon=True,
+                    args=(self.config, logger, spiderpig_dir),
+                ).start()
+
             db_filename = self.spiderpig_dbfile()
             engine = scap.spiderpig.engine(db_filename)
             setup_db(engine, db_filename)
