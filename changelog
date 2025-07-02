@@ -1,3 +1,9 @@
+scap (4.186.0)
+
+  * spiderpig/api.py: Add session cookie debugging
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Wed, 02 Jul 2025 15:43:01 -0700
+
 scap (4.185.0)
 
   * spiderpig: Don't start logstash poller if logstash_host is blank
