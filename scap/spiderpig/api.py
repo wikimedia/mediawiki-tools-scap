@@ -10,6 +10,7 @@ import html
 import json
 import logging
 import os
+import itsdangerous
 import pyotp
 import re
 import socket
@@ -1196,6 +1197,17 @@ if os.getenv("SPIDERPIG_OPEN_CORS"):
 async def access_log_middleware(request: Request, call_next):
     request_id = str(uuid.uuid4())
 
+    # Temporary for debugging
+    session_complaint = None
+    session = request.cookies.get("session")
+    if session:
+        signer = itsdangerous.TimestampSigner(get_session_key())
+        try:
+            signer.unsign(session, max_age=14 * 24 * 60 * 60)
+        except Exception as e:
+            session_complaint = str(e)
+    # End Temporary for debugging
+
     response = await call_next(request)
     response.headers["X-Request-ID"] = request_id
 
@@ -1215,6 +1227,11 @@ async def access_log_middleware(request: Request, call_next):
     logger.info(
         msg,
         extra={
+            # NOTE: This session key is not ECS-compliant
+            "session": {
+                "supplied": True if session else False,
+                "complaint": session_complaint,
+            },
             "http": {
                 "request": {
                     "id": request_id,
