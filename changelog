@@ -1,3 +1,17 @@
+scap (4.185.0)
+
+  * spiderpig: Don't start logstash poller if logstash_host is blank
+  * apiserver: Include authenticated username in access log
+  * mwscript.py: Set defaults for directory and user
+  * mwscript.py: Make script argument required
+  * scap php: New subcommand
+  * Log.vue: Clear intervalTimer on unmount
+  * spiderpig/api.py: Replace some print()s with logging.info() calls
+  * api.py: Set Secure flag on session cookie
+  * api.js: Remove unused pinia state
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Wed, 02 Jul 2025 07:57:21 -0700
+
 scap (4.184.1)
 
   * Emit logstash records in ECS 1.7.0 format (v2)
