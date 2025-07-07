@@ -10,7 +10,6 @@ import html
 import json
 import logging
 import os
-import itsdangerous
 import pyotp
 import re
 import socket
@@ -41,10 +40,10 @@ from fastapi import (
     Request,
     Query,
     Body,
+    Response,
 )
 from fastapi.encoders import jsonable_encoder
 from fastapi.middleware.cors import CORSMiddleware
-from starlette.middleware.sessions import SessionMiddleware
 from fastapi.responses import (
     FileResponse,
     StreamingResponse,
@@ -65,6 +64,7 @@ from scap.spiderpig.model import (
     AlreadyResponded,
     User,
 )
+from scap.spiderpig.session import SessionCookie
 
 OTP_TIMEOUT = 60
 
@@ -223,6 +223,8 @@ async def lifespan(app: FastAPI):
         # logging in access_log_middleware()
         logger = logging.getLogger("uvicorn.access")
         logger.handlers.clear()
+
+    app.state.session_cookie = SessionCookie(get_session_key())
 
     yield
 
@@ -459,15 +461,26 @@ def maybe_get_current_user(request: Request) -> Optional[SessionUser]:
     Returns a SessionUser object which may or may not have completed
     authentication.  Returns None if there is no current user.
     """
-    user = request.session.get("user")
+    if hasattr(request.state, "user"):
+        return request.state.user
+
+    request.state.user = None
+
+    session = request.cookies.get("session")
+    data = app.state.session_cookie.decode(session)
+    if not data:
+        return None
+    user = data.get("user")
     if not user:
         return None
 
     # Discard user information from other epochs.
-    if request.session.get("epoch") != get_current_epoch():
+    if data.get("epoch") != get_current_epoch():
         return None
 
-    return SessionUser(**user)
+    res = SessionUser(**user)
+    request.state.user = res
+    return res
 
 
 def get_current_user(request: Request) -> SessionUser:
@@ -937,6 +950,21 @@ def searchPatch(
 # Also see require_user in the Middleware section near the end of this file
 
 
+def set_session_cookie_on_response(resp: Response, user: SessionUser):
+    data = (
+        {
+            "user": user.model_dump(),
+            "epoch": get_current_epoch(),
+        }
+        if user
+        else None
+    )
+    app.state.session_cookie.set_session_cookie_on_response(
+        resp,
+        data,
+    )
+
+
 # This function is intentionally not marked "async" due to the blocking
 # io that happens in `verify_ticket()`.
 @app.get("/api/login")
@@ -983,12 +1011,10 @@ def login(
     logging.info(f"/api/login: user {uid} validated")
 
     user = SessionUser(name=username, groups=groups)
-    # Store the logged-in-user information in a signed cookie
-    # (prepared by SessionMiddleware, which is set up near the bottom of
-    # this file).
-    request.session["user"] = user.model_dump()
-    request.session["epoch"] = get_current_epoch()
-    return RedirectResponse(next or "/")
+
+    resp = RedirectResponse(next or "/")
+    set_session_cookie_on_response(resp, user)
+    return resp
 
 
 @app.post(ROUTE_2FA)
@@ -1015,9 +1041,11 @@ async def login2(
         )
     # Success
     dbuser.update_last_2fa_code(session, otp)
+
     user.fully_authenticated = True
-    request.session["user"] = user.model_dump()
-    return {"code": "ok", "message": "2FA completed", "user": user.name}
+    resp = JSONResponse({"code": "ok", "message": "2FA completed", "user": user.name})
+    set_session_cookie_on_response(resp, user)
+    return resp
 
 
 def getSSOLogoutUrl(request: Request) -> str:
@@ -1038,13 +1066,16 @@ async def logout(
             "message": "Already logged out",
             "SSOLogoutUrl": SSOLogoutUrl,
         }
-    # Discard knowledge about the current user.
-    request.session["user"] = None
 
-    return {
-        "message": "Logged out",
-        "SSOLogoutUrl": SSOLogoutUrl,
-    }
+    resp = JSONResponse(
+        {
+            "message": "Logged out",
+            "SSOLogoutUrl": SSOLogoutUrl,
+        }
+    )
+    # Discard knowledge about the current user.
+    set_session_cookie_on_response(resp, None)
+    return resp
 
 
 @app.post("/api/logoutAll")
@@ -1170,13 +1201,6 @@ async def require_user(request: Request, call_next):
     return await call_next(request)
 
 
-# SessionMiddleware must be processed before require_user() (which uses `request.session`)
-# is defined, therefore it must be added after require_user() is defined, since middlewares are
-# processed in reverse order of their definitions.
-if os.getenv("SPIDERPIG_SESSION_KEY_FILE"):
-    app.add_middleware(SessionMiddleware, secret_key=get_session_key(), https_only=True)
-
-
 @app.middleware("http")
 async def add_cache_control_header(request: Request, call_next):
     response = await call_next(request)
@@ -1203,17 +1227,6 @@ if os.getenv("SPIDERPIG_OPEN_CORS"):
 async def access_log_middleware(request: Request, call_next):
     request_id = str(uuid.uuid4())
 
-    # Temporary for debugging
-    session_complaint = None
-    session = request.cookies.get("session")
-    if session:
-        signer = itsdangerous.TimestampSigner(get_session_key())
-        try:
-            signer.unsign(session, max_age=14 * 24 * 60 * 60)
-        except Exception as e:
-            session_complaint = str(e)
-    # End Temporary for debugging
-
     response = await call_next(request)
     response.headers["X-Request-ID"] = request_id
 
@@ -1233,11 +1246,6 @@ async def access_log_middleware(request: Request, call_next):
     logger.info(
         msg,
         extra={
-            # NOTE: This session key is not ECS-compliant
-            "session": {
-                "supplied": True if session else False,
-                "complaint": session_complaint,
-            },
             "http": {
                 "request": {
                     "id": request_id,

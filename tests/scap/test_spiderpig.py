@@ -1,6 +1,8 @@
 # Test spiderpig apiserver auth-related functions
 
 import json
+import re
+from fastapi.datastructures import State
 import pyotp
 import os
 import sys
@@ -18,9 +20,11 @@ from scap.spiderpig.api import (
     SessionUser,
     get_current_epoch,
     get_admin_user,
+    get_session_key,
     ROUTE_2FA,
 )
 from scap.spiderpig.model import User
+from scap.spiderpig.session import SessionCookie
 import scap.utils
 
 from fastapi import HTTPException
@@ -36,9 +40,22 @@ if sys.version_info >= (3, 8):
 
 @pytest.fixture(autouse=True)
 def spiderpigdir(tmpdir):
-    with unittest.mock.patch.dict(os.environ, {"SPIDERPIG_DIR": str(tmpdir)}):
+    with unittest.mock.patch.dict(
+        os.environ,
+        {
+            "SPIDERPIG_DIR": str(tmpdir),
+            "SPIDERPIG_SESSION_KEY_FILE": f"{tmpdir}/spiderpig_session_key",
+        },
+    ):
         get_current_epoch()
         yield tmpdir
+
+
+@pytest.fixture(autouse=True)
+def mock_app(spiderpigdir):
+    with unittest.mock.patch.object(scap.spiderpig.api, "app") as app:
+        app.state.session_cookie = SessionCookie(get_session_key())
+        yield app
 
 
 @pytest.fixture(autouse=True)
@@ -60,70 +77,94 @@ def scap_config():
 
 
 @pytest.fixture
-def bad_epoch_user_session():
-    return {
-        "user": {
-            "name": "bruce",
-            "groups": ["cn=deployers,ou=groups,dc=example,dc=org"],
-            "fully_authenticated": False,
-        },
-        "epoch": "bogus",
-    }
+def bad_epoch_user_session(mock_app):
+    return mock_app.state.session_cookie.encode(
+        {
+            "user": {
+                "name": "bruce",
+                "groups": ["cn=deployers,ou=groups,dc=example,dc=org"],
+                "fully_authenticated": False,
+            },
+            "epoch": "bogus",
+        }
+    )
 
 
 @pytest.fixture
-def partially_authenticated_user_session():
-    return {
-        "user": {
-            "name": "bruce",
-            "groups": ["cn=deployers,ou=groups,dc=example,dc=org"],
-            "fully_authenticated": False,
-        },
-        "epoch": get_current_epoch(),
-    }
+def partially_authenticated_user_session(mock_app):
+    return mock_app.state.session_cookie.encode(
+        {
+            "user": {
+                "name": "bruce",
+                "groups": ["cn=deployers,ou=groups,dc=example,dc=org"],
+                "fully_authenticated": False,
+            },
+            "epoch": get_current_epoch(),
+        }
+    )
 
 
 @pytest.fixture
-def fully_authenticated_user_session():
-    return {
-        "user": {
-            "name": "bruce",
-            "groups": ["cn=deployers,ou=groups,dc=example,dc=org"],
-            "fully_authenticated": True,
-        },
-        "epoch": get_current_epoch(),
-    }
+def fully_authenticated_user_session(mock_app):
+    return mock_app.state.session_cookie.encode(
+        {
+            "user": {
+                "name": "bruce",
+                "groups": ["cn=deployers,ou=groups,dc=example,dc=org"],
+                "fully_authenticated": True,
+            },
+            "epoch": get_current_epoch(),
+        }
+    )
 
 
 @pytest.fixture
-def fully_authenticated_admin_user_session():
-    return {
-        "user": {
-            "name": "bruce",
-            "groups": [
-                "cn=admins,ou=groups,dc=example,dc=org",
-            ],
-            "fully_authenticated": True,
-        },
-        "epoch": get_current_epoch(),
-    }
+def fully_authenticated_rando_session(mock_app):
+    return mock_app.state.session_cookie.encode(
+        {
+            "user": {
+                "name": "rando",
+                "groups": ["cn=randos,ou=groups,dc=example,dc=org"],
+                "fully_authenticated": True,
+            },
+            "epoch": get_current_epoch(),
+        }
+    )
+
+
+@pytest.fixture
+def fully_authenticated_admin_user_session(mock_app):
+    return mock_app.state.session_cookie.encode(
+        {
+            "user": {
+                "name": "bruce",
+                "groups": [
+                    "cn=admins,ou=groups,dc=example,dc=org",
+                ],
+                "fully_authenticated": True,
+            },
+            "epoch": get_current_epoch(),
+        }
+    )
 
 
 def test_maybe_get_current_user(
-    bad_epoch_user_session,
-    partially_authenticated_user_session,
+    bad_epoch_user_session, partially_authenticated_user_session
 ):
     request = Mock()
-    request.session = {}
+    request.cookies = {}
+    request.state = State()
     assert maybe_get_current_user(request) is None
 
     # Verify that user info from a non-current epoch is ignored.
-    request.session = bad_epoch_user_session
+    request.cookies["session"] = bad_epoch_user_session
+    request.state = State()
     assert maybe_get_current_user(request) is None
 
     # Reset to a proper partially authenthenticated user
-    request.session = partially_authenticated_user_session
+    request.cookies["session"] = partially_authenticated_user_session
 
+    request.state = State()
     user = maybe_get_current_user(request)
     assert user
     assert user.name == "bruce"
@@ -132,20 +173,25 @@ def test_maybe_get_current_user(
     assert user.isAdmin is False
 
 
-def test_get_current_user(partially_authenticated_user_session):
+def test_get_current_user(
+    partially_authenticated_user_session, fully_authenticated_user_session
+):
     request = Mock()
-    request.session = {}
+    request.cookies = {}
+    request.state = State()
     with pytest.raises(NotAuthenticatedException) as excinfo:
         get_current_user(request)
 
-    request.session = partially_authenticated_user_session
+    request.cookies["session"] = partially_authenticated_user_session
 
     with pytest.raises(NotAuthenticatedException) as excinfo:
+        request.state = State()
         get_current_user(request)
     assert excinfo.value.need2fa is True
     assert excinfo.value.user.name == "bruce"
 
-    request.session["user"]["fully_authenticated"] = True
+    request.cookies["session"] = fully_authenticated_user_session
+    request.state = State()
     user = get_current_user(request)
     assert user.name == "bruce"
     assert user.groups == ["cn=deployers,ou=groups,dc=example,dc=org"]
@@ -157,15 +203,18 @@ def test_get_admin_user(
     fully_authenticated_user_session,
     fully_authenticated_admin_user_session,
 ):
-    mockrequest.session = partially_authenticated_user_session
+    mockrequest.cookies["session"] = partially_authenticated_user_session
     with pytest.raises(NotAuthenticatedException):
+        mockrequest.state = State()
         get_admin_user(mockrequest)
 
-    mockrequest.session = fully_authenticated_user_session
+    mockrequest.cookies["session"] = fully_authenticated_user_session
     with pytest.raises(HTTPException):
+        mockrequest.state = State()
         get_admin_user(mockrequest)
 
-    mockrequest.session = fully_authenticated_admin_user_session
+    mockrequest.cookies["session"] = fully_authenticated_admin_user_session
+    mockrequest.state = State()
     user = get_admin_user(mockrequest)
     assert user.isAdmin is True
 
@@ -173,7 +222,8 @@ def test_get_admin_user(
 @pytest.fixture
 def mockrequest():
     request = Mock()
-    request.session = {}
+    request.cookies = {}
+    request.state = State()
     request.headers = {
         "Host": "spiderpig-apiserver.example.org",
         "Referer": "https://spiderpig-webserver.example.org/somepage",
@@ -186,7 +236,13 @@ def mockrequest():
     sys.version_info < (3, 8), reason="requires python3.8 or higher for AsyncMock"
 )
 @pytest.mark.anyio
-async def test_require_user(mockrequest, partially_authenticated_user_session):
+async def test_require_user(
+    mockrequest,
+    partially_authenticated_user_session,
+    fully_authenticated_user_session,
+    fully_authenticated_rando_session,
+    fully_authenticated_admin_user_session,
+):
     # Test anonymous access to unprotected routes
     for route in ["/non-api-path", "/api/login", "/api/logout", "/api/whoami"]:
         mockrequest.url.path = route
@@ -209,8 +265,9 @@ async def test_require_user(mockrequest, partially_authenticated_user_session):
     call_next.assert_not_awaited()
 
     # Test half-authenticated access to a protected route
-    mockrequest.session = partially_authenticated_user_session
+    mockrequest.cookies["session"] = partially_authenticated_user_session
     mockrequest.url.path = "/api/anything"
+    mockrequest.state = State()
     call_next = AsyncMock()
     res = await require_user(mockrequest, call_next)
     assert isinstance(res, JSONResponse)
@@ -223,19 +280,22 @@ async def test_require_user(mockrequest, partially_authenticated_user_session):
 
     # Test half-authenticated access to 2FA route
     mockrequest.url.path = ROUTE_2FA
+    mockrequest.state = State()
     call_next = AsyncMock()
     await require_user(mockrequest, call_next)
     call_next.assert_called_once_with(mockrequest)
 
     # Test fully authenticated access to a protected route
     mockrequest.url.path = "/api/anything"
-    mockrequest.session["user"]["fully_authenticated"] = True
+    mockrequest.cookies["session"] = fully_authenticated_user_session
+    mockrequest.state = State()
     call_next = AsyncMock()
     await require_user(mockrequest, call_next)
     call_next.assert_called_once_with(mockrequest)
 
     # Test unauthorized user group
-    mockrequest.session["user"]["groups"] = ["cn=randos,ou=groups,dc=example,dc=org"]
+    mockrequest.cookies["session"] = fully_authenticated_rando_session
+    mockrequest.state = State()
     call_next = AsyncMock()
     res = await require_user(mockrequest, call_next)
     assert isinstance(res, JSONResponse)
@@ -243,13 +303,14 @@ async def test_require_user(mockrequest, partially_authenticated_user_session):
     call_next.assert_not_awaited()
 
     # Test admin user is always authorized
-    mockrequest.session["user"]["groups"] = ["cn=admins,ou=groups,dc=example,dc=org"]
+    mockrequest.cookies["session"] = fully_authenticated_admin_user_session
+    mockrequest.state = State()
     call_next = AsyncMock()
     await require_user(mockrequest, call_next)
     call_next.assert_called_once_with(mockrequest)
 
 
-def test_login(mockrequest):
+def test_login(mock_app, mockrequest):
     with unittest.mock.patch("cas.CASClientV3.verify_ticket") as verify_ticket:
         # Test no ticket provided.
         with pytest.raises(NotAuthenticatedException):
@@ -296,9 +357,11 @@ def test_login(mockrequest):
         )
         res = login(mockrequest, None, "123")
         assert isinstance(res, RedirectResponse)
-        assert mockrequest.session["user"]["groups"] == [
-            "cn=deployers,ou=groups,dc=example,dc=org"
-        ]
+        cookie_header = res.headers["set-cookie"]
+        m = re.match(r'^session="([^;]+)";', cookie_header)
+        assert m
+        data = mock_app.state.session_cookie.decode(m[1])
+        assert data["user"]["groups"] == ["cn=deployers,ou=groups,dc=example,dc=org"]
 
 
 @pytest.mark.anyio
@@ -325,7 +388,12 @@ async def test_login2(mockrequest):
         # Test good OTP
         otp = get_pyotp(dbuser).now()
         res = await login2(otp, mockrequest, user, dbsession)
-        assert res == {"code": "ok", "message": "2FA completed", "user": "bruce"}
+        assert (
+            res.body
+            == JSONResponse(
+                {"code": "ok", "message": "2FA completed", "user": "bruce"}
+            ).body
+        )
         assert user.fully_authenticated is True
 
         # Test already 2fa'd
@@ -354,12 +422,18 @@ async def test_logout(mockrequest, partially_authenticated_user_session):
         "message": "Already logged out",
         "SSOLogoutUrl": SSOLogoutUrl,
     }
-    mockrequest.session = partially_authenticated_user_session
-    assert await logout(mockrequest, Mock()) == {
-        "message": "Logged out",
-        "SSOLogoutUrl": SSOLogoutUrl,
-    }
-    assert mockrequest.session.get("user") is None
+    res = await logout(mockrequest, Mock())
+    assert (
+        res.body
+        == JSONResponse(
+            {
+                "message": "Logged out",
+                "SSOLogoutUrl": SSOLogoutUrl,
+            }
+        ).body
+    )
+    cookie_header = res.headers["set-cookie"]
+    assert "Max-Age=0;" in cookie_header
 
 
 @pytest.mark.anyio
