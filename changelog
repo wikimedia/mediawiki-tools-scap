@@ -1,3 +1,12 @@
+scap (4.187.0)
+
+  * api.py: Revise spiderpig login session handling
+  * Revert "spiderpig: Define `access_log_middleware` prior to `SessionMiddleware`"
+  * spiderpig: Define `access_log_middleware` prior to `SessionMiddleware`
+  * spiderpig: Add a favicon
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Tue, 08 Jul 2025 09:34:20 -0700
+
 scap (4.186.0)
 
   * spiderpig/api.py: Add session cookie debugging
