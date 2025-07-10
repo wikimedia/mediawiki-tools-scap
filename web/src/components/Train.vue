@@ -386,14 +386,28 @@ export default {
 		}
 
 		/**
-		 * Retrieves train status using the API and updates refs.
+		 * Retrieves train status from the API and updates refs. If the job runner is currently
+		 * processing a train job, the job's memoized train status is preferred.
 		 */
 		async function refresh() {
 			const api = useApi();
 
 			try {
-				originalTrainStatus = await api.trainStatus();
-				updateFromTrainStatus( originalTrainStatus, null );
+				const [ trainStatus, jrStatus ] = await Promise.all( [
+					api.trainStatus(),
+					api.getJobrunnerStatus()
+				] );
+
+				originalTrainStatus = trainStatus;
+
+				if ( jrStatus?.job?.type === 'train' && jrStatus?.job?.data?.originalTrainStatus ) {
+					updateFromTrainStatus(
+						jrStatus.job.data.originalTrainStatus,
+						jrStatus.job.data?.group
+					);
+				} else {
+					updateFromTrainStatus( trainStatus, null );
+				}
 			} catch ( e ) {
 				error.value = e.message;
 			} finally {
@@ -455,11 +469,11 @@ export default {
 		watch( jobrunner.status, async ( status ) => {
 			if ( status?.job?.type === 'train' && status?.job?.data?.originalTrainStatus ) {
 				if ( prevJobID !== status.job.id ) {
-					prevJobID = status.job.id;
 					updateFromTrainStatus(
 						status?.job?.data?.originalTrainStatus,
 						status?.job?.data?.group
 					);
+					prevJobID = status.job.id;
 				}
 			}
 		} );
