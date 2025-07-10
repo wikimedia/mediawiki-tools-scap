@@ -1,4 +1,5 @@
 import json
+import logging
 import os
 import time
 
@@ -10,14 +11,12 @@ DEFAULT_WINDOW = 600
 POLL_INTERVAL = 15
 
 
-def main(cfg, logger, results_dir):
+def main(cfg, logger, results_dir, debug_logstash):
     """
     The logstash poller main loop.
     """
     poller = LogstashPoller(
-        cfg["logstash_host"],
-        DEFAULT_WINDOW,
-        logger,
+        cfg["logstash_host"], DEFAULT_WINDOW, logger, debug_logstash
     )
     while True:
         try:
@@ -44,15 +43,23 @@ class LogstashPollCommand(cli.Application):
         help="Window (seconds into the past) to poll",
         type=int,
     )
+    @cli.argument(
+        "--debug",
+        action="store_true",
+        help="Enable debug logging for logstash queries",
+    )
     def main(self, *extra_args):
         window = self.arguments.window
 
         logger = self.get_logger()
+        if self.arguments.debug:
+            logging.root.handlers[0].setLevel("DEBUG")
 
         poller = LogstashPoller(
             self.config["logstash_host"],
             window,
             logger,
+            self.arguments.debug or self.config["debug_logstash"],
         )
         results = poller.poll()
         summary = poller.summarize_errors(results)
@@ -62,15 +69,12 @@ class LogstashPollCommand(cli.Application):
 
 
 class LogstashPoller:
-    def __init__(
-        self,
-        logstash_host,
-        window_size,
-        logger,
-    ):
+    def __init__(self, logstash_host, window_size, logger, debug_logstash):
         self.window_size = window_size
         self.logger = logger
-        self.logstash = logstash.Logstash(logstash_host, logger)
+        self.logstash = logstash.Logstash(
+            logstash_host, logger if debug_logstash else None
+        )
 
     def poll(self) -> dict:
         """

@@ -68,7 +68,12 @@ class JobRunner(cli.Application):
                 threading.Thread(
                     target=logstash_poller.main,
                     daemon=True,
-                    args=(self.config, logger, spiderpig_dir),
+                    args=(
+                        self.config,
+                        logger,
+                        spiderpig_dir,
+                        self.config["debug_logstash"],
+                    ),
                 ).start()
 
             db_filename = self.spiderpig_dbfile()

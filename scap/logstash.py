@@ -21,12 +21,19 @@ class CheckServiceError(Exception):
 
 class Logstash:
     def __init__(self, logstash_host, logger):
+        """
+        If logger is supplied, the logstash query and response will be
+        logged at DEBUG level. Note that query responses are very lengthy and
+        are always unpleasantly split across multiple log records, so only
+        use this when needed.
+        """
         self.logstash_host = logstash_host
         self.logger = logger
 
     def run_query(self, query_object) -> dict:
         """Run a query on the logstash server."""
-        self.logger.debug("logstash query: %s", json.dumps(query_object))
+        if self.logger:
+            self.logger.debug("logstash query: %s", json.dumps(query_object))
 
         try:
             pool = urllib3.PoolManager(
@@ -45,9 +52,10 @@ class Logstash:
                 body=json.dumps(query_object),
             )
             resp = response.data.decode("utf-8")
-            log.log_large_message(
-                f"logstash response {resp}", self.logger, logging.DEBUG
-            )
+            if self.logger:
+                log.log_large_message(
+                    f"logstash response {resp}", self.logger, logging.DEBUG
+                )
             r = json.loads(resp)
         except urllib3.exceptions.SSLError:
             raise CheckServiceError("Invalid certificate")
