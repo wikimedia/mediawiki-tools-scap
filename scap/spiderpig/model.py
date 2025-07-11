@@ -400,13 +400,13 @@ class TrainGroup(BasePydantic):
 class TrainStatus(BasePydantic):
     groups: List[TrainGroup]
     version: str
-    old_version: str
-    at_group: str
+    old_version: Optional[str]
+    at_group: Optional[str]
     wiki_versions: Dict[str, str]
-    wiki_count: int
-    task: str
-    task_url: str
-    task_status: str
+    wiki_count: int = 0
+    task: Optional[str]
+    task_url: Optional[str]
+    task_status: Optional[str]
     warnings: List[str]
 
     @classmethod
