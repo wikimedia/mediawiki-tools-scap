@@ -21,6 +21,7 @@ import logging
 import math
 import multiprocessing
 import os
+from typing import Optional
 import packaging.version
 import pwd
 import random
@@ -1156,17 +1157,22 @@ def get_group_wikidbs(group, directory, realm) -> list:
     return sorted(wikidbs & dblist)
 
 
-def select_latest_patches(patch_base_dir):
+def select_latest_patches(patch_base_dir) -> Optional[str]:
     """
-    Find the latest /srv/patches/<version> directory. Useful to e.g. populate the patches dir for a new version by
+    Find and return the latest /srv/patches/<version> directory.
+    Useful to e.g. populate the patches dir for a new version by
     carrying over the most recent patches
 
     Returns None if unavailable.
     """
 
-    candidates = [
-        name for name in os.listdir(patch_base_dir) if re.match(BRANCH_RE, name)
-    ]
+    candidates = []
+    for name in os.listdir(patch_base_dir):
+        try:
+            parse_wmf_version(name)
+            candidates.append(name)
+        except Exception:
+            continue
 
     if not candidates:
         return None
