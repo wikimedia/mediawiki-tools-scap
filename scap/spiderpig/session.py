@@ -46,10 +46,6 @@ class SessionCookie:
             response.delete_cookie("session")
             return
 
-        logging.info(
-            f"set_session_cookie_on_response: Encoded cookie is {self.encode(data)}"
-        )
-
         response.set_cookie(
             self.cookie_name,
             self.encode(data),
