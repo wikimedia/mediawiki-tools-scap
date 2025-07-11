@@ -1,6 +1,6 @@
 <template>
 	<v-row>
-		<v-col>
+		<v-col :cols="12" :md="6" :class="mdAndUp ? '' : 'pb-0'">
 			<v-card
 				prepend-icon="mdi-calendar"
 				rounded
@@ -16,6 +16,8 @@
 					<v-progress-circular size="small" color="primary" indeterminate />
 				</template>
 			</v-card>
+		</v-col>
+		<v-col :cols="12" :md="6" :class="mdAndUp ? '' : 'pt-0'">
 			<v-card
 				v-if="hasLoaded && !error"
 				prepend-icon="mdi-code-braces-box"
@@ -239,6 +241,7 @@ export default {
 		const hasLoaded = ref( false );
 		const error = ref( null );
 		const warnings = ref( [] );
+		const jobPending = ref( false );
 
 		const groups = ref<TrainGroup[]>( [] );
 		const selectedStep = ref( 1 );
@@ -300,7 +303,9 @@ export default {
 			};
 		} );
 
-		const isRolling = computed( () => jobrunner.status.value?.job?.type === 'train' );
+		const isRolling = computed(
+			() => jobrunner.status.value?.job?.type === 'train' || jobPending.value
+		);
 		const isBackporting = computed( () => jobrunner.status.value?.job?.type === 'backport' );
 		const isDisabled = computed(
 			() => deployment.value.noop || isRolling.value || isBackporting.value
@@ -339,6 +344,7 @@ export default {
 
 			promotion.originalTrainStatus = originalTrainStatus;
 
+			jobPending.value = true;
 			await api.startTrain( promotion );
 		}
 
@@ -467,7 +473,13 @@ export default {
 		// will ensure that all users see the same status during deployments.
 		let prevJobID;
 		watch( jobrunner.status, async ( status ) => {
+			// Reset the job pending flag upon the first train or backport job status update
+			if ( status?.job?.type === 'train' || status?.job?.type === 'backport' ) {
+				jobPending.value = false;
+			}
+
 			if ( status?.job?.type === 'train' && status?.job?.data?.originalTrainStatus ) {
+
 				if ( prevJobID !== status.job.id ) {
 					updateFromTrainStatus(
 						status?.job?.data?.originalTrainStatus,

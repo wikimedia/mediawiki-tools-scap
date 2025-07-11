@@ -1,5 +1,5 @@
 <template>
-	<sp-new-job-page title="MediaWiki Train">
+	<sp-new-job-page>
 		<template #new-job>
 			<sp-train />
 		</template>

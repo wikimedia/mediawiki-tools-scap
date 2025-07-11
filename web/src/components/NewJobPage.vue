@@ -1,5 +1,5 @@
 <template>
-	<v-toolbar>
+	<v-toolbar v-if="title">
 		<template #title>
 			<h2>{{ title }}</h2>
 		</template>

@@ -8,7 +8,6 @@ import './assets/reset.css';
 // Vuetify
 import '@mdi/font/css/materialdesignicons.css';
 import 'vuetify/styles';
-import '@mdi/font/css/materialdesignicons.css';
 import { createVuetify } from 'vuetify';
 
 const vuetify = createVuetify( {
