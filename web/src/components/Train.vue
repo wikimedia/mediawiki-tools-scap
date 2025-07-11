@@ -32,6 +32,10 @@
 					Currently at {{ trainIsAt }}
 				</template>
 			</v-card>
+		</v-col>
+	</v-row>
+	<v-row v-if="error || warnings.length || isBackporting">
+		<v-col>
 			<v-alert v-if="error" type="error" closable>
 				{{ error }}
 			</v-alert>
