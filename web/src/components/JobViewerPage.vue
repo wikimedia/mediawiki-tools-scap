@@ -4,20 +4,31 @@
 			<h2>Job #{{ job.id }}</h2>
 		</template>
 		<template #append>
-			<cdx-button
+			<v-btn
+				variant="elevated"
 				@click="$router.back()"
 			>
 				Close
-			</cdx-button>
-			<cdx-menu-button
-				v-show="jobRunning"
-				v-model:selected="selection"
-				:menu-items="menuItems"
-				aria-label="Choose an option"
-				@update:selected="onSelect"
-			>
-				<cdx-icon :icon="cdxIconEllipsis" />
-			</cdx-menu-button>
+			</v-btn>
+			<v-menu>
+				<template #activator="{ props }">
+					<v-btn
+						v-show="jobRunning"
+						variant="elevated"
+						v-bind="props"
+					>
+						<cdx-icon :icon="cdxIconEllipsis" />
+					</v-btn>
+				</template>
+				<v-list>
+					<v-list-item
+						v-for="( item, i ) in menuItems"
+						:key="i"
+						v-bind="item"
+						@click="onSelect( item.value )"
+					/>
+				</v-list>
+			</v-menu>
 		</template>
 	</v-toolbar>
 	<v-sheet color="surface-light">
@@ -41,7 +52,7 @@ import { VToolbar } from 'vuetify/components/VToolbar';
 import useApi from '../api';
 import SpInteraction from './Interaction.vue';
 import SpJobCard from './JobCard.vue';
-import { CdxButton, CdxMenuButton, CdxIcon } from '@wikimedia/codex';
+import { CdxIcon } from '@wikimedia/codex';
 import { cdxIconEllipsis } from '@wikimedia/codex-icons';
 
 export default defineComponent( {
@@ -50,8 +61,6 @@ export default defineComponent( {
 	components: {
 		SpInteraction,
 		SpJobCard,
-		CdxButton,
-		CdxMenuButton,
 		CdxIcon,
 		VSheet,
 		VToolbar
@@ -71,8 +80,8 @@ export default defineComponent( {
 
 		// Non-reactive data.
 		const menuItems = [
-			{ label: 'Interrupt Job', value: 'interrupt' },
-			{ label: 'Kill Job (not recommended)', value: 'kill', action: 'destructive' }
+			{ title: 'Interrupt Job', value: 'interrupt' },
+			{ title: 'Kill Job (not recommended)', value: 'kill', class: 'bg-error' }
 		];
 
 		// Reactive data properties.
@@ -80,7 +89,6 @@ export default defineComponent( {
 		const jobRunning = ref( false );
 		const monitorInterval = ref( null );
 		const interaction = ref( null );
-		const selection = ref( null );
 
 		// Methods.
 		const stopMonitor = () => {
@@ -112,9 +120,6 @@ export default defineComponent( {
 		const onSelect = ( newSelection ) => {
 			// Handle menu button events.
 			clickSignalButton( newSelection );
-
-			// Reset the selection of menu buttons.
-			selection.value = null;
 		};
 
 		// Lifecycle hooks.
@@ -132,7 +137,6 @@ export default defineComponent( {
 			jobRunning,
 			interaction,
 			cdxIconEllipsis,
-			selection,
 			menuItems,
 			onSelect
 		};
