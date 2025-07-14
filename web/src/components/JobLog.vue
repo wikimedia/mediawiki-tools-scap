@@ -58,7 +58,13 @@ export default defineComponent( {
 			let buffer = '';
 
 			while ( true ) {
-				const { done, value } = await reader.read();
+				let done: boolean, value: Uint8Array;
+				try {
+					( { done, value } = await reader.read() );
+				} catch ( error ) {
+					console.error( 'Error reading from log stream:', error );
+					break;
+				}
 
 				if ( done ) {
 					// Process any remaining data in the buffer
