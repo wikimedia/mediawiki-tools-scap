@@ -15,7 +15,7 @@ verify-deps:
   extends: .kokkuri:build-and-run-image
   parallel:
     matrix:
-      - DISTRO: &supported_distros [buster, bullseye, bookworm]
+      - DISTRO: &supported_distros [bullseye, bookworm]
   variables:
     BUILD_VARIANT: verify-deps-$DISTRO
 

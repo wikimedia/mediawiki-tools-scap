@@ -1,4 +1,4 @@
-BLUBBER_VARIANTS := buster bullseye bookworm
+BLUBBER_VARIANTS := bullseye bookworm
 # deployment.eqiad.wmnet currently runs bullseye
 DEFAULT_VARIANT := bullseye
 

@@ -19,10 +19,6 @@ variants:
       packages:
         - python3-venv
 
-  base-buster:
-    base: docker-registry.wikimedia.org/wikimedia-buster
-    includes: [python-packages]
-
   base-bullseye:
     base: docker-registry.wikimedia.org/bullseye
     includes: [python-packages]
@@ -41,8 +37,6 @@ variants:
             - requirements.txt
     entrypoint: [echo, "deps check passed"]
 
-  verify-deps-buster:
-    includes: [base-buster, verify-deps]
   verify-deps-bullseye:
     includes: [base-bullseye, verify-deps]
   verify-deps-bookworm:
@@ -72,19 +66,11 @@ variants:
           requirements: [.]
     entrypoint: [echo, Tests passed during image build]
 
-  test-buster:
-    includes: [base-buster, test]
   test-bullseye:
     includes: [base-bullseye, test]
   test-bookworm:
     includes: [base-bookworm, test]
 
-  test-buster-report:
-    copies:
-      - from: test-buster
-        source: /srv/app/test-reports
-        destination: /
-        test-bullseye-report:
   test-bullseye-report:
     copies:
       - from: test-bullseye
@@ -97,7 +83,7 @@ variants:
         destination: /
 
   build-docs:
-    includes: [base-buster]
+    includes: [base-bullseye]
     apt:
       packages:
         - git
@@ -134,19 +120,6 @@ variants:
       - custom:
           command: [npm, run, build]
 
-  binary-dist-buster-build:
-    includes: [base-buster]
-    builders:
-      - python:
-          requirements: [binary-dist-requirements.txt]
-      - custom:
-          command: [./build_wheels.sh]
-          requirements:
-            - .
-            - from: build-spiderpig-ui
-              source: /srv/app/dist
-              destination: web/dist
-
   binary-dist-bullseye-build:
     includes: [base-bullseye]
     builders:
@@ -172,13 +145,6 @@ variants:
             - from: build-spiderpig-ui
               source: /srv/app/dist
               destination: web/dist
-
-  binary-dist-buster:
-    base: docker-registry.wikimedia.org/wikimedia-buster
-    copies:
-      - from: binary-dist-buster-build
-        source: /srv/app/wheels
-        destination: /wheels
 
   binary-dist-bullseye:
     base: docker-registry.wikimedia.org/bullseye
