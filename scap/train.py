@@ -25,16 +25,11 @@ def fetch_remote_train_info(config) -> "TrainInfo":
             config["train_blockers_url"],
             config["web_proxy"],
         )
-        tb_version = tb["version"]
         info.task = tb["task"]
         info.task_url = config["phorge_url"] + "/" + tb["task"]
         info.task_status = tb["status"]
-
-        if tb["version"] != version:
-            info.warnings.append(
-                f"Phabricator task {info.task} reports train version "
-                f"{tb_version} while Gerrit reports version {version}."
-            )
+        info.task_version = tb["version"]
+        info.task_release_date = tb["date"]
 
     except Exception as e:
         info.warnings.append(f"Failed to retrieve train blocker info: {e}")
@@ -54,6 +49,8 @@ class TrainInfo:
         self.task = None
         self.task_status = None
         self.task_url = None
+        self.task_version = None
+        self.task_release_date = None
         self.old_version = None
         self.group_wikis = {}
         self.wiki_versions = {}

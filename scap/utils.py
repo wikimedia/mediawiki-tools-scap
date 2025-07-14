@@ -1093,6 +1093,7 @@ def get_current_train_info(api_url, proxy=None) -> dict:
     version = current["version"]
     task = current["task_id"]
     status = current["status"]
+    date = current["date"]
 
     if not is_phabricator_task_id(task):
         raise ValueError(
@@ -1106,6 +1107,7 @@ def get_current_train_info(api_url, proxy=None) -> dict:
         "version": version,
         "task": task,
         "status": status,
+        "date": date,
     }
 
 

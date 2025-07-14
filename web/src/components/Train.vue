@@ -6,10 +6,20 @@
 				rounded
 				class="mb-2">
 				<template #title>
-					Week {{ currentWeek }} of MediaWiki Train
+					Week {{ taskWeek }} of MediaWiki Train
 				</template>
 				<template v-if="hasLoaded && !error" #subtitle>
-					Task <a :href="taskURL" target="_blank">{{ task }}</a>
+					<template v-if="isUpcoming">
+						<v-chip color="info" size="small">
+							Arriving {{ taskDayOfWeek }}
+						</v-chip>
+					</template>
+					<v-chip color="info" size="small">
+						{{ taskVersion }}
+					</v-chip>
+					<v-chip color="info" size="small">
+						<a :href="taskURL" target="_blank">{{ task }}</a>
+					</v-chip>
 				</template>
 				<template v-else #subtitle>
 					Fetching current train status...
@@ -29,7 +39,10 @@
 					</v-chip>
 				</template>
 				<template #subtitle>
-					Currently at {{ trainIsAt }}
+					Currently at group
+					<v-chip color="info" size="small">
+						{{ trainIsAt }}
+					</v-chip>
 				</template>
 			</v-card>
 		</v-col>
@@ -41,6 +54,14 @@
 			</v-alert>
 			<v-alert v-for="warning in warnings" :key="warning" type="warning" closable>
 				{{ warning }}
+			</v-alert>
+			<v-alert
+				v-if="!isUpcoming && taskVersion && taskVersion !== trainVersion"
+				type="warning"
+			>
+				Task {{ task }} reports version {{ taskVersion }} while the current train status
+				reports {{ trainVersion }}. Be sure the MediaWiki branch cut was successful before
+				proceeding.
 			</v-alert>
 			<v-alert v-if="isBackporting" type="warning">
 				Backports are in progress. Train deployment is unavailable until they complete.
@@ -254,18 +275,29 @@ export default {
 		const oldVersion = ref( '' );
 		const task = ref( '' );
 		const taskURL = ref( '' );
+		const taskReleaseDate = ref<Date>( null );
+		const taskVersion = ref( '' );
 		const priorVersionCounts = ref( {} );
 		const totalWikis = ref( 0 );
 
 		// Computed properties
 		const groupNames = computed( () => groups.value.map( ( group ) => group.name ) );
 
-		const currentWeek = computed( () => {
-			const now = new Date();
-			const ny = new Date( now.getFullYear(), 0, 1 );
+		// Calculate the week number based on the start of the week that New Year's Day falls in
+		const taskWeek = computed( () => {
+			const date = taskReleaseDate.value || new Date();
+			const ny = new Date( date.getFullYear(), 0, 1 );
+			const day = 1000 * 60 * 60 * 24;
 
-			return Math.ceil( ( now.getTime() - ny.getTime() ) / ( 1000 * 60 * 60 * 24 ) / 7 );
+			return Math.ceil( ( date - ( ny - ( ny.getDay() * day ) ) ) / ( day * 7 ) );
 		} );
+
+		const taskDayOfWeek = computed(
+			() => taskReleaseDate.value && taskReleaseDate.value.toLocaleDateString(
+				undefined,
+				{ weekday: 'long' }
+			)
+		);
 
 		const deployment = computed( () => {
 			const from = groupNames.value.indexOf( trainIsAt.value );
@@ -310,9 +342,14 @@ export default {
 		const isRolling = computed(
 			() => jobrunner.status.value?.job?.type === 'train' || jobPending.value
 		);
-		const isBackporting = computed( () => jobrunner.status.value?.job?.type === 'backport' );
+		const isBackporting = computed(
+			() => jobrunner.status.value?.job?.type === 'backport'
+		);
 		const isDisabled = computed(
 			() => deployment.value.noop || isRolling.value || isBackporting.value
+		);
+		const isUpcoming = computed(
+			() => taskReleaseDate.value && ( ( new Date() ) < taskReleaseDate.value )
 		);
 
 		/**
@@ -447,6 +484,7 @@ export default {
 			oldVersion.value = train.oldVersion;
 			task.value = train.task;
 			taskURL.value = train.taskUrl;
+			taskVersion.value = train.taskVersion;
 			resetWikiVersions = Object.keys( train.wikiVersions ).reduce(
 				( vers, wiki ) => ( { [ wiki ]: train.oldVersion, ...vers } ),
 				{}
@@ -463,6 +501,15 @@ export default {
 				( g ) => g.name === ( selectedGroup || trainIsAt.value )
 			);
 			selectedStep.value = grp?.step || 1;
+
+			// The branch cut is scheduled for 2am UTC so advance the release date/time by 3 hours
+			// as a threshold for when we should warn the user if the task's associated train
+			// version is still different than that of the current train status (and the branch in
+			// Gerrit).
+			if ( train.taskReleaseDate ) {
+				taskReleaseDate.value = new Date( Date.parse( train.taskReleaseDate ) );
+				taskReleaseDate.value.setUTCHours( 3 );
+			}
 		}
 
 		// Refresh from current train status after jobs complete
@@ -498,7 +545,6 @@ export default {
 
 		return {
 			error,
-			currentWeek,
 			deployment,
 			formatVersion,
 			groupNames,
@@ -507,12 +553,16 @@ export default {
 			isBackporting,
 			isDisabled,
 			isRolling,
+			isUpcoming,
 			mdAndUp,
 			priorVersionCounts,
 			selectedStep,
 			startTrain,
 			task,
+			taskDayOfWeek,
 			taskURL,
+			taskVersion,
+			taskWeek,
 			trainIsAt,
 			trainVersion,
 			versionPercent,

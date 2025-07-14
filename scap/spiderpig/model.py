@@ -407,6 +407,8 @@ class TrainStatus(BasePydantic):
     task: Optional[str]
     task_url: Optional[str]
     task_status: Optional[str]
+    task_release_date: Optional[str]
+    task_version: Optional[str]
     warnings: List[str]
 
     @classmethod
@@ -436,6 +438,8 @@ class TrainStatus(BasePydantic):
             task=info.task,
             task_url=info.task_url,
             task_status=info.task_status,
+            task_release_date=info.task_release_date,
+            task_version=info.task_version,
             warnings=info.warnings,
         )
 

@@ -44,6 +44,7 @@ def get_deploy_promote_with_messages(task, p):
         "version": version,
         "task_id": task,
         "status": "open",
+        "date": "2025-07-15",
     }
 
     with tempfile.NamedTemporaryFile(mode="w") as f:
