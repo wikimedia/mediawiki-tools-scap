@@ -1,3 +1,9 @@
+scap (4.188.2)
+
+  * JobLog.vue: Trap errors in logRecordsProcessor
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Mon, 14 Jul 2025 13:52:10 -0700
+
 scap (4.188.1)
 
   * api.py: Add route for /mediawiki/train
