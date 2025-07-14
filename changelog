@@ -1,3 +1,19 @@
+scap (4.188.0)
+
+  * JobLog.vue: Log error with more details
+  * spiderpig: Display errors and warnings in their own row
+  * spiderpig: Annotate optional fields in TrainStatus
+  * Drop support for Debian Buster
+  * utils.py: Make select_latest_patches treat /srv/patches/next as latest
+  * spiderpig.py: Remove leftover debugging
+  * Add debug_logstash config flag
+  * spiderpig: Improve train deployment UI for small screens
+  * spiderpig: Fix obscured "..." menu items
+  * spiderpig: Avoid race condition when refreshing train status
+  * spiderpig: Support MediaWiki train deployments
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Mon, 14 Jul 2025 09:20:08 -0700
+
 scap (4.187.0)
 
   * api.py: Revise spiderpig login session handling
