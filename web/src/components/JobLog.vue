@@ -141,7 +141,7 @@ export default defineComponent( {
 							return;
 						}
 
-						console.error( `populateTerminal unhandled error: ${ JSON.stringify( err ) }` );
+						console.error( 'populateTerminal unhandled error:', err );
 						return;
 					}
 				} finally {
