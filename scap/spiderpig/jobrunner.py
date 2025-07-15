@@ -25,7 +25,7 @@ from scap.spiderpig.model import (
     setup_db,
 )
 
-from sqlalchemy import Engine
+from sqlalchemy import Engine, null
 from sqlalchemy.orm import Session
 
 
@@ -81,6 +81,8 @@ class JobRunner(cli.Application):
             setup_db(engine, db_filename)
 
             with Session(engine) as session:
+                self._clear_orphaned_jobs(session)
+
                 try:
                     while True:
                         self._set_status(session, "idle")
@@ -121,6 +123,20 @@ class JobRunner(cli.Application):
         if sub_status:
             status += f", {sub_status}"
         self._set_status(session, status, job_id)
+
+    def _clear_orphaned_jobs(self, session: Session):
+        orphaned_jobs = (
+            session.query(Job)
+            .filter(
+                Job.started_at != null(),
+                Job.finished_at == null(),
+                Job.status != "orphaned",
+            )
+            .all()
+        )
+        for job in orphaned_jobs:
+            Interaction.clear(session, job.id)
+            job.set_status(session, "orphaned")
 
 
 class EndOfStdout:

@@ -45,7 +45,7 @@
 					<div class="job-card__label">
 						Status
 					</div>
-					<span v-if="isRunning" class="job-card__status">
+					<span v-if="running" class="job-card__status">
 						{{ status.status }}
 					</span>
 					<cdx-info-chip
@@ -57,7 +57,7 @@
 						{{ statusChipMessage }}
 					</cdx-info-chip>
 					<sp-progress-bar
-						v-if="isRunning && status.progress"
+						v-if="running && status.progress"
 						:progress="status.progress"
 					/>
 				</div>
@@ -240,6 +240,14 @@ export default defineComponent( {
 			type: Number,
 			required: false,
 			default: null
+		},
+		running: {
+			type: Boolean,
+			required: true
+		},
+		orphaned: {
+			type: Boolean,
+			required: true
 		}
 	},
 
@@ -305,9 +313,8 @@ export default defineComponent( {
 		// Prevent displaying interaction within a JobCard on JobViewerPage.
 		const showInteraction = computed( () => route.name !== 'job' );
 		const showJobDetails = computed( () => route.name === 'job' );
-		const isRunning = computed( () => props.started_at && !props.finished_at );
 		const rootClasses = computed( () => ( {
-			'job-card--highlighted': props.started_at && !props.finished_at && !showJobDetails.value,
+			'job-card--highlighted': props.running && !showJobDetails.value,
 			'job-card--has-details': showJobDetails.value
 		} ) );
 
@@ -323,10 +330,23 @@ export default defineComponent( {
 			}
 		} );
 
+		// This computes the content of the status chip of non-running jobs.
 		const statusChipMessage = computed( () => {
-			if ( props.exit_status === null ) {
+			if ( !props.started_at ) {
+				// Job has not started yet.
 				return 'Pending';
-			} else if ( props.exit_status === 0 ) {
+			}
+			// Everything below here is about a job that has stopped running.
+
+			if ( props.orphaned ) {
+				return 'Orphaned';
+			}
+
+			if ( props.exit_status === null ) {
+				return 'Unknown';
+			}
+
+			if ( props.exit_status === 0 ) {
 				return 'Finished';
 			} else {
 				return 'Error';
@@ -369,6 +389,10 @@ export default defineComponent( {
 				return 'Not started yet';
 			}
 
+			if ( props.orphaned ) {
+				return 'Unknown (orphaned)';
+			}
+
 			const duration = prettyDuration( props.duration );
 
 			if ( props.finished_at ) {
@@ -408,7 +432,6 @@ export default defineComponent( {
 			cdxIconInfoFilled,
 			cdxIconLinkExternal,
 			rootClasses,
-			isRunning,
 			showInteraction,
 			showJobDetails,
 			finishedInfo,

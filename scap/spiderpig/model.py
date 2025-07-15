@@ -354,6 +354,15 @@ class Interaction(Base):
         return session.scalar(stmt)
 
     @classmethod
+    def clear(self, session: Session, job_id: int) -> None:
+        """
+        Delete all interactions for the specified job id.
+        """
+        session.execute(text("BEGIN IMMEDIATE"))
+        session.execute(delete(Interaction).where(Interaction.job_id == job_id))
+        session.commit()
+
+    @classmethod
     def pop_responded(self, session: Session, job_id) -> Optional["Interaction"]:
         """
         If there is a responded-to interaction, delete it from the database and

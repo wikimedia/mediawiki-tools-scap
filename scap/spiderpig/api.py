@@ -731,7 +731,14 @@ async def start_backport(
     }
 
 
-def set_job_duration(job: Job):
+def set_additional_job_attributes(job: Job):
+    job.running = (
+        job.started_at is not None
+        and job.finished_at is None
+        and job.status["status"] != "orphaned"
+    )
+    job.orphaned = not job.running and job.status["status"] == "orphaned"
+
     if not job.started_at:
         return
     end = job.finished_at if job.finished_at else time.time()
@@ -754,7 +761,7 @@ async def get_jobs(
         job.status = job.extract_status()
         job.interaction = get_parsed_interaction(session, job)
         job.data = load_job_data(job.data)
-        set_job_duration(job)
+        set_additional_job_attributes(job)
 
     return {
         "jobs": jobs,
@@ -773,8 +780,8 @@ async def get_job(
     # database.
     session.expunge(job)
     job.status = job.extract_status()
-    set_job_duration(job)
     job.data = load_job_data(job.data)
+    set_additional_job_attributes(job)
 
     return {
         "job": job,

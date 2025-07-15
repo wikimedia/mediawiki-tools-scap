@@ -13,7 +13,7 @@
 			<v-menu>
 				<template #activator="{ props }">
 					<v-btn
-						v-show="jobRunning"
+						v-show="job.running"
 						variant="elevated"
 						v-bind="props"
 					>
@@ -86,7 +86,6 @@ export default defineComponent( {
 
 		// Reactive data properties.
 		const job = ref( null );
-		const jobRunning = ref( false );
 		const monitorInterval = ref( null );
 		const interaction = ref( null );
 
@@ -105,10 +104,9 @@ export default defineComponent( {
 			// eslint-disable-next-line camelcase
 			fetchedJob.command_decoded = JSON.parse( fetchedJob.command ).join( ' ' );
 			job.value = fetchedJob;
-			jobRunning.value = ( fetchedJob.started_at && !fetchedJob.finished_at );
 			interaction.value = jobInfo.pending_interaction;
 
-			if ( !jobRunning.value ) {
+			if ( !job.value.running ) {
 				stopMonitor();
 			}
 		};
@@ -134,7 +132,6 @@ export default defineComponent( {
 
 		return {
 			job,
-			jobRunning,
 			interaction,
 			cdxIconEllipsis,
 			menuItems,
