@@ -8,7 +8,6 @@
 		<slot name="new-job" :idle="idle" />
 	</v-sheet>
 	<sp-job-history />
-	<sp-logs />
 </template>
 
 <script lang="ts">
@@ -17,13 +16,11 @@ import { VSheet } from 'vuetify/components/VSheet';
 import { VToolbar } from 'vuetify/components/VToolbar';
 import useJobrunner from '../jobrunner';
 import SpJobHistory from './JobHistory.vue';
-import SpLogs from './Log.vue';
 
 export default defineComponent( {
 	name: 'SpNewJobPage',
 	components: {
 		SpJobHistory,
-		SpLogs,
 		VSheet,
 		VToolbar
 	},

@@ -38,6 +38,9 @@
 				<v-tab to="/mediawiki/train">
 					MediaWiki Train
 				</v-tab>
+				<v-tab to="/mediawiki/logs">
+					MediaWiki Error Logs
+				</v-tab>
 			</v-tabs>
 		</template>
 	</v-app-bar>

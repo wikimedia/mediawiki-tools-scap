@@ -1163,6 +1163,7 @@ async def get_favicon():
 @app.get("/jobs/{job_id}")
 @app.get("/notauthorized")
 @app.get("/mediawiki/train")
+@app.get("/mediawiki/logs")
 async def index_page():
     return FileResponse(index_html, headers={"Cache-Control": "no-cache"})
 

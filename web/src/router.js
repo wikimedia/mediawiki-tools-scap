@@ -5,6 +5,7 @@ import JobViewerPage from './components/JobViewerPage.vue';
 import NotAuthorized from './components/NotAuthorized.vue';
 import BackportPage from './components/BackportPage.vue';
 import TrainPage from './components/TrainPage.vue';
+import ErrorLogsPage from './components/ErrorLogsPage.vue';
 
 const routes = [
 	{
@@ -18,6 +19,10 @@ const routes = [
 	{
 		path: '/mediawiki/train',
 		component: TrainPage
+	},
+	{
+		path: '/mediawiki/logs',
+		component: ErrorLogsPage
 	},
 	{
 		path: '/login',

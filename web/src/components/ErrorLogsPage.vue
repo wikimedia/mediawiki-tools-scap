@@ -1,45 +1,35 @@
 <template>
-	<cdx-accordion>
-		<template #title>
-			Errors
-			<cdx-info-chip class="__sp-error-count" :icon="cdxIconChart">
-				{{ total }}
-			</cdx-info-chip>
+	<cdx-table
+		caption="MediaWiki Error Logs"
+		:hide-caption="true"
+		:columns="columns"
+		:data="data"
+		:show-vertical-borders="true"
+	>
+		<template #item-message="{ item }">
+			<a
+				:href="item.link"
+				class="cdx-link"
+				target="_blank"
+			>
+				{{ item.message }}
+				<cdx-icon :icon="cdxIconLinkExternal" />
+			</a>
 		</template>
-		<cdx-table
-			caption="MediaWiki Error Logs"
-			:hide-caption="true"
-			:columns="columns"
-			:data="data"
-			:show-vertical-borders="true"
-		>
-			<template #item-message="{ item }">
-				<a
-					:href="item.link"
-					class="cdx-link"
-					target="_blank"
-				>
-					{{ item.message }}
-					<cdx-icon :icon="cdxIconLinkExternal" />
-				</a>
-			</template>
-		</cdx-table>
-	</cdx-accordion>
+	</cdx-table>
 </template>
 
 <script>
 import { onMounted, onUnmounted, defineComponent, ref } from 'vue';
-import { CdxAccordion, CdxIcon, CdxInfoChip, CdxTable } from '@wikimedia/codex';
-import { cdxIconChart, cdxIconLinkExternal } from '@wikimedia/codex-icons';
+import { CdxIcon, CdxTable } from '@wikimedia/codex';
+import { cdxIconLinkExternal } from '@wikimedia/codex-icons';
 
 import useApi from '../api';
 
 export default defineComponent( {
 	name: 'SpLogs',
 	components: {
-		CdxAccordion,
 		CdxIcon,
-		CdxInfoChip,
 		CdxTable
 	},
 	setup() {
@@ -117,8 +107,6 @@ export default defineComponent( {
 		return {
 			columns,
 			data,
-			total,
-			cdxIconChart,
 			cdxIconLinkExternal
 		};
 	}
