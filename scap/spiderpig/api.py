@@ -1162,6 +1162,7 @@ async def get_favicon():
 @app.get("/logout")
 @app.get("/jobs/{job_id}")
 @app.get("/notauthorized")
+@app.get("/mediawiki/backport")
 @app.get("/mediawiki/train")
 @app.get("/mediawiki/logs")
 async def index_page():
