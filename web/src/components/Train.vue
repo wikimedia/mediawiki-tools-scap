@@ -4,7 +4,7 @@
 			<v-card
 				prepend-icon="mdi-calendar"
 				rounded
-				class="mb-2">
+				class="mb-2 sp-train-info-card">
 				<template #title>
 					Week {{ taskWeek }} of MediaWiki Train
 				</template>
@@ -32,17 +32,14 @@
 				v-if="hasLoaded && !error"
 				prepend-icon="mdi-code-braces-box"
 				rounded
-				class="mb-2">
+				class="mb-2 sp-train-info-card">
 				<template #title>
 					Deployment of <v-chip color="primary" size="small">
 						{{ trainVersion }}
 					</v-chip>
 				</template>
 				<template #subtitle>
-					Currently at group
-					<v-chip color="info" size="small">
-						{{ trainIsAt }}
-					</v-chip>
+					{{ currentStatus }}
 				</template>
 			</v-card>
 		</v-col>
@@ -149,21 +146,8 @@
 		</template>
 
 		<v-card prepend-icon="mdi-train" title="Deployment Summary">
-			<template v-if="deployment.noop" #title>
-				Currently at {{ deployment.group.name }}
-			</template>
-			<template v-else #title>
-				<template v-if="deployment.promote">
-					<span v-if="isRolling">Promoting</span>
-					<span v-else>Promote</span>
-				</template>
-				<template v-else>
-					<span v-if="isRolling">Rolling back</span>
-					<span v-else>Roll back</span>
-				</template>
-				{{ deployment.version }}
-				from {{ trainIsAt }} to {{ deployment.group.name }}
-
+			<template #title>
+				{{ currentOrProposedStatus }}
 				<v-progress-circular v-if="isRolling" size="small" color="primary" indeterminate />
 			</template>
 
@@ -350,6 +334,44 @@ export default {
 		);
 		const isUpcoming = computed(
 			() => taskReleaseDate.value && ( ( new Date() ) < taskReleaseDate.value )
+		);
+		function buildStatusString( proposed: boolean ) {
+			const opstrings = {
+				promote: {
+					active: 'Promoting',
+					proposed: 'Promote'
+				},
+				rollback: {
+					active: 'Rolling back',
+					proposed: 'Roll back'
+				}
+			};
+
+			const type = deployment.value.promote ? 'promote' : 'rollback';
+			const tense = proposed ? 'proposed' : 'active';
+			const op = opstrings[ type ][ tense ];
+			return `${ op } ${ deployment.value.version } from ${ trainIsAt.value } to ${ deployment.value.group.name }`;
+		}
+		const currentlyAt = computed(
+			() => `Currently at ${ trainIsAt.value }`
+		);
+		const currentStatus = computed(
+			() => {
+				if ( !isRolling.value ) {
+					return currentlyAt.value;
+				}
+
+				return buildStatusString( false );
+			}
+		);
+		const currentOrProposedStatus = computed(
+			() => {
+				if ( deployment.value.noop ) {
+					return currentlyAt.value;
+				}
+
+				return buildStatusString( !isRolling.value );
+			}
 		);
 
 		/**
@@ -554,6 +576,8 @@ export default {
 			isDisabled,
 			isRolling,
 			isUpcoming,
+			currentStatus,
+			currentOrProposedStatus,
 			mdAndUp,
 			priorVersionCounts,
 			selectedStep,
@@ -563,7 +587,6 @@ export default {
 			taskURL,
 			taskVersion,
 			taskWeek,
-			trainIsAt,
 			trainVersion,
 			versionPercent,
 			warnings
@@ -601,6 +624,10 @@ export default {
 	:deep(.v-stepper-item__avatar .v-icon) {
 		font-size: 1.5rem !important;
 	}
+}
+
+.sp-train-info-card {
+	min-height: 5.15rem;
 }
 
 .processing {
