@@ -1,3 +1,13 @@
+scap (4.189.0)
+
+  * spiderpig/api.py: Add missing /mediawiki/backport route
+  * spiderpig: move error log viewer to its own tab
+  * Log.vue: Sort by descending count
+  * spiderpig: Handle orphaned jobs
+  * spiderpig: Better support days leading up to train
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Thu, 17 Jul 2025 07:51:06 -0700
+
 scap (4.188.2)
 
   * JobLog.vue: Trap errors in logRecordsProcessor
