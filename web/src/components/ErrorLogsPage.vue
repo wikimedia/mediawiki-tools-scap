@@ -1,44 +1,55 @@
 <template>
-	<cdx-table
-		caption="MediaWiki Error Logs"
-		:hide-caption="true"
-		:columns="columns"
-		:data="data"
-		:show-vertical-borders="true"
-	>
-		<template #item-message="{ item }">
-			<a
-				:href="item.link"
-				class="cdx-link"
-				target="_blank"
-			>
-				{{ item.message }}
-				<cdx-icon :icon="cdxIconLinkExternal" />
-			</a>
-		</template>
-	</cdx-table>
+		<v-data-table
+			:headers="headers"
+			:items="items"
+			:search="search"
+			item-value="message"
+		>
+			<template v-slot:top>
+				<v-text-field
+					v-model="search"
+					prepend-inner-icon="mdi-magnify"
+					class="pa-2"
+					label="Filter"
+				/>
+			</template>
+			<template v-slot:item.message="{ value }">
+				<a
+					:href="value.link"
+					class="cdx-link"
+					target="_blank"
+				>
+					{{ value.message }}
+					<cdx-icon :icon="cdxIconLinkExternal" />
+				</a>
+			</template>
+		</v-data-table>
 </template>
 
 <script>
 import { onMounted, onUnmounted, defineComponent, ref } from 'vue';
-import { CdxIcon, CdxTable } from '@wikimedia/codex';
-import { cdxIconLinkExternal } from '@wikimedia/codex-icons';
+import { CdxAccordion, CdxIcon, CdxInfoChip } from '@wikimedia/codex';
+import { cdxIconChart, cdxIconLinkExternal } from '@wikimedia/codex-icons';
+const search = ref( '' );
 
 import useApi from '../api';
 
+// export default defineComponent( {
 export default defineComponent( {
 	name: 'SpLogs',
 	components: {
+		CdxAccordion,
 		CdxIcon,
-		CdxTable
+		CdxInfoChip
 	},
 	setup() {
-		const columns = [
-			{ id: 'count', label: 'Count', textAlign: 'number' },
-			{ id: 'versions', label: 'Versions' },
-			{ id: 'message', label: 'Message' }
+		const headers = [
+			{ title: 'Count', align: 'start', key: 'count' },
+			{ title: 'Versions', align: 'start', key: 'versions' },
+			{ title: 'Message', align: 'start', key: 'message' }
 		];
-		const data = ref();
+
+		const items = ref();
 		const total = ref();
 		const api = useApi();
 		const maxMessageLength = 200;
@@ -89,7 +100,7 @@ export default defineComponent( {
 				return 0;
 			} );
 			total.value = sum;
-			data.value = newData;
+			items.value = newData;
 		};
 
 		onMounted( () => {
@@ -105,8 +116,11 @@ export default defineComponent( {
 		} );
 
 		return {
-			columns,
-			data,
+			headers,
+			items,
+			total,
+			search,
+			cdxIconChart,
 			cdxIconLinkExternal
 		};
 	}
