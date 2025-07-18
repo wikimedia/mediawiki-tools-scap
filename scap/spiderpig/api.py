@@ -919,23 +919,30 @@ async def signal_job(
     }
 
 
-@app.get("/api/monitoring/logs/mediawiki")
-async def get_logs():
+def _get_logs():
     log_file = os.path.join(os.environ["SPIDERPIG_DIR"], logstash_poller.LOG_FILE)
-
     try:
         with open(log_file, "r") as f:
             logs = json.load(f)
     except FileNotFoundError:
-        return {
-            "message": "No log file - creation may be pending",
-            "log": {},
-        }
+        return {}
+    return logs
 
-    return {
-        "message": "Log retrieved",
-        "log": logs,
-    }
+
+@app.get("/api/monitoring/logs/mediawiki")
+async def get_errors():
+    logs = _get_logs()
+    if logs:
+        return {"message": "Logs retrieved", "log": logs["errors"]}
+    return {"message": "No log data - creation may be pending", "log": {}}
+
+
+@app.get("/api/monitoring/logs/mediawiki/total")
+async def get_error_total():
+    logs = _get_logs()
+    if logs:
+        return {"message": "Log total retrieved", "total": logs["total"]}
+    return {"message": "No log data - creation may be pending", "total": 0}
 
 
 # Retrieve the current state of MediaWiki train.

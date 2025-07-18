@@ -40,6 +40,8 @@
 				</v-tab>
 				<v-tab to="/mediawiki/logs">
 					MediaWiki Error Logs
+					&nbsp;
+					<error-logs-count />
 				</v-tab>
 			</v-tabs>
 		</template>
@@ -47,16 +49,18 @@
 </template>
 
 <script lang="ts">
+import { defineComponent } from 'vue';
 import { VAppBar, VAppBarTitle } from 'vuetify/components/VAppBar';
 import { VBtn } from 'vuetify/components/VBtn';
 import { VSpacer } from 'vuetify/components/VGrid';
 import { VTab, VTabs } from 'vuetify/components/VTabs';
+import ErrorLogsCount from './ErrorLogsCount.vue';
 import UserMenu from './UserMenu.vue';
 import { CdxIcon } from '@wikimedia/codex';
 import { cdxIconLinkExternal } from '@wikimedia/codex-icons';
 import spLogo from '../assets/spiderpig.png';
 
-export default {
+export default defineComponent( {
 	name: 'SpNavigation',
 	components: {
 		UserMenu,
@@ -66,7 +70,8 @@ export default {
 		VBtn,
 		VSpacer,
 		VTab,
-		VTabs
+		VTabs,
+		ErrorLogsCount
 	},
 
 	setup() {
@@ -75,7 +80,7 @@ export default {
 			spLogo
 		};
 	}
-};
+} );
 </script>
 
 <style lang="less">

@@ -182,6 +182,8 @@ class LogstashPoller:
     def summarize_errors(self, r):
         errors = {}
 
+        total = r.get("hits", {}).get("total", {}).get("value", 0)
+
         for hit in r.get("hits", {}).get("hits"):
             hit = hit.get("_source", {})
             message = hit.get("normalized_message") or hit.get("message")
@@ -205,4 +207,4 @@ class LogstashPoller:
                 errors[message]["versions"].append(hit.get("mwversion"))
             errors[message]["count"] += 1
 
-        return errors
+        return {"errors": errors, "total": total}

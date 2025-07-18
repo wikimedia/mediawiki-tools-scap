@@ -1,47 +1,61 @@
 <template>
-	<cdx-table
-		caption="MediaWiki Error Logs"
-		:hide-caption="true"
-		:columns="columns"
-		:data="data"
-		:show-vertical-borders="true"
-	>
-		<template #item-message="{ item }">
-			<a
-				:href="item.link"
-				class="cdx-link"
-				target="_blank"
-			>
-				{{ item.message }}
-				<cdx-icon :icon="cdxIconLinkExternal" />
-			</a>
+	<v-card flat>
+		<template #text>
+			<v-text-field
+				v-model="search"
+				prepend-inner-icon="mdi-magnify"
+				hide-details
+				single-line
+				label="Filter"
+			/>
 		</template>
-	</cdx-table>
+
+		<v-data-table
+			:headers="headers"
+			:items="items"
+			:search="search"
+			:filter-keys="[ 'versions', 'message.message' ]"
+			item-value="message"
+		>
+			<template #item.message="{ value }">
+				<a
+					:href="value.link"
+					class="cdx-link"
+					target="_blank"
+				>
+					{{ value.message }}
+					<cdx-icon :icon="cdxIconLinkExternal" />
+				</a>
+			</template>
+		</v-data-table>
+	</v-card>
 </template>
 
 <script>
 import { onMounted, onUnmounted, defineComponent, ref } from 'vue';
-import { CdxIcon, CdxTable } from '@wikimedia/codex';
+import { CdxIcon } from '@wikimedia/codex';
 import { cdxIconLinkExternal } from '@wikimedia/codex-icons';
+const search = ref( '' );
 
 import useApi from '../api';
 
 export default defineComponent( {
 	name: 'SpLogs',
 	components: {
-		CdxIcon,
-		CdxTable
+		CdxIcon
 	},
 	setup() {
-		const columns = [
-			{ id: 'count', label: 'Count', textAlign: 'number' },
-			{ id: 'versions', label: 'Versions' },
-			{ id: 'message', label: 'Message' }
+		const customMessageSort = ( a, b ) => a.message.localeCompare( b.message );
+
+		const headers = [
+			{ title: 'Count', align: 'start', key: 'count' },
+			{ title: 'Versions', align: 'start', key: 'versions' },
+			{ title: 'Message', align: 'start', key: 'message', sort: customMessageSort }
 		];
-		const data = ref();
-		const total = ref();
+
+		const items = ref();
 		const api = useApi();
-		const maxMessageLength = 200;
+		const maxMessageLength = 1000;
 		const INTERVAL = 15000;
 		let intervalTimer = null;
 
@@ -65,7 +79,6 @@ export default defineComponent( {
 		const populateLogs = async () => {
 			const resp = await api.getLogs(),
 				newData = [];
-			let sum = 0;
 			for ( const [ key, value ] of Object.entries( resp.log ) ) {
 				let message = key;
 				const link = createOpenSearchLink( key );
@@ -77,7 +90,6 @@ export default defineComponent( {
 					versions: value.versions.join( ' ' ),
 					message: { message: message, link: link }
 				} );
-				sum += value.count;
 			}
 
 			newData.sort( ( a, b ) => {
@@ -88,8 +100,7 @@ export default defineComponent( {
 				}
 				return 0;
 			} );
-			total.value = sum;
-			data.value = newData;
+			items.value = newData;
 		};
 
 		onMounted( () => {
@@ -105,8 +116,9 @@ export default defineComponent( {
 		} );
 
 		return {
-			columns,
-			data,
+			headers,
+			items,
+			search,
 			cdxIconLinkExternal
 		};
 	}
