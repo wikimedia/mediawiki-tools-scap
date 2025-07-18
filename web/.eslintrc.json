@@ -43,6 +43,9 @@
 				} ],
 				"vue/no-parsing-error": [ "error", {
 					"unexpected-character-in-attribute-name": false
+				} ],
+				"vue/valid-v-slot": [ "error", {
+					"allowModifiers": true
 				} ]
 			}
 		}

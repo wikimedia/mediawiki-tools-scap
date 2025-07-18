@@ -40,6 +40,10 @@
 				</v-tab>
 				<v-tab to="/mediawiki/logs">
 					MediaWiki Error Logs
+					&nbsp;
+					<cdx-info-chip>
+						{{ total }}
+					</cdx-info-chip>
 				</v-tab>
 			</v-tabs>
 		</template>
@@ -47,20 +51,24 @@
 </template>
 
 <script lang="ts">
+import { onMounted, onUnmounted, ref, defineComponent } from 'vue';
 import { VAppBar, VAppBarTitle } from 'vuetify/components/VAppBar';
 import { VBtn } from 'vuetify/components/VBtn';
 import { VSpacer } from 'vuetify/components/VGrid';
 import { VTab, VTabs } from 'vuetify/components/VTabs';
 import UserMenu from './UserMenu.vue';
-import { CdxIcon } from '@wikimedia/codex';
+import { CdxIcon, CdxInfoChip } from '@wikimedia/codex';
 import { cdxIconLinkExternal } from '@wikimedia/codex-icons';
 import spLogo from '../assets/spiderpig.png';
 
-export default {
+import useApi from '../api';
+
+export default defineComponent( {
 	name: 'SpNavigation',
 	components: {
 		UserMenu,
 		CdxIcon,
+		CdxInfoChip,
 		VAppBar,
 		VAppBarTitle,
 		VBtn,
@@ -70,12 +78,35 @@ export default {
 	},
 
 	setup() {
+		const api = useApi();
+		const total = ref( '' );
+		const INTERVAL = 15000;
+		let intervalTimerTotal = null;
+
+		const populateTotal = async () => {
+			const totalResp = await api.getLogsTotal();
+			total.value = totalResp.total;
+		};
+
+		onMounted( () => {
+			intervalTimerTotal = window.setInterval( populateTotal, INTERVAL );
+			populateTotal();
+		} );
+
+		onUnmounted( () => {
+			if ( intervalTimerTotal ) {
+				clearInterval( intervalTimerTotal );
+				intervalTimerTotal = null;
+			}
+		} );
+
 		return {
 			cdxIconLinkExternal,
-			spLogo
+			spLogo,
+			total
 		};
 	}
-};
+} );
 </script>
 
 <style lang="less">

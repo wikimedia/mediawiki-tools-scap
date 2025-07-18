@@ -173,6 +173,9 @@ const useAuthStore = defineStore( 'spiderpig-auth',
 			async getLogs() {
 				return await this.call( '/api/monitoring/logs/mediawiki' );
 			},
+			async getLogsTotal() {
+				return await this.call( '/api/monitoring/logs/mediawiki/total' );
+			},
 			// eslint-disable-next-line camelcase
 			async respondInteraction( job_id, interaction_id, response ) {
 				await this.call(
