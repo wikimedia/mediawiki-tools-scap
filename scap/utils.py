@@ -1159,15 +1159,11 @@ def get_group_wikidbs(group, directory, realm) -> list:
     return sorted(wikidbs & dblist)
 
 
-def select_latest_patches(patch_base_dir) -> Optional[str]:
+def get_patch_dirs(patch_base_dir) -> list:
     """
-    Find and return the latest /srv/patches/<version> directory.
-    Useful to e.g. populate the patches dir for a new version by
-    carrying over the most recent patches
-
-    Returns None if unavailable.
+    Returns the list of patch directories under `patch_base_dir`,
+    in version order.
     """
-
     candidates = []
     for name in os.listdir(patch_base_dir):
         try:
@@ -1176,12 +1172,23 @@ def select_latest_patches(patch_base_dir) -> Optional[str]:
         except Exception:
             continue
 
+    candidates.sort(key=parse_wmf_version)
+    return [os.path.join(patch_base_dir, name) for name in candidates]
+
+
+def select_latest_patches(patch_base_dir) -> Optional[str]:
+    """
+    Find and return the latest /srv/patches/<version> directory.
+    Useful to e.g. populate the patches dir for a new version by
+    carrying over the most recent patches
+
+    Returns None if unavailable.
+    """
+    candidates = get_patch_dirs(patch_base_dir)
     if not candidates:
         return None
 
-    latest_patches_vers = sorted(candidates, key=parse_wmf_version)[-1]
-
-    return os.path.join(patch_base_dir, latest_patches_vers)
+    return candidates[-1]
 
 
 def pluralize(word: str, quantity) -> str:

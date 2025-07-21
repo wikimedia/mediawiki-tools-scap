@@ -2,13 +2,14 @@
 
 """Scap command for applying security patches for the train."""
 import argparse
+import filecmp
 import os
 import re
 import shutil
 import sys
 from abc import abstractmethod
 from datetime import timedelta, datetime
-from typing import Iterator
+from typing import Iterator, Optional
 
 from scap import cli, utils, git
 from scap.phorge_conduit import PhorgeConduit
@@ -505,13 +506,117 @@ class RemovePatch(PatchUserManipulation):
         return "remove"
 
 
+@cli.command("update-next-patches", primary_deploy_server_only=True)
+class UpdateNextPatches(cli.Application):
+    next_patches_dir: str = None
+
+    def main(self, *extra_args):
+        logger = self.get_logger()
+        patches_dir = self.config["patch_path"]
+
+        if not git_is_clean(patches_dir):
+            utils.abort(f"git is not clean: {patches_dir}")
+
+        git.set_env_vars_for_user()
+
+        self.next_patches_dir = os.path.join(patches_dir, "next")
+        source_patches_dir = self._select_source_patches_dir()
+        logger.info(
+            f"Updating patches in {self.next_patches_dir} from {source_patches_dir}"
+        )
+        source_patches = SecurityPatches(source_patches_dir)
+        adds = []
+        removes = []
+
+        # Add phase
+        for patch in source_patches:
+            source_path = patch.path()
+            source_rel = os.path.relpath(source_path, source_patches_dir)
+            target_path = os.path.join(self.next_patches_dir, source_rel)
+
+            dropped = target_path + ".dropped"
+            updated = target_path + ".updated"
+            if os.path.exists(dropped):
+                logger.info(f"Skipping {source_rel} since {dropped} exists")
+                continue
+            if os.path.exists(updated):
+                logger.info(f"Skipping {source_rel} since {updated} exists")
+                continue
+
+            if os.path.exists(target_path) and filecmp.cmp(source_path, target_path):
+                logger.info(
+                    f"Skipping {source_rel} since it is identical to {target_path}"
+                )
+                continue
+
+            logger.info(f"Copying {source_rel} to {target_path}")
+            os.makedirs(os.path.dirname(target_path), exist_ok=True)
+            shutil.copy2(source_path, target_path)
+            adds.append(target_path)
+
+        # Removal phase
+        target_patches = SecurityPatches(self.next_patches_dir)
+        for patch in target_patches:
+            path = patch.path()
+            if path.endswith(".dropped") or path.endswith(".updated"):
+                continue
+            path_rel = os.path.relpath(path, self.next_patches_dir)
+            if source_patches.find(path_rel):
+                continue
+            logger.info(
+                f"Removing {path} since {os.path.join(source_patches_dir, path_rel)} no longer exists"
+            )
+            removes.append(path)
+
+        if adds:
+            gitcmd("add", *adds, cwd=self.next_patches_dir)
+        if removes:
+            gitcmd("rm", *removes, cwd=self.next_patches_dir)
+
+        if git_is_clean(patches_dir):
+            return
+
+        commit_message = "Patches updated by scap update-next-patches\n\n"
+        if adds:
+            patches = utils.pluralize("patch", len(adds))
+            commit_message += f"{len(adds)} {patches} copied from {source_patches_dir} to {self.next_patches_dir}\n"
+        if removes:
+            patches = utils.pluralize("patch", len(removes))
+            commit_message += (
+                f"{len(removes)} {patches} removed from {self.next_patches_dir}\n"
+            )
+
+        gitcmd(
+            "commit",
+            "-m",
+            commit_message,
+            cwd=self.next_patches_dir,
+        )
+        logger.info("Committed the changes")
+
+    def _select_source_patches_dir(self):
+        source_patches_dir = None
+        for dir in utils.get_patch_dirs(self.config["patch_path"]):
+            if dir == self.next_patches_dir:
+                break
+            source_patches_dir = dir
+        if not source_patches_dir:
+            raise SystemExit(f"There are no patches prior to {self.next_patches_dir}")
+
+        return source_patches_dir
+
+
 class SecurityPatches:
     """A list of security patches."""
 
     def __init__(self, root):
-        self._patches = self._find(root)
+        """
+        `root` will be something like /srv/patches/1.45.0-wmf.7
+        """
+        self.root = root
+        self._patches = self._populate(root)
 
-    def _find(self, root):
+    def _populate(self, root):
         core = os.path.abspath(os.path.join(root, "core"))
         exts = os.path.abspath(os.path.join(root, "extensions"))
         skins = os.path.abspath(os.path.join(root, "skins"))
@@ -550,6 +655,13 @@ class SecurityPatches:
 
     def __len__(self):
         return len(self._patches)
+
+    def find(self, relpath) -> Optional["Patch"]:
+        for patch in self._patches:
+            patch_rel = os.path.relpath(patch.path(), self.root)
+            if patch_rel == relpath:
+                return patch
+        return None
 
     def get_pre_patch_state(self, srcroot) -> dict:
         """
@@ -592,7 +704,7 @@ class Patch:
     def dirname(self):
         return os.path.dirname(self._filename)
 
-    def path(self):
+    def path(self) -> str:
         return self._filename
 
     def _affected_files(self, srcroot) -> list:
