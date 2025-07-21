@@ -224,6 +224,7 @@ import { VStepper } from 'vuetify/components/VStepper';
 import useApi from '../api';
 import useJobrunner from '../jobrunner';
 import TrainGroup from '../types/TrainGroup';
+import TrainStatus from '../types/TrainStatus';
 
 export default {
 	name: 'SpTrain',
@@ -244,7 +245,13 @@ export default {
 		const jobrunner = useJobrunner();
 
 		let resetWikiVersions = {};
-		let originalTrainStatus = {};
+		let originalTrainStatus: TrainStatus = {
+			groups: [],
+			version: '',
+			wikiVersions: {},
+			wikiCount: 0,
+			warnings: []
+		};
 
 		// Reactive properties
 		const hasLoaded = ref( false );
@@ -273,7 +280,10 @@ export default {
 			const ny = new Date( date.getFullYear(), 0, 1 );
 			const day = 1000 * 60 * 60 * 24;
 
-			return Math.ceil( ( date - ( ny - ( ny.getDay() * day ) ) ) / ( day * 7 ) );
+			return Math.ceil(
+				( date.getTime() - ( ny.getTime() - ( ny.getDay() * day ) ) ) /
+				( day * 7 )
+			);
 		} );
 
 		const taskDayOfWeek = computed(
@@ -445,7 +455,7 @@ export default {
 		 */
 		function countVersions( wikiversions, ...knownVersions ) {
 			return Object.values( wikiversions ).reduce(
-				( counts, version ) => (
+				( counts: object, version: string ) => (
 					{ ...counts, [ version ]: ( counts[ version ] || 0 ) + 1 }
 				),
 				knownVersions.reduce( ( counts, version ) => (
