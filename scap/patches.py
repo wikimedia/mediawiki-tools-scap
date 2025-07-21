@@ -642,11 +642,6 @@ class Patch:
         return APPLIED
 
 
-def valid_patch_filename(filename):
-    m = re.match(r"^\d+-\S+\.patch$", filename)
-    return m is not None
-
-
 def git_is_clean(dirname):
     output = gitcmd("status", "--ignore-submodules", cwd=dirname)
     return "working tree clean" in output
