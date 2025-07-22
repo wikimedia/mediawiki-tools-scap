@@ -296,7 +296,7 @@ class CheckoutMediaWiki(cli.Application):
         reference_patches = utils.select_latest_patches(patch_base_dir)
 
         if not reference_patches:
-            logger.warn("No reference patches available to copy")
+            logger.warning("No reference patches available to copy")
             return
 
         logger.info(

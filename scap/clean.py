@@ -125,7 +125,7 @@ class Clean(main.AbstractSync):
         # Moved behind a feature flag until T218750 is resolved
         if self.arguments.delete_gerrit_branch:
             if not os.path.exists(branch_dir):
-                logger.warn(
+                logger.warning(
                     "Cannot perform --delete-gerrit-branch because {} does not exist".format(
                         branch_dir
                     )

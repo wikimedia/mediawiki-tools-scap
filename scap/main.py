@@ -376,7 +376,7 @@ class AbstractSync(cli.Application):
         for stage in STAGES:
             diffs = self.k8s_ops.helmfile_diffs_for_stage(stage)
             if not diffs:
-                logger.warn("No diffs for stage %s", stage)
+                logger.warning("No diffs for stage %s", stage)
                 continue
             for diff in sorted(
                 diffs,
@@ -908,7 +908,7 @@ class CompileWikiversions(cli.Application):
     )
     def main(self, *extra_args):
         if self.arguments.staging:
-            self.get_logger().warn(
+            self.get_logger().warning(
                 "The --staging flag is deprecated and will be removed in a future release."
             )
 
@@ -934,7 +934,7 @@ class MWVersionsInUse(cli.Application):
     )
     def main(self, *extra_args):
         if self.arguments.staging:
-            self.get_logger().warn(
+            self.get_logger().warning(
                 "The --staging flag is deprecated and will be removed in a future release."
             )
 
@@ -1129,7 +1129,7 @@ class ScapWorld(AbstractSync):
         # localisation cache.
 
         if self.arguments.skip_l10n_update:
-            self.get_logger().warn("Skipping l10n-update")
+            self.get_logger().warning("Skipping l10n-update")
         else:
             with self.Timer("l10n-update"), self.reported_status("Updating l10n files"):
                 for version in self.active_wikiversions("stage"):

@@ -142,7 +142,7 @@ class StageTrain(cli.Application):
         version = train_info["version"]
 
         if status not in ["open", "progress"]:
-            self.logger.warn(
+            self.logger.warning(
                 "Phabricator task %s has status '%s'.  Cancelling operation.",
                 task,
                 status,
