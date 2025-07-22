@@ -506,9 +506,125 @@ class RemovePatch(PatchUserManipulation):
         return "remove"
 
 
+def update_next_patches(patches_dir: str, logger, dry_run: bool = False):
+    if not git_is_clean(patches_dir):
+        utils.abort(f"git is not clean: {patches_dir}")
+
+    next_patches_dir = os.path.join(patches_dir, "next")
+    source_patches_dir = utils.select_latest_patches(patches_dir, before_next=True)
+    if not source_patches_dir:
+        return
+
+    dry_run_prefix = "DRY-RUN: " if dry_run else ""
+    logger.info(
+        f"{dry_run_prefix}Updating patches in {next_patches_dir} from {source_patches_dir}"
+    )
+    source_patches = SecurityPatches(source_patches_dir)
+    adds = []
+    removes = []
+
+    # Add phase
+    for patch in source_patches:
+        source_path = patch.path()
+        source_rel = os.path.relpath(source_path, source_patches_dir)
+        target_path = os.path.join(next_patches_dir, source_rel)
+
+        dropped = target_path + ".dropped"
+        updated = target_path + ".updated"
+        if os.path.exists(dropped):
+            logger.info(f"Skipping {source_rel} since {dropped} exists")
+            continue
+        if os.path.exists(updated):
+            logger.info(f"Skipping {source_rel} since {updated} exists")
+            continue
+
+        if os.path.exists(target_path) and filecmp.cmp(source_path, target_path):
+            logger.info(f"Skipping {source_rel} since it is identical to {target_path}")
+            continue
+
+        if dry_run:
+            logger.info(f"Would copy {source_rel} to {target_path}")
+        else:
+            logger.info(f"Copying {source_rel} to {target_path}")
+            os.makedirs(os.path.dirname(target_path), exist_ok=True)
+            shutil.copy2(source_path, target_path)
+            adds.append(target_path)
+
+    # Removal phase
+    target_patches = SecurityPatches(next_patches_dir)
+    for patch in target_patches:
+        path = patch.path()
+        if path.endswith(".dropped") or path.endswith(".updated"):
+            continue
+        path_rel = os.path.relpath(path, next_patches_dir)
+        if source_patches.find(path_rel):
+            continue
+        source_path = os.path.join(source_patches_dir, path_rel)
+        if dry_run:
+            logger.info(f"Would remove {path} since {source_path} no longer exists")
+        else:
+            logger.info(f"Removing {path} since {source_path} no longer exists")
+            removes.append(path)
+
+    if adds:
+        gitcmd("add", *adds, cwd=next_patches_dir)
+    if removes:
+        gitcmd("rm", *removes, cwd=next_patches_dir)
+
+    if git_is_clean(patches_dir):
+        return
+
+    commit_message = "Patches updated by scap update-next-patches\n\n"
+    if adds:
+        patches = utils.pluralize("patch", len(adds))
+        commit_message += f"{len(adds)} {patches} copied from {source_patches_dir} to {next_patches_dir}\n"
+    if removes:
+        patches = utils.pluralize("patch", len(removes))
+        commit_message += f"{len(removes)} {patches} removed from {next_patches_dir}\n"
+
+    git.set_env_vars_for_user()
+    gitcmd(
+        "commit",
+        "-m",
+        commit_message,
+        cwd=next_patches_dir,
+    )
+    logger.info("Committed the changes")
+
+
+def finalize_next_patches(next_patches_dir: str, logger, dry_run: bool = False):
+    if not git_is_clean(next_patches_dir):
+        utils.abort(f"git is not clean: {next_patches_dir}")
+
+    patches = SecurityPatches(next_patches_dir)
+    for patch in patches:
+        patch_path = patch.path()
+        if patch_path.endswith(".dropped"):
+            if dry_run:
+                logger.info(f"Would remove {patch_path}")
+            else:
+                logger.info(f"Removing {patch_path}")
+                gitcmd("rm", patch_path, cwd=next_patches_dir)
+        if patch_path.endswith(".updated"):
+            new_path = patch_path[: -len(".updated")]
+            if dry_run:
+                logger.info(f"Would rename {patch_path} to {new_path}")
+            else:
+                logger.info(f"Renaming {patch_path} to {new_path}")
+                gitcmd("mv", patch_path, new_path, cwd=next_patches_dir)
+
+    if git_is_clean(next_patches_dir):
+        return
+
+    git.set_env_vars_for_user()
+    gitcmd("commit", "-m", "Finalized next patches", cwd=next_patches_dir)
+
+
 @cli.command("update-next-patches", primary_deploy_server_only=True)
 class UpdateNextPatches(cli.Application):
-    next_patches_dir: str = None
+    """
+    Synchronize "next" patches from the latest live patches
+    """
 
     @cli.argument(
         "--dry-run",
@@ -520,104 +636,32 @@ class UpdateNextPatches(cli.Application):
     def main(self, *extra_args):
         logger = self.get_logger()
         patches_dir = self.config["patch_path"]
+        update_next_patches(patches_dir, logger, self.arguments.dry_run)
 
-        if not git_is_clean(patches_dir):
-            utils.abort(f"git is not clean: {patches_dir}")
 
-        git.set_env_vars_for_user()
+@cli.command("finalize-next-patches", primary_deploy_server_only=True)
+class FinalizeNextPatches(cli.Application):
+    """
+    Finalize "next" patches
 
-        self.next_patches_dir = os.path.join(patches_dir, "next")
-        source_patches_dir = self._select_source_patches_dir()
+    Finalize "next" patches by deleting .dropped patches and removing the
+    .updated suffix from patch files.
+    """
 
-        dry_run_prefix = "DRY-RUN: " if self.arguments.dry_run else ""
-        logger.info(
-            f"{dry_run_prefix}Updating patches in {self.next_patches_dir} from {source_patches_dir}"
-        )
-        source_patches = SecurityPatches(source_patches_dir)
-        adds = []
-        removes = []
-
-        # Add phase
-        for patch in source_patches:
-            source_path = patch.path()
-            source_rel = os.path.relpath(source_path, source_patches_dir)
-            target_path = os.path.join(self.next_patches_dir, source_rel)
-
-            dropped = target_path + ".dropped"
-            updated = target_path + ".updated"
-            if os.path.exists(dropped):
-                logger.info(f"Skipping {source_rel} since {dropped} exists")
-                continue
-            if os.path.exists(updated):
-                logger.info(f"Skipping {source_rel} since {updated} exists")
-                continue
-
-            if os.path.exists(target_path) and filecmp.cmp(source_path, target_path):
-                logger.info(
-                    f"Skipping {source_rel} since it is identical to {target_path}"
-                )
-                continue
-
-            if self.arguments.dry_run:
-                logger.info(f"Would copy {source_rel} to {target_path}")
-            else:
-                logger.info(f"Copying {source_rel} to {target_path}")
-                os.makedirs(os.path.dirname(target_path), exist_ok=True)
-                shutil.copy2(source_path, target_path)
-                adds.append(target_path)
-
-        # Removal phase
-        target_patches = SecurityPatches(self.next_patches_dir)
-        for patch in target_patches:
-            path = patch.path()
-            if path.endswith(".dropped") or path.endswith(".updated"):
-                continue
-            path_rel = os.path.relpath(path, self.next_patches_dir)
-            if source_patches.find(path_rel):
-                continue
-            source_path = os.path.join(source_patches_dir, path_rel)
-            if self.arguments.dry_run:
-                logger.info(f"Would remove {path} since {source_path} no longer exists")
-            else:
-                logger.info(f"Removing {path} since {source_path} no longer exists")
-                removes.append(path)
-
-        if adds:
-            gitcmd("add", *adds, cwd=self.next_patches_dir)
-        if removes:
-            gitcmd("rm", *removes, cwd=self.next_patches_dir)
-
-        if git_is_clean(patches_dir):
-            return
-
-        commit_message = "Patches updated by scap update-next-patches\n\n"
-        if adds:
-            patches = utils.pluralize("patch", len(adds))
-            commit_message += f"{len(adds)} {patches} copied from {source_patches_dir} to {self.next_patches_dir}\n"
-        if removes:
-            patches = utils.pluralize("patch", len(removes))
-            commit_message += (
-                f"{len(removes)} {patches} removed from {self.next_patches_dir}\n"
-            )
-
-        gitcmd(
-            "commit",
-            "-m",
-            commit_message,
-            cwd=self.next_patches_dir,
-        )
-        logger.info("Committed the changes")
-
-    def _select_source_patches_dir(self):
-        source_patches_dir = None
-        for dir in utils.get_patch_dirs(self.config["patch_path"]):
-            if dir == self.next_patches_dir:
-                break
-            source_patches_dir = dir
-        if not source_patches_dir:
-            raise SystemExit(f"There are no patches prior to {self.next_patches_dir}")
-
-        return source_patches_dir
+    @cli.argument(
+        "--dry-run",
+        "-n",
+        action="store_true",
+        help="Say what would happen without performing the actions",
+        required=False,
+    )
+    def main(self, *extra_args):
+        logger = self.get_logger()
+        patches_dir = self.config["patch_path"]
+        next_patches_dir = os.path.join(patches_dir, "next")
+        if not os.path.exists(next_patches_dir):
+            raise SystemExit(f"{next_patches_dir} does not exist")
+        finalize_next_patches(next_patches_dir, logger, self.arguments.dry_run)
 
 
 class SecurityPatches:

@@ -8,7 +8,7 @@ import shutil
 import subprocess
 
 from scap import cli, git, history, patches, utils
-from scap.patches import SecurityPatches
+from scap.patches import SecurityPatches, finalize_next_patches, update_next_patches
 
 HISTORY_ABORT_STATUS = 127
 
@@ -284,11 +284,14 @@ class CheckoutMediaWiki(cli.Application):
 
     def _setup_patches(self, version):
         logger = self.get_logger()
+        patch_base_dir = self.config["patch_path"]
+        patch_path = os.path.join(patch_base_dir, version)
 
         logger.debug("Setting up patches for {}".format(version))
 
-        patch_base_dir = self.config["patch_path"]
-        patch_path = os.path.join(patch_base_dir, version)
+        if version == "next":
+            update_next_patches(patch_base_dir, logger)
+
         if os.path.exists(patch_path):
             logger.debug("Patches already set up for {}".format(version))
             return
@@ -298,6 +301,10 @@ class CheckoutMediaWiki(cli.Application):
         if not reference_patches:
             logger.warning("No reference patches available to copy")
             return
+
+        next_patches_dir = os.path.join(patch_base_dir, "next")
+        if reference_patches == next_patches_dir:
+            finalize_next_patches(next_patches_dir, logger)
 
         logger.info(
             "Copying patches from {} to {}".format(reference_patches, patch_path)
