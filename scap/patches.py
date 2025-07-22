@@ -98,7 +98,7 @@ class ApplyPatches(cli.Application):
                 apply_in_curdir = True
                 curdir = patch.dirname()
 
-            if apply_in_curdir:
+            if apply_in_curdir and not patch.path().endswith(".dropped"):
                 ret = patch.apply(
                     srcroot, self.arguments.abort_git_am_on_fail, output_line
                 )
