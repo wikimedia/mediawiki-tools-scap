@@ -510,6 +510,13 @@ class RemovePatch(PatchUserManipulation):
 class UpdateNextPatches(cli.Application):
     next_patches_dir: str = None
 
+    @cli.argument(
+        "--dry-run",
+        "-n",
+        action="store_true",
+        help="Say what would happen without performing the actions",
+        required=False,
+    )
     def main(self, *extra_args):
         logger = self.get_logger()
         patches_dir = self.config["patch_path"]
@@ -521,8 +528,10 @@ class UpdateNextPatches(cli.Application):
 
         self.next_patches_dir = os.path.join(patches_dir, "next")
         source_patches_dir = self._select_source_patches_dir()
+
+        dry_run_prefix = "DRY-RUN: " if self.arguments.dry_run else ""
         logger.info(
-            f"Updating patches in {self.next_patches_dir} from {source_patches_dir}"
+            f"{dry_run_prefix}Updating patches in {self.next_patches_dir} from {source_patches_dir}"
         )
         source_patches = SecurityPatches(source_patches_dir)
         adds = []
@@ -549,10 +558,13 @@ class UpdateNextPatches(cli.Application):
                 )
                 continue
 
-            logger.info(f"Copying {source_rel} to {target_path}")
-            os.makedirs(os.path.dirname(target_path), exist_ok=True)
-            shutil.copy2(source_path, target_path)
-            adds.append(target_path)
+            if self.arguments.dry_run:
+                logger.info(f"Would copy {source_rel} to {target_path}")
+            else:
+                logger.info(f"Copying {source_rel} to {target_path}")
+                os.makedirs(os.path.dirname(target_path), exist_ok=True)
+                shutil.copy2(source_path, target_path)
+                adds.append(target_path)
 
         # Removal phase
         target_patches = SecurityPatches(self.next_patches_dir)
@@ -563,10 +575,12 @@ class UpdateNextPatches(cli.Application):
             path_rel = os.path.relpath(path, self.next_patches_dir)
             if source_patches.find(path_rel):
                 continue
-            logger.info(
-                f"Removing {path} since {os.path.join(source_patches_dir, path_rel)} no longer exists"
-            )
-            removes.append(path)
+            source_path = os.path.join(source_patches_dir, path_rel)
+            if self.arguments.dry_run:
+                logger.info(f"Would remove {path} since {source_path} no longer exists")
+            else:
+                logger.info(f"Removing {path} since {source_path} no longer exists")
+                removes.append(path)
 
         if adds:
             gitcmd("add", *adds, cwd=self.next_patches_dir)
