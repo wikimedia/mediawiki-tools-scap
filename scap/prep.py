@@ -304,6 +304,7 @@ class CheckoutMediaWiki(cli.Application):
 
         next_patches_dir = os.path.join(patch_base_dir, "next")
         if reference_patches == next_patches_dir:
+            update_next_patches(patch_base_dir, logger)
             finalize_next_patches(next_patches_dir, logger)
 
         logger.info(
