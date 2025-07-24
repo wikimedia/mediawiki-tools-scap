@@ -21,7 +21,7 @@ import logging
 import math
 import multiprocessing
 import os
-from typing import Optional
+from typing import List, Optional
 import packaging.version
 import pwd
 import random
@@ -1159,36 +1159,53 @@ def get_group_wikidbs(group, directory, realm) -> list:
     return sorted(wikidbs & dblist)
 
 
-def get_patch_dirs(patch_base_dir) -> list:
+def get_patch_versions(patch_base_dir) -> List[str]:
+    """
+    Returns the list of basenames of patch directories under `patch_base_dir`,
+    in version order.   For example: ["1.45.0-wmf.6", "1.45.0-wmf.7", "next"]
+    """
+    versions = []
+    for name in os.listdir(patch_base_dir):
+        try:
+            parse_wmf_version(name)
+            versions.append(name)
+        except Exception:
+            continue
+
+    versions.sort(key=parse_wmf_version)
+    return versions
+
+
+def get_patch_dirs(patch_base_dir) -> List[str]:
     """
     Returns the list of patch directories under `patch_base_dir`,
     in version order.
     """
-    candidates = []
-    for name in os.listdir(patch_base_dir):
-        try:
-            parse_wmf_version(name)
-            candidates.append(name)
-        except Exception:
-            continue
-
-    candidates.sort(key=parse_wmf_version)
-    return [os.path.join(patch_base_dir, name) for name in candidates]
+    return [
+        os.path.join(patch_base_dir, name)
+        for name in get_patch_versions(patch_base_dir)
+    ]
 
 
-def select_latest_patches(patch_base_dir) -> Optional[str]:
+def select_latest_patches(patch_base_dir, before_next: bool = False) -> Optional[str]:
     """
     Find and return the latest /srv/patches/<version> directory.
-    Useful to e.g. populate the patches dir for a new version by
-    carrying over the most recent patches
+    if `before_next` is True, return the latest /srv/patches/<version> that is
+    not /srv/patches/next.
 
     Returns None if unavailable.
     """
-    candidates = get_patch_dirs(patch_base_dir)
-    if not candidates:
+    versions = get_patch_versions(patch_base_dir)
+    if not versions:
         return None
 
-    return candidates[-1]
+    if not before_next or "next" not in versions:
+        return os.path.join(patch_base_dir, versions[-1])
+
+    i = versions.index("next")
+    if i == 0:
+        return None
+    return os.path.join(patch_base_dir, versions[i - 1])
 
 
 def pluralize(word: str, quantity) -> str:

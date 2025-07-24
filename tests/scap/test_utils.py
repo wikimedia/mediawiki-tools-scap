@@ -252,6 +252,51 @@ def test_parse_wmf_version():
     )
 
 
+@pytest.fixture
+def messy_patches_dir(tmpdir):
+    for version in [
+        "123",
+        "1.42.0-wmf.22",
+        "testing",
+        "auto",
+        "next",
+        "master",
+    ]:
+        os.mkdir(tmpdir / version)
+
+    return tmpdir
+
+
+def test_get_patch_versions(messy_patches_dir):
+    assert utils.get_patch_versions(messy_patches_dir) == [
+        "1.42.0-wmf.22",
+        "next",
+        "master",
+    ]
+
+
+def test_select_latest_patches(tmpdir):
+    assert utils.select_latest_patches(tmpdir) is None
+
+    next = tmpdir / "next"
+    os.mkdir(next)
+
+    assert utils.select_latest_patches(tmpdir) == next
+    assert utils.select_latest_patches(tmpdir, before_next=True) is None
+
+    # Add a version that's later than "next"
+    master = tmpdir / "master"
+    os.mkdir(master)
+    assert utils.select_latest_patches(tmpdir) == master
+    assert utils.select_latest_patches(tmpdir, before_next=True) is None
+
+    # Add a normal version
+    normal = tmpdir / "1.42.0-wmf.22"
+    os.mkdir(normal)
+    assert utils.select_latest_patches(tmpdir) == master
+    assert utils.select_latest_patches(tmpdir, before_next=True) == normal
+
+
 def test_get_wikiversions_ondisk(tmpdir):
     for dir in [
         "php-master",
