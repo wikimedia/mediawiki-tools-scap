@@ -572,6 +572,7 @@ def update_next_patches(patches_dir: str, logger, dry_run: bool = False):
         gitcmd("rm", *removes, cwd=next_patches_dir)
 
     if git_is_clean(patches_dir):
+        logger.info(f"{next_patches_dir} is up-to-date")
         return
 
     commit_message = "Patches updated by scap update-next-patches\n\n"
@@ -593,6 +594,8 @@ def update_next_patches(patches_dir: str, logger, dry_run: bool = False):
 
 
 def finalize_next_patches(next_patches_dir: str, logger, dry_run: bool = False):
+    logger.info(f"Finalizing {next_patches_dir}")
+
     if not git_is_clean(next_patches_dir):
         utils.abort(f"git is not clean: {next_patches_dir}")
 
@@ -613,11 +616,11 @@ def finalize_next_patches(next_patches_dir: str, logger, dry_run: bool = False):
                 logger.info(f"Renaming {patch_path} to {new_path}")
                 gitcmd("mv", patch_path, new_path, cwd=next_patches_dir)
 
-    if git_is_clean(next_patches_dir):
-        return
+    if not git_is_clean(next_patches_dir):
+        git.set_env_vars_for_user()
+        gitcmd("commit", "-m", "Finalized next patches", cwd=next_patches_dir)
 
-    git.set_env_vars_for_user()
-    gitcmd("commit", "-m", "Finalized next patches", cwd=next_patches_dir)
+    logger.info(f"Done finalizing {next_patches_dir}")
 
 
 @cli.command("update-next-patches", primary_deploy_server_only=True)
