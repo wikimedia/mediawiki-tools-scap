@@ -1,3 +1,13 @@
+scap (4.191.0)
+
+  * JobLog.vue: Add tooltip for "Show sensitive information" checkbox
+  * prep.py: Run update_next_patches before finalize_next_patches
+  * patches.py: Additional log messages
+  * Finalize "next" patches when prepping a new train branch
+  * utils.py: Add before_next mode to select_latest_patches
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Thu, 24 Jul 2025 14:56:14 -0700
+
 scap (4.190.0)
 
   * LoginPage.vue: Don’t obscure the typed OTP in SpiderPig
