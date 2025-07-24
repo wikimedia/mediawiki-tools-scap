@@ -1,3 +1,16 @@
+scap (4.190.0)
+
+  * LoginPage.vue: Don’t obscure the typed OTP in SpiderPig
+  * Train.vue: Fix vscode linter warnings
+  * scap update-next-patches: Add --dry-run flag
+  * Train.vue: Add active train operation to train summary
+  * apply-patches: Skip .dropped patches
+  * logger.warn -> logger.warning
+  * Add scap update-next-patches command
+  * patches.py: Remove unused function
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Thu, 24 Jul 2025 09:01:31 -0700
+
 scap (4.189.0)
 
   * spiderpig/api.py: Add missing /mediawiki/backport route
