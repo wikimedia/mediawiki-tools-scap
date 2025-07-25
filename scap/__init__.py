@@ -55,7 +55,7 @@ from scap.install_world import InstallWorld
 from scap.kubernetes_cli import BuildImages, CleanImages
 from scap.mwscript import Mwscript, Mwshell
 from scap.patch import SecurityPatchManager
-from scap.patches import ApplyPatches, UpdatePatch, RemovePatch
+from scap.patches import ApplyPatches, UpdatePatch, DropPatch
 from scap.php_fpm_restart import PhpRpmRestartCmd
 from scap.prep import CheckoutMediaWiki
 from scap.rollback import Rollback
