@@ -50,7 +50,8 @@ class CheckoutMediaWiki(cli.Application):
     scap prep ensures that the specified version of MediaWiki (and
     submodules) is checked out into the staging directory.  The checkout
     will be updated to match origin.  Any previously applied security
-    patches or local changes will be discarded.
+    patches or local changes will be discarded.  Security patches are
+    reapplied after the checkout is updated.
 
     If you use 'scap prep auto', operations/mediawiki-config will be
     cloned/updated in the staging directory and all active MediaWiki
@@ -70,7 +71,7 @@ class CheckoutMediaWiki(cli.Application):
     )
     @cli.argument(
         "--auto",
-        help="Enable automatic mode which will check out operations/mediawiki-config and the mediawiki branch(es) specified by BRANCH, then apply patches",
+        help="Enable automatic mode which will check out operations/mediawiki-config",
         action="store_true",
     )
     @cli.argument(
@@ -108,7 +109,7 @@ class CheckoutMediaWiki(cli.Application):
         "--no-patches",
         dest="apply_patches",
         action="store_false",
-        help="Don't apply security patches.  Only used in auto mode.",
+        help="Don't apply security patches.",
     )
     @cli.argument(
         "--reference",
@@ -125,9 +126,6 @@ class CheckoutMediaWiki(cli.Application):
 
         if self.arguments.branch == "auto":
             self.arguments.auto = True
-
-        if not self.arguments.auto:
-            self.arguments.apply_patches = False
 
         lock_timeout = (
             {"timeout": self.arguments.lock_timeout}

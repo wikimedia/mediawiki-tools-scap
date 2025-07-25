@@ -11,8 +11,7 @@
     * Ensures you're in a tmux window
     * Ensures you've got a running ssh-agent
     * Checks for the new branch
-    * Preps the new branch
-    * Applies patches to the new branch
+    * Preps the new branch (which applies patches to the new branch)
     * Deploys the new branch to testwikis
 
     The behavior associated to stage-train used to live in the `tools/release`. The file history is
@@ -42,7 +41,6 @@ from scap import cli, utils
 
 STAGE_SEQUENCE = [
     "prep",
-    "patch",
     "testwikis",
 ]
 
@@ -100,16 +98,6 @@ class StageTrain(cli.Application):
     # Stage implementations
     def _prep(self):
         self._run(["prep", self.arguments.version])
-
-    def _patch(self):
-        self._run(
-            [
-                "apply-patches",
-                "--abort-git-am-on-fail",
-                "--train",
-                self.arguments.version,
-            ]
-        )
 
     def _testwikis(self):
         self._run(["deploy-promote", "--yes", "testwikis", self.arguments.version])
