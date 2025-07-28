@@ -1,3 +1,9 @@
+scap (4.192.0)
+
+  * scap prep: Apply security patches by default
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Mon, 28 Jul 2025 08:27:48 -0700
+
 scap (4.191.0)
 
   * JobLog.vue: Add tooltip for "Show sensitive information" checkbox
