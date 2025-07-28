@@ -702,11 +702,31 @@ class SecurityPatches:
             basename = os.path.basename(extradir)
             for subdir in os.listdir(extradir):
                 dirname = os.path.join(extradir, subdir)
-                for filename in os.listdir(dirname):
-                    patch_pathname = os.path.join(dirname, filename)
-                    patches.append(
-                        Patch(patch_pathname, os.path.join(basename, subdir))
+                for filename in utils.find_regular_files(dirname):
+                    component = os.path.join(basename, subdir)
+                    patch_path = os.path.join(dirname, filename)
+
+                    # git_am_working_directory will be the cwd of git am.
+                    #
+                    # Often this will have the same value as `component`,
+                    # BUT if there is a submodule in a component, then
+                    # git_am_working_directory will be different than `component`.
+                    #
+                    # This lets submodule patches live in extensions/skins
+                    # directories using the same relative path as the submodule.
+                    #
+                    # e.g., /srv/patches/<v>/extensions/SomeExtension/a/b/c.patch
+                    # will be applied in like this:
+                    # git -C /srv/mediawiki/<v>/extensions/SomeExtension/a/b \
+                    #   am /srv/patches/<v>/extensions/SomeExtension/a/b/c.patch
+                    #
+                    # Instead of:
+                    # git -C /srv/mediawiki/<v>/extensions/SomeExtension \
+                    #  am /srv/patches/<v>/extensions/SomeExtension/a/b/c.patch
+                    git_am_working_directory = os.path.join(
+                        component, os.path.dirname(filename)
                     )
+                    patches.append(Patch(patch_path, git_am_working_directory))
 
         return list(sorted(patches, key=lambda p: p.path()))
 
