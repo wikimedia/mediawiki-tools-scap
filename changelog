@@ -1,3 +1,9 @@
+scap (4.193.0)
+
+  * Teach apply-patches about submodules
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Tue, 29 Jul 2025 10:34:39 -0700
+
 scap (4.192.0)
 
   * scap prep: Apply security patches by default
