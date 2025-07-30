@@ -307,8 +307,15 @@ class K8sOps:
     Kubernetes operations
     """
 
-    def __init__(self, app: Application):
+    def __init__(
+        self,
+        app: Application,
+        suffix: str = "",
+        update_releases_repo: bool = True,
+    ):
         self.app = app
+        self.suffix = suffix
+        self.update_releases_repo = update_releases_repo
         self.logger = app.get_logger()
 
         if app.config["build_mw_container_image"]:
@@ -317,15 +324,22 @@ class K8sOps:
             self._verify_deployment_prereqs()
 
         self.build_logfile = os.path.join(
-            pathlib.Path.home(), "scap-image-build-and-push-log"
+            pathlib.Path.home(), "scap-image-build-and-push-log" + suffix
         )
         self.helm_env = self._collect_helm_env()
         self.original_helmfile_values = {}
         self.default_clusters = re.split(r"[,\s]+", self.app.config["k8s_clusters"])
         self.traindev = self.default_clusters == ["traindev"]
         self.build_state_dir = os.path.join(
-            app.config["stage_dir"], "scap", "image-build"
+            app.config["stage_dir"], "scap", "image-build" + suffix
         )
+
+        if update_releases_repo and self.app.config["build_mw_container_image"]:
+            release_repo_update_cmd = self.app.config["release_repo_update_cmd"]
+            if release_repo_update_cmd:
+                self.logger.info("Running {}".format(release_repo_update_cmd))
+                with utils.suppress_backtrace():
+                    subprocess.run(release_repo_update_cmd, shell=True, check=True)
 
     def build_k8s_images(
         self,
@@ -336,104 +350,95 @@ class K8sOps:
         if not self.app.config["build_mw_container_image"]:
             return
 
-        release_repo_dir = self.app.config["release_repo_dir"]
-        release_repo_update_cmd = self.app.config["release_repo_update_cmd"]
+        utils.mkdir_p(self.build_state_dir)
 
-        if release_repo_update_cmd:
-            self.logger.info("Running {}".format(release_repo_update_cmd))
-            with utils.suppress_backtrace():
-                subprocess.run(release_repo_update_cmd, shell=True, check=True)
+        make_container_image_dir = os.path.join(
+            self.app.config["release_repo_dir"], "make-container-image"
+        )
+        registry = self.app.config["docker_registry"]
 
-        with self.app.Timer("build-and-push-container-images"):
-            utils.mkdir_p(self.build_state_dir)
+        dev_ca_crt = ""
+        if self.app.config["mediawiki_image_extra_ca_cert"]:
+            with open(self.app.config["mediawiki_image_extra_ca_cert"], "rb") as f:
+                dev_ca_crt = base64.b64encode(f.read()).decode("utf-8")
 
-            make_container_image_dir = os.path.join(
-                release_repo_dir, "make-container-image"
-            )
-            registry = self.app.config["docker_registry"]
+        mw_versions_list = ",".join(mediawiki_versions)
+        stage_dir = self.app.config["stage_dir"]
+        build_images_args = [
+            self.build_state_dir,
+            "--staging-dir",
+            stage_dir,
+            "--mediawiki-versions",
+            mw_versions_list,
+            "--multiversion-image-name",
+            "{}/{}".format(registry, self.app.config["mediawiki_image_name"]),
+            "--multiversion-debug-image-name",
+            "{}/{}".format(registry, self.app.config["mediawiki_debug_image_name"]),
+            "--multiversion-cli-image-name",
+            "{}/{}".format(registry, self.app.config["mediawiki_cli_image_name"]),
+            "--webserver-image-name",
+            "{}/{}".format(registry, self.app.config["webserver_image_name"]),
+            "--latest-tag",
+            latest_tag,
+            "--label",
+            f"{LABEL_BUILDER_NAME}=scap",
+            "--label",
+            f"{LABEL_BUILDER_VERSION}={version.__version__}",
+            "--label",
+            f"{LABEL_MEDIAWIKI_VERSIONS}={mw_versions_list}",
+            "--label",
+            f"{LABEL_SCAP_STAGE_DIR}={stage_dir}",
+            "--label",
+            f"{LABEL_SCAP_BUILD_STATE_DIR}={self.build_state_dir}",
+        ]
 
-            dev_ca_crt = ""
-            if self.app.config["mediawiki_image_extra_ca_cert"]:
-                with open(self.app.config["mediawiki_image_extra_ca_cert"], "rb") as f:
-                    dev_ca_crt = base64.b64encode(f.read()).decode("utf-8")
+        if force_version:
+            if len(mediawiki_versions) > 1:
+                raise ValueError(
+                    "cannot force a single version if multiple versions are given"
+                )
 
-            mw_versions_list = ",".join(mediawiki_versions)
-            stage_dir = self.app.config["stage_dir"]
-            build_images_args = [
-                self.build_state_dir,
-                "--staging-dir",
-                stage_dir,
-                "--mediawiki-versions",
-                mw_versions_list,
-                "--multiversion-image-name",
-                "{}/{}".format(registry, self.app.config["mediawiki_image_name"]),
-                "--multiversion-debug-image-name",
-                "{}/{}".format(registry, self.app.config["mediawiki_debug_image_name"]),
-                "--multiversion-cli-image-name",
-                "{}/{}".format(registry, self.app.config["mediawiki_cli_image_name"]),
-                "--webserver-image-name",
-                "{}/{}".format(registry, self.app.config["webserver_image_name"]),
-                "--latest-tag",
-                latest_tag,
-                "--label",
-                f"{LABEL_BUILDER_NAME}=scap",
-                "--label",
-                f"{LABEL_BUILDER_VERSION}={version.__version__}",
-                "--label",
-                f"{LABEL_MEDIAWIKI_VERSIONS}={mw_versions_list}",
-                "--label",
-                f"{LABEL_SCAP_STAGE_DIR}={stage_dir}",
-                "--label",
-                f"{LABEL_SCAP_BUILD_STATE_DIR}={self.build_state_dir}",
+            build_images_args += [
+                "--force-version",
+                mediawiki_versions[0],
             ]
 
-            if force_version:
-                if len(mediawiki_versions) > 1:
-                    raise ValueError(
-                        "cannot force a single version if multiple versions are given"
-                    )
+        if self.app.config["mediawiki_image_extra_packages"]:
+            build_images_args += [
+                "--mediawiki-image-extra-packages",
+                self.app.config["mediawiki_image_extra_packages"],
+            ]
+        if dev_ca_crt:
+            build_images_args += ["--mediawiki-extra-ca-cert", dev_ca_crt]
+        if self.app.config["full_image_build"]:
+            build_images_args.append("--full")
 
-                build_images_args += [
-                    "--force-version",
-                    mediawiki_versions[0],
-                ]
+        http_proxy = self.app.config["web_proxy"]
+        if http_proxy:
+            build_images_args += [
+                "--http-proxy",
+                http_proxy,
+                "--https-proxy",
+                http_proxy,
+            ]
 
-            if self.app.config["mediawiki_image_extra_packages"]:
-                build_images_args += [
-                    "--mediawiki-image-extra-packages",
-                    self.app.config["mediawiki_image_extra_packages"],
-                ]
-            if dev_ca_crt:
-                build_images_args += ["--mediawiki-extra-ca-cert", dev_ca_crt]
-            if self.app.config["full_image_build"]:
-                build_images_args.append("--full")
-
-            http_proxy = self.app.config["web_proxy"]
-            if http_proxy:
-                build_images_args += [
-                    "--http-proxy",
-                    http_proxy,
-                    "--https-proxy",
-                    http_proxy,
-                ]
-
-            with utils.suppress_backtrace():
-                cmd = "{} {}".format(
-                    self.app.config["release_repo_build_and_push_images_cmd"],
-                    " ".join(map(shlex.quote, build_images_args)),
+        with utils.suppress_backtrace():
+            cmd = "{} {}".format(
+                self.app.config["release_repo_build_and_push_images_cmd"],
+                " ".join(map(shlex.quote, build_images_args)),
+            )
+            self.logger.info(
+                "K8s images build/push output redirected to {}".format(
+                    self.build_logfile
                 )
-                self.logger.info(
-                    "K8s images build/push output redirected to {}".format(
-                        self.build_logfile
-                    )
-                )
-                self._run_cmd(
-                    cmd,
-                    make_container_image_dir,
-                    self.build_logfile,
-                    logging.getLogger("scap.k8s.build"),
-                    shell=True,
-                )
+            )
+            self._run_cmd(
+                cmd,
+                make_container_image_dir,
+                self.build_logfile,
+                logging.getLogger("scap.k8s.build"),
+                shell=True,
+            )
 
     # Called by AbstractSync.main
     def helmfile_diffs_for_stage(self, stage: str):

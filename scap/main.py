@@ -31,7 +31,7 @@ import socket
 import sys
 import time
 from typing import Callable, List, Optional
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 import scap.arg as arg
 import scap.checks as checks
@@ -142,9 +142,7 @@ class AbstractSync(cli.Application):
             else:
                 self.get_logger().warning("check_fatals skipped by --force")
 
-            with self.reported_status("Building container images"):
-                self.k8s_ops.build_k8s_images(self.get_versions_to_include_in_image())
-
+            self._build_and_push_container_images()
             self.k8s_ops.update_helmfile_files()
 
             if self.arguments.stop_before_sync:
@@ -398,6 +396,43 @@ class AbstractSync(cli.Application):
             "Continue with sync?",
             "Sync cancelled.",
         )
+
+    def _build_and_push_container_images(self):
+        with self.reported_status("Building container images"):
+            with self.Timer("build-and-push-container-images"):
+                with ThreadPoolExecutor(max_workers=2) as pool:
+                    futures = []
+
+                    futures.append(
+                        pool.submit(
+                            self.k8s_ops.build_k8s_images,
+                            self.get_versions_to_include_in_image(),
+                        )
+                    )
+
+                    if self.config["build_mw_next_container_image"]:
+                        # T398875: Update the 'next' image when updating the regular images.
+                        next_k8s_ops = K8sOps(
+                            self, suffix=".next", update_releases_repo=False
+                        )
+                        futures.append(
+                            pool.submit(
+                                next_k8s_ops.build_k8s_images,
+                                ["next"],
+                                force_version="next",
+                                latest_tag="next",
+                            )
+                        )
+
+                    failed = False
+                    for future in as_completed(futures):
+                        try:
+                            future.result()
+                        except Exception:
+                            failed = True
+
+                    if failed:
+                        raise SystemExit("Building container images failed")
 
     def _update_caches(self):
         # Compute git version information

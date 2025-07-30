@@ -56,11 +56,12 @@ class BuildImages(cli.Application):
                 self.timed(tasks.cache_git_info, version, self.config)
                 self.timed(tasks.update_localization_cache, version, self, json=False)
 
-            k8s_ops.build_k8s_images(
-                versions,
-                force_version=force_version,
-                latest_tag=self.arguments.latest_tag,
-            )
+            with self.Timer("build-and-push-container-images"):
+                k8s_ops.build_k8s_images(
+                    versions,
+                    force_version=force_version,
+                    latest_tag=self.arguments.latest_tag,
+                )
 
 
 @cli.command(
