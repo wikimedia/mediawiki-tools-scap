@@ -1,3 +1,9 @@
+scap (4.194.2)
+
+  * config.py: Disable build_mw_next_container_image
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Thu, 31 Jul 2025 15:23:15 -0700
+
 scap (4.194.1)
 
   * build-images: Use the .next suffix when building next image
