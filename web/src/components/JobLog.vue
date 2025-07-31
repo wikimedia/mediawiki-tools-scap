@@ -179,7 +179,8 @@ export default defineComponent( {
 
 		onMounted( () => {
 			const terminal = new Terminal( {
-				convertEol: true
+				convertEol: true,
+				scrollback: 10000
 			} );
 
 			terminal.loadAddon( fitAddon );
