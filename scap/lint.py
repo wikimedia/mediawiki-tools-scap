@@ -38,11 +38,16 @@ def check_valid_syntax(paths, procs=1):
     quoted_paths = ["'%s'" % x for x in paths]
     cmd = (
         "find "
-        "-O2 "  # -O2 get -type executed after
+        "-O2 "  # For speed, process -type tests after filename-based tests
         "%s "
+        "-name internal_stubs -prune "
+        "-or "
+        "\\( "
         "-not -type d "  # makes no sense to lint a dir named 'less.php'
         "-name '*.php' -not -name 'autoload_static.php' "
-        " -or -name '*.inc' | xargs -n1 -P%d -exec php -l 2>&1"
+        " -or -name '*.inc' "
+        "\\) -print "
+        "| xargs -n1 -P%d -exec php -l 2>&1"
     ) % (" ".join(quoted_paths), procs)
     logger.debug("Running command: `%s`", cmd)
     try:
