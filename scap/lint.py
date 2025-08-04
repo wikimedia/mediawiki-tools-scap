@@ -138,3 +138,13 @@ def check_php_opening_tag(path):
         # None of the return conditions matched, the file must contain <?php
         # but with some content preceeding it.
         raise ValueError("%s has content before opening <?php tag" % path)
+
+
+@scap.cli.command(
+    "lint",
+    help="PHP syntax check and validate JSON files in the given path(s)",
+)
+class Lint(scap.cli.Application):
+    @scap.cli.argument("path", nargs="+", help="Path(s) to check")
+    def main(self, *extra_args):
+        check_valid_syntax(self.arguments.path, scap.utils.cpus_for_jobs())
