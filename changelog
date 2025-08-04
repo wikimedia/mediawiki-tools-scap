@@ -1,3 +1,11 @@
+scap (4.195.0)
+
+  * lint.py: Don't lint phan's internal stubs
+  * Add `scap lint` command
+  * JobLog.vue: Increase scrollback to 10000 lines
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Mon, 04 Aug 2025 10:46:26 -0700
+
 scap (4.194.2)
 
   * config.py: Disable build_mw_next_container_image
