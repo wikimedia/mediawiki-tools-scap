@@ -111,9 +111,8 @@ DEFAULT_CONFIG = {
     # additional parameters.
     "release_repo_build_and_push_images_cmd": (str, "./build-images.py"),
     "docker_registry": (str, "docker-registry.discovery.wmnet"),
-    "mediawiki_image_name": (str, "restricted/mediawiki-multiversion"),
-    "mediawiki_debug_image_name": (str, "restricted/mediawiki-multiversion-debug"),
-    "mediawiki_cli_image_name": (str, "restricted/mediawiki-multiversion-cli"),
+    "mediawiki_mv_image_basename": (str, "restricted/mediawiki-multiversion"),
+    "mediawiki_sv_image_basename": (str, "restricted/mediawiki-singleversion"),
     "webserver_image_name": (str, "restricted/mediawiki-webserver"),
     "mediawiki_image_extra_packages": (str, ""),
     # Path to a CA cert to inject into the image

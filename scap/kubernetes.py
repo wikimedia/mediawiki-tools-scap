@@ -364,6 +364,11 @@ class K8sOps:
 
         mw_versions_list = ",".join(mediawiki_versions)
         stage_dir = self.app.config["stage_dir"]
+        mw_image_basename = (
+            self.app.config["mediawiki_sv_image_basename"]
+            if mediawiki_versions == ["next"]
+            else self.app.config["mediawiki_mv_image_basename"]
+        )
         build_images_args = [
             self.build_state_dir,
             "--staging-dir",
@@ -371,13 +376,13 @@ class K8sOps:
             "--mediawiki-versions",
             mw_versions_list,
             "--multiversion-image-name",
-            "{}/{}".format(registry, self.app.config["mediawiki_image_name"]),
+            f"{registry}/{mw_image_basename}",
             "--multiversion-debug-image-name",
-            "{}/{}".format(registry, self.app.config["mediawiki_debug_image_name"]),
+            f"{registry}/{mw_image_basename}-debug",
             "--multiversion-cli-image-name",
-            "{}/{}".format(registry, self.app.config["mediawiki_cli_image_name"]),
+            f"{registry}/{mw_image_basename}-cli",
             "--webserver-image-name",
-            "{}/{}".format(registry, self.app.config["webserver_image_name"]),
+            f"{registry}/{self.app.config['webserver_image_name']}",
             "--latest-tag",
             latest_tag,
             "--label",
