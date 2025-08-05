@@ -1,32 +1,28 @@
-certifi==2022.9.24
+certifi==2022.12.07
 chardet==5.2
 charset-normalizer==2.1.1
 greenlet==3.0.3
-idna==2.8
-Jinja2==2.11.2
-MarkupSafe==1.1.0
+idna==3.7
+Jinja2==3.1.4
+MarkupSafe==2.0.1
 packaging
 prettytable==3.7.0
 Pygments==2.17.2
 pyparsing==3.0.9
-PyYAML==5.1
-requests==2.31.0
-setuptools==68.0.0
+PyYAML==5.4.1
+requests==2.32.0
+setuptools==70.0.0
 SQLAlchemy==2.0.32
 typing-extensions>=4.7.1
-urllib3==2.0.4
+urllib3==2.0.6
 wcwidth==0.2.5
 
 # SpiderPig stuff
-fastapi; python_version < '3.8'
-fastapi[standard]==0.115.4; python_version >= '3.8'
-pydantic==2.10.6; python_version >= '3.8'
-pydantic==2.5.3; python_version < '3.8'
-pydantic-core==2.27.2; python_version >= '3.8'
-pydantic-core==2.14.6; python_version < '3.8'
+fastapi[standard]==0.115.4
+pydantic==2.10.6
+pydantic-core==2.27.2
 annotated-types
-starlette<0.42.0,>=0.40.0; python_version >= '3.8'
-starlette<0.28.0,>=0.27.0; python_version < '3.8'
+starlette<0.42.0,>=0.40.0
 anyio
 exceptiongroup
 sniffio
