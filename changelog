@@ -1,3 +1,10 @@
+scap (4.196.0)
+
+  * config.py: Reenable build_mw_next_container_image
+  * kubernetes: Use separate image repo for single version image build
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Tue, 05 Aug 2025 09:56:56 -0700
+
 scap (4.195.0)
 
   * lint.py: Don't lint phan's internal stubs
