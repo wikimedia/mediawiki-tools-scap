@@ -22,7 +22,7 @@ fastapi[standard]==0.116.1
 pydantic==2.10.6
 pydantic-core==2.27.2
 annotated-types
-starlette<0.42.0,>=0.40.0
+starlette==0.47.2
 anyio
 exceptiongroup
 sniffio
