@@ -170,7 +170,7 @@ class SpiderpigAPIServer(cli.Application):
     def main(self, *extra_args):
         if self.arguments.dev:
             # Change to the directory containing this file.  This seems
-            # to be required to make fastapi dev monitor it for changes.
+            # to be required to make uvicorn monitor it for changes.
             os.chdir(os.path.dirname(__file__))
 
         env = os.environ.copy()
@@ -193,17 +193,18 @@ class SpiderpigAPIServer(cli.Application):
             env["SPIDERPIG_OPEN_CORS"] = "1"
 
         scap_bin_dir = os.path.dirname(os.path.realpath(sys.argv[0]))
-        fastapi_exe = os.path.join(scap_bin_dir, "fastapi")
+        uvicorn_exe = os.path.join(scap_bin_dir, "uvicorn")
 
         cmd = [
-            fastapi_exe,
-            "dev" if self.arguments.dev else "run",
+            uvicorn_exe,
             "--host",
             self.arguments.host,
             "--port",
             str(self.arguments.port),
-            __file__,
         ]
+        if self.arguments.dev:
+            cmd.append("--reload")
+        cmd.append(f"{__name__}:app")
         subprocess.run(cmd, env=env)
 
 
