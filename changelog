@@ -1,3 +1,17 @@
+scap (4.197.1)
+
+  * spiderpig-apiserver: Invoke uvicorn directly
+  * tox.ini: Bump black to 24.3.0
+  * requirements.txt: Bump requests to 2.32.4
+  * requirements.txt: Bump urllib3 to 2.5.0
+  * requirements.txt: Bump starlette to 0.47.2
+  * requirements.txt: Bump fastapi to 0.116.1
+  * requirements.txt: Bump Jinja2 to 3.1.6 and MarkupSafe to 3.0.2
+  * requirements.txt: Bump setuptools to 78.1.1
+  * requirements.txt: Bump certifi to 2024.7.4
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Wed, 06 Aug 2025 13:30:27 -0700
+
 scap (4.197.0)
 
   * web/package-lock.json: Update all packages
