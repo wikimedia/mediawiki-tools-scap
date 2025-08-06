@@ -1,6 +1,7 @@
 """
 Handle patching of files
 """
+
 import os.path
 import subprocess
 

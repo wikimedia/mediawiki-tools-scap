@@ -487,9 +487,11 @@ class ProgressReporter(object):
             time.strftime(TIMESTAMP_FORMAT),
             self._name,
             self.percent_complete,
-            ""
-            if self._in_flight is None
-            else "in-flight: {}; ".format(self._in_flight),
+            (
+                ""
+                if self._in_flight is None
+                else "in-flight: {}; ".format(self._in_flight)
+            ),
             self.ok,
             self.failed,
             self.remaining,

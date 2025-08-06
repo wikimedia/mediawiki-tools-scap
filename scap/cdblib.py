@@ -67,7 +67,6 @@ WRITE_2_LE4 = Struct("<LL").pack
 
 
 class Reader(object):
-
     """
     A dictionary-like object for reading a Constant Database.
 

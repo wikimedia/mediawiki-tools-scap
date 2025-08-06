@@ -121,9 +121,13 @@ ____
 
         table.add_row(
             [
-                train_image
-                if (stop == train_is_at or (stop == "START" and train_is_at is None))
-                else ""
+                (
+                    train_image
+                    if (
+                        stop == train_is_at or (stop == "START" and train_is_at is None)
+                    )
+                    else ""
+                )
                 for stop in stops
             ],
             divider=True,

@@ -3,6 +3,7 @@
     ~~~~~~~~~~~~~~~~~~~
     Provides Gerrit REST api support for commands
 """
+
 from json import JSONEncoder
 from requests import Session
 from requests.utils import get_netrc_auth

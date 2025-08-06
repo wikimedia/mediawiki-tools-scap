@@ -201,8 +201,9 @@ class AbstractSync(cli.Application):
                     )
 
                     # k8s deployment
-                    with self.Timer(k8s_timer_name), self.reported_status(
-                        f"Sync k8s {stage}"
+                    with (
+                        self.Timer(k8s_timer_name),
+                        self.reported_status(f"Sync k8s {stage}"),
                     ):
                         with utils.suppress_backtrace():
                             self.k8s_ops.deploy_k8s_images_for_stage(stage)
@@ -827,8 +828,9 @@ class AbstractSync(cli.Application):
 
         logger = self.get_logger()
 
-        with self.Timer("check-testservers"), self.reported_status(
-            "Checking testservers"
+        with (
+            self.Timer("check-testservers"),
+            self.reported_status("Checking testservers"),
         ):
 
             def test_func() -> bool:
@@ -895,8 +897,9 @@ class AbstractSync(cli.Application):
         num_hosts = 0
         for grp in target_hosts:
             num_hosts += len(grp)
-        with self.Timer(f"php-fpm-restarts-{stage}"), self.reported_status(
-            "Restarting php-fpm"
+        with (
+            self.Timer(f"php-fpm-restarts-{stage}"),
+            self.reported_status("Restarting php-fpm"),
         ):
             self.get_logger().info(
                 "Running '{}' on {} host(s)".format(php_fpm.INSTANCE.cmd, num_hosts)
