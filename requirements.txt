@@ -3,8 +3,8 @@ chardet==5.2
 charset-normalizer==2.1.1
 greenlet==3.0.3
 idna==3.7
-Jinja2==2.11.3
-MarkupSafe==1.1.0
+Jinja2==3.1.6
+MarkupSafe==3.0.2
 packaging
 prettytable==3.7.0
 Pygments==2.17.2
