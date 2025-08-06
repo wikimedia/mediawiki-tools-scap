@@ -21,177 +21,142 @@ line-wise JSON, where they are parsed and fed back into a unified logging
 stream. Optionally, a ``scap deploy-log`` process may be started by the user to
 filter and view the logging stream during or after the run.
 
-.. blockdiag::
+.. graphviz::
 
-  blockdiag {
-    default_linecolor = "#222"
-    class actor [color = "#555", shape = actor, style = none]
-    class process [color = "#00af89", textcolor = white, shape = roundedbox]
-    class component [color = "#2962cc", textcolor = white, shape = circle]
-    class storage [color = "#555", textcolor = white, shape = flowchart.database]
-    class check [color = "#ffb50d", textcolor = "#222", shape = circle]
+  digraph "scap-architecture" {
+    graph [fontname="Helvetica", rankdir=LR];
+    node [fontname="Helvetica", style=filled];
+    edge [fontname="Helvetica", color="#222"];
+    
+    // Class definitions
+    node[shape=box, style="filled,rounded", color="#00af89", fontcolor=white];
+    deploy [label="scap deploy"];
+    deploy_log [label="scap deploy-log"];
+    deploy_local [label="scap deploy-local"];
+    service [label="service"]
 
-    user -> deploy, deploy-log [hstyle = generalization, style = dashed]
+    node[shape=box, color="#555", fontcolor="#222", style=solid];
+    user [label="Deployer"];
+    
+    node[shape=circle, style="filled", color="#2962cc", fontcolor=white];
+    logger [label="logger"];
+    httpd [label="httpd"];
+    git [label="git"];
+    jinja [label="jinja"];
+    systemctl [label="systemctl"];
+    
+    node[shape=cylinder, color="#555"];
+    log [label="scap/log/{tag}.log"];
+    repo [label="repo"];
+    config [label="config"];
+    
+    node[shape=circle, color="#ffb50d", fontcolor="#222"];
+    check [label="checks"];
 
-    deploy <-> deploy-local [label = "SSH", style = dashed]
-    deploy -> logger, httpd [hstyle = composition]
+    // Connections
+    user -> deploy [style=dashed];
+    user -> deploy_log [style=dashed];
 
-    logger -> log [style = dashed]
-    log <- deploy-log
+    deploy -> deploy_local [label="SSH", style=dashed, dir=both];
+    
+    deploy -> logger;
+    deploy -> httpd;
 
-    deploy-local -> git, jinja, systemctl, checks [hstyle = composition]
-
-    httpd <-> git -> repo [style = dashed]
-
-    jinja -> config [style = dashed]
-    config, systemctl, checks -> service [style = dashed, hstyle = generalization]
-
-    group {
-      color = none
-
-      group {
-        color = none
-
-        user [class = actor, label = "Deployer"]
-      }
-
-      group {
-        color = none
-        orientation = portrait
-
-        deploy [class = process]
-        logger [class = component]
-        httpd [class = component]
-        log [class = storage, stacked, label = "scap/log/{tag}.log"]
-        deploy-log [class = process, label = "deploy-log {filter}"]
-      }
-
-      group {
-        color = none
-        orientation = portrait
-
-        deploy-local [class = process, stacked, label = "deploy-local -s {stage}"]
-
-        group {
-          color = none
-          orientation = portrait
-
-          group {
-            color = none
-            orientation = portrait
-
-            git [class = component]
-            repo [class = storage]
-          }
-
-          group {
-            color = none
-            orientation = portrait
-
-            jinja [class = component]
-            config [class = storage]
-          }
-
-          jinja [class = component]
-          systemctl [class = component]
-          checks [class = check, stacked]
-        }
-
-      }
-
-      service [class = process]
-    }
+    logger -> log [style=dashed];
+    log -> deploy_log [dir=both, style=dashed];
+    
+    deploy_local -> git;
+    deploy_local -> jinja;
+    deploy_local -> systemctl;
+    deploy_local -> check;
+    
+    httpd -> git [style=dashed, dir=both];
+    git -> repo [style=dashed];
+    
+    jinja -> config [style=dashed];
+    
+    config -> service [style=dashed];
+    systemctl -> service [style=dashed];
+    check -> service [style=dashed];
   }
-
+  
 Process flow
 ------------
 
 Scap's overall deployment process is represented in the following diagram,
 with a detailed explanation below.
 
-.. actdiag::
+.. graphviz::
 
-  actdiag {
-    default_linecolor = "#222"
-    edge_layout = flowchart
-    class terminus [color = "#00af89", textcolor = white, shape = roundedbox]
-    class progress [color = "#2962cc", textcolor = white, shape = roundedbox]
-    class step [color = "#555", textcolor = white]
-    class control [color = "#ccc", textcolor = "#222"]
-    class check [color = "#ffb50d", textcolor = "#222", shape = roundedbox]
+  digraph "scap-process-flow" {
+    graph [fontname="Helvetica", rankdir=TD];
+    node [fontname="Helvetica", style=filled];
+    edge [fontname="Helvetica", color="#222"];
+    
+    // Node styles
+    node[shape=box, style="filled,rounded", color="#00af89", fontcolor=white];
+    terminus [label="$ deploy"];
+    deploy_complete [label="Deploy complete"];
+    puppet [label="puppet"];
 
-    deploy -> resolve_targets -> prepare_config -> prepare_repo ->
-      next_group ->
-      deploy_local_config -> deploy_local_fetch -> deploy_local_promote ->
-      deploy_local_finalize
+    node[shape=box, style=filled, color="#2962cc", fontcolor=white];
+    config_stage [label="Stage: config"];
+    fetch_stage [label="Stage: fetch"];
+    promote_stage [label="Stage: promote"];
+    finalize_stage [label="Stage: finalize"];
+    
+    node[shape=box, style=filled, color="#555", fontcolor=white];
+    resolve_targets [label="Resolve targets"];
+    prepare_config [label="Prepare config"];
+    prepare_repo [label="Prepare repo"];
+    provide_secrets [label="Provide secrets"];
+    fetch_template [label="Fetch template"];
+    combine_vars [label="Combine vars"];
+    render_config [label="Render new config"];
+    fetch_repo [label="Fetch repo"];
+    checkout_revision [label="Checkout revision"];
+    update_submodules [label="Update submodules"];
+    link_repo [label="Link repo"];
+    link_config [label="Link config"];
+    restart_service [label="Restart service"];
+    update_state [label="Update state"];
+    rm_old_revs [label="Delete old revs"];
+    
+    node[shape=diamond, color=gray, fontcolor=black];
+    next_group [label="Deploy each group"];
+    group_deployed [label="Group deployed"];
+    
+    node[shape=circle, style=filled, color="#ffb50d", fontcolor="#222"];
+    before_checks [label="Perform before checks"];
+    after_checks [label="Perform after checks"];
 
-    deploy_local_finalize -> group_deployed -> deploy_complete
-    group_deployed -> next_group [style = dashed]
+    // Connections
+    terminus -> resolve_targets -> prepare_config -> prepare_repo -> next_group;
+    next_group -> config_stage -> before_checks -> fetch_template -> combine_vars -> render_config -> after_checks;
 
-    deploy_local_config -> config_deploy_before_checks ->
-      config_deploy_fetch -> config_deploy_vars -> config_deploy_render ->
-      config_deploy_checks
-    deploy_local_fetch -> fetch_before_checks -> fetch_repo ->
-      fetch_checkout -> fetch_submodules -> fetch_checks
-    deploy_local_promote -> promote_before_checks -> promote_link ->
-      promote_config -> promote_restart -> promote_checks
-    deploy_local_finalize -> finalize_before_checks -> finalize_state ->
-      finalize_rm_old_revs -> finalize_checks
+    config_stage -> fetch_stage;
+    fetch_stage -> promote_stage;
+    promote_stage -> finalize_stage;
+    
+    fetch_stage -> before_checks_f -> fetch_repo -> checkout_revision -> update_submodules -> after_checks_f;
+    promote_stage -> before_checks_p -> link_repo -> link_config -> restart_service -> after_checks_p;
+    finalize_stage -> before_checks_fin -> update_state -> rm_old_revs -> after_checks_fin;
 
-    puppet -> provide_secrets -> config_deploy_vars
+    finalize_stage -> group_deployed;
+    group_deployed -> next_group [style=dashed];
+    group_deployed -> deploy_complete;
+    
+    puppet -> provide_secrets -> combine_vars;
 
-    lane host {
-      label = "Deploy host"
-      color = "#ddd"
-      fontsize = 14
-
-      deploy [class = terminus, label = "$ deploy"]
-      resolve_targets [class = step, label = "Resolve targets"]
-      prepare_config [class = step, label = "Prepare config"]
-      prepare_repo [class = step, label = "Prepare repo"]
-
-      next_group [class = control, shape = flowchart.loopin, label = "Deploy each group"]
-
-      deploy_local_config [class = progress, label = "Stage: config"]
-      deploy_local_fetch [class = progress, label = "Stage: fetch"]
-      deploy_local_promote [class = progress, label = "Stage: promote"]
-      deploy_local_finalize [class = progress, label = "Stage: finalize"]
-
-      group_deployed [class = control, shape = flowchart.loopout, label = "Group deployed"]
-      deploy_complete [class = terminus, label = "Deploy complete"]
-    }
-
-    lane target {
-      label = "Deploy targets"
-      color = "#ddd"
-      fontsize = 14
-
-      puppet [class = terminus]
-      provide_secrets [class = step, label = "Provide secrets"]
-
-      config_deploy_before_checks [class = check, label = "Perform before checks"]
-      config_deploy_fetch [class = step, label = "Fetch template"]
-      config_deploy_vars [class = step, label = "Combine vars"]
-      config_deploy_render [class = step, label = "Render new config"]
-      config_deploy_checks [class = check, label = "Perform after checks"]
-
-      fetch_before_checks [class = check, label = "Perform before checks"]
-      fetch_repo [class = step, label = "Fetch repo"]
-      fetch_checkout [class = step, label = "Checkout revision"]
-      fetch_submodules [class = step, label = "Update submodules"]
-      fetch_checks [class = check, label = "Perform after checks"]
-
-      promote_before_checks [class = check, label = "Perform before checks"]
-      promote_link [class = step, label = "Link repo"]
-      promote_config [class = step, label = "Link config"]
-      promote_restart [class = step, label = "Restart service"]
-      promote_checks [class = check, label = "Perform after checks"]
-
-      finalize_before_checks [class = check, label = "Perform before checks"]
-      finalize_state [class = step, label = "Update state"]
-      finalize_rm_old_revs [class = step, label = "Delete old revs"]
-      finalize_checks [class = check, label = "Perform after checks"]
-    }
+    // Separate nodes for multiple uses of "checks"
+    before_checks_f [label="Perform before checks", shape=circle, style=filled, color="#ffb50d", fontcolor="#222"];
+    after_checks_f [label="Perform after checks", shape=circle, style=filled, color="#ffb50d", fontcolor="#222"];
+    
+    before_checks_p [label="Perform before checks", shape=circle, style=filled, color="#ffb50d", fontcolor="#222"];
+    after_checks_p [label="Perform after checks", shape=circle, style=filled, color="#ffb50d", fontcolor="#222"];
+    
+    before_checks_fin [label="Perform before checks", shape=circle, style=filled, color="#ffb50d", fontcolor="#222"];
+    after_checks_fin [label="Perform after checks", shape=circle, style=filled, color="#ffb50d", fontcolor="#222"];
   }
 
 After some preparation of the local repo and configuration, the main

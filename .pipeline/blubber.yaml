@@ -18,6 +18,7 @@ variants:
     apt:
       packages:
         - python3-venv
+        - graphviz
 
   base-bullseye:
     base: docker-registry.wikimedia.org/bullseye

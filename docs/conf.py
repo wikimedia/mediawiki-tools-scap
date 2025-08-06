@@ -51,13 +51,4 @@ autodoc_default_options = {
 autodoc_memeber_order = "groupwise"
 
 # diagram support
-extensions += ["sphinxcontrib.actdiag", "sphinxcontrib.blockdiag"]
-actdiag_html_image_format = blockdiag_html_image_format = "svg"
-
-try:
-    # attempt to find a decent font using font-config
-    actdiag_fontpath = blockdiag_fontpath = subprocess.check_output(
-        ["fc-match", "-f", "%{file}", "arial"]
-    )
-except OSError:
-    pass
+extensions += ["sphinx.ext.graphviz"]

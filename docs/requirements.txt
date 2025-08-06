@@ -1,10 +1,3 @@
-Sphinx==5.1.1
+Sphinx==7.4.7
 sphinx-autobuild
-sphinxcontrib-actdiag
-sphinxcontrib-blockdiag
 sphinxcontrib-programoutput
-# Work around "'ImageDraw' object has no attribute 'textsize'" error.
-# xrefs:
-# https://groups.google.com/g/weewx-user/c/4qz0bwgna7g
-# https://github.com/blockdiag/sphinxcontrib-blockdiag/issues/26
-Pillow==9.4.0
