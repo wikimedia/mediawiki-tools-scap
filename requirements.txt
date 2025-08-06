@@ -18,7 +18,7 @@ urllib3==2.0.6
 wcwidth==0.2.5
 
 # SpiderPig stuff
-fastapi[standard]==0.115.4
+fastapi[standard]==0.116.1
 pydantic==2.10.6
 pydantic-core==2.27.2
 annotated-types
