@@ -1,3 +1,20 @@
+scap (4.197.0)
+
+  * web/package-lock.json: Update all packages
+  * verify-requirements.txt: Bump virtualenv to 20.26.6
+  * requirements.txt: Remove Python 3.8 conditionalization
+  * requirements.txt: Bump setuptools to 2.32.0
+  * requirements.txt: Bump requests to 2.32.0
+  * requirements.txt: Bump idna to 3.7
+  * requirements.txt: Bump urllib3 to 2.0.6
+  * requirements.txt: Bump certifi to 2022.12.07
+  * requirements.txt: Bump PyYAML to 6.0.2
+  * requirements.txt: Bump Jinja2 to 2.11.3
+  * pyproject.toml: Modernize license specification
+  * pyproject.toml: Set minimum Python version to 3.9
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Wed, 06 Aug 2025 08:37:17 -0700
+
 scap (4.196.0)
 
   * config.py: Reenable build_mw_next_container_image
