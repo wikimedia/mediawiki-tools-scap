@@ -9,7 +9,7 @@ packaging
 prettytable==3.7.0
 Pygments==2.17.2
 pyparsing==3.0.9
-PyYAML==5.1
+PyYAML==6.0.2
 requests==2.31.0
 setuptools==68.0.0
 SQLAlchemy==2.0.32
