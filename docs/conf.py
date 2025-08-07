@@ -6,11 +6,15 @@ import subprocess
 from datetime import date
 
 sys.path.insert(0, os.path.abspath(".."))
-# import scap
 
-extensions = ["sphinx.ext.autodoc", "sphinx.ext.viewcode"]
-# extensions += ['sphinxarg.ext']
-extensions += ["sphinxcontrib.programoutput"]
+extensions = [
+    "sphinx.ext.autodoc",
+    "sphinx.ext.graphviz",
+    "sphinx.ext.intersphinx",
+    "sphinx.ext.viewcode",
+    "sphinxcontrib.programoutput",
+]
+
 templates_path = ["_templates"]
 source_suffix = ".rst"
 master_doc = "index"
@@ -37,10 +41,8 @@ man_pages = [
 
 html_theme = "nature"
 
-extensions += ["sphinx.ext.intersphinx"]
 intersphinx_mapping = {"python": ("https://docs.python.org/2.7", None)}
 
-# html_static_path = ['_static']
 htmlhelp_basename = "scapdoc"
 html_favicon = "favicon.ico"
 autodoc_default_options = {
@@ -48,7 +50,4 @@ autodoc_default_options = {
     "private-members": None,
     "special-members": None,
 }
-autodoc_memeber_order = "groupwise"
-
-# diagram support
-extensions += ["sphinx.ext.graphviz"]
+autodoc_member_order = "groupwise"
