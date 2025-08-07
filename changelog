@@ -1,3 +1,11 @@
+scap (4.198.0)
+
+  * updateinterwikicache.py: Use mwscript.run
+  * docs/conf.py: Cleanup
+  * docs: Drop sphinxcontrib.{actdiag,blockdiag}, use sphinx.ext.graphviz
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Thu, 07 Aug 2025 09:40:25 -0700
+
 scap (4.197.1)
 
   * spiderpig-apiserver: Invoke uvicorn directly
