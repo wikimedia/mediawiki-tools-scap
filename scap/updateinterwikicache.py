@@ -2,10 +2,10 @@
 """For updating the interwiki cache."""
 import errno
 import os
-import subprocess
 
 import scap.cli as cli
 import scap.lint as lint
+import scap.mwscript as mwscript
 import scap.utils as utils
 
 
@@ -32,13 +32,13 @@ class UpdateInterwikiCache(cli.Application):
 
         with utils.temp_to_permanent_file(interwiki_file) as f:
             with utils.suppress_backtrace():
-                subprocess.check_call(
-                    [
-                        "/usr/local/bin/mwscript",
-                        "extensions/WikimediaMaintenance/dumpInterwiki.php",
-                    ],
+                mwscript.run(
+                    self,
+                    "extensions/WikimediaMaintenance/dumpInterwiki.php",
+                    "--mwconfig-dir",
+                    self.config["stage_dir"],
                     stdout=f,
-                    env={"MESH_CHECK_SKIP": "1", **os.environ},
+                    network=True,
                 )
 
         # This shouldn't be needed, but let's be safe
