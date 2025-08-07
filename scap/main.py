@@ -399,6 +399,9 @@ class AbstractSync(cli.Application):
         )
 
     def _build_and_push_container_images(self):
+        if not self.config["build_mw_container_image"]:
+            return
+
         with self.reported_status("Building container images"):
             with self.Timer("build-and-push-container-images"):
                 with ThreadPoolExecutor(max_workers=2) as pool:
