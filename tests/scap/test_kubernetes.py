@@ -235,7 +235,7 @@ def test_built_image_ids(mock_popen):
         "a0a0\n" "b0b0\n" "b0b0\n"
     )
 
-    assert built_image_ids() == {"a0a0", "b0b0"}
+    assert sorted(built_image_ids()) == ["a0a0", "b0b0"]
 
     mock_popen.assert_called_with(
         [

@@ -6,7 +6,6 @@ from dataclasses import dataclass
 import glob
 import logging
 import json
-import math
 import os
 import pathlib
 import re
@@ -38,11 +37,8 @@ LABEL_BUILDER_VERSION = "vnd.wikimedia.builder.version"
 LABEL_MEDIAWIKI_VERSIONS = "vnd.wikimedia.mediawiki.versions"
 LABEL_SCAP_STAGE_DIR = "vnd.wikimedia.scap.stage_dir"
 LABEL_SCAP_BUILD_STATE_DIR = "vnd.wikimedia.scap.build_state_dir"
-
-# An upper limit of image ID/ref args to pass to a single docker command.
-# Image refs can be up to 255 bytes, Linux ARG_MAX, yada yada. This is much
-# lower.
-_DOCKER_ARG_MAX = 500
+LABEL_BUILD_TYPE = "vnd.wikimedia.build-type"
+LABEL_PARENT_IMAGE = "vnd.wikimedia.parent-image"
 
 
 class InvalidDeploymentsConfig(Exception):
@@ -1266,7 +1262,7 @@ def build_states(state_dir):
             pass
 
 
-def built_image_ids() -> list:
+def built_image_ids() -> List[str]:
     """
     Return the IDs of all local images built by scap.
     """
@@ -1286,7 +1282,7 @@ def built_image_ids() -> list:
         for line in proc.stdout:
             image_ids.add(line.rstrip())
 
-    return image_ids
+    return list(image_ids)
 
 
 def inspect_images(image_ids: list) -> list:
@@ -1309,79 +1305,82 @@ def prune_local_images(logger=None, dry_run=False):
     command image refs instead of image IDs.
     """
     verbose_level = logging.INFO if dry_run else logging.DEBUG
-    image_ids = list(built_image_ids())
-    workers = utils.cpus_for_jobs()
-    mutex = threading.Lock()
 
-    image_refs_by_dir = {}
+    images = inspect_images(built_image_ids())
 
-    def state_ref_exists(ref, state_dir) -> bool:
-        with mutex:
-            if state_dir not in image_refs_by_dir:
-                image_refs_by_dir[state_dir] = set()
-                for state in build_states(state_dir):
-                    if "last_image" in state:
-                        image_refs_by_dir[state_dir].add(state["last_image"])
-
-            return ref in image_refs_by_dir[state_dir]
-
-    def prune_images(iids) -> tuple:
-        refs_to_remove = []
-
-        untagged = 0
-        deleted = 0
-        skipped = 0
-
-        for image in inspect_images(iids):
-            labels = image["Config"]["Labels"]
-            state_dir = labels.get(LABEL_SCAP_BUILD_STATE_DIR)
-            for ref in image["RepoTags"]:
-                if state_dir and state_ref_exists(ref, state_dir):
-                    logger.log(
-                        verbose_level,
-                        "Skipped %s due to references in %s",
-                        ref,
-                        state_dir,
-                    )
-                    skipped += 1
-                else:
-                    logger.log(verbose_level, "Marked %s for deletion", ref)
-                    refs_to_remove.append(ref)
-
-        if refs_to_remove and not dry_run:
-            with log.pipe(logger=logger, level=logging.DEBUG) as debug:
-                with subprocess.Popen(
-                    ["docker", "image", "rm", *refs_to_remove],
-                    stderr=debug,
-                    stdout=subprocess.PIPE,
-                ) as proc:
-                    for line in proc.stdout:
-                        os.write(debug, line)
-                        if line.startswith(b"Deleted: "):
-                            deleted += 1
-                        elif line.startswith(b"Untagged: "):
-                            untagged += 1
-
-        return untagged, deleted, skipped
-
-    untagged = 0
-    deleted = 0
+    images_by_name = {}
+    state_dirs = set()
     skipped = 0
-    with concurrent.futures.ThreadPoolExecutor(max_workers=workers) as pool:
-        n = min(math.ceil(len(image_ids) / workers), _DOCKER_ARG_MAX)
-        futures = [
-            pool.submit(prune_images, image_ids[i : i + n])
-            for i in range(0, len(image_ids), n)
-        ]
-        for future in concurrent.futures.as_completed(futures):
-            ex = future.exception()
-            if ex:
-                raise ex
+    deleted = 0
+    untagged = 0
 
-            u, d, s = future.result()
-            untagged += u
-            deleted += d
-            skipped += s
+    for image in images:
+        for ref in image["RepoTags"]:
+            images_by_name[ref] = image
+
+        labels = image["Config"]["Labels"]
+        state_dir = labels.get(LABEL_SCAP_BUILD_STATE_DIR)
+        if state_dir:
+            state_dirs.add(state_dir)
+
+    def mark_image(image):
+        nonlocal skipped
+
+        if image.get("marked") is True:
+            return
+
+        image["marked"] = True
+        skipped += 1
+
+        labels = image["Config"]["Labels"]
+        if labels.get(LABEL_BUILD_TYPE) == "incremental":
+            parent = labels.get(LABEL_PARENT_IMAGE)
+            if parent:
+                logger.log(
+                    verbose_level,
+                    "Skipped %s due to being a parent of skipped image %s",
+                    parent,
+                    image["RepoTags"],
+                )
+                mark_image_by_name(parent)
+
+    def mark_image_by_name(name):
+        image = images_by_name.get(name)
+        if image:
+            mark_image(image)
+
+    for state_dir in state_dirs:
+        for state in build_states(state_dir):
+            last_image = state.get("last_image")
+            if last_image:
+                logger.log(
+                    verbose_level,
+                    "Skipped %s due to references in %s",
+                    last_image,
+                    state_dir,
+                )
+                mark_image_by_name(last_image)
+
+    refs_to_remove = set()
+    for image in images:
+        if image.get("marked") is True:
+            continue
+        for ref in image["RepoTags"]:
+            refs_to_remove.add(ref)
+
+    if refs_to_remove and not dry_run:
+        with log.pipe(logger=logger, level=logging.DEBUG) as debug:
+            with subprocess.Popen(
+                ["docker", "image", "rm", *refs_to_remove],
+                stderr=debug,
+                stdout=subprocess.PIPE,
+            ) as proc:
+                for line in proc.stdout:
+                    os.write(debug, line)
+                    if line.startswith(b"Deleted: "):
+                        deleted += 1
+                    elif line.startswith(b"Untagged: "):
+                        untagged += 1
 
     if logger:
         logger.info("Untagged %d unused refs", untagged)
