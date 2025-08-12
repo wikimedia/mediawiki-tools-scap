@@ -895,11 +895,11 @@ class AbstractSync(cli.Application):
         :param target_hosts: A list of lists of hostnames.
         :param stage: The deployment stage ("testservers", "canaries", or "prod")
         """
-        if not self._setup_php():
-            return
         num_hosts = 0
         for grp in target_hosts:
             num_hosts += len(grp)
+        if not self._setup_php() or num_hosts == 0:
+            return
         with (
             self.Timer(f"php-fpm-restarts-{stage}"),
             self.reported_status("Restarting php-fpm"),
