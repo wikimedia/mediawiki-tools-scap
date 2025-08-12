@@ -35,6 +35,7 @@ STAGES = [TEST_SERVERS, CANARIES, PRODUCTION]
 LABEL_BUILDER_NAME = "vnd.wikimedia.builder.name"
 LABEL_BUILDER_VERSION = "vnd.wikimedia.builder.version"
 LABEL_MEDIAWIKI_VERSIONS = "vnd.wikimedia.mediawiki.versions"
+LABEL_MEDIAWIKI_PHP_VERSION = "vnd.wikimedia.mediawiki.php.version"
 LABEL_SCAP_STAGE_DIR = "vnd.wikimedia.scap.stage_dir"
 LABEL_SCAP_BUILD_STATE_DIR = "vnd.wikimedia.scap.build_state_dir"
 LABEL_BUILD_TYPE = "vnd.wikimedia.build-type"
@@ -57,6 +58,8 @@ class _HelmfileReleaseValues:
     """The address of the docker registry."""
     mw_image_tag: str
     """The mediawiki app-image tag."""
+    mw_image_php_version: str
+    """The PHP version selected when building the mediawiki app image."""
     web_image_tag: str
     """The httpd web-image tag."""
 
@@ -73,6 +76,9 @@ class _HelmfileReleaseValues:
                 "httpd": {
                     "image_tag": self.web_image_tag,
                 }
+            },
+            "php": {
+                "version": self.mw_image_php_version,
             },
         }
 
@@ -1058,6 +1064,7 @@ class K8sOps:
             return image_info[flavour][image_kind]
 
         values = {}
+        mw_img_php_versions = {}
 
         # An exception raised by find_image_flavour indicates a misconfiguration, in which case,
         # a backtrace is not useful.
@@ -1074,10 +1081,24 @@ class K8sOps:
                     dep_config[DeploymentsConfig.WEB_IMAGE_FLAVOUR],
                 )
 
+                php_version = mw_img_php_versions.get(mw_img)
+                if php_version is None:
+                    [image] = inspect_images([mw_img])
+                    php_version = image["Config"]["Labels"].get(
+                        LABEL_MEDIAWIKI_PHP_VERSION
+                    )
+                    if php_version is None:
+                        raise RuntimeError(
+                            f"No {LABEL_MEDIAWIKI_PHP_VERSION} label available on image "
+                            f"{image['Id']} ({image['RepoTags']})"
+                        )
+                    mw_img_php_versions[mw_img] = php_version
+
                 fq_release_name = self._dep_config_fq_release_name(dep_config)
                 values[fq_release_name] = _HelmfileReleaseValues(
                     registry=registry,
                     mw_image_tag=strip_registry(mw_img),
+                    mw_image_php_version=php_version,
                     web_image_tag=strip_registry(web_img),
                 )
 
