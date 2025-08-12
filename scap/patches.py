@@ -70,6 +70,7 @@ class ApplyPatches(cli.Application):
         def unsuccessful(res):
             return res in [FAILED, GIT_NOT_CLEAN, ERROR]
 
+        os.umask(self.config["umask"])
         self._post_init()
 
         train = self.arguments.train
@@ -337,6 +338,7 @@ class PatchUserManipulation(cli.Application):
     )
     def main(self, *extra_args):
         try:
+            os.umask(self.config["umask"])
             self._post_init()
             if not git_is_clean(self.config["patch_path"]):
                 utils.abort(f"git is not clean: {self.config['patch_path']}")
@@ -637,6 +639,7 @@ class UpdateNextPatches(cli.Application):
         required=False,
     )
     def main(self, *extra_args):
+        os.umask(self.config["umask"])
         logger = self.get_logger()
         patches_dir = self.config["patch_path"]
         update_next_patches(patches_dir, logger, self.arguments.dry_run)
@@ -659,6 +662,7 @@ class FinalizeNextPatches(cli.Application):
         required=False,
     )
     def main(self, *extra_args):
+        os.umask(self.config["umask"])
         logger = self.get_logger()
         patches_dir = self.config["patch_path"]
         next_patches_dir = os.path.join(patches_dir, "next")
