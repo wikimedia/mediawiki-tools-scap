@@ -1,3 +1,10 @@
+scap (4.199.0)
+
+  * patches.py: Set umask for all commands
+  * main.py: Short circuit _build_and_push_container_images
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Tue, 12 Aug 2025 08:42:51 -0700
+
 scap (4.198.0)
 
   * updateinterwikicache.py: Use mwscript.run
