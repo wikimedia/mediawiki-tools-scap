@@ -1,3 +1,11 @@
+scap (4.200.0)
+
+  * main.py: Don't mention unused sync-<stage>-k8s stages
+  * kubernetes.py: prune_local_images: don't remove parent images
+  * main.py: Don't report Restarting php-fpm if no hosts
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Tue, 12 Aug 2025 09:22:00 -0700
+
 scap (4.199.0)
 
   * patches.py: Set umask for all commands
