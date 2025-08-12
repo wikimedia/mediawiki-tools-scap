@@ -201,12 +201,13 @@ class AbstractSync(cli.Application):
                     )
 
                     # k8s deployment
-                    with (
-                        self.Timer(k8s_timer_name),
-                        self.reported_status(f"Sync k8s {stage}"),
-                    ):
-                        with utils.suppress_backtrace():
-                            self.k8s_ops.deploy_k8s_images_for_stage(stage)
+                    if self.config["deploy_mw_container_image"]:
+                        with (
+                            self.Timer(k8s_timer_name),
+                            self.reported_status(f"Sync k8s {stage}"),
+                        ):
+                            with utils.suppress_backtrace():
+                                self.k8s_ops.deploy_k8s_images_for_stage(stage)
 
                     # Bare metal deployment
                     if depstage.baremetal_targets:
