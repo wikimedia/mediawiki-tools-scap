@@ -19,11 +19,19 @@ export default defineComponent( {
 		let intervalTimerTotal = null;
 
 		const populateTotal = async () => {
-			const totalResp = await api.getLogsTotal();
-			total.value = totalResp.total;
+			try {
+				const totalResp = await api.getLogsTotal();
+				total.value = totalResp.total;
+			} catch ( error ) {
+				// eslint-disable-next-line no-console
+				console.error( 'Error fetching logs total:', error );
+				total.value = '⌚';
+			}
 		};
 
-		onMounted( () => {
+		onMounted( async () => {
+			// Fire off initial population without waiting.
+			populateTotal();
 			intervalTimerTotal = window.setInterval( populateTotal, INTERVAL );
 		} );
 
