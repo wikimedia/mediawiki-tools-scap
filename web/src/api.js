@@ -41,7 +41,7 @@ const useAuthStore = defineStore( 'spiderpig-auth',
 				window.location.href = url;
 			},
 
-			async handle401( url, response ) {
+			async handle401( url, response, doSetWindowLocation = true ) {
 				const authresp = await response.json();
 
 				this.authUser = authresp.user;
@@ -52,10 +52,14 @@ const useAuthStore = defineStore( 'spiderpig-auth',
 				if ( authresp.code === 'need2fa' ) {
 					const params = new URLSearchParams( { redirect: window.location.href } );
 					const newUrl = `/login?${ params.toString() }`;
-					this.setWindowLocation( newUrl );
+					if ( doSetWindowLocation ) {
+						this.setWindowLocation( newUrl );
+					}
 				}
 				if ( authresp.code === 'needauth' ) {
-					this.setWindowLocation( authresp.url );
+					if ( doSetWindowLocation ) {
+						this.setWindowLocation( authresp.url );
+					}
 				}
 
 				throw new Error( `Auth failed for call to ${ url }: ${ authresp.message }` );
@@ -67,11 +71,16 @@ const useAuthStore = defineStore( 'spiderpig-auth',
 					credentials: import.meta.env.VITE_APISERVER_URL ? 'include' : 'same-origin'
 				};
 
+				callOptions = {
+					redirectOn401: true,
+					...callOptions
+				};
+
 				const response = await fetch( this.makeApiUrl( url ), augmentedFetchOptions );
 
 				if ( response.status === 401 ) {
 					// This will throw an error
-					await this.handle401( url, response );
+					await this.handle401( url, response, callOptions.redirectOn401 );
 				}
 
 				if ( response.status === 403 ) {
