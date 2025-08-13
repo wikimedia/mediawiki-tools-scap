@@ -1,3 +1,11 @@
+scap (4.201.0)
+
+  * ErrorLogsCount.vue: populate as soon as mounted
+  * spiderpig log view: migrate to vuetify table component
+  * api.js: call(): Add redirectOn401 callOption
+
+ -- Brennen Bearnes <bbearnes@wikimedia.org>  Wed, 13 Aug 2025 14:34:21 -0600
+
 scap (4.200.0)
 
   * main.py: Don't mention unused sync-<stage>-k8s stages
