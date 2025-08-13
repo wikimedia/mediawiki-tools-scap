@@ -25,6 +25,9 @@ That's it!
 * On the main deployment server (**deployment.eqiad.wmnet** at the time of writing), run
 `scap install-world`. This will select the latest available version tag for installation and
 prompt you for confirmation.
+* If you have changes to SpiderPig's API or job runner:
+    * `sudo systemctl restart spiderpig-apiserver`
+    * `sudo systemctl restart spiderpig-jobrunner`
 * If you need to roll back, you can specify a particular version tag with e.g.
 `scap install-world --version 4.42.0`
 
