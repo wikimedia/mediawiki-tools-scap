@@ -344,6 +344,11 @@ class PatchUserManipulation(cli.Application):
                 utils.abort(f"git is not clean: {self.config['patch_path']}")
 
             git.set_env_vars_for_user()
+
+            if self.target_version == "next":
+                update_next_patches(self.config["patch_path"], self.get_logger())
+                self._sanity_check_next_patches()
+
             if not os.path.isdir(self.target_version_dir):
                 self.get_logger().info(
                     f"Directory for version {self.target_version} does not exist yet and will be created"
@@ -362,13 +367,16 @@ class PatchUserManipulation(cli.Application):
             ]
             if self.arguments.message_body:
                 commit_message += ["-m", self.arguments.message_body]
-            gitcmd("commit", *commit_message, cwd=self.config["patch_path"])
+            self._gitcmd("commit", *commit_message)
 
             self.get_logger().info(
                 f"Patch {self.arguments.patch_path} {self._operation_name()}d"
             )
         except Exception as e:
             utils.abort(f"Failed to {self._operation_name()} patch: {e}")
+
+    def _gitcmd(self, *args):
+        gitcmd(*args, cwd=self.config["patch_path"])
 
     def _post_init(self):
         """
@@ -406,15 +414,32 @@ class PatchUserManipulation(cli.Application):
         shutil.copytree(latest_patches, self.target_version_dir)
 
         self._git_add_patch_changes()
-        gitcmd(
+        self._gitcmd(
             "commit",
             "-m",
             f"Scap {self._operation_name()}-patch: initial patches for {self.target_version}",
-            cwd=self.config["patch_path"],
         )
 
     def _git_add_patch_changes(self):
-        gitcmd("add", "--all", cwd=self.config["patch_path"])
+        self._gitcmd("add", "--all")
+
+    def _sanity_check_next_patches(self):
+        dropped = self.arguments.patch_path + ".dropped"
+        updated = self.arguments.patch_path + ".updated"
+
+        dropped_exists = os.path.exists(dropped)
+        updated_exists = os.path.exists(updated)
+        patch_path_exists = os.path.exists(self.arguments.patch_path)
+
+        # Sanity checks
+        if dropped_exists and updated_exists:
+            raise Exception(
+                f"Invalid state: {dropped} and {updated} should not both exist"
+            )
+        if (dropped_exists or updated_exists) and patch_path_exists:
+            raise Exception(
+                f"Invalid state: {dropped} or {updated} should not exist if {self.arguments.patch_path} exists"
+            )
 
     @abstractmethod
     def _operation_on_patch(self):
@@ -433,7 +458,7 @@ class UpdatePatch(PatchUserManipulation):
     The MediaWiki version directory is not required to exist yet, in that case a
     new directory for the version will be created and populated with the patches
     from the most recent available version. The specified patch will then be
-    updated
+    updated.
 
     Example usage:
     scap update-patch --message-body "Rebase to solve merge conflicts with mainline code" \\
@@ -458,10 +483,67 @@ class UpdatePatch(PatchUserManipulation):
         return super().main(*extra_args)
 
     def _operation_on_patch(self):
+        if self.target_version != "next":
+            os.makedirs(os.path.dirname(self.arguments.patch_path), exist_ok=True)
+            shutil.copyfile(
+                self.arguments.revised_patch_path.name, self.arguments.patch_path
+            )
+            return
+
+        # "next" handling here.
+
+        # Scenarios with invalid states removed:
+        # # | patch_patch exists | .dropped exists | .updated exists | Result
+        # 1 | no                 | no              | no              | Copy the input file to the .updated file.  Then compare the updated file
+        #                                                            | with this week's train patch (if it exists).
+        #                                                            | If different, then done.  If the same, then we no longer need the .updated
+        #                                                            | file.  Rename it back to the normal name to reactivate inheritance.
+        # 2 | no                 | no              | yes             | Same as scenario 1
+        # 3 | no                 | yes             | no              | Remove the .dropped file, then proceed to scenario 1
+        # 4 | yes                | no              | no              | Rename patch_file to .updated, then proceed to scenario 1
+
+        dropped = self.arguments.patch_path + ".dropped"
+        updated = self.arguments.patch_path + ".updated"
+
+        dropped_exists = os.path.exists(dropped)
+        patch_path_exists = os.path.exists(self.arguments.patch_path)
+
+        logger = self.get_logger()
+
+        if dropped_exists:
+            # Scenario 3
+            logger.info(f"Removing {dropped}")
+            self._gitcmd("rm", dropped)
+
+        if patch_path_exists:
+            # Scenario 4
+            logger.info(f"Renaming inherited {self.arguments.patch_path} to {updated}")
+            self._gitcmd("mv", self.arguments.patch_path, updated)
+
+        # Scenario 1
+        logger.info(f"Copying {self.arguments.revised_patch_path.name} to {updated}")
         os.makedirs(os.path.dirname(self.arguments.patch_path), exist_ok=True)
-        shutil.copyfile(
-            self.arguments.revised_patch_path.name, self.arguments.patch_path
+        shutil.copyfile(self.arguments.revised_patch_path.name, updated)
+        # Preemptively git add the .update file in case it needs to be git mv'd below.
+        self._gitcmd("add", updated)
+
+        current_patches_dir = utils.select_latest_patches(
+            self.config["patch_path"], before_next=True
         )
+        if current_patches_dir:
+            corresponding_current_patch = os.path.join(
+                current_patches_dir, self.module, self.patch_name
+            )
+
+            if os.path.exists(corresponding_current_patch) and filecmp.cmp(
+                updated, corresponding_current_patch
+            ):
+                # The updated file is the same the corresponding patch
+                # for this week's train, so reestablish inheritance.
+                logger.info(
+                    f"{updated} is the same as {corresponding_current_patch}. Renaming to {self.arguments.patch_path} to reestablish inheritance."
+                )
+                self._gitcmd("mv", updated, self.arguments.patch_path)
 
     def _operation_name(self):
         return "update"
@@ -475,7 +557,7 @@ class RemovePatch(PatchUserManipulation):
     The MediaWiki version directory is not required to exist yet, in that case a
     new directory for the version will be created and populated with the patches
     from the most recent available version. The specified patch will then be
-    removed
+    removed.
 
     Example usage:
     scap remove-patch --message-body "Remove patch already made public" \\
@@ -495,14 +577,47 @@ class RemovePatch(PatchUserManipulation):
         return super().main(*extra_args)
 
     def _operation_on_patch(self):
-        os.unlink(self.arguments.patch_path)
-        # Remove any empty dirs that may have been left behind
-        for d, _, _ in os.walk(self.target_version_dir, topdown=False):
-            try:
-                os.rmdir(d)
-            except OSError:
-                # Dir wasn't empty, ignore
-                pass
+        if self.target_version != "next":
+            self._gitcmd("rm", self.arguments.patch_path)
+            return
+
+        # "next" handling
+
+        # Scenarios with invalid states removed:
+        # patch_patch exists | .dropped exists | .updated exists | Result
+        # no                 | no              | no              | Error: f"{self.arguments.patch_path} does not exist"
+        # no                 | no              | yes             | The user wants to block a previously updated patch. Rename .updated to .dropped.
+        # no                 | yes             | no              | Error: f"{self.arguments.patch_path} has already been dropped"
+        # yes                | no              | no              | The user wants to block an inherited patch.  Rename patch_file to .dropped.
+
+        dropped = self.arguments.patch_path + ".dropped"
+        updated = self.arguments.patch_path + ".updated"
+
+        dropped_exists = os.path.exists(dropped)
+        updated_exists = os.path.exists(updated)
+        patch_path_exists = os.path.exists(self.arguments.patch_path)
+
+        logger = self.get_logger()
+
+        if patch_path_exists:
+            # The user wants to drop an inherited patch. (4th scenario)
+            logger.info(f"Renaming {self.arguments.patch_path} to {dropped}")
+            self._gitcmd("mv", self.arguments.patch_path, dropped)
+            return
+
+        if not dropped_exists and not updated_exists:
+            # (1st scenario)
+            raise Exception(f"{self.arguments.patch_path} does not exist")
+
+        if dropped_exists:
+            # (3rd scenario)
+            raise Exception(f"{self.arguments.patch_path} has already been dropped")
+
+        assert updated_exists
+        # (2nd scenario)
+        # The user wants to block a previously updated patch. Rename .updated to .dropped.
+        logger.info(f"Renaming {updated} to {dropped}")
+        self._gitcmd("mv", updated, dropped)
 
     def _operation_name(self):
         return "remove"
@@ -518,7 +633,7 @@ def update_next_patches(patches_dir: str, logger, dry_run: bool = False):
         return
 
     dry_run_prefix = "DRY-RUN: " if dry_run else ""
-    logger.info(
+    logger.debug(
         f"{dry_run_prefix}Updating patches in {next_patches_dir} from {source_patches_dir}"
     )
     source_patches = SecurityPatches(source_patches_dir)
@@ -534,20 +649,22 @@ def update_next_patches(patches_dir: str, logger, dry_run: bool = False):
         dropped = target_path + ".dropped"
         updated = target_path + ".updated"
         if os.path.exists(dropped):
-            logger.info(f"Skipping {source_rel} since {dropped} exists")
+            logger.debug(f"Skipping {source_rel} since {dropped} exists")
             continue
         if os.path.exists(updated):
-            logger.info(f"Skipping {source_rel} since {updated} exists")
+            logger.debug(f"Skipping {source_rel} since {updated} exists")
             continue
 
         if os.path.exists(target_path) and filecmp.cmp(source_path, target_path):
-            logger.info(f"Skipping {source_rel} since it is identical to {target_path}")
+            logger.debug(
+                f"Skipping {source_rel} since it is identical to {target_path}"
+            )
             continue
 
         if dry_run:
-            logger.info(f"Would copy {source_rel} to {target_path}")
+            logger.debug(f"Would copy {source_rel} to {target_path}")
         else:
-            logger.info(f"Copying {source_rel} to {target_path}")
+            logger.debug(f"Copying {source_rel} to {target_path}")
             os.makedirs(os.path.dirname(target_path), exist_ok=True)
             shutil.copy2(source_path, target_path)
             adds.append(target_path)
@@ -563,9 +680,9 @@ def update_next_patches(patches_dir: str, logger, dry_run: bool = False):
             continue
         source_path = os.path.join(source_patches_dir, path_rel)
         if dry_run:
-            logger.info(f"Would remove {path} since {source_path} no longer exists")
+            logger.debug(f"Would remove {path} since {source_path} no longer exists")
         else:
-            logger.info(f"Removing {path} since {source_path} no longer exists")
+            logger.debug(f"Removing {path} since {source_path} no longer exists")
             removes.append(path)
 
     if adds:
@@ -574,7 +691,7 @@ def update_next_patches(patches_dir: str, logger, dry_run: bool = False):
         gitcmd("rm", *removes, cwd=next_patches_dir)
 
     if git_is_clean(patches_dir):
-        logger.info(f"{next_patches_dir} is up-to-date")
+        logger.debug(f"{next_patches_dir} is up-to-date")
         return
 
     commit_message = "Patches updated by scap update-next-patches\n\n"
@@ -592,7 +709,7 @@ def update_next_patches(patches_dir: str, logger, dry_run: bool = False):
         commit_message,
         cwd=next_patches_dir,
     )
-    logger.info("Committed the changes")
+    logger.debug("Committed the changes")
 
 
 def finalize_next_patches(next_patches_dir: str, logger, dry_run: bool = False):
