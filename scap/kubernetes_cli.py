@@ -57,6 +57,8 @@ class BuildImages(cli.Application):
                 self.timed(tasks.update_localization_cache, version, self, json=False)
 
             with self.Timer("build-and-push-container-images"):
+                with self.Timer("building-base-images"):
+                    k8s_ops.build_base_images()
                 k8s_ops.build_k8s_images(
                     versions,
                     force_version=force_version,

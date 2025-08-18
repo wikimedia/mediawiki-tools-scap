@@ -343,6 +343,59 @@ class K8sOps:
                 with utils.suppress_backtrace():
                     subprocess.run(release_repo_update_cmd, shell=True, check=True)
 
+    def _common_build_images_args(self) -> List[str]:
+        build_images_args = []
+
+        if self.app.config["mediawiki_image_extra_packages"]:
+            build_images_args += [
+                "--mediawiki-image-extra-packages",
+                self.app.config["mediawiki_image_extra_packages"],
+            ]
+
+        if self.app.config["mediawiki_image_extra_ca_cert"]:
+            with open(self.app.config["mediawiki_image_extra_ca_cert"], "rb") as f:
+                dev_ca_crt = base64.b64encode(f.read()).decode("utf-8")
+                if dev_ca_crt:
+                    build_images_args += ["--mediawiki-extra-ca-cert", dev_ca_crt]
+
+        http_proxy = self.app.config["web_proxy"]
+        if http_proxy:
+            build_images_args += [
+                "--http-proxy",
+                http_proxy,
+                "--https-proxy",
+                http_proxy,
+            ]
+
+        return build_images_args
+
+    def build_base_images(self):
+        make_container_image_dir = os.path.join(
+            self.app.config["release_repo_dir"], "make-container-image"
+        )
+
+        build_images_args = self._common_build_images_args() + [
+            "PLACEHOLDER_STATE_DIR",
+            "--base-images-only",
+            "--mediawiki-versions",
+            "",
+        ]
+
+        with utils.suppress_backtrace():
+            cmd = "{} {}".format(
+                self.app.config["release_repo_build_and_push_images_cmd"],
+                " ".join(map(shlex.quote, build_images_args)),
+            )
+            logfile = self.build_logfile + ".base"
+            self.logger.info(f"K8s images build/push output redirected to {logfile}")
+            self._run_cmd(
+                cmd,
+                make_container_image_dir,
+                logfile,
+                logging.getLogger("scap.k8s.build"),
+                shell=True,
+            )
+
     def build_k8s_images(
         self,
         mediawiki_versions: list,
@@ -359,11 +412,6 @@ class K8sOps:
         )
         registry = self.app.config["docker_registry"]
 
-        dev_ca_crt = ""
-        if self.app.config["mediawiki_image_extra_ca_cert"]:
-            with open(self.app.config["mediawiki_image_extra_ca_cert"], "rb") as f:
-                dev_ca_crt = base64.b64encode(f.read()).decode("utf-8")
-
         mw_versions_list = ",".join(mediawiki_versions)
         stage_dir = self.app.config["stage_dir"]
         mw_image_basename = (
@@ -371,7 +419,8 @@ class K8sOps:
             if mediawiki_versions == ["next"]
             else self.app.config["mediawiki_mv_image_basename"]
         )
-        build_images_args = [
+
+        build_images_args = self._common_build_images_args() + [
             self.build_state_dir,
             "--staging-dir",
             stage_dir,
@@ -410,24 +459,8 @@ class K8sOps:
                 mediawiki_versions[0],
             ]
 
-        if self.app.config["mediawiki_image_extra_packages"]:
-            build_images_args += [
-                "--mediawiki-image-extra-packages",
-                self.app.config["mediawiki_image_extra_packages"],
-            ]
-        if dev_ca_crt:
-            build_images_args += ["--mediawiki-extra-ca-cert", dev_ca_crt]
         if self.app.config["full_image_build"]:
             build_images_args.append("--full")
-
-        http_proxy = self.app.config["web_proxy"]
-        if http_proxy:
-            build_images_args += [
-                "--http-proxy",
-                http_proxy,
-                "--https-proxy",
-                http_proxy,
-            ]
 
         with utils.suppress_backtrace():
             cmd = "{} {}".format(
