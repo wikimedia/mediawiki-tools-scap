@@ -1,3 +1,9 @@
+scap (4.204.0)
+
+  * image build: Build base images serialized
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Mon, 18 Aug 2025 14:38:13 -0700
+
 scap (4.203.0)
 
   * patches: update automated Phab notification from PatchBot
