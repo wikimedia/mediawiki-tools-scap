@@ -1,3 +1,10 @@
+scap (4.202.0)
+
+  * kubernetes: set php.version based on image labels
+  * RELEASE.md: mention spiderpig restarts
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Mon, 18 Aug 2025 07:46:33 -0700
+
 scap (4.201.0)
 
   * ErrorLogsCount.vue: populate as soon as mounted
