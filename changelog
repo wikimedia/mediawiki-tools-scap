@@ -1,3 +1,10 @@
+scap (4.203.0)
+
+  * patches: update automated Phab notification from PatchBot
+  * patches.py: Add "next" handling to update-patch/remove-patch
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Mon, 18 Aug 2025 10:51:25 -0700
+
 scap (4.202.0)
 
   * kubernetes: set php.version based on image labels
