@@ -1,3 +1,9 @@
+scap (4.205.0)
+
+  * Revert "kubernetes: set php.version based on image labels"
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Mon, 18 Aug 2025 14:43:40 -0700
+
 scap (4.204.0)
 
   * image build: Build base images serialized
