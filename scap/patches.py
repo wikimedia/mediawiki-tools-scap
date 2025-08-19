@@ -185,7 +185,7 @@ class ApplyPatches(cli.Application):
         current = train_tasks["current"]
 
         # ## If the patches are being applied on a MW version branch (typically as part of the branch cut process) ## #
-        if BRANCH_RE.match(self.arguments.train):
+        if self._using_version_branch():
             if current["version"] != self.arguments.train:
                 raise Exception(
                     f"Tried to apply patches to version {self.arguments.train} but current train version is"
@@ -226,14 +226,14 @@ class ApplyPatches(cli.Application):
         # If the failure was already reported, don't spam
         if self._patch_task_has_been_notified(notification_info):
             self.get_logger().info(
-                f"""Failure for "{notification_info.module}/{notification_info.patch_name}" already notified."""
+                f"""Already notified failure for "{notification_info.module}/{notification_info.patch_name}"."""
                 " Skipping"
             )
             return
 
         release_task_id = notification_info.target_release_for_fixes["task_id"]
         release_task_phid = self.phorge_conduit.base_task_info(release_task_id)["phid"]
-        notification = ApplyPatches._compose_notification(notification_info)
+        notification = self._compose_notification(notification_info)
         self.phorge_conduit.edit_task(
             notification_info.patch_task,
             [
@@ -266,12 +266,22 @@ class ApplyPatches(cli.Application):
                 notification_info.patch_task,
                 {"authorPHIDs": [self.security_patch_bot_phid]},
             )
+
+            target_release_version = notification_info.target_release_for_fixes[
+                "version"
+            ]
+            if self._using_version_branch():
+                patch_dir = target_release_version
+            else:
+                patch_dir = "next"
+
             for bot_comment in bot_comments:
                 # ["comments"][0] holds the latest revision of a comment
                 text = bot_comment["comments"][0]["content"]["raw"]
                 if (
                     notification_info.patch_name in text
-                    and notification_info.module in text
+                    and target_release_version in text
+                    and f"{patch_dir}/{notification_info.module}" in text
                 ):
                     return True
             return False
@@ -283,34 +293,54 @@ class ApplyPatches(cli.Application):
             and bot_comment_for_patch_is_present()
         )
 
-    @staticmethod
-    def _compose_notification(notification_info):
+    def _using_version_branch(self):
+        return BRANCH_RE.match(self.arguments.train)
+
+    def _compose_notification(self, notification_info):
         patch_name = notification_info.patch_name
         module = notification_info.module
         target_release_task = notification_info.target_release_for_fixes["task_id"]
         target_release_version = notification_info.target_release_for_fixes["version"]
 
-        return (
-            f"Patch `{patch_name}` is currently failing to apply for the most recent code in the mainline branch"
-            f" of `{module}`. This is blocking MediaWiki release `{target_release_version}`({target_release_task})\n"
+        if self._using_version_branch():
+            header = (
+                "===== {icon circle color=red} Patch is blocking this week's MediaWiki train!\n"
+                f"Patch `{patch_name}` is currently failing to apply for version {target_release_version}"
+                f" of `{module}`. MW train cannot move forward until the patch is fixed"
+                f" ({target_release_task})\n"
+                "**Please note you can disregard any existing previous messages in this task from"
+                f" SecurityPatchBot concerning version {target_release_version}. To unblock the"
+                " train, run one of the commands in this message**\n"
+            )
+            patch_dir = target_release_version
+        else:
+            header = (
+                "===== {icon circle color=orange} Patch is blocking upcoming release\n"
+                f"Patch `{patch_name}` is currently failing to apply for the most recent code in the"
+                f" mainline branch of `{module}`. This is blocking MediaWiki release"
+                f" `{target_release_version}`({target_release_task})\n"
+            )
+            patch_dir = "next"
+
+        return header + (
             "\n"
+            "---\n"
             "//If the patch needs to be rebased//\n"
             "\n"
-            "To unblock the release, a new version of the patch can be placed at the right location in the"
-            " deployment server with the following Scap command:\n"
+            "A new version of the patch can be placed at the right location in the deployment server"
+            " with the following Scap command:\n"
             "```\n"
             "REVISED_PATCH=<path_to_revised_patch>\n"
-            "scap update-patch --message-body 'Rebase to solve merge conflicts with mainline code'"
-            f""" /srv/patches/next/{module}/{patch_name} "$REVISED_PATCH" """
+            "scap update-patch --message-body 'Rebase to solve merge conflicts'"
+            f""" /srv/patches/{patch_dir}/{module}/{patch_name} "$REVISED_PATCH" """
             "```\n"
             "---\n"
             "//If the patch has been made public//\n"
             "\n"
-            "To unblock the release, the patch can be marked for removal in the deployment server"
-            " with the following Scap command:\n"
+            "The patch can be dropped in the deployment server with the following Scap command:\n"
             "```\n"
-            "scap remove-patch --message-body 'Remove patch already made public. Marked to be dropped'"
-            f" /srv/patches/next/{module}/{patch_name}"
+            "scap remove-patch --message-body 'Dropping patch already made public'"
+            f" /srv/patches/{patch_dir}/{module}/{patch_name}"
             "```"
         )
 
