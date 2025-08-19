@@ -1,3 +1,9 @@
+scap (4.206.0)
+
+  * kubernetes: adopt new report structure and set php.version
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Tue, 19 Aug 2025 11:10:37 -0700
+
 scap (4.205.0)
 
   * Revert "kubernetes: set php.version based on image labels"
