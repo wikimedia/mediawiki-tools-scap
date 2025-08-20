@@ -546,6 +546,10 @@ class BackportsTestHelper:
                 "wmf/" + ver
                 for ver in scap.utils.get_active_wikiversions(self.mwconfig_dir, "dev")
             ]
+            if len(deployed_branches) != 2:
+                raise Exception(
+                    f"Expected 2 deployed branches, got {len(deployed_branches)}.  Please run ~/train and then restart tests"
+                )
             current_branch = deployed_branches[0]
 
         # Now cherry pick that commit as the first in a chain for the train branch.
