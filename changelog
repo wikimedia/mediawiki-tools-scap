@@ -1,3 +1,9 @@
+scap (4.207.0)
+
+  * patches: enhance patch failure notifications
+
+ -- Jaime Nuche <jnuche@wikimedia.org>  Wed, 20 Aug 2025 13:02:22 +0200
+
 scap (4.206.0)
 
   * kubernetes: adopt new report structure and set php.version
