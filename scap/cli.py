@@ -35,6 +35,7 @@ import time
 from typing import List, Optional
 from functools import reduce
 
+from scap.gerrit import GerritSSH
 import scap.version as version
 import scap.ansi as ansi
 import scap.arg as arg
@@ -61,6 +62,7 @@ class Application(object):
     _stats = None
     arguments = None
     config = None
+    _gerritssh = None
     # Dictionary representing configuration options that were
     # specified using -D on the command line.  Populated by _load_config().
     cli_defines = {}
@@ -521,6 +523,18 @@ class Application(object):
             gerrit_env["SSH_AUTH_SOCK"] = self.user_ssh_auth_sock
 
         return gerrit_env
+
+    @property
+    def gerritssh(self):
+        if self._gerritssh:
+            return self._gerritssh
+
+        self._gerritssh = GerritSSH(
+            self.config,
+            self.get_gerrit_ssh_env(),
+            self.get_keyholder_key(self.config["gerrit_push_user"]),
+        )
+        return self._gerritssh
 
     def _handle_exception(self, ex):
         """

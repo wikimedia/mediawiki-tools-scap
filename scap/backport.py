@@ -9,13 +9,12 @@ import requests.exceptions
 import socket
 import subprocess
 import time
-import urllib.parse
 from datetime import datetime
 from collections import defaultdict
 
 from prettytable import PrettyTable, SINGLE_BORDER
 from random import randint
-from scap import cli, git, log, ssh, utils
+from scap import cli, git, log, utils
 from scap.gerrit import GerritSession
 
 
@@ -344,7 +343,7 @@ class Backport(cli.Application):
         os.umask(self.config["umask"])
 
         self._assert_auth_sock()
-        self._check_ssh_auth()
+        self.gerritssh.assert_authorized()
         if self.arguments.revert:
             self._assert_gerrit_push_config()
 
@@ -471,36 +470,6 @@ class Backport(cli.Application):
             change.number, change.get("subject"), bug_str
         )
 
-    def _gerrit_ssh(self, gerrit_arguments):
-        gerrit_hostname = urllib.parse.urlparse(self.config["gerrit_url"]).hostname
-        key_file = self.get_keyholder_key(
-            ssh_user=self.config["gerrit_push_user"],
-        )
-        ssh_command = (
-            ssh.SSH_WITH_KEY(
-                user=self.config["gerrit_push_user"], key=key_file, port="29418"
-            )
-            + [gerrit_hostname, "gerrit"]
-            + gerrit_arguments
-        )
-
-        with utils.suppress_backtrace():
-            subprocess.check_call(
-                ssh_command,
-                env=self.get_gerrit_ssh_env(),
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL,
-            )
-
-    def _check_ssh_auth(self):
-        try:
-            self._gerrit_ssh(["version"])
-        except subprocess.CalledProcessError as e:
-            self.get_logger().error(
-                "SSH to gerrit failed. " "Please check your ssh configuration."
-            )
-            raise SystemExit(e)
-
     def _list_available_backports(self):
         backports = self._get_available_backports()
 
@@ -545,48 +514,6 @@ class Backport(cli.Application):
                 raise SystemExit(
                     f"scap backport --revert requires '{setting}' to be set in scap configuration"
                 )
-
-    def _push_url(self, repo_location, project) -> str:
-        gerrit_push_user = self.config["gerrit_push_user"]
-        gerrit_push_url = self.config["gerrit_push_url"]
-
-        # Whatever the user@ part of self.config["gerrit_push_url"] might be, replace it with
-        # gerrit_push_user (i.e. trainbranchbot).
-        parsed = urllib.parse.urlparse(gerrit_push_url)
-        m = re.match("(?:[^@]+@)?(.*)$", parsed.netloc)
-        assert m
-        parsed = parsed._replace(netloc=f"{gerrit_push_user}@{m[1]}")
-        parsed = parsed._replace(path=project)
-
-        return urllib.parse.urlunparse(parsed)
-
-    def _push_and_collect_change_number(self, repo_location, project, branch):
-        """Pushes to gerrit and parses the response to return the change number"""
-        change_number = None
-
-        with utils.suppress_backtrace():
-            push_response = subprocess.check_output(
-                [
-                    "git",
-                    "-C",
-                    repo_location,
-                    "push",
-                    "--porcelain",
-                    self._push_url(repo_location, project),
-                    "HEAD:refs/for/%s" % branch,
-                ],
-                text=True,
-                stderr=subprocess.STDOUT,
-                env=self.get_gerrit_ssh_env(),
-            )
-
-        # the change number is included in the remote url
-        # ex: https://gerrit.wikimedia.org/r/c/project/+/change_no
-        pattern = r"%s/\+/(\d+)" % re.escape(project)
-        pattern_match = re.search(pattern, push_response)
-        if pattern_match:
-            change_number = pattern_match.group(1)
-        return change_number
 
     def _generate_change_id(self, commit_msg):
         random_no = randint(10000, 99999)
@@ -700,7 +627,7 @@ class Backport(cli.Application):
                     ["git", "-C", repo_location, "commit", "--amend", "-m", commit_msg]
                 )
 
-            revert_number = self._push_and_collect_change_number(
+            revert_number = self.gerritssh.push_and_collect_change_number(
                 repo_location, project, branch
             )
             if revert_number is None:
@@ -714,14 +641,9 @@ class Backport(cli.Application):
             revert_numbers.append(revert_number)
             self.get_logger().info("Change %s created" % revert_number)
             # Add a note to the original change about the revert
-            self._gerrit_ssh(
-                [
-                    "review",
-                    "-m",
-                    '"%s created a revert of this change as %s"'
-                    % (self.deploy_user, revert_id),
-                    "%s" % change.get("current_revision"),
-                ]
+            self.gerritssh.review(
+                change.get("current_revision"),
+                f"{self.deploy_user} created a revert of this change as {revert_id}",
             )
 
         self._reset_workspace()
@@ -736,15 +658,10 @@ class Backport(cli.Application):
                 self.get_logger().info("Change %s was already merged", change.number)
                 continue
 
-            self._gerrit_ssh(
-                [
-                    "review",
-                    "--code-review",
-                    "+2",
-                    "-m",
-                    '"Approved by %s using scap backport"' % self.deploy_user,
-                    "%s" % change.get("current_revision"),
-                ]
+            self.gerritssh.review(
+                change.get("current_revision"),
+                f"Approved by {self.deploy_user} using scap backport",
+                "+2",
             )
             self.get_logger().info("Change %s approved", change.number)
 

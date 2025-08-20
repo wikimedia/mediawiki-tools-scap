@@ -7,16 +7,17 @@ import scap.cli
 
 @patch.dict("os.environ", clear=True)
 def test_backport_uses_gerrit_push_user_config():
-    scap_backport = scap.cli.Application.factory(["backport"])
-    scap_backport.setup()
-
     with mock.patch("subprocess.check_call") as check:
-        scap_backport._gerrit_ssh([])
+        scap_backport = scap.cli.Application.factory(["backport"])
+        scap_backport.setup()
+        scap_backport.gerritssh.ssh([])
         check.assert_called_with(ANY, env=ANY, stdout=ANY, stderr=ANY)
 
     with mock.patch("subprocess.check_call") as check:
+        scap_backport = scap.cli.Application.factory(["backport"])
+        scap_backport.setup()
         scap_backport.config["gerrit_push_user"] = "trainbotuser"
-        scap_backport._gerrit_ssh([])
+        scap_backport.gerritssh.ssh([])
 
         # With python 3.8 we could retrieve kwargs directly
         # env = check.mock_calls[0].kwargs['env']

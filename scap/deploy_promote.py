@@ -32,6 +32,7 @@
 """
 import os
 import re
+import socket
 import time
 from functools import partial
 
@@ -104,6 +105,7 @@ class DeployPromote(cli.Application):
 
         self._check_group()
         self._check_user_auth_sock()
+        self.gerritssh.assert_authorized()
 
         sorted_versions = self.active_wikiversions("stage")
 
@@ -170,7 +172,7 @@ class DeployPromote(cli.Application):
         with utils.cd(self.config["stage_dir"]):
             if self._commit_files():
                 self.logger.info("Pushing versions update patch")
-                self._push_patch()
+                self._push_patch_and_wait_for_merge()
                 self.logger.info("Running git pull")
                 gitcmd("pull")
                 git.tag("scap-prep-point", "HEAD", force=True)
@@ -221,17 +223,24 @@ class DeployPromote(cli.Application):
         gitcmd("commit", "-m", self.commit_message)
         return True
 
-    def _push_patch(self):
-        gitcmd(
-            "push",
-            "origin",
-            "HEAD:%s" % self._get_git_push_dest(),
-            env=self.get_gerrit_ssh_env(),
-        )
+    def _push_patch_and_wait_for_merge(self):
+        branch = gitcmd("symbolic-ref", "--short", "HEAD").strip()
 
+        changeno = self.gerritssh.push_and_collect_change_number(
+            ".", "operations/mediawiki-config", branch, topic=self.promote_version
+        )
         change_id = re.search(r"(?m)Change-Id:.+$", gitcmd("log", "-1")).group()
         gitcmd("reset", "--hard", "HEAD^")
-        with self.reported_status("Waiting for jenkins to merge the patch", log=True):
+
+        user = utils.get_real_username() + "@" + socket.gethostname()
+        self.gerritssh.review(f"{changeno},1", f"Initiated by {user}", "+2")
+
+        change_url = os.path.join(self.config["gerrit_url"], f"r/{changeno}")
+
+        # FIXME: Try to consolidate with _wait_for_changes_to_be_merged in backport.py
+        with self.reported_status(
+            f"Waiting for jenkins to merge change {change_url}", log=True
+        ):
             timeout = self.config["version_update_patch_timeout"]
             start = time.time()
             while not _commit_arrived_to_remote(change_id):
@@ -243,10 +252,6 @@ class DeployPromote(cli.Application):
                     print(".", end="", flush=True)
                 time.sleep(5)
         print()
-
-    def _get_git_push_dest(self) -> str:
-        branch = gitcmd("symbolic-ref", "--short", "HEAD").strip()
-        return "refs/for/%s%%topic=%s,l=Code-Review+2" % (branch, self.promote_version)
 
     def _sync_versions(self):
         flags = []

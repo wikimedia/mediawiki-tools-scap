@@ -5,6 +5,9 @@
 """
 
 from json import JSONEncoder
+import shlex
+import subprocess
+from typing import List, Optional
 from requests import Session
 from requests.utils import get_netrc_auth
 from string import Template
@@ -18,7 +21,10 @@ import json
 import logging
 
 from urllib.parse import quote
+import urllib
 import urllib3
+
+from scap import ssh, utils
 
 
 def debug_log(msg, *args):
@@ -447,3 +453,104 @@ class AttrDict(dict):
             return self[key]
         # avoid key errors
         return None
+
+
+class GerritSSH:
+    def __init__(self, config, ssh_env, key_file):
+        self.config = config
+        self.ssh_env = ssh_env
+        self.key_file = key_file
+
+    def ssh(self, gerrit_arguments: List[str]) -> None:
+        gerrit_hostname = urllib.parse.urlparse(self.config["gerrit_url"]).hostname
+        ssh_command = (
+            ssh.SSH_WITH_KEY(
+                user=self.config["gerrit_push_user"], key=self.key_file, port="29418"
+            )
+            + [gerrit_hostname, "gerrit"]
+            + gerrit_arguments
+        )
+
+        with utils.suppress_backtrace():
+            subprocess.check_call(
+                ssh_command,
+                env=self.ssh_env,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            )
+
+    def assert_authorized(self):
+        try:
+            self.ssh(["version"])
+        except subprocess.CalledProcessError:
+            raise SystemExit(
+                "SSH to gerrit failed. Please check your ssh configuration."
+            )
+
+    def push_and_collect_change_number(
+        self, repo_location, project, branch, topic=None
+    ) -> Optional[str]:
+        """
+        `repo_location` must be a directory naming a git repo with exactly one
+        unpushed commit.  That commit will be pushed to gerrit to the specified
+        `project` and `branch`.  The change number is returned if found in the
+        push response, otherwise None is returned.
+        """
+        change_number = None
+
+        with utils.suppress_backtrace():
+            push_ref = f"HEAD:refs/for/{branch}"
+            if topic:
+                push_ref += f"%topic={topic}"
+            push_response = subprocess.check_output(
+                [
+                    "git",
+                    "-C",
+                    repo_location,
+                    "push",
+                    "--porcelain",
+                    self._push_url(project),
+                    push_ref,
+                ],
+                text=True,
+                stderr=subprocess.STDOUT,
+                env=self.ssh_env,
+            )
+
+        # the change number is included in the remote url
+        # ex: https://gerrit.wikimedia.org/r/c/project/+/change_no
+        pattern = r"%s/\+/(\d+)" % re.escape(project)
+        pattern_match = re.search(pattern, push_response)
+        if pattern_match:
+            change_number = pattern_match.group(1)
+        return change_number
+
+    def review(
+        self, commitOrPatchset: str, message: str = None, codeReview: str = None
+    ) -> None:
+        """
+        SSH to Gerrit and run `gerrit review` with appropriate arguments.
+        """
+
+        cmd = ["review"]
+        if message:
+            cmd += ["-m", shlex.quote(message)]
+        if codeReview:
+            cmd += ["--code-review", codeReview]
+        cmd.append(commitOrPatchset)
+
+        self.ssh(cmd)
+
+    def _push_url(self, project) -> str:
+        gerrit_push_user = self.config["gerrit_push_user"]
+        gerrit_push_url = self.config["gerrit_push_url"]
+
+        # Whatever the user@ part of self.config["gerrit_push_url"] might be, replace it with
+        # gerrit_push_user (i.e. trainbranchbot).
+        parsed = urllib.parse.urlparse(gerrit_push_url)
+        m = re.match("(?:[^@]+@)?(.*)$", parsed.netloc)
+        assert m
+        parsed = parsed._replace(netloc=f"{gerrit_push_user}@{m[1]}")
+        parsed = parsed._replace(path=project)
+
+        return urllib.parse.urlunparse(parsed)
