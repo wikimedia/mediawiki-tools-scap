@@ -1,3 +1,10 @@
+scap (4.208.0)
+
+  * deploy_promote.py: Attribute wikiversions.json updates to the initiating user
+  * tests/scap/integration/test_backport.py: Add check for unexpected state
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Thu, 21 Aug 2025 08:53:41 -0700
+
 scap (4.207.0)
 
   * patches: enhance patch failure notifications
