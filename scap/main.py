@@ -407,32 +407,20 @@ class AbstractSync(cli.Application):
             self.reported_status("Building container images"),
             self.Timer("build-and-push-container-images"),
         ):
-            with self.Timer("building-base-images"):
-                self.k8s_ops.build_base_images()
-
+            # FIXME: This can be simplified again
             with ThreadPoolExecutor(max_workers=2) as pool:
                 futures = []
+
+                versions = self.get_versions_to_include_in_image()
+                if self.config["build_mw_next_container_image"]:
+                    versions.append("next")
 
                 futures.append(
                     pool.submit(
                         self.k8s_ops.build_k8s_images,
-                        self.get_versions_to_include_in_image(),
+                        versions,
                     )
                 )
-
-                if self.config["build_mw_next_container_image"]:
-                    # T398875: Update the 'next' image when updating the regular images.
-                    next_k8s_ops = K8sOps(
-                        self, suffix=".next", update_releases_repo=False
-                    )
-                    futures.append(
-                        pool.submit(
-                            next_k8s_ops.build_k8s_images,
-                            ["next"],
-                            force_version="next",
-                            latest_tag="next",
-                        )
-                    )
 
                 failed = False
                 for future in as_completed(futures):

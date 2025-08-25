@@ -34,7 +34,6 @@ STAGES = [TEST_SERVERS, CANARIES, PRODUCTION]
 
 LABEL_BUILDER_NAME = "vnd.wikimedia.builder.name"
 LABEL_BUILDER_VERSION = "vnd.wikimedia.builder.version"
-LABEL_MEDIAWIKI_VERSIONS = "vnd.wikimedia.mediawiki.versions"
 LABEL_SCAP_STAGE_DIR = "vnd.wikimedia.scap.stage_dir"
 LABEL_SCAP_BUILD_STATE_DIR = "vnd.wikimedia.scap.build_state_dir"
 LABEL_BUILD_TYPE = "vnd.wikimedia.build-type"
@@ -370,33 +369,6 @@ class K8sOps:
 
         return build_images_args
 
-    def build_base_images(self):
-        make_container_image_dir = os.path.join(
-            self.app.config["release_repo_dir"], "make-container-image"
-        )
-
-        build_images_args = self._common_build_images_args() + [
-            "PLACEHOLDER_STATE_DIR",
-            "--base-images-only",
-            "--mediawiki-versions",
-            "",
-        ]
-
-        with utils.suppress_backtrace():
-            cmd = "{} {}".format(
-                self.app.config["release_repo_build_and_push_images_cmd"],
-                " ".join(map(shlex.quote, build_images_args)),
-            )
-            logfile = self.build_logfile + ".base"
-            self.logger.info(f"K8s images build/push output redirected to {logfile}")
-            self._run_cmd(
-                cmd,
-                make_container_image_dir,
-                logfile,
-                logging.getLogger("scap.k8s.build"),
-                shell=True,
-            )
-
     def build_k8s_images(
         self,
         mediawiki_versions: list,
@@ -415,11 +387,6 @@ class K8sOps:
 
         mw_versions_list = ",".join(mediawiki_versions)
         stage_dir = self.app.config["stage_dir"]
-        mw_image_basename = (
-            self.app.config["mediawiki_sv_image_basename"]
-            if mediawiki_versions == ["next"]
-            else self.app.config["mediawiki_mv_image_basename"]
-        )
 
         build_images_args = self._common_build_images_args() + [
             self.build_state_dir,
@@ -427,12 +394,10 @@ class K8sOps:
             stage_dir,
             "--mediawiki-versions",
             mw_versions_list,
-            "--multiversion-image-name",
-            f"{registry}/{mw_image_basename}",
-            "--multiversion-debug-image-name",
-            f"{registry}/{mw_image_basename}-debug",
-            "--multiversion-cli-image-name",
-            f"{registry}/{mw_image_basename}-cli",
+            "--multiversion-image-basename",
+            f"{registry}/{self.app.config['mediawiki_mv_image_basename']}",
+            "--singleversion-image-basename",
+            f"{registry}/{self.app.config['mediawiki_sv_image_basename']}",
             "--webserver-image-name",
             f"{registry}/{self.app.config['webserver_image_name']}",
             "--latest-tag",
@@ -441,8 +406,6 @@ class K8sOps:
             f"{LABEL_BUILDER_NAME}=scap",
             "--label",
             f"{LABEL_BUILDER_VERSION}={version.__version__}",
-            "--label",
-            f"{LABEL_MEDIAWIKI_VERSIONS}={mw_versions_list}",
             "--label",
             f"{LABEL_SCAP_STAGE_DIR}={stage_dir}",
             "--label",

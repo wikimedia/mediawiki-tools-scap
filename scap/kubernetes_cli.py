@@ -47,7 +47,7 @@ class BuildImages(cli.Application):
             versions = self.get_versions_to_include_in_image()
 
         with self.lock_mediawiki_staging_and_announce():
-            k8s_ops = K8sOps(self, suffix=".next" if versions == ["next"] else "")
+            k8s_ops = K8sOps(self)
 
             if not force_version:
                 self.timed(tasks.compile_wikiversions, "stage", self.config)
@@ -57,8 +57,6 @@ class BuildImages(cli.Application):
                 self.timed(tasks.update_localization_cache, version, self, json=False)
 
             with self.Timer("build-and-push-container-images"):
-                with self.Timer("building-base-images"):
-                    k8s_ops.build_base_images()
                 k8s_ops.build_k8s_images(
                     versions,
                     force_version=force_version,
