@@ -1,3 +1,9 @@
+scap (4.209.0)
+
+  * patches.py: _notify_failure: Mention tasks receiving notifications
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Mon, 25 Aug 2025 12:11:58 -0700
+
 scap (4.208.0)
 
   * deploy_promote.py: Attribute wikiversions.json updates to the initiating user
