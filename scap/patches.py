@@ -243,6 +243,7 @@ class ApplyPatches(cli.Application):
                 {"type": "comment", "value": notification},
             ],
         )
+        self.get_logger().info(f"Notified failure for {notification_info.patch_name}")
 
     def _patch_task_has_been_notified(self, notification_info):
         base_task_info = self.phorge_conduit.base_task_info(
