@@ -1,4 +1,7 @@
 include requirements.txt
+
+# This is needed to include the non-.py files from this directory
 include scap/fake_backport_data/*
+
 graft web/dist
 global-exclude node_modules .vite .vscode

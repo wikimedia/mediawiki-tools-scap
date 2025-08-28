@@ -64,5 +64,5 @@ version = {attr = "scap.version.__version__"}
 dependencies = {file = ["requirements.txt"]}
 
 [tool.setuptools]
-packages = ["scap", "scap.spiderpig", "web.dist", "web.dist.assets"]
+packages = ["scap", "scap.spiderpig", "web.dist", "web.dist.assets", "scap.fake_backport_data"]
 script-files = ["bin/install_local_version.sh"]
