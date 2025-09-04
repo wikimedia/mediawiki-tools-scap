@@ -1,5 +1,0 @@
-[origin]
-host=https://gitlab.wikimedia.org
-project_id=865
-target_branch=master
-remove_source_branch=True
