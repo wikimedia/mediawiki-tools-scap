@@ -88,18 +88,16 @@ class DepConfig:
     namespace: str
     # Helmfile release
     release: str
+    cluster: str
+
     mw_image_kind: Optional[str]
     mw_image_flavour: str
     web_image_flavour: str
     deploy: bool
-    # The k8s clusters in which this namespace is defined and associated releases are deployed.
-    clusters: Optional[List[str]]
-    # The directory under which helmfile configurations for these k8s clusters are located.
-    cluster_dir: Optional[str]
 
-    @property
-    def fq_release_name(self) -> str:
-        return f"{self.namespace}-{self.release}"
+    fq_release_name: str
+    values_file: str
+    helmfile_dir: str
 
 
 class DeploymentsConfig:
@@ -173,63 +171,75 @@ class DeploymentsConfig:
     will produce the following DeploymentsConfig.stages:
 
      {
-      "testservers": [{
-        "namespace": "testservers",
-        "release": "debug",
-        "mw_image_kind": "debug-image",
-        "mw_image_fl": "publish",
-        "web_image_fl": "webserver",
-        "deploy": True,
-        "cluster_dir": None,
-        "clusters": None,
-      }],
-      "canaries": [{
-        "namespace": "api1",
-        "release": "canary",
-        "mw_image_kind": None,
-        "mw_image_fl": "publish",
-        "web_image_fl": "webserver",
-        "deploy": True,
-        "cluster_dir": None,
-        "clusters": None,
-      }],
-      "production": [{
-        "namespace": "api1",
-        "release": "main",
-        "mw_image_kind": None,
-        "mw_image_fl": "publish",
-        "web_image_fl": "webserver",
-        "deploy": True,
-        "cluster_dir": None,
-        "clusters": None,
-        }, {
-        "namespace": "api2",
-        "release": "main",
-        "mw_image_kind": None,
-        "mw_image_fl": "publish",
-        "web_image_fl": "webserver",
-        "deploy": True,
-        "cluster_dir": "dse",
-        "clusters": ["dse-eqiad"],
-        }, {
-        "namespace": "api2",
-        "release": "experimental",
-        "mw_image_kind": None,
-        "mw_image_fl": "publish-experimental",
-        "web_image_fl": "webserver",
-        "deploy": True,
-        "cluster_dir": "dse",
-        "clusters": ["dse-eqiad"],
-        }, {
-        "namespace": "api2",
-        "release": "maintenance",
-        "mw_image_kind": "cli-image",
-        "mw_image_fl": "publish",
-        "web_image_fl": "webserver",
-        "deploy": False,
-        "cluster_dir": "dse"
-        "clusters": ["dse-eqiad"],
-      }]
+      "testservers": [DepConfig(
+        namespace="testservers",
+        release="debug",
+        cluster="default-cluster",
+        mw_image_kind="debug-image",
+        mw_image_flavour="publish",
+        web_image_flavour="webserver",
+        deploy=True,
+        fq_release_name="testservers-debug-default-cluster",
+        values_file="/path/to/testservers-debug-default-cluster.yaml",
+        helmfile_dir="/path/to/helmfile/testservers"
+      )],
+      "canaries": [DepConfig(
+        namespace="api1",
+        release="canary",
+        cluster="default-cluster",
+        mw_image_kind=None,
+        mw_image_flavour="publish",
+        web_image_flavour="webserver",
+        deploy=True,
+        fq_release_name="api1-canary-default-cluster",
+        values_file="/path/to/api1-canary-default-cluster.yaml",
+        helmfile_dir="/path/to/helmfile/api1"
+      )],
+      "production": [DepConfig(
+        namespace="api1",
+        release="main",
+        cluster="default-cluster",
+        mw_image_kind=None,
+        mw_image_flavour="publish",
+        web_image_flavour="webserver",
+        deploy=True,
+        fq_release_name="api1-main-default-cluster",
+        values_file="/path/to/api1-main-default-cluster.yaml",
+        helmfile_dir="/path/to/helmfile/api1"
+        ), DepConfig(
+        namespace="api2",
+        release="main",
+        cluster="dse-eqiad",
+        mw_image_kind=None,
+        mw_image_flavour="publish",
+        web_image_flavour="webserver",
+        deploy=True,
+        fq_release_name="api2-main-dse-eqiad",
+        values_file="/path/to/api2-main-dse-eqiad.yaml",
+        helmfile_dir="/path/to/helmfile/dse/api2"
+        ), DepConfig(
+        namespace="api2",
+        release="experimental",
+        cluster="dse-eqiad",
+        mw_image_kind=None,
+        mw_image_flavour="publish-experimental",
+        web_image_flavour="webserver",
+        deploy=True,
+        fq_release_name="api2-experimental-dse-eqiad",
+        values_file="/path/to/api2-experimental-dse-eqiad.yaml",
+        helmfile_dir="/path/to/helmfile/dse/api2"
+        ), DepConfig(
+        namespace="api2",
+        release="maintenance",
+        cluster="dse-eqiad",
+        mw_image_kind="cli-image",
+        mw_image_flavour="publish",
+        web_image_flavour="webserver",
+        deploy=False,
+        fq_release_name="api2-maintenance-dse-eqiad",
+        values_file="/path/to/api2-maintenance-dse-eqiad.yaml",
+        helmfile_dir="/path/to/helmfile/dse/api2"
+      )]
      }
 
     Note that if a non-boolean value is provided for the `deploy` field, it is interpreted
@@ -256,60 +266,77 @@ class DeploymentsConfig:
         }
 
     @classmethod
-    def parse(cls, deployments_file: str) -> "DeploymentsConfig":
+    def parse(cls, app, default_clusters: List[str]) -> "DeploymentsConfig":
         testservers = []
         canaries = []
         production = []
 
-        with open(deployments_file) as f:
+        with open(app.config["k8s_deployments_file"]) as f:
             deployments = yaml.safe_load(f)
 
-        namespaces = set()
+        namespaces = defaultdict(set)  # Key is cluster
 
         for dep_config in deployments:
-            dep_namespace = dep_config["namespace"]
-            cluster_dir = dep_config.get("dir", None)
-            clusters = dep_config.get("clusters")
+            namespace = dep_config["namespace"]
 
-            if dep_namespace in namespaces:
-                raise InvalidDeploymentsConfig(
-                    """"%s" deployment is already defined""" % dep_namespace
-                )
-            namespaces.add(dep_namespace)
+            for cluster in dep_config.get("clusters", default_clusters):
+                if namespace in namespaces[cluster]:
+                    raise InvalidDeploymentsConfig(
+                        f'"{namespace}" deployment is already defined for cluster "{cluster}"'
+                    )
+                namespaces[cluster].add(namespace)
 
-            for release, config in dep_config["releases"].items():
-                mw_flavour = config.get("mw_flavour", dep_config.get("mw_flavour"))
-                if not mw_flavour:
-                    raise InvalidDeploymentsConfig(
-                        f'"{release}" in "{dep_namespace}" has no mw_flavour set'
+                for release, config in dep_config["releases"].items():
+                    mw_flavour = config.get("mw_flavour", dep_config.get("mw_flavour"))
+                    if not mw_flavour:
+                        raise InvalidDeploymentsConfig(
+                            f'"{release}" in "{namespace}" has no mw_flavour set'
+                        )
+                    web_flavour = config.get(
+                        "web_flavour", dep_config.get("web_flavour")
                     )
-                web_flavour = config.get("web_flavour", dep_config.get("web_flavour"))
-                if not web_flavour:
-                    raise InvalidDeploymentsConfig(
-                        f'"{release}" in "{dep_namespace}" has no web_flavour set'
+                    if not web_flavour:
+                        raise InvalidDeploymentsConfig(
+                            f'"{release}" in "{namespace}" has no web_flavour set'
+                        )
+                    stage = config.get("stage", PRODUCTION)
+                    if stage not in STAGES:
+                        raise InvalidDeploymentsConfig(
+                            f'"{release}" in "{namespace}" specified unsupported stage "{stage}"'
+                        )
+
+                    mw_image_kind = config.get("mw_kind", dep_config.get("mw_kind"))
+                    fq_release_name = f"{namespace}-{release}-{cluster}"
+                    cluster_dir = dep_config.get(
+                        "dir", app.config["helmfile_default_cluster_dir"]
                     )
-                stage = config.get("stage", PRODUCTION)
-                if stage not in STAGES:
-                    raise InvalidDeploymentsConfig(
-                        f'"{release}" in "{dep_namespace}" specified unsupported stage "{stage}"'
+
+                    parsed_dep_config = DepConfig(
+                        namespace=namespace,
+                        release=release,
+                        cluster=cluster,
+                        mw_image_kind=mw_image_kind,
+                        mw_image_flavour=mw_flavour,
+                        web_image_flavour=web_flavour,
+                        deploy=bool(config.get("deploy", True)),
+                        fq_release_name=fq_release_name,
+                        values_file=os.path.join(
+                            app.config["helmfile_mediawiki_release_dir"],
+                            f"{fq_release_name}.yaml",
+                        ),
+                        helmfile_dir=os.path.join(
+                            app.config["helmfile_deployments_dir"],
+                            cluster_dir,
+                            namespace,
+                        ),
                     )
-                mw_image_kind = config.get("mw_kind", dep_config.get("mw_kind"))
-                parsed_dep_config = DepConfig(
-                    namespace=dep_namespace,
-                    release=release,
-                    mw_image_kind=mw_image_kind,
-                    mw_image_flavour=mw_flavour,
-                    web_image_flavour=web_flavour,
-                    deploy=bool(config.get("deploy", True)),
-                    cluster_dir=cluster_dir,
-                    clusters=clusters,
-                )
-                if stage == TEST_SERVERS:
-                    testservers.append(parsed_dep_config)
-                elif stage == CANARIES:
-                    canaries.append(parsed_dep_config)
-                else:
-                    production.append(parsed_dep_config)
+
+                    if stage == TEST_SERVERS:
+                        testservers.append(parsed_dep_config)
+                    elif stage == CANARIES:
+                        canaries.append(parsed_dep_config)
+                    else:
+                        production.append(parsed_dep_config)
 
         return cls(testservers, canaries, production)
 
@@ -329,6 +356,8 @@ class K8sOps:
         self.suffix = suffix
         self.update_releases_repo = update_releases_repo
         self.logger = app.get_logger()
+        self.default_clusters = re.split(r"[,\s]+", self.app.config["k8s_clusters"])
+        self.traindev = self.default_clusters == ["traindev"]
 
         if app.config["build_mw_container_image"]:
             self._verify_build_and_push_prereqs()
@@ -340,8 +369,6 @@ class K8sOps:
         )
         self.helm_env = self._collect_helm_env()
         self.original_helmfile_values = {}
-        self.default_clusters = re.split(r"[,\s]+", self.app.config["k8s_clusters"])
-        self.traindev = self.default_clusters == ["traindev"]
         self.build_state_dir = os.path.join(
             app.config["stage_dir"], "scap", "image-build" + suffix
         )
@@ -456,16 +483,14 @@ class K8sOps:
 
     # Called by AbstractSync.main
     def helmfile_diffs_for_stage(self, stage: str):
-        def diff_for_cluster_and_deployment(
-            cluster, dep_config: DepConfig, report_queue
-        ):
+        def diff_for_cluster_and_deployment(dep_config: DepConfig, report_queue):
             namespace = dep_config.namespace
             release = dep_config.release
-            helmfile_dir = self._get_helmfile_path_for(dep_config)
+            helmfile_dir = dep_config.helmfile_dir
             cmd = [
                 "helmfile",
                 "-e",
-                cluster,
+                dep_config.cluster,
                 "--selector",
                 "name={}".format(release),
                 "diff",
@@ -474,7 +499,7 @@ class K8sOps:
             ]
             logger = logging.getLogger("scap.k8s.diff")
             return {
-                "cluster": cluster,
+                "cluster": dep_config.cluster,
                 "namespace": namespace,
                 "release": release,
                 "diff_stdout": self._cmd_stdout(cmd, helmfile_dir, logger),
@@ -482,7 +507,7 @@ class K8sOps:
 
         dep_configs = self.k8s_deployments_config.stages[stage]
         try:
-            return self._foreach_cluster_and_deployment(
+            return self._foreach_depconfig(
                 dep_configs,
                 diff_for_cluster_and_deployment,
                 "Diff",
@@ -563,25 +588,11 @@ class K8sOps:
 
         return list(res)
 
-    def _get_clusters_for_dep_config(self, dep_config: DepConfig) -> List[str]:
-        clusters = dep_config.clusters
-        return self.default_clusters if clusters is None else clusters
-
-    def _get_helmfile_path_for(self, dep_config: DepConfig) -> pathlib.Path:
-        cluster_dir = dep_config.cluster_dir
-        if cluster_dir is None:
-            cluster_dir = self.app.config["helmfile_default_cluster_dir"]
-        return (
-            pathlib.Path(self.app.config["helmfile_deployments_dir"])
-            / cluster_dir
-            / dep_config.namespace
-        )
-
     def _read_helmfile_files(self, dep_configs: List[DepConfig]) -> dict:
         res = {}
 
         for dep_config in dep_configs:
-            dep_config_values_file = self._dep_config_values_file(dep_config)
+            dep_config_values_file = dep_config.values_file
             if os.path.exists(dep_config_values_file):
                 with open(dep_config_values_file) as f:
                     res[dep_config.fq_release_name] = yaml.safe_load(f)
@@ -604,7 +615,7 @@ class K8sOps:
         with utils.cd(self.app.config["helmfile_mediawiki_release_dir"]):
             for dep_config in dep_configs:
                 values = saved_values[dep_config.fq_release_name]
-                values_file = self._dep_config_values_file(dep_config)
+                values_file = dep_config.values_file
 
                 utils.write_file_if_needed(values_file, yaml.dump(values))
                 if git.file_has_unstaged_changes(values_file):
@@ -615,14 +626,54 @@ class K8sOps:
                 gitcmd("commit", "-m", "Configuration(s) reverted")
 
     def _deploy_to_clusters(self, dep_configs: List[DepConfig]) -> None:
-        self._foreach_cluster_and_deployment(
+        self._foreach_depconfig(
             dep_configs,
             self._deploy_k8s_images_for_cluster,
             "Deployment",
             deploy_only=True,  # Exclude non-deploy releases
         )
 
-    def _foreach_cluster_and_deployment(
+    @contextlib.contextmanager
+    def _start_deployment_reporter(self, progress, dep_configs: List[DepConfig]):
+        if progress:
+            total_expected_replicas = self._get_total_expected_replicas(dep_configs)
+            report_queue = queue.Queue()
+            reporter = threading.Thread(
+                target=self._deployment_reporter,
+                args=(report_queue, self.logger, total_expected_replicas),
+                name="k8s deployment reporter",
+            )
+            reporter.start()
+            try:
+                yield report_queue
+            finally:
+                report_queue.put("stop")
+                reporter.join()
+        else:
+            yield None
+
+    @contextlib.contextmanager
+    def _cluster_pools(self, dep_configs: List[DepConfig]):
+        dep_configs_by_cluster = defaultdict(list)
+        for dep_config in dep_configs:
+            dep_configs_by_cluster[dep_config.cluster].append(dep_config)
+
+        pools = {}
+        for cluster, cluster_dep_configs in dep_configs_by_cluster.items():
+            pools[cluster] = concurrent.futures.ThreadPoolExecutor(
+                max_workers=min(
+                    len(cluster_dep_configs),
+                    self.app.config["k8s_max_concurrent_deployments_per_cluster"],
+                )
+            )
+
+        try:
+            yield pools
+        finally:
+            for cluster, pool in pools.items():
+                pool.shutdown()
+
+    def _foreach_depconfig(
         self,
         dep_configs: List[DepConfig],
         func,
@@ -631,8 +682,9 @@ class K8sOps:
         deploy_only=False,
     ):
         """
-        Invokes 'func' over all dep_configs and their relevant clusters.
-        'func' must take three arguments: cluster, dep_config, report_queue.
+        Invokes 'func' over all dep_configs.
+
+        'func' must take two arguments: dep_config, report_queue.
 
         Note: Invocations of 'func' are concurrent and so must be threadsafe.
 
@@ -653,34 +705,24 @@ class K8sOps:
                 dep_config for dep_config in dep_configs if dep_config.deploy
             ]
 
-        cluster_dep_configs = defaultdict(list)
-        for dep_config in dep_configs:
-            for cluster in self._get_clusters_for_dep_config(dep_config):
-                cluster_dep_configs[cluster].append(dep_config)
-
-        if not cluster_dep_configs:
+        if not dep_configs:
             return []
 
-        def foreach_deployment_in_cluster(cluster, report_queue):
-            with concurrent.futures.ThreadPoolExecutor(
-                max_workers=min(
-                    len(cluster_dep_configs[cluster]),
-                    self.app.config["k8s_max_concurrent_deployments_per_cluster"],
-                )
-            ) as pool:
+        with self._start_deployment_reporter(progress, dep_configs) as report_queue:
+            with self._cluster_pools(dep_configs) as pools:
                 futures = []
-
-                for dep_config in cluster_dep_configs[cluster]:
-                    future = pool.submit(func, cluster, dep_config, report_queue)
-                    future._scap_dep_config = dep_config
-                    futures.append(future)
-
                 results = []
                 failed = []
 
+                for dep_config in dep_configs:
+                    future = pools[dep_config.cluster].submit(
+                        func, dep_config, report_queue
+                    )
+                    future._scap_dep_config = dep_config
+                    futures.append(future)
+
                 for future in concurrent.futures.as_completed(futures):
                     exception = future.exception()
-
                     if exception:
                         failed.append(
                             "{} of {} failed: {}".format(
@@ -691,49 +733,6 @@ class K8sOps:
                         )
                     else:
                         results.append(future.result())
-
-                if failed:
-                    raise Exception("\n".join(failed))
-
-                return results
-
-        report_queue = None
-        if progress:
-            total_expected_replicas = self._get_total_expected_replicas(dep_configs)
-            report_queue = queue.Queue()
-            reporter = threading.Thread(
-                target=self._deployment_reporter,
-                args=(report_queue, self.logger, total_expected_replicas),
-                name="k8s deployment reporter",
-            )
-            reporter.start()
-
-        with concurrent.futures.ThreadPoolExecutor(
-            max_workers=len(cluster_dep_configs)
-        ) as pool:
-            futures = []
-
-            for cluster in cluster_dep_configs:
-                future = pool.submit(
-                    foreach_deployment_in_cluster, cluster, report_queue
-                )
-                future._scap_cluster = cluster
-                futures.append(future)
-
-            results = []
-            failed = []
-
-            try:
-                for future in concurrent.futures.as_completed(futures):
-                    exception = future.exception()
-                    if exception:
-                        failed.append("{}: {}".format(future._scap_cluster, exception))
-                    else:
-                        results.extend(future.result())
-            finally:
-                if progress:
-                    report_queue.put("stop")
-                    reporter.join()
 
             if failed:
                 raise Exception(
@@ -769,24 +768,22 @@ class K8sOps:
         total = 0
 
         for dep_config in dep_configs:
-            release = dep_config.release
-            helmfile_dir = self._get_helmfile_path_for(dep_config)
-            for cluster in self._get_clusters_for_dep_config(dep_config):
-                with tempfile.NamedTemporaryFile() as tmp:
-                    cmd = [
-                        "helmfile",
-                        "-e",
-                        cluster,
-                        "--selector",
-                        f"name={release}",
-                        "write-values",
-                        "--output-file-template",
-                        tmp.name,
-                    ]
-                    self._run_timed_cmd_quietly(
-                        cmd, helmfile_dir, self.logger, really_quiet=True
-                    )
-                    total += yaml.safe_load(tmp).get("resources", {}).get("replicas", 0)
+            helmfile_dir = dep_config.helmfile_dir
+            with tempfile.NamedTemporaryFile() as tmp:
+                cmd = [
+                    "helmfile",
+                    "-e",
+                    dep_config.cluster,
+                    "--selector",
+                    f"name={dep_config.release}",
+                    "write-values",
+                    "--output-file-template",
+                    tmp.name,
+                ]
+                self._run_timed_cmd_quietly(
+                    cmd, helmfile_dir, self.logger, really_quiet=True
+                )
+                total += yaml.safe_load(tmp).get("resources", {}).get("replicas", 0)
 
         return total
 
@@ -877,18 +874,13 @@ class K8sOps:
                 cmd, helmfile_dir, logger, timer_name=timer_name
             )
 
-    def _deploy_k8s_images_for_cluster(
-        self, cluster, dep_config: DepConfig, report_queue
-    ):
-        """
-        cluster will be something like "eqiad" or "codfw" or "traindev"
-        """
-
+    def _deploy_k8s_images_for_cluster(self, dep_config: DepConfig, report_queue):
         logger = logging.getLogger("scap.k8s.deploy")
 
         release = dep_config.release
         namespace = dep_config.namespace
-        helmfile_dir = self._get_helmfile_path_for(dep_config)
+        cluster = dep_config.cluster
+        helmfile_dir = dep_config.helmfile_dir
 
         self._helm_fix_pending_state(cluster, helmfile_dir, namespace, release, logger)
 
@@ -1032,18 +1024,7 @@ class K8sOps:
             )
 
         self.k8s_deployments_config = DeploymentsConfig.parse(
-            self.app.config["k8s_deployments_file"]
-        )
-
-    def _dep_config_values_file(self, dep_config: DepConfig) -> str:
-        """
-        Returns the path to the values.yaml file associated with dep_config
-        """
-        helmfile_mediawiki_release_dir = self.app.config[
-            "helmfile_mediawiki_release_dir"
-        ]
-        return os.path.join(
-            helmfile_mediawiki_release_dir, f"{dep_config.fq_release_name}.yaml"
+            self.app, self.default_clusters
         )
 
     def _collect_helmfile_values_for(
@@ -1123,7 +1104,7 @@ class K8sOps:
         if self.traindev:
             values["resources"] = {"replicas": 1}
 
-        values_file = self._dep_config_values_file(dep_config)
+        values_file = dep_config.values_file
         utils.write_file_if_needed(values_file, yaml.dump(values))
         with utils.cd(self.app.config["helmfile_mediawiki_release_dir"]):
             if git.file_has_unstaged_changes(values_file):
