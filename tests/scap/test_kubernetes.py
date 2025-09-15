@@ -1,5 +1,3 @@
-from unittest import TestCase
-
 import io
 import mock
 import pytest
@@ -8,11 +6,9 @@ import subprocess
 from scap.kubernetes import (
     DeploymentsConfig,
     InvalidDeploymentsConfig,
-    CANARIES,
-    PRODUCTION,
-    TEST_SERVERS,
     built_image_ids,
     inspect_images,
+    DepConfig,
 )
 
 deployment_configs = [
@@ -67,90 +63,90 @@ deployment_configs = [
      """,
         {
             "testservers": [
-                {
-                    "namespace": "test",
-                    "release": "main",
-                    "mw_image_kind": "debug-image",
-                    "mw_image_fl": "publish",
-                    "web_image_fl": "webserver",
-                    "deploy": True,
-                    "cluster_dir": None,
-                    "clusters": None,
-                },
+                DepConfig(
+                    namespace="test",
+                    release="main",
+                    mw_image_kind="debug-image",
+                    mw_image_flavour="publish",
+                    web_image_flavour="webserver",
+                    deploy=True,
+                    cluster_dir=None,
+                    clusters=None,
+                ),
             ],
             "canaries": [
-                {
-                    "namespace": "api2",
-                    "release": "canary",
-                    "mw_image_kind": None,
-                    "mw_image_fl": "publish",
-                    "web_image_fl": "webserver",
-                    "deploy": True,
-                    "cluster_dir": None,
-                    "clusters": None,
-                },
-                {
-                    "namespace": "api3",
-                    "release": "canary",
-                    "mw_image_kind": None,
-                    "mw_image_fl": "publish",
-                    "web_image_fl": "webserver",
-                    "deploy": True,
-                    "cluster_dir": None,
-                    "clusters": None,
-                },
+                DepConfig(
+                    namespace="api2",
+                    release="canary",
+                    mw_image_kind=None,
+                    mw_image_flavour="publish",
+                    web_image_flavour="webserver",
+                    deploy=True,
+                    cluster_dir=None,
+                    clusters=None,
+                ),
+                DepConfig(
+                    namespace="api3",
+                    release="canary",
+                    mw_image_kind=None,
+                    mw_image_flavour="publish",
+                    web_image_flavour="webserver",
+                    deploy=True,
+                    cluster_dir=None,
+                    clusters=None,
+                ),
             ],
             "production": [
-                {
-                    "namespace": "api1",
-                    "release": "main",
-                    "mw_image_kind": None,
-                    "mw_image_fl": "publish",
-                    "web_image_fl": "webserver",
-                    "deploy": True,
-                    "cluster_dir": "anothercluster",
-                    "clusters": ["another-k8s-cluster"],
-                },
-                {
-                    "namespace": "api2",
-                    "release": "main",
-                    "mw_image_kind": None,
-                    "mw_image_fl": "publish",
-                    "web_image_fl": "webserver",
-                    "deploy": True,
-                    "cluster_dir": None,
-                    "clusters": None,
-                },
-                {
-                    "namespace": "api2",
-                    "release": "maintenance",
-                    "mw_image_kind": "cli-image",
-                    "mw_image_fl": "publish",
-                    "web_image_fl": "webserver",
-                    "deploy": False,
-                    "cluster_dir": None,
-                    "clusters": None,
-                },
-                {
-                    "namespace": "api3",
-                    "release": "main",
-                    "mw_image_kind": None,
-                    "mw_image_fl": "publish",
-                    "web_image_fl": "webserver",
-                    "deploy": True,
-                    "cluster_dir": None,
-                    "clusters": None,
-                },
-                {
-                    "namespace": "api3",
-                    "release": "migration",
-                    "mw_image_kind": None,
-                    "mw_image_fl": "exciting-new-mediawiki",
-                    "web_image_fl": "exciting-new-webserver",
-                    "deploy": True,
-                    "cluster_dir": None,
-                    "clusters": None,
-                },
+                DepConfig(
+                    namespace="api1",
+                    release="main",
+                    mw_image_kind=None,
+                    mw_image_flavour="publish",
+                    web_image_flavour="webserver",
+                    deploy=True,
+                    cluster_dir="anothercluster",
+                    clusters=["another-k8s-cluster"],
+                ),
+                DepConfig(
+                    namespace="api2",
+                    release="main",
+                    mw_image_kind=None,
+                    mw_image_flavour="publish",
+                    web_image_flavour="webserver",
+                    deploy=True,
+                    cluster_dir=None,
+                    clusters=None,
+                ),
+                DepConfig(
+                    namespace="api2",
+                    release="maintenance",
+                    mw_image_kind="cli-image",
+                    mw_image_flavour="publish",
+                    web_image_flavour="webserver",
+                    deploy=False,
+                    cluster_dir=None,
+                    clusters=None,
+                ),
+                DepConfig(
+                    namespace="api3",
+                    release="main",
+                    mw_image_kind=None,
+                    mw_image_flavour="publish",
+                    web_image_flavour="webserver",
+                    deploy=True,
+                    cluster_dir=None,
+                    clusters=None,
+                ),
+                DepConfig(
+                    namespace="api3",
+                    release="migration",
+                    mw_image_kind=None,
+                    mw_image_flavour="exciting-new-mediawiki",
+                    web_image_flavour="exciting-new-webserver",
+                    deploy=True,
+                    cluster_dir=None,
+                    clusters=None,
+                ),
             ],
         },
     ),
@@ -210,23 +206,13 @@ deployment_configs = [
 
 @pytest.mark.parametrize("config,expected_parse", deployment_configs)
 def test_deployments_config_parser(config, expected_parse):
-    def sort_key(config_entry: dict) -> str:
-        return f"{config_entry[DeploymentsConfig.NAMESPACE]}/{config_entry[DeploymentsConfig.RELEASE]}"
-
-    def sort_lists(stages: dict):
-        stages[TEST_SERVERS] = sorted(stages[TEST_SERVERS], key=sort_key)
-        stages[CANARIES] = sorted(stages[CANARIES], key=sort_key)
-        stages[PRODUCTION] = sorted(stages[PRODUCTION], key=sort_key)
-
     with mock.patch("builtins.open", mock.mock_open(read_data=config)):
         if not expected_parse:
             with pytest.raises(InvalidDeploymentsConfig):
                 DeploymentsConfig.parse("ignored")
         else:
             parsed_config = DeploymentsConfig.parse("ignored")
-            sort_lists(expected_parse)
-            sort_lists(parsed_config.stages)
-            TestCase().assertDictEqual(parsed_config.stages, expected_parse)
+            assert parsed_config.stages == expected_parse
 
 
 @mock.patch("subprocess.Popen")

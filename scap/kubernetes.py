@@ -13,7 +13,7 @@ import shlex
 import subprocess
 import tempfile
 import threading
-from typing import List
+from typing import List, Optional
 import queue
 
 import yaml
@@ -81,6 +81,25 @@ class _HelmfileReleaseValues:
         if "php_version" in self.mw_metadata:
             values["php"] = {"version": self.mw_metadata["php_version"]}
         return values
+
+
+@dataclass(frozen=True)
+class DepConfig:
+    namespace: str
+    # Helmfile release
+    release: str
+    mw_image_kind: Optional[str]
+    mw_image_flavour: str
+    web_image_flavour: str
+    deploy: bool
+    # The k8s clusters in which this namespace is defined and associated releases are deployed.
+    clusters: Optional[List[str]]
+    # The directory under which helmfile configurations for these k8s clusters are located.
+    cluster_dir: Optional[str]
+
+    @property
+    def fq_release_name(self) -> str:
+        return f"{self.namespace}-{self.release}"
 
 
 class DeploymentsConfig:
@@ -224,20 +243,11 @@ class DeploymentsConfig:
     * https://phabricator.wikimedia.org/T388761
     """
 
-    # The k8s clusters in which this namespace is defined and associated releases are deployed.
-    CLUSTERS = "clusters"
-    # The directory under which helmfile configurations for these k8s clusters are located.
-    CLUSTER_DIR = "cluster_dir"
-    NAMESPACE = "namespace"
-    # Helmfile release
-    RELEASE = "release"
-    MW_IMAGE_KIND = "mw_image_kind"
-    MW_IMAGE_FLAVOUR = "mw_image_fl"
-    WEB_IMAGE_FLAVOUR = "web_image_fl"
-    DEPLOY = "deploy"
-
     def __init__(
-        self, testservers: List[dict], canaries: List[dict], production: List[dict]
+        self,
+        testservers: List[DepConfig],
+        canaries: List[DepConfig],
+        production: List[DepConfig],
     ):
         self.stages = {
             TEST_SERVERS: testservers,
@@ -284,16 +294,16 @@ class DeploymentsConfig:
                         f'"{release}" in "{dep_namespace}" specified unsupported stage "{stage}"'
                     )
                 mw_image_kind = config.get("mw_kind", dep_config.get("mw_kind"))
-                parsed_dep_config = {
-                    cls.NAMESPACE: dep_namespace,
-                    cls.RELEASE: release,
-                    cls.MW_IMAGE_KIND: mw_image_kind,
-                    cls.MW_IMAGE_FLAVOUR: mw_flavour,
-                    cls.WEB_IMAGE_FLAVOUR: web_flavour,
-                    cls.DEPLOY: config.get("deploy", True),
-                    cls.CLUSTER_DIR: cluster_dir,
-                    cls.CLUSTERS: clusters,
-                }
+                parsed_dep_config = DepConfig(
+                    namespace=dep_namespace,
+                    release=release,
+                    mw_image_kind=mw_image_kind,
+                    mw_image_flavour=mw_flavour,
+                    web_image_flavour=web_flavour,
+                    deploy=bool(config.get("deploy", True)),
+                    cluster_dir=cluster_dir,
+                    clusters=clusters,
+                )
                 if stage == TEST_SERVERS:
                     testservers.append(parsed_dep_config)
                 elif stage == CANARIES:
@@ -446,9 +456,11 @@ class K8sOps:
 
     # Called by AbstractSync.main
     def helmfile_diffs_for_stage(self, stage: str):
-        def diff_for_cluster_and_deployment(cluster, dep_config, report_queue):
-            namespace = dep_config[DeploymentsConfig.NAMESPACE]
-            release = dep_config[DeploymentsConfig.RELEASE]
+        def diff_for_cluster_and_deployment(
+            cluster, dep_config: DepConfig, report_queue
+        ):
+            namespace = dep_config.namespace
+            release = dep_config.release
             helmfile_dir = self._get_helmfile_path_for(dep_config)
             cmd = [
                 "helmfile",
@@ -546,30 +558,30 @@ class K8sOps:
         for dep_config in self.k8s_deployments_config.stages[CANARIES]:
             # Exclude non-deploy releases from contributing to the canary-stage namespace list,
             # since they will not have been deployed in that stage.
-            if dep_config[DeploymentsConfig.DEPLOY]:
-                res.add(dep_config[DeploymentsConfig.NAMESPACE])
+            if dep_config.deploy:
+                res.add(dep_config.namespace)
 
         return list(res)
 
-    def _get_clusters_for_dep_config(self, dep_config):
-        clusters = dep_config[DeploymentsConfig.CLUSTERS]
+    def _get_clusters_for_dep_config(self, dep_config: DepConfig) -> List[str]:
+        clusters = dep_config.clusters
         return self.default_clusters if clusters is None else clusters
 
-    def _get_helmfile_path_for(self, dep_config):
-        cluster_dir = dep_config[DeploymentsConfig.CLUSTER_DIR]
+    def _get_helmfile_path_for(self, dep_config: DepConfig) -> pathlib.Path:
+        cluster_dir = dep_config.cluster_dir
         if cluster_dir is None:
             cluster_dir = self.app.config["helmfile_default_cluster_dir"]
         return (
             pathlib.Path(self.app.config["helmfile_deployments_dir"])
             / cluster_dir
-            / dep_config[DeploymentsConfig.NAMESPACE]
+            / dep_config.namespace
         )
 
-    def _read_helmfile_files(self, dep_configs) -> dict:
+    def _read_helmfile_files(self, dep_configs: List[DepConfig]) -> dict:
         res = {}
 
         for dep_config in dep_configs:
-            fq_release_name = self._dep_config_fq_release_name(dep_config)
+            fq_release_name = dep_config.fq_release_name
             dep_config_values_file = self._dep_config_values_file(dep_config)
             if os.path.exists(dep_config_values_file):
                 with open(dep_config_values_file) as f:
@@ -577,19 +589,23 @@ class K8sOps:
 
         return res
 
-    def _update_helmfile_files(self, dep_configs, helmfile_values):
+    def _update_helmfile_files(
+        self, dep_configs: List[DepConfig], helmfile_values: dict
+    ) -> None:
         for dep_config in dep_configs:
-            fq_release_name = self._dep_config_fq_release_name(dep_config)
+            fq_release_name = dep_config.fq_release_name
             self._update_helmfile_values_for(
                 dep_config, helmfile_values[fq_release_name]
             )
 
-    def _revert_helmfile_files(self, dep_configs, saved_values):
+    def _revert_helmfile_files(
+        self, dep_configs: List[DepConfig], saved_values: dict
+    ) -> None:
         commit = False
 
         with utils.cd(self.app.config["helmfile_mediawiki_release_dir"]):
             for dep_config in dep_configs:
-                fq_release_name = self._dep_config_fq_release_name(dep_config)
+                fq_release_name = dep_config.fq_release_name
                 values = saved_values[fq_release_name]
                 values_file = self._dep_config_values_file(dep_config)
 
@@ -601,7 +617,7 @@ class K8sOps:
             if commit:
                 gitcmd("commit", "-m", "Configuration(s) reverted")
 
-    def _deploy_to_clusters(self, dep_configs):
+    def _deploy_to_clusters(self, dep_configs: List[DepConfig]) -> None:
         self._foreach_cluster_and_deployment(
             dep_configs,
             self._deploy_k8s_images_for_cluster,
@@ -611,7 +627,7 @@ class K8sOps:
 
     def _foreach_cluster_and_deployment(
         self,
-        dep_configs,
+        dep_configs: List[DepConfig],
         func,
         description,
         progress=True,
@@ -637,9 +653,7 @@ class K8sOps:
 
         if deploy_only:
             dep_configs = [
-                dep_config
-                for dep_config in dep_configs
-                if dep_config[DeploymentsConfig.DEPLOY]
+                dep_config for dep_config in dep_configs if dep_config.deploy
             ]
 
         cluster_dep_configs = defaultdict(list)
@@ -671,9 +685,7 @@ class K8sOps:
                     exception = future.exception()
 
                     if exception:
-                        fq_release_name = self._dep_config_fq_release_name(
-                            future._scap_dep_config
-                        )
+                        fq_release_name = future._scap_dep_config.fq_release_name
                         failed.append(
                             "{} of {} failed: {}".format(
                                 description, fq_release_name, exception
@@ -755,11 +767,11 @@ class K8sOps:
 
         reporter.finish()
 
-    def _get_total_expected_replicas(self, dep_configs) -> int:
+    def _get_total_expected_replicas(self, dep_configs: List[DepConfig]) -> int:
         total = 0
 
         for dep_config in dep_configs:
-            release = dep_config[DeploymentsConfig.RELEASE]
+            release = dep_config.release
             helmfile_dir = self._get_helmfile_path_for(dep_config)
             for cluster in self._get_clusters_for_dep_config(dep_config):
                 with tempfile.NamedTemporaryFile() as tmp:
@@ -867,15 +879,17 @@ class K8sOps:
                 cmd, helmfile_dir, logger, timer_name=timer_name
             )
 
-    def _deploy_k8s_images_for_cluster(self, cluster, dep_config, report_queue):
+    def _deploy_k8s_images_for_cluster(
+        self, cluster, dep_config: DepConfig, report_queue
+    ):
         """
         cluster will be something like "eqiad" or "codfw" or "traindev"
         """
 
         logger = logging.getLogger("scap.k8s.deploy")
 
-        release = dep_config[DeploymentsConfig.RELEASE]
-        namespace = dep_config[DeploymentsConfig.NAMESPACE]
+        release = dep_config.release
+        namespace = dep_config.namespace
         helmfile_dir = self._get_helmfile_path_for(dep_config)
 
         self._helm_fix_pending_state(cluster, helmfile_dir, namespace, release, logger)
@@ -885,7 +899,7 @@ class K8sOps:
             "-e",
             cluster,
             "--selector",
-            "name={}".format(release),
+            f"name={release}",
             "apply",
         ]
 
@@ -896,7 +910,9 @@ class K8sOps:
             )
 
     @contextlib.contextmanager
-    def _k8s_deployment_monitoring(self, dep_config, cluster, report_queue):
+    def _k8s_deployment_monitoring(
+        self, dep_config: DepConfig, cluster: str, report_queue
+    ):
         stop_event = threading.Event()
         monitor = threading.Thread(
             target=self._deployment_monitor,
@@ -911,9 +927,15 @@ class K8sOps:
             stop_event.set()
             monitor.join()
 
-    def _deployment_monitor(self, dep_config, cluster, stop_event, report_queue):
-        namespace = dep_config[DeploymentsConfig.NAMESPACE]
-        release = dep_config[DeploymentsConfig.RELEASE]
+    def _deployment_monitor(
+        self,
+        dep_config: DepConfig,
+        cluster: str,
+        stop_event: threading.Event,
+        report_queue,
+    ) -> None:
+        namespace = dep_config.namespace
+        release = dep_config.release
         kubeconfig = f"/etc/kubernetes/{namespace}-deploy-{cluster}.config"
         deployment_name = (
             f"{namespace}.dev.{release}"
@@ -1015,25 +1037,20 @@ class K8sOps:
             self.app.config["k8s_deployments_file"]
         )
 
-    def _dep_config_fq_release_name(self, dep_config) -> str:
-        return "{}-{}".format(
-            dep_config[DeploymentsConfig.NAMESPACE],
-            dep_config[DeploymentsConfig.RELEASE],
-        )
-
-    def _dep_config_values_file(self, dep_config) -> str:
+    def _dep_config_values_file(self, dep_config: DepConfig) -> str:
         """
         Returns the path to the values.yaml file associated with dep_config
         """
         helmfile_mediawiki_release_dir = self.app.config[
             "helmfile_mediawiki_release_dir"
         ]
-        fq_release_name = self._dep_config_fq_release_name(dep_config)
         return os.path.join(
-            helmfile_mediawiki_release_dir, "{}.yaml".format(fq_release_name)
+            helmfile_mediawiki_release_dir, f"{dep_config.fq_release_name}.yaml"
         )
 
-    def _collect_helmfile_values_for(self, dep_configs, images_info) -> dict:
+    def _collect_helmfile_values_for(
+        self, dep_configs: List[DepConfig], images_info: dict
+    ) -> dict:
         registry = self.app.config["docker_registry"]
 
         def strip_registry(fqin):
@@ -1073,16 +1090,16 @@ class K8sOps:
             for dep_config in dep_configs:
                 mw_img, mw_metadata = find_image_and_metadata(
                     images_info["mediawiki"]["flavours"],
-                    dep_config[DeploymentsConfig.MW_IMAGE_FLAVOUR],
-                    image_kind=dep_config[DeploymentsConfig.MW_IMAGE_KIND],
+                    dep_config.mw_image_flavour,
+                    image_kind=dep_config.mw_image_kind,
                 )
 
                 web_img, web_metadata = find_image_and_metadata(
                     images_info["webserver"]["flavours"],
-                    dep_config[DeploymentsConfig.WEB_IMAGE_FLAVOUR],
+                    dep_config.web_image_flavour,
                 )
 
-                fq_release_name = self._dep_config_fq_release_name(dep_config)
+                fq_release_name = dep_config.fq_release_name
                 values[fq_release_name] = _HelmfileReleaseValues(
                     registry=registry,
                     mw_image_tag=strip_registry(mw_img),
@@ -1094,7 +1111,7 @@ class K8sOps:
         return values
 
     def _update_helmfile_values_for(
-        self, dep_config, helmfile_values: _HelmfileReleaseValues
+        self, dep_config: DepConfig, helmfile_values: _HelmfileReleaseValues
     ):
         """
         Note: Due to the git operations and change of the working directory, this function
@@ -1113,7 +1130,7 @@ class K8sOps:
         utils.write_file_if_needed(values_file, yaml.dump(values))
         with utils.cd(self.app.config["helmfile_mediawiki_release_dir"]):
             if git.file_has_unstaged_changes(values_file):
-                fq_release_name = self._dep_config_fq_release_name(dep_config)
+                fq_release_name = dep_config.fq_release_name
                 msg = (
                     "Updating release '%s'\n\n"
                     "MediaWiki image is: '%s'\n"
