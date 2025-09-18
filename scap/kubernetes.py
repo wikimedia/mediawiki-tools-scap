@@ -581,11 +581,10 @@ class K8sOps:
         res = {}
 
         for dep_config in dep_configs:
-            fq_release_name = dep_config.fq_release_name
             dep_config_values_file = self._dep_config_values_file(dep_config)
             if os.path.exists(dep_config_values_file):
                 with open(dep_config_values_file) as f:
-                    res[fq_release_name] = yaml.safe_load(f)
+                    res[dep_config.fq_release_name] = yaml.safe_load(f)
 
         return res
 
@@ -593,9 +592,8 @@ class K8sOps:
         self, dep_configs: List[DepConfig], helmfile_values: dict
     ) -> None:
         for dep_config in dep_configs:
-            fq_release_name = dep_config.fq_release_name
             self._update_helmfile_values_for(
-                dep_config, helmfile_values[fq_release_name]
+                dep_config, helmfile_values[dep_config.fq_release_name]
             )
 
     def _revert_helmfile_files(
@@ -605,8 +603,7 @@ class K8sOps:
 
         with utils.cd(self.app.config["helmfile_mediawiki_release_dir"]):
             for dep_config in dep_configs:
-                fq_release_name = dep_config.fq_release_name
-                values = saved_values[fq_release_name]
+                values = saved_values[dep_config.fq_release_name]
                 values_file = self._dep_config_values_file(dep_config)
 
                 utils.write_file_if_needed(values_file, yaml.dump(values))
@@ -685,10 +682,11 @@ class K8sOps:
                     exception = future.exception()
 
                     if exception:
-                        fq_release_name = future._scap_dep_config.fq_release_name
                         failed.append(
                             "{} of {} failed: {}".format(
-                                description, fq_release_name, exception
+                                description,
+                                future._scap_dep_config.fq_release_name,
+                                exception,
                             )
                         )
                     else:
@@ -1099,8 +1097,7 @@ class K8sOps:
                     dep_config.web_image_flavour,
                 )
 
-                fq_release_name = dep_config.fq_release_name
-                values[fq_release_name] = _HelmfileReleaseValues(
+                values[dep_config.fq_release_name] = _HelmfileReleaseValues(
                     registry=registry,
                     mw_image_tag=strip_registry(mw_img),
                     mw_metadata=mw_metadata,
@@ -1130,13 +1127,12 @@ class K8sOps:
         utils.write_file_if_needed(values_file, yaml.dump(values))
         with utils.cd(self.app.config["helmfile_mediawiki_release_dir"]):
             if git.file_has_unstaged_changes(values_file):
-                fq_release_name = dep_config.fq_release_name
                 msg = (
                     "Updating release '%s'\n\n"
                     "MediaWiki image is: '%s'\n"
                     "Webserver image is: '%s'"
                 ) % (
-                    fq_release_name,
+                    dep_config.fq_release_name,
                     helmfile_values.mw_image_tag,
                     helmfile_values.web_image_tag,
                 )
