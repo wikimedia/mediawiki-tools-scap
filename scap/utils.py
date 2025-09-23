@@ -684,6 +684,33 @@ def get_active_directories(directory, realm):
     )
 
 
+def get_deployable_directories(directory):
+    """
+    Get an ordered list of all deployable MediaWiki version directories on disk.
+
+    This is similar to get_active_directories() but returns all checked out
+    php-* directories on disk rather than just those mentioned in wikiversions.
+
+    :param directory: The staging directory containing php-* subdirectories
+
+    :returns: A list of directory paths (e.g., '/srv/mediawiki-staging/php-1.41.0-wmf.1'),
+              sorted in ascending version order.
+    """
+    # Get unique version strings that exist on disk
+    versions = get_wikiversions_ondisk(directory)
+
+    # Create list of directory paths with php- prefix
+    directories = [os.path.join(directory, f"php-{version}") for version in versions]
+
+    # Sort by version number
+    return sorted(
+        directories,
+        key=lambda d: parse_wmf_version(
+            os.path.basename(d)[4:]  # Extract version from "php-X.Y.Z-wmf.N"
+        ),
+    )
+
+
 def get_wikiversions_ondisk(directory) -> list:
     """
     Returns a list of the train branch versions that are currently
@@ -695,7 +722,11 @@ def get_wikiversions_ondisk(directory) -> list:
     """
 
     def is_wikiversion(name):
-        return BRANCH_RE.match(name[len("php-") :]) or name == "php-master"
+        return (
+            BRANCH_RE.match(name[len("php-") :])
+            or name == "php-master"
+            or name == "php-next"
+        )
 
     versions = [
         d[len("php-") :]
