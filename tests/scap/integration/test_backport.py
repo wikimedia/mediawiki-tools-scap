@@ -168,6 +168,8 @@ class BackportsTestHelper:
         self.git_command(
             path, ["checkout", "-q", "--force", "-B", branch, f"origin/{branch}"]
         )
+        # Ensure local branch exactly matches remote to prevent implicit merges
+        self.git_command(path, ["reset", "--hard", f"origin/{branch}"])
 
     def set_push_url(self, repo):
         url = scap.git.remote_get_url(repo, push=True)
@@ -429,6 +431,9 @@ class BackportsTestHelper:
         """
         assert where in ["top", "bottom"]
 
+        # Ensure we start with a clean, synchronized repository state
+        self.setup_core_repo()
+
         developers_path = self.mwcore_dir + "/DEVELOPERS.md"
         text = f"Added by {who} on " + datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         if extra_text:
@@ -457,9 +462,9 @@ class BackportsTestHelper:
             child = self._start_scap_backport([change_url])
             try:
                 child.expect_exact(
-                    "not found in any deployed wikiversion. Deployed wikiversions:"
+                    "not found in any live wikiversion. Live wikiversions:"
                 )
-                child.expect_exact("Continue with backport? [y/N]:")
+                child.expect_exact("Continue with backport anyway? [y/N]:")
                 child.sendline("y")
                 self._scap_backport_interact(child)
             finally:
@@ -471,13 +476,13 @@ class BackportsTestHelper:
             "merge_commit_backport",
             "top",
         )
+        self.scap_backport([change_url1])
+
         change_url2 = self.make_mediawiki_core_developers_md_change(
             "merge_commit_backport",
             "bottom",
             "This is expected to result in a merge commit",
         )
-
-        self.scap_backport([change_url1])
         self.scap_backport([change_url2])
 
     # There are two types of dependency chains that can be set up.  One occurs when you push
@@ -591,55 +596,283 @@ class BackportsTestHelper:
 
         child = self._start_scap_backport(change_urls)
         child.expect(
-            r"Change '\d+' has dependencies '\[.*\]', which are not merged or scheduled for backport"
+            r"Change '\d+' has dependency '\d+', which is not merged or scheduled for backport"
         )
         child.wait()
         return child.exitstatus
 
-    def setup_depends_on_included_in(self):
+    def master_dependency_backport_fails(self, change_urls) -> int:
         """
-        1. Create a mediawiki commit on the master branch and merge it.  Store the Change-Id.
-        2. "Cherry-pick" the commit to a production branch and backport it.  Use the same Change-Id.
-        3. Create a mediawiki-config change which Depends-On the Change-Id.
-        4. Return the change_url of this final change, which the caller is expected to backport.
-           There are no expected additional prompts during the backport since the Depends-On matches
-           a change that is included in a production branch.
+        Attempts to backport one or more commits with master dependencies that
+        are not present in all deployable branches.
+
+        Returns the exit status of scap backport
         """
 
-        # Create and merge a change to mediawiki/core, master branch.
-        self.git_clone("master", "mediawiki/core", self.mwcore_dir)
+        child = self._start_scap_backport(change_urls)
+        child.expect(r"Master dependencies must be deployed to all active branches")
+        child.wait()
+        return child.exitstatus
+
+    def setup_depends_on_master_included_in_production(self):
+        """
+        T388025: Set up a scenario where a master branch change is included in production
+        branches (simulating normal train process), and a config change depends
+        on it.
+
+        Returns a list of change URLs: [wmf_branch_change_url, config_change_url].
+        """
+
+        # Create and merge a change to mediawiki/core master branch
+        self.setup_core_repo(branch="master")
 
         filepath = self.mwcore_dir + "/README.md"
-        text = "Added by setup_depends_on_included_in on " + datetime.now().strftime(
-            "%Y-%m-%d %H:%M:%S"
+        text = (
+            "Added by setup_depends_on_master_included_in_production on "
+            + datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         )
-        commit_msg = f"{filepath}: setup_depends_on_included_in"
+        commit_msg = "T388025 test: master change to be included in production branches"
 
-        change_url = self.change_and_push_file(
+        master_change_url = self.change_and_push_file(
             self.mwcore_dir, "master", filepath, text, commit_msg
         )
-        change_id = self.get_change_id(self.mwcore_dir)
-        self.approve_and_wait_for_merge(change_url)
+        master_change_id = self.get_change_id(self.mwcore_dir)
+        self.approve_and_wait_for_merge(master_change_url)
 
-        # Perform a fake cherry-pick by making the same change on the production branch, using
-        # the same Change-Id in the commit message.  We do a fake cherry-pick so we don't have to
-        # worry about conflicts between the master and production branches.
-        self.git_command(self.mwcore_dir, ["checkout", self.mwbranch])
-        change_url2 = self.change_and_push_file(
-            self.mwcore_dir,
-            self.mwbranch,
-            filepath,
+        self.git_command(self.mwcore_dir, ["checkout", "master"])
+        self.git_command(self.mwcore_dir, ["pull", "origin", "master"])
+        master_commit = subprocess.check_output(
+            ["git", "-C", self.mwcore_dir, "rev-parse", "HEAD"], text=True
+        ).strip()
+
+        # Simulate the master change being included in production branches
+        # This simulates what happens during the normal train process
+        self.setup_core_repo(branch=self.mwbranch)
+
+        # Cherry-pick the master commit into the production branch
+        # Use the same approach as setup_dependency_chain()
+        self.git_command(
+            self.mwcore_dir, ["cherry-pick", "-x", "-Xtheirs", master_commit]
+        )
+
+        wmf_change_url = self.push_and_collect_url(self.mwcore_dir, self.mwbranch)
+        self.approve_and_wait_for_merge(wmf_change_url)
+        self.git_command(self.mwcore_dir, ["reset", "--hard", "HEAD~1"])
+
+        # Create config change that depends on the master change
+        # This mimics the actual scenario from T388025 where config changes
+        # have Depends-On pointing to the master change
+
+        # Freshen up the config repo
+        self.setup_mediawiki_config_repo()
+
+        readme_path = self.mwconfig_dir + "/README"
+        text = "\nAdded by T388025 test config change on " + datetime.now().strftime(
+            "%Y-%m-%d %H:%M:%S"
+        )
+        commit_msg = "T388025 test config change\n\n" f"Depends-On: {master_change_id}"
+
+        config_change_url = self.change_and_push_file(
+            self.mwconfig_dir,
+            "train-dev",  # Use the config branch
+            readme_path,
             text,
-            commit_msg + f"\n\nChange-Id: {change_id}",
+            commit_msg,
         )
-        self.scap_backport([change_url2])
+        self.git_command(self.mwconfig_dir, ["reset", "--hard", "HEAD~1"])
 
-        # Finally, create a change which Depends-On the Change-Id.
-        commit_msg = (
-            "Depends-On a Change-Id which matches a prod and non-prod branch\n\nDepends-On: %s"
-            % change_id
+        return [wmf_change_url, config_change_url]
+
+    def setup_depends_on_master_not_deployed_to_all_branches(self):
+        """
+        Set up a scenario where a master branch MediaWiki code change exists
+        but is NOT present in all deployable branches, and a config change
+        depends on it. This should cause the master dependency validation
+        to fail with an error about missing branches.
+
+        Returns a list of change URLs: [master_change_url, config_change_url].
+        """
+
+        # Create and merge a change to mediawiki/core master branch
+        self.setup_core_repo(branch="master")
+
+        filepath = self.mwcore_dir + "/README.md"
+        text = (
+            "Added by setup_depends_on_master_not_deployed_to_all_branches on "
+            + datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         )
-        return self.setup_config_change("normal", context=commit_msg)
+        commit_msg = "Test: master change NOT deployed to all branches"
+
+        master_change_url = self.change_and_push_file(
+            self.mwcore_dir, "master", filepath, text, commit_msg
+        )
+        master_change_id = self.get_change_id(self.mwcore_dir)
+        self.approve_and_wait_for_merge(master_change_url)
+
+        # Importantly: We DO NOT cherry-pick this master change into production branches
+        # This simulates a scenario where a master change was merged but hasn't been
+        # deployed to wmf branches yet (e.g., waiting for the next train)
+
+        # Create config change that depends on the master change
+        self.setup_mediawiki_config_repo()
+
+        readme_path = self.mwconfig_dir + "/README"
+        text = (
+            "\nAdded by master not deployed test config change on "
+            + datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        )
+        commit_msg = (
+            "Test config change with undeployed master dependency\n\n"
+            f"Depends-On: {master_change_id}"
+        )
+
+        config_change_url = self.change_and_push_file(
+            self.mwconfig_dir,
+            "train-dev",  # Use the config branch
+            readme_path,
+            text,
+            commit_msg,
+        )
+        self.git_command(self.mwconfig_dir, ["reset", "--hard", "HEAD~1"])
+
+        return [master_change_url, config_change_url]
+
+    def setup_cross_repo_same_changeid_dependency(self):
+        """
+        T387798: Set up a scenario where:
+        1. A master branch change exists with Change-Id X
+        2. The same Change-Id X is also on a wmf branch (different change number)
+        3. A config change depends on Change-Id X
+        4. Both the wmf branch change and config change are deployed together
+
+        This reproduces the scenario where scap warns about the master branch
+        version not being deployed, even though the wmf version is being deployed.
+
+        Returns a list of change URLs: [master_change_url, wmf_change_url, config_change_url].
+        """
+
+        # 1. Create a change on master branch first
+        self.setup_core_repo(branch="master")
+
+        filepath = self.mwcore_dir + "/README.md"
+        text = (
+            "Added by setup_cross_repo_same_changeid_dependency master on "
+            + datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        )
+        commit_msg = "T387798 test: master change with shared Change-Id"
+
+        master_change_url = self.change_and_push_file(
+            self.mwcore_dir, "master", filepath, text, commit_msg
+        )
+        shared_change_id = self.get_change_id(self.mwcore_dir)
+        # Reset local checkout after pushing
+        self.git_command(self.mwcore_dir, ["reset", "--hard", "HEAD~1"])
+
+        # 2. Create a different change on wmf branch but with the SAME Change-Id
+        # This simulates the scenario where the same logical change exists
+        # on both master and wmf branches (common in MediaWiki workflow)
+        self.setup_core_repo(branch=self.mwbranch)
+
+        # Make a different file change but use the same Change-Id
+        filepath2 = self.mwcore_dir + "/COPYING"
+        text2 = (
+            "Added by setup_cross_repo_same_changeid_dependency wmf on "
+            + datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        )
+        commit_msg2 = f"T387798 test: wmf change with shared Change-Id\n\nChange-Id: {shared_change_id}"
+
+        wmf_change_url = self.change_and_push_file(
+            self.mwcore_dir, self.mwbranch, filepath2, text2, commit_msg2
+        )
+        # Reset local checkout after pushing
+        self.git_command(self.mwcore_dir, ["reset", "--hard", "HEAD~1"])
+
+        # 3. Create config change that depends on the shared Change-Id
+        self.setup_mediawiki_config_repo()
+
+        readme_path = self.mwconfig_dir + "/README"
+        text3 = "\nAdded by T387798 test config change on " + datetime.now().strftime(
+            "%Y-%m-%d %H:%M:%S"
+        )
+        commit_msg3 = "T387798 test config change\n\n" f"Depends-On: {shared_change_id}"
+
+        config_change_url = self.change_and_push_file(
+            self.mwconfig_dir,
+            "train-dev",
+            readme_path,
+            text3,
+            commit_msg3,
+        )
+        # Reset local checkout after pushing
+        self.git_command(self.mwconfig_dir, ["reset", "--hard", "HEAD~1"])
+
+        # Return all three changes: master, wmf, and config
+        # In T387798 scenario, we deploy wmf + config together
+        # Master should not cause warnings since wmf version is being deployed
+        return [master_change_url, wmf_change_url, config_change_url]
+
+    def setup_depends_on_relation_chain(self) -> list:
+        """
+        Constructs a chain of 3 commits where each commit beyond the first has
+        a Depends-On footer pointing to the prior commit, but all commits are
+        pushed together as a single relation chain stack (not individually).
+        This tests the combination of Depends-On footers with relation chain structure.
+
+        All commits use the same train branch to ensure they can be pushed as a relation chain.
+
+        Returns a list of change URLs.
+        """
+        # Freshen - use train branch for all commits
+        self.setup_core_repo(branch=self.mwbranch)
+
+        files = ["COPYING", "CREDITS", "FAQ"]
+
+        # Create the first commit
+        file = files[0]
+        path = os.path.join(self.mwcore_dir, file)
+        text = (
+            "Added by setup_depends_on_relation_chain (1) on "
+            + datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        )
+        commit_msg = f"{file}: setup_depends_on_relation_chain (1)"
+        self.write_to_file(path, text, append=True)
+        self.git_commit(self.mwcore_dir, commit_msg, path)
+        change_id = self.get_change_id(self.mwcore_dir)
+
+        # Create the second commit with Depends-On pointing to the first
+        file = files[1]
+        path = os.path.join(self.mwcore_dir, file)
+        text = (
+            "Added by setup_depends_on_relation_chain (2) on "
+            + datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        )
+        commit_msg = (
+            f"{file}: setup_depends_on_relation_chain (2)\n\nDepends-On: {change_id}"
+        )
+        self.write_to_file(path, text, append=True)
+        self.git_commit(self.mwcore_dir, commit_msg, path)
+        change_id = self.get_change_id(self.mwcore_dir)
+
+        # Create the third commit with Depends-On pointing to the second
+        file = files[2]
+        path = os.path.join(self.mwcore_dir, file)
+        text = (
+            "Added by setup_depends_on_relation_chain (3) on "
+            + datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        )
+        commit_msg = (
+            f"{file}: setup_depends_on_relation_chain (3)\n\nDepends-On: {change_id}"
+        )
+        self.write_to_file(path, text, append=True)
+        self.git_commit(self.mwcore_dir, commit_msg, path)
+
+        # Push all 3 commits together as a relation chain (not individually)
+        change_urls = self.push_and_collect_urls(self.mwcore_dir, self.mwbranch)
+
+        # Reset local commits after pushing
+        self.git_command(self.mwcore_dir, ["reset", "--hard", "HEAD~3"])
+
+        return change_urls
 
     def depends_with_nonprod_branch(self) -> pexpect.spawn:
         """
@@ -686,6 +919,245 @@ class BackportsTestHelper:
         self.git_command(self.mwconfig_dir, ["reset", "--hard", "HEAD~1"])
 
         return self._start_scap_backport([change_url])
+
+    def setup_rule_1a_mw_code_to_non_master_mw_code(self):
+        """
+        T362987 Rule 1a: Set up scenario where MW code change depends on non-master MW code.
+        This should do no extra validation.
+
+        Returns a list of change URLs: [dependency_change_url, dependent_change_url].
+        """
+        # Create first change in mediawiki/core on wmf branch
+        self.setup_core_repo(branch=self.mwbranch)
+
+        filepath = self.mwcore_dir + "/README.md"
+        text = (
+            "Added by setup_rule_1a_mw_code_to_non_master_mw_code (1) on "
+            + datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        )
+        commit_msg = "T362987 Rule 1a test: MW code change (dependency)"
+
+        dep_change_url = self.change_and_push_file(
+            self.mwcore_dir, self.mwbranch, filepath, text, commit_msg
+        )
+        dep_change_id = self.get_change_id(self.mwcore_dir)
+        self.approve_and_wait_for_merge(dep_change_url)
+        self.git_command(self.mwcore_dir, ["reset", "--hard", "HEAD~1"])
+
+        # Create second change in mediawiki/extensions/VisualEditor that depends on first
+        self.setup_visualeditor_repo()
+
+        filepath2 = self.mwvisualeditor_dir + "/README.md"
+        text2 = (
+            "Added by setup_rule_1a_mw_code_to_non_master_mw_code (2) on "
+            + datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        )
+        commit_msg2 = f"T362987 Rule 1a test: MW extension change depending on non-master MW code\n\nDepends-On: {dep_change_id}"
+
+        dependent_change_url = self.change_and_push_file(
+            self.mwvisualeditor_dir, self.mwbranch, filepath2, text2, commit_msg2
+        )
+        self.git_command(self.mwvisualeditor_dir, ["reset", "--hard", "HEAD~1"])
+
+        return [dep_change_url, dependent_change_url]
+
+    def setup_rule_1b_mw_code_to_master_success(self):
+        """
+        T362987 Rule 1b success: Set up scenario where MW code change depends on master MW code
+        that IS present in the target branch.
+
+        Returns a list of change URLs: [master_change_url, wmf_change_url, dependent_change_url].
+        """
+        # Create master change in mediawiki/core
+        self.setup_core_repo(branch="master")
+
+        filepath = self.mwcore_dir + "/README.md"
+        text = (
+            "Added by setup_rule_1b_mw_code_to_master_success master on "
+            + datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        )
+        commit_msg = "T362987 Rule 1b test: master MW code change"
+
+        master_change_url = self.change_and_push_file(
+            self.mwcore_dir, "master", filepath, text, commit_msg
+        )
+        master_change_id = self.get_change_id(self.mwcore_dir)
+        self.approve_and_wait_for_merge(master_change_url)
+
+        # Get the master commit and cherry-pick it to wmf branch
+        self.git_command(self.mwcore_dir, ["checkout", "master"])
+        self.git_command(self.mwcore_dir, ["pull", "origin", "master"])
+        master_commit = subprocess.check_output(
+            ["git", "-C", self.mwcore_dir, "rev-parse", "HEAD"], text=True
+        ).strip()
+
+        # Cherry-pick to wmf branch (simulating normal train process)
+        self.setup_core_repo(branch=self.mwbranch)
+        self.git_command(
+            self.mwcore_dir, ["cherry-pick", "-x", "-Xtheirs", master_commit]
+        )
+
+        wmf_change_url = self.push_and_collect_url(self.mwcore_dir, self.mwbranch)
+        self.approve_and_wait_for_merge(wmf_change_url)
+        self.git_command(self.mwcore_dir, ["reset", "--hard", "HEAD~1"])
+
+        # Run scap prep auto to ensure the cherry-pick is fully integrated
+        # Ideally this would be replaced with something that just updates the
+        # relevant repo in the staging dircectory.  Scap prep auto is too heavyweight.
+        subprocess.check_call(["scap", "prep", "auto"])
+
+        # Create extension change that depends on the master change
+        self.setup_visualeditor_repo()
+
+        filepath2 = self.mwvisualeditor_dir + "/README.md"
+        text2 = (
+            "Added by setup_rule_1b_mw_code_to_master_success extension on "
+            + datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        )
+        commit_msg2 = f"T362987 Rule 1b test: extension change depending on master MW code\n\nDepends-On: {master_change_id}"
+
+        dependent_change_url = self.change_and_push_file(
+            self.mwvisualeditor_dir, self.mwbranch, filepath2, text2, commit_msg2
+        )
+        self.git_command(self.mwvisualeditor_dir, ["reset", "--hard", "HEAD~1"])
+
+        return [master_change_url, wmf_change_url, dependent_change_url]
+
+    def setup_rule_1b_mw_code_to_master_failure(self):
+        """
+        T362987 Rule 1b failure: Set up scenario where MW code change depends on master MW code
+        that is NOT present in the target branch.
+
+        Returns a list of change URLs: [master_change_url, dependent_change_url].
+        """
+        # Create master change in mediawiki/core but don't cherry-pick it
+        self.setup_core_repo(branch="master")
+
+        filepath = self.mwcore_dir + "/README.md"
+        text = (
+            "Added by setup_rule_1b_mw_code_to_master_failure master on "
+            + datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        )
+        commit_msg = "T362987 Rule 1b test: master MW code change NOT in target branch"
+
+        master_change_url = self.change_and_push_file(
+            self.mwcore_dir, "master", filepath, text, commit_msg
+        )
+        master_change_id = self.get_change_id(self.mwcore_dir)
+        self.approve_and_wait_for_merge(master_change_url)
+        self.git_command(self.mwcore_dir, ["reset", "--hard", "HEAD~1"])
+
+        # Importantly: Do NOT cherry-pick to wmf branch - this causes the validation failure
+
+        # Create extension change that depends on the master change
+        self.setup_visualeditor_repo()
+
+        filepath2 = self.mwvisualeditor_dir + "/README.md"
+        text2 = (
+            "Added by setup_rule_1b_mw_code_to_master_failure extension on "
+            + datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        )
+        commit_msg2 = f"T362987 Rule 1b test: extension change depending on undeployed master MW code\n\nDepends-On: {master_change_id}"
+
+        dependent_change_url = self.change_and_push_file(
+            self.mwvisualeditor_dir, self.mwbranch, filepath2, text2, commit_msg2
+        )
+        self.git_command(self.mwvisualeditor_dir, ["reset", "--hard", "HEAD~1"])
+
+        return [master_change_url, dependent_change_url]
+
+    def setup_rule_2_depends_on_config(self):
+        """
+        T362987 Rule 2: Set up scenario where MW code change depends on config repo.
+        This should do no extra validation.
+
+        Returns a list of change URLs: [config_change_url, mw_change_url].
+        """
+        # Create config change
+        self.setup_mediawiki_config_repo()
+
+        readme_path = self.mwconfig_dir + "/README"
+        text = "Added by setup_rule_2_depends_on_config on " + datetime.now().strftime(
+            "%Y-%m-%d %H:%M:%S"
+        )
+        commit_msg = "T362987 Rule 2 test: config change"
+
+        config_change_url = self.change_and_push_file(
+            self.mwconfig_dir, "train-dev", readme_path, text, commit_msg
+        )
+        config_change_id = self.get_change_id(self.mwconfig_dir)
+        self.approve_and_wait_for_merge(config_change_url)
+        self.git_command(self.mwconfig_dir, ["reset", "--hard", "HEAD~1"])
+
+        # Create MW code change that depends on config
+        self.setup_core_repo(branch=self.mwbranch)
+
+        filepath = self.mwcore_dir + "/README.md"
+        text2 = (
+            "Added by setup_rule_2_depends_on_config MW change on "
+            + datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        )
+        commit_msg2 = f"T362987 Rule 2 test: MW code change depending on config\n\nDepends-On: {config_change_id}"
+
+        mw_change_url = self.change_and_push_file(
+            self.mwcore_dir, self.mwbranch, filepath, text2, commit_msg2
+        )
+        self.git_command(self.mwcore_dir, ["reset", "--hard", "HEAD~1"])
+
+        return [config_change_url, mw_change_url]
+
+    def setup_rule_3a_config_to_non_master_mw_code(self):
+        """
+        T362987 Rule 3a: Set up scenario where config change depends on non-master MW code.
+        This should do no extra validation.
+
+        Returns a list of change URLs: [mw_change_url, config_change_url].
+        """
+        # Create MW code change on wmf branch
+        self.setup_core_repo(branch=self.mwbranch)
+
+        filepath = self.mwcore_dir + "/README.md"
+        text = (
+            "Added by setup_rule_3a_config_to_non_master_mw_code MW change on "
+            + datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        )
+        commit_msg = "T362987 Rule 3a test: MW code change on wmf branch"
+
+        mw_change_url = self.change_and_push_file(
+            self.mwcore_dir, self.mwbranch, filepath, text, commit_msg
+        )
+        mw_change_id = self.get_change_id(self.mwcore_dir)
+        self.approve_and_wait_for_merge(mw_change_url)
+        self.git_command(self.mwcore_dir, ["reset", "--hard", "HEAD~1"])
+
+        # Create config change that depends on MW code
+        self.setup_mediawiki_config_repo()
+
+        readme_path = self.mwconfig_dir + "/README"
+        text2 = (
+            "Added by setup_rule_3a_config_to_non_master_mw_code config on "
+            + datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        )
+        commit_msg2 = f"T362987 Rule 3a test: config change depending on non-master MW code\n\nDepends-On: {mw_change_id}"
+
+        config_change_url = self.change_and_push_file(
+            self.mwconfig_dir, "train-dev", readme_path, text2, commit_msg2
+        )
+        self.git_command(self.mwconfig_dir, ["reset", "--hard", "HEAD~1"])
+
+        return [mw_change_url, config_change_url]
+
+    def rule_1b_target_branch_backport_fails(self, change_url) -> int:
+        """
+        Attempts to backport a MW code change that depends on master MW code
+        not present in the target branch.
+
+        Returns the exit status of scap backport.
+        """
+        child = self._start_scap_backport([change_url])
+        child.expect(r"Master dependencies must be cherry-picked to the target branch")
+        child.wait()
+        return child.exitstatus
 
     def setup_extension_change(self):
         """Creates an extension change and pushes to Gerrit.  This will result in
@@ -907,23 +1379,24 @@ class TestBackports(unittest.TestCase):
         )
         self._test_dependencies("Depends-On", change_urls)
 
-    def test_depends_on_included_in(self):
-        announce(
-            "Testing a Depends-On commited to a non-production branch but then included in a production branch"
-            " allows backport to continue"
-        )
-        change_url = self.backports_test_helper.setup_depends_on_included_in()
-        self.backports_test_helper.scap_backport([change_url])
-
     def test_depends_on_different_branch(self):
         announce(
-            "Testing Depends-On a different branch makes the dependency be ignored"
+            "Testing: Depends-On to different branch triggers warning for irrelevant dependencies"
         )
 
         child = self.backports_test_helper.depends_with_nonprod_branch()
-        child.expect(
-            r"Change.*specified 'Depends-On'.*Ignore dependencies and continue with backport?"
-        )
+        # T365146 says "If a change in the dependency trail specifies a Depends-On clause
+        # but no relevant dependencies can be determined for it, scap should prompt with a
+        # confirmation warning to let the operator know about the anomalous situation"
+
+        # First, expect the warning message about irrelevant dependencies
+        child.expect_exact("Warnings found:")
+        child.expect("but none were deemed relevant by the dependency analysis rules")
+        child.expect_exact("Continue with backport anyway? [y/N]:")
+        child.sendline("y")
+
+        # After handling the warning, proceed to the normal backport confirmation
+        child.expect(r"Backport the changes\? \[y/N\]:")
         child.sendline("y")
         self.backports_test_helper._scap_backport_interact(child)
 
@@ -950,17 +1423,18 @@ class TestBackports(unittest.TestCase):
         child.wait()
 
         # Now we abandon the middle change. Last change Depends-On middle change but they belong to different branches,
-        # so backporting the last change should succeed when the user confirms the operation
-        abandoned_change_number = change_urls[1].split("/")[-1]
+        # With T365146, cross-branch dependencies are automatically [NOT Relevant] and ignored,
+        # but the abandoned change is still detected in the dependency chain and causes failure
+        middle_change_number = change_urls[1].split("/")[-1]
         self.backports_test_helper.abandon_change(change_urls[1])
         backported_change_number = change_urls[2].split("/")[-1]
         child = self.backports_test_helper._start_scap_backport([change_urls[2]])
-        child.expect(
-            rf"Change {backported_change_number} specified 'Depends-On'.*Ignore dependencies and continue with"
-            " backport?"
+        # With T365146, the system detects the abandoned change in the dependency chain and fails
+        child.expect_exact(
+            f"Change '{abandoned_change_number}' has been abandoned! Change is pulled by the following dependency"
+            f" chain: {backported_change_number} -> {middle_change_number} -> {abandoned_change_number}"
         )
-        child.sendline("y")
-        self.backports_test_helper._scap_backport_interact(child)
+        child.wait()
 
     def test_extra_commit_confirmation(self):
         announce(
@@ -1048,3 +1522,152 @@ class TestBackports(unittest.TestCase):
         child.expect_exact("Change '0' not found")
         child.wait()
         self.assertNotEqual(child.exitstatus, 0)
+
+    # T388025
+    def test_depends_on_master_included_in_production(self):
+        """
+        Test scenario where a master branch code change is included in production
+        branches via cherry-pick, and a config change depends on it. Scap should
+        proceed normally since the dependency is satisfied through the cherry-picked
+        change in the production branch.
+        """
+        announce(
+            "Testing master change included via cherry-pick allows normal backport"
+        )
+
+        change_urls = (
+            self.backports_test_helper.setup_depends_on_master_included_in_production()
+        )
+
+        self.backports_test_helper.scap_backport(change_urls)
+
+    def test_depends_on_master_not_deployed_to_all_branches(self):
+        """
+        Test scenario where a master branch MediaWiki code change exists but
+        is NOT present in all deployable branches, and a config change depends
+        on it. This should cause scap backport to fail with an error about
+        the master dependency not being deployed to all active branches.
+        """
+        announce(
+            "Testing master change not deployed to all branches causes backport failure"
+        )
+
+        change_urls = (
+            self.backports_test_helper.setup_depends_on_master_not_deployed_to_all_branches()
+        )
+
+        # This backport should fail because the master dependency is not present
+        # in all deployable branches
+        child = self.backports_test_helper._start_scap_backport(
+            [change_urls[1]]  # Only try to backport the config change
+        )
+        child.expect(r"Master dependencies must be deployed to all active branches")
+        child.wait()
+
+        # Verify that the failure was due to the master dependency validation
+        # The exit status should be non-zero indicating failure
+        self.assertNotEqual(child.exitstatus, 0)
+
+    # T387798
+    def test_depends_on_cross_repo_same_changeid(self):
+        """
+        Test scenario where a config change depends on a Change-Id that exists
+        in both master and wmf branches, and both the wmf branch change and
+        config change are being deployed simultaneously. Scap should not warn
+        about the master branch version when the wmf version is also being
+        deployed in the same command.
+        """
+        announce(
+            "Testing cross-repo dependency with same Change-Id in multiple branches"
+        )
+
+        change_urls = (
+            self.backports_test_helper.setup_cross_repo_same_changeid_dependency()
+        )
+
+        # Deploy only the wmf branch change and config change (not the master change)
+        # This reproduces T387798: config depends on Change-Id that exists in both
+        # master and wmf, but we're only deploying the wmf version + config
+        # Should proceed without warnings about master branch version
+        wmf_and_config_changes = [change_urls[1], change_urls[2]]  # Skip master change
+        self.backports_test_helper.scap_backport(wmf_and_config_changes)
+
+    def test_depends_on_chain_all_commits(self):
+        """
+        Test scenario with a chain of 3 commits where each commit beyond the first
+        has a Depends-On pointing to the prior commit. All commits are pushed as a
+        single relation chain stack and then backported to ensure scap doesn't get
+        confused by the combination of Depends-On footers and relation chain structure.
+        """
+        announce("Testing Depends-On chain pushed as relation chain stack")
+
+        # Create a chain of 3 commits with both Depends-On relationships AND pushed as relation chain
+        change_urls = self.backports_test_helper.setup_depends_on_relation_chain()
+
+        # Backport all 3 commits together to test that scap correctly handles
+        # the combination of Depends-On footers and relation chain structure
+        announce(
+            f"Backporting all 3 commits in the Depends-On relation chain: {change_urls}"
+        )
+        self.backports_test_helper.scap_backport(change_urls)
+
+    def test_rule_1a_mw_code_depends_on_non_master_mw_code(self):
+        """Test T362987 Rule 1a: MW code change depending on non-master MW code should do no extra validation."""
+        announce("Testing Rule 1a: MW code → non-master MW code (no extra validation)")
+
+        change_urls = (
+            self.backports_test_helper.setup_rule_1a_mw_code_to_non_master_mw_code()
+        )
+
+        # Should succeed without any extra validation
+        self.backports_test_helper.scap_backport(change_urls)
+
+    def test_rule_1b_mw_code_depends_on_master_success(self):
+        """Test T362987 Rule 1b success: MW code depending on master MW code present in target branch."""
+        announce(
+            "Testing Rule 1b success: MW code → master MW code (target branch validation passes)"
+        )
+
+        change_urls = (
+            self.backports_test_helper.setup_rule_1b_mw_code_to_master_success()
+        )
+
+        # Only backport the dependent extension change (not the master changes)
+        # The master dependency should be detected and validation should pass because it's in target branch
+        self.backports_test_helper.scap_backport([change_urls[2]])
+
+    def test_rule_1b_mw_code_depends_on_master_failure(self):
+        """Test T362987 Rule 1b failure: MW code depending on master MW code missing from target branch."""
+        announce(
+            "Testing Rule 1b failure: MW code → master MW code (target branch validation fails)"
+        )
+
+        change_urls = (
+            self.backports_test_helper.setup_rule_1b_mw_code_to_master_failure()
+        )
+
+        # Should fail because master dependency is not present in target branch
+        child = self.backports_test_helper._start_scap_backport([change_urls[1]])
+        child.expect(r"Master dependencies must be cherry-picked to the target branch")
+        child.wait()
+        self.assertNotEqual(child.exitstatus, 0)
+
+    def test_rule_2_depends_on_config_repo(self):
+        """Test T362987 Rule 2: Dependencies on config repo should do no extra validation."""
+        announce("Testing Rule 2: Dependencies on config repo (no extra validation)")
+
+        change_urls = self.backports_test_helper.setup_rule_2_depends_on_config()
+
+        # Should succeed without any extra validation
+        self.backports_test_helper.scap_backport(change_urls)
+
+    def test_rule_3a_config_depends_on_non_master_mw_code(self):
+        """Test T362987 Rule 3a: Config change depending on non-master MW code should do no extra validation."""
+        announce("Testing Rule 3a: Config → non-master MW code (no extra validation)")
+
+        change_urls = (
+            self.backports_test_helper.setup_rule_3a_config_to_non_master_mw_code()
+        )
+
+        # Should succeed without any extra validation
+        self.backports_test_helper.scap_backport(change_urls)

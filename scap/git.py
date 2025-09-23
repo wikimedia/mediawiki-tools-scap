@@ -198,6 +198,23 @@ def get_branch(directory):
         return head
 
 
+def get_deployable_branches(directory):
+    """
+    Get an ordered set of all deployable MediaWiki train branch names on disk.
+
+    This function gets all deployable directories and extracts their
+    corresponding branch names using git branch detection.
+    Special branches like "master" and "next" will not be returned.
+
+    :param directory: The staging directory containing php-* subdirectories
+
+    :returns: A set of branch names (e.g., {'wmf/1.41.0-wmf.1', 'wmf/1.41.0-wmf.2'})
+    """
+    return {
+        get_branch(dir_path) for dir_path in utils.get_deployable_directories(directory)
+    }
+
+
 def info(directory, remote="origin", branch=None) -> dict:
     """Compute git version information for a given directory that is
     compatible with MediaWiki's GitInfo class.

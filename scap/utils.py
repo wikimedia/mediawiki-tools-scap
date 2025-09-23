@@ -684,10 +684,42 @@ def get_active_directories(directory, realm):
     )
 
 
-def get_wikiversions_ondisk(directory) -> list:
+def get_deployable_directories(directory):
+    """
+    Get an ordered list of all deployable MediaWiki train version directories on disk.
+
+    This is similar to get_active_directories() but returns all checked out
+    php-* directories on disk rather than just those mentioned in wikiversions.
+    Only train branch versions are considered deployable.  Special branches
+    such as "master" and "next" are ignored.
+
+    :param directory: The staging directory containing php-* subdirectories
+
+    :returns: A list of directory paths (e.g., '/srv/mediawiki-staging/php-1.41.0-wmf.1'),
+              sorted in ascending version order.
+    """
+    # Get unique version strings that exist on disk
+    versions = get_wikiversions_ondisk(directory, trainBranchesOnly=True)
+
+    # Create list of directory paths with php- prefix
+    directories = [os.path.join(directory, f"php-{version}") for version in versions]
+
+    # Sort by version number
+    return sorted(
+        directories,
+        key=lambda d: parse_wmf_version(
+            os.path.basename(d)[4:]  # Extract version from "php-X.Y.Z-wmf.N"
+        ),
+    )
+
+
+def get_wikiversions_ondisk(directory, trainBranchesOnly=False) -> list:
     """
     Returns a list of the train branch versions that are currently
     checked out in DIRECTORY.  The list is sorted in ascending order.
+
+    If `trainBranchesOnly` is True, only versions matching the train
+    branch format will be returned.
 
     :returns: list like::
         ['1.41.0-wmf.1', '1.41.0-wmf.2']
@@ -695,7 +727,13 @@ def get_wikiversions_ondisk(directory) -> list:
     """
 
     def is_wikiversion(name):
-        return BRANCH_RE.match(name[len("php-") :]) or name == "php-master"
+        if BRANCH_RE.match(name[len("php-") :]):
+            return True
+
+        if trainBranchesOnly:
+            return False
+        else:
+            return name in ["php-master", "php-next"]
 
     versions = [
         d[len("php-") :]

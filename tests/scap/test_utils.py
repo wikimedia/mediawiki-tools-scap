@@ -4,7 +4,7 @@ import os
 import pytest
 from unittest.mock import patch
 
-from scap import utils
+from scap import git, utils
 
 
 def test_version_re():
@@ -187,6 +187,24 @@ def test_write_file_if_needed(tmpdir):
 
 
 @pytest.fixture
+def mock_staging_directory(tmpdir):
+    """Create a mock staging directory with typical php-* subdirectories."""
+    for dir in [
+        "php-master",
+        "php-next",
+        "php-1.40.0-wmf.4",
+        "php-1.29.0-wmf.3",
+        "php-1.29.0-wmf.2",
+    ]:
+        os.mkdir(os.path.join(tmpdir, dir))
+
+    # Also create a file that shouldn't be included (testing edge case)
+    open(tmpdir / "php-1.40.0-wmf.2", "w").close()
+
+    return tmpdir
+
+
+@pytest.fixture
 def sample_wikiversions_file(tmpdir):
     wikiversions_file = os.path.join(tmpdir, "wikiversions-test.json")
 
@@ -240,11 +258,45 @@ def test_get_active_directories(tmpdir, sample_wikiversions_file):
     ]
     assert res == expected_dirs
 
-    # Verify the directories are sorted by version order
-    assert len(res) == 3
-    assert "php-1.42.0-wmf.22" in res[0]  # Lower version should come first
-    assert "php-1.42.0-wmf.25" in res[1]  # Higher version should come second
-    assert "php-master" in res[2]  # Master should come last (highest version)
+
+def test_get_deployable_directories(mock_staging_directory):
+    res = utils.get_deployable_directories(mock_staging_directory)
+
+    # Only train branches are deployable, not "master" or "next"
+    expected_dirs = [
+        os.path.join(mock_staging_directory, "php-1.29.0-wmf.2"),
+        os.path.join(mock_staging_directory, "php-1.29.0-wmf.3"),
+        os.path.join(mock_staging_directory, "php-1.40.0-wmf.4"),
+    ]
+    assert res == expected_dirs
+
+
+@patch("scap.git.get_branch")
+def test_get_deployable_branches(mock_get_branch, mock_staging_directory):
+    # Mock git.get_branch to return appropriate branch names
+    def mock_branch_mapping(directory):
+        basename = os.path.basename(directory)
+        if basename == "php-master":
+            return "master"
+        elif basename == "php-next":
+            return "next"
+        elif basename.startswith("php-"):
+            version = basename[4:]  # Remove "php-" prefix
+            return f"wmf/{version}"
+        else:
+            raise IOError("Unknown directory")
+
+    mock_get_branch.side_effect = mock_branch_mapping
+
+    res = git.get_deployable_branches(mock_staging_directory)
+
+    # Only train branches (wmf/*) are considered deployable, not "master" or "next"
+    expected_branches = {
+        "wmf/1.29.0-wmf.2",
+        "wmf/1.29.0-wmf.3",
+        "wmf/1.40.0-wmf.4",
+    }
+    assert res == expected_branches
 
 
 @pytest.mark.parametrize(
@@ -320,20 +372,23 @@ def test_select_latest_patches(tmpdir):
     assert utils.select_latest_patches(tmpdir, before_next=True) == normal
 
 
-def test_get_wikiversions_ondisk(tmpdir):
-    for dir in [
-        "php-master",
-        "php-1.40.0-wmf.4",
-        "php-1.29.0-wmf.3",
-        "php-1.29.0-wmf.2",
-    ]:
-        os.mkdir(os.path.join(tmpdir, dir))
-    open(tmpdir / "php-1.40.0-wmf.2", "w").close()
-    assert utils.get_wikiversions_ondisk(tmpdir) == [
+def test_get_wikiversions_ondisk(mock_staging_directory):
+    # Test with trainBranchesOnly=False (default) - should include all versions
+    assert utils.get_wikiversions_ondisk(mock_staging_directory) == [
         "1.29.0-wmf.2",
         "1.29.0-wmf.3",
         "1.40.0-wmf.4",
+        "next",
         "master",
+    ]
+
+    # Test with trainBranchesOnly=True - should only include train branches
+    assert utils.get_wikiversions_ondisk(
+        mock_staging_directory, trainBranchesOnly=True
+    ) == [
+        "1.29.0-wmf.2",
+        "1.29.0-wmf.3",
+        "1.40.0-wmf.4",
     ]
 
 
