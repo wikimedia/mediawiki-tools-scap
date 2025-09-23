@@ -5,6 +5,7 @@ import hashlib
 import os
 import platform
 import re
+from typing import List
 import requests.exceptions
 import socket
 import subprocess
@@ -111,50 +112,71 @@ class GitRepos:
         self.core_repos[version][self.MEDIAWIKI_CORE] = core_path
         return self.core_repos[version]
 
-    def any_branch_of_mediawiki_project_is_deployable(self, project, branches):
+    def targets_deployable_code(self, change: "GerritChange") -> bool:
         """mediawiki & extensions projects only.
-        Checks if any of the branches a project is in are deployable to production mediawiki
-        """
-        for branch in branches:
-            version = branch.replace("wmf/", "")
-            if os.path.isdir(f"{self.mediawiki_location}/php-{version}"):
-                if project in self._get_core_repos_for_version(version):
-                    return True
-        return False
+        Returns True if the change's branch/project is deployable to production mediawiki.
 
-    def any_branch_of_mediawiki_project_is_in_production(self, project, branches):
-        """mediawiki & extensions projects only.
-        Checks if any of the branches a project is in are deployed to production mediawiki
+        Deployable means:
+        1. There is a corresponding php-<version> directory in the staging
+           directory, implying that it has been checked out by scap prep.
+        2. The project is mediawiki/core itself, or the project exists in the submodules of
+           mediawiki/core on that branch.
         """
-        included_in_production_branches = set(
-            [f"wmf/{v}" for v in self.versions]
-        ).intersection(branches)
-        for branch in included_in_production_branches:
+        project = change.get("project")
+        branch = change.get("branch")
+
+        version = branch.replace("wmf/", "")
+        return os.path.isdir(
+            f"{self.mediawiki_location}/php-{version}"
+        ) and project in self._get_core_repos_for_version(version)
+
+    def targets_live_code(self, change: "GerritChange") -> bool:
+        """mediawiki & extensions projects only.
+
+        Returns True if the branch of `change` is live (i.e., mentioned in wikiversions.json)
+        and the project is mediawiki/core itself, or the project exists in the submodules of
+        mediawiki/core on that branch.
+        """
+        project = change.get("project")
+        branch = change.get("branch")
+
+        if branch.startswith("wmf/"):
             version = branch.replace("wmf/", "")
-            if project in self._get_core_repos_for_version(version):
+            if (
+                version in self.versions
+                and project in self._get_core_repos_for_version(version)
+            ):
                 return True
         return False
 
-    def are_any_branches_deployable(self, project, branches):
-        """Checks if any of the branches a 'change' is included in (as a commit)
-        are deployable to production and whether the change's project exists in any
-        of the deployable branches.
+    def change_is_deployable(self, change: "GerritChange") -> bool:
         """
-        return self.is_in_production_config(
-            project, branches
-        ) or self.any_branch_of_mediawiki_project_is_deployable(project, branches)
+        Returns True if `change` is a deployable MediaWiki config or code change.
 
-    def are_any_branches_in_production(self, project, branches):
-        """Checks if any of the branches a 'change' is included in (as a commit)
-        are currently deployed to production and whether the change's project exists in any
-        of the deployed branches.
+        Deployable means:
+        1. The project is a top level mediawiki code or config repo, or
+           exists as a submodule of a top level repo on the change's branch.
+        2. For code changes, there is a corresponding php-<version> directory
+           in the staging directory, implying that it has been checked out by scap prep.
+
+        This is the very first validation that is performed on changes
+        supplied to scap backport.
         """
-        return self.is_in_production_config(
-            project, branches
-        ) or self.any_branch_of_mediawiki_project_is_in_production(project, branches)
+        return self.targets_prod_config(change) or self.targets_deployable_code(change)
 
-    def is_in_production_config(self, project, branches):
-        return self.config_branch in branches and project in self.config_repos
+    def change_targets_production(self, change: "GerritChange") -> bool:
+        """
+        Returns True if change's branch is currently deployed to production and the change's
+        project exists as a submodule of the top level repo on that branch.
+
+        For code changes, this means that the branch/version is mentioned in wikiversions.json
+        """
+        return self.targets_prod_config(change) or self.targets_live_code(change)
+
+    def targets_prod_config(self, change: "GerritChange") -> bool:
+        project = change.get("project")
+        branch = change.get("branch")
+        return self.config_branch == branch and project in self.config_repos
 
     def get_repo_location(self, project, branch, use_submodule_directory=False):
         """Gets the location of the repo for the project and version defined by the branch.
@@ -186,11 +208,12 @@ class GerritChanges:
     Manages gerrit changes to be backported
     """
 
-    gerrit = None
-    changes = None
+    gerrit: GerritSession = None
+    # This is a dict of GerritChange objects, keyed by change number
+    changes: dict[int, "GerritChange"] = None
     change_numbers = None
 
-    def __init__(self, logger, gerrit, change_numbers):
+    def __init__(self, logger, gerrit: GerritSession, change_numbers):
         self.logger = logger
         self.gerrit = gerrit
         self.change_numbers = change_numbers
@@ -213,11 +236,13 @@ class GerritChange:
     gerrit = None
     number = None
     details = None
-    depends_ons = None
+    depends_ons: List["GerritChange"] = None
     depends_on_cycle = None
     needed_by_chain = None
 
-    def __init__(self, gerrit, number, details=None, needed_by_chain=None):
+    def __init__(
+        self, gerrit: GerritSession, number, details=None, needed_by_chain=None
+    ):
         self.gerrit = gerrit
         self.number = number
         if details is not None:
@@ -237,36 +262,54 @@ class GerritChange:
         # The changes this change depends on
         depends_ons = self.gerrit.depends_ons(self.get("id")).get()
         self.depends_on_cycle = depends_ons.cycle
-        self.depends_ons = depends_ons.depends_on_found
+        self.depends_ons = [
+            GerritChange(
+                self.gerrit, dep_info["_number"], dep_info, self.needed_by_chain
+            )
+            for dep_info in depends_ons.depends_on_found
+        ]
 
         self._validate()
 
     def get(self, key):
         return self.details.get(key)
 
+    def __str__(self):
+        return f"Change '{self.number}', project: '{self.get('project')}', branch: '{self.get('branch')}'"
+
     def is_merged(self):
         return self.details.status == "MERGED"
+
+    def get_link(self):
+        """Generate a formatted link for this change"""
+        return f"\t* {self.gerrit.url}/c/{self.get('project')}/+/{self.number}".replace(
+            "//c", "/c"
+        )
 
     def update_details(self, get_all_revisions=False):
         revisionid = "all" if get_all_revisions else "current"
         self.details = self.gerrit.change_detail(self.number, revisionid).get()
 
-    def _validate(self):
-        def formatted_dep_chain():
-            chain = " -> ".join(self.needed_by_chain)
-            return f" Change is pulled by the following dependency chain: {chain}"
+    def _format_dependency_chain(self) -> str:
+        """Format the dependency chain for error messages."""
+        chain = " -> ".join(self.needed_by_chain)
+        return f" Change is pulled by the following dependency chain: {chain}"
 
-        if self.get("status") == "ABANDONED":
-            raise InvalidChangeException(
-                f"Change '{self.number}' has been abandoned!{formatted_dep_chain()}"
-            )
+    def _validate(self):
         if self.get("work_in_progress"):
             raise InvalidChangeException(
-                f"Change '{self.number}' is a work in progress and not ready for merge!{formatted_dep_chain()}"
+                f"Change '{self.number}' is a work in progress and not ready for merge!{self._format_dependency_chain()}"
             )
         if bool(self.depends_on_cycle):
             raise InvalidChangeException(
-                f"A dependency cycle was detected for change {self.number}!{formatted_dep_chain()}"
+                f"A dependency cycle was detected for change {self.number}!{self._format_dependency_chain()}"
+            )
+
+    def validate_not_abandoned(self):
+        """Validate that this change is not abandoned. Should be called only for relevant dependencies."""
+        if self.get("status") == "ABANDONED":
+            raise InvalidChangeException(
+                f"Change '{self.number}' has been abandoned!{self._format_dependency_chain()}"
             )
 
 
@@ -672,25 +715,13 @@ class Backport(cli.Application):
 
         return int(number)
 
-    def _confirm_change(self, change_details):
+    def _confirm_non_live_change(self, change: "GerritChange"):
         """
         In case the backport is not in a production branch, get confirmation from operator
         """
 
-        project = change_details["project"]
-        branch = change_details["branch"]
-        included_in_branches = set(
-            self.gerrit.change_in(change_details["id"]).get().branches
-        )
-        included_in_branches.add(branch)
-
-        if not self.git_repos.are_any_branches_in_production(
-            project, included_in_branches
-        ):
-            complaint = (
-                "Change '%s', project '%s', branch '%s' not found in any deployed wikiversion. Deployed wikiversions: %s"
-                % (change_details["_number"], project, branch, list(self.versions))
-            )
+        if not self.git_repos.change_targets_production(change):
+            complaint = f"{change} not found in any deployed wikiversion. Deployed wikiversions: {list(self.versions)}"
             if self.arguments.yes:
                 self.get_logger().warning(complaint)
             else:
@@ -706,14 +737,12 @@ class Backport(cli.Application):
 
         for change_number, change in self.backports.changes.items():
             unmet_dependencies = []
-            project = change.details["project"]
-            branch = change.details["branch"]
-            if not self.git_repos.are_any_branches_deployable(project, [branch]):
+            if not self.git_repos.change_is_deployable(change):
                 raise InvalidChangeException(
-                    f"Change '{change.number}, branch {branch} is not deployable to production"
+                    f"{change} is not deployable to production"
                 )
 
-            self._confirm_change(change.details)
+            self._confirm_non_live_change(change)
             self._validate_dependencies(change, unmet_dependencies)
             if len(unmet_dependencies) > 0:
                 raise InvalidChangeException(
@@ -743,53 +772,131 @@ class Backport(cli.Application):
                     rel, change.needed_by_chain, unmet_dependencies
                 )
 
-    def _validate_depends_ons(self, change, unmet_dependencies):
-        def is_relevant_dep(dep_changeinfo):
-            # Case where the dependency project is the configuration repo or one of its submodules and the branch its
-            # production branch (e.g. "master"). Other branches in those repos are not relevant during backport
-            if dep_changeinfo["project"] in self.git_repos.config_repos:
-                return dep_changeinfo["branch"] == self.config_branch
-            # Case where the dependant is the configuration repo and the dependency a MW repo. In this situation there
-            # is not enough information to determine which MW dep(s) is/are intended when there are several of them. We
-            # verify in case of a non-prod branch and continue
-            if self.git_repos.is_in_production_config(
-                change.get("project"), [change.get("branch")]
-            ):
-                self._confirm_change(dep_changeinfo)
+    # Implement the rules defined in https://phabricator.wikimedia.org/T365146
+    def is_relevant_dep(
+        self,
+        change: GerritChange,
+        dep_change: GerritChange,
+        all_dependencies: List[GerritChange],
+    ) -> bool:
+        """
+        Determine if `dep_change` is a relevant dependency for `change` according to T365146 rules.
+
+        Rules:
+        1. Change and Dep are MW code & Br is deployable --> Dep will be relevant if it targets Br,
+           or if it targets master but there is no sibling dependency targeting Br.
+        2. If Dep targets production config --> Dep will be relevant
+        3. If change targets_prod_config or change is MW code targeting master, then
+           Dep will be relevant if it's a deployable change, or if it targets master but there are no siblings
+           targeting deployable branches
+        """
+        change_branch = change.get("branch")
+        dep_branch = dep_change.get("branch")
+
+        # Check repo types once
+        dep_is_prod_config = self.git_repos.targets_prod_config(dep_change)
+        change_targets_prod_config = self.git_repos.targets_prod_config(change)
+        change_is_mw_code = self.git_repos.targets_deployable_code(change)
+        dep_is_mw_code = self.git_repos.targets_deployable_code(dep_change)
+
+        # If dep is not in a MW code or config repo, it's not relevant
+        if not dep_is_mw_code and not dep_is_prod_config:
+            return False
+
+        # Case 2: If Dep targets production config --> Dep will be relevant
+        if dep_is_prod_config:
+            return True
+
+        # Case 1: Change and Dep are MW code & change branch is deployable
+        if change_is_mw_code and dep_is_mw_code:
+            # Dep is relevant if it targets the same branch
+            if dep_branch == change_branch:
                 return True
-            # Case where branches match. In this case we know this is the intended dependency
-            return change.get("branch") == dep_changeinfo["branch"]
+            # Or if it targets master and there's no sibling targeting the same branch
+            if dep_branch == "master":
+                return not self._has_sibling_targeting_branch(
+                    dep_change, change_branch, all_dependencies
+                )
+            return False
 
-        def get_link(dep_changeinfo):
-            return f"\t* {self.gerrit.url}/c/{dep_changeinfo['project']}/+/{dep_changeinfo['_number']}".replace(
-                "//c", "/c"
-            )
+        # Case 3: If change targets_prod_config or change is MW code targeting master
+        if change_targets_prod_config or (
+            change_is_mw_code and change_branch == "master"
+        ):
+            # Dep is relevant if it's a deployable change
+            if self.git_repos.change_is_deployable(dep_change):
+                return True
+            # Or if it targets master and there are no siblings targeting deployable branches
+            if dep_branch == "master":
+                return not self._has_sibling_targeting_deployable_branches(
+                    dep_change, all_dependencies
+                )
+            return False
 
-        relevant_deps = [
-            dep_changeinfo
-            for dep_changeinfo in change.depends_ons
-            if is_relevant_dep(dep_changeinfo)
-        ]
+        # Fallback: not relevant
+        return False
+
+    def _has_sibling_targeting_branch(
+        self,
+        dep_change: GerritChange,
+        target_branch: str,
+        all_dependencies: List[GerritChange],
+    ) -> bool:
+        """Check if there's a sibling dependency (same change-id) targeting the specified branch."""
+        dep_change_id = dep_change.get("change_id")
+        for sibling in all_dependencies:
+            if (
+                sibling.get("change_id") == dep_change_id
+                and sibling.number != dep_change.number
+                and sibling.get("branch") == target_branch
+            ):
+                return True
+        return False
+
+    def _has_sibling_targeting_deployable_branches(
+        self, dep_change: GerritChange, all_dependencies: List[GerritChange]
+    ) -> bool:
+        """Check if there's a sibling dependency targeting any deployable branch."""
+        dep_change_id = dep_change.get("change_id")
+        for sibling in all_dependencies:
+            if (
+                sibling.get("change_id") == dep_change_id
+                and sibling.number != dep_change.number
+                and self.git_repos.targets_deployable_code(sibling)
+            ):
+                return True
+        return False
+
+    def _validate_depends_ons(self, change: GerritChange, unmet_dependencies):
+        original_dependencies = list(change.depends_ons)
+
+        relevant_deps = []
+        for dep_change in change.depends_ons:
+            relevant = self.is_relevant_dep(change, dep_change, original_dependencies)
+            if relevant:
+                relevant_deps.append(dep_change)
+
+            msg = "Relevant" if relevant else "NOT Relevant"
+            self.get_logger().info(f"{change} Depends-On {dep_change} [{msg}]")
+
         if (
             len(change.depends_ons) > 0
             and len(relevant_deps) == 0
             and not self.arguments.yes
         ):
             found_deps_links = "\n".join(
-                [get_link(dep_changeinfo) for dep_changeinfo in change.depends_ons]
+                [dep_change.get_link() for dep_change in change.depends_ons]
             )
             self._prompt_for_approval_or_exit(
                 f"Change {change.number} specified 'Depends-On' but found dependencies are neither configuration\n"
-                f" changes nor do they belong to the same branch. Found dependencies are:\n{found_deps_links}\n"
+                f"changes nor do they belong to the same branch. Found dependencies are:\n{found_deps_links}\n"
                 f"Ignore dependencies and continue with {self.backport_or_revert}?",
             )
 
-        for dep_changeinfo in relevant_deps:
-            self.get_logger().info(
-                f"Dependency {dep_changeinfo['_number']} found for {change.number}"
-            )
+        for dep_change in relevant_deps:
+            dep_change.validate_not_abandoned()
             self._validate_chain_change(
-                dep_changeinfo, change.needed_by_chain, unmet_dependencies
+                dep_change.details, change.needed_by_chain, unmet_dependencies
             )
 
     def _validate_chain_change(
@@ -817,7 +924,7 @@ class Backport(cli.Application):
                     "Change '%s' has not yet been merged and cannot be reverted."
                     % change_number
                 )
-            self._confirm_change(change.details)
+            self._confirm_non_live_change(change)
 
     def _wait_for_changes_to_be_merged(self):
         self.report_status(

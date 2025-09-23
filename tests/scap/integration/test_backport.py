@@ -641,6 +641,75 @@ class BackportsTestHelper:
         )
         return self.setup_config_change("normal", context=commit_msg)
 
+    def setup_depends_on_master_included_in_production(self):
+        """
+        T388025: Set up a scenario where a master branch change is included in production
+        branches (simulating normal train process), and a config change depends
+        on it.
+
+        Returns a list of change URLs: [wmf_branch_change_url, config_change_url].
+        """
+
+        # Create and merge a change to mediawiki/core master branch
+        self.setup_core_repo(branch="master")
+
+        filepath = self.mwcore_dir + "/README.md"
+        text = (
+            "Added by setup_depends_on_master_included_in_production on "
+            + datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        )
+        commit_msg = "T388025 test: master change to be included in production branches"
+
+        master_change_url = self.change_and_push_file(
+            self.mwcore_dir, "master", filepath, text, commit_msg
+        )
+        master_change_id = self.get_change_id(self.mwcore_dir)
+        self.approve_and_wait_for_merge(master_change_url)
+
+        self.git_command(self.mwcore_dir, ["checkout", "master"])
+        self.git_command(self.mwcore_dir, ["pull", "origin", "master"])
+        master_commit = subprocess.check_output(
+            ["git", "-C", self.mwcore_dir, "rev-parse", "HEAD"], text=True
+        ).strip()
+
+        # Simulate the master change being included in production branches
+        # This simulates what happens during the normal train process
+        self.setup_core_repo(branch=self.mwbranch)
+
+        # Cherry-pick the master commit into the production branch
+        # Use the same approach as setup_dependency_chain()
+        self.git_command(
+            self.mwcore_dir, ["cherry-pick", "-x", "-Xtheirs", master_commit]
+        )
+
+        wmf_change_url = self.push_and_collect_url(self.mwcore_dir, self.mwbranch)
+        self.approve_and_wait_for_merge(wmf_change_url)
+        self.git_command(self.mwcore_dir, ["reset", "--hard", "HEAD~1"])
+
+        # Create config change that depends on the master change
+        # This mimics the actual scenario from T388025 where config changes
+        # have Depends-On pointing to the master change
+
+        # Freshen up the config repo
+        self.setup_mediawiki_config_repo()
+
+        readme_path = self.mwconfig_dir + "/README"
+        text = "\nAdded by T388025 test config change on " + datetime.now().strftime(
+            "%Y-%m-%d %H:%M:%S"
+        )
+        commit_msg = "T388025 test config change\n\n" f"Depends-On: {master_change_id}"
+
+        config_change_url = self.change_and_push_file(
+            self.mwconfig_dir,
+            "train-dev",  # Use the config branch
+            readme_path,
+            text,
+            commit_msg,
+        )
+        self.git_command(self.mwconfig_dir, ["reset", "--hard", "HEAD~1"])
+
+        return [wmf_change_url, config_change_url]
+
     def depends_with_nonprod_branch(self) -> pexpect.spawn:
         """
         Using the configuration repository (`operations/mediawiki-config`), creates two changes in a Depends-On
@@ -1048,3 +1117,21 @@ class TestBackports(unittest.TestCase):
         child.expect_exact("Change '0' not found")
         child.wait()
         self.assertNotEqual(child.exitstatus, 0)
+
+    # T388025
+    def test_depends_on_master_included_in_production(self):
+        """
+        Test scenario where a master branch code change is included in production
+        branches via cherry-pick, and a config change depends on it. Scap should
+        proceed normally since the dependency is satisfied through the cherry-picked
+        change in the production branch.
+        """
+        announce(
+            "Testing master change included via cherry-pick allows normal backport"
+        )
+
+        change_urls = (
+            self.backports_test_helper.setup_depends_on_master_included_in_production()
+        )
+
+        self.backports_test_helper.scap_backport(change_urls)
