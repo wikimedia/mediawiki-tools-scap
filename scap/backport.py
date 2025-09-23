@@ -270,10 +270,6 @@ class GerritChange:
             )
 
 
-def _get_submodule_urls(repo):
-    return git.list_submodules(repo, "--recursive")
-
-
 @cli.command(
     "backport",
     help="List, apply, or revert backports",
