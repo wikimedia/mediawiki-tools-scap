@@ -144,30 +144,29 @@ def get_branch(directory):
         return head
 
 
-def info(directory, remote="origin"):
+def info(directory, remote="origin", branch=None) -> dict:
     """Compute git version information for a given directory that is
     compatible with MediaWiki's GitInfo class.
 
     :param directory: Directory to scan for git information
+    :param remote: Name of remote to use for finding public commit
+    :param branch: Name of branch to use for finding public commit
     :returns: Dict of information about current repository state
     """
     git_dir = resolve_gitdir(directory)
     head = sha(directory, "HEAD")
-    # NOTICE: branch will most likely be a plain commit hash for submodule directories
-    # since they are usually in detached HEAD state.
-    branch = get_branch(directory)
 
     # This information is used by https://<site>/wiki/Special:Version
     # to construct a link to a commit in Gerrit (gitiles), so it must
     # not refer to a local commit (i.e., a patch).  Use git merge-base
     # to find the nearest public commit.
     try:
+        if not branch:
+            raise ValueError("branch must be specified to find public commit")
         head_sha1 = gitcmd(
-            "merge-base", "HEAD", "{}".format(remote), cwd=directory
+            "merge-base", "HEAD", f"{remote}/{branch}", cwd=directory
         ).strip()
     except Exception:
-        # The git merge-base command won't work if origin doesn't have
-        # a HEAD reference (which points to the default branch).
         head_sha1 = sha(directory, "HEAD")
 
     commit_date = gitcmd("show", "-s", "--format=%ct", head_sha1, cwd=directory).strip()
@@ -180,10 +179,15 @@ def info(directory, remote="origin"):
         remote_url = ""
         utils.get_logger().info("Unable to find remote URL for %s", git_dir)
 
+    if branch is None:
+        # NOTICE: branch will most likely be a plain commit hash for submodule directories
+        # since they are usually in detached HEAD state.
+        branch = get_branch(directory)
+
     return {
         "@directory": directory,
         "head": head,
-        "headSHA1": head_sha1,
+        "headSHA1": head_sha1,  # This is the public commit
         "headCommitDate": commit_date,
         "branch": branch,
         "remoteURL": remote_url,

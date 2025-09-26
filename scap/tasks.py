@@ -61,9 +61,9 @@ RELOAD = "reload"
 DISABLE_SECONDARY = "disable-secondary"
 
 
-def cache_git_info_helper(subdir, branch_dir, cache_dir):
+def cache_git_info_helper(subdir, branch_dir, cache_dir, branch_name):
     try:
-        new_info = git.info(subdir)
+        new_info = git.info(subdir, branch=branch_name)
     except IOError:
         return
 
@@ -91,6 +91,7 @@ def cache_git_info(version, cfg):
     :raises: :class:`IOError` if version directory is not found
     """
     branch_dir = os.path.join(cfg["stage_dir"], "php-%s" % version)
+    branch_name = f"wmf/{version}"
 
     if not os.path.isdir(branch_dir):
         raise IOError(errno.ENOENT, "Invalid branch directory", branch_dir)
@@ -102,11 +103,11 @@ def cache_git_info(version, cfg):
 
     inputs = []
 
-    inputs.append((branch_dir, branch_dir, cache_dir))
+    inputs.append((branch_dir, branch_dir, cache_dir, branch_name))
     for dirname in ["extensions", "skins"]:
         full_dir = os.path.join(branch_dir, dirname)
         for subdir in utils.iterate_subdirectories(full_dir):
-            inputs.append((subdir, branch_dir, cache_dir))
+            inputs.append((subdir, branch_dir, cache_dir, branch_name))
 
     # Create cache for core and each extension and skin
     with multiprocessing.Pool(utils.cpus_for_jobs()) as p:
