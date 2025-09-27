@@ -1312,6 +1312,8 @@ def inspect_images(image_ids: list) -> list:
     """
     Return details of the given images.
     """
+    if not image_ids:
+        return []
     cmd = ["docker", "image", "inspect", *image_ids]
     with subprocess.Popen(cmd, stdout=subprocess.PIPE) as proc:
         return json.load(proc.stdout)
