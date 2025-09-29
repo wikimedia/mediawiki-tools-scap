@@ -1,3 +1,9 @@
+scap (4.213.0)
+
+  * scap clean-images: sudo to the docker_user if needed
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Mon, 29 Sep 2025 10:53:54 -0700
+
 scap (4.212.0)
 
   * kubernetes.py: Handle multiple clusters better
