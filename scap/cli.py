@@ -165,6 +165,15 @@ class Application(object):
             exclude_hosts=exclude_hosts,
         ).all
 
+    def is_docker_user(self):
+        """Return True if the current user is the same as docker_user from scap.cfg."""
+        docker_user = self.config.get("docker_user")
+        if docker_user is None:
+            return False
+
+        current_user = utils.get_real_username()
+        return current_user == docker_user
+
     def announce(self, *args):
         """
         Announce a message to broadcast listeners.

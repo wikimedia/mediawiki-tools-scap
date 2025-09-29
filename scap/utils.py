@@ -199,6 +199,15 @@ def get_user_fullname(name=None):
     return pwd.getpwnam(name).pw_gecos.split(",")[0]
 
 
+def is_docker_user(config):
+    """Return True if the current user is the same as docker_user from config."""
+    docker_user = config.get("docker_user")
+    if docker_user is None:
+        return False
+
+    return get_real_username() == docker_user
+
+
 def get_env_specific_filename(path, env=None):
     """Find a file specific to the environment in which scap is running."""
     if env is None:
