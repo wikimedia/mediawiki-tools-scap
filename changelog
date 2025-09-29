@@ -1,3 +1,15 @@
+scap (4.211.0)
+
+  * kubernetes.py: Fix inspect_images() with empty list
+  * git.py: Fix info() public commit selection
+  * backport.py: Remove unused _get_submodule_urls function
+  * kubernetes.py: Inline uses of dep_config.fq_release_name
+  * kubernetes.py: Define DepConfig and use it
+  * Remove .gitreview
+  * pyproject.toml: Add scap.fake_backport_data to packages list
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Mon, 29 Sep 2025 08:34:59 -0700
+
 scap (4.210.0)
 
   * Update call to build-images.py
