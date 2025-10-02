@@ -783,6 +783,10 @@ class K8sOps:
                 self._run_timed_cmd_quietly(
                     cmd, helmfile_dir, self.logger, really_quiet=True
                 )
+                if not os.path.exists(tmp.name) or os.path.getsize(tmp.name) == 0:
+                    raise Exception(
+                        f"Failed read helmfile values for {dep_config}\nCheck {helmfile_dir}/helmfile.yaml configuration for environment '{dep_config.cluster}' and release '{dep_config.release}'."
+                    )
                 total += yaml.safe_load(tmp).get("resources", {}).get("replicas", 0)
 
         return total
