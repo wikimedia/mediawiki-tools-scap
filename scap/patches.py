@@ -7,7 +7,6 @@ import os
 import re
 import shutil
 import sys
-from abc import abstractmethod
 from datetime import timedelta, datetime
 from typing import Iterator, Optional
 
@@ -346,90 +345,46 @@ class ApplyPatches(cli.Application):
         )
 
 
-class PatchUserManipulation(cli.Application):
-    def __init__(self, exe_name):
-        super().__init__(exe_name)
+class PatchOperationBase(cli.Application):
+    """Base class for patch operations with common setup functionality."""
 
-        self.patch_name = None
-        # Core, or particular extension/skin
-        self.module = None
-        self.target_version = None
-        self.target_version_dir = None
+    def setup_patch_environment(self):
+        """Common setup for patch operations: umask, git clean check, env vars."""
+        os.umask(self.config["umask"])
 
-    @cli.argument(
-        "--message-body",
-        default=None,
-        help="Optional body to add to the commit message",
-    )
-    @cli.argument(
-        "patch_path",
-        help="Full path to the security patch",
-    )
-    def main(self, *extra_args):
-        try:
-            os.umask(self.config["umask"])
-            self._post_init()
-            if not git_is_clean(self.config["patch_path"]):
-                utils.abort(f"git is not clean: {self.config['patch_path']}")
+        if not git_is_clean(self.config["patch_path"]):
+            utils.abort(f"git is not clean: {self.config['patch_path']}")
 
-            git.set_env_vars_for_user()
-
-            if self.target_version == "next":
-                update_next_patches(self.config["patch_path"], self.get_logger())
-                self._sanity_check_next_patches()
-
-            if not os.path.isdir(self.target_version_dir):
-                self.get_logger().info(
-                    f"Directory for version {self.target_version} does not exist yet and will be created"
-                )
-                self._prime_target_version_dir()
-
-            self._operation_on_patch()
-            self._git_add_patch_changes()
-            if git_is_clean(self.config["patch_path"]):
-                self.get_logger().info("Patch has not changed. Nothing else to do")
-                return
-
-            commit_message = [
-                "-m",
-                f"Scap {self._operation_name()}-patch: {self.target_version}/{self.module}/{self.patch_name}",
-            ]
-            if self.arguments.message_body:
-                commit_message += ["-m", self.arguments.message_body]
-            self._gitcmd("commit", *commit_message)
-
-            self.get_logger().info(
-                f"Patch {self.arguments.patch_path} {self._operation_name()}d"
-            )
-        except Exception as e:
-            utils.abort(f"Failed to {self._operation_name()} patch: {e}")
+        git.set_env_vars_for_user()
 
     def _gitcmd(self, *args):
+        """Execute git command in the patches directory."""
         gitcmd(*args, cwd=self.config["patch_path"])
 
-    def _post_init(self):
-        """
-        Initialization that requires self.config and self.arguments
-        """
+    def _parse_patch_path(self, patch_path):
+        """Parse a patch path and extract version, module, and patch name."""
         patch_info_re = (
             rf"{self.config['patch_path']}/(?P<version>[^/]+)/(?P<module>.+)"
             r"/(?P<patch_name>\d+-T\d+\.patch)$"
         )
-        patch_info = re.match(patch_info_re, self.arguments.patch_path)
-        if not patch_info:
+        match = re.match(patch_info_re, patch_path)
+        if not match:
             raise Exception(
-                f'"{self.arguments.patch_path}" does not look like a security patch path or the location is not right'
+                f'"{patch_path}" does not look like a security patch path or the location is not right'
             )
 
-        self.patch_name = patch_info.group("patch_name")
-        self.module = patch_info.group("module")
-        self.target_version = patch_info.group("version")
-        self.target_version_dir = os.path.join(
-            self.config["patch_path"], self.target_version
-        )
+        return {
+            "path": patch_path,
+            "version": match.group("version"),
+            "module": match.group("module"),
+            "patch_name": match.group("patch_name"),
+        }
 
-    def _prime_target_version_dir(self):
+    def _prime_target_version_dir(self, version, operation_name="patch"):
+        """Create target version directory by copying from latest patches."""
+        target_version_dir = os.path.join(self.config["patch_path"], version)
         latest_patches = utils.select_latest_patches(self.config["patch_path"])
+
         if not latest_patches:
             self.get_logger().warning(
                 f"Could not find any previous security patches. Is the {self.config['patch_path']} dir in a"
@@ -438,27 +393,25 @@ class PatchUserManipulation(cli.Application):
             return
 
         self.get_logger().info(
-            f"Copying patches from {latest_patches} to {self.target_version_dir}"
+            f"Copying patches from {latest_patches} to {target_version_dir}"
         )
-        shutil.copytree(latest_patches, self.target_version_dir)
+        shutil.copytree(latest_patches, target_version_dir)
 
-        self._git_add_patch_changes()
+        self._gitcmd("add", "--all")
         self._gitcmd(
             "commit",
             "-m",
-            f"Scap {self._operation_name()}-patch: initial patches for {self.target_version}",
+            f"Scap {operation_name}: initial patches for {version}",
         )
 
-    def _git_add_patch_changes(self):
-        self._gitcmd("add", "--all")
-
-    def _sanity_check_next_patches(self):
-        dropped = self.arguments.patch_path + ".dropped"
-        updated = self.arguments.patch_path + ".updated"
+    def _sanity_check_next_patch_state(self, patch_path):
+        """Validate the state of .dropped/.updated files for a next patch."""
+        dropped = patch_path + ".dropped"
+        updated = patch_path + ".updated"
 
         dropped_exists = os.path.exists(dropped)
         updated_exists = os.path.exists(updated)
-        patch_path_exists = os.path.exists(self.arguments.patch_path)
+        patch_path_exists = os.path.exists(patch_path)
 
         # Sanity checks
         if dropped_exists and updated_exists:
@@ -467,20 +420,14 @@ class PatchUserManipulation(cli.Application):
             )
         if (dropped_exists or updated_exists) and patch_path_exists:
             raise Exception(
-                f"Invalid state: {dropped} or {updated} should not exist if {self.arguments.patch_path} exists"
+                f"Invalid state: {dropped} or {updated} should not exist if {patch_path} exists"
             )
 
-    @abstractmethod
-    def _operation_on_patch(self):
-        pass
-
-    @abstractmethod
-    def _operation_name(self):
-        pass
+        return dropped_exists, updated_exists, patch_path_exists
 
 
 @cli.command("update-patch", primary_deploy_server_only=True)
-class UpdatePatch(PatchUserManipulation):
+class UpdatePatch(PatchOperationBase):
     """
     Update/create a security patch and commit the changes
 
@@ -509,9 +456,47 @@ class UpdatePatch(PatchUserManipulation):
         help="Full path to the revised security patch",
     )
     def main(self, *extra_args):
-        return super().main(*extra_args)
+        try:
+            self.setup_patch_environment()
 
-    def _operation_on_patch(self):
+            # Parse patch path and initialize instance variables
+            patch_info = self._parse_patch_path(self.arguments.patch_path)
+            self.patch_name = patch_info["patch_name"]
+            self.module = patch_info["module"]
+            self.target_version = patch_info["version"]
+            self.target_version_dir = os.path.join(
+                self.config["patch_path"], self.target_version
+            )
+
+            if self.target_version == "next":
+                update_next_patches(self.config["patch_path"], self.get_logger())
+                self._sanity_check_next_patch_state(self.arguments.patch_path)
+
+            if not os.path.isdir(self.target_version_dir):
+                self.get_logger().info(
+                    f"Directory for version {self.target_version} does not exist yet and will be created"
+                )
+                self._prime_target_version_dir(self.target_version, "update-patch")
+
+            self._update_patch()
+            self._gitcmd("add", "--all")
+            if git_is_clean(self.config["patch_path"]):
+                self.get_logger().info("Patch has not changed. Nothing else to do")
+                return
+
+            commit_message = [
+                "-m",
+                f"Scap update-patch: {self.target_version}/{self.module}/{self.patch_name}",
+            ]
+            if self.arguments.message_body:
+                commit_message += ["-m", self.arguments.message_body]
+            self._gitcmd("commit", *commit_message)
+
+            self.get_logger().info(f"Patch {self.arguments.patch_path} updated")
+        except Exception as e:
+            utils.abort(f"Failed to update patch: {e}")
+
+    def _update_patch(self):
         if self.target_version != "next":
             os.makedirs(os.path.dirname(self.arguments.patch_path), exist_ok=True)
             shutil.copyfile(
@@ -574,23 +559,21 @@ class UpdatePatch(PatchUserManipulation):
                 )
                 self._gitcmd("mv", updated, self.arguments.patch_path)
 
-    def _operation_name(self):
-        return "update"
-
 
 @cli.command("remove-patch", primary_deploy_server_only=True)
-class RemovePatch(PatchUserManipulation):
+class RemovePatch(PatchOperationBase):
     """
-    Remove a security patch and commit the change
+    Remove one or more security patches and commit the changes
 
-    The MediaWiki version directory is not required to exist yet, in that case a
-    new directory for the version will be created and populated with the patches
-    from the most recent available version. The specified patch will then be
-    removed.
+    Supports removing single or multiple patches in a single operation.
+    If any patches fail to be removed during batch processing, the command will
+    continue processing the remaining patches and exit with a non-zero status.
 
-    Example usage:
-    scap remove-patch --message-body "Remove patch already made public" \\
-        /srv/patches/1.42.0-wmf.20/extensions/GrowthExperiments/01-T123456.patch
+    Example:
+    scap remove-patch --message-body "Remove patches already made public" \\
+        /srv/patches/1.42.0-wmf.20/extensions/WikiLambda/01-T123456.patch \\
+        /srv/patches/1.42.0-wmf.20/extensions/WikiLambda/02-T123456.patch \\
+        /srv/patches/next/extensions/WikiLambda/01-T123456.patch
     """
 
     @cli.argument(
@@ -599,48 +582,147 @@ class RemovePatch(PatchUserManipulation):
         help="Optional body to add to the commit message",
     )
     @cli.argument(
-        "patch_path",
-        help="Full path to the security patch to remove",
+        "patch_paths",
+        nargs="+",
+        help="Full path(s) to the security patch(es) to remove",
     )
     def main(self, *extra_args):
-        return super().main(*extra_args)
+        self.setup_patch_environment()
+        logger = self.get_logger()
+        patches_path = self.config["patch_path"]
 
-    def _operation_on_patch(self):
-        if self.target_version != "next":
-            self._gitcmd("rm", self.arguments.patch_path)
+        # Update next patches at the start to ensure consistent state and collect auto-removed paths
+        auto_removed_paths = set(update_next_patches(patches_path, logger))
+
+        patches_by_version = {}
+        failed_patches = []
+        successful_patches = []
+
+        # First pass: validate and group patches
+        for patch_path in self.arguments.patch_paths:
+            try:
+                patch_info = self._parse_patch_path(patch_path)
+                version = patch_info["version"]
+
+                if version not in patches_by_version:
+                    patches_by_version[version] = []
+                patches_by_version[version].append(patch_info)
+
+            except Exception as e:
+                logger.error(f"Failed to parse patch path {patch_path}: {e}")
+                failed_patches.append((patch_path, str(e)))
+
+        # Second pass: process patches by version
+        for version, patches in patches_by_version.items():
+            try:
+                version_dir = os.path.join(patches_path, version)
+
+                # Ensure target version directory exists
+                if not os.path.isdir(version_dir):
+                    raise Exception(
+                        f"Directory for version {version} does not exist. "
+                        f"Cannot remove patches from a non-existent version."
+                    )
+
+                # Process each patch in this version
+                for patch_info in patches:
+                    # If this path was auto-removed during synchronization, count it as a success
+                    if patch_info["path"] in auto_removed_paths:
+                        logger.info(
+                            f"{patch_info['path']} was already removed during synchronization."
+                        )
+                        successful_patches.append(patch_info)
+                        continue
+                    try:
+                        self._remove_single_patch(patch_info, logger)
+                        successful_patches.append(patch_info)
+                    except Exception as e:
+                        logger.error(
+                            f"Failed to remove patch {patch_info['path']}: {e}"
+                        )
+                        failed_patches.append((patch_info["path"], str(e)))
+
+            except Exception as e:
+                logger.error(
+                    f"Failed to process one or more patches for version {version}: {e}"
+                )
+                for patch_info in patches:
+                    failed_patches.append((patch_info["path"], str(e)))
+
+        # Commit changes if any successful operations occurred
+        self._gitcmd("add", "--all")
+        if not git_is_clean(patches_path):
+            commit_message = self._create_commit_message(successful_patches)
+            self._gitcmd("commit", "-m", commit_message)
+            logger.info(
+                f"Successfully removed {len(successful_patches)} {utils.pluralize('patch', len(successful_patches))}"
+            )
+        else:
+            logger.info("No patches were changed. Nothing to commit.")
+
+        # Report results
+        if failed_patches:
+            logger.error(
+                f"Failed to remove {len(failed_patches)} {utils.pluralize('patch', len(failed_patches))}:"
+            )
+            for patch_path, error in failed_patches:
+                logger.error(f"  {patch_path}: {error}")
+
+        if successful_patches:
+            logger.info(
+                f"Successfully removed {len(successful_patches)} {utils.pluralize('patch', len(successful_patches))}:"
+            )
+            for patch_info in successful_patches:
+                logger.info(f"  {patch_info['path']}")
+
+        # Exit with non-zero status if any patches failed
+        if failed_patches:
+            return 1
+
+        return 0
+
+    def _remove_single_patch(self, patch_info, logger):
+        """Remove a single patch, handling both regular and 'next' versions."""
+        patch_path = patch_info["path"]
+        version = patch_info["version"]
+
+        if version != "next":
+            # Simple case: just remove the patch file
+            self._gitcmd("rm", patch_path)
+            logger.info(f"Removed {patch_path}")
             return
 
-        # "next" handling
+        # "next" handling - more complex logic for .dropped/.updated files
 
         # Scenarios with invalid states removed:
         # patch_patch exists | .dropped exists | .updated exists | Result
-        # no                 | no              | no              | Error: f"{self.arguments.patch_path} does not exist"
+        # no                 | no              | no              | Error: f"{patch_path} does not exist"
         # no                 | no              | yes             | The user wants to block a previously updated patch. Rename .updated to .dropped.
-        # no                 | yes             | no              | Error: f"{self.arguments.patch_path} has already been dropped"
+        # no                 | yes             | no              | Error: f"{patch_path} has already been dropped"
         # yes                | no              | no              | The user wants to block an inherited patch.  Rename patch_file to .dropped.
 
-        dropped = self.arguments.patch_path + ".dropped"
-        updated = self.arguments.patch_path + ".updated"
+        dropped = patch_path + ".dropped"
+        updated = patch_path + ".updated"
 
-        dropped_exists = os.path.exists(dropped)
-        updated_exists = os.path.exists(updated)
-        patch_path_exists = os.path.exists(self.arguments.patch_path)
-
-        logger = self.get_logger()
+        (
+            dropped_exists,
+            updated_exists,
+            patch_path_exists,
+        ) = self._sanity_check_next_patch_state(patch_path)
 
         if patch_path_exists:
             # The user wants to drop an inherited patch. (4th scenario)
-            logger.info(f"Renaming {self.arguments.patch_path} to {dropped}")
-            self._gitcmd("mv", self.arguments.patch_path, dropped)
+            logger.info(f"Renaming {patch_path} to {dropped}")
+            self._gitcmd("mv", patch_path, dropped)
             return
 
         if not dropped_exists and not updated_exists:
             # (1st scenario)
-            raise Exception(f"{self.arguments.patch_path} does not exist")
+            raise Exception(f"{patch_path} does not exist")
 
         if dropped_exists:
             # (3rd scenario)
-            raise Exception(f"{self.arguments.patch_path} has already been dropped")
+            raise Exception(f"{patch_path} has already been dropped")
 
         assert updated_exists
         # (2nd scenario)
@@ -648,26 +730,72 @@ class RemovePatch(PatchUserManipulation):
         logger.info(f"Renaming {updated} to {dropped}")
         self._gitcmd("mv", updated, dropped)
 
-    def _operation_name(self):
-        return "remove"
+    def _create_commit_message(self, successful_patches):
+        """Create a comprehensive commit message for the batch operation."""
+        base_message = f"Scap remove-patch: removed {len(successful_patches)} {utils.pluralize('patch', len(successful_patches))}"
+
+        if self.arguments.message_body:
+            base_message += f"\n\n{self.arguments.message_body}"
+
+        # Group patches by version for better commit message organization
+        by_version = {}
+        for patch_info in successful_patches:
+            version = patch_info["version"]
+            if version not in by_version:
+                by_version[version] = []
+            by_version[version].append(
+                f"{patch_info['module']}/{patch_info['patch_name']}"
+            )
+
+        base_message += "\n\nRemoved patches:"
+        for version in sorted(by_version.keys()):
+            base_message += f"\n{version}:"
+            for patch in sorted(by_version[version]):
+                base_message += f"\n  - {patch}"
+
+        return base_message
 
 
-def update_next_patches(patches_dir: str, logger, dry_run: bool = False):
+def update_next_patches(patches_dir: str, logger, dry_run: bool = False) -> list[str]:
+    """
+    Synchronize "next" patches with the most recent version directory.
+
+    This function updates the "next" patches directory to match the latest
+    patches from the most recent available version. It performs two phases:
+
+    1. ADD PHASE: Copies patches from the source to next/ if they don't already
+       exist there (as regular files, .dropped, or .updated files)
+
+    2. REMOVAL PHASE: Removes patches from next/ that no longer exist in the
+       source directory
+
+    Args:
+        patches_dir: Root patches directory (e.g., /srv/patches)
+        logger: Logger instance for output
+        dry_run: If True, only log what would be done without making changes
+
+    Note: This function commits changes to git if any modifications are made.
+
+    Returns:
+        A list of full paths (within the next/ directory) for patches that were
+        removed during the synchronization. If dry_run is True, an empty list is
+        returned since no changes are performed.
+    """
     if not git_is_clean(patches_dir):
         utils.abort(f"git is not clean: {patches_dir}")
 
     next_patches_dir = os.path.join(patches_dir, "next")
     source_patches_dir = utils.select_latest_patches(patches_dir, before_next=True)
     if not source_patches_dir:
-        return
+        return []
 
     dry_run_prefix = "DRY-RUN: " if dry_run else ""
     logger.info(
         f"{dry_run_prefix}Updating patches in {next_patches_dir} from {source_patches_dir}"
     )
     source_patches = SecurityPatches(source_patches_dir)
-    adds = []
-    removes = []
+    adds: list[str] = []
+    removes: list[str] = []
 
     # Add phase
     for patch in source_patches:
@@ -719,7 +847,7 @@ def update_next_patches(patches_dir: str, logger, dry_run: bool = False):
 
     if git_is_clean(patches_dir):
         logger.info(f"{next_patches_dir} is up-to-date")
-        return
+        return removes
 
     commit_message = "Patches updated by scap update-next-patches\n\n"
     if adds:
@@ -737,6 +865,7 @@ def update_next_patches(patches_dir: str, logger, dry_run: bool = False):
         cwd=next_patches_dir,
     )
     logger.info("Committed the changes")
+    return removes
 
 
 def finalize_next_patches(next_patches_dir: str, logger, dry_run: bool = False):
