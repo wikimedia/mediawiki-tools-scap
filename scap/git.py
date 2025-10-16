@@ -9,6 +9,8 @@ import collections
 import contextlib
 import errno
 import functools
+import json
+import multiprocessing
 import os
 import re
 import socket
@@ -57,6 +59,58 @@ def info_filename(directory, install_path, cache_path):
     if path.startswith(install_path):
         path = path[len(install_path) :]
     return os.path.join(cache_path, "info%s.json" % path.replace("/", "-"))
+
+
+def cache_git_info_helper(subdir, branch_dir, cache_dir, branch_name):
+    """Helper function for caching git info for a single directory."""
+    try:
+        new_info = info(subdir, branch=branch_name)
+    except IOError:
+        return
+
+    cache_file = info_filename(subdir, branch_dir, cache_dir)
+
+    old_info = None
+
+    if os.path.exists(cache_file):
+        with open(cache_file, "r") as f:
+            old_info = json.load(f)
+
+    if new_info == old_info:
+        return
+
+    with open(cache_file, "w") as f:
+        json.dump(new_info, f)
+
+
+def cache_git_info(branch_dir):
+    """
+    Create JSON cache files of git branch information.
+
+    :param branch_dir: MediaWiki version directory (eg '/srv/mediawiki-staging/1.38.0-wmf.20')
+    :raises: :class:`IOError` if version directory is not found
+    """
+    branch_name = get_branch(branch_dir)
+
+    if not os.path.isdir(branch_dir):
+        raise IOError(errno.ENOENT, "Invalid branch directory", branch_dir)
+
+    # Create cache directory if needed
+    cache_dir = os.path.join(branch_dir, "cache", "gitinfo")
+    if not os.path.isdir(cache_dir):
+        os.mkdir(cache_dir)
+
+    inputs = []
+
+    inputs.append((branch_dir, branch_dir, cache_dir, branch_name))
+    for dirname in ["extensions", "skins"]:
+        full_dir = os.path.join(branch_dir, dirname)
+        for subdir in utils.iterate_subdirectories(full_dir):
+            inputs.append((subdir, branch_dir, cache_dir, branch_name))
+
+    # Create cache for core and each extension and skin
+    with multiprocessing.Pool(utils.cpus_for_jobs()) as p:
+        p.starmap(cache_git_info_helper, inputs)
 
 
 def sha(location, rev):

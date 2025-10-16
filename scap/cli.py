@@ -40,6 +40,7 @@ import scap.version as version
 import scap.ansi as ansi
 import scap.arg as arg
 import scap.config as config
+import scap.git as git
 import scap.interaction as interaction
 import scap.lock as lock
 import scap.log as log
@@ -231,6 +232,19 @@ class Application(object):
         return utils.get_active_wikiversions(
             self.config[source_tree + "_dir"], self.config["wmf_realm"], return_type
         )
+
+    def cache_git_info(self):
+        """
+        Cache git version information for all active MediaWiki version directories.
+
+        This method iterates through all active directories and calls git.cache_git_info
+        for each one to ensure git information is cached for subsequent operations.
+        """
+        active_directories = utils.get_active_directories(
+            self.config["stage_dir"], self.config["wmf_realm"]
+        )
+        for directory in active_directories:
+            git.cache_git_info(directory)
 
     def get_versions_to_include_in_image(self) -> List[str]:
         versions = self.active_wikiversions("stage")

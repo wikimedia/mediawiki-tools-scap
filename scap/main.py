@@ -416,8 +416,7 @@ class AbstractSync(cli.Application):
     def _update_caches(self):
         # Compute git version information
         with self.Timer("cache_git_info"):
-            for version in self.active_wikiversions("stage"):
-                tasks.cache_git_info(version, self.config)
+            self.cache_git_info()
 
     def _check_fatals(self):
         logger = self.get_logger()

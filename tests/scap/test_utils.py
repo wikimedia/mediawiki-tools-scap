@@ -197,6 +197,7 @@ def sample_wikiversions_file(tmpdir):
                 "yourwiki": "php-1.42.0-wmf.22",
                 "hiswiki": "php-1.42.0-wmf.25",
                 "herwiki": "php-1.42.0-wmf.22",
+                "testwiki": "php-master",
             },
             f,
         )
@@ -218,10 +219,32 @@ def test_get_active_wikiversions(tmpdir, sample_wikiversions_file):
         utils.get_active_wikiversions(None, None, return_type=str)
 
     res = utils.get_active_wikiversions(tmpdir, "test", return_type=list)
-    assert res == ["1.42.0-wmf.22", "1.42.0-wmf.25"]
+    assert res == ["1.42.0-wmf.22", "1.42.0-wmf.25", "master"]
 
     res = utils.get_active_wikiversions(tmpdir, "test", return_type=dict)
-    assert res == {"1.42.0-wmf.22": "herwiki", "1.42.0-wmf.25": "hiswiki"}
+    assert res == {
+        "1.42.0-wmf.22": "herwiki",
+        "1.42.0-wmf.25": "hiswiki",
+        "master": "testwiki",
+    }
+
+
+def test_get_active_directories(tmpdir, sample_wikiversions_file):
+    res = utils.get_active_directories(tmpdir, "test")
+
+    # Should return full directory paths
+    expected_dirs = [
+        os.path.join(tmpdir, "php-1.42.0-wmf.22"),
+        os.path.join(tmpdir, "php-1.42.0-wmf.25"),
+        os.path.join(tmpdir, "php-master"),
+    ]
+    assert res == expected_dirs
+
+    # Verify the directories are sorted by version order
+    assert len(res) == 3
+    assert "php-1.42.0-wmf.22" in res[0]  # Lower version should come first
+    assert "php-1.42.0-wmf.25" in res[1]  # Higher version should come second
+    assert "php-master" in res[2]  # Master should come last (highest version)
 
 
 @pytest.mark.parametrize(

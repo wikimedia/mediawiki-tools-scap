@@ -659,6 +659,31 @@ def get_active_wikiversions(directory, realm, return_type=list):
         return list(sorted_versions.keys())
 
 
+def get_active_directories(directory, realm):
+    """
+    Get an ordered list of active MediaWiki version directories.
+
+    :param directory: The staging directory containing php-* subdirectories
+    :param realm: The realm (e.g., 'production', 'labs')
+
+    :returns: A list of directory paths (e.g., '/srv/mediawiki-staging/php-1.41.0-wmf.1'),
+              sorted in ascending version order.
+    """
+    # Get unique version strings (already include 'php-' prefix)
+    versions = set(read_wikiversions(directory, realm).values())
+
+    # Create list of directory paths
+    directories = [os.path.join(directory, version) for version in versions]
+
+    # Sort by version number
+    return sorted(
+        directories,
+        key=lambda d: parse_wmf_version(
+            os.path.basename(d)[4:]  # Extract version from "php-X.Y.Z-wmf.N"
+        ),
+    )
+
+
 def get_wikiversions_ondisk(directory) -> list:
     """
     Returns a list of the train branch versions that are currently

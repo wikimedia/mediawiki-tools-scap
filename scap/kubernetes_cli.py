@@ -55,8 +55,9 @@ class BuildImages(cli.Application):
             if not force_version:
                 self.timed(tasks.compile_wikiversions, "stage", self.config)
 
+            self.cache_git_info()
+
             for version in versions:
-                self.timed(tasks.cache_git_info, version, self.config)
                 self.timed(tasks.update_localization_cache, version, self, json=False)
 
             with self.Timer("build-and-push-container-images"):
