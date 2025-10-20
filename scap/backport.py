@@ -891,7 +891,7 @@ class Backport(cli.Application):
                                 )
 
                         if old_revision_number != new_revision_number:
-                            self.prompt_for_approval_or_exit(
+                            self._prompt_for_approval_or_exit(
                                 "Change %s has been updated from patchset %s to patchset %s. Re-approve change and "
                                 "continue with %s(s)? "
                                 % (
