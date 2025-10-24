@@ -107,9 +107,9 @@ Available configuration variables
 |                            |                           | will cause Scap to look in      |
 |                            |                           | the ``scap.cfg`` file for       |
 |                            |                           | both a ``one_dsh_targets``      |
-|                            |                           | file and a ``dsh_targets``      |
-|                            |                           | file (the `default`). A full    |
-|                            |                           | deploy will run for hosts       |
+|                            |                           | variable and a ``dsh_targets``  |
+|                            |                           | variable (the `default`). A     |
+|                            |                           | full deploy will run for hosts  |
 |                            |                           | defined in ``one_dsh_targets``, |
 |                            |                           | then a full deploy will run for |
 |                            |                           | hosts defined in ``dsh_targets``|

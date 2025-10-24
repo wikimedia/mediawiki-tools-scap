@@ -182,7 +182,9 @@ class TargetList(object):
             else:
                 cfg_key = group + "_" + self.primary_key
             try:
-                groups[group] = self.config[cfg_key]
+                filename = self.config[cfg_key]
+                if filename:
+                    groups[group] = filename
             except KeyError:
                 raise RuntimeError(
                     "Could not find config setting `{0}`".format(cfg_key)
@@ -292,7 +294,7 @@ class DirectDshTargetList(DshTargetList):
 
     def _get_filenames_for_groups(self):
         server_groups = self.config.get(self.primary_key, None)
-        if server_groups is None:
+        if not server_groups:
             return {}
         return {k: k.strip() for k in server_groups.split(",")}
 

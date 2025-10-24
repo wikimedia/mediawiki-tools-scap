@@ -342,3 +342,59 @@ def test_dsh_direct_deploy_groups():
         "label", {"label": dsh_files}, extra_paths=[dsh_path]
     )
     assert sorted(_HOSTS) == sorted(target_obj.get_deploy_groups()["all_targets"])
+
+
+def test_dsh_direct_deploy_groups_with_blank_server_groups():
+    """Test that DirectDshTargetList handles blank server_groups string."""
+    dsh_path = os.path.join(os.path.dirname(__file__), "targets-test")
+    target_obj = targets.DirectDshTargetList(
+        "label", {"label": ""}, extra_paths=[dsh_path]
+    )
+    deploy_groups = target_obj.get_deploy_groups()
+    assert deploy_groups["all_targets"] == []
+    assert deploy_groups["deploy_groups"] == {}
+
+
+def test_dsh_direct_deploy_groups_with_none_server_groups():
+    """Test that DirectDshTargetList handles None server_groups."""
+    dsh_path = os.path.join(os.path.dirname(__file__), "targets-test")
+    target_obj = targets.DirectDshTargetList("label", {}, extra_paths=[dsh_path])
+    deploy_groups = target_obj.get_deploy_groups()
+    assert deploy_groups["all_targets"] == []
+    assert deploy_groups["deploy_groups"] == {}
+
+
+def test_dsh_target_with_blank_dsh_targets_config():
+    """Test that DshTargetList handles blank dsh_targets config gracefully."""
+    dsh_file = "test-targets"
+    dsh_path = os.path.join(os.path.dirname(__file__), "targets-test")
+    # Config has blank string for dsh_file key
+    target_obj = targets.get(dsh_file, {dsh_file: ""}, extra_paths=[dsh_path])
+
+    # Should return empty deploy groups when filename is blank
+    deploy_groups = target_obj.get_deploy_groups()
+    assert deploy_groups["all_targets"] == []
+    assert deploy_groups["deploy_groups"] == {}
+
+
+def test_dsh_target_with_mixed_blank_and_valid_configs():
+    """Test that DshTargetList skips blank configs but uses valid ones."""
+    dsh_file = "test-targets"
+    canary_test_targets = "canary_test-targets"
+    dsh_path = os.path.join(os.path.dirname(__file__), "targets-test")
+
+    # Canary group has blank config, default has valid config
+    cfg = {
+        "server_groups": "canary,default",
+        dsh_file: dsh_file,
+        canary_test_targets: "",  # blank
+    }
+
+    target_obj = targets.get(dsh_file, cfg, extra_paths=[dsh_path])
+    deploy_groups = target_obj.groups
+
+    # Should only have default group since canary has blank config
+    assert len(deploy_groups.keys()) == 1
+    assert "default" in deploy_groups
+    assert "canary" not in deploy_groups
+    assert len(target_obj.all) == len(_HOSTS)
