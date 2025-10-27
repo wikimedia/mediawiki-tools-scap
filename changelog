@@ -1,3 +1,10 @@
+scap (4.217.0)
+
+  * web/package-lock.json: Bump vite from 6.3.5 to 6.4.1
+  * JobViewerPage.vue: Show interactions as top and bottom of page
+
+ -- Bryan Davis <bd808@wikimedia.org>  Mon, 27 Oct 2025 15:19:01 -0600
+
 scap (4.216.0)
 
   * targets.py: Handle blank config values
