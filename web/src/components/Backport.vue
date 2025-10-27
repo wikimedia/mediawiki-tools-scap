@@ -140,6 +140,7 @@ export default {
 		}
 
 		async function onSearch( value: string ) {
+			value = value.trim();
 			if ( !value ) {
 				hideNoData.value = true;
 				menuItems.value = [];
