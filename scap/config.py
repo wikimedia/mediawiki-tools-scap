@@ -46,7 +46,6 @@ DEFAULT_CONFIG = {
     "gerrit_url": (str, "https://gerrit.wikimedia.org/r/"),
     "gerrit_push_url": (str, "ssh://gerrit.wikimedia.org:29418/"),
     "gerrit_push_user": (str, None),
-    "php_version": (str, "php"),
     "keyholder_key": (str, None),
     "stage_dir": (str, "/srv/mediawiki-staging"),
     "local_dev_mode": (bool, False),

@@ -262,16 +262,9 @@ def test_setup_environ(cmd):
     # reset ssh_auth_sock and php env vars
     if "SSH_AUTH_SOCK" in os.environ:
         del os.environ["SSH_AUTH_SOCK"]
-    if "PHP" in os.environ:
-        del os.environ["PHP"]
-    cmd.config["php_version"] = None
     # default
     cmd._setup_environ()
-    assert "PHP" not in os.environ
     assert "SSH_AUTH_SOCK" not in os.environ
-    cmd.config["php_version"] = "pinkunicorn"
-    cmd._setup_environ()
-    assert "pinkunicorn" == os.environ["PHP"]
     cmd.config["ssh_auth_sock"] = "authsock!"
     cmd._setup_environ()
     assert "SSH_AUTH_SOCK" in os.environ
