@@ -76,7 +76,10 @@ def run(
 
         return proc
     except subprocess.CalledProcessError as err:
-        logger.error(err.stderr)
+        if err.stdout:
+            logger.error(err.stdout)
+        if err.stderr:
+            logger.error(err.stderr)
         raise err
 
 
@@ -105,7 +108,10 @@ def run_shell(
             **kwargs,
         )
     except subprocess.CalledProcessError as err:
-        logger.error(err.stderr)
+        if err.stdout:
+            logger.error(err.stdout)
+        if err.stderr:
+            logger.error(err.stderr)
         raise err
 
 
