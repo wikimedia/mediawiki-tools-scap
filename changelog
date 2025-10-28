@@ -1,3 +1,9 @@
+scap (4.218.0)
+
+  * Text pasted into the SpiderPig patch select bar should be trimmed
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Tue, 28 Oct 2025 07:50:09 -0700
+
 scap (4.217.0)
 
   * web/package-lock.json: Bump vite from 6.3.5 to 6.4.1
