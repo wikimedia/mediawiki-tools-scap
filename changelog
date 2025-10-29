@@ -1,3 +1,10 @@
+scap (4.219.0)
+
+  * mwscript.py: Log stdout on CalledProcessError
+  * cli.py: Don't set PHP environment variable
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Wed, 29 Oct 2025 08:42:57 -0700
+
 scap (4.218.0)
 
   * Text pasted into the SpiderPig patch select bar should be trimmed
