@@ -22,12 +22,19 @@
 """
 import os
 import tempfile
-import shutil
-import sys
+from unittest.mock import Mock, patch
 
 import pytest
 
 from scap import lint
+
+
+@pytest.fixture
+def mock_app():
+    """Create a mock app for testing."""
+    app = Mock()
+    app.config = {}
+    return app
 
 
 def test_clean_lint_output():
@@ -55,38 +62,51 @@ Errors parsing /srv/mediawiki-staging/wmf-config/CommonSettings.php"""
     )
 
 
-@pytest.mark.skipif(sys.platform == "darwin", reason="Requires GNU find")
-def test_check_valid_syntax__invalid_php_file_raise_exception():
+def test_check_valid_syntax__invalid_php_file_raise_exception(mock_app):
     """Make sure we raise exceptions when passed bad PHP files"""
     with tempfile.NamedTemporaryFile(suffix=".php") as php_file:
         php_file.write(b"<?php blba")
         php_file.flush()
-        with pytest.raises(SystemExit):
-            lint.check_valid_syntax(php_file.name)
+        with patch("scap.mwscript.run_shell") as mock_run_shell:
+            # Simulate PHP lint failure by returning a process with non-zero returncode
+            mock_proc = Mock()
+            mock_proc.returncode = 1
+            mock_proc.stdout = "PHP Parse error: syntax error"
+            mock_run_shell.return_value = mock_proc
+            with pytest.raises(SystemExit):
+                lint.check_valid_syntax(mock_app, php_file.name)
 
 
-@pytest.mark.skipif(sys.platform == "darwin", reason="Requires GNU find")
-@pytest.mark.skipif(shutil.which("php") is None, reason="Requires 'php'")
-def test_check_valid_syntax__invalid_json_file_raise_exception():
+def test_check_valid_syntax__invalid_json_file_raise_exception(mock_app):
     """Make sure we raise exceptions when passed a single bad JSON file (T272756)"""
     with tempfile.NamedTemporaryFile(suffix=".json") as json_file:
         json_file.write(b"{")
         json_file.flush()
-        with pytest.raises(ValueError) as ve:
-            lint.check_valid_syntax(json_file.name)
-        assert "is an invalid JSON file" in str(ve.value)
+        with patch("scap.mwscript.run_shell") as mock_run_shell:
+            # Return successful PHP lint result
+            mock_proc = Mock()
+            mock_proc.returncode = 0
+            mock_proc.stdout = ""
+            mock_run_shell.return_value = mock_proc
+            with pytest.raises(ValueError) as ve:
+                lint.check_valid_syntax(mock_app, json_file.name)
+            assert "is an invalid JSON file" in str(ve.value)
 
 
-@pytest.mark.skipif(sys.platform == "darwin", reason="Requires GNU find")
-@pytest.mark.skipif(shutil.which("php") is None, reason="Requires 'php'")
-def test_check_valid_syntax__skip_dir_matching_name_predicate():
+def test_check_valid_syntax__skip_dir_matching_name_predicate(mock_app):
     """Make sure that we skip directories that look like php files"""
     with tempfile.NamedTemporaryFile(suffix=".php") as php_file:
         # Delete temp file and make it a dir
         f_name = php_file.name
         php_file.close()
         os.mkdir(f_name)
-        lint.check_valid_syntax(f_name)
+        with patch("scap.mwscript.run_shell") as mock_run_shell:
+            # Return successful PHP lint result
+            mock_proc = Mock()
+            mock_proc.returncode = 0
+            mock_proc.stdout = ""
+            mock_run_shell.return_value = mock_proc
+            lint.check_valid_syntax(mock_app, f_name)
 
 
 def test_check_php_opening_tag():

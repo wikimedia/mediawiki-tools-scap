@@ -23,10 +23,12 @@
 import json
 import logging
 import os
+
 import scap
+from scap import mwscript
 
 
-def check_valid_syntax(paths, procs=1):
+def check_valid_syntax(app, paths, procs=1):
     """Run php -l in parallel on `paths`; raise CalledProcessError if nonzero
     exit."""
     if isinstance(paths, str):
@@ -47,13 +49,12 @@ def check_valid_syntax(paths, procs=1):
         "-name '*.php' -not -name 'autoload_static.php' "
         " -or -name '*.inc' "
         "\\) -print "
-        "| xargs -n1 -P%d -exec php -l 2>&1"
+        "| xargs -n1 -P%d -exec php -l -d display_errors=stderr -d log_errors=off 2>&1"
     ) % (" ".join(quoted_paths), procs)
     logger.debug("Running command: `%s`", cmd)
-    try:
-        scap.runcmd._runcmd(cmd, shell=True)
-    except scap.runcmd.FailedCommand as e:
-        cleaned = clean_lint_output(e.stdout)
+    proc = mwscript.run_shell(app, cmd, check=False)
+    if proc.returncode != 0:
+        cleaned = clean_lint_output(proc.stdout)
         raise SystemExit("php lint failed:\n{}".format(cleaned))
 
     # Check validity of PHP and JSON files being synced
@@ -152,4 +153,4 @@ def check_php_opening_tag(path):
 class Lint(scap.cli.Application):
     @scap.cli.argument("path", nargs="+", help="Path(s) to check")
     def main(self, *extra_args):
-        check_valid_syntax(self.arguments.path, scap.utils.cpus_for_jobs())
+        check_valid_syntax(self, self.arguments.path, scap.utils.cpus_for_jobs())

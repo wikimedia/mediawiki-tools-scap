@@ -89,6 +89,7 @@ def run_shell(
     command,
     *args,
     logger=None,
+    check=True,
     **kwargs,
 ) -> subprocess.CompletedProcess:
     """
@@ -104,7 +105,7 @@ def run_shell(
             passthrough_arguments=False,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
-            check=True,
+            check=check,
             **kwargs,
         )
     except subprocess.CalledProcessError as err:

@@ -1130,6 +1130,7 @@ class ScapWorld(AbstractSync):
 
         # Validate php syntax of wmf-config and multiversion
         lint.check_valid_syntax(
+            self,
             [
                 "%(stage_dir)s/wmf-config" % self.config,
                 "%(stage_dir)s/multiversion" % self.config,
@@ -1304,7 +1305,7 @@ class SyncFile(AbstractSync):
                 "%s: syncing symlink, not its target [%s]", abspath, symlink_dest
             )
         else:
-            lint.check_valid_syntax(abspath, utils.cpus_for_jobs())
+            lint.check_valid_syntax(self, abspath, utils.cpus_for_jobs())
 
         if "/" in include:
             parts = include.split("/")
