@@ -1,3 +1,9 @@
+scap (4.220.0)
+
+  * lint.py: Use mwscript module to run php linting
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Wed, 29 Oct 2025 09:27:59 -0700
+
 scap (4.219.0)
 
   * mwscript.py: Log stdout on CalledProcessError
