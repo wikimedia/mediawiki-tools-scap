@@ -288,15 +288,23 @@ class GerritChange:
             self.needed_by_chain = needed_by_chain + [str(number)]
         else:
             self.needed_by_chain = [str(number)]
+
         # The changes this change depends on
         depends_ons = self.gerrit.depends_ons(self.get("id")).get()
-        self.depends_on_cycle = depends_ons.cycle
-        self.depends_ons = [
-            GerritChange(
-                self.gerrit, dep_info["_number"], dep_info, self.needed_by_chain
+        # T408675: The Gerrit "zuul" plugin only detects shallow cycles,
+        # i.e. A -> B -> A, but not deeper cycles like A -> B -> C -> A.
+        # Therefore we do our own cycle detection while expanding dependencies
+        # locally.
+        self.depends_on_cycle = False
+        self.depends_ons = []
+        for dep_info in depends_ons.depends_on_found:
+            dep_num = dep_info.get("_number")
+            if str(dep_num) in self.needed_by_chain:
+                self.depends_on_cycle = True
+                continue
+            self.depends_ons.append(
+                GerritChange(self.gerrit, dep_num, dep_info, self.needed_by_chain)
             )
-            for dep_info in depends_ons.depends_on_found
-        ]
 
         self._validate()
 

@@ -1254,6 +1254,92 @@ class TestGitRepos(unittest.TestCase):
         backport.get_logger().info.assert_called()
 
 
+def _mock_gerrit_with_dependencies(dependency_map):
+    """Helper to create a mock Gerrit with specified dependency relationships.
+
+    Args:
+        dependency_map: Dict mapping change_number -> list of dependency numbers
+                       e.g., {100: [200], 200: [100]} for A→B→A cycle
+
+    Returns:
+        Mock Gerrit object configured with change details and dependencies
+    """
+    # Generate change data for all changes in the dependency map
+    change_data = {}
+    all_numbers = set(dependency_map.keys())
+    for deps in dependency_map.values():
+        all_numbers.update(deps)
+
+    for number in all_numbers:
+        change_data[number] = {
+            "id": f"change~{number}",
+            "change_id": f"I{number:016d}",
+            "number": number,
+            "project": "mediawiki/core",
+            "branch": "wmf/1.45.0-wmf.20",
+            "status": "NEW",
+            "work_in_progress": False,
+        }
+
+    def mock_change_detail(number, *args):
+        data = change_data[number]
+        mock_obj = Mock()
+        mock_obj.get = data.get
+        return Mock(get=Mock(return_value=mock_obj))
+
+    def mock_depends_ons(change_id, *args):
+        number = int(change_id.split("~")[1])
+        dep_numbers = dependency_map.get(number, [])
+
+        depends_on_found = []
+        for dep_num in dep_numbers:
+            dep_data = change_data[dep_num]
+            dep = Mock()
+            for key, value in dep_data.items():
+                setattr(dep, key, value)
+            dep.get = dep_data.get
+            depends_on_found.append(dep)
+
+        return Mock(get=Mock(return_value=Mock(depends_on_found=depends_on_found)))
+
+    mock_gerrit = Mock()
+    mock_gerrit.change_detail.side_effect = mock_change_detail
+    mock_gerrit.depends_ons.side_effect = mock_depends_ons
+    return mock_gerrit
+
+
+def test_gerrit_change_construction_with_self_cycle():
+    """Test that creating a GerritChange with a self-referential dependency raises InvalidChangeException."""
+    mock_gerrit = _mock_gerrit_with_dependencies({100: [100]})  # A→A
+
+    with pytest.raises(InvalidChangeException) as exc_info:
+        GerritChange(mock_gerrit, 100)
+
+    assert "dependency cycle" in str(exc_info.value).lower()
+
+
+def test_gerrit_change_construction_with_two_commit_cycle():
+    """Test that creating a GerritChange with A→B→A cycle raises InvalidChangeException."""
+    mock_gerrit = _mock_gerrit_with_dependencies({100: [200], 200: [100]})  # A→B→A
+
+    with pytest.raises(InvalidChangeException) as exc_info:
+        GerritChange(mock_gerrit, 100)
+
+    assert "dependency cycle" in str(exc_info.value).lower()
+
+
+def test_gerrit_change_construction_with_deep_cycle():
+    """Test that creating a GerritChange with A→B→C→A cycle raises InvalidChangeException."""
+    mock_gerrit = _mock_gerrit_with_dependencies(
+        {100: [200], 200: [300], 300: [100]}  # A→B→C→A
+    )
+
+    with pytest.raises(InvalidChangeException) as exc_info:
+        GerritChange(mock_gerrit, 100)
+
+    assert "dependency cycle" in str(exc_info.value).lower()
+
+
 @pytest.mark.parametrize(
     "scenario,current_project,current_branch,dep_project,dep_branch,dep_merged,branches_present,deployable_branches,expect_error,error_fragment",
     [

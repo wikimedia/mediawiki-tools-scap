@@ -874,6 +874,100 @@ class BackportsTestHelper:
 
         return change_urls
 
+    def setup_depends_on_self_cycle(self):
+        """
+        T408675: Create a single commit whose Depends-On footer references its own Change-Id,
+        forming a self-cycle. Returns the change URL.
+        """
+        # Use MediaWiki core on the train branch
+        self.setup_core_repo(branch=self.mwbranch)
+
+        # Create initial commit to obtain a Change-Id
+        readme_path = self.mwcore_dir + "/README.md"
+        text = "Added by setup_depends_on_self_cycle on " + datetime.now().strftime(
+            "%Y-%m-%d %H:%M:%S"
+        )
+        base_msg = "T408675: self-cycle test"
+
+        # Commit once to get a Change-Id from the commit-msg hook
+        self.write_to_file(readme_path, text, append=True)
+        self.git_commit(self.mwcore_dir, base_msg, readme_path)
+        change_id = self.get_change_id(self.mwcore_dir)
+
+        # Amend the commit message to depend on itself and preserve the Change-Id
+        amended_msg = f"{base_msg}\n\nDepends-On: {change_id}\n\nChange-Id: {change_id}"
+        self.git_command(self.mwcore_dir, ["commit", "--amend", "-m", amended_msg])
+
+        # Push and return the change URL; clean local state afterwards
+        change_url = self.push_and_collect_url(self.mwcore_dir, self.mwbranch)
+        self.git_command(self.mwcore_dir, ["reset", "--hard", "HEAD~1"])
+        return change_url
+
+    def setup_depends_on_three_commit_cycle(self) -> list:
+        """
+        T408675: Create three changes A, B, and C such that A→B→C→B forms a cycle.
+        This is accomplished by:
+          1) Create and push A
+          2) Create and push B with Depends-On: A (capture Change-Id B)
+          3) Create and push C with Depends-On: B (capture Change-Id C)
+          4) Create a new patchset for B with Depends-On: A,C (preserving Change-Id B)
+
+        Returns [change_url_a, change_url_b, change_url_c]
+        """
+        self.setup_core_repo(branch=self.mwbranch)
+
+        path = self.mwcore_dir + "/FAQ"
+
+        # 1) Create and push A
+        text_a = (
+            "Added by setup_depends_on_three_commit_cycle A on "
+            + datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        )
+        msg_a = "T408675: three commit cycle A"
+        self.write_to_file(path, text_a, append=True)
+        self.git_commit(self.mwcore_dir, msg_a, path)
+        change_id_a = self.get_change_id(self.mwcore_dir)
+        change_url_a = self.push_and_collect_url(self.mwcore_dir, self.mwbranch)
+        self.git_command(self.mwcore_dir, ["reset", "--hard", "HEAD~1"])
+
+        # 2) Create and push B with Depends-On: A
+        text_b = (
+            "Added by setup_depends_on_three_commit_cycle B on "
+            + datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        )
+        msg_b = f"T408675: three commit cycle B\n\nDepends-On: {change_id_a}"
+        self.write_to_file(path, text_b, append=True)
+        self.git_commit(self.mwcore_dir, msg_b, path)
+        change_id_b = self.get_change_id(self.mwcore_dir)
+        change_url_b = self.push_and_collect_url(self.mwcore_dir, self.mwbranch)
+        self.git_command(self.mwcore_dir, ["reset", "--hard", "HEAD~1"])
+
+        # 3) Create and push C with Depends-On: B
+        text_c = (
+            "Added by setup_depends_on_three_commit_cycle C on "
+            + datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        )
+        msg_c = f"T408675: three commit cycle C\n\nDepends-On: {change_id_b}"
+        self.write_to_file(path, text_c, append=True)
+        self.git_commit(self.mwcore_dir, msg_c, path)
+        change_id_c = self.get_change_id(self.mwcore_dir)
+        change_url_c = self.push_and_collect_url(self.mwcore_dir, self.mwbranch)
+        self.git_command(self.mwcore_dir, ["reset", "--hard", "HEAD~1"])
+
+        # 4) Upload a new patchset for B with Depends-On: A,C (preserving Change-Id B)
+        # This creates the cycle: A→B→C→B
+        text_b_ps2 = (
+            "Added by setup_depends_on_three_commit_cycle B-PS2 on "
+            + datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        )
+        msg_b_ps2 = f"T408675: three commit cycle B PS2\n\nDepends-On: {change_id_a}\nDepends-On: {change_id_c}\n\nChange-Id: {change_id_b}"
+        self.write_to_file(path, text_b_ps2, append=True)
+        self.git_commit(self.mwcore_dir, msg_b_ps2, path)
+        _ = self.push_and_collect_url(self.mwcore_dir, self.mwbranch)
+        self.git_command(self.mwcore_dir, ["reset", "--hard", "HEAD~1"])
+
+        return [change_url_a, change_url_b, change_url_c]
+
     def depends_with_nonprod_branch(self) -> pexpect.spawn:
         """
         Using the configuration repository (`operations/mediawiki-config`), creates two changes in a Depends-On
@@ -1378,6 +1472,29 @@ class TestBackports(unittest.TestCase):
             style="Depends-On"
         )
         self._test_dependencies("Depends-On", change_urls)
+
+    def test_depends_on_self_cycle_detected(self):
+        announce("Testing Depends-On self-cycle detection (T408675)")
+
+        change_url = self.backports_test_helper.setup_depends_on_self_cycle()
+        child = self.backports_test_helper._start_scap_backport([change_url])
+        child.expect(r"A dependency cycle was detected for change \d+!")
+        child.wait()
+        self.assertNotEqual(child.exitstatus, 0)
+
+    def test_depends_on_three_commit_cycle_detected(self):
+        announce("Testing Depends-On three-commit cycle detection (T408675)")
+
+        (
+            change_url_a,
+            change_url_b,
+            change_url_c,
+        ) = self.backports_test_helper.setup_depends_on_three_commit_cycle()
+        # Try to backport C, which will traverse C→B→C forming a cycle
+        child = self.backports_test_helper._start_scap_backport([change_url_c])
+        child.expect(r"A dependency cycle was detected for change \d+!")
+        child.wait()
+        self.assertNotEqual(child.exitstatus, 0)
 
     def test_depends_on_different_branch(self):
         announce(
