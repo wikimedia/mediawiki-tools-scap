@@ -782,10 +782,7 @@ class TestGitRepos(unittest.TestCase):
     def _create_mock_change(self, project, branch):
         """Create a mock GerritChange with project and branch."""
         mock_change = Mock()
-        mock_change.get.side_effect = lambda key: {
-            "project": project,
-            "branch": branch,
-        }[key]
+        mock_change.get = {"project": project, "branch": branch}.get
         return mock_change
 
     def _create_git_repos(self):
@@ -1194,10 +1191,7 @@ class TestGitRepos(unittest.TestCase):
 
         def create_mock_change(project, branch):
             mock_change = Mock()
-            mock_change.get.side_effect = lambda key: {
-                "project": project,
-                "branch": branch,
-            }.get(key)
+            mock_change.get = {"project": project, "branch": branch}.get
             return mock_change
 
         # Extension exists in wmf.21 but change targets wmf.22
