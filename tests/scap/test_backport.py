@@ -878,11 +878,15 @@ class TestGitRepos(unittest.TestCase):
     def _create_exclusive_gerrit_mock(self):
         """Create a gerrit mock for exclusive version extension testing."""
         mock_gerrit = Mock()
-        mock_gerrit.submodule_project_from_url.side_effect = lambda url: (
-            "mediawiki/extensions/OnlyInWmf21"
-            if "OnlyInWmf21" in url
-            else "mediawiki/extensions/OnlyInWmf22" if "OnlyInWmf22" in url else None
-        )
+
+        def mock_submodule_project(url):
+            if "OnlyInWmf21" in url:
+                return "mediawiki/extensions/OnlyInWmf21"
+            elif "OnlyInWmf22" in url:
+                return "mediawiki/extensions/OnlyInWmf22"
+            return None
+
+        mock_gerrit.submodule_project_from_url.side_effect = mock_submodule_project
         return mock_gerrit
 
     @patch("scap.git.list_submodules_paths_urls")
