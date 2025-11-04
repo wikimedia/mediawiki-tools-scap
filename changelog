@@ -1,3 +1,11 @@
+scap (4.222.0)
+
+  * train.py: Pass trainBranchesOnly=True to utils.get_wikiversions_ondisk
+  * tests/scap/test_backport.py: Simplify
+  * tests/scap/test_backport.py: Revise _create_exclusive_gerrit_mock
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Tue, 04 Nov 2025 10:42:27 -0800
+
 scap (4.221.0)
 
   * backport.py: Revise relevant dependency selection algorithm
