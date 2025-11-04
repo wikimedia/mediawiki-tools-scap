@@ -87,7 +87,9 @@ class TrainInfo:
             trim_version=True,
         )
 
-        versions = utils.get_wikiversions_ondisk(self.config["stage_dir"])
+        versions = utils.get_wikiversions_ondisk(
+            self.config["stage_dir"], trainBranchesOnly=True
+        )
         if self.train_version in versions:
             versions.remove(self.train_version)
 
