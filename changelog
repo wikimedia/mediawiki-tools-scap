@@ -1,3 +1,9 @@
+scap (4.224.0)
+
+  * logstash_checker.py: Reexport CheckServiceError from logstash package
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Wed, 05 Nov 2025 12:00:58 -0800
+
 scap (4.223.0)
 
   * backport.py: Improve dependency cycle detection
