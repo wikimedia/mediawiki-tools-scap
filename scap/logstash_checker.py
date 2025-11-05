@@ -4,6 +4,11 @@ import statistics
 
 from scap import cli, kubernetes, logstash, logstash_checker, targets
 
+# Re-export CheckServiceError from the logstash module so that users
+# of LogstashChecker can catch logstash_checker.CheckServiceError without
+# needing to import scap.logstash too.
+CheckServiceError = logstash.CheckServiceError
+
 
 @cli.command(
     "analyze-logstash",
