@@ -1340,257 +1340,334 @@ def test_gerrit_change_construction_with_deep_cycle():
     assert "dependency cycle" in str(exc_info.value).lower()
 
 
-@pytest.mark.parametrize(
-    "scenario,current_project,current_branch,dep_project,dep_branch,dep_merged,branches_present,deployable_branches,expect_error,error_fragment",
-    [
-        # Rule 1a: MW code → MW non-master (merged) → success
-        (
-            "rule_1a_success",
-            "mediawiki/extensions/Example",
-            "wmf/1.45.0-wmf.20",
-            "mediawiki/core",
-            "wmf/1.45.0-wmf.19",
-            True,
-            None,
-            None,
-            False,
-            None,
-        ),
-        # Rule 1b: MW code → MW master (present in target) → success
-        (
-            "rule_1b_success",
-            "mediawiki/extensions/Example",
-            "wmf/1.45.0-wmf.20",
-            "mediawiki/core",
-            "master",
-            True,
-            ["master", "wmf/1.45.0-wmf.20"],
-            None,
-            False,
-            None,
-        ),
-        # Rule 1b: MW code → MW master (missing from target) → error
-        (
-            "rule_1b_failure",
-            "mediawiki/extensions/Example",
-            "wmf/1.45.0-wmf.20",
-            "mediawiki/core",
-            "master",
-            True,
-            ["master"],
-            None,
-            True,
-            "not present in target branch",
-        ),
-        # Rule 2: Any → Config (merged) → success
-        (
-            "rule_2_success",
-            "mediawiki/extensions/Example",
-            "wmf/1.45.0-wmf.20",
-            "operations/mediawiki-config",
-            "master",
-            True,
-            None,
-            None,
-            False,
-            None,
-        ),
-        # Rule 3a: Config → MW non-master (merged) → success
-        (
-            "rule_3a_success",
-            "operations/mediawiki-config",
-            "master",
-            "mediawiki/core",
-            "wmf/1.45.0-wmf.20",
-            True,
-            None,
-            None,
-            False,
-            None,
-        ),
-        # Rule 3b: Config → MW master (present in all deployable) → success
-        (
-            "rule_3b_success",
-            "operations/mediawiki-config",
-            "master",
-            "mediawiki/core",
-            "master",
-            True,
-            ["master", "wmf/1.45.0-wmf.20", "wmf/1.45.0-wmf.21"],
-            {"wmf/1.45.0-wmf.20", "wmf/1.45.0-wmf.21"},
-            False,
-            None,
-        ),
-        # Rule 3b: Config → MW master (missing from some deployable) → error
-        (
-            "rule_3b_failure",
-            "operations/mediawiki-config",
-            "master",
-            "mediawiki/core",
-            "master",
-            True,
-            ["master", "wmf/1.45.0-wmf.20"],
-            {"wmf/1.45.0-wmf.20", "wmf/1.45.0-wmf.21"},
-            True,
-            "not present in deployable branch",
-        ),
-        # Rule 3b: Config → MW master (includes "next" but missing train branches) → error
-        # Tests that "next" branch is not considered a deployable branch
-        (
-            "rule_3b_next_not_deployable",
-            "operations/mediawiki-config",
-            "master",
-            "mediawiki/core",
-            "master",
-            True,
-            ["master", "next", "wmf/1.45.0-wmf.20"],
-            {"wmf/1.45.0-wmf.20", "wmf/1.45.0-wmf.21"},
-            True,
-            "not present in deployable branch",
-        ),
-    ],
-)
-def test_dependency_validation_rules(
-    change_factory,
-    scenario,
-    current_project,
-    current_branch,
-    dep_project,
-    dep_branch,
-    dep_merged,
-    branches_present,
-    deployable_branches,
-    expect_error,
-    error_fragment,
-):
-    """Test T362987 dependency validation rules in one consolidated parametrized test.
-
-    This replaces 14+ individual tests that were exercising the same code paths through
-    _backport_vote with different inputs.
-
-    Tests all 6 validation branches:
-    - Rule 1a: MW code → MW non-master branch (merged dep)
-    - Rule 1b: MW code → MW master branch (must be in target branch)
-    - Rule 2: Any → Config (merged dep)
-    - Rule 3a: Config → MW non-master branch (merged dep)
-    - Rule 3b: Config → MW master branch (must be in all deployable branches)
-    - Fallback: No validation needed
-    """
-    # Create changes first (needed for mock configuration)
-    current_change = change_factory(
-        number=12345,
-        project=current_project,
-        branch=current_branch,
-        id_=f"I{scenario}_current",
-        merged=False,
-    )
-
-    dep_change = change_factory(
-        number=67890,
-        project=dep_project,
-        branch=dep_branch,
-        id_=f"I{scenario}_dep",
-        merged=dep_merged,
-    )
-
-    # Create a minimal Backport instance with necessary mocks
-    bp = Mock(spec=Backport)
-    bp.logger = Mock()
-    bp.gerrit = Mock()
-    bp.mediawiki_location = "/srv/mediawiki-staging"
-
-    # Mock backports (for checking if changes are scheduled)
-    bp.backports = Mock()
-    bp.backports.change_numbers = []  # No changes scheduled by default
-
-    # Mock git_repos with project type check methods
-    bp.git_repos = Mock()
-    bp.git_repos.targets_deployable_mediawiki_code = Mock(
-        side_effect=lambda change: (
-            change.project.startswith("mediawiki/")
-            and change.project != "operations/mediawiki-config"
+class TestBackportVote:
+    def _run_backport_vote_case(
+        self,
+        change_factory,
+        *,
+        current_project: str,
+        current_branch: str,
+        dep_project: str,
+        dep_branch: str,
+        dep_merged: bool,
+        dep_included_in_branches=[],
+        deployable_branches=None,
+        live_versions=["1.45.0-wmf.20", "1.45.0-wmf.21"],
+    ):
+        """Helper: build a minimal Backport context and run _backport_vote, returning the trail."""
+        current_change = change_factory(
+            number=12345,
+            project=current_project,
+            branch=current_branch,
+            id_="Icurrent",
+            merged=False,
         )
-    )
-    bp.git_repos.targets_prod_config = Mock(
-        side_effect=lambda change: (change.project == "operations/mediawiki-config")
-    )
-    bp.git_repos.targets_any_mediawiki_code = Mock(
-        side_effect=lambda change: (
-            change.project.startswith("mediawiki/")
-            and change.project != "operations/mediawiki-config"
-        )
-    )
-
-    trail = DependencyTrail(current_change)
-
-    # Mock gerrit change_in responses if branches are specified
-    if branches_present is not None:
-        mock_response = Mock()
-        mock_response.branches = [f"refs/heads/{b}" for b in branches_present]
-        bp.gerrit.change_in = Mock(
-            return_value=Mock(get=Mock(return_value=mock_response))
+        dep_change = change_factory(
+            number=67890,
+            project=dep_project,
+            branch=dep_branch,
+            id_="Idep",
+            merged=dep_merged,
         )
 
-    # Mock deployable branches if specified
-    if deployable_branches is not None:
-        with patch("scap.git.get_deployable_branches") as mock_deployable:
-            mock_deployable.return_value = deployable_branches
+        bp = Mock(spec=Backport)
+        bp.logger = Mock()
+        bp.gerrit = Mock()
+        bp.mediawiki_location = "/srv/mediawiki-staging"
+        bp.versions = live_versions
+        bp.backports = Mock()
+        bp.backports.change_numbers = []
 
-            # Bind helper methods to the mock so _backport_vote can call them
-            bp._get_included_branches = (
-                lambda dep_change: Backport._get_included_branches(bp, dep_change)
+        bp.git_repos = Mock()
+        bp.git_repos.targets_deployable_mediawiki_code = Mock(
+            side_effect=lambda change: (
+                change.project.startswith("mediawiki/")
+                and change.project != "operations/mediawiki-config"
             )
-            bp._validate_master_dependency_in_deployable_branches = lambda dep_change, trail, current_change: Backport._validate_master_dependency_in_deployable_branches(
-                bp, dep_change, trail, current_change
+        )
+        bp.git_repos.targets_prod_config = Mock(
+            side_effect=lambda change: (change.project == "operations/mediawiki-config")
+        )
+        bp.git_repos.targets_any_mediawiki_code = Mock(
+            side_effect=lambda change: (
+                change.project.startswith("mediawiki/")
+                and change.project != "operations/mediawiki-config"
             )
-            bp._validate_master_dependency_in_target_branch = lambda dep_change, trail, current_change: Backport._validate_master_dependency_in_target_branch(
-                bp, dep_change, trail, current_change
-            )
-            bp._validate_dependency_merged_or_scheduled = lambda current_change, dep_change, trail: Backport._validate_dependency_merged_or_scheduled(
-                bp, current_change, dep_change, trail
+        )
+
+        trail = DependencyTrail(current_change)
+
+        if dep_included_in_branches is not None:
+            mock_response = Mock()
+            mock_response.branches = [
+                f"refs/heads/{b}" for b in dep_included_in_branches
+            ]
+            bp.gerrit.change_in = Mock(
+                return_value=Mock(get=Mock(return_value=mock_response))
             )
 
-            # Call the actual _backport_vote method
+        # Bind helpers to call actual Backport methods
+        bp._get_included_branches = lambda dc: Backport._get_included_branches(bp, dc)
+        bp._validate_master_dep_for_config_change = (
+            lambda dc, tr, cc: Backport._validate_master_dep_for_config_change(
+                bp, dc, tr, cc
+            )
+        )
+        bp._add_validate_master_dep_complaint = (
+            lambda dc, cc, tr, mt, mb, im: Backport._add_validate_master_dep_complaint(
+                bp, dc, cc, tr, mt, mb, im
+            )
+        )
+        bp._validate_master_dependency_in_target_branch = (
+            lambda dc, tr, cc: Backport._validate_master_dependency_in_target_branch(
+                bp, dc, tr, cc
+            )
+        )
+        bp._validate_dependency_merged_or_scheduled = (
+            lambda cc, dc, tr: Backport._validate_dependency_merged_or_scheduled(
+                bp, cc, dc, tr
+            )
+        )
+
+        with patch("scap.git.get_deployable_branches") as mock_get_deployable_branches:
+            mock_get_deployable_branches.return_value = deployable_branches
             Backport._backport_vote(bp, current_change, dep_change, trail)
 
-            # Verify results
-            if expect_error:
-                assert (
-                    len(trail.errors) == 1
-                ), f"Expected 1 error, got {len(trail.errors)}: {trail.errors}"
-                assert (
-                    error_fragment in trail.errors[0]
-                ), f"Expected error to contain '{error_fragment}', but got: {trail.errors[0]}"
-            else:
-                assert (
-                    len(trail.errors) == 0
-                ), f"Expected no errors, got: {trail.errors}"
-    else:
-        # No deployable branches mock needed
-        # Bind helper methods to the mock so _backport_vote can call them
-        bp._get_included_branches = lambda dep_change: Backport._get_included_branches(
-            bp, dep_change
+        return trail
+
+    def test_rule_1a_mw_code_dep_non_master_merged_success(self, change_factory):
+        trail = self._run_backport_vote_case(
+            change_factory,
+            current_project="mediawiki/extensions/Example",
+            current_branch="wmf/1.45.0-wmf.20",
+            dep_project="mediawiki/core",
+            dep_branch="wmf/1.45.0-wmf.19",
+            dep_merged=True,
         )
-        bp._validate_master_dependency_in_target_branch = lambda dep_change, trail, current_change: Backport._validate_master_dependency_in_target_branch(
-            bp, dep_change, trail, current_change
+        assert len(trail.errors) == 0
+
+    def test_rule_1a_mw_code_dep_non_master_not_merged_or_scheduled_error(
+        self, change_factory
+    ):
+        """If the dependency is not merged and not scheduled as a root change, rule 1a should error."""
+        trail = self._run_backport_vote_case(
+            change_factory,
+            current_project="mediawiki/extensions/Example",
+            current_branch="wmf/1.45.0-wmf.20",
+            dep_project="mediawiki/core",
+            dep_branch="wmf/1.45.0-wmf.19",
+            dep_merged=False,
         )
-        bp._validate_dependency_merged_or_scheduled = lambda current_change, dep_change, trail: Backport._validate_dependency_merged_or_scheduled(
-            bp, current_change, dep_change, trail
+        # Expect an error about the dependency not being merged or scheduled
+        assert len(trail.errors) == 1
+        assert "not merged or scheduled for backport" in trail.errors[0]
+
+    def test_rule_1b_mw_code_dep_master_present_in_target_success(self, change_factory):
+        trail = self._run_backport_vote_case(
+            change_factory,
+            current_project="mediawiki/extensions/Example",
+            current_branch="wmf/1.45.0-wmf.20",
+            dep_project="mediawiki/core",
+            dep_branch="master",
+            dep_merged=True,
+            dep_included_in_branches=["master", "wmf/1.45.0-wmf.20"],
+        )
+        assert len(trail.errors) == 0
+
+    def test_rule_1b_mw_code_dep_master_missing_in_target_error(self, change_factory):
+        trail = self._run_backport_vote_case(
+            change_factory,
+            current_project="mediawiki/extensions/Example",
+            current_branch="wmf/1.45.0-wmf.20",
+            dep_project="mediawiki/core",
+            dep_branch="master",
+            dep_merged=True,
+            dep_included_in_branches=["master"],
+        )
+        assert len(trail.errors) == 1
+        assert "not present in target branch" in trail.errors[0]
+
+    def test_rule_2_any_dep_config_merged_success(self, change_factory):
+        trail = self._run_backport_vote_case(
+            change_factory,
+            current_project="mediawiki/extensions/Example",
+            current_branch="wmf/1.45.0-wmf.20",
+            dep_project="operations/mediawiki-config",
+            dep_branch="master",
+            dep_merged=True,
+        )
+        assert len(trail.errors) == 0
+
+    def test_rule_2_any_dep_config_not_merged_or_scheduled_error(self, change_factory):
+        """Config dependency (relevant by rule 2) must be merged or scheduled; otherwise it's an error."""
+        trail = self._run_backport_vote_case(
+            change_factory,
+            current_project="mediawiki/extensions/Example",
+            current_branch="wmf/1.45.0-wmf.20",
+            dep_project="operations/mediawiki-config",
+            dep_branch="master",
+            dep_merged=False,
+        )
+        assert len(trail.errors) == 1
+        assert "not merged or scheduled for backport" in trail.errors[0]
+
+    def test_rule_3a_config_dep_mw_non_master_merged_success(self, change_factory):
+        trail = self._run_backport_vote_case(
+            change_factory,
+            current_project="operations/mediawiki-config",
+            current_branch="master",
+            dep_project="mediawiki/core",
+            dep_branch="wmf/1.45.0-wmf.20",
+            dep_merged=True,
+        )
+        assert len(trail.errors) == 0
+
+    def test_rule_3a_config_dep_mw_non_master_not_merged_or_scheduled_error(
+        self, change_factory
+    ):
+        """Rule 3a violation: config change depends on MW code on a wmf branch that is not merged nor scheduled."""
+        trail = self._run_backport_vote_case(
+            change_factory,
+            current_project="operations/mediawiki-config",
+            current_branch="master",
+            dep_project="mediawiki/core",
+            dep_branch="wmf/1.45.0-wmf.20",
+            dep_merged=False,
+        )
+        assert len(trail.errors) == 1
+        assert "not merged or scheduled for backport" in trail.errors[0]
+
+    def test_rule_3b_config_dep_mw_master_all_live_covered_success(
+        self, change_factory
+    ):
+        """Rule 3b: Success when master dep is in all live branches and no warnings needed."""
+        trail = self._run_backport_vote_case(
+            change_factory,
+            current_project="operations/mediawiki-config",
+            current_branch="master",
+            dep_project="mediawiki/core",
+            dep_branch="master",
+            dep_merged=True,
+            live_versions=["1.45.0-wmf.20", "1.45.0-wmf.21"],
+            dep_included_in_branches=[
+                "master",
+                "wmf/1.45.0-wmf.20",
+                "wmf/1.45.0-wmf.21",
+            ],
+            deployable_branches=["wmf/1.45.0-wmf.20", "wmf/1.45.0-wmf.21"],
+        )
+        assert len(trail.errors) == 0
+        assert len(trail.warnings) == 0
+
+    def test_rule_3b_config_dep_mw_master_missing_live_errors(self, change_factory):
+        """Rule 3b: Error when master dep is missing from a live branch."""
+        trail = self._run_backport_vote_case(
+            change_factory,
+            current_project="operations/mediawiki-config",
+            current_branch="master",
+            dep_project="mediawiki/core",
+            dep_branch="master",
+            dep_merged=True,
+            live_versions=["1.45.0-wmf.20", "1.45.0-wmf.21"],
+            dep_included_in_branches=["master", "wmf/1.45.0-wmf.20"],
+            deployable_branches=["wmf/1.45.0-wmf.20", "wmf/1.45.0-wmf.21"],
+        )
+        assert len(trail.errors) == 1
+        # Check exact error message for missing live branch
+        assert trail.errors[0] == (
+            "Change '12345' has dependency '67890' targeting the master branch of\n"
+            "MediaWiki code project 'mediawiki/core', but the dependency is not\n"
+            "present in live train branch: wmf/1.45.0-wmf.21\n"
+            "\n"
+            "Master dependencies must be cherry-picked to all live train branches.\n"
+            "\n"
+            "To avoid this error you will need to cherry-pick and merge the\n"
+            "dependency into that branch. This can be done directly from the Gerrit\n"
+            "UI. Then you can restart this backport operation."
         )
 
-        # Call the actual _backport_vote method
-        Backport._backport_vote(bp, current_change, dep_change, trail)
+    def test_rule_3b_config_dep_mw_master_missing_upcoming_errors(self, change_factory):
+        """Rule 3b: Error when master dep is missing from upcoming branches after newest live."""
+        trail = self._run_backport_vote_case(
+            change_factory,
+            current_project="operations/mediawiki-config",
+            current_branch="master",
+            dep_project="mediawiki/core",
+            dep_branch="master",
+            dep_merged=True,
+            dep_included_in_branches=[
+                "master",
+                "wmf/1.45.0-wmf.20",
+                "wmf/1.45.0-wmf.21",
+            ],
+            deployable_branches=[
+                "wmf/1.45.0-wmf.20",
+                "wmf/1.45.0-wmf.21",
+                "wmf/1.45.0-wmf.22",
+            ],
+        )
+        assert len(trail.warnings) == 0
+        assert len(trail.errors) == 1
+        # Check the exact error message for missing roll-forward target
+        assert trail.errors[0] == (
+            "Change '12345' has dependency '67890' targeting the master branch of\n"
+            "MediaWiki code project 'mediawiki/core', but the dependency is not\n"
+            "present in upcoming train branch: wmf/1.45.0-wmf.22\n"
+            "\n"
+            "Master dependencies must be cherry-picked to the upcoming train branch\n"
+            "because the train is expected to roll forward to it soon.\n"
+            "\n"
+            "To avoid this error you will need to cherry-pick and merge the\n"
+            "dependency into that branch. This can be done directly from the Gerrit\n"
+            "UI. Then you can restart this backport operation."
+        )
 
-        # Verify results
-        if expect_error:
-            assert (
-                len(trail.errors) == 1
-            ), f"Expected 1 error, got {len(trail.errors)}: {trail.errors}"
-            assert (
-                error_fragment in trail.errors[0]
-            ), f"Expected error to contain '{error_fragment}', but got: {trail.errors[0]}"
-        else:
-            assert len(trail.errors) == 0, f"Expected no errors, got: {trail.errors}"
+    def test_rule_3b_config_dep_mw_master_one_live_missing_next_errors(
+        self, change_factory
+    ):
+        """Rule 3b: Error for missing roll-forward when only one live."""
+        trail = self._run_backport_vote_case(
+            change_factory,
+            current_project="operations/mediawiki-config",
+            current_branch="master",
+            dep_project="mediawiki/core",
+            dep_branch="master",
+            dep_merged=True,
+            live_versions=["1.45.0-wmf.20"],  # Only one live version
+            dep_included_in_branches=["master", "wmf/1.45.0-wmf.20"],
+            deployable_branches=[
+                "wmf/1.45.0-wmf.19",
+                "wmf/1.45.0-wmf.20",
+                "wmf/1.45.0-wmf.21",
+            ],
+        )
+        # Expect one error for roll-forward and one warning for rollback
+        assert len(trail.errors) == 1
+        assert len(trail.warnings) == 1
+
+        # Check exact error message for missing roll-forward target
+        assert trail.errors[0] == (
+            "Change '12345' has dependency '67890' targeting the master branch of\n"
+            "MediaWiki code project 'mediawiki/core', but the dependency is not\n"
+            "present in upcoming train branch: wmf/1.45.0-wmf.21\n"
+            "\n"
+            "Master dependencies must be cherry-picked to the upcoming train branch\n"
+            "because the train is expected to roll forward to it soon.\n"
+            "\n"
+            "To avoid this error you will need to cherry-pick and merge the\n"
+            "dependency into that branch. This can be done directly from the Gerrit\n"
+            "UI. Then you can restart this backport operation."
+        )
+
+        # Check exact warning message for missing rollback target
+        assert trail.warnings[0] == (
+            "Change '12345' has dependency '67890' targeting the master branch of\n"
+            "MediaWiki code project 'mediawiki/core', but the dependency is not\n"
+            "present in recent train branch: wmf/1.45.0-wmf.19\n"
+            "\n"
+            "This branch is a likely rollback target, so it is recommended that you\n"
+            "cherry-pick the dependency into that branch for rollback safety."
+        )
 
 
 class TestIsRelevantDep:

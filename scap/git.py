@@ -198,7 +198,7 @@ def get_branch(directory):
         return head
 
 
-def get_deployable_branches(directory):
+def get_deployable_branches(directory) -> list[str]:
     """
     Get an ordered set of all deployable MediaWiki train branch names on disk.
 
@@ -208,11 +208,11 @@ def get_deployable_branches(directory):
 
     :param directory: The staging directory containing php-* subdirectories
 
-    :returns: A set of branch names (e.g., {'wmf/1.41.0-wmf.1', 'wmf/1.41.0-wmf.2'})
+    :returns: A list of branch names (e.g., ['wmf/1.41.0-wmf.1', 'wmf/1.41.0-wmf.2'])
     """
-    return {
+    return [
         get_branch(dir_path) for dir_path in utils.get_deployable_directories(directory)
-    }
+    ]
 
 
 def info(directory, remote="origin", branch=None) -> dict:

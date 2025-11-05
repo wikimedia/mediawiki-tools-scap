@@ -5,6 +5,7 @@ import hashlib
 import os
 import platform
 import re
+import textwrap
 from typing import Dict, List
 import requests.exceptions
 import socket
@@ -1011,41 +1012,127 @@ class Backport(cli.Application):
 
         return included_branches
 
-    def _validate_master_dependency_in_deployable_branches(
+    def _add_validate_master_dep_complaint(
+        self,
+        dep_change: GerritChange,
+        current_change: GerritChange,
+        trail: DependencyTrail,
+        missing_type: str,  # "live", "upcoming", "recent"
+        missing_branches: List[str],
+        importance: str,
+    ):
+        assert missing_type in ["live", "upcoming", "recent"]
+
+        project = dep_change.get("project")
+        branch_es = utils.pluralize("branch", len(missing_branches))
+        missing_branches_str = ", ".join(sorted(missing_branches))
+
+        lines = textwrap.wrap(
+            f"Change '{current_change.number}' has dependency '{dep_change.number}' "
+            f"targeting the master branch of MediaWiki code project '{project}', "
+            f"but the dependency is not present in {missing_type} train {branch_es}: {missing_branches_str}"
+        )
+        lines.append("")
+        lines += textwrap.wrap(importance)
+
+        if missing_type == "recent":
+            trail.add_warning("\n".join(lines))
+            return
+
+        what = "that branch" if len(missing_branches) == 1 else "those branches"
+        lines.append("")
+        # FIXME: Can we link to a useful spot in Gerrit UI here?
+        lines += textwrap.wrap(
+            f"To avoid this error you will need to cherry-pick and merge the dependency into {what}. "
+            "This can be done directly from the Gerrit UI. Then you can restart this backport operation."
+        )
+        trail.add_error("\n".join(lines))
+
+    def _validate_master_dep_for_config_change(
         self,
         dep_change: GerritChange,
         trail: DependencyTrail,
         current_change: GerritChange,
     ):
         """
-        Validate that a master branch MediaWiki code dependency is present in all deployable
-        train branches.
+        Validate a master branch MediaWiki code dependency for config changes (Rule 3b).
 
-        For dependencies targeting MediaWiki code projects on the master branch, we need to ensure
-        the commit is actually present in ALL currently deployable train branches, not just merged to master.
-        This is because a commit could be merged to master but not yet deployed to wmf branches.
+        Rules (xref T362987):
+        1. dep_change MUST be included-in all live branches (error if not).
+
+        2. dep_change MUST be included-in any deployable branches after the
+           newest live version, as these are likely roll-forward targets
+           (error if not).
+
+        3. If there's only one live branch, then dep_change SHOULD be included-in
+           the deployable train branch whose version is just before the one live
+           branch, since this is a likely rollback target (warning if not).
 
         Args:
-            dep_change: The dependency change targeting master branch MW code
-            trail: The dependency trail to add errors to if validation fails
-            current_change: The change that depends on dep_change
+            dep_change: The dependency change targeting master branch MW code.
+            trail: The dependency trail to update with warnings/errors.
+            current_change: The change that depends on dep_change. Only used for generating messages.
         """
         included_branches = self._get_included_branches(dep_change)
 
-        # Get all currently deployable train branch names
+        # Production branches are the live train branches found in wikiversions.json
+        production_branches = {f"wmf/{v}" for v in self.versions}
+
+        # Deployable branches according to the repo state
         deployable_branches = git.get_deployable_branches(self.mediawiki_location)
 
-        # Check if the dependency is missing from any deployable branch
-        missing_branches = deployable_branches - included_branches
-        if missing_branches:
-            missing_list = ", ".join(sorted(missing_branches))
-            project = dep_change.get("project")
-            trail.add_error(
-                f"Change '{current_change.number}' has dependency '{dep_change.number}' "
-                f"targeting the master branch of MediaWiki code project '{project}', but the "
-                f"commit is not present in deployable branch(es): {missing_list}. "
-                f"Master dependencies must be deployed to all active branches."
+        # Rule 1: dep_change MUST be included-in all live branches
+        missing_production = production_branches - included_branches
+        if missing_production:
+            self._add_validate_master_dep_complaint(
+                dep_change,
+                current_change,
+                trail,
+                "live",
+                list(missing_production),
+                "Master dependencies must be cherry-picked to all live train branches.",
             )
+            return
+
+        # Rule 2: dep_change MUST be included-in deployable branches after the newest live version
+        # (likely roll-forward targets)
+        newest_live_version = self.versions[-1]
+        i = deployable_branches.index(f"wmf/{newest_live_version}")
+        upcoming_branches = deployable_branches[i + 1 :]
+
+        missing_next = set(upcoming_branches) - included_branches
+        if missing_next:
+            self._add_validate_master_dep_complaint(
+                dep_change,
+                current_change,
+                trail,
+                "upcoming",
+                list(missing_next),
+                # In all likelihood there will only be one upcoming branch, so this message
+                # is worded with that expectation.
+                "Master dependencies must be cherry-picked to the upcoming train branch "
+                "because the train is expected to roll forward to it soon.",
+            )
+
+        # Rule 3: If there's only one live branch, then dep_change SHOULD be included-in
+        # the deployable train branch whose version is just before the one live branch
+        # (likely rollback target)
+        if len(self.versions) == 1:
+            live_version = self.versions[0]
+            i = deployable_branches.index(f"wmf/{live_version}")
+            # Check only the immediately preceding branch (if it exists)
+            if i > 0:
+                rollback_branch = deployable_branches[i - 1]
+                if rollback_branch not in included_branches:
+                    self._add_validate_master_dep_complaint(
+                        dep_change,
+                        current_change,
+                        trail,
+                        "recent",
+                        [rollback_branch],
+                        "This branch is a likely rollback target, so it is recommended that you cherry-pick "
+                        "the dependency into that branch for rollback safety.",
+                    )
 
     def _validate_master_dependency_in_target_branch(
         self,
@@ -1106,9 +1193,13 @@ class Backport(cli.Application):
         passed as root change in the command line, otherwise add a trail
         error.  (same as 1a)
 
-        3b: If `Dep` targets master, verify that it is included-in all
-        deployable branches (which implies being merged), Otherwise add a
-        trail error.
+        3b: If `Dep` targets master:
+        * `Dep` MUST be included-in all live branches (error if not).
+        * `Dep` MUST be included-in any deployable branches that exist after
+          the newest live version (roll-forward targets) (error if not).
+        * If there's only one live branch, then `Dep` SHOULD be included-in
+          the deployable train branch whose version is just before the one live
+          branch, since this is a likely rollback target (warning if not).
 
         Args:
             current_change: The change that has this dependency
@@ -1145,10 +1236,9 @@ class Backport(cli.Application):
         elif self.git_repos.targets_prod_config(
             current_change
         ) and self.git_repos.targets_any_mediawiki_code(dep_change):
-            # 3b: If `Dep` targets master, verify that it is included-in all deployable branches
-            # (which implies being merged), Otherwise add a trail error.
             if dep_change.get("branch") == "master":
-                self._validate_master_dependency_in_deployable_branches(
+                # 3b: See _validate_master_dep() for its rules
+                self._validate_master_dep_for_config_change(
                     dep_change, trail, current_change
                 )
             # 3a: If `Dep` doesn't target master, verify that it has been merged or passed
@@ -1203,7 +1293,7 @@ class Backport(cli.Application):
         for trail in dependency_trails:
             if trail.has_errors():
                 for error in trail.errors:
-                    all_errors.append(f"Error for {trail.root_change}: {error}")
+                    all_errors.append(f"Error for {trail.root_change}:\n{error}")
 
         # If any errors were found, report them all at once
         if all_errors:
@@ -1217,7 +1307,7 @@ class Backport(cli.Application):
         for trail in dependency_trails:
             if trail.has_warnings():
                 for warning in trail.warnings:
-                    all_warnings.append(f"Warning for {trail.root_change}: {warning}")
+                    all_warnings.append(f"Warning for {trail.root_change}:\n{warning}")
 
         if all_warnings and not self.arguments.yes:
             warning_messages = "\n".join(all_warnings)

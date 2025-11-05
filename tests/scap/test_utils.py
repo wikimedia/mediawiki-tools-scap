@@ -291,11 +291,11 @@ def test_get_deployable_branches(mock_get_branch, mock_staging_directory):
     res = git.get_deployable_branches(mock_staging_directory)
 
     # Only train branches (wmf/*) are considered deployable, not "master" or "next"
-    expected_branches = {
+    expected_branches = [
         "wmf/1.29.0-wmf.2",
         "wmf/1.29.0-wmf.3",
         "wmf/1.40.0-wmf.4",
-    }
+    ]
     assert res == expected_branches
 
 

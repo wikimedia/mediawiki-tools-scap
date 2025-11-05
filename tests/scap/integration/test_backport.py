@@ -601,16 +601,16 @@ class BackportsTestHelper:
         child.wait()
         return child.exitstatus
 
-    def master_dependency_backport_fails(self, change_urls) -> int:
-        """
-        Attempts to backport one or more commits with master dependencies that
-        are not present in all deployable branches.
+    def master_dependency_backport_missing_live_errors(self, change_urls) -> int:
+        """Attempts to backport commits where a master dependency is missing from one or more live branches.
 
-        Returns the exit status of scap backport
-        """
+        Expects an error (no warning confirmation prompt) referencing 'live train branch(es)'.
+        Returns exit status (should be non-zero)."""
 
         child = self._start_scap_backport(change_urls)
-        child.expect(r"Master dependencies must be deployed to all active branches")
+        # Expect direct error about missing live branches (no warnings prompt)
+        # The new wrapped format says "present in live train branch:" or "branches:"
+        child.expect(r"present in live train branche?s?:")
         child.wait()
         return child.exitstatus
 
@@ -1658,32 +1658,33 @@ class TestBackports(unittest.TestCase):
 
         self.backports_test_helper.scap_backport(change_urls)
 
-    def test_depends_on_master_not_deployed_to_all_branches(self):
+    def test_depends_on_master_missing_live_branch_error(self):
         """
-        Test scenario where a master branch MediaWiki code change exists but
-        is NOT present in all deployable branches, and a config change depends
-        on it. This should cause scap backport to fail with an error about
-        the master dependency not being deployed to all active branches.
+        If a master branch MediaWiki code dependency is missing from
+        any live (production) branch, the backport should fail with an error (no warnings prompt).
+
+        Note on coverage: We intentionally do not exercise the Rule 3b warning-only case in
+        integration ("only one live branch; recommend including the previous deployable branch").
+        The dependency relevance rules (T365146) consider master-level dependencies not relevant
+        when a sibling cherry-pick exists on any deployable branch. In realistic train-dev flows,
+        such siblings commonly exist, which prevents the warning-only scenario from surfacing in
+        end-to-end runs. The warning path is covered in unit tests instead.
         """
         announce(
-            "Testing master change not deployed to all branches causes backport failure"
+            "Testing master change missing from a live branch triggers error (Rule 3b)"
         )
 
         change_urls = (
             self.backports_test_helper.setup_depends_on_master_not_deployed_to_all_branches()
         )
 
-        # This backport should fail because the master dependency is not present
-        # in all deployable branches
-        child = self.backports_test_helper._start_scap_backport(
-            [change_urls[1]]  # Only try to backport the config change
+        # Expect an error (non-zero exit) due to missing live branch inclusion
+        exit_code = (
+            self.backports_test_helper.master_dependency_backport_missing_live_errors(
+                [change_urls[1]]  # Only try to backport the config change
+            )
         )
-        child.expect(r"Master dependencies must be deployed to all active branches")
-        child.wait()
-
-        # Verify that the failure was due to the master dependency validation
-        # The exit status should be non-zero indicating failure
-        self.assertNotEqual(child.exitstatus, 0)
+        self.assertNotEqual(exit_code, 0)
 
     # T387798
     def test_depends_on_cross_repo_same_changeid(self):
