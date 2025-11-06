@@ -34,7 +34,7 @@ class UpdateInterwikiCache(cli.Application):
             with utils.suppress_backtrace():
                 mwscript.run(
                     self,
-                    "extensions/WikimediaMaintenance/dumpInterwiki.php",
+                    "extensions/WikimediaMaintenance/maintenance/dumpInterwiki.php",
                     "--mwconfig-dir",
                     self.config["stage_dir"],
                     stdout=f,
