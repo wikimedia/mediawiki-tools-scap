@@ -1,3 +1,9 @@
+scap (4.227.0)
+
+  * scap remove-patch: support removing multiple patches
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Thu, 13 Nov 2025 08:55:09 -0800
+
 scap (4.226.0)
 
   * backport.py: Revise backport vote rule 3b
