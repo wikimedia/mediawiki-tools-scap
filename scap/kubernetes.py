@@ -18,7 +18,7 @@ import queue
 
 import yaml
 
-from scap import utils, log, git, version
+from scap import utils, log, git, version, interaction
 from scap.cli import Application
 from scap.runcmd import gitcmd
 
@@ -376,9 +376,21 @@ class K8sOps:
         if update_releases_repo and self.app.config["build_mw_container_image"]:
             release_repo_update_cmd = self.app.config["release_repo_update_cmd"]
             if release_repo_update_cmd:
-                self.logger.info("Running {}".format(release_repo_update_cmd))
-                with utils.suppress_backtrace():
-                    subprocess.run(release_repo_update_cmd, shell=True, check=True)
+                try:
+                    self.logger.info("Running {}".format(release_repo_update_cmd))
+                    with utils.suppress_backtrace():
+                        subprocess.run(release_repo_update_cmd, shell=True, check=True)
+                except Exception:
+                    message = f"Could not update local release repository using: '${release_repo_update_cmd}'"
+                    if not interaction.interactive():
+                        utils.abort(message)
+
+                    self.logger.error(message)
+                    self.app.prompt_for_approval_or_exit(
+                        prompt_message="Do you want to proceed anyway?",
+                        exit_message="Canceled by user",
+                        exit_code=1,
+                    )
 
     def _common_build_images_args(self) -> List[str]:
         build_images_args = []
