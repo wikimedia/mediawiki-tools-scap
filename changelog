@@ -1,3 +1,9 @@
+scap (4.226.0)
+
+  * backport.py: Revise backport vote rule 3b
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Thu, 13 Nov 2025 08:39:11 -0800
+
 scap (4.225.0)
 
   * Update location for dumpInterwiki script
