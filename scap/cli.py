@@ -294,12 +294,20 @@ class Application(object):
     def input_line(self, prompt: str) -> str:
         return self.get_io().input_line(prompt)
 
-    def prompt_for_approval_or_exit(self, prompt_message, exit_message):
-        """Exits successfully with a message if the user does not approve."""
+    def prompt_for_approval_or_exit(
+        self, prompt_message, exit_message, exit_code=os.EX_OK
+    ):
+        """Exits with a message if the user does not approve.
+
+        Args:
+            prompt_message: The prompt to display to the user
+            exit_message: The message to display before exiting
+            exit_code: The exit code to use (default: os.EX_OK for success)
+        """
         approval = self.get_io().prompt_user_for_confirmation(prompt_message)
         if not approval:
             self.announce_final(exit_message)
-            sys.exit(os.EX_OK)
+            sys.exit(exit_code)
 
     def prompt_choices(self, question: str, choices, default=None) -> str:
         return self.get_io().prompt_choices(question, choices, default)
