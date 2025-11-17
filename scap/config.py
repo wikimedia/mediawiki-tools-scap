@@ -119,7 +119,7 @@ DEFAULT_CONFIG = {
     # Container used to execute PHP scripts during prep, etc.
     "mediawiki_runtime_image": (
         str,
-        "docker-registry.wikimedia.org/php8.1-fpm-multiversion-base",
+        "docker-registry.wikimedia.org/php8.3-fpm-multiversion-base",
     ),
     # Runtime user of the containerized MediaWiki (mwscript) processes
     "mediawiki_runtime_user": (str, "www-data"),
