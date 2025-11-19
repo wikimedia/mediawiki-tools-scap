@@ -31,9 +31,25 @@ const useAuthStore = defineStore( 'spiderpig-auth',
 			},
 
 			setWindowLocation( url ) {
-				if ( this.windowLocationSet ) {
-					// eslint-disable-next-line max-len
-					// console.log( `setWindowLocation: Not setting window.location.href to ${ url } because it was already set` );
+				// Avoid redirecting if we've already redirected once this session
+				// or we're already on the exact target URL. We build a canonical
+				// absolute URL for comparison using the current origin. This handles
+				// relative paths (e.g. '/notauthorized') and absolute inputs.
+				let targetHref;
+				try {
+					// new URL(relative, base) will resolve relative paths correctly.
+					// If url is already absolute, the base is ignored.
+					const targetUrl = new URL( url, window.location.origin );
+					targetHref = targetUrl.href;
+				} catch ( e ) {
+					// If URL construction fails, fall back to original string
+					targetHref = url;
+				}
+				if ( this.windowLocationSet || window.location.href === targetHref ) {
+					// console.log(
+					//   `setWindowLocation: Not setting window.location.href to ${ url } ` +
+					//   'because it was already set or we are already on that page'
+					// );
 					return;
 				}
 				// console.log( `Setting window.location.href to ${ url }` );
