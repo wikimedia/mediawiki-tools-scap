@@ -1,3 +1,13 @@
+scap (4.228.0)
+
+  * Switch mediawiki_runtime_image to PHP 8.3
+  * api.js: setWindowLocation: Avoid redirect loop
+  * changelog: Fix misleading changelog entry
+  * make Scap operations resilient to transient failures in GitLab
+  * cli.py: prompt_for_approval_or_exit: Add exit_code parameter
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Thu, 20 Nov 2025 09:36:03 -0800
+
 scap (4.227.0)
 
   * scap remove-patch: support removing multiple patches
