@@ -685,18 +685,18 @@ class AbstractSync(cli.Application):
                 f"{description.capitalize()} failed. What do you want to do?",
                 {
                     f"Retry {description}": "r",
-                    "Continue with deployment": "c",
-                    "Exit scap": "e",
+                    "Ignore failure and proceed with deployment": "i",
+                    "Cancel deployment": "c",
                 },
-                "e",
+                "c",
             )
             if resp == "r":
                 # loop around and try again
                 continue
-            elif resp == "c":
+            elif resp == "i":
                 self.get_logger().info("Continuing with deployment")
                 break
-            elif resp == "e":
+            elif resp == "c":
                 self.cancel()
                 break
             else:
