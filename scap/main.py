@@ -686,7 +686,7 @@ class AbstractSync(cli.Application):
                 {
                     f"Retry {description}": "r",
                     "Continue with deployment": "c",
-                    "Exit scap": "e",
+                    "Cancel deployment and exit scap": "e",
                 },
                 "e",
             )
