@@ -28,7 +28,7 @@ import scap
 from scap import mwscript
 
 
-def check_valid_syntax(app, paths, procs=1):
+def check_valid_syntax(app, paths):
     """Run php -l in parallel on `paths`; raise CalledProcessError if nonzero
     exit."""
     if isinstance(paths, str):
@@ -48,8 +48,8 @@ def check_valid_syntax(app, paths, procs=1):
         "-not -type d "  # makes no sense to lint a dir named 'less.php'
         "-name '*.php' -not -name 'autoload_static.php' "
         "\\) -print0 "
-        "| xargs -0 -n1 -P%d -exec php -l -d display_errors=stderr -d log_errors=off 2>&1"
-    ) % (" ".join(quoted_paths), procs)
+        "| xargs -0 -exec php -l -d display_errors=stderr -d log_errors=off 2>&1"
+    ) % " ".join(quoted_paths)
     logger.debug("Running command: `%s`", cmd)
     proc = mwscript.run_shell(app, cmd, check=False)
     if proc.returncode != 0:

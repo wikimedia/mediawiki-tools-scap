@@ -1135,7 +1135,6 @@ class ScapWorld(AbstractSync):
                 "%(stage_dir)s/wmf-config" % self.config,
                 "%(stage_dir)s/multiversion" % self.config,
             ],
-            utils.cpus_for_jobs(),
         )
 
     def _update_caches(self):
