@@ -47,7 +47,6 @@ def check_valid_syntax(app, paths, procs=1):
         "\\( "
         "-not -type d "  # makes no sense to lint a dir named 'less.php'
         "-name '*.php' -not -name 'autoload_static.php' "
-        " -or -name '*.inc' "
         "\\) -print "
         "| xargs -n1 -P%d -exec php -l -d display_errors=stderr -d log_errors=off 2>&1"
     ) % (" ".join(quoted_paths), procs)
