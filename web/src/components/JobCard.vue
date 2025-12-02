@@ -2,10 +2,9 @@
 	<cdx-card
 		class="job-card"
 		:class="rootClasses"
-		:url="jobLink"
 	>
 		<template #description>
-			<div class="job-card__content">
+			<div class="job-card__content" @click="navigateToJob">
 				<div class="job-card__column">
 					<div class="job-card__label">
 						Id
@@ -69,7 +68,7 @@
 				:interaction="interaction"
 			/>
 			<div
-				v-if="!showInteraction && showJobDetails"
+				v-if="!interaction"
 				class="job-card__details"
 			>
 				<hr>
@@ -148,8 +147,8 @@
 						</cdx-accordion>
 					</div>
 				</div>
-				<hr>
-				<div class="job-card__details__log">
+				<hr v-if="showJobLog">
+				<div v-if="showJobLog" class="job-card__details__log">
 					<sp-job-log
 						:job-id="id"
 						:is-job-in-progress="started_at && !finished_at"
@@ -312,10 +311,11 @@ export default defineComponent( {
 
 		// Prevent displaying interaction within a JobCard on JobViewerPage.
 		const showInteraction = computed( () => route.name !== 'job' );
-		const showJobDetails = computed( () => route.name === 'job' );
+		const showJobLog = computed( () => route.name === 'job' );
+		const showColumnLabels = computed( () => route.name === 'job' );
 		const rootClasses = computed( () => ( {
-			'job-card--highlighted': props.running && !showJobDetails.value,
-			'job-card--has-details': showJobDetails.value
+			'job-card--highlighted': props.running && route.name !== 'job',
+			'job-card--has-details': showColumnLabels.value
 		} ) );
 
 		const statusType = computed( () => {
@@ -410,6 +410,12 @@ export default defineComponent( {
 			window.open( url );
 		}
 
+		function navigateToJob() {
+			if ( jobLink.value ) {
+				router.push( { name: 'job', params: { jobId: props.id } } );
+			}
+		}
+
 		watch(
 			() => props.data, ( newData ) => {
 				if ( !newData ) {
@@ -433,13 +439,13 @@ export default defineComponent( {
 			cdxIconLinkExternal,
 			rootClasses,
 			showInteraction,
-			showJobDetails,
+			showJobLog,
 			finishedInfo,
 			changeInfos,
 			handleClick,
+			navigateToJob,
 			isLoading,
-			error,
-			jobLink
+			error
 		};
 	}
 } );
