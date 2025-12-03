@@ -1,3 +1,12 @@
+scap (4.229.0)
+
+  * Revise job card appearance in job history list
+  * main.py: Improve wording of retry_continue_exit exit case
+  * web/package-lock.json: Bump js-yaml to 4.1.1
+  * spiderpig-otp: Add --qr flag to generate QR code
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Wed, 03 Dec 2025 07:58:49 -0800
+
 scap (4.228.0)
 
   * Switch mediawiki_runtime_image to PHP 8.3
