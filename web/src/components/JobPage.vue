@@ -18,7 +18,7 @@ import useJobrunner from '../jobrunner';
 import SpJobHistory from './JobHistory.vue';
 
 export default defineComponent( {
-	name: 'SpNewJobPage',
+	name: 'SpJobPage',
 	components: {
 		SpJobHistory,
 		VSheet,

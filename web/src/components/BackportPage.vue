@@ -1,21 +1,21 @@
 <template>
-	<sp-new-job-page title="MediaWiki Backport">
+	<sp-job-page title="MediaWiki Backport">
 		<template #new-job="{ idle }">
 			<sp-backport :idle="idle" :initial-change-numbers="backportChangeNumbers" />
 		</template>
-	</sp-new-job-page>
+	</sp-job-page>
 </template>
 
 <script type="ts">
 import { defineComponent, ref } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
-import SpNewJobPage from './NewJobPage.vue';
+import SpJobPage from './JobPage.vue';
 import SpBackport from './Backport.vue';
 
 export default defineComponent( {
 	name: 'BackportPage',
 	components: {
-		SpNewJobPage,
+		SpJobPage,
 		SpBackport
 	},
 	setup() {
