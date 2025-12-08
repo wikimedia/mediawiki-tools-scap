@@ -1,4 +1,4 @@
-# syntax=docker-registry.wikimedia.org/repos/releng/blubber/buildkit:v0.24.0
+# syntax=docker-registry.wikimedia.org/repos/releng/blubber/buildkit:v1.6.0
 #
 # A Blubber spec file for Docker containers where the Scap automated test suite
 # can be run.
