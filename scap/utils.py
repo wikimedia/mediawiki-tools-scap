@@ -1205,10 +1205,24 @@ def expand_dblist(stage_dir, db_list_name: str) -> list:
     return subprocess.check_output([script, db_list_name], text=True).splitlines()
 
 
-def get_group_versions(group, directory, realm) -> list:
+def get_group_versions_for_train(group, directory, realm) -> list:
     """
     Returns a list of versions used by 'group', in ascending version order.
+
+    The intention of this function is to answer the question "What
+    version of MediaWiki is being using by the wikis in group X?" for the
+    purpose of presenting the progress of the weekly train to the user.
+    With the group0/testwikis hack, under normal operation the function
+    should always return a list of one element.
+
+    Due to the group0/testwikis hack, this function is ONLY suitable
+    for train operations.
     """
+    if group == "group0":
+        # group0 includes testwikis, but for train purposes we want to
+        # pretend that it doesn't.
+        group = "group0 - testwikis"
+
     dblist = set(expand_dblist(directory, group))
 
     versions = set()

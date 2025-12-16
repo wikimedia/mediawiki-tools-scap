@@ -112,7 +112,7 @@ class DeployPromote(cli.Application):
         self.promote_version = self.arguments.version or sorted_versions[-1]
 
         prev_version = "/".join(
-            utils.get_group_versions(
+            utils.get_group_versions_for_train(
                 self.arguments.group, self.config["stage_dir"], self.config["wmf_realm"]
             )
         )
