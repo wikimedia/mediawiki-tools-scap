@@ -44,6 +44,7 @@ class TrainInfo:
         self.config = config
         self.warnings = []
         self.train_version = train_version
+        # self.groups maps a group name to the list of versions that the group is running.
         self.groups = {}
         self.train_is_at = None
         self.task = None
@@ -52,7 +53,9 @@ class TrainInfo:
         self.task_version = None
         self.task_release_date = None
         self.old_version = None
+        # self.group_wikis maps a group name to the list of wikidbs in that group.
         self.group_wikis = {}
+        # self.wiki_versions maps a wikidb to its version.
         self.wiki_versions = {}
 
         self.update()
@@ -67,7 +70,7 @@ class TrainInfo:
         # FIXME: Verify that versions are ascending as we advance through groups.
         # Warn if there is an unusual arrangement.
         for group in GROUPS:
-            versions = utils.get_group_versions(
+            versions = utils.get_group_versions_for_train(
                 group, self.config["stage_dir"], self.config["wmf_realm"]
             )
             self.groups[group] = versions
