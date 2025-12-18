@@ -920,7 +920,6 @@ def command(*args, **kwargs):
     """
 
     def wrapper(cls):
-        global COMMAND_REGISTRY
         name = args[0]
         if name in COMMAND_REGISTRY:
             err = 'Duplicate: A command named "%s" already exists.' % name
