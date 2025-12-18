@@ -12,7 +12,7 @@ REGISTRY=docker-registry.wikimedia.org
 SCAP_REPO=repos/releng/scap
 BASE_SCAP_IMAGE_REPO=$REGISTRY/$SCAP_REPO
 # When changing the supported distros, also update the authoritative list in install_world.py
-SUPPORTED_DISTROS="bullseye bookworm"
+SUPPORTED_DISTROS="bullseye bookworm trixie"
 
 function usage {
   cat <<HERE
