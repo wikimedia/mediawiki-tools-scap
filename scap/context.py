@@ -20,7 +20,7 @@
     You should have received a copy of the GNU General Public License
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """
-from datetime import datetime
+from datetime import datetime, timezone
 import glob
 import os
 
@@ -188,7 +188,7 @@ class TargetContext(Context):
 
         # Backup any file/directory that exists at the given path
         if backup and os.path.exists(path) and not os.path.islink(path):
-            date = datetime.utcnow().isoformat()
+            date = datetime.now(timezone.utc).isoformat()
             os.rename(path, "{}.{}".format(path, date))
 
         utils.update_symlink(self.rev_path(rev), path)
