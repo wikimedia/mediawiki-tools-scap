@@ -51,7 +51,7 @@ class InstallWorld(cli.Application):
     """
 
     # When changing the supported distros, also update the standalone list in install_local_version.sh
-    SUPPORTED_DISTRIBUTIONS = ["bullseye", "bookworm"]
+    SUPPORTED_DISTRIBUTIONS = ["bullseye", "bookworm", "trixie"]
     # The rsync module is defined in the operations/puppet repo
     SCAP_RSYNC_MODULE = "scap-install-staging"
     WHEELS_DIR = "scap-wheels"

@@ -1,7 +1,8 @@
 certifi==2024.7.4
 chardet==5.2
 charset-normalizer==2.1.1
-greenlet==3.0.3
+greenlet==3.0.3; python_version < '3.13'
+greenlet==3.3.0; python_version >= '3.13'
 idna==3.7
 Jinja2==3.1.6
 MarkupSafe==3.0.2

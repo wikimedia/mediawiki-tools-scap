@@ -28,6 +28,10 @@ variants:
     base: docker-registry.wikimedia.org/bookworm
     includes: [python-packages]
 
+  base-trixie:
+    base: docker-registry.wikimedia.org/trixie
+    includes: [python-packages]
+
   verify-deps:
     builders:
       - python:
@@ -42,6 +46,8 @@ variants:
     includes: [base-bullseye, verify-deps]
   verify-deps-bookworm:
     includes: [base-bookworm, verify-deps]
+  verify-deps-trixie:
+    includes: [base-trixie, verify-deps]
 
   test:
     apt:
@@ -71,6 +77,8 @@ variants:
     includes: [base-bullseye, test]
   test-bookworm:
     includes: [base-bookworm, test]
+  test-trixie:
+    includes: [base-trixie, test]
 
   test-bullseye-report:
     copies:
@@ -80,6 +88,11 @@ variants:
   test-bookworm-report:
     copies:
       - from: test-bookworm
+        source: /srv/app/test-reports
+        destination: /
+  test-trixie-report:
+    copies:
+      - from: test-trixie
         source: /srv/app/test-reports
         destination: /
 
@@ -147,6 +160,19 @@ variants:
               source: /srv/app/dist
               destination: web/dist
 
+  binary-dist-trixie-build:
+    includes: [base-trixie]
+    builders:
+      - python:
+          requirements: [binary-dist-requirements.txt]
+      - custom:
+          command: [./build_wheels.sh]
+          requirements:
+            - .
+            - from: build-spiderpig-ui
+              source: /srv/app/dist
+              destination: web/dist
+
   binary-dist-bullseye:
     base: docker-registry.wikimedia.org/bullseye
     copies:
@@ -158,6 +184,13 @@ variants:
     base: docker-registry.wikimedia.org/bookworm
     copies:
       - from: binary-dist-bookworm-build
+        source: /srv/app/wheels
+        destination: /wheels
+        
+  binary-dist-trixie:
+    base: docker-registry.wikimedia.org/trixie
+    copies:
+      - from: binary-dist-trixie-build
         source: /srv/app/wheels
         destination: /wheels
         
