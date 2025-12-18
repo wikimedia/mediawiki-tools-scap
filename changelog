@@ -1,3 +1,14 @@
+scap (4.230.0)
+
+  * Add trixie to supported distros
+  * history.py: Don't use database connection pooling
+  * Bump flake8 to 6.1.0
+  * Deprecation fixes for trixie
+  * build: Switch buildkit from v0.24.0 to v1.6.0
+  * web: rename NewJobPage -> JobPage
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Thu, 18 Dec 2025 12:39:09 -0800
+
 scap (4.229.0)
 
   * Revise job card appearance in job history list
