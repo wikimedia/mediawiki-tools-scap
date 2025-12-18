@@ -14,10 +14,9 @@ from scap import browser
 from scap.runcmd import gitcmd, FailedCommand
 
 from typing import List, Optional
-from sqlalchemy import Engine, create_engine, ForeignKey, select, delete
+from sqlalchemy import Engine, create_engine, ForeignKey, select, delete, event
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship, Session
-from sqlalchemy.event import listen
-from sqlalchemy.pool import Pool
+from sqlalchemy.pool import NullPool
 
 # Maximum age of a history entry before it is gc'd
 MAX_HISTORY_LENGTH = timedelta(days=365)
@@ -187,8 +186,8 @@ class History:
             cursor.execute("PRAGMA journal_mode=WAL;")
             cursor.close()
 
-        engine = create_engine(f"sqlite:///{self.db_filename}")
-        listen(Pool, "connect", set_sqlite_pragma)
+        engine = create_engine(f"sqlite:///{self.db_filename}", poolclass=NullPool)
+        event.listen(engine, "connect", set_sqlite_pragma)
         return engine
 
     def _setup_db(self):
