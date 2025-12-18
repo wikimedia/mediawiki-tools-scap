@@ -15,7 +15,7 @@ import os
 import re
 import socket
 import subprocess
-from datetime import datetime
+from datetime import datetime, timezone
 
 import yaml
 
@@ -400,7 +400,7 @@ def last_deploy_tag(location):
 def next_deploy_tag(location):
     """Calculates the scap/sync/YYYY-MM-DD/{n} tag to use for this deployment"""
     ensure_dir(location)
-    timestamp = datetime.utcnow()
+    timestamp = datetime.now(timezone.utc)
     date = timestamp.strftime("%F")  # YYYY-MM-DD format.
 
     last_seq = 0
