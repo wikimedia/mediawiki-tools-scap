@@ -63,7 +63,7 @@ from scap.say import Fortune, Say
 from scap.spiderpig.jobrunner import JobRunner
 from scap.spiderpig.api import SpiderpigAPIServer
 from scap.stage_train import StageTrain
-from scap.test import TestBackport, TestProgress, TestTrain
+from scap.test import TestBackport, TestProgress
 from scap.train import Train
 from scap.updateinterwikicache import UpdateInterwikiCache
 from scap.updatewikiversions import UpdateWikiversions
