@@ -1,3 +1,10 @@
+scap (4.231.0)
+
+  * Drop `scap test-train`
+  * train: Act as if testwikis are not part of group0
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Mon, 05 Jan 2026 08:56:46 -0800
+
 scap (4.230.0)
 
   * Add trixie to supported distros
