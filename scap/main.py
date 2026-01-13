@@ -1463,6 +1463,11 @@ class LockManager(cli.Application):
         + "With great power comes great responsibility",
     )
     @cli.argument(
+        "--bg",
+        action="store_true",
+        help="Run in background (detach from terminal) after acquiring the lock.  Only valid with --all.",
+    )
+    @cli.argument(
         "--unlock-all",
         action="store_true",
         help="Remove global lock for all repositories",
@@ -1484,6 +1489,10 @@ class LockManager(cli.Application):
             logger.fatal("Cannot lock repositories without a reason")
             return 1
 
+        if self.arguments.bg and not self.arguments.all:
+            logger.fatal("--bg can only be used with --all")
+            return 1
+
         if self.arguments.all:
             lock_path = lock.GLOBAL_LOCK_FILE
             repo = "ALL REPOSITORIES"
@@ -1499,38 +1508,166 @@ class LockManager(cli.Application):
                 lock_path = self.get_mediawiki_staging_lock_file()
                 repo = "MediaWiki"
 
-        with self.lock(lock_path):
-            forced_lock_release_r = None
-            forced_lock_release_w = None
+        # self.locker() writes to locker_status_w to signal the parent that
+        # the lock has been acquired, and later writes to it again to
+        # signal that the lock has been externally released.
+        locker_status_r, locker_status_w = os.pipe()
 
-            if self.arguments.all:
+        # self.ui() writes to release_w to tell self.locker() to release the lock
+        release_r, release_w = os.pipe()
 
-                def release_global_lock(*args):
-                    # Signal forced abort
-                    os.write(forced_lock_release_w, bytes(1))
-
-                forced_lock_release_r, forced_lock_release_w = os.pipe()
-                lock.Lock.watch_for_gl_release_signal(release_global_lock)
-
-            self.announce(
-                "Locking from deployment [%s]: %s", repo, self.arguments.message
+        # Fork before acquiring the lock (fcntl locks are not inherited across fork)
+        pid = os.fork()
+        if pid > 0:
+            # The parent process handles the UI
+            return self.ui(
+                repo,
+                locker_status_r,
+                locker_status_w,
+                release_r,
+                release_w,
+                pid,
+                logger,
+            )
+        else:
+            # The child process handles acquiring and holding the lock
+            return self.locker(
+                lock_path,
+                repo,
+                locker_status_r,
+                locker_status_w,
+                release_r,
+                release_w,
+                logger,
             )
 
-            logger.info("Press enter to unlock...")
-            try:
-                fds = [sys.stdin]
-                if forced_lock_release_r is not None:
-                    fds.append(forced_lock_release_r)
-                rlist, _, _ = select.select(fds, [], [])
-                if sys.stdin in rlist:
+    def ui(
+        self,
+        repo,
+        locker_status_r,
+        locker_status_w,
+        release_r,
+        release_w,
+        pid,
+        logger,
+    ) -> int:
+        os.close(locker_status_w)
+        os.close(release_r)
+
+        # Wait for self.locker() to signal successful lock acquisition
+        lock_acquired = False
+        try:
+            result = os.read(locker_status_r, 1)
+            if result == b"\x01":
+                lock_acquired = True
+        except OSError:
+            pass
+
+        if not lock_acquired:
+            logger.error("Failed to acquire lock")
+            return 1
+
+        self.announce("Locking from deployment [%s]: %s", repo, self.arguments.message)
+
+        if self.arguments.bg:
+            # Background mode - exit immediately after lock is acquired
+            return 0
+
+        # Foreground mode - wait for user input or the released signal from self.locker()
+        logger.info("Press enter to unlock...")
+
+        try:
+            fds = [sys.stdin, locker_status_r]
+            rlist, _, _ = select.select(fds, [], [])
+            if sys.stdin in rlist:
+                try:
                     sys.stdin.readline()
+                except KeyboardInterrupt:
+                    pass
+                try:
+                    os.write(release_w, b"\x01")
+                except OSError:
+                    pass
+            else:
+                # self.locker() has indicated that is has released the lock
+                try:
+                    os.read(locker_status_r, 1)  # drain the signal
+                except OSError:
+                    pass
+        except KeyboardInterrupt:
+            pass
+        finally:
+            self.quiet_close(locker_status_r, release_w)
 
-            except KeyboardInterrupt:
-                pass  # We don't care here
+        os.waitpid(pid, 0)
+        return 0
 
-            if forced_lock_release_r is not None:
-                os.close(forced_lock_release_r)
-                os.close(forced_lock_release_w)
+    def locker(
+        self,
+        lock_path,
+        repo,
+        locker_status_r,
+        locker_status_w,
+        release_r,
+        release_w,
+        logger,
+    ) -> int:
+        os.close(locker_status_r)
+        os.close(release_w)
+
+        try:
+            with self.lock(lock_path):
+                # Notify self.ui() that lock is acquired
+                os.write(locker_status_w, b"\x01")
+
+                # Disconnect from the terminal if running in background mode
+                if self.arguments.bg:
+                    os.setsid()
+                    si = open("/dev/null", "r")
+                    so = open("/dev/null", "a+")
+                    se = open("/dev/null", "a+")
+                    os.dup2(si.fileno(), sys.stdin.fileno())
+                    os.dup2(so.fileno(), sys.stdout.fileno())
+                    os.dup2(se.fileno(), sys.stderr.fileno())
+
+                forced_lock_release_r = None
+                forced_lock_release_w = None
+
+                if self.arguments.all:
+
+                    def release_global_lock(*args):
+                        # Notify self.ui() that the lock has been released
+                        os.write(forced_lock_release_w, b"\x01")
+
+                    forced_lock_release_r, forced_lock_release_w = os.pipe()
+                    lock.Lock.watch_for_gl_release_signal(release_global_lock)
+
+                try:
+                    fds = []
+                    if not self.arguments.bg:
+                        fds.append(release_r)
+                    if forced_lock_release_r is not None:
+                        fds.append(forced_lock_release_r)
+                    select.select(fds, [], [])
+                except KeyboardInterrupt:
+                    pass
+                finally:
+                    # Notify self.ui() that we're done holding the lock
+                    try:
+                        os.write(locker_status_w, b"\x00")
+                    except OSError:
+                        pass
+                    self.quiet_close(locker_status_w)
+
+                    if forced_lock_release_r is not None:
+                        self.quiet_close(forced_lock_release_r, forced_lock_release_w)
+
+                    self.quiet_close(release_r)
+        except Exception as e:
+            logger.error("Failed to acquire lock: %s", e)
+            # Notify self.ui() of failure by closing the pipe without writing
+            self.quiet_close(locker_status_w)
+            os._exit(1)
 
         self.announce(
             "Unlocked for deployment [%s]: %s (duration: %s)",
@@ -1540,3 +1677,11 @@ class LockManager(cli.Application):
         )
 
         return 0
+
+    def quiet_close(self, *fds):
+        """Safely close file descriptors, ignoring errors."""
+        for fd in fds:
+            try:
+                os.close(fd)
+            except OSError:
+                pass
