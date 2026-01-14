@@ -100,8 +100,9 @@ class Application(object):
     def get_mediawiki_staging_lock_file(self):
         """Get the path to the lock file corresponding to the MediaWiki staging directory"""
         stage_dir = self.config["stage_dir"]
+        lock_dir = self.config["lock_dir"]
         return os.path.join(
-            "/var/lock", "scap." + stage_dir.strip("/").replace("/", "_") + ".lock"
+            lock_dir, "scap." + stage_dir.strip("/").replace("/", "_") + ".lock"
         )
 
     def get_scap3_lock_file(self):
