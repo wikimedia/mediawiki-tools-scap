@@ -50,6 +50,7 @@ DEFAULT_CONFIG = {
     "stage_dir": (str, "/srv/mediawiki-staging"),
     "local_dev_mode": (bool, False),
     "lock_file": (str, None),
+    "lock_dir": (str, "/var/lock"),
     "log_json": (bool, False),
     "logstash_host": (str, "logstash1001.eqiad.wmnet:9200"),
     "debug_logstash": (bool, False),

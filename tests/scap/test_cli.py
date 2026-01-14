@@ -81,7 +81,7 @@ def test_get_stats(app, mocker):
 
 
 def test_get_mediawiki_staging_lock_file(app):
-    app.config = {"stage_dir": "/srv/mediawiki-staging"}
+    app.config = {"stage_dir": "/srv/mediawiki-staging", "lock_dir": "/var/lock"}
     assert (
         app.get_mediawiki_staging_lock_file()
         == "/var/lock/scap.srv_mediawiki-staging.lock"
