@@ -1623,12 +1623,14 @@ class LockManager(cli.Application):
                 # Disconnect from the terminal if running in background mode
                 if self.arguments.bg:
                     os.setsid()
-                    si = open("/dev/null", "r")
-                    so = open("/dev/null", "a+")
-                    se = open("/dev/null", "a+")
-                    os.dup2(si.fileno(), sys.stdin.fileno())
-                    os.dup2(so.fileno(), sys.stdout.fileno())
-                    os.dup2(se.fileno(), sys.stderr.fileno())
+                    with (
+                        open("/dev/null", "r") as si,
+                        open("/dev/null", "a+") as so,
+                        open("/dev/null", "a+") as se,
+                    ):
+                        os.dup2(si.fileno(), sys.stdin.fileno())
+                        os.dup2(so.fileno(), sys.stdout.fileno())
+                        os.dup2(se.fileno(), sys.stderr.fileno())
 
                 forced_lock_release_r = None
                 forced_lock_release_w = None
