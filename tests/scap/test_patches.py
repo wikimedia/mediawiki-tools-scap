@@ -12,6 +12,86 @@ from scap import patches as patches_module
 from scap.runcmd import FailedCommand
 
 
+def init_git_repo(repo_path):
+    """Initialize a git repository with standard test configuration.
+
+    Args:
+        repo_path: Path to initialize git repository
+    """
+    subprocess.run(["git", "init"], cwd=repo_path, check=True)
+    subprocess.run(
+        ["git", "config", "user.email", "test@example.com"], cwd=repo_path, check=True
+    )
+    subprocess.run(
+        ["git", "config", "user.name", "Test User"], cwd=repo_path, check=True
+    )
+
+
+def create_git_commit(repo_path, message, file_pattern="."):
+    """Add files matching the pattern and create a git commit.
+
+    Args:
+        repo_path: Path to git repository
+        message: Commit message
+        file_pattern: Pattern for files to add (default: all files)
+    """
+    subprocess.run(["git", "add", file_pattern], cwd=repo_path, check=True)
+    subprocess.run(["git", "commit", "-m", message], cwd=repo_path, check=True)
+
+
+def create_patch_content(comment="patch content", filename="test.php") -> str:
+    """Generate standard patch content for testing.
+
+    Args:
+        comment: Comment to include in patch
+        filename: Target filename for the patch
+
+    Returns:
+        String containing a valid git patch
+    """
+    return f"""diff --git a/{filename} b/{filename}
+index 1234567..abcdefg 100644
+--- a/{filename}
++++ b/{filename}
+@@ -1,3 +1,4 @@
+ <?php
++// {comment}
+ echo "hello";
+ ?>
+"""
+
+
+@pytest.fixture
+def app_config_setup(tmp_path):
+    """Create standard directory structure for app configuration.
+
+    Creates patches_dir with next/core subdirectories, stage_dir, and lock_dir
+    under tmp_path, initializes git repository in patches_dir, and returns
+    a config dictionary.
+
+    Returns:
+        Config dictionary with 'patch_path', 'stage_dir', 'lock_dir', and 'umask'
+    """
+    patches_dir = tmp_path / "patches"
+    patches_dir.mkdir()
+    init_git_repo(patches_dir)
+
+    core_dir = patches_dir / "next" / "core"
+    core_dir.mkdir(parents=True)
+
+    stage_dir = tmp_path / "stage"
+    stage_dir.mkdir()
+    lock_dir = tmp_path / "lock"
+    lock_dir.mkdir()
+
+    return {
+        "patch_path": str(patches_dir),
+        "stage_dir": str(stage_dir),
+        "lock_dir": str(lock_dir),
+        "umask": 0o022,
+    }
+
+
 class TestApplyPatchesNotificationInfo:
     """Test the NotificationInfo inner class."""
 
@@ -40,34 +120,24 @@ class TestPatchOperationBase:
     """Test base class for patch operations with git functionality."""
 
     @pytest.fixture
-    def patch_op_setup(self, tmp_path):
-        """Create real patches directory structure for testing."""
-        patches_dir = tmp_path / "patches"
-        patches_dir.mkdir()
-
-        # Create next version directory for sanity check tests
-        next_dir = patches_dir / "next"
-        core_dir = next_dir / "core"
-        core_dir.mkdir(parents=True)
-
-        return {
-            "patches_dir": patches_dir,
-            "next_dir": next_dir,
-            "core_dir": core_dir,
-        }
-
-    @pytest.fixture
-    def patch_op(self, patch_op_setup):
-        """Create a PatchOperationBase instance for testing."""
+    def patch_op(self, app_config_setup):
+        """Create a PatchOperationBase instance for testing with patch directory references."""
         app = patches_module.PatchOperationBase("test")
-        app.config = {"patch_path": str(patch_op_setup["patches_dir"]), "umask": 0o022}
+        app.config = app_config_setup
         app.get_logger = MagicMock()
+
+        # Attach patch directory structure to the app object
+        patches_dir = Path(app_config_setup["patch_path"])
+        app.patches_dir = patches_dir
+        app.next_dir = patches_dir / "next"
+        app.core_dir = patches_dir / "next" / "core"
+
         return app
 
-    def test_parse_patch_path_valid(self, patch_op, patch_op_setup):
+    def test_parse_patch_path_valid(self, patch_op):
         """Test parsing a valid patch path."""
         patch_path = str(
-            patch_op_setup["patches_dir"]
+            patch_op.patches_dir
             / "1.42.0-wmf.20"
             / "extensions"
             / "Example"
@@ -92,13 +162,10 @@ class TestPatchOperationBase:
 
         assert "does not look like a security patch path" in str(exc_info.value)
 
-    def test_parse_patch_path_core_module(self, patch_op, patch_op_setup):
+    def test_parse_patch_path_core_module(self, patch_op):
         """Test parsing a core module patch path."""
         patch_path = str(
-            patch_op_setup["patches_dir"]
-            / "1.42.0-wmf.20"
-            / "core"
-            / "01-T123456.patch"
+            patch_op.patches_dir / "1.42.0-wmf.20" / "core" / "01-T123456.patch"
         )
         result = patch_op._parse_patch_path(patch_path)
 
@@ -110,14 +177,10 @@ class TestPatchOperationBase:
         }
         assert result == expected
 
-    def test_parse_patch_path_next_version(self, patch_op, patch_op_setup):
+    def test_parse_patch_path_next_version(self, patch_op):
         """Test parsing a next version patch path."""
         patch_path = str(
-            patch_op_setup["patches_dir"]
-            / "next"
-            / "skins"
-            / "Vector"
-            / "02-T654321.patch"
+            patch_op.patches_dir / "next" / "skins" / "Vector" / "02-T654321.patch"
         )
         result = patch_op._parse_patch_path(patch_path)
 
@@ -129,12 +192,10 @@ class TestPatchOperationBase:
         }
         assert result == expected
 
-    def test_sanity_check_next_patch_state_normal_patch_exists(
-        self, patch_op, patch_op_setup
-    ):
+    def test_sanity_check_next_patch_state_normal_patch_exists(self, patch_op):
         """Test sanity check when normal patch exists."""
         # Create the actual patch file
-        patch_file = patch_op_setup["core_dir"] / "01-T123456.patch"
+        patch_file = patch_op.core_dir / "01-T123456.patch"
         patch_file.write_text("sample patch content")
 
         patch_path = str(patch_file)
@@ -144,13 +205,11 @@ class TestPatchOperationBase:
         assert not updated
         assert exists
 
-    def test_sanity_check_next_patch_state_dropped_exists(
-        self, patch_op, patch_op_setup
-    ):
+    def test_sanity_check_next_patch_state_dropped_exists(self, patch_op):
         """Test sanity check when .dropped file exists."""
         # Create the dropped file but not the original patch
-        patch_file = patch_op_setup["core_dir"] / "01-T123456.patch"
-        dropped_file = patch_op_setup["core_dir"] / "01-T123456.patch.dropped"
+        patch_file = patch_op.core_dir / "01-T123456.patch"
+        dropped_file = patch_op.core_dir / "01-T123456.patch.dropped"
         dropped_file.touch()  # Create empty file
 
         patch_path = str(patch_file)
@@ -160,13 +219,11 @@ class TestPatchOperationBase:
         assert not updated
         assert not exists
 
-    def test_sanity_check_next_patch_state_patch_with_dropped_invalid(
-        self, patch_op, patch_op_setup
-    ):
+    def test_sanity_check_next_patch_state_patch_with_dropped_invalid(self, patch_op):
         """Test sanity check when patch exists with .dropped (invalid state)."""
         # Create both the patch file and .dropped file (invalid state)
-        patch_file = patch_op_setup["core_dir"] / "01-T123456.patch"
-        dropped_file = patch_op_setup["core_dir"] / "01-T123456.patch.dropped"
+        patch_file = patch_op.core_dir / "01-T123456.patch"
+        dropped_file = patch_op.core_dir / "01-T123456.patch.dropped"
         patch_file.write_text("patch content")
         dropped_file.touch()  # Create empty file
 
@@ -176,10 +233,10 @@ class TestPatchOperationBase:
             patch_op._sanity_check_next_patch_state(patch_path)
         assert "should not exist if" in str(exc_info.value)
 
-    def test_sanity_check_next_patch_state_valid(self, patch_op, patch_op_setup):
+    def test_sanity_check_next_patch_state_valid(self, patch_op):
         """Test sanity check for valid next patch state."""
         # Create just the patch file (valid state)
-        patch_file = patch_op_setup["core_dir"] / "01-T123456.patch"
+        patch_file = patch_op.core_dir / "01-T123456.patch"
         patch_file.write_text("patch content")
 
         patch_path = str(patch_file)
@@ -189,14 +246,12 @@ class TestPatchOperationBase:
         assert not updated
         assert exists
 
-    def test_sanity_check_next_patch_state_invalid_both_exist(
-        self, patch_op, patch_op_setup
-    ):
+    def test_sanity_check_next_patch_state_invalid_both_exist(self, patch_op):
         """Test sanity check when both .dropped and .updated exist."""
         # Create both .dropped and .updated files (invalid state)
-        patch_file = patch_op_setup["core_dir"] / "01-T123456.patch"
-        dropped_file = patch_op_setup["core_dir"] / "01-T123456.patch.dropped"
-        updated_file = patch_op_setup["core_dir"] / "01-T123456.patch.updated"
+        patch_file = patch_op.core_dir / "01-T123456.patch"
+        dropped_file = patch_op.core_dir / "01-T123456.patch.dropped"
+        updated_file = patch_op.core_dir / "01-T123456.patch.updated"
         dropped_file.touch()  # Create empty file
         updated_file.write_text("updated patch content")
 
@@ -211,21 +266,9 @@ class TestUpdatePatch:
     """Test UpdatePatch command."""
 
     @pytest.fixture
-    def update_patch_setup(self, tmp_path):
+    def update_patch_setup(self, app_config_setup, tmp_path):
         """Create real patches directory structure for UpdatePatch testing."""
-        patches_dir = tmp_path / "patches"
-        patches_dir.mkdir()
-
-        # Initialize git in patches directory
-        subprocess.run(["git", "init"], cwd=patches_dir, check=True)
-        subprocess.run(
-            ["git", "config", "user.email", "test@example.com"],
-            cwd=patches_dir,
-            check=True,
-        )
-        subprocess.run(
-            ["git", "config", "user.name", "Test User"], cwd=patches_dir, check=True
-        )
+        patches_dir = Path(app_config_setup["patch_path"])
 
         # Create version directory structure
         version_dir = patches_dir / "1.42.0-wmf.20"
@@ -234,41 +277,14 @@ class TestUpdatePatch:
 
         # Create original patch file
         original_patch = core_dir / "01-T123456.patch"
-        original_patch.write_text(
-            """diff --git a/test.php b/test.php
-index 1234567..abcdefg 100644
---- a/test.php
-+++ b/test.php
-@@ -1,3 +1,4 @@
- <?php
-+// Original patch content
- echo "hello";
- ?>
-"""
-        )
+        original_patch.write_text(create_patch_content("Original patch content"))
 
         # Create revised patch file in a temporary location
         revised_patch = tmp_path / "revised.patch"
-        revised_patch.write_text(
-            """diff --git a/test.php b/test.php
-index 1234567..xyz9876 100644
---- a/test.php
-+++ b/test.php
-@@ -1,3 +1,4 @@
- <?php
-+// Updated patch content
- echo "hello";
- ?>
-"""
-        )
+        revised_patch.write_text(create_patch_content("Updated patch content"))
 
         # Commit initial state
-        subprocess.run(["git", "add", "."], cwd=patches_dir, check=True)
-        subprocess.run(
-            ["git", "commit", "-m", "Initial patches"],
-            cwd=patches_dir,
-            check=True,
-        )
+        create_git_commit(patches_dir, "Initial patches")
 
         return {
             "patches_dir": patches_dir,
@@ -278,19 +294,10 @@ index 1234567..xyz9876 100644
         }
 
     @pytest.fixture
-    def update_patch(self, update_patch_setup, tmp_path):
+    def update_patch(self, update_patch_setup, app_config_setup):
         """Create UpdatePatch instance for testing."""
-        stage_dir = tmp_path / "stage"
-        stage_dir.mkdir()
-        lock_dir = tmp_path / "lock"
-        lock_dir.mkdir()
         app = patches_module.UpdatePatch("update-patch")
-        app.config = {
-            "patch_path": str(update_patch_setup["patches_dir"]),
-            "stage_dir": str(stage_dir),
-            "lock_dir": str(lock_dir),
-            "umask": 0o022,
-        }
+        app.config = app_config_setup
         app.get_logger = MagicMock()
         app.arguments = MagicMock()
         app.arguments.patch_path = update_patch_setup["original_patch"]
@@ -366,21 +373,9 @@ class TestRemovePatch:
     """Test RemovePatch command."""
 
     @pytest.fixture
-    def remove_patch_setup(self, tmp_path):
+    def remove_patch_setup(self, app_config_setup, tmp_path):
         """Create real patches directory structure for RemovePatch testing."""
-        patches_dir = tmp_path / "patches"
-        patches_dir.mkdir()
-
-        # Initialize git in patches directory
-        subprocess.run(["git", "init"], cwd=patches_dir, check=True)
-        subprocess.run(
-            ["git", "config", "user.email", "test@example.com"],
-            cwd=patches_dir,
-            check=True,
-        )
-        subprocess.run(
-            ["git", "config", "user.name", "Test User"], cwd=patches_dir, check=True
-        )
+        patches_dir = Path(app_config_setup["patch_path"])
 
         # Create version directory structure
         version_dir = patches_dir / "1.42.0-wmf.20"
@@ -395,12 +390,7 @@ class TestRemovePatch:
         patch2.write_text("Second patch content")
 
         # Commit initial state
-        subprocess.run(["git", "add", "."], cwd=patches_dir, check=True)
-        subprocess.run(
-            ["git", "commit", "-m", "Initial patches"],
-            cwd=patches_dir,
-            check=True,
-        )
+        create_git_commit(patches_dir, "Initial patches")
 
         return {
             "patches_dir": patches_dir,
@@ -410,19 +400,10 @@ class TestRemovePatch:
         }
 
     @pytest.fixture
-    def remove_patch(self, remove_patch_setup, tmp_path):
+    def remove_patch(self, remove_patch_setup, app_config_setup):
         """Create RemovePatch instance for testing."""
-        stage_dir = tmp_path / "stage"
-        stage_dir.mkdir()
-        lock_dir = tmp_path / "lock"
-        lock_dir.mkdir()
         app = patches_module.RemovePatch("remove-patch")
-        app.config = {
-            "patch_path": str(remove_patch_setup["patches_dir"]),
-            "stage_dir": str(stage_dir),
-            "lock_dir": str(lock_dir),
-            "umask": 0o022,
-        }
+        app.config = app_config_setup
         app.get_logger = MagicMock()
         app.arguments = MagicMock()
         app.arguments.patch_paths = [remove_patch_setup["patch1_path"]]
@@ -591,21 +572,9 @@ class TestRemovePatch:
         assert "extensions/Test/02-T654321.patch" in message
 
     @pytest.fixture
-    def sync_scenario_setup(self, tmp_path):
+    def sync_scenario_setup(self, app_config_setup, tmp_path):
         """Create patches directory structure for testing the sync removal scenario."""
-        patches_dir = tmp_path / "patches"
-        patches_dir.mkdir()
-
-        # Initialize git in patches directory
-        subprocess.run(["git", "init"], cwd=patches_dir, check=True)
-        subprocess.run(
-            ["git", "config", "user.email", "test@example.com"],
-            cwd=patches_dir,
-            check=True,
-        )
-        subprocess.run(
-            ["git", "config", "user.name", "Test User"], cwd=patches_dir, check=True
-        )
+        patches_dir = Path(app_config_setup["patch_path"])
 
         # Create current version (1.42.0-wmf.20) WITHOUT the patch that exists in next
         # This simulates the patch being removed from the latest version
@@ -620,7 +589,6 @@ class TestRemovePatch:
         # Create next version WITH the patch that will be removed during sync
         next_version = patches_dir / "next"
         next_core = next_version / "core"
-        next_core.mkdir(parents=True)
 
         # This patch exists in next but not in current - will be removed by update_next_patches
         target_patch = next_core / "01-T123456.patch"
@@ -631,12 +599,7 @@ class TestRemovePatch:
         next_other_patch.write_text("different patch content")
 
         # Commit initial state
-        subprocess.run(["git", "add", "."], cwd=patches_dir, check=True)
-        subprocess.run(
-            ["git", "commit", "-m", "Initial patches"],
-            cwd=patches_dir,
-            check=True,
-        )
+        create_git_commit(patches_dir, "Initial patches")
 
         return {
             "patches_dir": patches_dir,
@@ -646,7 +609,9 @@ class TestRemovePatch:
             "tmp_path": tmp_path,
         }
 
-    def test_remove_next_patch_removed_during_sync(self, sync_scenario_setup):
+    def test_remove_next_patch_removed_during_sync(
+        self, sync_scenario_setup, app_config_setup
+    ):
         """Test scenario where patch is removed from next during update_next_patches sync.
 
         This covers the following scenario:
@@ -655,24 +620,14 @@ class TestRemovePatch:
         3. update_next_patches() removes it during sync at start of operation
         4. Removal is considered successful (auto-removed patches are counted as success)
         """
-        patches_dir = sync_scenario_setup["patches_dir"]
         target_patch_path = sync_scenario_setup["target_patch_path"]
 
         # Verify initial state: patch exists in next
         assert Path(target_patch_path).exists()
 
         # Create RemovePatch app with real config
-        stage_dir = sync_scenario_setup["tmp_path"] / "stage"
-        stage_dir.mkdir()
-        lock_dir = sync_scenario_setup["tmp_path"] / "lock"
-        lock_dir.mkdir()
         app = patches_module.RemovePatch("remove-patch")
-        app.config = {
-            "patch_path": str(patches_dir),
-            "stage_dir": str(stage_dir),
-            "lock_dir": str(lock_dir),
-            "umask": 0o022,
-        }
+        app.config = app_config_setup
         app.arguments = MagicMock()
         app.arguments.patch_paths = [target_patch_path]
         app.arguments.message_body = None
@@ -681,9 +636,6 @@ class TestRemovePatch:
         # Mock the logger to capture log messages
         mock_logger = MagicMock()
         app.get_logger = MagicMock(return_value=mock_logger)
-
-        # Verify initial state: patch exists in next
-        assert Path(target_patch_path).exists()
 
         result = app.main()
 
@@ -857,66 +809,32 @@ index 1234567..abcdefg 100644
 class TestUtilityFunctions:
     """Test utility functions in patches module."""
 
-    def test_git_is_clean_true(self, tmp_path):
-        """Test git_is_clean when repository is clean (using real git)."""
+    @pytest.fixture
+    def clean_git_repo(self, tmp_path):
+        """Create a git repository with a clean working directory."""
         test_dir = tmp_path / "test_repo"
         test_dir.mkdir()
-
-        # Initialize a real git repository
-        subprocess.run(["git", "init"], cwd=test_dir, check=True)
-        subprocess.run(
-            ["git", "config", "user.email", "test@example.com"],
-            cwd=test_dir,
-            check=True,
-        )
-        subprocess.run(
-            ["git", "config", "user.name", "Test User"], cwd=test_dir, check=True
-        )
+        init_git_repo(test_dir)
 
         # Create and commit a file to have a clean working directory
         test_file = test_dir / "test.txt"
         test_file.write_text("initial content")
-        subprocess.run(["git", "add", "test.txt"], cwd=test_dir, check=True)
-        subprocess.run(
-            ["git", "commit", "-m", "Initial commit"],
-            cwd=test_dir,
-            check=True,
-        )
+        create_git_commit(test_dir, "Initial commit")
 
-        # Now the repository should be clean
-        assert patches_module.git_is_clean(str(test_dir)) is True
+        return test_dir
 
-    def test_git_is_clean_false(self, tmp_path):
+    def test_git_is_clean_true(self, clean_git_repo):
+        """Test git_is_clean when repository is clean (using real git)."""
+        assert patches_module.git_is_clean(str(clean_git_repo)) is True
+
+    def test_git_is_clean_false(self, clean_git_repo):
         """Test git_is_clean when repository has changes (using real git)."""
-        test_dir = tmp_path / "test_repo"
-        test_dir.mkdir()
-
-        # Initialize a real git repository
-        subprocess.run(["git", "init"], cwd=test_dir, check=True)
-        subprocess.run(
-            ["git", "config", "user.email", "test@example.com"],
-            cwd=test_dir,
-            check=True,
-        )
-        subprocess.run(
-            ["git", "config", "user.name", "Test User"], cwd=test_dir, check=True
-        )
-
-        # Create and commit a file
-        test_file = test_dir / "test.txt"
-        test_file.write_text("initial content")
-        subprocess.run(["git", "add", "test.txt"], cwd=test_dir, check=True)
-        subprocess.run(
-            ["git", "commit", "-m", "Initial commit"],
-            cwd=test_dir,
-            check=True,
-        )
-
         # Make changes to make the repository dirty
+        test_file = clean_git_repo / "test.txt"
         test_file.write_text("modified content")
 
         # Now the repository should be dirty
-        assert patches_module.git_is_clean(str(test_dir)) is False
+        assert patches_module.git_is_clean(str(clean_git_repo)) is False
 
     def test_update_next_patches_no_source(self):
         """Test update_next_patches when no source patches exist."""
@@ -947,21 +865,9 @@ class TestPatchOperationsWithGit:
     """Integration tests using real git repositories and file operations."""
 
     @pytest.fixture
-    def git_patches_repo(self, tmp_path):
+    def git_patches_repo(self, app_config_setup):
         """Create a temporary git repository for patches."""
-        patches_dir = tmp_path / "patches"
-        patches_dir.mkdir()
-
-        # Initialize git repository
-        subprocess.run(["git", "init"], cwd=patches_dir, check=True)
-        subprocess.run(
-            ["git", "config", "user.email", "test@example.com"],
-            cwd=patches_dir,
-            check=True,
-        )
-        subprocess.run(
-            ["git", "config", "user.name", "Test User"], cwd=patches_dir, check=True
-        )
+        patches_dir = Path(app_config_setup["patch_path"])
 
         # Create initial version structure
         version_dir = patches_dir / "1.42.0-wmf.20"
@@ -976,16 +882,7 @@ class TestPatchOperationsWithGit:
         ext_patch = ext_dir / "02-T654321.patch"
 
         core_patch.write_text(
-            """diff --git a/includes/test.php b/includes/test.php
-index 1234567..abcdefg 100644
---- a/includes/test.php
-+++ b/includes/test.php
-@@ -1,3 +1,4 @@
- <?php
-+// Security fix for T123456
- echo "hello world";
- ?>
-"""
+            create_patch_content("Security fix for T123456", "includes/test.php")
         )
 
         ext_patch.write_text(
@@ -1004,10 +901,7 @@ index 9876543..fedcba9 100644
         )
 
         # Commit initial patches
-        subprocess.run(["git", "add", "."], cwd=patches_dir, check=True)
-        subprocess.run(
-            ["git", "commit", "-m", "Initial patches"], cwd=patches_dir, check=True
-        )
+        create_git_commit(patches_dir, "Initial patches")
 
         return patches_dir
 
@@ -1018,18 +912,7 @@ index 9876543..fedcba9 100644
         mediawiki_dir.mkdir()
 
         try:
-            # Initialize git repository
-            subprocess.run(["git", "init"], cwd=mediawiki_dir, check=True)
-            subprocess.run(
-                ["git", "config", "user.email", "test@example.com"],
-                cwd=mediawiki_dir,
-                check=True,
-            )
-            subprocess.run(
-                ["git", "config", "user.name", "Test User"],
-                cwd=mediawiki_dir,
-                check=True,
-            )
+            init_git_repo(mediawiki_dir)
         except (subprocess.CalledProcessError, FileNotFoundError):
             # Git not available in test environment, skip
             pytest.skip("Git not available in test environment")
@@ -1064,12 +947,7 @@ class Example {
         )
 
         # Initial commit
-        subprocess.run(["git", "add", "."], cwd=mediawiki_dir, check=True)
-        subprocess.run(
-            ["git", "commit", "-m", "Initial MediaWiki structure"],
-            cwd=mediawiki_dir,
-            check=True,
-        )
+        create_git_commit(mediawiki_dir, "Initial MediaWiki structure")
 
         return mediawiki_dir
 
@@ -1204,37 +1082,22 @@ class TestPatchOperationBaseWithGit:
     """Test PatchOperationBase with real git operations."""
 
     @pytest.fixture
-    def git_patches_repo(self, tmp_path):
+    def git_patches_repo(self, app_config_setup):
         """Create a git repository for patch operations testing."""
-        patches_dir = tmp_path / "patches"
-        patches_dir.mkdir()
-
-        # Initialize git repository
-        subprocess.run(["git", "init"], cwd=patches_dir, check=True)
-        subprocess.run(
-            ["git", "config", "user.email", "test@example.com"],
-            cwd=patches_dir,
-            check=True,
-        )
-        subprocess.run(
-            ["git", "config", "user.name", "Test User"], cwd=patches_dir, check=True
-        )
+        patches_dir = Path(app_config_setup["patch_path"])
 
         # Create initial commit
         readme = patches_dir / "README.md"
         readme.write_text("# Patches Repository")
-        subprocess.run(["git", "add", "README.md"], cwd=patches_dir, check=True)
-        subprocess.run(
-            ["git", "commit", "-m", "Initial commit"], cwd=patches_dir, check=True
-        )
+        create_git_commit(patches_dir, "Initial commit")
 
         return patches_dir
 
     @pytest.fixture
-    def patch_operation(self, git_patches_repo):
+    def patch_operation(self, git_patches_repo, app_config_setup):
         """Create a PatchOperationBase instance with real config."""
         app = patches_module.PatchOperationBase("test")
-        app.config = {"patch_path": str(git_patches_repo), "umask": 0o022}
+        app.config = app_config_setup
         app.get_logger = MagicMock()
         return app
 
@@ -1340,21 +1203,9 @@ class TestNextPatchHandling:
     """Test complex 'next' patch handling with real file operations."""
 
     @pytest.fixture
-    def next_patches_setup(self, tmp_path):
+    def next_patches_setup(self, app_config_setup):
         """Create a patches directory with 'next' version setup."""
-        patches_dir = tmp_path / "patches"
-        patches_dir.mkdir()
-
-        # Initialize git
-        subprocess.run(["git", "init"], cwd=patches_dir, check=True)
-        subprocess.run(
-            ["git", "config", "user.email", "test@example.com"],
-            cwd=patches_dir,
-            check=True,
-        )
-        subprocess.run(
-            ["git", "config", "user.name", "Test User"], cwd=patches_dir, check=True
-        )
+        patches_dir = Path(app_config_setup["patch_path"])
 
         # Create current version patches
         current_version = patches_dir / "1.42.0-wmf.20"
@@ -1364,22 +1215,16 @@ class TestNextPatchHandling:
         current_patch = current_core / "01-T123456.patch"
         current_patch.write_text("current patch content")
 
-        # Create next version directory
         next_version = patches_dir / "next"
-        next_core = next_version / "core"
-        next_core.mkdir(parents=True)
 
         # Initial commit
-        subprocess.run(["git", "add", "."], cwd=patches_dir, check=True)
-        subprocess.run(
-            ["git", "commit", "-m", "Initial setup"], cwd=patches_dir, check=True
-        )
+        create_git_commit(patches_dir, "Initial setup")
 
-        return patches_dir, current_version, next_version
+        return patches_dir, next_version
 
     def test_sanity_check_next_patch_state_real_files(self, next_patches_setup):
         """Test sanity checking with real file operations."""
-        patches_dir, current_version, next_version = next_patches_setup
+        patches_dir, next_version = next_patches_setup
 
         patch_op = patches_module.PatchOperationBase("test")
         patch_op.config = {"patch_path": str(patches_dir)}
@@ -1422,7 +1267,7 @@ class TestNextPatchHandling:
 
     def test_sanity_check_invalid_states_real_files(self, next_patches_setup):
         """Test sanity check detects invalid states with real files."""
-        patches_dir, current_version, next_version = next_patches_setup
+        patches_dir, next_version = next_patches_setup
 
         patch_op = patches_module.PatchOperationBase("test")
         patch_op.config = {"patch_path": str(patches_dir)}
@@ -1508,7 +1353,7 @@ class TestApplyPatches:
             assert result == 0  # Should succeed when patches not required
 
     def test_apply_patches_empty_patches_directory_not_required(
-        self, apply_patches_app, real_patches_setup
+        self, apply_patches_app
     ):
         """Test ApplyPatches when patches directory exists but is empty, and patches not required."""
         # Version directory exists but no patch files
@@ -1517,7 +1362,7 @@ class TestApplyPatches:
             assert result == 0  # Should succeed when patches not required
 
     def test_apply_patches_empty_patches_directory_required_should_exit(
-        self, apply_patches_app, real_patches_setup
+        self, apply_patches_app
     ):
         """Test ApplyPatches exits when patches directory is empty but patches are required."""
         apply_patches_app.config["require_security_patches"] = True
@@ -1575,9 +1420,7 @@ class TestApplyPatches:
         ):
             apply_patches_app.main([])
 
-    def test_apply_patches_sets_umask_correctly(
-        self, apply_patches_app, real_patches_setup
-    ):
+    def test_apply_patches_sets_umask_correctly(self, apply_patches_app):
         """Test that ApplyPatches sets the umask as configured."""
         with patch("os.umask") as mock_umask:
             apply_patches_app.main([])
