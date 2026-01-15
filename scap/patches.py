@@ -456,6 +456,10 @@ class UpdatePatch(PatchOperationBase):
         help="Full path to the revised security patch",
     )
     def main(self, *extra_args):
+        with self.lock_mediawiki_staging(reason="Updating security patches"):
+            return self._run_patch_operation(*extra_args)
+
+    def _run_patch_operation(self, *extra_args):
         try:
             self.setup_patch_environment()
 
@@ -587,6 +591,10 @@ class RemovePatch(PatchOperationBase):
         help="Full path(s) to the security patch(es) to remove",
     )
     def main(self, *extra_args):
+        with self.lock_mediawiki_staging(reason="Removing security patches"):
+            return self._run_patch_operation(*extra_args)
+
+    def _run_patch_operation(self, *extra_args):
         self.setup_patch_environment()
         logger = self.get_logger()
         patches_path = self.config["patch_path"]

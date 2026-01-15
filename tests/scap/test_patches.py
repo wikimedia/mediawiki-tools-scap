@@ -278,11 +278,17 @@ index 1234567..xyz9876 100644
         }
 
     @pytest.fixture
-    def update_patch(self, update_patch_setup):
+    def update_patch(self, update_patch_setup, tmp_path):
         """Create UpdatePatch instance for testing."""
+        stage_dir = tmp_path / "stage"
+        stage_dir.mkdir()
+        lock_dir = tmp_path / "lock"
+        lock_dir.mkdir()
         app = patches_module.UpdatePatch("update-patch")
         app.config = {
             "patch_path": str(update_patch_setup["patches_dir"]),
+            "stage_dir": str(stage_dir),
+            "lock_dir": str(lock_dir),
             "umask": 0o022,
         }
         app.get_logger = MagicMock()
@@ -291,6 +297,7 @@ index 1234567..xyz9876 100644
         app.arguments.revised_patch_path = MagicMock()
         app.arguments.revised_patch_path.name = update_patch_setup["revised_patch"]
         app.arguments.message_body = None
+        app.arguments.message = "test update patch"
         return app
 
     def test_update_patch_normal_version(self, update_patch, update_patch_setup):
@@ -403,17 +410,24 @@ class TestRemovePatch:
         }
 
     @pytest.fixture
-    def remove_patch(self, remove_patch_setup):
+    def remove_patch(self, remove_patch_setup, tmp_path):
         """Create RemovePatch instance for testing."""
+        stage_dir = tmp_path / "stage"
+        stage_dir.mkdir()
+        lock_dir = tmp_path / "lock"
+        lock_dir.mkdir()
         app = patches_module.RemovePatch("remove-patch")
         app.config = {
             "patch_path": str(remove_patch_setup["patches_dir"]),
+            "stage_dir": str(stage_dir),
+            "lock_dir": str(lock_dir),
             "umask": 0o022,
         }
         app.get_logger = MagicMock()
         app.arguments = MagicMock()
         app.arguments.patch_paths = [remove_patch_setup["patch1_path"]]
         app.arguments.message_body = None
+        app.arguments.message = "test remove patch"
         return app
 
     def test_remove_single_patch_success(self, remove_patch):
@@ -629,6 +643,7 @@ class TestRemovePatch:
             "target_patch_path": str(target_patch),
             "current_version": str(current_version),
             "next_version": str(next_version),
+            "tmp_path": tmp_path,
         }
 
     def test_remove_next_patch_removed_during_sync(self, sync_scenario_setup):
@@ -647,11 +662,21 @@ class TestRemovePatch:
         assert Path(target_patch_path).exists()
 
         # Create RemovePatch app with real config
+        stage_dir = sync_scenario_setup["tmp_path"] / "stage"
+        stage_dir.mkdir()
+        lock_dir = sync_scenario_setup["tmp_path"] / "lock"
+        lock_dir.mkdir()
         app = patches_module.RemovePatch("remove-patch")
-        app.config = {"patch_path": str(patches_dir), "umask": 0o022}
+        app.config = {
+            "patch_path": str(patches_dir),
+            "stage_dir": str(stage_dir),
+            "lock_dir": str(lock_dir),
+            "umask": 0o022,
+        }
         app.arguments = MagicMock()
         app.arguments.patch_paths = [target_patch_path]
         app.arguments.message_body = None
+        app.arguments.message = "test remove patch"
 
         # Mock the logger to capture log messages
         mock_logger = MagicMock()
