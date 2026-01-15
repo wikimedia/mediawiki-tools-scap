@@ -1,3 +1,11 @@
+scap (4.232.0)
+
+  * scap lock --bg: Make sure fds are closed
+  * scap lock --all: Add --bg flag
+  * Move hard-coded /var/lock to a config setting
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Thu, 15 Jan 2026 07:36:38 -0800
+
 scap (4.231.0)
 
   * Drop `scap test-train`
