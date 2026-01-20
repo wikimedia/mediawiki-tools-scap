@@ -1,3 +1,9 @@
+scap (4.233.0)
+
+  * scap lock: Add --yes flag for --unlock-all mode
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Tue, 20 Jan 2026 08:50:46 -0800
+
 scap (4.232.0)
 
   * scap lock --bg: Make sure fds are closed
