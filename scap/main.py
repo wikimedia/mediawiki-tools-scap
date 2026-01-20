@@ -1465,24 +1465,41 @@ class LockManager(cli.Application):
     @cli.argument(
         "--bg",
         action="store_true",
-        help="Run in background (detach from terminal) after acquiring the lock.  Only valid with --all.",
+        help="Run in background (detach from terminal) after acquiring the lock.  Only valid with --all",
     )
     @cli.argument(
         "--unlock-all",
         action="store_true",
         help="Remove global lock for all repositories",
     )
+    @cli.argument(
+        "--yes",
+        action="store_true",
+        help="Skip confirmation when removing the global lock.  Only valid with --unlock-all",
+    )
     @cli.argument("message", nargs="*", help="Log message for SAL/lock file")
     def main(self, *extra_args):
         logger = self.get_logger()
 
+        if self.arguments.yes and not self.arguments.unlock_all:
+            logger.fatal("--yes can only be used with --unlock-all")
+            return 1
+
         if self.arguments.unlock_all:
+            if self.arguments.bg:
+                logger.fatal("--bg cannot be used with --unlock-all")
+                return 1
+
             if self.arguments.message == "(no justification provided)":
                 logger.fatal("Cannot request to remove global lock without a reason")
                 return 1
 
             self.announce(f"Forcefully removing global lock: {self.arguments.message}")
-            lock.Lock.signal_gl_release(self.arguments.message, self.get_io())
+            lock.Lock.signal_gl_release(
+                self.arguments.message,
+                self.get_io(),
+                confirm=not self.arguments.yes,
+            )
             return
 
         if self.arguments.message == "(no justification provided)":

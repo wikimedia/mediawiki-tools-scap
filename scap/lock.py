@@ -306,7 +306,7 @@ class Lock:
             )
 
     @staticmethod
-    def signal_gl_release(release_reason, io):
+    def signal_gl_release(release_reason, io, confirm=True):
         if os.path.exists(GLOBAL_LOCK_FILE):
             with open(GLOBAL_LOCK_FILE, encoding="UTF-8") as f:
                 lock_info = json.loads(f.read())
@@ -315,15 +315,18 @@ class Lock:
                 locker = (lock_info.get("locker", "?"),)
                 timestamp_utc = (lock_info.get("timestamp_utc", "?"),)
                 reason = (lock_info.get("reason", "?"),)
-                prompt = (
+                details = (
                     "Lock details:\n"
                     "  locker: %s\n" % locker
                     + "  time acquired (UTC): %s\n" % timestamp_utc
-                    + "  reason: %s\n" % reason
-                    + "Clear lock?"
+                    + "  reason: %s" % reason
                 )
-                if not io.prompt_user_for_confirmation(prompt):
-                    utils.abort("Canceled by user")
+                if confirm:
+                    prompt = details + "\nClear lock?"
+                    if not io.prompt_user_for_confirmation(prompt):
+                        utils.abort("Canceled by user")
+                else:
+                    logger.info(details)
 
                 with utils.empty_file_mask():
                     fd = os.open(
