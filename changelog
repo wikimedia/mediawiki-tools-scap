@@ -1,3 +1,10 @@
+scap (4.234.0)
+
+  * test_patches.py: Factor out common patterns
+  * scap update-patch/remove-patch: Lock staging directory during operation
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Wed, 21 Jan 2026 08:18:35 -0800
+
 scap (4.233.0)
 
   * scap lock: Add --yes flag for --unlock-all mode
