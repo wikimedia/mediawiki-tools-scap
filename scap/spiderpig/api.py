@@ -690,6 +690,51 @@ async def start_train(
     }
 
 
+async def _create_backport_job(
+    change_numbers: List[str],
+    original_change_urls: List[str],
+    user: SessionUser,
+    gerritsession: gerrit.GerritSession,
+    session: Session,
+) -> dict:
+    """
+    Create a backport job from a list of change numbers.
+    Fetches fresh change data from Gerrit and creates the job.
+    """
+    change_infos = []
+
+    for change_num in change_numbers:
+        change = gerritsession.change_detail(change_num).get()
+        change_url = os.path.join(gerritsession.url, f"c/{change._number}")
+
+        change_infos.append(
+            {
+                "number": change._number,
+                "project": change.project,
+                "branch": change.branch,
+                "subject": change.subject,
+                "commit_msg": change.revisions[change.current_revision]["commit"][
+                    "message"
+                ],
+                "url": change_url,
+            }
+        )
+
+    operation = "fake-backport" if get_scap_config()["local_dev_mode"] else "backport"
+
+    job_id = Job.add(
+        JobType.BACKPORT,
+        session,
+        user=user.name,
+        command=["scap", operation] + get_scap_flags() + original_change_urls,
+        data={"change_infos": change_infos},
+    )
+    return {
+        "message": "Job created",
+        "id": job_id,
+    }
+
+
 @app.post("/api/jobs/backport")
 async def start_backport(
     change_url: Annotated[
@@ -704,7 +749,7 @@ async def start_backport(
     session: Session = Depends(get_db_session),
 ):
     baddies = []
-    change_infos = []
+    change_numbers = []
 
     # NOTE: 'change_url' is a list
     for url in change_url:
@@ -712,20 +757,7 @@ async def start_backport(
         if change_num is None:
             baddies.append(url)
             continue
-
-        change = gerritsession.change_detail(change_num).get()
-        change_infos.append(
-            {
-                "number": change._number,
-                "project": change.project,
-                "branch": change.branch,
-                "subject": change.subject,
-                "commit_msg": change.revisions[change.current_revision]["commit"][
-                    "message"
-                ],
-                "url": os.path.join(gerritsession.url, f"c/{change._number}"),
-            }
-        )
+        change_numbers.append(change_num)
 
     if baddies:
         raise HTTPException(
@@ -736,19 +768,60 @@ async def start_backport(
             },
         )
 
-    operation = "fake-backport" if get_scap_config()["local_dev_mode"] else "backport"
-
-    job_id = Job.add(
-        JobType.BACKPORT,
-        session,
-        user=user.name,
-        command=["scap", operation] + get_scap_flags() + change_url,
-        data={"change_infos": change_infos},
+    return await _create_backport_job(
+        change_numbers, change_url, user, gerritsession, session
     )
-    return {
-        "message": "Job created",
-        "id": job_id,
-    }
+
+
+@app.post("/api/jobs/{job_id}/retry")
+async def retry_job(
+    job: Annotated[Job, Depends(get_job_by_id)],
+    user: Annotated[SessionUser, Depends(get_current_user)],
+    gerritsession: Annotated[gerrit.GerritSession, Depends(get_gerrit_session)],
+    session: Session = Depends(get_db_session),
+):
+    """Extract change numbers from a finished job and create a new backport job."""
+    # Ensure the job has finished
+    if job.finished_at is None:
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "message": "Cannot retry a job that is still running",
+                "job_id": job.id,
+            },
+        )
+
+    # Only allow retrying backport jobs
+    if job.type != JobType.BACKPORT:
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "message": "Only backport jobs can be retried",
+                "job_id": job.id,
+            },
+        )
+
+    # Extract change numbers from the original job's data
+    original_data = json.loads(job.data) if job.data else None
+    change_numbers = []
+    if original_data and "change_infos" in original_data:
+        change_numbers = [info["number"] for info in original_data["change_infos"]]
+
+    if not change_numbers:
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "message": "Original job has no change information",
+                "job_id": job.id,
+            },
+        )
+
+    # Create a new backport job with fresh change data
+    # Convert change numbers to strings for the command line
+    change_urls = [str(num) for num in change_numbers]
+    return await _create_backport_job(
+        change_urls, change_urls, user, gerritsession, session
+    )
 
 
 def set_additional_job_attributes(job: Job):

@@ -44,17 +44,58 @@
 					<div class="job-card__label">
 						Status
 					</div>
-					<span v-if="running" class="job-card__status">
-						{{ status.status }}
-					</span>
-					<cdx-info-chip
-						v-else
-						:status="statusType"
-						:icon="cdxIconInfoFilled"
-						class="job-card__chip"
-					>
-						{{ statusChipMessage }}
-					</cdx-info-chip>
+					<div class="job-card__status-row">
+						<span v-if="running" class="job-card__status">
+							{{ status.status }}
+						</span>
+						<cdx-info-chip
+							v-else
+							:status="statusType"
+							:icon="cdxIconInfoFilled"
+							class="job-card__chip"
+						>
+							{{ statusChipMessage }}
+						</cdx-info-chip>
+						<button
+							v-if="canRetry"
+							class="job-card__retry-button"
+							:disabled="retrying"
+							:title="retrying ? 'Retrying job...' : 'Retry job'"
+							:aria-label="retrying ? 'Retrying job' : 'Retry job'"
+							@click.stop="openRetryConfirmation"
+						>
+							<cdx-icon
+								:icon="cdxIconReload"
+								size="small"
+							/>
+						</button>
+						<cdx-dialog
+							v-model:open="confirmRetryOpen"
+							title="Confirm Job Retry"
+							close-button-label="Cancel"
+						>
+							<p>
+								Are you sure you want to retry this job?
+							</p>
+							<p v-if="command_decoded">
+								<strong>{{ command_decoded }}</strong>
+							</p>
+							<template #footer>
+								<cdx-button
+									action="progressive"
+									:disabled="retrying"
+									@click="confirmRetry"
+								>
+									{{ retrying ? 'Retrying...' : 'Retry' }}
+								</cdx-button>
+								<cdx-button
+									@click="confirmRetryOpen = false"
+								>
+									Cancel
+								</cdx-button>
+							</template>
+						</cdx-dialog>
+					</div>
 					<sp-progress-bar
 						v-if="running && status.progress"
 						:progress="status.progress"
@@ -163,8 +204,8 @@
 
 <script lang="ts">
 import { defineComponent, ref, computed, PropType, watch } from 'vue';
-import { CdxCard, CdxInfoChip, CdxAccordion, CdxProgressBar } from '@wikimedia/codex';
-import { cdxIconInfoFilled, cdxIconLinkExternal } from '@wikimedia/codex-icons';
+import { CdxCard, CdxInfoChip, CdxAccordion, CdxProgressBar, CdxIcon, CdxDialog, CdxButton } from '@wikimedia/codex';
+import { cdxIconInfoFilled, cdxIconLinkExternal, cdxIconReload } from '@wikimedia/codex-icons';
 import Interaction from '../types/Interaction';
 import JobStatus from '../types/JobStatus';
 import SpInteraction from './Interaction.vue';
@@ -172,6 +213,8 @@ import SpJobLog from './JobLog.vue';
 import SpProgressBar from './ProgressBar.vue';
 
 import { useRoute, useRouter } from 'vue-router';
+import useAuthStore from '../api';
+import useJobrunner from '../jobrunner';
 import '@xterm/xterm/css/xterm.css';
 
 export default defineComponent( {
@@ -182,6 +225,9 @@ export default defineComponent( {
 		CdxCard,
 		CdxInfoChip,
 		CdxProgressBar,
+		CdxIcon,
+		CdxDialog,
+		CdxButton,
 		SpInteraction,
 		SpJobLog,
 		SpProgressBar
@@ -253,9 +299,13 @@ export default defineComponent( {
 	setup( props ) {
 		const route = useRoute();
 		const router = useRouter();
+		const authStore = useAuthStore();
+		const jobrunner = useJobrunner();
 
 		const isLoading = ref( true );
 		const error = ref( null );
+		const retrying = ref( false );
+		const confirmRetryOpen = ref( false );
 
 		// Return a string URL ( if we are not already on the page for this job)
 		// or null (if we are already on that page)
@@ -416,6 +466,33 @@ export default defineComponent( {
 			}
 		}
 
+		const canRetry = computed( () => (
+			props.finished_at &&
+			!props.running &&
+			props.started_at !== null &&
+			jobrunner.idle.value
+		) );
+
+		function openRetryConfirmation() {
+			confirmRetryOpen.value = true;
+		}
+
+		async function confirmRetry() {
+			try {
+				retrying.value = true;
+				const response = await authStore.retryJob( props.id );
+				confirmRetryOpen.value = false;
+				// Navigate to the new job only if we're on the job viewer page
+				if ( response.id && route.name === 'job' ) {
+					router.push( { name: 'job', params: { jobId: response.id } } );
+				}
+			} catch ( err: unknown ) {
+				error.value = err instanceof Error ? err.message : 'Failed to retry job.';
+			} finally {
+				retrying.value = false;
+			}
+		}
+
 		watch(
 			() => props.data, ( newData ) => {
 				if ( !newData ) {
@@ -437,6 +514,7 @@ export default defineComponent( {
 			statusChipMessage,
 			cdxIconInfoFilled,
 			cdxIconLinkExternal,
+			cdxIconReload,
 			rootClasses,
 			showInteraction,
 			showJobLog,
@@ -445,7 +523,12 @@ export default defineComponent( {
 			handleClick,
 			navigateToJob,
 			isLoading,
-			error
+			error,
+			canRetry,
+			openRetryConfirmation,
+			confirmRetry,
+			confirmRetryOpen,
+			retrying
 		};
 	}
 } );
@@ -497,8 +580,29 @@ export default defineComponent( {
 		font-weight: bold;
 	}
 
+	&__status-row {
+		display: inline-flex;
+		align-items: center;
+		gap: @spacing-50;
+	}
+
 	&__chip {
 		width: fit-content;
+	}
+
+	&__retry-button {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		width: 28px;
+		height: 28px;
+		background-color: @background-color-neutral-subtle;
+		border: 1px solid @border-color-interactive;
+
+		.cdx-icon {
+			width: 20px;
+			height: 20px;
+		}
 	}
 
 	&__details {

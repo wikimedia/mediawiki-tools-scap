@@ -258,6 +258,11 @@ const useAuthStore = defineStore( 'spiderpig-auth',
 			async startTrain( promotion ) {
 				return await this.post( '/api/jobs/train', promotion );
 			},
+			// eslint-disable-next-line camelcase
+			async retryJob( job_id ) {
+				// eslint-disable-next-line camelcase
+				return await this.post( `/api/jobs/${ job_id }/retry` );
+			},
 			async trainStatus() {
 				return await this.call( '/api/train/status' );
 			},
