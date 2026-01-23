@@ -213,7 +213,7 @@ import SpJobLog from './JobLog.vue';
 import SpProgressBar from './ProgressBar.vue';
 
 import { useRoute, useRouter } from 'vue-router';
-import useAuthStore from '../api';
+import useApi from '../api';
 import useJobrunner from '../jobrunner';
 import '@xterm/xterm/css/xterm.css';
 
@@ -299,7 +299,7 @@ export default defineComponent( {
 	setup( props ) {
 		const route = useRoute();
 		const router = useRouter();
-		const authStore = useAuthStore();
+		const api = useApi();
 		const jobrunner = useJobrunner();
 
 		const isLoading = ref( true );
@@ -480,7 +480,7 @@ export default defineComponent( {
 		async function confirmRetry() {
 			try {
 				retrying.value = true;
-				const response = await authStore.retryJob( props.id );
+				const response = await api.retryJob( props.id );
 				confirmRetryOpen.value = false;
 				// Navigate to the new job only if we're on the job viewer page
 				if ( response.id && route.name === 'job' ) {
