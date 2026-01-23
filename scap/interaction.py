@@ -6,6 +6,7 @@ from typing import Optional
 
 import scap.ansi as ansi
 import scap.spiderpig.io as spiderpigio
+from scap.sigint import sigint_interruptible
 
 YES_NO_CHOICES = {"Yes": "y", "No": "n"}
 
@@ -103,8 +104,8 @@ class TerminalIO(UserIOBase):
         """
         if have_terminal():
             termios.tcflush(sys.stdin, termios.TCIFLUSH)
-
-        return input(prompt)
+        with sigint_interruptible():
+            return input(prompt)
 
     def _input_line(self, prompt) -> str:
         return self._input(prompt)

@@ -5,6 +5,8 @@ import sys
 import dataclasses
 from typing import Optional
 
+from scap.sigint import sigint_interruptible
+
 
 def send_message(rec: dict):
     """
@@ -32,7 +34,8 @@ def input_line(prompt) -> str:
         "prompt": prompt,
     }
     send_message(rec)
-    return input()
+    with sigint_interruptible():
+        return input()
 
 
 def prompt_choices(prompt, choices: dict, default) -> str:
@@ -44,7 +47,8 @@ def prompt_choices(prompt, choices: dict, default) -> str:
         "default": default,
     }
     send_message(rec)
-    return input()
+    with sigint_interruptible():
+        return input()
 
 
 def report_status(status: Optional[str]):
