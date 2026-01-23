@@ -189,7 +189,6 @@ class RunningJob:
                     continue
                 # Found an interruption
                 self.job_queue.put(i)
-                return
 
     def monitor_interaction_responses(self):
         POLLING_INTERVAL = 1.0
