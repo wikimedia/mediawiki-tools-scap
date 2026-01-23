@@ -1,3 +1,9 @@
+scap (4.235.0)
+
+  * spiderpig: Add one-click job retry
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Fri, 23 Jan 2026 08:42:04 -0800
+
 scap (4.234.0)
 
   * test_patches.py: Factor out common patterns
