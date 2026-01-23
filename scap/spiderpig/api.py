@@ -63,6 +63,7 @@ from scap.spiderpig.model import (
     Job,
     JobType,
     Interaction,
+    Interruption,
     AlreadyResponded,
     TrainPromotion,
     TrainStatus,
@@ -1004,6 +1005,15 @@ async def signal_job(
     user: Annotated[SessionUser, Depends(get_current_user)],
     session: Session = Depends(get_db_session),
 ):
+    if type not in Interruption.SIGNAL_TYPES:
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "message": f"Invalid signal type. Must be one of: {', '.join(Interruption.SIGNAL_TYPES)}",
+                "signal_type": type,
+            },
+        )
+
     job.signal(session, user.name, type)
     return {
         "message": "Interrupted",
