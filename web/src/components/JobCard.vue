@@ -69,6 +69,42 @@
 								size="small"
 							/>
 						</button>
+						<button
+							v-if="running"
+							class="job-card__stop-button"
+							:disabled="stopping"
+							:title="stopping ? 'Stopping job...' : 'Stop job'"
+							:aria-label="stopping ? 'Stopping job' : 'Stop job'"
+							@click.stop="openStopConfirmation"
+						>
+							<span class="job-card__stop-button__label">STOP</span>
+						</button>
+						<cdx-dialog
+							v-model:open="confirmStopOpen"
+							title="Confirm Stop Job"
+							close-button-label="Cancel"
+						>
+							<p>
+								Are you sure you want to stop this running job?
+							</p>
+							<p v-if="command_decoded">
+								<strong>{{ command_decoded }}</strong>
+							</p>
+							<template #footer>
+								<cdx-button
+									action="destructive"
+									:disabled="stopping"
+									@click="confirmStop"
+								>
+									{{ stopping ? 'Stopping...' : 'Stop' }}
+								</cdx-button>
+								<cdx-button
+									@click="confirmStopOpen = false"
+								>
+									Cancel
+								</cdx-button>
+							</template>
+						</cdx-dialog>
 						<cdx-dialog
 							v-model:open="confirmRetryOpen"
 							title="Confirm Job Retry"
@@ -80,6 +116,13 @@
 							<p v-if="command_decoded">
 								<strong>{{ command_decoded }}</strong>
 							</p>
+							<cdx-message
+								v-if="retryError"
+								type="error"
+								class="job-card__dialog-error"
+							>
+								{{ retryError }}
+							</cdx-message>
 							<template #footer>
 								<cdx-button
 									action="progressive"
@@ -89,7 +132,7 @@
 									{{ retrying ? 'Retrying...' : 'Retry' }}
 								</cdx-button>
 								<cdx-button
-									@click="confirmRetryOpen = false"
+									@click="closeRetryDialog"
 								>
 									Cancel
 								</cdx-button>
@@ -204,7 +247,7 @@
 
 <script lang="ts">
 import { defineComponent, ref, computed, PropType, watch } from 'vue';
-import { CdxCard, CdxInfoChip, CdxAccordion, CdxProgressBar, CdxIcon, CdxDialog, CdxButton } from '@wikimedia/codex';
+import { CdxCard, CdxInfoChip, CdxAccordion, CdxProgressBar, CdxIcon, CdxDialog, CdxButton, CdxMessage } from '@wikimedia/codex';
 import { cdxIconInfoFilled, cdxIconLinkExternal, cdxIconReload } from '@wikimedia/codex-icons';
 import Interaction from '../types/Interaction';
 import JobStatus from '../types/JobStatus';
@@ -228,6 +271,7 @@ export default defineComponent( {
 		CdxIcon,
 		CdxDialog,
 		CdxButton,
+		CdxMessage,
 		SpInteraction,
 		SpJobLog,
 		SpProgressBar
@@ -306,6 +350,9 @@ export default defineComponent( {
 		const error = ref( null );
 		const retrying = ref( false );
 		const confirmRetryOpen = ref( false );
+		const retryError = ref( null );
+		const stopping = ref( false );
+		const confirmStopOpen = ref( false );
 
 		// Return a string URL ( if we are not already on the page for this job)
 		// or null (if we are already on that page)
@@ -477,19 +524,43 @@ export default defineComponent( {
 			confirmRetryOpen.value = true;
 		}
 
+		function closeRetryDialog() {
+			confirmRetryOpen.value = false;
+			retryError.value = null;
+		}
+
 		async function confirmRetry() {
 			try {
 				retrying.value = true;
+				retryError.value = null;
 				const response = await api.retryJob( props.id );
-				confirmRetryOpen.value = false;
+				closeRetryDialog();
 				// Navigate to the new job only if we're on the job viewer page
 				if ( response.id && route.name === 'job' ) {
 					router.push( { name: 'job', params: { jobId: response.id } } );
 				}
 			} catch ( err: unknown ) {
-				error.value = err instanceof Error ? err.message : 'Failed to retry job.';
+				const message = err instanceof Error ? err.message : 'Failed to retry job.';
+				retryError.value = message;
+				error.value = message;
 			} finally {
 				retrying.value = false;
+			}
+		}
+
+		function openStopConfirmation() {
+			confirmStopOpen.value = true;
+		}
+
+		async function confirmStop() {
+			try {
+				stopping.value = true;
+				await api.signalJob( props.id, 'interrupt' );
+				confirmStopOpen.value = false;
+			} catch ( err: unknown ) {
+				error.value = err instanceof Error ? err.message : 'Failed to stop job.';
+			} finally {
+				stopping.value = false;
 			}
 		}
 
@@ -524,11 +595,17 @@ export default defineComponent( {
 			navigateToJob,
 			isLoading,
 			error,
+			retryError,
 			canRetry,
 			openRetryConfirmation,
+			closeRetryDialog,
 			confirmRetry,
 			confirmRetryOpen,
-			retrying
+			retrying,
+			openStopConfirmation,
+			confirmStop,
+			confirmStopOpen,
+			stopping
 		};
 	}
 } );
@@ -602,6 +679,27 @@ export default defineComponent( {
 		.cdx-icon {
 			width: 20px;
 			height: 20px;
+		}
+	}
+
+	&__stop-button {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		width: 28px;
+		height: 28px;
+		background-color: #d33;
+		border: 1px solid #d33;
+		clip-path: polygon(30% 0, 70% 0, 100% 30%, 100% 70%, 70% 100%, 30% 100%, 0 70%, 0 30%);
+		cursor: pointer;
+
+		&__label {
+			color: #fff;
+			font-weight: @font-weight-bold;
+			font-size: 10px;
+			line-height: 1;
+			letter-spacing: 0.5px;
+			user-select: none;
 		}
 	}
 
