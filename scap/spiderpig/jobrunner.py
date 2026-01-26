@@ -42,6 +42,11 @@ class JobRunner(cli.Application):
         help="How often to check for new jobs (in seconds). Default is 2.",
     )
     def main(self, *extra_args):
+        # Ensure that SIGINT is not being ignored so that the jobrunner and its
+        # subprocesses can be interrupted, even if the jobrunner is started like
+        # `scap spiderpig-jobrunner &`
+        signal.signal(signal.SIGINT, signal.SIG_DFL)
+
         with self.lock(
             self.spiderpig_jobrunner_lockfile(),
             reason="Spiderpig jobrunner running",
