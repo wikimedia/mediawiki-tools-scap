@@ -49,7 +49,7 @@
 </template>
 
 <script lang="ts">
-import { defineComponent, ref, onMounted, onUnmounted } from 'vue';
+import { defineComponent, ref, onMounted, onUnmounted, watch } from 'vue';
 import { VSheet } from 'vuetify/components/VSheet';
 import { VToolbar } from 'vuetify/components/VToolbar';
 import useApi from '../api';
@@ -100,8 +100,8 @@ export default defineComponent( {
 			}
 		};
 
-		const monitorJob = async () => {
-			const jobInfo = await api.getJobInfo( props.jobId );
+		const monitorJob = async ( jobId: string ) => {
+			const jobInfo = await api.getJobInfo( jobId );
 			const fetchedJob = jobInfo.job;
 
 			// eslint-disable-next-line camelcase
@@ -109,7 +109,7 @@ export default defineComponent( {
 			job.value = fetchedJob;
 			interaction.value = jobInfo.pending_interaction;
 
-			if ( !job.value.running ) {
+			if ( job.value.finished_at ) {
 				stopMonitor();
 			}
 		};
@@ -124,9 +124,20 @@ export default defineComponent( {
 		};
 
 		// Lifecycle hooks.
+		const startMonitorFor = ( jobId: string ) => {
+			stopMonitor();
+			monitorInterval.value = setInterval( () => monitorJob( jobId ), 1000 );
+			monitorJob( jobId );
+		};
+
 		onMounted( () => {
-			monitorInterval.value = setInterval( monitorJob, 1000 );
-			monitorJob();
+			startMonitorFor( props.jobId );
+		} );
+
+		watch( () => props.jobId, ( newJobId ) => {
+			job.value = null;
+			interaction.value = null;
+			startMonitorFor( newJobId );
 		} );
 
 		onUnmounted( () => {
