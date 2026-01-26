@@ -1,3 +1,12 @@
+scap (4.236.0)
+
+  * JobViewerPage.vue: Restart job monitor when switching jobs
+  * JobCard.vue: s/useAuthStore/useApi/
+  * jobrunner.py: Allow a job to be signalled more than one time
+  * spiderpig/api.py: signal_job: Validate signal type
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Mon, 26 Jan 2026 08:07:50 -0800
+
 scap (4.235.0)
 
   * spiderpig: Add one-click job retry
