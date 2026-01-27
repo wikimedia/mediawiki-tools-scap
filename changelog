@@ -1,3 +1,10 @@
+scap (4.237.0)
+
+  * JobCard.vue: Add button to stop a job
+  * jobrunner.py: Set SIGINT handler to default
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Tue, 27 Jan 2026 08:25:18 -0800
+
 scap (4.236.0)
 
   * JobViewerPage.vue: Restart job monitor when switching jobs
