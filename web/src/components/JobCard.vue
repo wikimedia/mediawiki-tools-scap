@@ -508,6 +508,11 @@ export default defineComponent( {
 		}
 
 		function navigateToJob() {
+			// Don't navigate if user is selecting text from the job card
+			const selection = window.getSelection();
+			if ( selection && selection.toString().length > 0 ) {
+				return;
+			}
 			if ( jobLink.value ) {
 				router.push( { name: 'job', params: { jobId: props.id } } );
 			}
