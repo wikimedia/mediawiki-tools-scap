@@ -520,7 +520,9 @@ def ensure_extension_messages_file(cfg, version, logger):
 
 
 @utils.log_context("update_localization_cache")
-def update_localization_cache(version, app, logger=None, json=True):
+def update_localization_cache(
+    version, app, logger=None, json=True, force_rebuild=False
+):
     """
     Update the localization cache for a given MW version.
 
@@ -528,6 +530,7 @@ def update_localization_cache(version, app, logger=None, json=True):
     :param wikidb: Wiki running given version
     :param app: Application calling the function
     :param json: Whether to generate JSON/MD5 files from CDBs when finished.
+    :param force_rebuild: If True, pass --force to rebuildLocalisationCache.php
     """
 
     verbose = app.verbose
@@ -538,7 +541,6 @@ def update_localization_cache(version, app, logger=None, json=True):
     use_cores = utils.cpus_for_jobs()
 
     verbose_messagelist = ""
-    force_rebuild = False
     quiet_rebuild = False
     if verbose:
         verbose_messagelist = "--verbose"
