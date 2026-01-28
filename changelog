@@ -1,3 +1,10 @@
+scap (4.239.0)
+
+  * sync-world: Add `--force-l10n-update` flag
+  * patches.py: RemovePatch: Remove redundant success message
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Wed, 28 Jan 2026 13:11:39 -0800
+
 scap (4.238.0)
 
   * JobCard.vue: Don't navigate to job detail when selecting text
