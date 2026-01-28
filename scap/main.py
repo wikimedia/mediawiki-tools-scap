@@ -1040,7 +1040,7 @@ class ScapWorld(AbstractSync):
     #. Ask apaches to rebuild l10n CDB files
     #. Ask apaches to sync wikiversions.php
     #. Run purgeMessageBlobStore.php
-    #. Rolling invalidation of all opcache for php 7.x
+    #. Rolling restart of php-fpm on bare metal servers
     """
 
     def __init__(self, *args, **kwargs):
