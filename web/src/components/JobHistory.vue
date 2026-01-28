@@ -29,6 +29,10 @@
 			<div class="job-history__column-labels__label">
 				Status
 			</div>
+
+			<div class="job-history__column-labels__label">
+				Actions
+			</div>
 		</div>
 
 		<!-- Job cards -->

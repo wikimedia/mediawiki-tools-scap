@@ -4,7 +4,7 @@
 		:class="rootClasses"
 	>
 		<template #description>
-			<div class="job-card__content" @click="navigateToJob">
+			<div class="job-card__content">
 				<div class="job-card__column">
 					<div class="job-card__label">
 						Id
@@ -56,28 +56,50 @@
 						>
 							{{ statusChipMessage }}
 						</cdx-info-chip>
+					</div>
+					<sp-progress-bar
+						v-if="running && status.progress"
+						:progress="status.progress"
+					/>
+				</div>
+
+				<div class="job-card__column job-card__column--actions">
+					<div class="job-card__label">
+						Actions
+					</div>
+					<div class="job-card__actions-row">
 						<button
-							v-if="canRetry"
+							v-if="showViewLogButton"
+							class="job-card__view-log-button"
+							title="View job log"
+							@click="navigateToJob"
+						>
+							<v-icon icon="mdi-console" />
+						</button>
+						<button
+							class="job-card__stop-button"
+							:disabled="!running || stopping"
+							:title="
+								!running ? 'Job is not running' :
+								stopping ? 'Stopping job...' : 'Stop job'
+							"
+							@click="openStopConfirmation"
+						>
+							<span class="job-card__stop-button__label">STOP</span>
+						</button>
+						<button
 							class="job-card__retry-button"
-							:disabled="retrying"
-							:title="retrying ? 'Retrying job...' : 'Retry job'"
-							:aria-label="retrying ? 'Retrying job' : 'Retry job'"
-							@click.stop="openRetryConfirmation"
+							:disabled="!canRetry || retrying"
+							:title="
+								!canRetry ? `Cannot retry job: ${retryDisabledReason}` :
+								retrying ? 'Retrying job...' : 'Retry job'
+							"
+							@click="openRetryConfirmation"
 						>
 							<cdx-icon
 								:icon="cdxIconReload"
 								size="small"
 							/>
-						</button>
-						<button
-							v-if="running"
-							class="job-card__stop-button"
-							:disabled="stopping"
-							:title="stopping ? 'Stopping job...' : 'Stop job'"
-							:aria-label="stopping ? 'Stopping job' : 'Stop job'"
-							@click.stop="openStopConfirmation"
-						>
-							<span class="job-card__stop-button__label">STOP</span>
 						</button>
 						<cdx-dialog
 							v-model:open="confirmStopOpen"
@@ -139,10 +161,6 @@
 							</template>
 						</cdx-dialog>
 					</div>
-					<sp-progress-bar
-						v-if="running && status.progress"
-						:progress="status.progress"
-					/>
 				</div>
 			</div>
 		</template>
@@ -249,6 +267,7 @@
 import { defineComponent, ref, computed, PropType, watch } from 'vue';
 import { CdxCard, CdxInfoChip, CdxAccordion, CdxProgressBar, CdxIcon, CdxDialog, CdxButton, CdxMessage } from '@wikimedia/codex';
 import { cdxIconInfoFilled, cdxIconLinkExternal, cdxIconReload } from '@wikimedia/codex-icons';
+import { VIcon } from 'vuetify/components/VIcon';
 import Interaction from '../types/Interaction';
 import JobStatus from '../types/JobStatus';
 import SpInteraction from './Interaction.vue';
@@ -272,6 +291,7 @@ export default defineComponent( {
 		CdxDialog,
 		CdxButton,
 		CdxMessage,
+		VIcon,
 		SpInteraction,
 		SpJobLog,
 		SpProgressBar
@@ -406,12 +426,12 @@ export default defineComponent( {
 			};
 		}
 
-		// Prevent displaying interaction within a JobCard on JobViewerPage.
-		const showInteraction = computed( () => route.name !== 'job' );
-		const showJobLog = computed( () => route.name === 'job' );
-		const showColumnLabels = computed( () => route.name === 'job' );
+		const isJobDetailPage = computed( () => route.name === 'job' );
+		const showInteraction = computed( () => !isJobDetailPage.value );
+		const showJobLog = computed( () => isJobDetailPage.value );
+		const showColumnLabels = computed( () => isJobDetailPage.value );
 		const rootClasses = computed( () => ( {
-			'job-card--highlighted': props.running && route.name !== 'job',
+			'job-card--highlighted': props.running && !isJobDetailPage.value,
 			'job-card--has-details': showColumnLabels.value
 		} ) );
 
@@ -508,11 +528,6 @@ export default defineComponent( {
 		}
 
 		function navigateToJob() {
-			// Don't navigate if user is selecting text from the job card
-			const selection = window.getSelection();
-			if ( selection && selection.toString().length > 0 ) {
-				return;
-			}
 			if ( jobLink.value ) {
 				router.push( { name: 'job', params: { jobId: props.id } } );
 			}
@@ -524,6 +539,24 @@ export default defineComponent( {
 			props.started_at !== null &&
 			jobrunner.idle.value
 		) );
+
+		const retryDisabledReason = computed( () => {
+			if ( !props.finished_at ) {
+				return 'Job has not finished yet';
+			}
+			if ( props.running ) {
+				return 'Job is still running';
+			}
+			if ( props.started_at === null ) {
+				return 'Job has not started';
+			}
+			if ( !jobrunner.idle.value ) {
+				return 'Another job is running';
+			}
+			return '';
+		} );
+
+		const showViewLogButton = computed( () => !isJobDetailPage.value );
 
 		function openRetryConfirmation() {
 			confirmRetryOpen.value = true;
@@ -541,7 +574,7 @@ export default defineComponent( {
 				const response = await api.retryJob( props.id );
 				closeRetryDialog();
 				// Navigate to the new job only if we're on the job viewer page
-				if ( response.id && route.name === 'job' ) {
+				if ( response.id && isJobDetailPage.value ) {
 					router.push( { name: 'job', params: { jobId: response.id } } );
 				}
 			} catch ( err: unknown ) {
@@ -594,6 +627,7 @@ export default defineComponent( {
 			rootClasses,
 			showInteraction,
 			showJobLog,
+			showViewLogButton,
 			finishedInfo,
 			changeInfos,
 			handleClick,
@@ -602,6 +636,7 @@ export default defineComponent( {
 			error,
 			retryError,
 			canRetry,
+			retryDisabledReason,
 			openRetryConfirmation,
 			closeRetryDialog,
 			confirmRetry,
@@ -672,6 +707,23 @@ export default defineComponent( {
 		width: fit-content;
 	}
 
+	&__column--actions {
+		text-align: right;
+	}
+
+	&__actions-row {
+		display: inline-flex;
+		align-items: center;
+		justify-content: flex-end;
+		gap: @spacing-50;
+		flex-direction: row;
+
+		@media screen and ( max-width: 850px ) {
+			flex-direction: column;
+		}
+	}
+
+	&__view-log-button,
 	&__retry-button {
 		display: inline-flex;
 		align-items: center;
@@ -680,10 +732,18 @@ export default defineComponent( {
 		height: 28px;
 		background-color: @background-color-neutral-subtle;
 		border: 1px solid @border-color-interactive;
+		cursor: pointer;
+		padding: 0;
 
+		&:disabled {
+			opacity: 0.5;
+		}
+
+		.v-icon,
 		.cdx-icon {
 			width: 20px;
 			height: 20px;
+			font-size: 20px;
 		}
 	}
 
@@ -697,6 +757,10 @@ export default defineComponent( {
 		border: 1px solid #d33;
 		clip-path: polygon(30% 0, 70% 0, 100% 30%, 100% 70%, 70% 100%, 30% 100%, 0 70%, 0 30%);
 		cursor: pointer;
+
+		&:disabled {
+			opacity: 0.5;
+		}
 
 		&__label {
 			color: #fff;
