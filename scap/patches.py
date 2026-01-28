@@ -662,9 +662,6 @@ class RemovePatch(PatchOperationBase):
         if not git_is_clean(patches_path):
             commit_message = self._create_commit_message(successful_patches)
             self._gitcmd("commit", "-m", commit_message)
-            logger.info(
-                f"Successfully removed {len(successful_patches)} {utils.pluralize('patch', len(successful_patches))}"
-            )
         else:
             logger.info("No patches were changed. Nothing to commit.")
 
