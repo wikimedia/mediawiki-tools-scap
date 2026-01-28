@@ -1069,6 +1069,12 @@ class ScapWorld(AbstractSync):
         dest="skip_l10n_update",
         help="Skip update of l10n files",
     )
+    @cli.argument(
+        "--force-l10n-update",
+        action="store_true",
+        dest="force_l10n_update",
+        help="Force update of l10n files, even if rebuildLocalisationCache.php would normally skip it",
+    )
     @cli.argument("-n", action="store_true", help="No-op for running tests")
     @cli.argument(
         "--stop-before-sync",
@@ -1148,8 +1154,14 @@ class ScapWorld(AbstractSync):
             self.get_logger().warning("Skipping l10n-update")
         else:
             with self.Timer("l10n-update"), self.reported_status("Updating l10n files"):
+                if self.arguments.force_l10n_update:
+                    self.get_logger().info(
+                        "Forced l10n update requested.  Rebuilding all l10n files"
+                    )
                 for version in self.active_wikiversions("stage"):
-                    tasks.update_localization_cache(version, self)
+                    tasks.update_localization_cache(
+                        version, self, force_rebuild=self.arguments.force_l10n_update
+                    )
 
     def _after_cluster_sync(self):
         target_hosts = self._get_target_list()
