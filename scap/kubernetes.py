@@ -1013,7 +1013,14 @@ class K8sOps:
 
         def do_report():
             cmd = kubectl_cmd("get", "rs", rs_name, "-o", "json")
-            data = json.loads(subprocess.check_output(cmd, text=True))
+            ret = subprocess.run(cmd, text=True, capture_output=True)
+            if ret.returncode != 0:
+                # There was some issue running kubectl.  The most likely reason
+                # is that there is a brief connectivity issue to the cluster.
+                # Just skip this report cycle.  Kubectl's error message will
+                # be written to stderr. (T415839)
+                return
+            data = json.loads(ret.stdout)
             status = data["status"]
             availableReplicas = status.get("availableReplicas", 0)
 
