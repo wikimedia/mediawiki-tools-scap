@@ -105,6 +105,7 @@
 							v-model:open="confirmStopOpen"
 							title="Confirm Stop Job"
 							close-button-label="Cancel"
+							class="job-card__dialog"
 						>
 							<p>
 								Are you sure you want to stop this running job?
@@ -131,6 +132,7 @@
 							v-model:open="confirmRetryOpen"
 							title="Confirm Job Retry"
 							close-button-label="Cancel"
+							class="job-card__dialog"
 						>
 							<p>
 								Are you sure you want to retry this job?
@@ -745,6 +747,14 @@ export default defineComponent( {
 			height: 20px;
 			font-size: 20px;
 		}
+	}
+
+	&__dialog footer {
+		display: flex;
+		justify-content: flex-end;
+		align-items: baseline;
+		gap: @spacing-50;
+		padding: @spacing-100;
 	}
 
 	&__stop-button {

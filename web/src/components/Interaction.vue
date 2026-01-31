@@ -93,11 +93,10 @@ export default defineComponent( {
 	}
 
 	&__action {
-		margin-top: @spacing-100;
-
-		button:first-child {
-			margin-right: @spacing-25;
-		}
+		display: flex;
+		justify-content: flex-start;
+		align-items: baseline;
+		gap: @spacing-50;
 	}
 }
 
