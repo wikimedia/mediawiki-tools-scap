@@ -50,7 +50,8 @@
 				</template>
 			</v-autocomplete>
 			<cdx-dialog
-				v-model:open="alertDialogOpen"
+				:open="alertDialogOpen"
+				@update:open="alertDialogOpen = $event"
 				title="Failed to start backport"
 				:use-close-button="alertDialogUseCloseButton"
 			>

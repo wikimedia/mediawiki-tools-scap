@@ -102,7 +102,8 @@
 							/>
 						</button>
 						<cdx-dialog
-							v-model:open="confirmStopOpen"
+							:open="confirmStopOpen"
+							@update:open="confirmStopOpen = $event"
 							title="Confirm Stop Job"
 							close-button-label="Cancel"
 							class="job-card__dialog"
@@ -129,7 +130,8 @@
 							</template>
 						</cdx-dialog>
 						<cdx-dialog
-							v-model:open="confirmRetryOpen"
+							:open="confirmRetryOpen"
+							@update:open="confirmRetryOpen = $event"
 							title="Confirm Job Retry"
 							close-button-label="Cancel"
 							class="job-card__dialog"
