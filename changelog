@@ -1,3 +1,11 @@
+scap (4.241.0)
+
+  * package-lock.json: Ran `npm audit fix`
+  * CSS: Space between retry/cancel stop/cancel buttons
+  * JobCard: Move job actions to their own column
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Mon, 02 Feb 2026 08:19:07 -0800
+
 scap (4.240.0)
 
   * kubernetes.py: Make deployment monitoring resilient to connectivity blips
