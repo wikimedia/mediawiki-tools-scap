@@ -104,7 +104,6 @@ export default defineComponent( {
 			const jobInfo = await api.getJobInfo( jobId );
 			const fetchedJob = jobInfo.job;
 
-			// eslint-disable-next-line camelcase
 			fetchedJob.command_decoded = JSON.parse( fetchedJob.command ).join( ' ' );
 			job.value = fetchedJob;
 			interaction.value = jobInfo.pending_interaction;

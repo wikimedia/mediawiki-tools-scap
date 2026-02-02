@@ -304,7 +304,6 @@ export default defineComponent( {
 			type: Number,
 			default: null
 		},
-		// eslint-disable-next-line camelcase, vue/prop-name-casing
 		command_decoded: {
 			type: String,
 			required: false,
@@ -315,19 +314,16 @@ export default defineComponent( {
 			required: false,
 			default: null
 		},
-		// eslint-disable-next-line camelcase, vue/prop-name-casing
 		started_at: {
 			type: Number,
 			required: false,
 			default: null
 		},
-		// eslint-disable-next-line camelcase, vue/prop-name-casing
 		finished_at: {
 			type: Number,
 			required: false,
 			default: null
 		},
-		// eslint-disable-next-line camelcase, vue/prop-name-casing
 		exit_status: {
 			type: Number,
 			required: false,

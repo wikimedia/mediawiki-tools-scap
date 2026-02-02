@@ -23,7 +23,6 @@
 </template>
 
 <script lang="ts">
-/* eslint-disable no-console */
 import { defineComponent, onMounted, onUnmounted, ref } from 'vue';
 import { VTooltip } from 'vuetify/components/VTooltip';
 import { CdxCheckbox } from '@wikimedia/codex';

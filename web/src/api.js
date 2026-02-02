@@ -190,9 +190,7 @@ const useAuthStore = defineStore( 'spiderpig-auth',
 				url.searchParams.append( 'skip', skip );
 				return await this.call( url );
 			},
-			// eslint-disable-next-line camelcase
 			async getJobInfo( job_id ) {
-				// eslint-disable-next-line camelcase
 				return await this.call( `/api/jobs/${ job_id }` );
 			},
 			async getLogs() {
@@ -206,10 +204,8 @@ const useAuthStore = defineStore( 'spiderpig-auth',
 					{ redirectOn401: false }
 				);
 			},
-			// eslint-disable-next-line camelcase
 			async respondInteraction( job_id, interaction_id, response ) {
 				await this.call(
-					// eslint-disable-next-line camelcase
 					`/api/jobs/${ job_id }/interact/${ interaction_id }`,
 					{
 						method: 'POST',
@@ -217,18 +213,14 @@ const useAuthStore = defineStore( 'spiderpig-auth',
 					}
 				);
 			},
-			// eslint-disable-next-line camelcase
 			async signalJob( job_id, type ) {
-				// eslint-disable-next-line camelcase
 				await this.call( `/api/jobs/${ job_id }/signal/${ type }`,
 					{
 						method: 'POST'
 					}
 				);
 			},
-			// eslint-disable-next-line camelcase
 			async getJobLog( job_id, abortsignal, showSensitive = false ) {
-				// eslint-disable-next-line camelcase
 				const url = this.makeApiUrl( `/api/jobs/${ job_id }/log` );
 				if ( showSensitive ) {
 					url.searchParams.append( 'include_sensitive', true );
@@ -240,11 +232,9 @@ const useAuthStore = defineStore( 'spiderpig-auth',
 					{ decodeJson: false }
 				);
 			},
-			// eslint-disable-next-line camelcase
 			async startBackport( change_urls ) {
 				const url = this.makeApiUrl( '/api/jobs/backport' );
 
-				// eslint-disable-next-line camelcase
 				for ( const change_url of change_urls ) {
 					url.searchParams.append( 'change_url', change_url );
 				}
@@ -258,9 +248,7 @@ const useAuthStore = defineStore( 'spiderpig-auth',
 			async startTrain( promotion ) {
 				return await this.post( '/api/jobs/train', promotion );
 			},
-			// eslint-disable-next-line camelcase
 			async retryJob( job_id ) {
-				// eslint-disable-next-line camelcase
 				return await this.post( `/api/jobs/${ job_id }/retry` );
 			},
 			async trainStatus() {
