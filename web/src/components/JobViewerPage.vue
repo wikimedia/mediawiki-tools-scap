@@ -1,51 +1,53 @@
 <template>
-	<v-toolbar v-if="job">
-		<template #title>
-			<h2>Job #{{ job.id }}</h2>
-		</template>
-		<template #append>
-			<v-btn
-				variant="elevated"
-				@click="$router.back()"
-			>
-				Close
-			</v-btn>
-			<v-menu>
-				<template #activator="{ props }">
-					<v-btn
-						v-show="job.running"
-						variant="elevated"
-						v-bind="props"
-					>
-						<cdx-icon :icon="cdxIconEllipsis" />
-					</v-btn>
-				</template>
-				<v-list>
-					<v-list-item
-						v-for="( item, i ) in menuItems"
-						:key="i"
-						v-bind="item"
-						@click="onSelect( item.value )"
-					/>
-				</v-list>
-			</v-menu>
-		</template>
-	</v-toolbar>
-	<v-sheet color="surface-light">
-		<sp-interaction
-			v-if="interaction"
-			:interaction="interaction"
-		/>
-		<sp-job-card
-			v-if="job"
-			:key="job.id"
-			v-bind="job"
-		/>
-		<sp-interaction
-			v-if="interaction"
-			:interaction="interaction"
-		/>
-	</v-sheet>
+	<div class="job-viewer-page">
+		<v-toolbar v-if="job">
+			<template #title>
+				<h2>Job #{{ job.id }}</h2>
+			</template>
+			<template #append>
+				<v-btn
+					variant="elevated"
+					@click="$router.back()"
+				>
+					Close
+				</v-btn>
+				<v-menu>
+					<template #activator="{ props }">
+						<v-btn
+							v-show="job.running"
+							variant="elevated"
+							v-bind="props"
+						>
+							<cdx-icon :icon="cdxIconEllipsis" />
+						</v-btn>
+					</template>
+					<v-list>
+						<v-list-item
+							v-for="( item, i ) in menuItems"
+							:key="i"
+							v-bind="item"
+							@click="onSelect( item.value )"
+						/>
+					</v-list>
+				</v-menu>
+			</template>
+		</v-toolbar>
+		<v-sheet color="surface-light">
+			<sp-interaction
+				v-if="interaction"
+				:interaction="interaction"
+			/>
+			<sp-job-card
+				v-if="job"
+				:key="job.id"
+				v-bind="job"
+			/>
+			<sp-interaction
+				v-if="interaction"
+				:interaction="interaction"
+			/>
+		</v-sheet>
+	</div>
 </template>
 
 <script lang="ts">

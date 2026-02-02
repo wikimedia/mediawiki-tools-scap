@@ -1,13 +1,15 @@
 <template>
-	<v-toolbar v-if="title">
-		<template #title>
-			<h2>{{ title }}</h2>
-		</template>
-	</v-toolbar>
-	<v-sheet color="surface-light">
-		<slot name="new-job" :idle="idle" />
-	</v-sheet>
-	<sp-job-history />
+	<div class="job-page">
+		<v-toolbar v-if="title">
+			<template #title>
+				<h2>{{ title }}</h2>
+			</template>
+		</v-toolbar>
+		<v-sheet color="surface-light">
+			<slot name="new-job" :idle="idle" />
+		</v-sheet>
+		<sp-job-history />
+	</div>
 </template>
 
 <script lang="ts">
