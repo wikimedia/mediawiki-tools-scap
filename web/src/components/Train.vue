@@ -1,212 +1,214 @@
 <template>
-	<v-row>
-		<v-col :cols="12" :md="6" :class="mdAndUp ? '' : 'pb-0'">
-			<v-card
-				prepend-icon="mdi-calendar"
-				rounded
-				class="mb-2 sp-train-info-card">
-				<template #title>
-					Week {{ taskWeek }} of MediaWiki Train
-				</template>
-				<template v-if="hasLoaded && !error" #subtitle>
-					<template v-if="isUpcoming">
+	<div class="train">
+		<v-row>
+			<v-col :cols="12" :md="6" :class="mdAndUp ? '' : 'pb-0'">
+				<v-card
+					prepend-icon="mdi-calendar"
+					rounded
+					class="mb-2 sp-train-info-card">
+					<template #title>
+						Week {{ taskWeek }} of MediaWiki Train
+					</template>
+					<template v-if="hasLoaded && !error" #subtitle>
+						<template v-if="isUpcoming">
+							<v-chip color="info" size="small">
+								Arriving {{ taskDayOfWeek }}
+							</v-chip>
+						</template>
 						<v-chip color="info" size="small">
-							Arriving {{ taskDayOfWeek }}
+							{{ taskVersion }}
+						</v-chip>
+						<v-chip color="info" size="small">
+							<a :href="taskURL" target="_blank">{{ task }}</a>
 						</v-chip>
 					</template>
-					<v-chip color="info" size="small">
-						{{ taskVersion }}
-					</v-chip>
-					<v-chip color="info" size="small">
-						<a :href="taskURL" target="_blank">{{ task }}</a>
-					</v-chip>
-				</template>
-				<template v-else #subtitle>
-					Fetching current train status...
-					<v-progress-circular size="small" color="primary" indeterminate />
-				</template>
-			</v-card>
-		</v-col>
-		<v-col :cols="12" :md="6" :class="mdAndUp ? '' : 'pt-0'">
-			<v-card
-				v-if="hasLoaded && !error"
-				prepend-icon="mdi-code-braces-box"
-				rounded
-				class="mb-2 sp-train-info-card">
-				<template #title>
-					Deployment of <v-chip color="primary" size="small">
-						{{ trainVersion }}
-					</v-chip>
-				</template>
-				<template #subtitle>
-					{{ currentStatus }}
-				</template>
-			</v-card>
-		</v-col>
-	</v-row>
-	<v-row v-if="error || warnings.length || isBackporting">
-		<v-col>
-			<v-alert v-if="error" type="error" closable>
-				{{ error }}
-			</v-alert>
-			<v-alert v-for="warning in warnings" :key="warning" type="warning" closable>
-				{{ warning }}
-			</v-alert>
-			<v-alert
-				v-if="!isUpcoming && taskVersion && taskVersion !== trainVersion"
-				type="warning"
-			>
-				Task {{ task }} reports version {{ taskVersion }} while the current train status
-				reports {{ trainVersion }}. Be sure the MediaWiki branch cut was successful before
-				proceeding.
-			</v-alert>
-			<v-alert v-if="isBackporting" type="warning">
-				Backports are in progress. Train deployment is unavailable until they complete.
-			</v-alert>
-		</v-col>
-	</v-row>
-
-	<v-stepper
-		v-if="hasLoaded && !error"
-		v-model="selectedStep"
-		:items="groupNames"
-		:disabled="isRolling"
-		alt-labels
-		editable
-		hide-actions
-	>
-		<template #icon="{ step }">
-			<template v-if="step === selectedStep">
-				<v-icon icon="mdi-train" />
-			</template>
-			<template v-else-if="step === 1">
-				<v-icon icon="mdi-train-car-caboose" />
-			</template>
-			<template v-else-if="selectedStep < step">
-				<v-icon v-if="groups[step - 1].hasRolled" icon="mdi-history" />
-				<v-icon v-else icon="mdi-calendar-clock" />
-			</template>
-			<template v-else>
-				<v-icon v-if="groups[step - 1].hasRolled" icon="mdi-check-bold" />
-				<v-icon v-else icon="mdi-progress-alert" />
-			</template>
-		</template>
-
-		<template v-for="group of groups" :key="group.name" #['header-item.'+group.step]>
-			<template v-if="deployment.rollback && group.hasRolled && selectedStep < group.step">
-				<v-chip
-					:class="{ processing: isRolling }"
-					variant="flat"
-					color="secondary"
-					size="small">
-					{{ formatVersion( deployment.version ) }}
-				</v-chip>
-				←
-			</template>
-			<template v-if="mdAndUp || ( group.hasRolled && !( selectedStep < group.step ) )">
-				<template v-for="version in group.versions" :key="version">
-					<v-chip
-						:color="version === trainVersion ? 'primary' : 'secondary'"
-						size="small"
-					>
-						{{ formatVersion( version ) }}
-					</v-chip>
-				</template>
-			</template>
-			<template v-if="deployment.promote && !group.hasRolled && selectedStep >= group.step">
-				→
-				<v-chip
-					:class="{ processing: isRolling }"
-					variant="flat"
-					color="primary"
-					size="small">
-					{{ formatVersion( deployment.version ) }}
-				</v-chip>
-			</template>
-		</template>
-
-		<template v-for="group of groups" :key="group.name" #['item.'+group.step]>
-			<v-autocomplete
-				v-model="group.excludedWikis"
-				:label="'Exclude ' + group.name + ' wikis'"
-				:items="group.wikis"
-				item-color="warning"
-				multiple
-				clearable
-				hide-details
-				:disabled="!deployment.promote"
-			>
-				<template #chip="{ props }">
-					<v-chip
-						v-bind="props"
-						color="warning"
-						size="large" />
-				</template>
-			</v-autocomplete>
-		</template>
-
-		<v-card prepend-icon="mdi-train" title="Deployment Summary">
-			<template #title>
-				{{ currentOrProposedStatus }}
-				<v-progress-circular v-if="isRolling" size="small" color="primary" indeterminate />
-			</template>
-
-			<template #subtitle>
-				Number of wikis on each version following deployment:
-			</template>
-
-			<template #text>
-				<v-alert
-					v-if="deployment.excludedWikis.length"
-					type="warning"
-					class="mb-4"
-				>
-					<template #text>
-						Excluding {{ deployment.excludedWikis.length }} wikis from promotion.
+					<template v-else #subtitle>
+						Fetching current train status...
+						<v-progress-circular size="small" color="primary" indeterminate />
 					</template>
+				</v-card>
+			</v-col>
+			<v-col :cols="12" :md="6" :class="mdAndUp ? '' : 'pt-0'">
+				<v-card
+					v-if="hasLoaded && !error"
+					prepend-icon="mdi-code-braces-box"
+					rounded
+					class="mb-2 sp-train-info-card">
+					<template #title>
+						Deployment of <v-chip color="primary" size="small">
+							{{ trainVersion }}
+						</v-chip>
+					</template>
+					<template #subtitle>
+						{{ currentStatus }}
+					</template>
+				</v-card>
+			</v-col>
+		</v-row>
+		<v-row v-if="error || warnings.length || isBackporting">
+			<v-col>
+				<v-alert v-if="error" type="error" closable>
+					{{ error }}
 				</v-alert>
-				<v-progress-linear
-					v-for="version in deployment.versions"
-					:key="version"
-					:model-value="versionPercent( deployment.versionCounts[version] )"
-					:buffer-value="versionPercent( priorVersionCounts[version] )"
-					:color="version === trainVersion ? 'primary' : 'secondary'"
-					height="42"
+				<v-alert v-for="warning in warnings" :key="warning" type="warning" closable>
+					{{ warning }}
+				</v-alert>
+				<v-alert
+					v-if="!isUpcoming && taskVersion && taskVersion !== trainVersion"
+					type="warning"
 				>
-					<v-chip
-						:color="version === trainVersion ? 'primary' : 'secondary'"
-						size="small"
-						variant="flat"
-					>
-						<strong>{{ version }}</strong>
-						on
-						<strong>{{ deployment.versionCounts[version] }}</strong> wikis
-					</v-chip>
-				</v-progress-linear>
+					Task {{ task }} reports version {{ taskVersion }} while the current train status
+					reports {{ trainVersion }}. Be sure the MediaWiki branch cut was successful before
+					proceeding.
+				</v-alert>
+				<v-alert v-if="isBackporting" type="warning">
+					Backports are in progress. Train deployment is unavailable until they complete.
+				</v-alert>
+			</v-col>
+		</v-row>
+
+		<v-stepper
+			v-if="hasLoaded && !error"
+			v-model="selectedStep"
+			:items="groupNames"
+			:disabled="isRolling"
+			alt-labels
+			editable
+			hide-actions
+		>
+			<template #icon="{ step }">
+				<template v-if="step === selectedStep">
+					<v-icon icon="mdi-train" />
+				</template>
+				<template v-else-if="step === 1">
+					<v-icon icon="mdi-train-car-caboose" />
+				</template>
+				<template v-else-if="selectedStep < step">
+					<v-icon v-if="groups[step - 1].hasRolled" icon="mdi-history" />
+					<v-icon v-else icon="mdi-calendar-clock" />
+				</template>
+				<template v-else>
+					<v-icon v-if="groups[step - 1].hasRolled" icon="mdi-check-bold" />
+					<v-icon v-else icon="mdi-progress-alert" />
+				</template>
 			</template>
 
-			<template #actions>
-				<v-btn
-					v-if="deployment.rollback"
-					color="warning"
-					variant="flat"
-					:disabled="isDisabled"
-					@click="startTrain"
-				>
-					Roll back!
-				</v-btn>
-				<v-btn
-					v-else
-					color="primary"
-					variant="flat"
-					:disabled="isDisabled"
-					@click="startTrain"
-				>
-					Let's roll!
-				</v-btn>
+			<template v-for="group of groups" :key="group.name" #['header-item.'+group.step]>
+				<template v-if="deployment.rollback && group.hasRolled && selectedStep < group.step">
+					<v-chip
+						:class="{ processing: isRolling }"
+						variant="flat"
+						color="secondary"
+						size="small">
+						{{ formatVersion( deployment.version ) }}
+					</v-chip>
+					←
+				</template>
+				<template v-if="mdAndUp || ( group.hasRolled && !( selectedStep < group.step ) )">
+					<template v-for="version in group.versions" :key="version">
+						<v-chip
+							:color="version === trainVersion ? 'primary' : 'secondary'"
+							size="small"
+						>
+							{{ formatVersion( version ) }}
+						</v-chip>
+					</template>
+				</template>
+				<template v-if="deployment.promote && !group.hasRolled && selectedStep >= group.step">
+					→
+					<v-chip
+						:class="{ processing: isRolling }"
+						variant="flat"
+						color="primary"
+						size="small">
+						{{ formatVersion( deployment.version ) }}
+					</v-chip>
+				</template>
 			</template>
-		</v-card>
-	</v-stepper>
+
+			<template v-for="group of groups" :key="group.name" #['item.'+group.step]>
+				<v-autocomplete
+					v-model="group.excludedWikis"
+					:label="'Exclude ' + group.name + ' wikis'"
+					:items="group.wikis"
+					item-color="warning"
+					multiple
+					clearable
+					hide-details
+					:disabled="!deployment.promote"
+				>
+					<template #chip="{ props }">
+						<v-chip
+							v-bind="props"
+							color="warning"
+							size="large" />
+					</template>
+				</v-autocomplete>
+			</template>
+
+			<v-card prepend-icon="mdi-train" title="Deployment Summary">
+				<template #title>
+					{{ currentOrProposedStatus }}
+					<v-progress-circular v-if="isRolling" size="small" color="primary" indeterminate />
+				</template>
+
+				<template #subtitle>
+					Number of wikis on each version following deployment:
+				</template>
+
+				<template #text>
+					<v-alert
+						v-if="deployment.excludedWikis.length"
+						type="warning"
+						class="mb-4"
+					>
+						<template #text>
+							Excluding {{ deployment.excludedWikis.length }} wikis from promotion.
+						</template>
+					</v-alert>
+					<v-progress-linear
+						v-for="version in deployment.versions"
+						:key="version"
+						:model-value="versionPercent( deployment.versionCounts[version] )"
+						:buffer-value="versionPercent( priorVersionCounts[version] )"
+						:color="version === trainVersion ? 'primary' : 'secondary'"
+						height="42"
+					>
+						<v-chip
+							:color="version === trainVersion ? 'primary' : 'secondary'"
+							size="small"
+							variant="flat"
+						>
+							<strong>{{ version }}</strong>
+							on
+							<strong>{{ deployment.versionCounts[version] }}</strong> wikis
+						</v-chip>
+					</v-progress-linear>
+				</template>
+
+				<template #actions>
+					<v-btn
+						v-if="deployment.rollback"
+						color="warning"
+						variant="flat"
+						:disabled="isDisabled"
+						@click="startTrain"
+					>
+						Roll back!
+					</v-btn>
+					<v-btn
+						v-else
+						color="primary"
+						variant="flat"
+						:disabled="isDisabled"
+						@click="startTrain"
+					>
+						Let's roll!
+					</v-btn>
+				</template>
+			</v-card>
+		</v-stepper>
+	</div>
 </template>
 
 <script lang="ts">
