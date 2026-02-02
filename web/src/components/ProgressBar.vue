@@ -1,11 +1,13 @@
 <template>
-	<v-progress-linear
-		v-if="progress"
-		v-model="progressPercent"
-		color="primary"
-		height="22" />
-	<div class="progressbar_text">
-		{{ progressText }}
+	<div class="progressbar">
+		<v-progress-linear
+			v-if="progress"
+			v-model="progressPercent"
+			color="primary"
+			height="22" />
+		<div class="progressbar_text">
+			{{ progressText }}
+		</div>
 	</div>
 </template>
 

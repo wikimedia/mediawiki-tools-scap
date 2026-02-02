@@ -1,5 +1,7 @@
 <template>
-	You are not authorized to use SpiderPig
+	<div class="not-authorized">
+		You are not authorized to use SpiderPig
+	</div>
 </template>
 
 <script>
