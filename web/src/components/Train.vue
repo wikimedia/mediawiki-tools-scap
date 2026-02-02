@@ -1,70 +1,71 @@
 <template>
-	<v-row>
-		<v-col :cols="12" :md="6" :class="mdAndUp ? '' : 'pb-0'">
-			<v-card
-				prepend-icon="mdi-calendar"
-				rounded
-				class="mb-2 sp-train-info-card">
-				<template #title>
-					Week {{ taskWeek }} of MediaWiki Train
-				</template>
-				<template v-if="hasLoaded && !error" #subtitle>
-					<template v-if="isUpcoming">
+	<div class="train">
+		<v-row>
+			<v-col :cols="12" :md="6" :class="mdAndUp ? '' : 'pb-0'">
+				<v-card
+					prepend-icon="mdi-calendar"
+					rounded
+					class="mb-2 sp-train-info-card">
+					<template #title>
+						Week {{ taskWeek }} of MediaWiki Train
+					</template>
+					<template v-if="hasLoaded && !error" #subtitle>
+						<template v-if="isUpcoming">
+							<v-chip color="info" size="small">
+								Arriving {{ taskDayOfWeek }}
+							</v-chip>
+						</template>
 						<v-chip color="info" size="small">
-							Arriving {{ taskDayOfWeek }}
+							{{ taskVersion }}
+						</v-chip>
+						<v-chip color="info" size="small">
+							<a :href="taskURL" target="_blank">{{ task }}</a>
 						</v-chip>
 					</template>
-					<v-chip color="info" size="small">
-						{{ taskVersion }}
-					</v-chip>
-					<v-chip color="info" size="small">
-						<a :href="taskURL" target="_blank">{{ task }}</a>
-					</v-chip>
-				</template>
-				<template v-else #subtitle>
-					Fetching current train status...
-					<v-progress-circular size="small" color="primary" indeterminate />
-				</template>
-			</v-card>
-		</v-col>
-		<v-col :cols="12" :md="6" :class="mdAndUp ? '' : 'pt-0'">
-			<v-card
-				v-if="hasLoaded && !error"
-				prepend-icon="mdi-code-braces-box"
-				rounded
-				class="mb-2 sp-train-info-card">
-				<template #title>
-					Deployment of <v-chip color="primary" size="small">
-						{{ trainVersion }}
-					</v-chip>
-				</template>
-				<template #subtitle>
-					{{ currentStatus }}
-				</template>
-			</v-card>
-		</v-col>
-	</v-row>
-	<v-row v-if="error || warnings.length || isBackporting">
-		<v-col>
-			<v-alert v-if="error" type="error" closable>
-				{{ error }}
-			</v-alert>
-			<v-alert v-for="warning in warnings" :key="warning" type="warning" closable>
-				{{ warning }}
-			</v-alert>
-			<v-alert
-				v-if="!isUpcoming && taskVersion && taskVersion !== trainVersion"
-				type="warning"
-			>
-				Task {{ task }} reports version {{ taskVersion }} while the current train status
-				reports {{ trainVersion }}. Be sure the MediaWiki branch cut was successful before
-				proceeding.
-			</v-alert>
-			<v-alert v-if="isBackporting" type="warning">
-				Backports are in progress. Train deployment is unavailable until they complete.
-			</v-alert>
-		</v-col>
-	</v-row>
+					<template v-else #subtitle>
+						Fetching current train status...
+						<v-progress-circular size="small" color="primary" indeterminate />
+					</template>
+				</v-card>
+			</v-col>
+			<v-col :cols="12" :md="6" :class="mdAndUp ? '' : 'pt-0'">
+				<v-card
+					v-if="hasLoaded && !error"
+					prepend-icon="mdi-code-braces-box"
+					rounded
+					class="mb-2 sp-train-info-card">
+					<template #title>
+						Deployment of <v-chip color="primary" size="small">
+							{{ trainVersion }}
+						</v-chip>
+					</template>
+					<template #subtitle>
+						{{ currentStatus }}
+					</template>
+				</v-card>
+			</v-col>
+		</v-row>
+		<v-row v-if="error || warnings.length || isBackporting">
+			<v-col>
+				<v-alert v-if="error" type="error" closable>
+					{{ error }}
+				</v-alert>
+				<v-alert v-for="warning in warnings" :key="warning" type="warning" closable>
+					{{ warning }}
+				</v-alert>
+				<v-alert
+					v-if="!isUpcoming && taskVersion && taskVersion !== trainVersion"
+					type="warning"
+				>
+					Task {{ task }} reports version {{ taskVersion }} while the current train status
+					reports {{ trainVersion }}. Be sure the MediaWiki branch cut was successful before
+					proceeding.
+				</v-alert>
+				<v-alert v-if="isBackporting" type="warning">
+					Backports are in progress. Train deployment is unavailable until they complete.
+				</v-alert>
+			</v-col>
+		</v-row>
 
 	<v-stepper
 		v-if="hasLoaded && !error"
@@ -207,6 +208,7 @@
 			</template>
 		</v-card>
 	</v-stepper>
+	</div>
 </template>
 
 <script lang="ts">
