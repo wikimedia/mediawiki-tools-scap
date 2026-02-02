@@ -41,7 +41,7 @@ const useAuthStore = defineStore( 'spiderpig-auth',
 					// If url is already absolute, the base is ignored.
 					const targetUrl = new URL( url, window.location.origin );
 					targetHref = targetUrl.href;
-				} catch ( e ) {
+				} catch {
 					// If URL construction fails, fall back to original string
 					targetHref = url;
 				}
@@ -107,7 +107,7 @@ const useAuthStore = defineStore( 'spiderpig-auth',
 					let respJson = null;
 					try {
 						respJson = await response.json();
-					} catch ( e ) {
+					} catch {
 						// Ignore JSON parsing error
 					}
 
