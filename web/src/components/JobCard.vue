@@ -30,14 +30,28 @@
 					<div class="job-card__label">
 						Started
 					</div>
-					{{ getFormattedDate( started_at ) }}
+					<div>
+						<span class="job-card__message">
+							{{ startedInfo.time }}
+						</span> {{ startedInfo.date }}
+					</div>
 				</div>
 
 				<div class="job-card__column">
 					<div class="job-card__label">
 						Finished
 					</div>
-					{{ finishedInfo }}
+					<div>
+						<template v-if='finishedInfo.time && finishedInfo.date'>
+							<span class="job-card__message">{{ finishedInfo.time }}</span> {{ finishedInfo.date }}
+						</template>
+						<span v-else-if=finishedInfo.message class="job-card__message">
+								{{ finishedInfo.message }}
+						</span>
+						<span v-if=finishedInfo.duration>
+							(Duration: {{ finishedInfo.duration }})
+						</span>
+					</div>
 				</div>
 
 				<div class="job-card__column">
@@ -476,11 +490,31 @@ export default defineComponent( {
 
 		function getFormattedDate( timestamp: number ) {
 			if ( !timestamp ) {
-				return '';
+				return {
+					time: '',
+					date: ''
+				};
 			}
 
 			const date = new Date( timestamp * 1000 );
-			return date.toUTCString();
+			// What was wrong with stftime, javascript!?
+			return {
+				time: date.toLocaleTimeString( 'en-US', {
+					hour: '2-digit',
+					minute: '2-digit',
+					second: '2-digit',
+					timeZone: 'UTC',
+					hour12: false
+					} ) + ' UTC',
+				// en-GB makes rfc-2822 dates; e.g.: "Fri, 06 Feb 2026"
+				date: date.toLocaleDateString( 'en-GB', {
+					weekday: 'short',
+					day: '2-digit',
+					month: 'short',
+					year: 'numeric',
+					timeZone: 'UTC'
+				} )
+			};
 		}
 
 		function getFormattedUser( user: string ) {
@@ -507,23 +541,31 @@ export default defineComponent( {
 
 		const finishedInfo = computed( () => {
 			if ( !props.started_at ) {
-				return 'Not started yet';
+				return { message: 'Not started yet' };
 			}
 
 			if ( props.orphaned ) {
-				return 'Unknown (orphaned)';
+				return { message: 'Unknown (orphaned)' };
 			}
 
 			const duration = prettyDuration( props.duration );
 
 			if ( props.finished_at ) {
-				const finishedTimestamp = getFormattedDate( props.finished_at );
-				return `${ finishedTimestamp } (Duration ${ duration })`;
+				return {
+					...getFormattedDate( props.finished_at ),
+					duration: duration
+				};
 			}
 
 			// Job has started but hasn't finished yet
-			return `Running for ${ duration }`;
+			return {
+				message: 'Running...',
+				duration: duration
+			};
+		} );
 
+		const startedInfo = computed( () => {
+			return getFormattedDate( props.started_at );
 		} );
 
 		function handleClick( url ) {
@@ -621,7 +663,6 @@ export default defineComponent( {
 		);
 
 		return {
-			getFormattedDate,
 			getFormattedUser,
 			statusType,
 			statusChipMessage,
@@ -633,6 +674,7 @@ export default defineComponent( {
 			showJobLog,
 			showViewLogButton,
 			finishedInfo,
+			startedInfo,
 			changeInfos,
 			handleClick,
 			navigateToJob,
@@ -695,6 +737,12 @@ export default defineComponent( {
 	&__column {
 		display: flex;
 		flex-direction: column;
+	}
+
+	&__message {
+		color: @color-base;
+		font-size: @font-size-medium;
+		line-height: @font-size-medium;
 	}
 
 	&__status {
