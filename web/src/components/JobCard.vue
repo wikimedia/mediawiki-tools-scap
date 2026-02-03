@@ -103,10 +103,10 @@
 						</button>
 						<cdx-dialog
 							:open="confirmStopOpen"
-							@update:open="confirmStopOpen = $event"
 							title="Confirm Stop Job"
 							close-button-label="Cancel"
 							class="job-card__dialog"
+							@update:open="confirmStopOpen = $event"
 						>
 							<p>
 								Are you sure you want to stop this running job?
@@ -131,10 +131,10 @@
 						</cdx-dialog>
 						<cdx-dialog
 							:open="confirmRetryOpen"
-							@update:open="confirmRetryOpen = $event"
 							title="Confirm Job Retry"
 							close-button-label="Cancel"
 							class="job-card__dialog"
+							@update:open="confirmRetryOpen = $event"
 						>
 							<p>
 								Are you sure you want to retry this job?
