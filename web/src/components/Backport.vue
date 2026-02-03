@@ -51,9 +51,9 @@
 			</v-autocomplete>
 			<cdx-dialog
 				:open="alertDialogOpen"
-				@update:open="alertDialogOpen = $event"
 				title="Failed to start backport"
 				:use-close-button="alertDialogUseCloseButton"
+				@update:open="alertDialogOpen = $event"
 			>
 				{{ alertDialogText }}
 			</cdx-dialog>
