@@ -93,41 +93,44 @@
 				</template>
 			</template>
 
-			<template v-for="group of groups" :key="group.name" #['header-item.'+group.step]>
-				<template v-if="deployment.rollback && group.hasRolled && selectedStep < group.step">
-					<v-chip
-						:class="{ processing: isRolling }"
-						variant="flat"
-						color="secondary"
-						size="small">
-						{{ formatVersion( deployment.version ) }}
-					</v-chip>
-					←
-				</template>
-				<template v-if="mdAndUp || ( group.hasRolled && !( selectedStep < group.step ) )">
-					<template v-for="version in group.versions" :key="version">
+			<template v-for="group of groups" #['header-item.'+group.step]>
+				<div :key="group.name">
+					<template v-if="deployment.rollback && group.hasRolled && selectedStep < group.step">
 						<v-chip
+							:class="{ processing: isRolling }"
+							variant="flat"
+							color="secondary"
+							size="small">
+							{{ formatVersion( deployment.version ) }}
+						</v-chip>
+						←
+					</template>
+					<template v-if="mdAndUp || ( group.hasRolled && !( selectedStep < group.step ) )">
+						<v-chip
+							v-for="version in group.versions"
+							:key="`${group.name}-${version}`"
 							:color="version === trainVersion ? 'primary' : 'secondary'"
 							size="small"
 						>
 							{{ formatVersion( version ) }}
 						</v-chip>
 					</template>
-				</template>
-				<template v-if="deployment.promote && !group.hasRolled && selectedStep >= group.step">
-					→
-					<v-chip
-						:class="{ processing: isRolling }"
-						variant="flat"
-						color="primary"
-						size="small">
-						{{ formatVersion( deployment.version ) }}
-					</v-chip>
-				</template>
+					<template v-if="deployment.promote && !group.hasRolled && selectedStep >= group.step">
+						→
+						<v-chip
+							:class="{ processing: isRolling }"
+							variant="flat"
+							color="primary"
+							size="small">
+							{{ formatVersion( deployment.version ) }}
+						</v-chip>
+					</template>
+				</div>
 			</template>
 
-			<template v-for="group of groups" :key="group.name" #['item.'+group.step]>
+			<template v-for="group of groups" #['item.'+group.step]>
 				<v-autocomplete
+					:key="group.name"
 					v-model="group.excludedWikis"
 					:label="'Exclude ' + group.name + ' wikis'"
 					:items="group.wikis"
