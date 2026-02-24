@@ -510,45 +510,47 @@ def fetch(
         config = {}
 
     if is_dir(location):
+        # Fetching from an existing repository
         remote_set_url(location, repo)
-        cmd = append_jobs_arg(["--tags"])
+        fetch_cmd = append_jobs_arg(["--tags"])
         if recurse_submodules:
-            cmd.append("--recurse-submodules")
+            fetch_cmd.append("--recurse-submodules")
         else:
-            cmd.append("--no-recurse-submodules")
+            fetch_cmd.append("--no-recurse-submodules")
         if branch:
-            cmd.append("origin")
-            cmd.append(branch)
-        gitcmd("fetch", *cmd, cwd=location)
+            fetch_cmd.append("origin")
+            fetch_cmd.append(branch)
+        gitcmd("fetch", *fetch_cmd, cwd=location)
         for name, value in config.items():
             gitcmd("config", name, value, cwd=location)
     else:
-        cmd = append_jobs_arg([])
+        # The repository does not exist, clone it
+        clone_cmd = append_jobs_arg([])
         if shallow:
-            cmd.append("--depth")
-            cmd.append("1")
+            clone_cmd.append("--depth")
+            clone_cmd.append("1")
         if reference is not None and version()[0] > 1:
             ensure_dir(reference)
-            cmd.append("--reference")
-            cmd.append(reference)
+            clone_cmd.append("--reference")
+            clone_cmd.append(reference)
             if dissociate:
-                cmd.append("--dissociate")
+                clone_cmd.append("--dissociate")
         if recurse_submodules:
-            cmd.append("--recurse-submodules")
+            clone_cmd.append("--recurse-submodules")
             if shallow:
-                cmd.append("--shallow-submodules")
+                clone_cmd.append("--shallow-submodules")
         if bare:
-            cmd.append("--bare")
+            clone_cmd.append("--bare")
         if branch:
-            cmd.append("-b")
-            cmd.append(branch)
+            clone_cmd.append("-b")
+            clone_cmd.append(branch)
         if config:
             for name, value in config.items():
-                cmd.append("--config")
-                cmd.append("{}={}".format(name, value))
-        cmd.append(repo)
-        cmd.append(location)
-        gitcmd("clone", *cmd)
+                clone_cmd.append("--config")
+                clone_cmd.append("{}={}".format(name, value))
+        clone_cmd.append(repo)
+        clone_cmd.append(location)
+        gitcmd("clone", *clone_cmd)
 
 
 def append_jobs_arg(cmd):
