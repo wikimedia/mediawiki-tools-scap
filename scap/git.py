@@ -511,7 +511,13 @@ def fetch(
 
     if is_dir(location):
         # Fetching from an existing repository
+
+        # Configure the repository writing configs to .git/config
         remote_set_url(location, repo)
+        for name, value in config.items():
+            gitcmd("config", name, value, cwd=location)
+
+        # Prepare the fetch command and run it
         fetch_cmd = append_jobs_arg(["--tags"])
         if recurse_submodules:
             fetch_cmd.append("--recurse-submodules")
@@ -521,8 +527,7 @@ def fetch(
             fetch_cmd.append("origin")
             fetch_cmd.append(branch)
         gitcmd("fetch", *fetch_cmd, cwd=location)
-        for name, value in config.items():
-            gitcmd("config", name, value, cwd=location)
+
     else:
         # The repository does not exist, clone it
         clone_cmd = append_jobs_arg([])
@@ -545,6 +550,7 @@ def fetch(
             clone_cmd.append("-b")
             clone_cmd.append(branch)
         if config:
+            # Git clone will write the configs to .git/config
             for name, value in config.items():
                 clone_cmd.append("--config")
                 clone_cmd.append("{}={}".format(name, value))
