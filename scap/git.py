@@ -841,7 +841,9 @@ def reflog(repo, fmt="oneline", branch=None):
 
 
 # FIXME: reference and ref together are confusing.
-def clone_or_update_repo(dir, repo, branch, logger, reference=None, ref=None):
+def clone_or_update_repo(
+    dir, repo, branch, logger, reference=None, ref=None, prune_tags=False
+):
     """
     Clone or update the checkout of 'repo' in 'dir', using the specified
     branch.   Note that existing repos are hard-reset to the match the
@@ -858,7 +860,12 @@ def clone_or_update_repo(dir, repo, branch, logger, reference=None, ref=None):
 
     logger.info("{} {} ({} branch) in {}".format(operation, repo, branch, dir))
 
-    config = {"core.sharedRepository": "group"}
+    config = {
+        "core.sharedRepository": "group",
+        # Since we create local tags scap/sync/>YYYY-MM-DD>/<inc>
+        # we usually don't want to prune them - T418085
+        "fetch.pruneTags": "true" if True else "false",
+    }
 
     if operation == "Clone":
         fetch(dir, repo, branch=branch, reference=reference, config=config)
