@@ -1,3 +1,15 @@
+scap (4.242.0)
+
+  * JobCard: Format time and date
+  * web: Upgrade to ESLint 9.39.2
+  * web: Linter fixes
+  * Train.vue: Add a top-level div
+  * web: Replace v-model:open with explicit bindings in dialogs
+  * web: Fix multiple template root issues in Vue components
+  * web/src/api.js: Clean up unused variables
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Wed, 25 Feb 2026 08:03:49 -0800
+
 scap (4.241.0)
 
   * package-lock.json: Ran `npm audit fix`
