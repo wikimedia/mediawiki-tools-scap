@@ -376,7 +376,7 @@ class BackportsTestHelper:
         # Freshen up
         self.setup_mediawiki_config_repo()
 
-        readme_path = self.mwconfig_dir + "/README"
+        readme_path = self.mwconfig_dir + "/README.md"
         text = (
             f"\nAdded by setup_config_change({mode}, {context}) on "
             + datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -397,6 +397,52 @@ class BackportsTestHelper:
             self.approve_and_wait_for_merge(change_url)
 
         return change_url
+
+    def setup_stacked_config_changes_for_revert_conflict(self):
+        """
+        Create and merge two stacked config changes where the second updates a line
+        added by the first. Reverting parent then child is expected to conflict.
+
+        Returns [parent_change_url, child_change_url].
+        """
+        self.setup_mediawiki_config_repo()
+
+        readme_path = self.mwconfig_dir + "/README.md"
+        marker = "T388057 stacked revert test " + datetime.now().strftime(
+            "%Y-%m-%d %H:%M:%S"
+        )
+        parent_line = marker + " parent"
+        child_line = marker + " child"
+
+        parent_change_url = self.change_and_push_file(
+            self.mwconfig_dir,
+            "train-dev",
+            readme_path,
+            "\n" + parent_line,
+            "T388057: parent config change for stacked revert conflict",
+        )
+        self.approve_and_wait_for_merge(parent_change_url)
+        self.git_command(self.mwconfig_dir, ["reset", "--hard", "HEAD~1"])
+
+        # Start from merged state, then modify the same line for a stacked child commit.
+        self.setup_mediawiki_config_repo()
+        with open(readme_path, "r") as f:
+            contents = f.read()
+        if parent_line not in contents:
+            raise RuntimeError("Failed to prepare stacked revert test data")
+        with open(readme_path, "w") as f:
+            f.write(contents.replace(parent_line, child_line, 1))
+
+        self.git_commit(
+            self.mwconfig_dir,
+            "T388057: child config change updating parent line",
+            readme_path,
+        )
+        child_change_url = self.push_and_collect_url(self.mwconfig_dir, "train-dev")
+        self.approve_and_wait_for_merge(child_change_url)
+        self.git_command(self.mwconfig_dir, ["reset", "--hard", "HEAD~1"])
+
+        return [parent_change_url, child_change_url]
 
     @contextlib.contextmanager
     def wikiversions_all_temporarily_set_to_old(self):
@@ -1431,6 +1477,32 @@ class TestBackports(unittest.TestCase):
         self.backports_test_helper.setup_visualeditor_repo()
 
         self.backports_test_helper.scap_backport(["--revert", change_url])
+
+    def test_stacked_config_revert_succeeds(self):
+        """T388057: Reverting stacked config commits should succeed (child reverted before parent)."""
+        announce(
+            "Testing stacked operations/mediawiki-config revert succeeds (T388057)"
+        )
+
+        parent_url, child_url = (
+            self.backports_test_helper.setup_stacked_config_changes_for_revert_conflict()
+        )
+
+        child = self.backports_test_helper._start_scap_backport(
+            ["--revert", parent_url, child_url]
+        )
+        try:
+            # Revert reason is prompted once up-front and reused for all reverts.
+            child.expect_exact("Please supply a reason for revert")
+            child.sendline("")
+
+            child.expect_exact("Backport the changes? [y/N]:")
+            child.sendline("y")
+            child.expect_exact("Skipping sync since --stop-before-sync was specified")
+            child.wait()
+            self.assertEqual(child.exitstatus, 0)
+        finally:
+            child.terminate(force=True)
 
     def _test_dependencies(self, dep_type, change_urls):
         if len(change_urls) != 3:

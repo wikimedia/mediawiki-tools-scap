@@ -669,20 +669,22 @@ class Backport(cli.Application):
 
         return "I" + hashlib.sha1(encoded_str).hexdigest()
 
-    def _create_revert_message(self, revert_id, commit, commit_msg):
-        reason = None
-        default_reason = "Reverted by %s via scap backport" % self.deploy_user
+    def _collect_revert_reason(self) -> str:
+        default_reason = f"Reverted by {self.deploy_user} via scap backport"
+        reason = default_reason
 
         if not self.arguments.yes:
             reason = self.input_line(
-                "Please supply a reason for revert (default: %s): " % default_reason
+                f"Please supply a reason for revert (default: {default_reason}): "
             )
+            if reason:
+                reason = f"{self.deploy_user}: {reason}"
+            else:
+                reason = default_reason
 
-        if reason:
-            reason_msg = "\nReason for revert: %s: %s\n" % (self.deploy_user, reason)
-        else:
-            reason_msg = "\nReason for revert: %s\n" % default_reason
+        return f"\nReason for revert: {reason}\n"
 
+    def _create_revert_message(self, revert_id, commit, commit_msg, reason_msg):
         revert_msg = commit_msg + "\nThis reverts commit %s\n" % commit + reason_msg
 
         # Adds the change-id trailer line to the git commit message
@@ -703,72 +705,71 @@ class Backport(cli.Application):
 
         return revert_msg
 
-    def _create_reverts(self):
+    def _create_reverts(self) -> List[str]:
         """Creates a revert on gerrit
 
-        Returns a list of change numbers
+        Returns a list of change numbers (as strings)
         """
         revert_numbers = []
         self.get_logger().info("Reverting %s change(s)" % len(self.backports))
+        reason_msg = self._collect_revert_reason()
 
-        for change in self.backports.changes.values():
+        fetched_repo_branches = set()
+        active_branch_by_repo = {}
+
+        for change in sorted(
+            self.backports.changes.values(), key=lambda c: c.number, reverse=True
+        ):
             revision = self.gerrit.change_revision_commit(change.get("id")).get()
             commit = revision["commit"]
             project = change.get("project")
             branch = change.get("branch")
 
             repo_location = self.git_repos.get_repo_location(change, True)
+            repo_branch_key = (repo_location, branch)
 
             with utils.suppress_backtrace():
                 # Make sure we're working with the same repository state as Gerrit.
                 # This will discard any local changes such as security patches.
                 # The staging directory will be restored to a deployable state at
                 # the end of this function.
-                subprocess.check_call(
-                    ["git", "-C", repo_location, "fetch", "origin", branch]
-                )
-                subprocess.check_call(
-                    [
-                        "git",
-                        "-C",
-                        repo_location,
-                        "checkout",
-                        "--force",
-                        "-B",
-                        branch,
-                        f"origin/{branch}",
-                    ]
-                )
-
-                # Create the revert commit
-                with git.with_env_vars_set_for_user():
+                if repo_branch_key not in fetched_repo_branches:
                     subprocess.check_call(
-                        ["git", "-C", repo_location, "revert", "--no-edit", commit]
+                        ["git", "-C", repo_location, "fetch", "origin", branch]
                     )
-                # Collect the generated commit message subject
-                commit_msg = (
-                    subprocess.check_output(
+                    fetched_repo_branches.add(repo_branch_key)
+
+                if active_branch_by_repo.get(repo_location) != branch:
+                    subprocess.check_call(
                         [
                             "git",
                             "-C",
                             repo_location,
-                            "show",
-                            "--pretty=format:%s",
-                            "--no-patch",
-                            "HEAD",
-                        ],
-                        text=True,
+                            "checkout",
+                            "--force",
+                            "-B",
+                            branch,
+                            f"origin/{branch}",
+                        ]
                     )
-                    + "\n"
-                )
+                    active_branch_by_repo[repo_location] = branch
 
+                with git.with_env_vars_set_for_user():
+                    subprocess.check_call(
+                        ["git", "-C", repo_location, "revert", "--no-commit", commit]
+                    )
+
+            commit_msg = f'Revert "{change.get("subject")}"\n'
             revert_id = self._generate_change_id(commit_msg)
-            commit_msg = self._create_revert_message(revert_id, commit, commit_msg)
+            commit_msg = self._create_revert_message(
+                revert_id, commit, commit_msg, reason_msg
+            )
 
             with utils.suppress_backtrace():
-                subprocess.check_call(
-                    ["git", "-C", repo_location, "commit", "--amend", "-m", commit_msg]
-                )
+                with git.with_env_vars_set_for_user():
+                    subprocess.check_call(
+                        ["git", "-C", repo_location, "commit", "-m", commit_msg]
+                    )
 
             revert_number = self.gerritssh.push_and_collect_change_number(
                 repo_location, project, branch
