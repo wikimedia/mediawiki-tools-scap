@@ -1,3 +1,11 @@
+scap (4.243.0)
+
+  * Drop scap patch subcommand
+  * scap prep: Require clean git status in patches directory
+  * verify-requirements.txt: Bump filelock and platformdirs versions
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Tue, 31 Mar 2026 13:57:01 -0700
+
 scap (4.242.0)
 
   * JobCard: Format time and date
