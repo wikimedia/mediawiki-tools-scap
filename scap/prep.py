@@ -8,7 +8,12 @@ import shutil
 import subprocess
 
 from scap import cli, git, history, patches, utils
-from scap.patches import SecurityPatches, finalize_next_patches, update_next_patches
+from scap.patches import (
+    SecurityPatches,
+    finalize_next_patches,
+    git_is_clean,
+    update_next_patches,
+)
 
 HISTORY_ABORT_STATUS = 127
 
@@ -286,6 +291,9 @@ class CheckoutMediaWiki(cli.Application):
         patch_path = os.path.join(patch_base_dir, version)
 
         logger.debug("Setting up patches for {}".format(version))
+
+        if not git_is_clean(patch_base_dir):
+            utils.abort(f"git is not clean: {patch_base_dir}")
 
         if version == "next":
             update_next_patches(patch_base_dir, logger)
