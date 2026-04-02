@@ -666,7 +666,7 @@ class BackportsTestHelper:
         # Freshen up the config repo
         self.setup_mediawiki_config_repo()
 
-        readme_path = self.mwconfig_dir + "/README"
+        readme_path = self.mwconfig_dir + "/README.md"
         text = "\nAdded by T388025 test config change on " + datetime.now().strftime(
             "%Y-%m-%d %H:%M:%S"
         )
@@ -716,7 +716,7 @@ class BackportsTestHelper:
         # Create config change that depends on the master change
         self.setup_mediawiki_config_repo()
 
-        readme_path = self.mwconfig_dir + "/README"
+        readme_path = self.mwconfig_dir + "/README.md"
         text = (
             "\nAdded by master not deployed test config change on "
             + datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -790,7 +790,7 @@ class BackportsTestHelper:
         # 3. Create config change that depends on the shared Change-Id
         self.setup_mediawiki_config_repo()
 
-        readme_path = self.mwconfig_dir + "/README"
+        readme_path = self.mwconfig_dir + "/README.md"
         text3 = "\nAdded by T387798 test config change on " + datetime.now().strftime(
             "%Y-%m-%d %H:%M:%S"
         )
@@ -979,7 +979,7 @@ class BackportsTestHelper:
         # "master" also exists.
         self.setup_mediawiki_config_repo(branch="master")
 
-        readme_path = self.mwconfig_dir + "/README"
+        readme_path = self.mwconfig_dir + "/README.md"
         text = "Added by depends_with_nonprod_branch on " + datetime.now().strftime(
             "%Y-%m-%d %H:%M:%S"
         )
@@ -1170,7 +1170,7 @@ class BackportsTestHelper:
         # Create config change
         self.setup_mediawiki_config_repo()
 
-        readme_path = self.mwconfig_dir + "/README"
+        readme_path = self.mwconfig_dir + "/README.md"
         text = "Added by setup_rule_2_depends_on_config on " + datetime.now().strftime(
             "%Y-%m-%d %H:%M:%S"
         )
@@ -1227,7 +1227,7 @@ class BackportsTestHelper:
         # Create config change that depends on MW code
         self.setup_mediawiki_config_repo()
 
-        readme_path = self.mwconfig_dir + "/README"
+        readme_path = self.mwconfig_dir + "/README.md"
         text2 = (
             "Added by setup_rule_3a_config_to_non_master_mw_code config on "
             + datetime.now().strftime("%Y-%m-%d %H:%M:%S")
