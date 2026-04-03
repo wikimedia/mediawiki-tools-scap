@@ -286,6 +286,7 @@ import { defineComponent, ref, computed, PropType, watch } from 'vue';
 import { CdxCard, CdxInfoChip, CdxAccordion, CdxProgressBar, CdxIcon, CdxDialog, CdxButton, CdxMessage } from '@wikimedia/codex';
 import { cdxIconInfoFilled, cdxIconLinkExternal, cdxIconReload } from '@wikimedia/codex-icons';
 import { VIcon } from 'vuetify/components/VIcon';
+import ChangeInfo, { CommitLink } from '../types/ChangeInfo';
 import Interaction from '../types/Interaction';
 import JobStatus from '../types/JobStatus';
 import SpInteraction from './Interaction.vue';
@@ -320,7 +321,6 @@ export default defineComponent( {
 			type: Number,
 			default: null
 		},
-		// eslint-disable-next-line camelcase, vue/prop-name-casing
 		command_decoded: {
 			type: String,
 			required: false,
@@ -331,19 +331,16 @@ export default defineComponent( {
 			required: false,
 			default: null
 		},
-		// eslint-disable-next-line camelcase, vue/prop-name-casing
 		started_at: {
 			type: Number,
 			required: false,
 			default: null
 		},
-		// eslint-disable-next-line camelcase, vue/prop-name-casing
 		finished_at: {
 			type: Number,
 			required: false,
 			default: null
 		},
-		// eslint-disable-next-line camelcase, vue/prop-name-casing
 		exit_status: {
 			type: Number,
 			required: false,
@@ -385,10 +382,10 @@ export default defineComponent( {
 		const jobrunner = useJobrunner();
 
 		const isLoading = ref( true );
-		const error = ref( null );
+		const error = ref<string | null>( null );
 		const retrying = ref( false );
 		const confirmRetryOpen = ref( false );
-		const retryError = ref( null );
+		const retryError = ref<string | null>( null );
 		const stopping = ref( false );
 		const confirmStopOpen = ref( false );
 
@@ -401,7 +398,7 @@ export default defineComponent( {
 			return infos.map( formatChangeInfo );
 		} );
 
-		function formatCommitMsg( linkifiedCommitMsg ) {
+		function formatCommitMsg( linkifiedCommitMsg: Array<string | CommitLink> ) {
 			// Returns an HTML string.
 			//
 			// NOTE: linkifiedCommitMsg is already processed on the
@@ -419,7 +416,7 @@ export default defineComponent( {
 			return res;
 		}
 
-		function formatChangeInfo( changeInfo ) {
+		function formatChangeInfo( changeInfo: ChangeInfo ) {
 			const { linkifiedCommitMsg, subject, project, branch,
 				number, url, repoQueryUrl, branchQueryUrl } = changeInfo;
 			const formattedCommitMsg = formatCommitMsg( linkifiedCommitMsg );
@@ -531,20 +528,40 @@ export default defineComponent( {
 			return `${ formattedMinutes }m ${ formattedSeconds }s`;
 		}
 
-		const finishedInfo = computed( () => {
+		type FinishedInfo = {
+			time: string;
+			date: string;
+			message: string;
+			duration: string;
+		};
+
+		const finishedInfo = computed<FinishedInfo>( () => {
 			if ( !props.started_at ) {
-				return { message: 'Not started yet' };
+				return {
+					time: '',
+					date: '',
+					message: 'Not started yet',
+					duration: ''
+				};
 			}
 
 			if ( props.orphaned ) {
-				return { message: 'Unknown (orphaned)' };
+				return {
+					time: '',
+					date: '',
+					message: 'Unknown (orphaned)',
+					duration: ''
+				};
 			}
 
 			const duration = prettyDuration( props.duration );
 
 			if ( props.finished_at ) {
+				const formattedDate = getFormattedDate( props.finished_at );
 				return {
-					...getFormattedDate( props.finished_at ),
+					time: formattedDate.time,
+					date: formattedDate.date,
+					message: '',
 					duration: duration
 				};
 			}
@@ -552,6 +569,8 @@ export default defineComponent( {
 			// Job has started but hasn't finished yet
 			return {
 				message: 'Running...',
+				time: '',
+				date: '',
 				duration: duration
 			};
 		} );
@@ -560,7 +579,7 @@ export default defineComponent( {
 			return getFormattedDate( props.started_at );
 		} );
 
-		function handleClick( url ) {
+		function handleClick( url: string ) {
 			// Open a new window to the Gerrit change number url.
 			window.open( url );
 		}
