@@ -82,14 +82,14 @@
 						Actions
 					</div>
 					<div class="job-card__actions-row">
-						<button
+						<router-link
 							v-if="showViewLogButton"
 							class="job-card__view-log-button"
-							title="View job log"
-							@click="navigateToJob"
+							:title="'View job log'"
+							:to="{ name: 'job', params: { jobId: id } }"
 						>
 							<v-icon icon="mdi-console" />
-						</button>
+						</router-link>
 						<button
 							class="job-card__stop-button"
 							:disabled="!running || stopping"
@@ -292,7 +292,7 @@ import SpInteraction from './Interaction.vue';
 import SpJobLog from './JobLog.vue';
 import SpProgressBar from './ProgressBar.vue';
 
-import { useRoute, useRouter } from 'vue-router';
+import { RouterLink, useRoute, useRouter } from 'vue-router';
 import useApi from '../api';
 import useJobrunner from '../jobrunner';
 import '@xterm/xterm/css/xterm.css';
@@ -309,6 +309,7 @@ export default defineComponent( {
 		CdxDialog,
 		CdxButton,
 		CdxMessage,
+		RouterLink,
 		VIcon,
 		SpInteraction,
 		SpJobLog,
@@ -391,14 +392,6 @@ export default defineComponent( {
 		const retryError = ref( null );
 		const stopping = ref( false );
 		const confirmStopOpen = ref( false );
-
-		// Return a string URL ( if we are not already on the page for this job)
-		// or null (if we are already on that page)
-		const jobLink = computed( () => {
-			const current = router.currentRoute;
-			const link = router.resolve( { name: 'job', params: { jobId: props.id } } );
-			return link.href !== current.value.path ? link.href : null;
-		} );
 
 		const changeInfos = computed( () => {
 			const { change_infos: infos } = props.data;
@@ -573,12 +566,6 @@ export default defineComponent( {
 			window.open( url );
 		}
 
-		function navigateToJob() {
-			if ( jobLink.value ) {
-				router.push( { name: 'job', params: { jobId: props.id } } );
-			}
-		}
-
 		const canRetry = computed( () => (
 			props.finished_at &&
 			!props.running &&
@@ -677,7 +664,6 @@ export default defineComponent( {
 			startedInfo,
 			changeInfos,
 			handleClick,
-			navigateToJob,
 			isLoading,
 			error,
 			retryError,
