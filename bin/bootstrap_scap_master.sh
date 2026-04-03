@@ -17,4 +17,4 @@ git fetch
 LATEST_TAG=$(git tag --sort -taggerdate | head -1)
 git -c advice.detachedHead=false checkout "$LATEST_TAG"
 trap "git checkout - 2>&1 | grep -i switched" EXIT
-bin/install_local_version.sh -u "$SCAP_USER" --on-deploy -t "$LATEST_TAG"
+bin/install_local_version.sh -u "$SCAP_USER" --on-primary -t "$LATEST_TAG"
