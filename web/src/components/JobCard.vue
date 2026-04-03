@@ -295,7 +295,6 @@ import SpProgressBar from './ProgressBar.vue';
 import { RouterLink, useRoute, useRouter } from 'vue-router';
 import useApi from '../api';
 import useJobrunner from '../jobrunner';
-import '@xterm/xterm/css/xterm.css';
 
 export default defineComponent( {
 	name: 'SpJobCard',

@@ -31,9 +31,6 @@ export default defineConfig( {
 					if ( id.includes( '@wikimedia' ) ) {
 						return '@wikimedia';
 					}
-					if ( id.includes( '@xterm' ) ) {
-						return '@xterm';
-					}
 				}
 			}
 		}

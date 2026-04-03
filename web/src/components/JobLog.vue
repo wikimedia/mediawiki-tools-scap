@@ -18,21 +18,17 @@
 				</div>
 			</template>
 		</v-tooltip>
-		<div id="terminal" ref="terminalRef" />
+		<pre ref="terminalRef" class="job-log__terminal" v-html="logContent" />
 	</div>
 </template>
 
 <script lang="ts">
 /* eslint-disable no-console */
-import { defineComponent, onMounted, onUnmounted, ref } from 'vue';
+import { defineComponent, nextTick, onMounted, onUnmounted, ref } from 'vue';
 import { VTooltip } from 'vuetify/components/VTooltip';
 import { CdxCheckbox } from '@wikimedia/codex';
 import useApi from '../api';
-import '@xterm/xterm/css/xterm.css';
-import { Terminal } from '@xterm/xterm';
-import { FitAddon } from '@xterm/addon-fit';
-
-const fitAddon = new FitAddon();
+import { AnsiUp } from 'ansi_up';
 
 export default defineComponent( {
 	name: 'SpJobLog',
@@ -51,14 +47,40 @@ export default defineComponent( {
 		}
 	},
 	setup( props ) {
+		const ansiUp = new AnsiUp();
+		// Don't generate links for URLs in the job log
+		ansiUp.url_allowlist = {};
 		// Pinia store.
 		const api = useApi();
-		// Template ref.
-		const terminalRef = ref<HTMLDivElement>();
+		const terminalRef = ref<HTMLElement|null>( null );
 		// Reactive data properties.
-		const term = ref( null );
+		const logContent = ref( '' );
 		const abortPopulateTerminal = ref( null );
 		const showSensitive = ref( false );
+
+		const isTerminalScrolledToBottom = () => {
+			if ( !terminalRef.value ) {
+				return true;
+			}
+
+			const distanceFromBottom = terminalRef.value.scrollHeight - terminalRef.value.scrollTop - terminalRef.value.clientHeight;
+			return distanceFromBottom <= 2;
+		};
+
+		const autoScrollTerminal = async () => {
+			await nextTick();
+			if ( terminalRef.value ) {
+				terminalRef.value.scrollTop = terminalRef.value.scrollHeight;
+			}
+		};
+
+		const appendLogLine = async ( line: string ) => {
+			const shouldAutoScroll = isTerminalScrolledToBottom();
+			logContent.value += ansiUp.ansi_to_html( line ) + '\n';
+			if ( shouldAutoScroll ) {
+				await autoScrollTerminal();
+			}
+		};
 
 		async function* logRecordsProcessor( reader ) {
 			const decoder = new TextDecoder();
@@ -105,7 +127,11 @@ export default defineComponent( {
 
 		const populateTerminal = async () => {
 			while ( true ) {
-				term.value.clear();
+				logContent.value = '';
+				await nextTick();
+				if ( terminalRef.value ) {
+					terminalRef.value.scrollTop = 0;
+				}
 
 				try {
 					abortPopulateTerminal.value = new AbortController();
@@ -121,16 +147,16 @@ export default defineComponent( {
 
 						for await ( const rec of logRecordsProcessor( reader ) ) {
 							if ( rec.type === 'line' ) {
-								term.value.write( rec.line + '\n' );
+								await appendLogLine( rec.line );
 							} else if ( rec.type === 'response' ) {
-								term.value.write( `[User '${ rec.user }' responded with '${ rec.response }']\n` );
+								await appendLogLine( `[User '${ rec.user }' responded with '${ rec.response }']` );
 							} else if ( rec.type === 'EOF' ) {
 								sawEOF = true;
 								break;
 							}
 						}
 						if ( sawEOF ) {
-							term.value.write( '[End of job log]\n' );
+							await appendLogLine( '[End of job log]' );
 						} else {
 							// Assume that the connection was terminated prematurely (perhaps
 							// due to timeout).  Restart the loop to recover.
@@ -163,10 +189,6 @@ export default defineComponent( {
 			}
 		};
 
-		const resizeTerminal = () => {
-			fitAddon.fit();
-		};
-
 		const onShowSensitiveChange = () => {
 			if ( abortPopulateTerminal.value ) {
 				// populateTerminal will restart itself when it receives this signal.
@@ -178,18 +200,6 @@ export default defineComponent( {
 		};
 
 		onMounted( () => {
-			const terminal = new Terminal( {
-				convertEol: true,
-				scrollback: 10000
-			} );
-
-			terminal.loadAddon( fitAddon );
-
-			terminal.open( terminalRef.value );
-			fitAddon.fit();
-
-			window.addEventListener( 'resize', resizeTerminal );
-			term.value = terminal;
 			populateTerminal();
 		} );
 
@@ -197,8 +207,6 @@ export default defineComponent( {
 			if ( abortPopulateTerminal.value ) {
 				abortPopulateTerminal.value.abort( 'unmounted' );
 			}
-
-			window.removeEventListener( 'resize', resizeTerminal );
 		} );
 
 		const showSensitiveToolTipText = 'Show information from the job log that we usually want to avoid revealing' +
@@ -206,6 +214,7 @@ export default defineComponent( {
 
 		return {
 			terminalRef,
+			logContent,
 			showSensitive,
 			onShowSensitiveChange,
 			showSensitiveToolTipText
@@ -218,8 +227,16 @@ export default defineComponent( {
 @import '@wikimedia/codex-design-tokens/theme-wikimedia-ui.less';
 
 .job-log {
-	#terminal {
+	&__terminal {
 		margin-top: @spacing-50;
+		overflow-y: auto;
+		max-height: 600px;
+		background-color: #000;
+		color: #f0f0f0;
+		padding: @spacing-50;
+		font-family: monospace;
+		white-space: pre-wrap;
+		word-break: break-all;
 	}
 
 	&__title {
