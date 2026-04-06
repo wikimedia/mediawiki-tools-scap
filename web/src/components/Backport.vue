@@ -126,7 +126,6 @@ export default {
 			searching.value = true;
 			const data = await api.searchPatch( changeId );
 			const results = data.map( ( item ) => {
-				// eslint-disable-next-line no-underscore-dangle
 				const changeNumber = String( item._number );
 				return {
 					title: changeNumber, // Gerrit change number, ex. 1084887

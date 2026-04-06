@@ -99,7 +99,6 @@ export default {
 				const apiJobs = apiResponse.jobs;
 
 				for ( const job of apiJobs ) {
-					// eslint-disable-next-line camelcase
 					job.command_decoded = JSON.parse( job.command ).join( ' ' );
 				}
 
@@ -107,7 +106,6 @@ export default {
 				loaded.value = true;
 				possiblyMoreHistory.value = ( apiJobs.length === numJobsToDisplay );
 			} catch ( error ) {
-				// eslint-disable-next-line no-console
 				console.error( error.message );
 			}
 		}

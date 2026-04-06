@@ -8,7 +8,7 @@
 		"build": "vite build",
 		"preview": "vite preview",
 		"watch": "vite build --watch",
-		"test": "eslint .",
+		"test": "eslint . --max-warnings 0",
 		"fix": "eslint --fix ."
 	},
 	"dependencies": {

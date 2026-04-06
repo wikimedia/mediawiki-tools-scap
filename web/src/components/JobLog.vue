@@ -23,7 +23,6 @@
 </template>
 
 <script lang="ts">
-/* eslint-disable no-console */
 import { defineComponent, nextTick, onMounted, onUnmounted, ref } from 'vue';
 import { VTooltip } from 'vuetify/components/VTooltip';
 import { CdxCheckbox } from '@wikimedia/codex';
@@ -55,7 +54,7 @@ export default defineComponent( {
 		const terminalRef = ref<HTMLElement|null>( null );
 		// Reactive data properties.
 		const logContent = ref( '' );
-		const abortPopulateTerminal = ref( null );
+		const abortPopulateTerminal = ref<AbortController | null>( null );
 		const showSensitive = ref( false );
 
 		const isTerminalScrolledToBottom = () => {
@@ -82,12 +81,12 @@ export default defineComponent( {
 			}
 		};
 
-		async function* logRecordsProcessor( reader ) {
+		async function* logRecordsProcessor( reader: ReadableStreamDefaultReader<Uint8Array> ) {
 			const decoder = new TextDecoder();
 			let buffer = '';
 
 			while ( true ) {
-				let done: boolean, value: Uint8Array;
+				let done: boolean, value: Uint8Array | undefined;
 				try {
 					( { done, value } = await reader.read() );
 				} catch ( error ) {

@@ -23,7 +23,6 @@ export default defineComponent( {
 				const totalResp = await api.getLogsTotal();
 				total.value = totalResp.total;
 			} catch ( error ) {
-				// eslint-disable-next-line no-console
 				console.error( 'Error fetching logs total:', error );
 				total.value = '⌚';
 			}
