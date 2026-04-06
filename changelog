@@ -1,3 +1,13 @@
+scap (4.244.0)
+
+  * JobCard.vue: Eliminate eslint warnings
+  * Spiderpig: Use AnsiUp instead of Xterm.js for job log
+  * JobCard.vue: Make job console button a regular link
+  * bootstrap_scap_master.sh: Fix install_local_version.sh flags
+  * tests/scap/integration/test_backport.py: README -> README.md
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Mon, 06 Apr 2026 13:54:10 -0700
+
 scap (4.243.0)
 
   * Drop scap patch subcommand
