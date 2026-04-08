@@ -1,3 +1,10 @@
+scap (4.245.0)
+
+  * web/package-lock.json: npm audit fix updates
+  * web: Clean up remaining eslint warnings
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Wed, 08 Apr 2026 13:21:25 -0700
+
 scap (4.244.0)
 
   * JobCard.vue: Eliminate eslint warnings
