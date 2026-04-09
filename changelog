@@ -1,3 +1,9 @@
+scap (4.246.0)
+
+  * backport.py: Process scap backport --revert changes in right order
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Thu, 09 Apr 2026 10:19:47 -0700
+
 scap (4.245.0)
 
   * web/package-lock.json: npm audit fix updates
