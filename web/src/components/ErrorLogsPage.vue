@@ -62,7 +62,13 @@ export default defineComponent( {
 		const createOpenSearchLink = ( errorMessage, fieldName = 'normalized_message', timeRange = '24h' ) => {
 			const dashboard = 'https://logstash.wikimedia.org/app/dashboards#/view/mediawiki-errors';
 			const timeFrom = `now-${ timeRange }`;
-			const errorMessageForURI = encodeURIComponent( errorMessage );
+			// RISON strings are delimited by ' and escaped with !'. Exclamation marks
+			// are escaped as !!. Apply these escapes before URL-encoding: encodeURIComponent
+			// leaves ! and ' unencoded, so the escape sequences survive the URL-decode that
+			// OpenSearch performs on _a/_g query parameters before parsing the RISON.
+			const errorMessageForURI = encodeURIComponent(
+				errorMessage.replace( /!/g, '!!' ).replace( /'/g, "!'" )
+			);
 
 			const filterStr = `(meta:(alias:!n,disabled:!f,key:${ fieldName },negate:!f,` +
 				`params:(query:'${ errorMessageForURI }'),type:phrase),` +
