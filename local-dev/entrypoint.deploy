@@ -2,6 +2,29 @@
 
 set -eu -o pipefail
 
+# Seed sample error log data so the MediaWiki Error Logs page is populated in local-dev.
+SPIDERPIG_DIR=/workspace/mediawiki-staging/scap/spiderpig
+mkdir -p "$SPIDERPIG_DIR"
+cat > "$SPIDERPIG_DIR/logstash_errors.json" << 'EOF'
+{
+	"errors": {
+		"MediaWiki\\Upload\\Exception\\UploadChunkFileException: Error storing file in '{chunkPath}': backend-fail-internal; local-swift-codfw": {
+			"count": 42,
+			"versions": ["1.44.0-wmf.1", "1.44.0-wmf.2"]
+		},
+		"DBQueryError: A database query error has occurred. Did you forget to run your maintenance scripts?": {
+			"count": 17,
+			"versions": ["1.44.0-wmf.2"]
+		},
+		"MWException: Unexpected call to wfGetDB with no active database connection": {
+			"count": 5,
+			"versions": ["1.44.0-wmf.1"]
+		}
+	},
+	"total": 64
+}
+EOF
+
 scap spiderpig-jobrunner &
 scap spiderpig-apiserver --dev
 

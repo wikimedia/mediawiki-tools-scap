@@ -35,6 +35,7 @@
 import { onMounted, onUnmounted, defineComponent, ref } from 'vue';
 import { CdxIcon } from '@wikimedia/codex';
 import { cdxIconLinkExternal } from '@wikimedia/codex-icons';
+import rison from 'rison-node';
 const search = ref( '' );
 
 import useApi from '../api';
@@ -61,25 +62,39 @@ export default defineComponent( {
 
 		const createOpenSearchLink = ( errorMessage, fieldName = 'normalized_message', timeRange = '24h' ) => {
 			const dashboard = 'https://logstash.wikimedia.org/app/dashboards#/view/mediawiki-errors';
-			const timeFrom = `now-${ timeRange }`;
-			// RISON strings are delimited by ' and escaped with !'. Exclamation marks
-			// are escaped as !!. Apply these escapes before URL-encoding: encodeURIComponent
-			// leaves ! and ' unencoded, so the escape sequences survive the URL-decode that
-			// OpenSearch performs on _a/_g query parameters before parsing the RISON.
-			const errorMessageForURI = encodeURIComponent(
-				errorMessage.replace( /!/g, '!!' ).replace( /'/g, "!'" )
-			);
+			const filter = {
+				meta: {
+					alias: null,
+					disabled: false,
+					key: fieldName,
+					negate: false,
+					params: { query: errorMessage },
+					type: 'phrase'
+				},
+				query: {
+					match_phrase: {
+						[ fieldName ]: errorMessage
+					}
+				}
+			};
 
-			const filterStr = `(meta:(alias:!n,disabled:!f,key:${ fieldName },negate:!f,` +
-				`params:(query:'${ errorMessageForURI }'),type:phrase),` +
-				`query:(match_phrase:(${ fieldName }:'${ errorMessageForURI }')))`;
+			const globalState = {
+				filters: [],
+				refreshInterval: { pause: true, value: 0 },
+				time: { from: `now-${ timeRange }`, to: 'now' }
+			};
 
-			const globalState = `(filters:!(),refreshInterval:(pause:!t,value:0),time:(from:${ timeFrom },to:now))`;
+			const appState = {
+				columns: [ '_source' ],
+				filters: [ filter ],
+				index: 'logstash-*',
+				interval: 'auto',
+				query: { language: 'kuery', query: '' },
+				sort: []
+			};
 
-			const appState = `(columns:!(_source),filters:!(${ filterStr }),index:'logstash-*',` +
-				'interval:auto,query:(language:kuery,query:\'\'),sort:!())';
-
-			return `${ dashboard }?_g=${ globalState }&_a=${ appState }`;
+			return `${ dashboard }?_g=${ encodeURIComponent( rison.encode( globalState ) ) }` +
+				`&_a=${ encodeURIComponent( rison.encode( appState ) ) }`;
 		};
 
 		const populateLogs = async () => {
