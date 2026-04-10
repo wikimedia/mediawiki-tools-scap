@@ -37,6 +37,7 @@ import scap.arg as arg
 import scap.checks as checks
 import scap.cli as cli
 import scap.git as git
+import scap.interaction as interaction
 import scap.lint as lint
 import scap.lock as lock
 import scap.log as log
@@ -56,9 +57,12 @@ from scap.kubernetes import K8sOps, TEST_SERVERS, CANARIES, PRODUCTION, STAGES
 class DeploymentStage:
     name: str
     baremetal_targets: List[str]
+    # pre_check_func is called before check_func.  Its return value is not checked.
     pre_check_func: Optional[Callable]
-    check_func: Optional[Callable]
-    post_check_func: Optional[Callable]
+    # Each check_funcs function must return True, otherwise deployment will be rolled back.
+    check_funcs: Optional[List[Callable]]
+    # post_func is called after a successful deployment to the stage, and after all checks have passed.  Its return value is not checked.
+    post_func: Optional[Callable]
 
 
 class AbstractSync(cli.Application):
@@ -109,6 +113,11 @@ class AbstractSync(cli.Application):
         "--k8s-confirm-diffs",
         action="store_true",
         help="Display and require confirmation of helmfile diffs before proceeding.",
+    )
+    @cli.argument(
+        "--backport",
+        action="store_true",
+        help="Indicate this sync was initiated by scap backport.",
     )
     @cli.argument("message", nargs="*", help="Log message for SAL")
     def main(self, *extra_args):
@@ -172,14 +181,17 @@ class AbstractSync(cli.Application):
                     TEST_SERVERS,
                     baremetal_testservers,
                     self._announce_testservers_synced,
-                    self.check_testservers,
-                    self._pause_after_testserver_sync,
+                    [
+                        lambda: self.check_testservers(baremetal_testservers),
+                        self._pause_after_testserver_sync,
+                    ],
+                    None,
                 ),
                 DeploymentStage(
                     CANARIES,
                     baremetal_canaries,
                     None,
-                    self.canary_checks,
+                    [lambda: self.canary_checks(baremetal_canaries)],
                     None,
                 ),
                 DeploymentStage(
@@ -192,6 +204,9 @@ class AbstractSync(cli.Application):
             ]
 
             self._init_history()
+            k8s_stage_statuses = {stage: "not-started" for stage in STAGES}
+            sync_failed = False
+            k8s_result = "not-run"
             try:
                 for depstage in deployment_stages:
                     stage = depstage.name
@@ -207,7 +222,18 @@ class AbstractSync(cli.Application):
                             self.reported_status(f"Sync k8s {stage}"),
                         ):
                             with utils.suppress_backtrace():
-                                self.k8s_ops.deploy_k8s_images_for_stage(stage)
+                                deployed = self._deploy_k8s_stage_with_retry(stage)
+
+                        if not deployed:
+                            k8s_result = self._rollback_and_mark_stage_failure(
+                                stage,
+                                "deploy-failed",
+                                k8s_stage_statuses,
+                            )
+                            sync_failed = True
+                            break
+
+                        k8s_stage_statuses[stage] = "deployed"
 
                     # Bare metal deployment
                     if depstage.baremetal_targets:
@@ -223,25 +249,67 @@ class AbstractSync(cli.Application):
                     if depstage.pre_check_func:
                         depstage.pre_check_func()
 
-                    if depstage.check_func:
-                        if self.arguments.force:
-                            self.get_logger().warning(
-                                "%s checks skipped by --force", stage
-                            )
-                        else:
-                            depstage.check_func(depstage.baremetal_targets)
+                    if not self._run_stage_checks(stage, depstage.check_funcs):
+                        k8s_result = self._rollback_and_mark_stage_failure(
+                            stage,
+                            "checks-failed",
+                            k8s_stage_statuses,
+                        )
+                        sync_failed = True
+                        break
+                    if depstage.post_func:
+                        depstage.post_func()
+                # End of deployment stages loop
 
-                    if depstage.post_check_func:
-                        depstage.post_check_func()
-
-                self.deployment_log_entry.completed = True
+                if not sync_failed:
+                    self.deployment_log_entry.completed = True
+                else:
+                    self.soft_errors = True
+                    if self.config["deploy_mw_container_image"]:
+                        self._log_k8s_operation_summary(k8s_stage_statuses, k8s_result)
+                    if k8s_result == "rolled back":
+                        self._notify_backport_rollback()
             finally:
                 self._finalize_history()
 
         self._after_lock_release()
-        if self.soft_errors:
+
+        if sync_failed or self.soft_errors:
             return 1
         return 0
+
+    def _rollback_and_mark_stage_failure(
+        self, stage: str, failure_status: str, k8s_stage_statuses: dict
+    ) -> str:
+        k8s_stage_statuses[stage] = failure_status
+        rollback_ok = self._rollback_k8s_stages(stage, k8s_stage_statuses)
+        if rollback_ok:
+            return "rolled back"
+        return "rollback cancelled"
+
+    def _run_stage_checks(
+        self,
+        stage: str,
+        check_funcs: Optional[List[Callable]],
+    ) -> bool:
+        """Run one or more stage check functions in order.
+
+        Returns True when there are no checks configured for a stage.
+        Returns True and logs a warning when checks are skipped with --force.
+        Returns False immediately when any check returns a falsey value;
+        otherwise returns True.
+        """
+        if not check_funcs:
+            return True
+
+        if self.arguments.force:
+            self.get_logger().warning("%s checks skipped by --force", stage)
+            return True
+
+        for func in check_funcs:
+            if not func():
+                return False
+        return True
 
     def _init_history(self):
         self.deployment_history = history.History(self.scap_history_dbfile())
@@ -350,19 +418,36 @@ class AbstractSync(cli.Application):
         message = self._get_testservers_synced_message()
         self.announce(f"{message}. Changes can now be verified there.")
 
-    def _pause_after_testserver_sync(self):
+    def _pause_after_testserver_sync(self) -> bool:
+        """
+        Returns True if the deployment should continue, or False if it should be rolled back.
+        """
         if not self._should_pause_after_testserver_sync():
-            return
+            return True
 
         self.report_status("Waiting user to confirm testservers deployment")
         message = self._get_testservers_synced_message(brief=True)
-        self.prompt_for_approval_or_exit(
-            f"{message}\nBefore continuing, please do any necessary checks if you haven't already.\n"
-            "Continue with sync?",
-            "Sync cancelled.",
+        resp = self.prompt_choices(
+            f"{message}\n"
+            "Before continuing, please do any necessary checks if you haven't already.\n"
+            "\n"
+            "Continue with deployment?",
+            {
+                "Yes, continue with deployment": "y",
+                "No, roll back deployment and terminate": "n",
+            },
+            "n",
         )
-        self.announce(f"{self._get_notify_users()}: Continuing with sync")
-        self.report_status("Continuing with sync")
+        if resp == "y":
+            status = "Continuing with deployment"
+            res = True
+        else:
+            status = "Rolling back deployment"
+            res = False
+
+        self.announce(f"{self._get_notify_users()}: {status}")
+        self.report_status(status)
+        return res
 
     def _k8s_only_sync(self):
         # Not all subclasses of AbstractSync define the --k8s-only option
@@ -659,25 +744,28 @@ class AbstractSync(cli.Application):
         self._after_sync_sync_wikiversions(targets, stage)
         self._restart_php_hostgroups([targets], stage)
 
-    def retry_continue_exit(self, description, test_func):
+    def retry_ignore_rollback_or_exit(self, description, test_func) -> bool:
         """
-        Runs test_func().  If it returns True, this function returns.
-        If test_func() does not return true:
+        Runs test_func() until success, ignore, rollback, or exit selection.
 
-        * If an interactive terminal is not available, self.cancel() is called
-          and it is not expected to return.
-        * If an interactive terminal is available, ask the user if they want to
-          retry the test, continue with deployment anyway, or exit.   If the user
-          chooses to retry, this function starts over.  If the user chooses to
-          continue, a message is logged and this function returns.  If the user
-          chooses to exit, self.cancel() is called and it is not expected to return.
+        If an interactive terminal is not available, rollback is selected by default.
+        If an interactive terminal is available, ask the user if they want to retry
+        the operation, ignore the failure, roll back deployment, or exit without
+        rollback.
 
         'description' is used to describe the operation to retry in the
-        retry/continue/exit prompt.
+        retry/ignore/rollback prompt.
+
+        Returns:
+            True if test_func eventually succeeds or the user chooses to ignore.
+            False if the user chooses rollback.
+
+        Raises:
+            SystemExit: If the user chooses to exit without rollback (exit code 1).
         """
         while True:
             if test_func():
-                break
+                return True
 
             resp = self.prompt_choices(
                 # FIXME: If this is a spiderpig job, this should instruct
@@ -685,32 +773,135 @@ class AbstractSync(cli.Application):
                 f"{description.capitalize()} failed. What do you want to do?",
                 {
                     f"Retry {description}": "r",
-                    "Ignore failure and proceed with deployment": "i",
-                    "Cancel deployment": "c",
+                    "Ignore failure and continue deployment": "i",
+                    "Roll back all stages and terminate": "b",
+                    "Exit without rollback": "x",
                 },
-                "c",
+                self._prompt_default("r", "b"),
             )
             if resp == "r":
                 # loop around and try again
                 continue
             elif resp == "i":
-                self.get_logger().info("Continuing with deployment")
-                break
-            elif resp == "c":
-                self.cancel()
-                break
+                self.get_logger().info(
+                    "Ignoring %s failure and continuing", description
+                )
+                return True
+            elif resp == "b":
+                return False
+            elif resp == "x":
+                self.announce("Scap cancelled without rolling back.")
+                sys.exit(1)
             else:
                 raise Exception("This should never happen")
 
-    def cancel(self):
-        self.announce("Scap cancelled\nWARNING: Nothing has been rolled back.")
-        sys.exit(1)
+    def _deploy_k8s_stage_with_retry(self, stage: str) -> bool:
+        while True:
+            try:
+                self.k8s_ops.deploy_k8s_images_for_stage(stage)
+                return True
+            # Using BaseException so that we catch KeyboardInterrupt too
+            except BaseException as e:
+                self.get_logger().error(
+                    "K8s deployment to stage %s failed: %s", stage, e
+                )
+
+                resp = self.prompt_choices(
+                    f"K8s deployment to stage {stage} failed. What do you want to do?",
+                    {
+                        "Retry deployment": "r",
+                        "Roll back all stages and terminate": "b",
+                    },
+                    self._prompt_default("r", "b"),
+                )
+                if resp == "r":
+                    continue
+
+                return False
+
+    def _rollback_k8s_stages(
+        self,
+        failed_stage: str,
+        k8s_stage_statuses: dict,
+    ) -> bool:
+        stages_to_rollback = [failed_stage]
+        for stage in reversed(STAGES):
+            if stage != failed_stage and k8s_stage_statuses[stage] == "deployed":
+                stages_to_rollback.append(stage)
+
+        self.k8s_ops.revert_helmfile_files()
+
+        for stage in stages_to_rollback:
+            with self.reported_status(f"Rolling back k8s {stage}"):
+                while True:
+                    self.get_logger().error(
+                        f"Rolling back k8s deployment for stage {stage}"
+                    )
+                    try:
+                        k8s_stage_statuses[stage] = (
+                            self.k8s_ops.deploy_k8s_images_for_stage(
+                                stage,
+                                for_rollback=True,
+                            )
+                        )
+                        break
+                    # Using BaseException so that we catch KeyboardInterrupt too
+                    except BaseException as rollback_e:
+                        self.get_logger().error(
+                            f"Rollback deployment for stage {stage} failed: {rollback_e}"
+                        )
+
+                        resp = self.prompt_choices(
+                            f"Rollback deployment for stage {stage} failed. What do you want to do?",
+                            {
+                                "Retry rollback deployment": "r",
+                                "Cancel and seek help": "c",
+                            },
+                            self._prompt_default("r", "c"),
+                        )
+                        if resp == "r":
+                            continue
+
+                        k8s_stage_statuses[stage] = "rollback-failed"
+                        return False
+
+        return True
+
+    def _prompt_default(
+        self, interactive_default: str, noninteractive_default: str
+    ) -> str:
+        if interaction.interactive():
+            return interactive_default
+
+        return noninteractive_default
+
+    def _log_k8s_operation_summary(self, k8s_stage_statuses: dict, result: str):
+        self.output_line("\nKubernetes deployment summary:")
+        for stage in STAGES:
+            self.output_line(f"- {stage}: {k8s_stage_statuses[stage]}")
+        self.output_line(f"Result: {result}")
+        self.output_line("See the job log for detailed error information.")
+
+    def _notify_backport_rollback(self):
+        if (
+            not getattr(self.arguments, "backport", False)
+            or not interaction.interactive()
+        ):
+            return
+
+        self.alert(
+            "The backported change was undeployed by rollback, but it still exists in the codebase.\n"
+            "You must merge a fix or revert commit before allowing further backports to proceed.\n"
+            "\n",
+            "Acknowledge and release the deployment lock",
+        )
 
     def canary_checks(self, baremetal_canaries: list):
         """
         Run logstash error rate check (for bare metal and mw-on-k8s).
 
-        :raises SystemExit: on canary check failure
+        Returns:
+            True if checks pass (possibly after retries), otherwise False
         """
 
         logger = self.get_logger()
@@ -754,13 +945,14 @@ class AbstractSync(cli.Application):
             else:
                 need_sleep = True
 
-        self.retry_continue_exit("canary checks", test_func)
+        return self.retry_ignore_rollback_or_exit("canary checks", test_func)
 
     def check_testservers(self, baremetal_testservers: list):
         """
         Check bare metal and k8s testservers.
 
-        :raises SystemExit: on check failure
+        Returns:
+            True if checks pass (possibly after retries), otherwise False.
         """
         baremetal_check_cmd = self.config["testservers_check_cmd_baremetal"]
         k8s_check_cmd = self.config["testservers_check_cmd_k8s"]
@@ -801,7 +993,7 @@ class AbstractSync(cli.Application):
                 )
 
         if not checkslist:
-            return
+            return True
 
         logger = self.get_logger()
 
@@ -816,7 +1008,7 @@ class AbstractSync(cli.Application):
                 )
                 return success
 
-            self.retry_continue_exit("testserver checks", test_func)
+            return self.retry_ignore_rollback_or_exit("testserver checks", test_func)
 
     def _setup_php(self):
         """

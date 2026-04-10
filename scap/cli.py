@@ -313,6 +313,9 @@ class Application(object):
     def prompt_choices(self, question: str, choices, default=None) -> str:
         return self.get_io().prompt_choices(question, choices, default)
 
+    def alert(self, prompt: str, action: str = "continue"):
+        return self.get_io().alert(prompt, action)
+
     def prompt_user_for_confirmation(self, prompt_message, default="n") -> bool:
         return self.get_io().prompt_user_for_confirmation(prompt_message, default)
 

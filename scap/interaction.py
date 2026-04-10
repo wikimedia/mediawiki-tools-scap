@@ -87,6 +87,18 @@ class UserIOBase:
         """
         return self.prompt_choices(prompt_message, bool, default) == "y"
 
+    def alert(self, prompt: str, action: str = "continue"):
+        """
+        Present an acknowledgment prompt to the user.  The user must actively
+        confirm before the method returns.
+        """
+        if not action:
+            raise ValueError("action must not be empty")
+
+        prompt = prompt.rstrip("\n")
+        terminal_action = action[0].lower() + action[1:]
+        self.input_line(f"{prompt}\n\nPress Enter to {terminal_action}.")
+
     def report_status(self, status: Optional[str]):
         self._report_status(status)
 
@@ -157,3 +169,12 @@ class SpiderpigIO(UserIOBase):
 
     def _report_status(self, status: Optional[str]):
         spiderpigio.report_status(status)
+
+    def alert(self, prompt: str, action: str = "Ok"):
+        if not action:
+            raise ValueError("action must not be empty")
+
+        prompt = prompt.rstrip("\n")
+        # Since there is only one choice, it doesn't matter what code we use for
+        # it. I chose "a" for "acknowledge".
+        self.prompt_choices(prompt, {action: "a"}, "a")

@@ -369,10 +369,11 @@ class K8sOps:
         )
         self.helm_env = self._collect_helm_env()
         self.original_helmfile_values = {}
+        self.rollback_dep_configs = {}
+        self.rollback_skipped_dep_configs = {}
         self.build_state_dir = os.path.join(
             app.config["stage_dir"], "scap", "image-build" + suffix
         )
-
         if update_releases_repo and self.app.config["build_mw_container_image"]:
             release_repo_update_cmd = self.app.config["release_repo_update_cmd"]
             if release_repo_update_cmd:
@@ -524,8 +525,6 @@ class K8sOps:
                 diff_for_cluster_and_deployment,
                 "Diff",
                 progress=False,
-                # Exclude non-deploy releases from diffs, since no subsequent deploy will apply them.
-                deploy_only=True,
             )
         # Using BaseException so that we catch KeyboardInterrupt too
         except BaseException as e:
@@ -556,35 +555,78 @@ class K8sOps:
             )
             self._update_helmfile_files(dep_configs, values[stage])
 
+    def revert_helmfile_files(self) -> None:
+        """
+        Reverts helmfile values files to their original state.
+
+        The result is stored as self.rollback_dep_configs, mapping each stage
+        to the list of DepConfigs that had prior state to roll back to.  An
+        empty list for a stage means no prior state was found for any of that
+        stage's releases.
+
+        deploy_k8s_images_for_stage uses self.rollback_dep_configs when
+        for_rollback=True.
+        """
+        if not self.app.config["deploy_mw_container_image"]:
+            self.rollback_dep_configs = {
+                stage: [] for stage in self.k8s_deployments_config.stages
+            }
+            self.rollback_skipped_dep_configs = {
+                stage: [] for stage in self.k8s_deployments_config.stages
+            }
+            return
+
+        stage_eligible_dep_configs = {}
+        stage_skipped_dep_configs = {}
+        for stage, dep_configs in self.k8s_deployments_config.stages.items():
+            saved_values = self.original_helmfile_values[stage]
+            (
+                stage_eligible_dep_configs[stage],
+                stage_skipped_dep_configs[stage],
+            ) = self._revert_helmfile_files(dep_configs, saved_values)
+
+        self.rollback_dep_configs = stage_eligible_dep_configs
+        self.rollback_skipped_dep_configs = stage_skipped_dep_configs
+
     # Called by AbstractSync.main()
-    def deploy_k8s_images_for_stage(self, stage: str):
+    def deploy_k8s_images_for_stage(
+        self, stage: str, for_rollback: bool = False
+    ) -> Optional[str]:
+        """
+        Deploy the configured releases for a stage.
+
+        When for_rollback is False, deploys the stage's configured releases and returns None.
+
+        When for_rollback is True, deploys only releases that had prior saved state, logs warnings
+        for releases that have nothing to roll back to, and returns one of:
+        * "nothing-to-roll-back-to" when no deployable releases remain for rollback
+        * "partially-rolled-back" when some releases were rolled back and others were skipped
+        * "rolled-back" when all rollback-targeted releases were rolled back
+        """
         if not self.app.config["deploy_mw_container_image"]:
             return
 
-        dep_configs = self.k8s_deployments_config.stages[stage]
-        try:
-            self._deploy_to_clusters(dep_configs)
-        # Using BaseException so that we catch KeyboardInterrupt too
-        except BaseException as e:
-            self.logger.error("K8s deployment to stage %s failed: %s", stage, e)
+        if for_rollback:
+            for dep_config in self.rollback_skipped_dep_configs.get(stage, []):
+                self.logger.warning(
+                    f"Release {dep_config.fq_release_name} had no prior deployment, so it will not be rolled back."
+                )
+            dep_configs = self.rollback_dep_configs[stage]
+        else:
+            dep_configs = self.k8s_deployments_config.stages[stage]
 
-            # If build_mw_container_image is False, there will be no prior state stored.
-            saved_values = self.original_helmfile_values.get(stage)
-            if saved_values:
-                self.logger.error("Rolling back to prior state...")
-                self._revert_helmfile_files(dep_configs, saved_values)
-                try:
-                    self._deploy_to_clusters(dep_configs)
-                    self.logger.info("Rollback completed")
-                except BaseException as rollback_e:
-                    self.logger.error(
-                        "Caught another exception while trying to roll back. Giving up: %s",
-                        rollback_e,
-                    )
-            else:
-                self.logger.error("No known prior state to roll back to")
+        self._deploy_to_clusters(dep_configs, for_rollback)
 
-            raise e
+        if not for_rollback:
+            return None
+
+        if dep_configs:
+            if self.rollback_skipped_dep_configs.get(stage):
+                # There was at least one skipped DepConfig for this stage.
+                return "partially-rolled-back"
+            return "rolled-back"
+
+        return "nothing-to-roll-back-to"
 
     def get_canary_namespaces(self) -> list:
         if not self.app.config["deploy_mw_container_image"]:
@@ -621,28 +663,48 @@ class K8sOps:
 
     def _revert_helmfile_files(
         self, dep_configs: List[DepConfig], saved_values: dict
-    ) -> None:
+    ) -> tuple[List[DepConfig], List[DepConfig]]:
+        """
+        Reverts helmfile values files for the given dep_configs to the provided saved_values.
+
+        Returns a tuple of lists containing:
+        * DepConfigs that need to be rolled back
+        * DepConfigs excluded from rollback because they had no prior saved values
+        """
         commit = False
+        dep_configs_with_prior_state: List[DepConfig] = []
+        dep_configs_without_prior_state: List[DepConfig] = []
 
         with utils.cd(self.app.config["helmfile_mediawiki_release_dir"]):
             for dep_config in dep_configs:
-                values = saved_values[dep_config.fq_release_name]
                 values_file = dep_config.values_file
+                had_saved_values = dep_config.fq_release_name in saved_values
 
-                utils.write_file_if_needed(values_file, yaml.dump(values))
-                if git.file_has_unstaged_changes(values_file):
-                    gitcmd("add", values_file)
+                if had_saved_values:
+                    values = saved_values[dep_config.fq_release_name]
+                    utils.write_file_if_needed(values_file, yaml.dump(values))
+                    if git.file_has_unstaged_changes(values_file):
+                        dep_configs_with_prior_state.append(dep_config)
+                        gitcmd("add", values_file)
+                        commit = True
+                elif os.path.exists(values_file):
+                    if dep_config.deploy:
+                        dep_configs_without_prior_state.append(dep_config)
+                    gitcmd("rm", values_file)
                     commit = True
 
             if commit:
                 gitcmd("commit", "-m", "Configuration(s) reverted")
 
-    def _deploy_to_clusters(self, dep_configs: List[DepConfig]) -> None:
+        return dep_configs_with_prior_state, dep_configs_without_prior_state
+
+    def _deploy_to_clusters(
+        self, dep_configs: List[DepConfig], for_rollback: bool
+    ) -> None:
         self._foreach_depconfig(
             dep_configs,
             self._deploy_k8s_images_for_cluster,
-            "Deployment",
-            deploy_only=True,  # Exclude non-deploy releases
+            "Rollback" if for_rollback else "Deployment",
         )
 
     @contextlib.contextmanager
@@ -691,7 +753,6 @@ class K8sOps:
         func,
         description,
         progress=True,
-        deploy_only=False,
     ):
         """
         Invokes 'func' over all dep_configs.
@@ -706,16 +767,12 @@ class K8sOps:
         If 'progress' is True, a progress indicator will be displayed
         during the operation.
 
-        If 'deploy_only' is True, dep_configs corresponding to non-deploy
-        releases will be excluded.
+        Non-deploy releases are excluded.
 
         Returns: A list of values returned by func.
         """
 
-        if deploy_only:
-            dep_configs = [
-                dep_config for dep_config in dep_configs if dep_config.deploy
-            ]
+        dep_configs = [dep_config for dep_config in dep_configs if dep_config.deploy]
 
         if not dep_configs:
             return []

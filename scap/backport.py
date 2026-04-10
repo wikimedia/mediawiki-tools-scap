@@ -584,6 +584,8 @@ class Backport(cli.Application):
             sync_arguments = list(notify_users) + sync_arguments
             sync_arguments.insert(0, "--pause-after-testserver-sync")
 
+        sync_arguments.insert(0, "--backport")
+
         self.scap_check_call(["sync-world"] + sync_arguments)
 
     def _extract_bug_ids_from_gerrit_change_details(self, details) -> list:
