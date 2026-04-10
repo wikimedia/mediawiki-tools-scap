@@ -514,7 +514,11 @@ export default defineComponent( {
 			}[ user ] ?? user;
 		}
 
-		function prettyDuration( durationSeconds: number ) {
+		function prettyDuration( durationSeconds: number | null ) {
+			if ( durationSeconds === null || Number.isNaN( durationSeconds ) ) {
+				return '';
+			}
+
 			durationSeconds = Math.floor( durationSeconds );
 			// Convert to more readable format
 			const minutes = Math.floor( durationSeconds / 60 );
@@ -568,10 +572,10 @@ export default defineComponent( {
 
 			// Job has started but hasn't finished yet
 			return {
-				message: 'Running...',
+				message: duration ? `Running for ${ duration }` : 'Running...',
 				time: '',
 				date: '',
-				duration: duration
+				duration: ''
 			};
 		} );
 
