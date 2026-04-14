@@ -6,18 +6,18 @@ import os
 import platform
 import re
 import textwrap
-from typing import Dict, List
+from typing import Dict, List, Optional
 import requests.exceptions
 import socket
 import subprocess
 import time
-from datetime import datetime
+from datetime import datetime, timezone
 from collections import defaultdict
 
 from prettytable import PrettyTable, SINGLE_BORDER
 from random import randint
 from scap import cli, git, log, utils
-from scap.gerrit import GerritSession
+from scap.gerrit import GerritSession, parse_gerrit_datetime
 
 
 def make_table(backports, display_mergable):
@@ -269,6 +269,7 @@ class GerritChange:
     depends_ons: List["GerritChange"] = None
     depends_on_cycle = None
     needed_by_chain = None
+    approval_cutoff_utc: Optional[datetime] = None
 
     def __init__(
         self, gerrit: GerritSession, number, details=None, needed_by_chain=None
@@ -289,6 +290,8 @@ class GerritChange:
             self.needed_by_chain = needed_by_chain + [str(number)]
         else:
             self.needed_by_chain = [str(number)]
+
+        self.approval_cutoff_utc = None
 
         # The changes this change depends on
         depends_ons = self.gerrit.depends_ons(self.get("id")).get()
@@ -795,7 +798,7 @@ class Backport(cli.Application):
         self._reset_workspace()
         return revert_numbers
 
-    def _approve_changes(self, changes):
+    def _approve_changes(self, changes: List[GerritChange]) -> None:
         """Approves the given changes by voting Code-Review+2"""
 
         self.get_logger().info("Voting on %s change(s)" % len(changes))
@@ -810,6 +813,38 @@ class Backport(cli.Application):
                 "+2",
             )
             self.get_logger().info("Change %s approved", change.number)
+            if not change.approval_cutoff_utc:
+                change.approval_cutoff_utc = datetime.now(timezone.utc)
+
+    def _get_post_approval_jenkins_rejections(
+        self, change: GerritChange
+    ) -> List[object]:
+        """Return Jenkins Verified-1 votes that occurred after approval cutoff."""
+        if change.approval_cutoff_utc is None:
+            return []
+
+        labels = change.get("labels") or {}
+        verified_label = labels.get("Verified")
+        if not verified_label:
+            return []
+
+        votes = getattr(verified_label, "all") or []
+        rejections = []
+
+        for vote in votes:
+            if (
+                getattr(vote, "username") != "jenkins-bot"
+                or getattr(vote, "value") != -1
+            ):
+                continue
+
+            if (
+                parse_gerrit_datetime(getattr(vote, "date"))
+                > change.approval_cutoff_utc
+            ):
+                rejections.append(vote)
+
+        return rejections
 
     def _change_number(self, number_or_url: str) -> int:
         number = self.gerrit.change_number_from_url(number_or_url)
@@ -1482,10 +1517,9 @@ class Backport(cli.Application):
                     change.update_details(True)
                     new_revision_number = change.get("current_revision_number")
                     status = change.get("status")
-                    verified = change.get("labels")["Verified"]
-                    code_review = change.get("labels")["Code-Review"]
-                    rejected = getattr(verified, "rejected", None)
-                    vetoed = getattr(code_review, "rejected", None)
+                    labels = change.get("labels") or {}
+                    code_review = labels.get("Code-Review")
+                    vetoed = code_review.rejected if code_review else None
                     # The "mergeable" field will only exist if Gerrit's config has
                     # change.mergeabilityComputationBehavior set to API_REF_UPDATED_AND_CHANGE_REINDEX.
                     mergeable = change.get("mergeable")
@@ -1516,18 +1550,11 @@ class Backport(cli.Application):
                                 % (number, vetoed["name"])
                             )
 
-                        if rejected:
-                            all_verified = getattr(verified, "all", [])
-                            jenkins_rejected = [
-                                v
-                                for v in all_verified
-                                if v.username == "jenkins-bot" and v.value == -1
-                            ]
-                            if len(jenkins_rejected) > 0:
-                                raise SystemExit(
-                                    "The change '%s' failed build tests and could not be merged"
-                                    % number
-                                )
+                        if self._get_post_approval_jenkins_rejections(change):
+                            raise SystemExit(
+                                "The change '%s' failed build tests and could not be merged"
+                                % number
+                            )
 
                         if old_revision_number != new_revision_number:
                             self._prompt_for_approval_or_exit(

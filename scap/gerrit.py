@@ -7,6 +7,7 @@
 from json import JSONEncoder
 import shlex
 import subprocess
+from datetime import datetime, timezone
 from typing import List, Optional
 from requests import Session
 from requests.utils import get_netrc_auth
@@ -19,6 +20,7 @@ import re
 import requests
 import json
 import logging
+from dateutil import parser as dateutil_parser
 
 from urllib.parse import quote
 import urllib
@@ -35,6 +37,16 @@ def debug_log(msg, *args):
 def error_log(msg, *args):
     logger = logging.getLogger()
     logger.error(msg, *args)
+
+
+def parse_gerrit_datetime(value: str) -> datetime:
+    """Parse a Gerrit timestamp string into UTC."""
+    parsed = dateutil_parser.parse(str(value).strip())
+
+    if parsed.tzinfo is None:
+        return parsed.replace(tzinfo=timezone.utc)
+
+    return parsed.astimezone(timezone.utc)
 
 
 class urlencode_map(object):
