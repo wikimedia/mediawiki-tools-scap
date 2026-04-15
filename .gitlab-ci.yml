@@ -41,7 +41,7 @@ test:
       coverage_report:
         coverage_format: cobertura
         path: test-reports/coverage.xml
-  coverage: /(?i)total.*? (100(?:\.0+)?\%|[1-9]?\d(?:\.\d+)?\%)$/
+  coverage: '/TOTAL.*?(\d+(?:\.\d+)?)%/'
 
 publish-dist:
   stage: publish-dist
