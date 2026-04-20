@@ -1,3 +1,10 @@
+scap (4.249.0)
+
+  * Drop `scap security-check`
+  * JobCard.vue: Use "Running for ..duration-info.." in Finished column
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Mon, 20 Apr 2026 11:41:42 -0700
+
 scap (4.248.0)
 
   * ErrorLogsPage.vue: Use rison-node library to encode the dashboard query
