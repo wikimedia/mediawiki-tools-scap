@@ -892,22 +892,6 @@ class AbstractSync(cli.Application):
                     )
 
 
-@cli.command("security-check")
-class SecurityPatchCheck(cli.Application):
-    """
-    Check if security patches are applied.
-
-    class to check if patches in ``/srv/patches`` have been applied to the
-    active wikiversions
-    """
-
-    def main(self, *extra_args):
-        for version in self.active_wikiversions():
-            tasks.check_patch_files(version, self.config)
-
-        return 0
-
-
 @cli.command(
     "wikiversions-compile", help=argparse.SUPPRESS, primary_deploy_server_only=True
 )

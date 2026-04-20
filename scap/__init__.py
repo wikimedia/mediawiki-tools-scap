@@ -34,7 +34,6 @@ from scap.main import (
     MWVersionsInUse,
     RebuildCdbs,
     RefreshCdbJsonFiles,
-    SecurityPatchCheck,
     SyncPull,
     SyncFile,
     SyncMaster,
