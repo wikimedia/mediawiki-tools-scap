@@ -1,3 +1,9 @@
+scap (4.250.0)
+
+  * sync-world: Offer to rollback k8s deployments
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Tue, 21 Apr 2026 10:50:24 -0700
+
 scap (4.249.0)
 
   * Drop `scap security-check`
