@@ -1,3 +1,9 @@
+scap (4.250.1)
+
+  * main.py: Add --backport flag to sync-* implementations
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Tue, 21 Apr 2026 13:35:23 -0700
+
 scap (4.250.0)
 
   * sync-world: Offer to rollback k8s deployments
