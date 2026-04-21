@@ -1285,6 +1285,11 @@ class ScapWorld(AbstractSync):
         action="store_true",
         help="Display and require confirmation of helmfile diffs before proceeding.",
     )
+    @cli.argument(
+        "--backport",
+        action="store_true",
+        help="Indicate this sync was initiated by scap backport.",
+    )
     @cli.argument("message", nargs="*", help="Log message for SAL")
     def main(self, *extra_args):
         try:
@@ -1468,6 +1473,11 @@ class SyncFile(AbstractSync):
         default=[],
         help="User to notify on IRC after sync to testservers."
         " Can be used multiple times",
+    )
+    @cli.argument(
+        "--backport",
+        action="store_true",
+        help="Indicate this sync was initiated by scap backport.",
     )
     @cli.argument("file", help="File/directory to sync")
     @cli.argument("message", nargs="*", help="Log message for SAL")
