@@ -770,7 +770,7 @@ class AbstractSync(cli.Application):
             resp = self.prompt_choices(
                 # FIXME: If this is a spiderpig job, this should instruct
                 # the user to look at the job log for details, ideally with a link.
-                f"{description.capitalize()} failed. What do you want to do?",
+                f"{description.capitalize()} failed.\n\nWhat do you want to do?",
                 {
                     f"Retry {description}": "r",
                     "Ignore failure and continue deployment": "i",
@@ -807,7 +807,7 @@ class AbstractSync(cli.Application):
                 )
 
                 resp = self.prompt_choices(
-                    f"K8s deployment to stage {stage} failed. What do you want to do?",
+                    f"K8s deployment to stage {stage} failed.\n\nWhat do you want to do?",
                     {
                         "Retry deployment": "r",
                         "Roll back all stages and terminate": "b",
@@ -852,7 +852,7 @@ class AbstractSync(cli.Application):
                         )
 
                         resp = self.prompt_choices(
-                            f"Rollback deployment for stage {stage} failed. What do you want to do?",
+                            f"Rollback deployment for stage {stage} failed.\n\nWhat do you want to do?",
                             {
                                 "Retry rollback deployment": "r",
                                 "Cancel and seek help": "c",

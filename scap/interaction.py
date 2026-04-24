@@ -140,6 +140,13 @@ class TerminalIO(UserIOBase):
                 prompt = "[y/n]"
             return f"{question} {prompt}: "
 
+        # Hack: For multiline prompts, keep explanatory text before the choices and
+        # the final short question after the choices.
+        preamble = ""
+        final_question = question
+        if "\n\n" in question:
+            preamble, final_question = question.rsplit("\n\n", 1)
+
         choices_text = ""
         for choice, key in choices.items():
             if key == default:
@@ -150,6 +157,9 @@ class TerminalIO(UserIOBase):
                 after = ""
             choices_text += f"{before}[{key}] {choice}{after}\n"
         default_text = f" (default: [{default}])" if default else ""
+
+        if preamble:
+            return f"{preamble}\n\n{choices_text}{final_question}{default_text}: "
 
         return f"{choices_text}{question}{default_text}: "
 
