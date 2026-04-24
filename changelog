@@ -1,3 +1,10 @@
+scap (4.251.0)
+
+  * spiderpig: Make close button always work on job viewer page
+  * test-requirements.txt: Use pytest>=9.0.3
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Fri, 24 Apr 2026 09:42:35 -0700
+
 scap (4.250.1)
 
   * main.py: Add --backport flag to sync-* implementations
