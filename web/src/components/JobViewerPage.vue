@@ -7,7 +7,7 @@
 			<template #append>
 				<v-btn
 					variant="elevated"
-					@click="$router.back()"
+					@click="close()"
 				>
 					Close
 				</v-btn>
@@ -52,6 +52,7 @@
 
 <script lang="ts">
 import { defineComponent, ref, onMounted, onUnmounted, watch } from 'vue';
+import { useRouter } from 'vue-router';
 import { VSheet } from 'vuetify/components/VSheet';
 import { VToolbar } from 'vuetify/components/VToolbar';
 import useApi from '../api';
@@ -82,6 +83,15 @@ export default defineComponent( {
 	setup( props ) {
 		// Pinia store.
 		const api = useApi();
+		const router = useRouter();
+
+		const close = () => {
+			if ( window.history.state.back ) {
+				router.back();
+			} else {
+				router.push( '/' );
+			}
+		};
 
 		// Non-reactive data.
 		const menuItems = [
@@ -150,7 +160,8 @@ export default defineComponent( {
 			interaction,
 			cdxIconEllipsis,
 			menuItems,
-			onSelect
+			onSelect,
+			close
 		};
 	}
 } );
