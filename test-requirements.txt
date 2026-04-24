@@ -1,7 +1,10 @@
 coverage
 mock
 pexpect
-pytest
+# pytest < 9.0.3 has vulns: https://github.com/advisories/GHSA-6w46-j5rx-g56g
+# (bullseye/Python 3.9 doesn't have pytest 9, so the constraint only applies on bookworm+)
+pytest>=9.0.3; python_version>="3.11"
+pytest; python_version<"3.11"
 pytest-anyio
 pytest-cov
 pytest-mock
