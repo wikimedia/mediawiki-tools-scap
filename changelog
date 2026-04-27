@@ -1,3 +1,9 @@
+scap (4.252.0)
+
+  * backport: Only consider CI votes after backport approval
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Mon, 27 Apr 2026 07:50:15 -0700
+
 scap (4.251.0)
 
   * spiderpig: Make close button always work on job viewer page
