@@ -225,7 +225,6 @@ def info(directory, remote="origin", branch=None) -> dict:
     :returns: Dict of information about current repository state
     """
     git_dir = resolve_gitdir(directory)
-    head = sha(directory, "HEAD")
 
     # This information is used by https://<site>/wiki/Special:Version
     # to construct a link to a commit in Gerrit (gitiles), so it must
@@ -257,7 +256,7 @@ def info(directory, remote="origin", branch=None) -> dict:
 
     return {
         "@directory": directory,
-        "head": head,
+        "head": head_sha1,  # This is the public commit
         "headSHA1": head_sha1,  # This is the public commit
         "headCommitDate": commit_date,
         "branch": branch,
