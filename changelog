@@ -1,3 +1,10 @@
+scap (4.253.0)
+
+  * SpiderPig: Link to job log in sync failure prompts
+  * Improve sync interaction appearance in terminal
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Mon, 27 Apr 2026 12:08:35 -0700
+
 scap (4.252.0)
 
   * backport: Only consider CI votes after backport approval
