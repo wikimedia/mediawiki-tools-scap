@@ -2,7 +2,7 @@
 	<div class="interaction">
 		<div
 			class="interaction__prompt"
-			v-html="linkifiedPrompt" />
+			v-html="renderedPromptHtml" />
 		<div class="interaction__action">
 			<cdx-button
 				v-for="( code, choice ) in interaction.choices"
@@ -18,6 +18,7 @@
 
 <script lang="ts">
 import { computed, defineComponent, onMounted, PropType } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
 import useApi from '../api';
 import Interaction from '../types/Interaction';
 import { CdxButton } from '@wikimedia/codex';
@@ -41,7 +42,14 @@ export default defineComponent( {
 	setup( props ) {
 		// Pinia store
 		const api = useApi();
+		const route = useRoute();
+		const router = useRouter();
 		const notifications = notificationsStore();
+		const linkifyOptions = {
+			target: '_blank',
+			className: 'interaction__prompt__link',
+			defaultProtocol: 'https'
+		};
 
 		function choiceSelected( code: string ) {
 			api.respondInteraction(
@@ -57,17 +65,40 @@ export default defineComponent( {
 			notifications.notifyUser( props.interaction );
 		} );
 
-		const linkifiedPrompt = computed( () => linkifyStr( props.interaction.prompt,
-			{
-				target: '_blank',
-				className: 'interaction__prompt__link',
-				defaultProtocol: 'https'
+		const renderedPromptHtml = computed( () => {
+			const prompt = props.interaction.prompt;
+			const failedPromptMatch = prompt.match( /^(.*?failed\.)\n\n(.*)$/s );
+			const onCurrentJobPage = route.name === 'job' &&
+				String( route.params.jobId ) === String( props.interaction.job_id );
+
+			if (
+				props.interaction.type !== 'choices' ||
+				!failedPromptMatch ||
+				onCurrentJobPage
+			) {
+				return linkifyStr( prompt, linkifyOptions );
 			}
-		) );
+
+			const [ , prefix, suffix ] = failedPromptMatch;
+			const jobLogHref = router.resolve( {
+				name: 'job',
+				params: { jobId: props.interaction.job_id },
+				hash: '#log'
+			} ).href;
+			const jobLogLink =
+				`<a href="${ jobLogHref }" ` +
+				`class="interaction__prompt__link">job log</a>`;
+
+			return (
+				linkifyStr( prefix, linkifyOptions ) +
+				`\nView the ${ jobLogLink } for details.\n\n` +
+				linkifyStr( suffix, linkifyOptions )
+			);
+		} );
 
 		return {
 			choiceSelected,
-			linkifiedPrompt
+			renderedPromptHtml
 		};
 	}
 } );

@@ -43,6 +43,7 @@
 				v-bind="job"
 			/>
 			<sp-interaction
+				id="bottom-interaction"
 				v-if="interaction"
 				:interaction="interaction"
 			/>

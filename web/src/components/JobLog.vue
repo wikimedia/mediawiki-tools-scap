@@ -19,11 +19,13 @@
 			</template>
 		</v-tooltip>
 		<pre ref="terminalRef" class="job-log__terminal" v-html="logContent" />
+		<div ref="bottomAnchorRef" id="log" class="job-log__bottom-anchor" />
 	</div>
 </template>
 
 <script lang="ts">
-import { defineComponent, nextTick, onMounted, onUnmounted, ref } from 'vue';
+import { defineComponent, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
+import { useRoute } from 'vue-router';
 import { VTooltip } from 'vuetify/components/VTooltip';
 import { CdxCheckbox } from '@wikimedia/codex';
 import useApi from '../api';
@@ -51,11 +53,29 @@ export default defineComponent( {
 		ansiUp.url_allowlist = {};
 		// Pinia store.
 		const api = useApi();
+		const route = useRoute();
 		const terminalRef = ref<HTMLElement|null>( null );
+		const bottomAnchorRef = ref<HTMLElement|null>( null );
 		// Reactive data properties.
 		const logContent = ref( '' );
 		const abortPopulateTerminal = ref<AbortController | null>( null );
 		const showSensitive = ref( false );
+
+		const scrollToLogBottom = async () => {
+			if ( route.hash !== '#log' ) {
+				return;
+			}
+
+			// Ensure that all components are mounted.
+			await nextTick();
+			
+			const interaction = document.getElementById( 'bottom-interaction' );
+			if ( interaction ) {
+				interaction.scrollIntoView( { block: 'start' } );
+			} else {
+				bottomAnchorRef.value?.scrollIntoView( { block: 'end' } );
+			}
+		};
 
 		const isTerminalScrolledToBottom = () => {
 			if ( !terminalRef.value ) {
@@ -79,6 +99,7 @@ export default defineComponent( {
 			if ( shouldAutoScroll ) {
 				await autoScrollTerminal();
 			}
+			await scrollToLogBottom();
 		};
 
 		async function* logRecordsProcessor( reader: ReadableStreamDefaultReader<Uint8Array> ) {
@@ -200,6 +221,11 @@ export default defineComponent( {
 
 		onMounted( () => {
 			populateTerminal();
+			scrollToLogBottom();
+		} );
+
+		watch( () => route.hash, () => {
+			scrollToLogBottom();
 		} );
 
 		onUnmounted( () => {
@@ -212,6 +238,7 @@ export default defineComponent( {
 		' (such as security patch information or secrets) when copying and pasting the log into a Phabricator ticket.';
 
 		return {
+			bottomAnchorRef,
 			terminalRef,
 			logContent,
 			showSensitive,
@@ -246,6 +273,10 @@ export default defineComponent( {
 
 	&__checkbox {
 		text-align: end;
+	}
+
+	&__bottom-anchor {
+		height: 1px;
 	}
 }
 </style>
