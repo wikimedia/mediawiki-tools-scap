@@ -58,8 +58,10 @@ export default defineComponent( {
 		const bottomAnchorRef = ref<HTMLElement|null>( null );
 		// Reactive data properties.
 		const logContent = ref( '' );
-		const abortPopulateTerminal = ref<AbortController | null>( null );
+		let abortPopulateTerminal: AbortController | null = null;
 		const showSensitive = ref( false );
+		let logCursor = 0;
+		let shouldRedrawLog = true;
 
 		const scrollToLogBottom = async () => {
 			if ( route.hash !== '#log' ) {
@@ -147,25 +149,33 @@ export default defineComponent( {
 
 		const populateTerminal = async () => {
 			while ( true ) {
-				logContent.value = '';
-				await nextTick();
-				if ( terminalRef.value ) {
-					terminalRef.value.scrollTop = 0;
+				if ( shouldRedrawLog ) {
+					logContent.value = '';
+					logCursor = 0;
+					await nextTick();
+					if ( terminalRef.value ) {
+						terminalRef.value.scrollTop = 0;
+					}
+					shouldRedrawLog = false;
 				}
 
 				try {
-					abortPopulateTerminal.value = new AbortController();
+					abortPopulateTerminal = new AbortController();
 
 					const response = await api.getJobLog(
 						props.jobId,
-						abortPopulateTerminal.value.signal,
-						showSensitive.value
+						abortPopulateTerminal.signal,
+						showSensitive.value,
+						logCursor
 					);
 					try {
 						const reader = response.body.getReader();
 						let sawEOF = false;
 
 						for await ( const rec of logRecordsProcessor( reader ) ) {
+							if ( Number.isInteger( rec.recno ) && rec.recno >= 0 ) {
+								logCursor = rec.recno;
+							}
 							if ( rec.type === 'line' ) {
 								await appendLogLine( rec.line );
 							} else if ( rec.type === 'response' ) {
@@ -187,10 +197,11 @@ export default defineComponent( {
 						// The complete job log has been read.
 						return;
 					} catch ( err ) {
-						if ( abortPopulateTerminal.value.signal.aborted ) {
-							const reason = abortPopulateTerminal.value.signal.reason;
+						if ( abortPopulateTerminal?.signal.aborted ) {
+							const reason = abortPopulateTerminal.signal.reason;
 							if ( reason === 'showSensitive changed' ) {
-								// Restart the loop if the showSensitive changed.
+								// Restart and redraw when showSensitive changes.
+								shouldRedrawLog = true;
 								continue;
 							}
 							if ( reason === 'unmounted' ) {
@@ -204,15 +215,16 @@ export default defineComponent( {
 						return;
 					}
 				} finally {
-					abortPopulateTerminal.value = null;
+					abortPopulateTerminal = null;
 				}
 			}
 		};
 
 		const onShowSensitiveChange = () => {
-			if ( abortPopulateTerminal.value ) {
+			shouldRedrawLog = true;
+			if ( abortPopulateTerminal ) {
 				// populateTerminal will restart itself when it receives this signal.
-				abortPopulateTerminal.value.abort( 'showSensitive changed' );
+				abortPopulateTerminal.abort( 'showSensitive changed' );
 			} else {
 				// Restart populateTerminal if it was not running.
 				populateTerminal();
@@ -229,8 +241,8 @@ export default defineComponent( {
 		} );
 
 		onUnmounted( () => {
-			if ( abortPopulateTerminal.value ) {
-				abortPopulateTerminal.value.abort( 'unmounted' );
+			if ( abortPopulateTerminal ) {
+				abortPopulateTerminal.abort( 'unmounted' );
 			}
 		} );
 

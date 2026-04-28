@@ -220,10 +220,13 @@ const useAuthStore = defineStore( 'spiderpig-auth',
 					}
 				);
 			},
-			async getJobLog( job_id, abortsignal, showSensitive = false ) {
+			async getJobLog( job_id, abortsignal, showSensitive = false, resumeRecord = 0 ) {
 				const url = this.makeApiUrl( `/api/jobs/${ job_id }/log` );
 				if ( showSensitive ) {
 					url.searchParams.append( 'include_sensitive', true );
+				}
+				if ( resumeRecord > 0 ) {
+					url.searchParams.append( 'resume_record', resumeRecord );
 				}
 
 				return await this.call(

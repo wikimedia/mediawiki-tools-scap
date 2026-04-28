@@ -927,6 +927,7 @@ async def interact(
 async def get_log(
     job_id: int,
     include_sensitive: bool = False,
+    resume_record: Annotated[int, Query(ge=0)] = 0,
 ):
     with _get_db_session() as session:
         # Validate the job_id
@@ -937,12 +938,13 @@ async def get_log(
 
     async def log_streamer():
         polling_interval = 1  # seconds
+        recno = resume_record
 
         logfile = os.path.join(
             os.environ["SPIDERPIG_JOB_LOG_DIR"], f"{job_id}.log.jsonl"
         )
 
-        yield toRecord({"type": "connected"})
+        yield toRecord({"type": "connected", "recno": recno})
 
         # Wait for the logfile to appear
         notified_waiting = False
@@ -950,16 +952,24 @@ async def get_log(
             if os.path.exists(logfile):
                 break
             if not notified_waiting:
-                yield toRecord({"type": "waitingForLogfile"})
+                yield toRecord({"type": "waitingForLogfile", "recno": recno})
                 notified_waiting = True
             await asyncio.sleep(polling_interval)
         # Logfile has appeared.
 
         last_yield_was_hidden = False
         with open(logfile) as f:
+            skipped_records = 0
+            while skipped_records < recno:
+                if not f.readline():
+                    break
+                skipped_records += 1
+            recno = skipped_records
+
             while True:
                 got = f.readline()
                 if got:
+                    recno += 1
                     payload = json.loads(got)["payload"]
                     type = payload["type"]
                     if type == "line":
@@ -970,13 +980,21 @@ async def get_log(
                                         "type": "line",
                                         "line": "<sensitive information hidden>",
                                         "sensitive": True,
+                                        "recno": recno,
                                     }
                                 )
                             last_yield_was_hidden = True
                         else:
-                            yield toRecord({"type": "line", "line": payload["line"]})
+                            yield toRecord(
+                                {
+                                    "type": "line",
+                                    "line": payload["line"],
+                                    "recno": recno,
+                                }
+                            )
                             last_yield_was_hidden = False
                     elif type == "response":
+                        payload["recno"] = recno
                         yield toRecord(payload)
 
                     continue
@@ -985,7 +1003,7 @@ async def get_log(
                 with _get_db_session() as session:
                     job = await get_job_by_id(job_id, session)
                     if job.finished_at:
-                        yield toRecord({"type": "EOF"})
+                        yield toRecord({"type": "EOF", "recno": recno})
                         return
 
                 await asyncio.sleep(polling_interval)
