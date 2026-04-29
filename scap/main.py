@@ -191,7 +191,7 @@ class AbstractSync(cli.Application):
                     CANARIES,
                     baremetal_canaries,
                     None,
-                    [lambda: self.canary_checks(baremetal_canaries)],
+                    [self.canary_checks],
                     None,
                 ),
                 DeploymentStage(
@@ -896,9 +896,9 @@ class AbstractSync(cli.Application):
             "Acknowledge and release the deployment lock",
         )
 
-    def canary_checks(self, baremetal_canaries: list):
+    def canary_checks(self):
         """
-        Run logstash error rate check (for bare metal and mw-on-k8s).
+        Run logstash error rate checks for mw-on-k8s canaries.
 
         Returns:
             True if checks pass (possibly after retries), otherwise False
@@ -911,7 +911,6 @@ class AbstractSync(cli.Application):
         checker = logstash_checker.LogstashChecker(
             self.config["logstash_host"],
             canary_wait_time,
-            baremetal_canaries,
             self.k8s_ops.get_canary_namespaces(),
             logger,
         )

@@ -2,7 +2,7 @@ import collections
 import math
 import statistics
 
-from scap import cli, kubernetes, logstash, logstash_checker, targets
+from scap import cli, kubernetes, logstash, logstash_checker
 
 # Re-export CheckServiceError from the logstash module so that users
 # of LogstashChecker can catch logstash_checker.CheckServiceError without
@@ -25,15 +25,9 @@ class LogstashCheckerCommand(cli.Application):
     def main(self, *extra_args):
         k8s_canary_namespaces = kubernetes.K8sOps(self).get_canary_namespaces()
 
-        baremetal_canaries = list(
-            set(targets.get("dsh_api_canaries", self.config).all)
-            | set(targets.get("dsh_app_canaries", self.config).all)
-        )
-
         checker = logstash_checker.LogstashChecker(
             self.config["logstash_host"],
             self.config["canary_wait_time"],
-            baremetal_canaries,
             k8s_canary_namespaces,
             self.get_logger(),
         )
@@ -45,12 +39,10 @@ class LogstashChecker:
         self,
         logstash_host,
         window_size,
-        baremetal_canaries,
         k8s_canary_namespaces,
         logger,
     ):
         self.window_size = window_size
-        self.baremetal_canaries = baremetal_canaries
         self.k8s_canary_namespaces = k8s_canary_namespaces
         self.logger = logger
         self.logstash = logstash.Logstash(logstash_host, logger)
@@ -161,7 +153,7 @@ class LogstashChecker:
 
     def _build_base_query(self) -> dict:
         """
-        Build a query filtering for the relevant hosts/labels, record type, and channel.
+        Build a query filtering for the relevant k8s labels, record type, and channel.
         """
 
         host_query = []
@@ -174,11 +166,6 @@ class LogstashChecker:
                 )
                 + ")"
             )
-
-        if self.baremetal_canaries:
-            # Strip domain from hostname since logstash records hold unqualified hostnames.
-            bm_canaries = [canary.split(".")[0] for canary in self.baremetal_canaries]
-            host_query.append(self._one_of_query("host", bm_canaries))
 
         host_query = " OR ".join(host_query)
 
