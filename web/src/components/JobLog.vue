@@ -18,7 +18,7 @@
 				</div>
 			</template>
 		</v-tooltip>
-		<pre ref="terminalRef" class="job-log__terminal" v-html="logContent" />
+		<pre ref="terminalRef" class="job-log__terminal" />
 		<div ref="bottomAnchorRef" id="log" class="job-log__bottom-anchor" />
 	</div>
 </template>
@@ -56,8 +56,6 @@ export default defineComponent( {
 		const route = useRoute();
 		const terminalRef = ref<HTMLElement|null>( null );
 		const bottomAnchorRef = ref<HTMLElement|null>( null );
-		// Reactive data properties.
-		const logContent = ref( '' );
 		let abortPopulateTerminal: AbortController | null = null;
 		const showSensitive = ref( false );
 		let logCursor = 0;
@@ -95,13 +93,35 @@ export default defineComponent( {
 			}
 		};
 
-		const appendLogLine = async ( line: string ) => {
+		const clearTerminal = () => {
+			if ( terminalRef.value ) {
+				terminalRef.value.innerHTML = '';
+			}
+		};
+
+		// Yield control back to the browser so it can paint/repaint between log batches.
+		// requestAnimationFrame schedules a callback right before the next frame,
+		// which is macrotask-based (unlike Vue's nextTick which is microtask-based).
+		// This allows the browser to actually render pending DOM changes and handle
+		// user input, preventing the page from freezing on large logs.
+		const waitForNextFrame = () => new Promise( ( resolve ) => {
+			requestAnimationFrame( () => resolve( undefined ) );
+		} );
+
+		const appendLogHtml = async ( lines: string[] ) => {
+			if ( lines.length === 0 || !terminalRef.value ) {
+				return;
+			}
+
 			const shouldAutoScroll = isTerminalScrolledToBottom();
-			logContent.value += ansiUp.ansi_to_html( line ) + '\n';
+			terminalRef.value.insertAdjacentHTML( 'beforeend', `${ lines.join( '\n' ) }\n` );
 			if ( shouldAutoScroll ) {
 				await autoScrollTerminal();
 			}
-			await scrollToLogBottom();
+			if ( route.hash === '#log' ) {
+				await scrollToLogBottom();
+			}
+			await waitForNextFrame();
 		};
 
 		async function* logRecordsProcessor( reader: ReadableStreamDefaultReader<Uint8Array> ) {
@@ -148,9 +168,27 @@ export default defineComponent( {
 		}
 
 		const populateTerminal = async () => {
+			const pendingLogLines: string[] = [];
+			const flushPendingLogLines = async () => {
+				if ( pendingLogLines.length === 0 ) {
+					return;
+				}
+
+				const linesToAppend = pendingLogLines.splice( 0, pendingLogLines.length );
+				await appendLogHtml( linesToAppend );
+			};
+
+			const queueLogLine = async ( line: string ) => {
+				pendingLogLines.push( ansiUp.ansi_to_html( line ) );
+				if ( pendingLogLines.length >= 250 ) {
+					await flushPendingLogLines();
+				}
+			};
+
 			while ( true ) {
 				if ( shouldRedrawLog ) {
-					logContent.value = '';
+					pendingLogLines.length = 0;
+					clearTerminal();
 					logCursor = 0;
 					await nextTick();
 					if ( terminalRef.value ) {
@@ -177,16 +215,17 @@ export default defineComponent( {
 								logCursor = rec.recno;
 							}
 							if ( rec.type === 'line' ) {
-								await appendLogLine( rec.line );
+								await queueLogLine( rec.line );
 							} else if ( rec.type === 'response' ) {
-								await appendLogLine( `[User '${ rec.user }' responded with '${ rec.response }']` );
+								await queueLogLine( `[User '${ rec.user }' responded with '${ rec.response }']` );
 							} else if ( rec.type === 'EOF' ) {
 								sawEOF = true;
 								break;
 							}
 						}
+						await flushPendingLogLines();
 						if ( sawEOF ) {
-							await appendLogLine( '[End of job log]' );
+							await appendLogHtml( [ ansiUp.ansi_to_html( '[End of job log]' ) ] );
 						} else {
 							// Assume that the connection was terminated prematurely (perhaps
 							// due to timeout).  Restart the loop to recover.
@@ -252,7 +291,6 @@ export default defineComponent( {
 		return {
 			bottomAnchorRef,
 			terminalRef,
-			logContent,
 			showSensitive,
 			onShowSensitiveChange,
 			showSensitiveToolTipText
