@@ -964,6 +964,8 @@ class K8sOps:
             "--selector",
             f"name={release}",
             "apply",
+            "--context",
+            "5",
         ]
 
         with self._k8s_deployment_monitoring(dep_config, cluster, report_queue):
