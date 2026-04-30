@@ -508,7 +508,7 @@ class K8sOps:
                 "name={}".format(release),
                 "diff",
                 "--context",
-                "5",
+                str(self.app.config["k8s_helmfile_diff_context_lines"]),
             ]
             logger = logging.getLogger("scap.k8s.diff")
             return {
@@ -965,7 +965,7 @@ class K8sOps:
             f"name={release}",
             "apply",
             "--context",
-            "5",
+            str(self.app.config["k8s_helmfile_diff_context_lines"]),
         ]
 
         with self._k8s_deployment_monitoring(dep_config, cluster, report_queue):
