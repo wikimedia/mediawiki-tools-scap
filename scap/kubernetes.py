@@ -628,19 +628,17 @@ class K8sOps:
 
         return "nothing-to-roll-back-to"
 
-    def get_canary_namespaces(self) -> list:
+    def get_stage_dep_configs(self, stage: str) -> list:
         if not self.app.config["deploy_mw_container_image"]:
             return []
 
-        res = set()
-
-        for dep_config in self.k8s_deployments_config.stages[CANARIES]:
-            # Exclude non-deploy releases from contributing to the canary-stage namespace list,
+        return [
+            dep_config
+            for dep_config in self.k8s_deployments_config.stages[stage]
+            # Exclude non-deploy releases from contributing to the stage deployment list,
             # since they will not have been deployed in that stage.
-            if dep_config.deploy:
-                res.add(dep_config.namespace)
-
-        return list(res)
+            if dep_config.deploy
+        ]
 
     def _read_helmfile_files(self, dep_configs: List[DepConfig]) -> dict:
         res = {}

@@ -911,7 +911,7 @@ class AbstractSync(cli.Application):
         checker = logstash_checker.LogstashChecker(
             self.config["logstash_host"],
             canary_wait_time,
-            self.k8s_ops.get_canary_namespaces(),
+            self.k8s_ops.get_stage_dep_configs(CANARIES),
             logger,
         )
 

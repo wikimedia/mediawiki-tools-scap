@@ -12,26 +12,31 @@ CheckServiceError = logstash.CheckServiceError
 
 @cli.command(
     "analyze-logstash",
-    help="Analyze mediawiki canary logstash history and suggest an error count threshold",
+    help="Analyze mediawiki logstash history for a deployment stage and suggest an error count threshold",
 )
 class LogstashCheckerCommand(cli.Application):
+    @cli.argument(
+        "stage",
+        choices=[kubernetes.CANARIES, kubernetes.PRODUCTION],
+        help="Deployment stage to analyze",
+    )
     @cli.argument(
         "--try",
         dest="toohigh",
         metavar="INT",
-        help="Test historical samples using the supplied value as the canary_threshold",
+        help="Test historical samples for the selected stage using the supplied threshold value",
         type=int,
     )
     def main(self, *extra_args):
-        k8s_canary_namespaces = kubernetes.K8sOps(self).get_canary_namespaces()
-
-        checker = logstash_checker.LogstashChecker(
+        k8s_ops = kubernetes.K8sOps(self)
+        logger = self.get_logger()
+        logger.info("Analyzing logstash history for stage: %s", self.arguments.stage)
+        logstash_checker.LogstashChecker(
             self.config["logstash_host"],
             self.config["canary_wait_time"],
-            k8s_canary_namespaces,
-            self.get_logger(),
-        )
-        checker.analyze(self.arguments.toohigh)
+            k8s_ops.get_stage_dep_configs(self.arguments.stage),
+            logger,
+        ).analyze(self.arguments.stage, self.arguments.toohigh)
 
 
 class LogstashChecker:
@@ -39,19 +44,19 @@ class LogstashChecker:
         self,
         logstash_host,
         window_size,
-        k8s_canary_namespaces,
+        k8s_dep_configs,
         logger,
     ):
         self.window_size = window_size
-        self.k8s_canary_namespaces = k8s_canary_namespaces
+        self.k8s_dep_configs = k8s_dep_configs
         self.logger = logger
         self.logstash = logstash.Logstash(logstash_host, logger)
 
     def check(self, threshold) -> bool:
         """
-        Retrieve canary errors for the last self.window_size seconds.  If the
-        error count is below threshold, returns True.  If at or above the threshold,
-        returns False after logging the top 5 errors.
+        Retrieve matching deployment errors for the last self.window_size seconds.
+        If the error count is below threshold, returns True. If at or above the
+        threshold, returns False after logging the top 5 errors.
         """
         q = self._build_query()
         r = self.logstash.run_query(q)
@@ -71,7 +76,8 @@ class LogstashChecker:
             self.logger.info("%s. OK.", prefix)
             return True
 
-    def analyze(self, toohigh=None):
+    def analyze(self, stage, toohigh=None):
+        """Analyze historical error counts for a deployment stage and suggest a threshold."""
         # The Zscore used to filter outliers from the history samples
         OUTLIER_ZSCORE = 3
         # The Zscore used to suggest an error count threshold.
@@ -84,7 +90,7 @@ class LogstashChecker:
         ]
 
         if not samples:
-            self.logger.warn("No matching logstash records found.")
+            self.logger.warn("No matching logstash records found for stage %s.", stage)
             return
 
         def summarize(samples, description):
@@ -108,11 +114,14 @@ class LogstashChecker:
 
             toohigh = math.ceil(mean + THRESHOLD_ZSCORE * stdev)
             self.logger.info(
-                "Suggested alert threshold: %d (zscore=%.2f)", toohigh, THRESHOLD_ZSCORE
+                "Suggested alert threshold for stage %s: %d (zscore=%.2f)",
+                stage,
+                toohigh,
+                THRESHOLD_ZSCORE,
             )
         else:
             summarize(samples, "History")
-            self.logger.info("Testing with canary_threshold of %d", toohigh)
+            self.logger.info("Testing stage %s with threshold of %d", stage, toohigh)
 
         count = 0
         for sample in orig_samples:
@@ -151,32 +160,36 @@ class LogstashChecker:
     def _one_of_query(self, key, values) -> str:
         return f"{key}:(" + " OR ".join(values) + ")"
 
+    def _build_deployment_query(self) -> str:
+        deployments_by_release = collections.defaultdict(set)
+        for dep_config in self.k8s_dep_configs:
+            deployments_by_release[dep_config.release].add(dep_config.namespace)
+
+        clauses = [
+            f"(kubernetes.labels.release:{release} AND {self._one_of_query('kubernetes.labels.deployment', sorted(deployments))})"
+            for release, deployments in sorted(deployments_by_release.items())
+        ]
+
+        return " OR ".join(clauses)
+
     def _build_base_query(self) -> dict:
         """
         Build a query filtering for the relevant k8s labels, record type, and channel.
         """
 
-        host_query = []
+        deployment_query = self._build_deployment_query()
+        filters = []
 
-        if self.k8s_canary_namespaces:
-            host_query.append(
-                "(kubernetes.labels.release:canary AND "
-                + self._one_of_query(
-                    "kubernetes.labels.deployment", self.k8s_canary_namespaces
-                )
-                + ")"
-            )
-
-        host_query = " OR ".join(host_query)
-
-        query = f"({host_query}) AND type:mediawiki AND channel:(exception OR error)"
+        if deployment_query:
+            query = f"({deployment_query}) AND type:mediawiki AND channel:(exception OR error)"
+            filters.append({"query_string": {"query": query}})
+        else:
+            filters.append({"match_none": {}})
 
         return {
             "query": {
                 "bool": {
-                    "filter": [
-                        {"query_string": {"query": query}},
-                    ],
+                    "filter": filters,
                     "must_not": [{"terms": {"level": ["DEBUG"]}}],
                 }
             },
