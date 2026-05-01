@@ -82,12 +82,9 @@ class LogstashChecker:
         OUTLIER_ZSCORE = 3
         # The Zscore used to suggest an error count threshold.
         THRESHOLD_ZSCORE = 3
+        HISTORY_DAYS = 90
 
-        r = self.logstash.run_query(self._build_history_query())
-
-        orig_samples = samples = [
-            bucket["doc_count"] for bucket in r["aggregations"]["counts"]["buckets"]
-        ]
+        orig_samples = samples = self._fetch_history_counts(HISTORY_DAYS)
 
         if not samples:
             self.logger.warn("No matching logstash records found for stage %s.", stage)
@@ -195,25 +192,59 @@ class LogstashChecker:
             },
         }
 
-    def _build_history_query(self) -> dict:
-        q = self._build_base_query()
+    def _fetch_history_counts(self, history_days) -> list:
+        """
+        Fetch per-window error counts for the last history_days days.
 
-        # No log records needed.
-        q["size"] = 0
+        Uses a composite aggregation with pagination to avoid Elasticsearch's
+        max_buckets limit, which would be exceeded when scanning large time
+        ranges at small (window_size) intervals.
+        """
+        PAGE_SIZE = 10000
+        base_q = self._build_base_query()
+        base_q["size"] = 0
+        base_q["query"]["bool"]["filter"].append(
+            {
+                "range": {
+                    "@timestamp": {
+                        "lte": "now",
+                        "gte": f"now-{history_days}d",
+                    }
+                },
+            },
+        )
 
-        # We just care about counts
-        q["aggs"] = {
-            "counts": {
-                "date_histogram": {
-                    "field": "@timestamp",
-                    "fixed_interval": f"{self.window_size}s",
-                    "time_zone": "UTC",
-                    "min_doc_count": 1,
+        counts = []
+        after_key = None
+
+        while True:
+            sources = [
+                {
+                    "timestamp": {
+                        "date_histogram": {
+                            "field": "@timestamp",
+                            "fixed_interval": f"{self.window_size}s",
+                            "time_zone": "UTC",
+                        }
+                    }
                 }
-            }
-        }
+            ]
+            composite = {"size": PAGE_SIZE, "sources": sources}
+            if after_key is not None:
+                composite["after"] = after_key
 
-        return q
+            q = dict(base_q)
+            q["aggs"] = {"counts": {"composite": composite}}
+
+            r = self.logstash.run_query(q)
+            buckets = r["aggregations"]["counts"]["buckets"]
+            counts.extend(bucket["doc_count"] for bucket in buckets)
+
+            after_key = r["aggregations"]["counts"].get("after_key")
+            if after_key is None or len(buckets) < PAGE_SIZE:
+                break
+
+        return counts
 
     def _build_query(self) -> dict:
         q = self._build_base_query()
