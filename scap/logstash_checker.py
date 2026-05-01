@@ -2,7 +2,7 @@ import collections
 import math
 import statistics
 
-from scap import cli, kubernetes, logstash, logstash_checker
+from scap import cli, kubernetes, logstash, logstash_checker, targets
 
 # Re-export CheckServiceError from the logstash module so that users
 # of LogstashChecker can catch logstash_checker.CheckServiceError without
@@ -30,11 +30,23 @@ class LogstashCheckerCommand(cli.Application):
     def main(self, *extra_args):
         k8s_ops = kubernetes.K8sOps(self)
         logger = self.get_logger()
+        baremetal_hosts = []
+        if self.arguments.stage == kubernetes.CANARIES:
+            baremetal_hosts = list(
+                set(targets.get("dsh_api_canaries", self.config).all)
+                | set(targets.get("dsh_app_canaries", self.config).all)
+            )
+        elif self.arguments.stage == kubernetes.PRODUCTION:
+            baremetal_hosts = list(
+                set(targets.get("dsh_proxies", self.config).all)
+                | set(targets.get("dsh_targets", self.config).all)
+            )
         logger.info("Analyzing logstash history for stage: %s", self.arguments.stage)
         logstash_checker.LogstashChecker(
             self.config["logstash_host"],
             self.config["canary_wait_time"],
             k8s_ops.get_stage_dep_configs(self.arguments.stage),
+            baremetal_hosts,
             logger,
         ).analyze(self.arguments.stage, self.arguments.toohigh)
 
@@ -45,10 +57,12 @@ class LogstashChecker:
         logstash_host,
         window_size,
         k8s_dep_configs,
+        baremetal_hosts,
         logger,
     ):
         self.window_size = window_size
         self.k8s_dep_configs = k8s_dep_configs
+        self.baremetal_hosts = baremetal_hosts
         self.logger = logger
         self.logstash = logstash.Logstash(logstash_host, logger)
 
@@ -169,16 +183,35 @@ class LogstashChecker:
 
         return " OR ".join(clauses)
 
+    def _build_baremetal_query(self) -> str:
+        if not self.baremetal_hosts:
+            return ""
+
+        # Logstash stores baremetal hostnames without the domain suffix.
+        hostnames = sorted({host.split(".")[0] for host in self.baremetal_hosts})
+        return self._one_of_query("host", hostnames)
+
     def _build_base_query(self) -> dict:
         """
-        Build a query filtering for the relevant k8s labels, record type, and channel.
+        Build a query filtering for the relevant deployment targets, record type, and channel.
         """
 
+        deployment_terms = []
         deployment_query = self._build_deployment_query()
-        filters = []
+        baremetal_query = self._build_baremetal_query()
 
         if deployment_query:
-            query = f"({deployment_query}) AND type:mediawiki AND channel:(exception OR error)"
+            deployment_terms.append(f"({deployment_query})")
+        if baremetal_query:
+            deployment_terms.append(baremetal_query)
+
+        filters = []
+
+        if deployment_terms:
+            query = (
+                f"({' OR '.join(deployment_terms)}) AND type:mediawiki "
+                "AND channel:(exception OR error)"
+            )
             filters.append({"query_string": {"query": query}})
         else:
             filters.append({"match_none": {}})

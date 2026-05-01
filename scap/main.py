@@ -191,14 +191,14 @@ class AbstractSync(cli.Application):
                     CANARIES,
                     baremetal_canaries,
                     None,
-                    [self.canary_checks],
+                    [lambda: self.canary_checks(baremetal_canaries)],
                     None,
                 ),
                 DeploymentStage(
                     PRODUCTION,
                     baremetal_full_target_list,
                     None,
-                    [self.production_checks],
+                    [lambda: self.production_checks(baremetal_full_target_list)],
                     self._after_cluster_sync,  # Bare metal php-fpm restarts happen in here
                 ),
             ]
@@ -896,13 +896,20 @@ class AbstractSync(cli.Application):
             "Acknowledge and release the deployment lock",
         )
 
-    def _logstash_checks(self, stage: str, stage_label: str, threshold: int) -> bool:
+    def _logstash_checks(
+        self,
+        stage: str,
+        stage_label: str,
+        threshold: int,
+        baremetal_hosts: Optional[List[str]] = None,
+    ) -> bool:
         """
         Run logstash error rate checks for a deployment stage.
 
         :param stage: The stage constant (CANARIES, PRODUCTION, etc.)
         :param stage_label: Human-readable label for status messages ("canary", "production")
         :param threshold: Error count threshold for this stage
+        :param baremetal_hosts: Optional baremetal hosts to include in the logstash query
 
         Returns:
             True if checks pass (possibly after retries), otherwise False
@@ -914,6 +921,7 @@ class AbstractSync(cli.Application):
             self.config["logstash_host"],
             canary_wait_time,
             self.k8s_ops.get_stage_dep_configs(stage),
+            baremetal_hosts or [],
             logger,
         )
 
@@ -948,16 +956,22 @@ class AbstractSync(cli.Application):
 
         return self.retry_ignore_rollback_or_exit(f"{stage_label} checks", test_func)
 
-    def canary_checks(self) -> bool:
+    def canary_checks(self, baremetal_hosts: Optional[List[str]] = None) -> bool:
         """Run logstash error rate checks for mw-on-k8s canaries."""
         return self._logstash_checks(
-            CANARIES, "canary", self.config["canary_threshold"]
+            CANARIES,
+            "canary",
+            self.config["canary_threshold"],
+            baremetal_hosts,
         )
 
-    def production_checks(self) -> bool:
+    def production_checks(self, baremetal_hosts: Optional[List[str]] = None) -> bool:
         """Run logstash error rate checks for mw-on-k8s production."""
         return self._logstash_checks(
-            PRODUCTION, "production", self.config["production_error_threshold"]
+            PRODUCTION,
+            "production",
+            self.config["production_error_threshold"],
+            baremetal_hosts,
         )
 
     def check_testservers(self, baremetal_testservers: list):
