@@ -34,6 +34,7 @@ DEFAULT_CONFIG = {
     "canary_dashboard_url": (str, "https://logstash.wikimedia.org"),
     "canary_threshold": (int, 10),
     "canary_wait_time": (int, 20),
+    "production_error_threshold": (int, 150),
     # These two keys contain check commands executed against the bare-metal and k8s deployments
     # of mediawiki following the testservers-stage update. Each may contain multiple independent
     # check (sub)commands separated by newlines, all of which will execute concurrently.

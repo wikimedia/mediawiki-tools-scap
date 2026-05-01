@@ -66,7 +66,7 @@ class LogstashChecker:
         hits_rel = hits_total["relation"]
         assert hits_rel in ["eq", "gte"]
 
-        prefix = f"Logstash checker Counted {count} error(s) in the last {self.window_size} seconds"
+        prefix = f"Logstash checker counted {count} error(s) in the last {self.window_size} seconds"
 
         if count >= threshold:
             self.logger.error("%s. The threshold is %d.", prefix, threshold)

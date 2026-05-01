@@ -198,7 +198,7 @@ class AbstractSync(cli.Application):
                     PRODUCTION,
                     baremetal_full_target_list,
                     None,
-                    None,
+                    [self.production_checks],
                     self._after_cluster_sync,  # Bare metal php-fpm restarts happen in here
                 ),
             ]
@@ -896,22 +896,24 @@ class AbstractSync(cli.Application):
             "Acknowledge and release the deployment lock",
         )
 
-    def canary_checks(self):
+    def _logstash_checks(self, stage: str, stage_label: str, threshold: int) -> bool:
         """
-        Run logstash error rate checks for mw-on-k8s canaries.
+        Run logstash error rate checks for a deployment stage.
+
+        :param stage: The stage constant (CANARIES, PRODUCTION, etc.)
+        :param stage_label: Human-readable label for status messages ("canary", "production")
+        :param threshold: Error count threshold for this stage
 
         Returns:
             True if checks pass (possibly after retries), otherwise False
         """
-
         logger = self.get_logger()
-
         canary_wait_time = self.config["canary_wait_time"]
 
         checker = logstash_checker.LogstashChecker(
             self.config["logstash_host"],
             canary_wait_time,
-            self.k8s_ops.get_stage_dep_configs(CANARIES),
+            self.k8s_ops.get_stage_dep_configs(stage),
             logger,
         )
 
@@ -928,23 +930,35 @@ class AbstractSync(cli.Application):
                 wait_remaining = round(canary_wait_time - time_since_last_check)
                 if wait_remaining > 0:
                     self.report_status(
-                        f"Waiting {wait_remaining} seconds for canary traffic...",
+                        f"Waiting {wait_remaining} seconds for {stage_label} traffic...",
                         log=True,
                     )
                     time.sleep(wait_remaining)
 
             try:
                 last_check_time = time.time()
-                return checker.check(self.config["canary_threshold"])
+                return checker.check(threshold)
             except logstash_checker.CheckServiceError as e:
-                logger.error("The canary error rate checker failed: %s", e)
-                self.report_status("Canary error rate checker failed")
+                logger.error("The %s error rate checker failed: %s", stage_label, e)
+                self.report_status(
+                    f"{stage_label.capitalize()} error rate checker failed"
+                )
                 need_sleep = False
                 return False
-            else:
-                need_sleep = True
 
-        return self.retry_ignore_rollback_or_exit("canary checks", test_func)
+        return self.retry_ignore_rollback_or_exit(f"{stage_label} checks", test_func)
+
+    def canary_checks(self) -> bool:
+        """Run logstash error rate checks for mw-on-k8s canaries."""
+        return self._logstash_checks(
+            CANARIES, "canary", self.config["canary_threshold"]
+        )
+
+    def production_checks(self) -> bool:
+        """Run logstash error rate checks for mw-on-k8s production."""
+        return self._logstash_checks(
+            PRODUCTION, "production", self.config["production_error_threshold"]
+        )
 
     def check_testservers(self, baremetal_testservers: list):
         """
