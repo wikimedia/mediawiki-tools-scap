@@ -1,3 +1,9 @@
+scap (4.260.0)
+
+  * main.py: Announce rollbacks
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Mon, 04 May 2026 08:44:12 -0700
+
 scap (4.259.0)
 
   * Revert "canary checks: Remove support for baremetal targets"
