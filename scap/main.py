@@ -287,6 +287,9 @@ class AbstractSync(cli.Application):
             return "rolled back"
         return "rollback cancelled"
 
+    def _announce_rollback(self):
+        self.announce("Rolling back deployment")
+
     def _run_stage_checks(
         self,
         stage: str,
@@ -788,6 +791,7 @@ class AbstractSync(cli.Application):
                 )
                 return True
             elif resp == "b":
+                self._announce_rollback()
                 return False
             elif resp == "x":
                 self.announce("Scap cancelled without rolling back.")
@@ -817,6 +821,7 @@ class AbstractSync(cli.Application):
                 if resp == "r":
                     continue
 
+                self._announce_rollback()
                 return False
 
     def _rollback_k8s_stages(
