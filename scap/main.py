@@ -771,8 +771,6 @@ class AbstractSync(cli.Application):
                 return True
 
             resp = self.prompt_choices(
-                # FIXME: If this is a spiderpig job, this should instruct
-                # the user to look at the job log for details, ideally with a link.
                 f"{description.capitalize()} failed.\n\nWhat do you want to do?",
                 {
                     f"Retry {description}": "r",
