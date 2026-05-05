@@ -169,18 +169,20 @@ export default defineComponent( {
 
 		const populateTerminal = async () => {
 			const pendingLogLines: string[] = [];
+			let lastFlushTime = 0;
 			const flushPendingLogLines = async () => {
 				if ( pendingLogLines.length === 0 ) {
 					return;
 				}
 
 				const linesToAppend = pendingLogLines.splice( 0, pendingLogLines.length );
+				lastFlushTime = Date.now();
 				await appendLogHtml( linesToAppend );
 			};
 
 			const queueLogLine = async ( line: string ) => {
 				pendingLogLines.push( ansiUp.ansi_to_html( line ) );
-				if ( pendingLogLines.length >= 250 ) {
+				if ( pendingLogLines.length >= 250 || Date.now() - lastFlushTime >= 100 ) {
 					await flushPendingLogLines();
 				}
 			};
