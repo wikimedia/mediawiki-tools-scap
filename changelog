@@ -1,3 +1,11 @@
+scap (4.261.0)
+
+  * tasks.py: Mention l10n type in Running rebuildLocalisationCache.php message
+  * main.py: Remove a completed FIXME comment
+  * scap/patches.py: Remove hard-coded /srv/patches references
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Tue, 05 May 2026 10:56:22 -0700
+
 scap (4.260.0)
 
   * main.py: Announce rollbacks
