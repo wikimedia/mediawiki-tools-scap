@@ -448,7 +448,7 @@ def _call_rebuildLocalisationCache(
         lang = os.getenv("SCAP_MW_LANG")
 
     def _rebuild(store_class, file_extension):
-        logging.info("Running rebuildLocalisationCache.php")
+        logging.info(f"Running rebuildLocalisationCache.php ({file_extension})")
         # Passing --skip-message-purge for T263872 (if delay_messageblobstore_purge feature
         # flag is enabled).
         # Note: mwscript runs maintenance scripts from /srv/mediawiki-staging if it exists,
