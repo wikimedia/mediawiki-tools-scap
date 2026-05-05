@@ -1,3 +1,9 @@
+scap (4.262.0)
+
+  * JobLog.vue: Fix job log rendering
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Tue, 05 May 2026 11:59:47 -0700
+
 scap (4.261.0)
 
   * tasks.py: Mention l10n type in Running rebuildLocalisationCache.php message
