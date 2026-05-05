@@ -169,26 +169,41 @@ export default defineComponent( {
 
 		const populateTerminal = async () => {
 			const pendingLogLines: string[] = [];
-			let lastFlushTime = 0;
+			let flushTimer: ReturnType<typeof setTimeout> | null = null;
 			const flushPendingLogLines = async () => {
+				if ( flushTimer !== null ) {
+					clearTimeout( flushTimer );
+					flushTimer = null;
+				}
+
 				if ( pendingLogLines.length === 0 ) {
 					return;
 				}
 
 				const linesToAppend = pendingLogLines.splice( 0, pendingLogLines.length );
-				lastFlushTime = Date.now();
 				await appendLogHtml( linesToAppend );
 			};
 
 			const queueLogLine = async ( line: string ) => {
 				pendingLogLines.push( ansiUp.ansi_to_html( line ) );
-				if ( pendingLogLines.length >= 250 || Date.now() - lastFlushTime >= 100 ) {
+
+				if ( flushTimer === null ) {
+					flushTimer = setTimeout( () => {
+						void flushPendingLogLines();
+					}, 100 );
+				}
+
+				if ( pendingLogLines.length >= 250 ) {
 					await flushPendingLogLines();
 				}
 			};
 
 			while ( true ) {
 				if ( shouldRedrawLog ) {
+					if ( flushTimer !== null ) {
+						clearTimeout( flushTimer );
+						flushTimer = null;
+					}
 					pendingLogLines.length = 0;
 					clearTerminal();
 					logCursor = 0;
