@@ -1,3 +1,9 @@
+scap (4.262.1)
+
+  * JobLog.vue: Fix job log rendering (v2)
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Tue, 05 May 2026 13:42:13 -0700
+
 scap (4.262.0)
 
   * JobLog.vue: Fix job log rendering
