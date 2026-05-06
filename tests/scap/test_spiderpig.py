@@ -22,6 +22,9 @@ from scap.spiderpig.api import (
     get_admin_user,
     get_session_key,
     ROUTE_2FA,
+    MAX_2FA_FAILURES,
+    TWO_FA_FAILURE_WINDOW_SECONDS,
+    TWO_FA_LOCKOUT_SECONDS,
 )
 from scap.spiderpig.model import User
 from scap.spiderpig.session import SessionCookie
@@ -228,6 +231,7 @@ def mockrequest():
         "Host": "spiderpig-apiserver.example.org",
         "Referer": "https://spiderpig-webserver.example.org/somepage",
     }
+    request.client.host = "127.0.0.1"
 
     yield request
 
@@ -412,6 +416,135 @@ async def test_login2(mockrequest):
         body = json.loads(res.body)
         assert body["code"] == "invalid"
         assert body["user"] == "bruce"
+
+
+@pytest.mark.anyio
+async def test_login2_locks_after_repeated_failures(mockrequest, caplog):
+    dbsession = Mock()
+    user = SessionUser(
+        name="bruce", groups=["cn=deployers,ou=groups,dc=example,dc=org"]
+    )
+    dbuser = User(name="Bruce", otp_seed=pyotp.random_base32())
+
+    with unittest.mock.patch.object(User, "get") as g:
+        g.return_value = dbuser
+
+        caplog.set_level("WARNING", logger="spiderpig.auth")
+
+        for _ in range(MAX_2FA_FAILURES - 1):
+            res = await login2("XXXXXX", mockrequest, user, dbsession)
+            assert res.status_code == 400
+
+        res = await login2("XXXXXX", mockrequest, user, dbsession)
+        assert res.status_code == 429
+        body = json.loads(res.body)
+        assert body["code"] == "rate_limited"
+        assert body["user"] == "bruce"
+
+        assert dbuser.locked_until is not None
+
+        res = await login2("XXXXXX", mockrequest, user, dbsession)
+        assert res.status_code == 429
+
+        assert any(
+            "Invalid OTP for user bruce" in rec.getMessage() for rec in caplog.records
+        )
+        assert any(
+            "2FA lockout started for user bruce" in rec.getMessage()
+            for rec in caplog.records
+        )
+        assert any(
+            "Blocked OTP attempt for locked user bruce" in rec.getMessage()
+            for rec in caplog.records
+        )
+
+
+def test_register_2fa_failure_resets_after_failure_window():
+    session = Mock()
+    dbuser = User(name="Bruce", otp_seed=pyotp.random_base32())
+
+    with unittest.mock.patch(
+        "scap.spiderpig.model.time.time",
+        side_effect=[1000, 1000, 1000, 1000, 1601, 1601, 1601, 1601],
+    ):
+        for _ in range(MAX_2FA_FAILURES - 1):
+            locked, _, newly_locked = dbuser.register_2fa_failure(
+                session,
+                failure_window_seconds=TWO_FA_FAILURE_WINDOW_SECONDS,
+                max_failures=MAX_2FA_FAILURES,
+                lockout_seconds=TWO_FA_LOCKOUT_SECONDS,
+            )
+            assert locked is False
+            assert newly_locked is False
+
+        for _ in range(MAX_2FA_FAILURES - 1):
+            locked, _, newly_locked = dbuser.register_2fa_failure(
+                session,
+                failure_window_seconds=TWO_FA_FAILURE_WINDOW_SECONDS,
+                max_failures=MAX_2FA_FAILURES,
+                lockout_seconds=TWO_FA_LOCKOUT_SECONDS,
+            )
+            assert locked is False
+            assert newly_locked is False
+
+    assert dbuser.locked_until is None
+    assert dbuser.failed_2fa_attempts == MAX_2FA_FAILURES - 1
+
+
+def test_lockout_expiry_resets_counter_then_success_clears_state():
+    session = Mock()
+    dbuser = User(name="Bruce", otp_seed=pyotp.random_base32())
+
+    with unittest.mock.patch("scap.spiderpig.model.time.time", side_effect=[1000] * 5):
+        for _ in range(MAX_2FA_FAILURES):
+            dbuser.register_2fa_failure(
+                session,
+                failure_window_seconds=TWO_FA_FAILURE_WINDOW_SECONDS,
+                max_failures=MAX_2FA_FAILURES,
+                lockout_seconds=TWO_FA_LOCKOUT_SECONDS,
+            )
+
+    assert dbuser.locked_until == 1000 + TWO_FA_LOCKOUT_SECONDS
+
+    with unittest.mock.patch("scap.spiderpig.model.time.time", return_value=1901):
+        remaining = dbuser.check_and_maybe_clear_2fa_lock(session)
+    assert remaining is None
+    assert dbuser.failed_2fa_attempts == 0
+    assert dbuser.first_2fa_failure_at is None
+    assert dbuser.locked_until is None
+
+    with unittest.mock.patch("scap.spiderpig.model.time.time", return_value=1901):
+        dbuser.update_last_2fa_code(session, "123456")
+    assert dbuser.last_2fa_code == "123456"
+    assert dbuser.failed_2fa_attempts == 0
+    assert dbuser.first_2fa_failure_at is None
+    assert dbuser.locked_until is None
+
+
+def test_successful_auth_clears_counter_mid_failure_window():
+    session = Mock()
+    dbuser = User(name="Bruce", otp_seed=pyotp.random_base32())
+
+    with unittest.mock.patch(
+        "scap.spiderpig.model.time.time", side_effect=[1000, 1001]
+    ):
+        for _ in range(2):
+            dbuser.register_2fa_failure(
+                session,
+                failure_window_seconds=TWO_FA_FAILURE_WINDOW_SECONDS,
+                max_failures=MAX_2FA_FAILURES,
+                lockout_seconds=TWO_FA_LOCKOUT_SECONDS,
+            )
+
+    assert dbuser.failed_2fa_attempts == 2
+    assert dbuser.first_2fa_failure_at == 1000
+
+    with unittest.mock.patch("scap.spiderpig.model.time.time", return_value=1002):
+        dbuser.update_last_2fa_code(session, "654321")
+
+    assert dbuser.failed_2fa_attempts == 0
+    assert dbuser.first_2fa_failure_at is None
+    assert dbuser.locked_until is None
 
 
 @pytest.mark.anyio

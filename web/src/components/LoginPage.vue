@@ -13,6 +13,7 @@
 				<cdx-text-input
 					id="password"
 					v-model="password"
+					:disabled="isSubmitting"
 				/>
 
 				<br>
@@ -62,20 +63,34 @@ export default defineComponent( {
 		const status = ref<ValidationStatusType>( 'default' );
 		const messages = ref<ValidationMessages>( {} );
 		const password = ref( '' );
-		const loginButtonDisabled = computed( () => password.value.trim() === '' );
+		const isSubmitting = ref( false );
+		const loginButtonDisabled = computed( () => password.value.trim() === '' || isSubmitting.value );
 
 		// Methods.
 		async function login() {
-			const trimmedPassword = password.value.trim();
-			const res = await api.login2( trimmedPassword );
-
-			if ( res.code !== 'ok' ) {
-				status.value = 'error';
-				messages.value.error = res.message;
+			if ( isSubmitting.value ) {
 				return;
 			}
-			// Login was successful
-			window.location.href = redirectTarget.value;
+
+			isSubmitting.value = true;
+			try {
+				const trimmedPassword = password.value.trim();
+				const res = await api.login2( trimmedPassword );
+
+				if ( res.code !== 'ok' ) {
+					status.value = 'error';
+					messages.value.error = res.message;
+					return;
+				}
+				// Login was successful
+				window.location.href = redirectTarget.value;
+			} catch ( e ) {
+				status.value = 'error';
+				messages.value.error = 'Login request failed. Please try again.';
+			} finally {
+				password.value = '';
+				isSubmitting.value = false;
+			}
 		}
 
 		function clearErrorStatus() {
@@ -100,6 +115,7 @@ export default defineComponent( {
 			status,
 			password,
 			messages,
+			isSubmitting,
 			loginButtonDisabled,
 			login,
 			user,

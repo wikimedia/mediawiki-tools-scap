@@ -51,6 +51,9 @@ class User(Base):
     otp_seed: Mapped[str]
     last_2fa_time: Mapped[Optional[int]]
     last_2fa_code: Mapped[Optional[str]]
+    failed_2fa_attempts: Mapped[int] = mapped_column(default=0, server_default="0")
+    first_2fa_failure_at: Mapped[Optional[int]]
+    locked_until: Mapped[Optional[int]]
 
     @classmethod
     def get(self, session: Session, name: str) -> Optional["User"]:
@@ -72,11 +75,90 @@ class User(Base):
 
     def update_last_2fa_code(self, session: Session, last_2fa_code: str):
         """
+        Called when a user successfully authenticates with a 2FA code.
         This method commits.
         """
-        self.last_2fa_time = time.time()
+        self.last_2fa_time = int(time.time())
         self.last_2fa_code = last_2fa_code
+        self._reset_2fa_lock_state()
         session.commit()
+
+    def register_2fa_failure(
+        self,
+        session: Session,
+        failure_window_seconds: int,
+        max_failures: int,
+        lockout_seconds: int,
+    ) -> tuple[bool, Optional[int], bool]:
+        """
+        Record a failed 2FA attempt.
+
+        Returns a tuple of:
+          - locked: whether the account is currently locked
+          - lock_remaining_seconds: remaining lock time, if locked
+          - newly_locked: whether this call started the lockout
+
+        This method starts and ends a transaction.
+        """
+        session.execute(text("BEGIN IMMEDIATE"))
+        session.refresh(self)
+        now = int(time.time())
+
+        lock_remaining_seconds = None
+        if self.locked_until:
+            lock_remaining_seconds = self.locked_until - now
+            if lock_remaining_seconds <= 0:
+                # Prior lockout period has expired. Clear lock state and
+                # continue with recording the new failure.
+                self._reset_2fa_lock_state()
+                lock_remaining_seconds = None
+
+        if lock_remaining_seconds:
+            # Already locked out.
+            session.rollback()
+            return True, lock_remaining_seconds, False
+
+        if (
+            self.first_2fa_failure_at is None
+            or now - self.first_2fa_failure_at > failure_window_seconds
+        ):
+            # First (recent) offense
+            self.first_2fa_failure_at = now
+            self.failed_2fa_attempts = 1
+        else:
+            self.failed_2fa_attempts += 1
+
+        newly_locked = False
+        if self.failed_2fa_attempts >= max_failures:
+            newly_locked = True
+            self.locked_until = now + lockout_seconds
+
+        session.commit()
+        if self.locked_until and now < self.locked_until:
+            return True, int(self.locked_until - now), newly_locked
+
+        return False, None, False
+
+    def check_and_maybe_clear_2fa_lock(self, session: Session) -> Optional[int]:
+        """
+        Return the number of seconds remaining in the lockout period, or None if not locked.
+
+        This function may commit.
+        """
+        if not self.locked_until:
+            return None
+        remaining = int(self.locked_until - time.time())
+        if remaining <= 0:
+            # Lock period expired
+            self._reset_2fa_lock_state()
+            session.commit()
+            return None
+        return remaining
+
+    def _reset_2fa_lock_state(self):
+        self.failed_2fa_attempts = 0
+        self.first_2fa_failure_at = None
+        self.locked_until = None
 
 
 class JobrunnerStatus(Base):

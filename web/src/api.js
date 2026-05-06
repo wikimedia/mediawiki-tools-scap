@@ -151,7 +151,7 @@ const useAuthStore = defineStore( 'spiderpig-auth',
 
 				let resp;
 
-				if ( response.ok || response.status === 400 ) {
+				if ( response.ok || response.status === 400 || response.status === 429 ) {
 					resp = await response.json();
 					this.authUser = resp.user;
 					localStorage.setItem( 'spiderpig-auth-user', this.authUser );

@@ -73,6 +73,9 @@ from scap.spiderpig.session import SessionCookie
 
 # Must be 30 seconds to be compatible with apps such as Google Authenticator.
 OTP_TIMEOUT = 30
+MAX_2FA_FAILURES = 5
+TWO_FA_FAILURE_WINDOW_SECONDS = 10 * 60
+TWO_FA_LOCKOUT_SECONDS = 15 * 60
 
 
 def get_or_init_dbuser(session: Session, username: str) -> User:
@@ -1180,7 +1183,97 @@ async def login2(
         return {"code": "ok", "message": "2FA already completed", "user": user.name}
 
     dbuser = get_or_init_dbuser(session, user.name)
+    auth_logger = logging.getLogger("spiderpig.auth")
+
+    def auth_warn(msg, action, event_type, reason, spiderpig_extra):
+        auth_logger.warning(
+            msg,
+            user.name,
+            extra={
+                "event": {
+                    "action": action,
+                    "category": ["authentication"],
+                    "type": [event_type],
+                    "outcome": "failure",
+                    "reason": reason,
+                },
+                "source": {
+                    "ip": request.client.host,
+                },
+                "user": {"name": user.name},
+                "spiderpig": spiderpig_extra,
+            },
+        )
+
+    lock_remaining_seconds = dbuser.check_and_maybe_clear_2fa_lock(session)
+    if lock_remaining_seconds:
+        auth_warn(
+            "Blocked OTP attempt for locked user %s",
+            "2fa_locked_attempt",
+            "denied",
+            "locked",
+            {"lock_remaining_seconds": lock_remaining_seconds},
+        )
+        return JSONResponse(
+            status_code=429,
+            content={
+                "code": "rate_limited",
+                "message": "Too many invalid OTP attempts. Try again later.",
+                "user": user.name,
+            },
+        )
+
     if not validate_otp(dbuser, otp):
+        locked, lock_remaining_seconds, newly_locked = dbuser.register_2fa_failure(
+            session,
+            failure_window_seconds=TWO_FA_FAILURE_WINDOW_SECONDS,
+            max_failures=MAX_2FA_FAILURES,
+            lockout_seconds=TWO_FA_LOCKOUT_SECONDS,
+        )
+        if locked and not newly_locked:
+            auth_warn(
+                "Blocked OTP attempt for locked user %s",
+                "2fa_locked_attempt",
+                "denied",
+                "locked",
+                {"lock_remaining_seconds": lock_remaining_seconds},
+            )
+            return JSONResponse(
+                status_code=429,
+                content={
+                    "code": "rate_limited",
+                    "message": "Too many invalid OTP attempts. Try again later.",
+                    "user": user.name,
+                },
+            )
+
+        auth_warn(
+            "Invalid OTP for user %s",
+            "2fa_invalid_otp",
+            "denied",
+            "invalid_otp",
+            {"failed_2fa_attempts": dbuser.failed_2fa_attempts, "locked": locked},
+        )
+        if newly_locked:
+            auth_warn(
+                "2FA lockout started for user %s",
+                "2fa_lockout_started",
+                "change",
+                "invalid_otp_threshold",
+                {
+                    "failed_2fa_attempts": dbuser.failed_2fa_attempts,
+                    "locked_until": dbuser.locked_until,
+                },
+            )
+            return JSONResponse(
+                status_code=429,
+                content={
+                    "code": "rate_limited",
+                    "message": "Too many invalid OTP attempts. Try again later.",
+                    "user": user.name,
+                },
+            )
+
         return JSONResponse(
             status_code=400,
             content={"code": "invalid", "message": "Invalid OTP", "user": user.name},
