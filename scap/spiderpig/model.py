@@ -3,6 +3,7 @@ import json
 import logging
 import os
 import time
+from contextlib import contextmanager
 
 from typing import Dict, List, Optional
 from pydantic import (
@@ -189,6 +190,7 @@ class Job(Base):
         This method starts and ends a transaction.
         """
         session.execute(text("BEGIN IMMEDIATE"))
+        session.refresh(self)
         if self.finished_at:
             session.rollback()
             raise AlreadyFinished(
@@ -207,12 +209,20 @@ class Job(Base):
             # Assume old style status which was a plain string
             return {"status": self.status, "progress": None}
 
-    def _set_status(self, session: Session, status: dict):
+    @contextmanager
+    def _status_update(self, session: Session):
         """
         This method starts and ends a transaction.
         """
         session.execute(text("BEGIN IMMEDIATE"))
-        self.status = json.dumps(status)
+        session.refresh(self)
+        rec = self.extract_status()
+        try:
+            yield rec
+        except Exception:
+            session.rollback()
+            raise
+        self.status = json.dumps(rec)
         session.commit()
 
     def set_status(self, session: Session, status: Optional[str]):
@@ -221,18 +231,18 @@ class Job(Base):
 
         This method starts and ends a transaction.
         """
-        rec = self.extract_status()
-        rec["status"] = status
-        rec["progress"] = None
-        self._set_status(session, rec)
+
+        with self._status_update(session) as rec:
+            rec["status"] = status
+            rec["progress"] = None
 
     def set_progress(self, session: Session, data: Optional[dict]):
         """
         This method starts and ends a transaction.
         """
-        rec = self.extract_status()
-        rec["progress"] = data
-        self._set_status(session, rec)
+
+        with self._status_update(session) as rec:
+            rec["progress"] = data
 
     def finish(self, session: Session, exit_status: Optional[int]):
         """
@@ -386,6 +396,7 @@ class Interaction(Base):
 
     def respond(self, session: Session, responded_by: str, response: str):
         session.execute(text("BEGIN IMMEDIATE"))
+        session.refresh(self)
         if self.response is not None:
             session.rollback()
             raise AlreadyResponded(
