@@ -2,6 +2,7 @@ import enum
 import json
 import logging
 import os
+import re
 import time
 from contextlib import contextmanager
 
@@ -10,6 +11,7 @@ from pydantic import (
     BaseModel,
     ConfigDict,
     Field,
+    field_validator,
 )
 from pydantic.alias_generators import to_camel
 from sqlalchemy import ForeignKey, select, delete, text, null, Enum
@@ -21,6 +23,7 @@ from alembic.operations import Operations
 from alembic.operations.ops import ModifyTableOps
 
 from scap import train
+from scap.utils import BRANCH_RE
 
 
 class BasePydantic(BaseModel):
@@ -550,8 +553,38 @@ class TrainPromotion(BasePydantic):
     group: str
     version: str
     old_version: str
-    excluded_wikis: List[str] = []
+    excluded_wikis: List[str] = Field(default_factory=list)
     original_train_status: TrainStatus
+
+    @field_validator("group")
+    @classmethod
+    def _validate_group(cls, value: str) -> str:
+        if value not in train.GROUPS:
+            raise ValueError(
+                f"Invalid train group '{value}'. Must be one of: {', '.join(train.GROUPS)}"
+            )
+        return value
+
+    @field_validator("version", "old_version")
+    @classmethod
+    def _validate_version(cls, value: str) -> str:
+        if not BRANCH_RE.match(value):
+            raise ValueError(
+                "Version must match train branch format, e.g. 1.42.0-wmf.20"
+            )
+        return value
+
+    @field_validator("excluded_wikis")
+    @classmethod
+    def _validate_excluded_wikis(cls, value: List[str]) -> List[str]:
+        invalid = [wiki for wiki in value if not re.match(r"^[A-Za-z0-9_-]+$", wiki)]
+        if invalid:
+            raise ValueError(
+                "Invalid wiki names in excluded_wikis: "
+                + ", ".join(invalid)
+                + ". Allowed characters are letters, digits, underscore, and hyphen."
+            )
+        return value
 
     def add_job(self, **kwargs) -> int:
         return Job.add(
@@ -575,7 +608,7 @@ class TrainPromotion(BasePydantic):
         if self.excluded_wikis:
             cmd += ["--exclude-wikis", ",".join(self.excluded_wikis)]
 
-        return cmd + [self.group, self.version]
+        return cmd + ["--", self.group, self.version]
 
     @property
     def data(self):

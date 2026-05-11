@@ -6,6 +6,7 @@ from fastapi.datastructures import State
 import pyotp
 import os
 import sys
+from pydantic import ValidationError
 
 from scap.spiderpig.api import (
     get_pyotp,
@@ -27,6 +28,7 @@ from scap.spiderpig.api import (
     TWO_FA_LOCKOUT_SECONDS,
 )
 from scap.spiderpig.model import User
+from scap.spiderpig.model import TrainGroup, TrainPromotion, TrainStatus
 from scap.spiderpig.session import SessionCookie
 import scap.utils
 
@@ -578,3 +580,81 @@ async def test_logoutAll(mockrequest):
         "message": "All login sessions have been invalidated",
         "SSOLogoutUrl": "https://cas.example.org/cas/logout?service=https%3A%2F%2Fspiderpig-apiserver.example.org%2Fapi%2Flogin%3Fnext%3Dhttps%253A%252F%252Fspiderpig-webserver.example.org%252Fsomepage",
     }
+
+
+@pytest.fixture
+def train_status_fixture():
+    groups = [
+        TrainGroup(name=name, versions=["1.42.0-wmf.19"], wikis=["testwiki"])
+        for name in ["testwikis", "group0", "group1", "group2"]
+    ]
+    return TrainStatus(
+        groups=groups,
+        version="1.42.0-wmf.20",
+        old_version="1.42.0-wmf.19",
+        at_group="group1",
+        wiki_versions={"testwiki": "1.42.0-wmf.20"},
+        warnings=[],
+        task=None,
+        task_url=None,
+        task_status=None,
+        task_release_date=None,
+        task_version=None,
+    )
+
+
+def test_train_promotion_command_uses_positional_separator(train_status_fixture):
+    promotion = TrainPromotion(
+        group="group1",
+        version="1.42.0-wmf.20",
+        old_version="1.42.0-wmf.19",
+        excluded_wikis=["frwiki", "dewiki"],
+        original_train_status=train_status_fixture,
+    )
+
+    assert promotion.command == [
+        "scap",
+        "deploy-promote",
+        "--yes",
+        "--train",
+        "--old-version",
+        "1.42.0-wmf.19",
+        "--exclude-wikis",
+        "frwiki,dewiki",
+        "--",
+        "group1",
+        "1.42.0-wmf.20",
+    ]
+
+
+def test_train_promotion_rejects_flag_like_version(train_status_fixture):
+    with pytest.raises(ValidationError, match="Version must match train branch format"):
+        TrainPromotion(
+            group="group1",
+            version="-Dsome_flag:some_setting",
+            old_version="1.42.0-wmf.19",
+            excluded_wikis=[],
+            original_train_status=train_status_fixture,
+        )
+
+
+def test_train_promotion_rejects_invalid_group(train_status_fixture):
+    with pytest.raises(ValidationError, match="Invalid train group"):
+        TrainPromotion(
+            group="all",
+            version="1.42.0-wmf.20",
+            old_version="1.42.0-wmf.19",
+            excluded_wikis=[],
+            original_train_status=train_status_fixture,
+        )
+
+
+def test_train_promotion_rejects_invalid_excluded_wiki_name(train_status_fixture):
+    with pytest.raises(ValidationError, match="Invalid wiki names in excluded_wikis"):
+        TrainPromotion(
+            group="group1",
+            version="1.42.0-wmf.20",
+            old_version="1.42.0-wmf.19",
+            excluded_wikis=["enwiki,bad"],
+            original_train_status=train_status_fixture,
+        )
