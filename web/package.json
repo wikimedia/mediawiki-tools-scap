@@ -8,8 +8,7 @@
 		"build": "vite build",
 		"preview": "vite preview",
 		"watch": "vite build --watch",
-		"test": "eslint . --max-warnings 0",
-		"test:unit": "vitest run",
+		"test": "eslint . --max-warnings 0 && vitest run --reporter=dot",
 		"fix": "eslint --fix ."
 	},
 	"dependencies": {
