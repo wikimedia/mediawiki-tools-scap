@@ -1,3 +1,14 @@
+scap (4.264.0)
+
+  * SpiderPig interactions improvements
+  * web/package.json: Run vitest in test target
+  * web: remove splitVendorChunkPlugin, deprecated in Vite 4 and removed in Vite 6
+  * JobCard.vue: Fix retry notifications job tracking
+  * spiderpig/model.py: Improve TrainPromotion input security
+  * web/src/state.js: Non-functional cosmetic code changes
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Mon, 11 May 2026 13:50:50 -0700
+
 scap (4.263.0)
 
   * spiderpig: Add rate limiting for /api/2fa route
