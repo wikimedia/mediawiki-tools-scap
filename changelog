@@ -1,3 +1,10 @@
+scap (4.263.0)
+
+  * spiderpig: Add rate limiting for /api/2fa route
+  * spiderpig/model.py: Refresh the user object from db where needed
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Mon, 11 May 2026 08:16:36 -0700
+
 scap (4.262.1)
 
   * JobLog.vue: Fix job log rendering (v2)
