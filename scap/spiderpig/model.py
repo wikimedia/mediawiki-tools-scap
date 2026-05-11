@@ -396,6 +396,7 @@ class AlreadyResponded(Exception):
 
 class Interaction(Base):
     __tablename__ = "interaction"
+    __table_args__ = {"sqlite_autoincrement": True}
 
     id: Mapped[int] = mapped_column(primary_key=True)
     job_id: Mapped[int] = mapped_column(ForeignKey("job.id"))
@@ -625,6 +626,30 @@ def setup_db(engine, db_filename):
     migrate_db(engine)
 
 
+def _ensure_interaction_autoincrement_sqlite(conn):
+    table_sql = conn.scalar(
+        text("SELECT sql FROM sqlite_master WHERE type='table' AND name='interaction'")
+    )
+    if not table_sql or "AUTOINCREMENT" in table_sql.upper():
+        return
+
+    conn.execute(text("ALTER TABLE interaction RENAME TO interaction_old"))
+    Interaction.__table__.create(conn)
+
+    quoted_columns = [
+        conn.dialect.identifier_preparer.quote(column.name)
+        for column in Interaction.__table__.columns
+    ]
+    column_csv = ", ".join(quoted_columns)
+    conn.execute(
+        text(
+            f"INSERT INTO interaction ({column_csv}) "
+            f"SELECT {column_csv} FROM interaction_old"
+        )
+    )
+    conn.execute(text("DROP TABLE interaction_old"))
+
+
 def migrate_db(engine):
     logger = logging.getLogger()
     logger.info("Running db migration (if needed)")
@@ -654,6 +679,9 @@ def migrate_db(engine):
                 stack.extend(elem.ops)
             else:
                 operations.invoke(elem)
+
+        if use_batch:
+            _ensure_interaction_autoincrement_sqlite(conn)
         conn.commit()
 
     logger.info("db migration finished")

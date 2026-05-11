@@ -17,7 +17,7 @@
 </template>
 
 <script lang="ts">
-import { computed, defineComponent, onMounted, PropType } from 'vue';
+import { computed, defineComponent, PropType, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import useApi from '../api';
 import Interaction from '../types/Interaction';
@@ -60,10 +60,15 @@ export default defineComponent( {
 			notifications.closeNotification();
 		}
 
-		// Lifecycle hooks
-		onMounted( () => {
-			notifications.notifyUser( props.interaction );
-		} );
+		// Notify when a new interaction arrives, even if this component instance
+		// is reused and does not remount.
+		watch(
+			() => props.interaction.id,
+			() => {
+				notifications.notifyUser( props.interaction );
+			},
+			{ immediate: true }
+		);
 
 		const renderedPromptHtml = computed( () => {
 			const prompt = props.interaction.prompt;
