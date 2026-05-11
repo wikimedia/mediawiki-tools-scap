@@ -296,6 +296,7 @@ import SpProgressBar from './ProgressBar.vue';
 import { RouterLink, useRoute, useRouter } from 'vue-router';
 import useApi from '../api';
 import useJobrunner from '../jobrunner';
+import { notificationsStore } from '../state';
 
 export default defineComponent( {
 	name: 'SpJobCard',
@@ -380,6 +381,7 @@ export default defineComponent( {
 		const router = useRouter();
 		const api = useApi();
 		const jobrunner = useJobrunner();
+		const notifications = notificationsStore();
 
 		const isLoading = ref( true );
 		const error = ref<string | null>( null );
@@ -627,6 +629,9 @@ export default defineComponent( {
 				retrying.value = true;
 				retryError.value = null;
 				const response = await api.retryJob( props.id );
+				if ( response.id ) {
+					await notifications.setupUserNotificationsForJob( response.id );
+				}
 				closeRetryDialog();
 				// Navigate to the new job only if we're on the job viewer page
 				if ( response.id && isJobDetailPage.value ) {
