@@ -114,7 +114,7 @@ export default {
 			hideNoData.value = true;
 			try {
 				const res = await api.startBackport( changeNumbers.value );
-				await notifications.setUserNotifications( res.id );
+				await notifications.setupUserNotificationsForJob( res.id );
 				changeNumbers.value = [];
 			} catch ( error ) {
 				alertDialogOpen.value = true;

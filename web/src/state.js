@@ -11,8 +11,9 @@ export const notificationsStore = defineStore( 'spiderpig-notifications',
 			};
 		},
 		actions: {
-			async setUserNotifications( jobId ) {
-				this.reset();
+			// Called by Backport.vue when the user has initiated a backport job.
+			async setupUserNotificationsForJob( jobId ) {
+				this._reset();
 				if ( Notification.permission === 'default' ) {
 					await Notification.requestPermission();
 				}
@@ -22,22 +23,23 @@ export const notificationsStore = defineStore( 'spiderpig-notifications',
 					this.backportJob = JSON.stringify( jobId );
 				}
 			},
-			userShouldBeNotified( interaction ) {
+			_userShouldBeNotified( interaction ) {
 				return Notification.permission === 'granted' &&
 				interaction.job_id === JSON.parse( this.backportJob ) &&
-				!this.alreadyNotified( interaction.id );
+				!this._alreadyNotified( interaction.id );
 			},
-			alreadyNotified( interactionId ) {
+			_alreadyNotified( interactionId ) {
 				return JSON.parse( this.alreadyNotifiedInters ).includes( interactionId );
 			},
-			rememberNotified( interactionId ) {
+			_rememberNotified( interactionId ) {
 				const alreadyNotified = JSON.parse( this.alreadyNotifiedInters );
 				alreadyNotified.push( interactionId );
 				this.alreadyNotifiedInters = JSON.stringify( alreadyNotified );
 			},
+			// notifyUser is called when an SpInteraction (Interaction.vue) component is mounted.
 			notifyUser( interaction ) {
 				if (
-					this.userShouldBeNotified( interaction ) &&
+					this._userShouldBeNotified( interaction ) &&
 					// Keep in sync with the prompt message in scap/backport.py#Backport._do_backport
 					!interaction.prompt.includes( 'Backport the changes?' )
 				) {
@@ -45,16 +47,17 @@ export const notificationsStore = defineStore( 'spiderpig-notifications',
 						body: `Job ${ interaction.job_id } requires user input`,
 						requireInteraction: true
 					} );
-					this.rememberNotified( interaction.id );
+					this._rememberNotified( interaction.id );
 				}
 			},
+			// Called from Interaction.vue when the user has responded.
 			closeNotification() {
 				if ( this.userNotification ) {
 					this.userNotification.close();
 					this.userNotification = null;
 				}
 			},
-			reset() {
+			_reset() {
 				this.$reset();
 				this.backportJob = null;
 				this.alreadyNotifiedInters = '[]';
