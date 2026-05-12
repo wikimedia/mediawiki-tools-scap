@@ -228,6 +228,7 @@ import { VProgressLinear } from 'vuetify/components/VProgressLinear';
 import { VStepper } from 'vuetify/components/VStepper';
 import useApi from '../api';
 import useJobrunner from '../jobrunner';
+import { notificationsStore } from '../state';
 import TrainGroup from '../types/TrainGroup';
 import TrainStatus from '../types/TrainStatus';
 
@@ -248,6 +249,7 @@ export default {
 	setup() {
 		const { mdAndUp } = useDisplay();
 		const jobrunner = useJobrunner();
+		const notifications = notificationsStore();
 
 		let resetWikiVersions = {};
 		let originalTrainStatus: TrainStatus = {
@@ -423,7 +425,10 @@ export default {
 			promotion.originalTrainStatus = originalTrainStatus;
 
 			jobPending.value = true;
-			await api.startTrain( promotion );
+			const response = await api.startTrain( promotion );
+			if ( response.id ) {
+				await notifications.setupUserNotificationsForJob( response.id );
+			}
 		}
 
 		/**
