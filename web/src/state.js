@@ -5,7 +5,7 @@ export const notificationsStore = defineStore( 'spiderpig-notifications',
 	{
 		state() {
 			return {
-				backportJob: useLocalStorage( 'spiderpig-bp-job', null ),
+				jobId: useLocalStorage( 'spiderpig-job-id', null ),
 				alreadyNotifiedInters: useLocalStorage( 'spiderpig-notified-interactions', '[]' ),
 				userNotification: null
 			};
@@ -20,12 +20,12 @@ export const notificationsStore = defineStore( 'spiderpig-notifications',
 				if ( Notification.permission === 'granted' ) {
 					// LocalStorage values must be strings.
 					// https://developer.mozilla.org/en-US/docs/Web/API/Window/localStorage#description
-					this.backportJob = JSON.stringify( jobId );
+					this.jobId = JSON.stringify( jobId );
 				}
 			},
 			_userShouldBeNotified( interaction ) {
 				return Notification.permission === 'granted' &&
-				interaction.job_id === JSON.parse( this.backportJob ) &&
+				interaction.job_id === JSON.parse( this.jobId ) &&
 				!this._alreadyNotified( interaction.id );
 			},
 			_alreadyNotified( interactionId ) {
@@ -59,7 +59,7 @@ export const notificationsStore = defineStore( 'spiderpig-notifications',
 			},
 			_reset() {
 				this.$reset();
-				this.backportJob = null;
+				this.jobId = null;
 				this.alreadyNotifiedInters = '[]';
 				this.userNotification = null;
 			}
