@@ -11,7 +11,7 @@ export const notificationsStore = defineStore( 'spiderpig-notifications',
 			};
 		},
 		actions: {
-			// Called by Backport.vue when the user has initiated a backport job.
+			// Called by anything that initiates a new job.
 			async setupUserNotificationsForJob( jobId ) {
 				this._reset();
 				if ( Notification.permission === 'default' ) {
