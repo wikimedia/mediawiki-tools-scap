@@ -676,6 +676,19 @@ export default defineComponent( {
 			{ immediate: true }
 		);
 
+		watch(
+			() => props.finished_at,
+			( newFinishedAt, previousFinishedAt ) => {
+				if ( newFinishedAt && !previousFinishedAt ) {
+					notifications.notifyJobFinished( {
+						id: props.id,
+						finished_at: newFinishedAt,
+						exit_status: props.exit_status
+					} );
+				}
+			}
+		);
+
 		return {
 			getFormattedUser,
 			statusType,

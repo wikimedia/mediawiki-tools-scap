@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 const retryJobMock = vi.fn();
 const setupUserNotificationsForJobMock = vi.fn();
+const notifyJobFinishedMock = vi.fn();
 const pushMock = vi.fn();
 
 vi.mock( '../api', () => ( {
@@ -18,7 +19,8 @@ vi.mock( '../jobrunner', () => ( {
 
 vi.mock( '../state', () => ( {
 	notificationsStore: () => ( {
-		setupUserNotificationsForJob: setupUserNotificationsForJobMock
+		setupUserNotificationsForJob: setupUserNotificationsForJobMock,
+		notifyJobFinished: notifyJobFinishedMock
 	} )
 } ) );
 
@@ -66,6 +68,7 @@ describe( 'SpJobCard confirmRetry', () => {
 	beforeEach( () => {
 		retryJobMock.mockReset();
 		setupUserNotificationsForJobMock.mockReset();
+		notifyJobFinishedMock.mockReset();
 		pushMock.mockReset();
 	} );
 
