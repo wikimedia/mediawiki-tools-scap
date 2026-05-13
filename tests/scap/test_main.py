@@ -128,3 +128,27 @@ def test_handle_exception(cmd, mocker):
     get_log.assert_called_with("scap.announce")
     assert cmd._announce_logger == announcer
     announcer.info.assert_called()
+
+
+def test_init_history_includes_foss_violations_checkouts(cmd, mocker):
+    cmd.config["stage_dir"] = "/srv/mediawiki-staging"
+    cmd.config["foss_violations"] = [
+        {"repo": "https://example/repo-a", "branch": "main", "path": "viol-a"},
+        {"repo": "https://example/repo-b", "branch": "dev", "path": "viol-b"},
+    ]
+
+    mocker.patch.object(cmd, "scap_history_dbfile", return_value="/tmp/history.db")
+    mocker.patch.object(cmd, "active_wikiversions", return_value=["1.45.0-wmf.1"])
+
+    mocker.patch("scap.main.git.get_branch", return_value="branch")
+    mocker.patch("scap.main.git.merge_base", return_value="commit")
+    mocker.patch("scap.main.git.remote_get_url", return_value="repo")
+
+    cmd._init_history()
+
+    assert [checkout.directory for checkout in cmd.deployment_log_entry.checkouts] == [
+        "/srv/mediawiki-staging",
+        "/srv/mediawiki-staging/php-1.45.0-wmf.1",
+        "/srv/mediawiki-staging/viol-a",
+        "/srv/mediawiki-staging/viol-b",
+    ]

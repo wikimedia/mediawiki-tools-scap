@@ -342,6 +342,9 @@ class AbstractSync(cli.Application):
         for version in self.active_wikiversions("stage"):
             _add_checkout(os.path.join(staging_dir, f"php-{version}"))
 
+        for violation in self.config["foss_violations"]:
+            _add_checkout(os.path.join(staging_dir, violation["path"]))
+
     def _finalize_history(self):
         self.deployment_log_entry.errors = self.soft_errors
         self.deployment_log_entry.endtime = datetime.datetime.now(datetime.timezone.utc)

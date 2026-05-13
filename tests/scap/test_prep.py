@@ -78,3 +78,50 @@ def test_scap_prep_pushInsteadOf_urls_are_normalized(scap_prep_git):
         "https://gerrit.wikimedia.org/r",
         cwd=scap_prep_dest_dir,
     )
+
+
+@pytest.fixture()
+def scap_prep_app():
+    scap_prep = scap.cli.Application.factory(["prep", "1.99.0-wmf.33"])
+    scap_prep.setup(use_global_config=False)
+    return scap_prep
+
+
+def test_prep_foss_violations_clones_repos_in_triples(scap_prep_app):
+    scap_prep_app.config["foss_violations"] = [
+        {
+            "repo": "https://gerrit.wikimedia.org/r/some/repo",
+            "branch": "master",
+            "path": "subdir-a",
+        },
+        {
+            "repo": "https://gerrit.wikimedia.org/r/other/repo",
+            "branch": "wmf/1.45.0-wmf.1",
+            "path": "subdir-b",
+        },
+    ]
+
+    with patch.object(scap_prep_app, "_clone_or_update_repo") as clone_repo:
+        logger = object()
+        scap_prep_app._prep_foss_violations(logger)
+
+    assert clone_repo.call_args_list == [
+        (
+            (
+                "https://gerrit.wikimedia.org/r/some/repo",
+                "master",
+                "/srv/mediawiki-staging/subdir-a",
+                logger,
+            ),
+            {},
+        ),
+        (
+            (
+                "https://gerrit.wikimedia.org/r/other/repo",
+                "wmf/1.45.0-wmf.1",
+                "/srv/mediawiki-staging/subdir-b",
+                logger,
+            ),
+            {},
+        ),
+    ]

@@ -167,6 +167,7 @@ class CheckoutMediaWiki(cli.Application):
                         self.config["stage_dir"],
                         logger,
                     )
+                    self._prep_foss_violations(logger)
 
                     if self.arguments.copy_private_settings:
                         self._copy_private_settings(
@@ -194,6 +195,15 @@ class CheckoutMediaWiki(cli.Application):
             logger.info("Copying {} to {}".format(src, dest))
             # copy2 preserves file mode and modification time
             shutil.copy2(src, dest)
+
+    def _prep_foss_violations(self, logger):
+        for violation in self.config["foss_violations"]:
+            self._clone_or_update_repo(
+                violation["repo"],
+                violation["branch"],
+                os.path.join(self.config["stage_dir"], violation["path"]),
+                logger,
+            )
 
     def _prep_mw_branch(self, branch, logger, apply_patches=False, reference_dir=None):
         dest_dir = os.path.join(

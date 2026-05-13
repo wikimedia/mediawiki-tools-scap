@@ -80,6 +80,9 @@ DEFAULT_CONFIG = {
     "git_upstream_submodules": (bool, False),
     "config_deploy": (bool, False),
     "operations_mediawiki_config_branch": (str, "master"),
+    # Comma-separated triples:
+    # repo_url,branch,path_under_staging_dir[,repo_url,branch,path_under_staging_dir,...]
+    "foss_violations": (str, ""),
     "nrpe_dir": (str, "/etc/nagios/nrpe.d"),
     "require_valid_service": (bool, False),
     "secondary_host_signal_file": (str, "/etc/scap.secondary"),
@@ -259,6 +262,9 @@ def load(
         if not environment and config.get("environment", None):
             return load(cfg_file, config.get("environment"), overrides)
 
+        if "foss_violations" in config:
+            config["foss_violations"] = parse_foss_violations(config["foss_violations"])
+
         config["environment"] = environment
         return config
     finally:
@@ -309,3 +315,22 @@ def multi_value(str_value):
     """
     comma_list = [x.strip() for x in str_value.split(",")]
     return comma_list
+
+
+def parse_foss_violations(str_value):
+    entries = [value.strip() for value in str_value.split(",") if value.strip()]
+
+    if len(entries) % 3 != 0:
+        raise ValueError(
+            "foss_violations must be a comma-separated list of "
+            "repo_url,branch,path triples"
+        )
+
+    return [
+        {
+            "repo": entries[index],
+            "branch": entries[index + 1],
+            "path": entries[index + 2],
+        }
+        for index in range(0, len(entries), 3)
+    ]

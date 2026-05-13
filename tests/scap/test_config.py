@@ -178,3 +178,39 @@ def test_coerce_bool():
 
         with pytest.raises(ValueError):
             assert config.coerce_value("foo", "bar")
+
+
+def test_load_parses_foss_violations():
+    config_file_content = dedent(
+        """
+        [global]
+        foss_violations: https://gerrit.wikimedia.org/r/some/repo,master,subdir-a,https://gerrit.wikimedia.org/r/other/repo,wmf/1.45.0-wmf.1,subdir-b
+    """
+    )
+
+    with config_file(config_file_content) as cfg_file:
+        assert config.load(cfg_file)["foss_violations"] == [
+            {
+                "repo": "https://gerrit.wikimedia.org/r/some/repo",
+                "branch": "master",
+                "path": "subdir-a",
+            },
+            {
+                "repo": "https://gerrit.wikimedia.org/r/other/repo",
+                "branch": "wmf/1.45.0-wmf.1",
+                "path": "subdir-b",
+            },
+        ]
+
+
+def test_load_rejects_invalid_foss_violations():
+    config_file_content = dedent(
+        """
+        [global]
+        foss_violations: https://gerrit.wikimedia.org/r/some/repo,master,subdir-a,extra
+    """
+    )
+
+    with config_file(config_file_content) as cfg_file:
+        with pytest.raises(ValueError, match="foss_violations"):
+            config.load(cfg_file)
