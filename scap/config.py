@@ -239,29 +239,31 @@ def load(
 
         parser.read(files)
 
-    fqdn = socket.getfqdn().rstrip(".").split(".")
-    sections = ["global"]
-    sections += [".".join(fqdn[x:]) for x in range(0, len(fqdn))][::-1]
+    try:
+        fqdn = socket.getfqdn().rstrip(".").split(".")
+        sections = ["global"]
+        sections += [".".join(fqdn[x:]) for x in range(0, len(fqdn))][::-1]
 
-    config = {key: value for key, (_, value) in DEFAULT_CONFIG.items()}
+        config = {key: value for key, (_, value) in DEFAULT_CONFIG.items()}
 
-    for section in sections:
-        if parser.has_section(section):
-            # Do not interpolate items in the section.
-            # Fixes crash on deployment server:
-            #   'int' object has no attribute 'find'
-            for key, value in parser.items(section, True):
-                config[key] = coerce_value(key, value)
+        for section in sections:
+            if parser.has_section(section):
+                # Do not interpolate items in the section.
+                # Fixes crash on deployment server:
+                #   'int' object has no attribute 'find'
+                for key, value in parser.items(section, True):
+                    config[key] = coerce_value(key, value)
 
-    config = override_config(config, overrides)
+        config = override_config(config, overrides)
 
-    if not environment and config.get("environment", None):
-        return load(cfg_file, config.get("environment"), overrides)
+        if not environment and config.get("environment", None):
+            return load(cfg_file, config.get("environment"), overrides)
 
-    config["environment"] = environment
-    if cfg_file:
-        cfg_file.close()
-    return config
+        config["environment"] = environment
+        return config
+    finally:
+        if cfg_file:
+            cfg_file.close()
 
 
 def override_config(config, overrides=None):
