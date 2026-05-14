@@ -1,3 +1,13 @@
+scap (4.265.0)
+
+  * scap prep: Add foss_violations support
+  * config: Always close cfg_file in load()
+  * web/src/state.js: Update a comment
+  * web/src/state.js: Rename backportJob slot to jobId
+  * Train.vue: Set up browser notifications for train jobs
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Thu, 14 May 2026 15:04:02 -0700
+
 scap (4.264.0)
 
   * SpiderPig interactions improvements
