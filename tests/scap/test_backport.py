@@ -284,6 +284,7 @@ def test_validate_root_changes_scenarios(
     mock_change = Mock()
     mock_change.number = 12345
     mock_change.get.return_value = "test_value"
+    mock_change.get_file_list.return_value = []
 
     # Apply change setup
     for attr, value in setup_change.items():
@@ -327,8 +328,62 @@ def test_validate_root_changes_scenarios(
             assert check_prompt in prompt_call
 
 
-class TestValidateDependencyTrails(unittest.TestCase):
-    """Consolidated tests for _validate_dependency_trails method."""
+def test_likely_causes_large_l10n_rebuild_detects_message_paths():
+    change = Mock()
+    change.get_file_list.return_value = [
+        "i18n/en.json",
+        "includes/Hooks.php",
+    ]
+
+    backport = Mock(spec=Backport)
+    backport.L10N_REBUILD_PATH_PATTERNS = Backport.L10N_REBUILD_PATH_PATTERNS
+
+    result = Backport._likely_causes_large_l10n_rebuild(backport, change)
+    assert result is True
+
+
+def test_likely_causes_large_l10n_rebuild_ignores_generic_code_paths():
+    change = Mock()
+    change.get_file_list.return_value = [
+        "includes/SkinVector22.php",
+        "src/Foo.php",
+        "tests/phpunit/FooTest.php",
+    ]
+
+    backport = Mock(spec=Backport)
+    backport.L10N_REBUILD_PATH_PATTERNS = Backport.L10N_REBUILD_PATH_PATTERNS
+
+    result = Backport._likely_causes_large_l10n_rebuild(backport, change)
+    assert result is False
+
+
+def test_validate_root_changes_warns_on_l10n_risk(backport_factory):
+    change = Mock()
+    change.number = 12345
+    change.project = "mediawiki/extensions/Example"
+    change.branch = "wmf/1.45.0-wmf.21"
+    change.depends_on_cycle = False
+    change.get.return_value = "NEW"
+
+    logger = Mock()
+    backport = backport_factory(
+        backports=Mock(changes={"12345": change}),
+        logger=logger,
+        arguments=Mock(yes=False),
+    )
+    backport.get_logger = Mock(return_value=logger)
+    backport._prompt_for_approval_or_exit = Mock()
+    backport.git_repos.change_is_deployable.return_value = True
+    backport.git_repos.change_targets_production.return_value = True
+
+    change.get_file_list.return_value = ["i18n/en.json", "includes/ExampleHooks.php"]
+
+    backport.validate_root_changes()
+
+    backport._prompt_for_approval_or_exit.assert_called_once()
+    prompt = backport._prompt_for_approval_or_exit.call_args[0][0]
+    assert "large l10n rebuild" in prompt
+    assert "12345" in prompt
 
 
 @pytest.mark.parametrize(

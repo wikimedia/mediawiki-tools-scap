@@ -270,6 +270,7 @@ class GerritChange:
     depends_on_cycle = None
     needed_by_chain = None
     approval_cutoff_utc: Optional[datetime] = None
+    modified_files: Optional[List[str]] = None
 
     def __init__(
         self, gerrit: GerritSession, number, details=None, needed_by_chain=None
@@ -292,6 +293,7 @@ class GerritChange:
             self.needed_by_chain = [str(number)]
 
         self.approval_cutoff_utc = None
+        self.modified_files = None
 
         # The changes this change depends on
         depends_ons = self.gerrit.depends_ons(self.get("id")).get()
@@ -330,6 +332,17 @@ class GerritChange:
     def update_details(self, get_all_revisions=False):
         revisionid = "all" if get_all_revisions else "current"
         self.details = self.gerrit.change_detail(self.number, revisionid).get()
+
+    def get_file_list(self) -> List[str]:
+        """Returns the list of files modified by this change."""
+        if self.modified_files is None:
+            self.modified_files = [
+                filename
+                for filename in self.gerrit.change_files(self.number).get().keys()
+                if filename != "/COMMIT_MSG"
+            ]
+
+        return self.modified_files
 
     def _format_dependency_chain(self) -> str:
         """Format the dependency chain for error messages."""
@@ -895,6 +908,26 @@ class Backport(cli.Application):
                     self._prompt_for_approval_or_exit(
                         f"{warning_msg}\nContinue with {self.backport_or_revert} anyway?"
                     )
+
+        l10n_risk_changes = [
+            change
+            for change in self.backports.changes.values()
+            if self._likely_causes_large_l10n_rebuild(change)
+        ]
+        if l10n_risk_changes:
+            change_numbers = ", ".join(
+                str(change.number) for change in l10n_risk_changes
+            )
+            warning_msg = (
+                f"🐌 Change(s) {change_numbers} touch l10n-related files and are likely to "
+                "trigger a large l10n rebuild, resulting in a slow deployment (~20 minutes)."
+            )
+            if self.arguments.yes:
+                self.get_logger().warning(warning_msg)
+            else:
+                self._prompt_for_approval_or_exit(
+                    f"{warning_msg}\nContinue with {self.backport_or_revert} anyway?"
+                )
 
     def _calculate_relevant_dependencies(self) -> List[DependencyTrail]:
         """
@@ -1744,28 +1777,31 @@ class Backport(cli.Application):
                 )
         return len(repo_commits)
 
-    def _get_file_list(self, change_number):
-        """
-        Returns the list of files modified by the change associated with change number.
-        """
-        return [
-            filename
-            for filename in self.gerrit.change_files(change_number).get().keys()
-            if filename != "/COMMIT_MSG"
-        ]
-
-    def _count_beta_only_config_files(self, change_number):
+    def _count_beta_only_config_files(self, change: GerritChange):
         beta_only_config_files = self.config["beta_only_config_files"].split()
         num_beta_files = 0
         num_other_files = 0
 
-        for file in self._get_file_list(change_number):
+        for file in change.get_file_list():
             if file in beta_only_config_files:
                 num_beta_files += 1
             else:
                 num_other_files += 1
 
         return num_beta_files, num_other_files
+
+    L10N_REBUILD_PATH_PATTERNS = (
+        re.compile(r"(^|/)i18n/"),
+        re.compile(r"(^|/)languages/"),
+        re.compile(r"(^|/)extension\.json$"),
+    )
+
+    def _likely_causes_large_l10n_rebuild(self, change) -> bool:
+        """Return True if a Gerrit change is likely to trigger a large l10n rebuild."""
+        return any(
+            any(pattern.search(path) for pattern in self.L10N_REBUILD_PATH_PATTERNS)
+            for path in change.get_file_list()
+        )
 
     def _beta_only_config_changes(self) -> bool:
         """
@@ -1777,7 +1813,7 @@ class Backport(cli.Application):
                 return False
 
             (num_beta_files, num_other_files) = self._count_beta_only_config_files(
-                change.number
+                change
             )
 
             if num_other_files > 0 or num_beta_files == 0:

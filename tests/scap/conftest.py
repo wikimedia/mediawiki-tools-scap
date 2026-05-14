@@ -73,6 +73,10 @@ def backport_factory():
             "logger": Mock(),
         }
 
+        # Setup gerrit mock to return empty file list by default
+        gerrit_mock = defaults["gerrit"]
+        gerrit_mock.change_files.return_value.get.return_value = {}
+
         # Merge overrides with defaults
         config = {**defaults, **overrides}
 
