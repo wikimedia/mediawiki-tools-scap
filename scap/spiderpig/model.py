@@ -560,9 +560,10 @@ class TrainPromotion(BasePydantic):
     @field_validator("group")
     @classmethod
     def _validate_group(cls, value: str) -> str:
-        if value not in train.GROUPS:
+        valid_groups = train.GROUPS + ["all"]
+        if value not in valid_groups:
             raise ValueError(
-                f"Invalid train group '{value}'. Must be one of: {', '.join(train.GROUPS)}"
+                f"Invalid train group '{value}'. Must be one of: {', '.join(valid_groups)}"
             )
         return value
 

@@ -638,10 +638,32 @@ def test_train_promotion_rejects_flag_like_version(train_status_fixture):
         )
 
 
-def test_train_promotion_rejects_invalid_group(train_status_fixture):
+def test_train_promotion_all_group_is_valid(train_status_fixture):
+    promotion = TrainPromotion(
+        group="all",
+        version="1.42.0-wmf.20",
+        old_version="1.42.0-wmf.19",
+        excluded_wikis=[],
+        original_train_status=train_status_fixture,
+    )
+
+    assert promotion.command == [
+        "scap",
+        "deploy-promote",
+        "--yes",
+        "--train",
+        "--old-version",
+        "1.42.0-wmf.19",
+        "--",
+        "all",
+        "1.42.0-wmf.20",
+    ]
+
+
+def test_train_promotion_rejects_unknown_group(train_status_fixture):
     with pytest.raises(ValidationError, match="Invalid train group"):
         TrainPromotion(
-            group="all",
+            group="not-a-group",
             version="1.42.0-wmf.20",
             old_version="1.42.0-wmf.19",
             excluded_wikis=[],
