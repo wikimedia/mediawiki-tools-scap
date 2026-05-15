@@ -1,3 +1,9 @@
+scap (4.265.1)
+
+  * spiderpig train: fix deploy_promote "all"
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Fri, 15 May 2026 08:46:09 -0700
+
 scap (4.265.0)
 
   * scap prep: Add foss_violations support
