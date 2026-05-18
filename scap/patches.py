@@ -322,7 +322,7 @@ class ApplyPatches(cli.Application):
             )
             patch_dir = "next"
 
-        patch_path = self.config["patch_path"]
+        patch_path_on_deploy_host = "/srv/patches"
 
         return header + (
             "\n"
@@ -334,7 +334,7 @@ class ApplyPatches(cli.Application):
             "```\n"
             "REVISED_PATCH=<path_to_revised_patch>\n"
             "scap update-patch --message-body 'Rebase to solve merge conflicts'"
-            f""" {patch_path}/{patch_dir}/{module}/{patch_name} "$REVISED_PATCH" """
+            f""" {patch_path_on_deploy_host}/{patch_dir}/{module}/{patch_name} "$REVISED_PATCH" """
             "```\n"
             "---\n"
             "//If the patch has been made public//\n"
@@ -342,7 +342,7 @@ class ApplyPatches(cli.Application):
             "The patch can be dropped in the deployment server with the following Scap command:\n"
             "```\n"
             "scap remove-patch --message-body 'Dropping patch already made public'"
-            f" {patch_path}/{patch_dir}/{module}/{patch_name}"
+            f" {patch_path_on_deploy_host}/{patch_dir}/{module}/{patch_name}"
             "```"
         )
 
