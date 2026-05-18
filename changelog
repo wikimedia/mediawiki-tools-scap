@@ -1,3 +1,9 @@
+scap (4.265.2)
+
+  * scap/patches.py: fix notifications patches path
+
+ -- Jaime Nuche <jnuche@wikimedia.org>  Mon, 18 May 2026 10:53:21 +0200
+
 scap (4.265.1)
 
   * spiderpig train: fix deploy_promote "all"
