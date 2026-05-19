@@ -38,4 +38,4 @@ ENTRYPOINT ["/entrypoint.deploy"]
 
 FROM base AS cas
 COPY cas_server.py /home/deployer01
-ENTRYPOINT ["fastapi", "run", "--host", "0.0.0.0", "--port", "8002", "cas_server.py"]
+ENTRYPOINT ["uvicorn", "--factory", "--host", "0.0.0.0", "--port", "8002", "cas_server:create_app"]

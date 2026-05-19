@@ -1,5 +1,5 @@
 from typing import Annotated, Optional
-from fastapi import FastAPI, Form, Request
+from fastapi import APIRouter, FastAPI, Form, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 import json
 import os
@@ -50,6 +50,13 @@ SERVICE_DB = {"http://localhost:8000/": {"name": "SpiderPig local development"}}
 
 
 def get_service_info(service: str) -> Optional[dict]:
+    """Return info for a known service URL prefix.
+
+    >>> get_service_info("http://localhost:8000/foo")["name"]
+    'SpiderPig local development'
+    >>> get_service_info("https://example.org/") is None
+    True
+    """
     for url_prefix, info in SERVICE_DB.items():
         if service.startswith(url_prefix):
             return info
@@ -163,10 +170,10 @@ Password: <input name="password" type="password"/><br>
     return HTMLResponse(resp)
 
 
-app = FastAPI()
+router = APIRouter()
 
 
-@app.get("/cas/login")
+@router.get("/cas/login")
 async def cas_login(request: Request, service: Optional[str] = None):
     if service and not get_service_info(service):
         return HTMLResponse(
@@ -181,7 +188,7 @@ async def cas_login(request: Request, service: Optional[str] = None):
     return render_cas_login_form(service=service)
 
 
-@app.post("/cas/login")
+@router.post("/cas/login")
 async def cas_login_post(
     request: Request,
     username: Annotated[str, Form()],
@@ -205,7 +212,7 @@ async def cas_login_post(
     return cas_successful_auth_response(service, username)
 
 
-@app.get("/cas/logout")
+@router.get("/cas/logout")
 async def cas_logout(request: Request, service: Optional[str] = None):
     request.session["SSO"] = None
 
@@ -218,7 +225,7 @@ async def cas_logout(request: Request, service: Optional[str] = None):
     )
 
 
-@app.get("/cas/p3/serviceValidate")
+@router.get("/cas/p3/serviceValidate")
 async def cas_validate(request: Request, ticket: str, service: str):
     if not get_service_info(service):
         return HTMLResponse(
@@ -271,4 +278,8 @@ def get_session_key():
     return key
 
 
-app.add_middleware(SessionMiddleware, secret_key=get_session_key())
+def create_app() -> FastAPI:
+    app = FastAPI()
+    app.add_middleware(SessionMiddleware, secret_key=get_session_key())
+    app.include_router(router)
+    return app
