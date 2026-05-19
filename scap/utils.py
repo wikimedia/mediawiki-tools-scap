@@ -133,8 +133,8 @@ def find_nearest_host(hosts, port=22, timeout=1):
     for ttl in range(1, 30):
         if not host_map:
             break
-        for host, infos in random.sample(host_map.items(), len(host_map)):
-            for info in infos:
+        for host in random.sample(sorted(host_map), len(host_map)):
+            for info in host_map[host]:
                 family, sock_type, proto, _, addr = info
 
                 if family == socket.AF_INET:
