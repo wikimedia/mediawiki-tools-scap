@@ -238,7 +238,7 @@ def strip_common_dirname(paths):
     Removes from the given paths a parent directory that all paths have in
     common.
 
-    >>> strip_common(['/srv/foo', '/srv/foo/bar', '/srv/bar'])
+    >>> strip_common_dirname(['/srv/foo', '/srv/foo/bar', '/srv/bar'])
     ['foo', 'foo/bar', 'bar']
     """
 
