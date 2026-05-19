@@ -130,8 +130,8 @@ class Writer(object):
         It uses hashfn to hash keys.
 
         >>> import tempfile
-        >>> temp_fp = tempfile.TemporaryFile()
-        >>> Writer(fp=temp_fp, hashfn=py_djb_hash) #doctest: +ELLIPSIS
+        >>> with tempfile.TemporaryFile() as temp_fp:
+        ...     Writer(fp=temp_fp, hashfn=py_djb_hash) #doctest: +ELLIPSIS
         <scap.cdblib.Writer object at 0x...>
         """
         self.fp = fp

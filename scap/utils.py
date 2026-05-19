@@ -117,6 +117,7 @@ def find_nearest_host(hosts, port=22, timeout=1):
     >>> # End test fixture
     >>> find_nearest_host(['127.0.0.1'], port=fixture_port)
     '127.0.0.1'
+    >>> fixture_socket.close()
 
     :param hosts: Hosts to check
     :param port: Port to try to connect on (default: 22)

@@ -799,6 +799,13 @@ class Stats(object):
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.address = (host, port)
 
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        if self.socket:
+            self.socket.close()
+
     def timing(self, name, milliseconds):
         """Report a timing measurement in milliseconds."""
         metric = "%s:%s|ms" % (name, int(round(milliseconds)))
@@ -828,9 +835,9 @@ class Timer(object):
     >>> with Timer('example'):
     ...     time.sleep(0.1)
 
-    >>> s = Stats('127.0.0.1', 2003)
-    >>> with Timer('example', stats=s):
-    ...     time.sleep(0.1)
+    >>> with Stats('127.0.0.1', 2003) as s:
+    ...     with Timer('example', stats=s):
+    ...         time.sleep(0.1)
     """
 
     @utils.log_context("timer")
