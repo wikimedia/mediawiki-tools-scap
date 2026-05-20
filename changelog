@@ -1,3 +1,11 @@
+scap (4.266.0)
+
+  * backport: Warn when a l10n-touching change is backported
+  * web/package*: Ran npm audit fix --force
+  * local-dev/cas_server.py: Use application factory
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Wed, 20 May 2026 07:05:29 -0700
+
 scap (4.265.2)
 
   * scap/patches.py: fix notifications patches path
