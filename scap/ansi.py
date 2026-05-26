@@ -68,11 +68,17 @@ def esc(*args):
 
 def format_ansi(*args):
     """
-    create an ansi color string from a list of color codes and plain strings.
+    Create an ansi color string from a list of color codes and plain strings.
 
-    >>> format_ansi((FG_BLUE,BG_WHITE),'blue on white') \
-                 == '\x1b[34;47mblue on white\x1b[0m'
-    True
+    A single sequence can be passed directly:
+
+    >>> format_ansi(BRIGHT, 'bright text')
+    '\\x1b[1mbright text\\x1b[0m'
+
+    Multiple sequences should be in a tuple:
+
+    >>> format_ansi((FG_BLUE,BG_WHITE),'blue on white')
+    '\\x1b[34;47mblue on white\\x1b[0m'
 
     :param args: ANSI color codes and strings of text
     :returns: str

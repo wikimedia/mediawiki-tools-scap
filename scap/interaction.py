@@ -149,13 +149,11 @@ class TerminalIO(UserIOBase):
 
         choices_text = ""
         for choice, key in choices.items():
+            text = f"[{key}] {choice}\n"
             if key == default:
-                before = ansi.esc(ansi.BRIGHT)
-                after = ansi.esc(ansi.RESET_ALL)
-            else:
-                before = ""
-                after = ""
-            choices_text += f"{before}[{key}] {choice}{after}\n"
+                text = ansi.format_ansi(ansi.BRIGHT, text)
+            choices_text += text
+
         default_text = f" (default: [{default}])" if default else ""
 
         if preamble:
