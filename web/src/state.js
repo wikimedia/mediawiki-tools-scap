@@ -28,13 +28,6 @@ export const notificationsStore = defineStore( 'spiderpig-notifications',
 				interaction.job_id === JSON.parse( this.jobId ) &&
 				!this._alreadyNotified( interaction.id );
 			},
-			_jobMatchesTrackedJob( jobId ) {
-				if ( !this.jobId ) {
-					return false;
-				}
-
-				return jobId === JSON.parse( this.jobId );
-			},
 			_jobFinishedBody( job ) {
 				if ( job.exit_status === 0 ) {
 					return `Job ${ job.id } finished successfully`;
@@ -64,19 +57,28 @@ export const notificationsStore = defineStore( 'spiderpig-notifications',
 					this._rememberNotified( interaction.id );
 				}
 			},
-			notifyJobFinished( job ) {
-				if (
-					Notification.permission !== 'granted' ||
-					!job.finished_at ||
-					!this._jobMatchesTrackedJob( job.id )
-				) {
+			async notifyJobFinished( job ) {
+				if ( Notification.permission !== 'granted' || !job.finished_at ) {
 					return;
 				}
 
-				new Notification( 'SpiderPig job finished', {
-					body: this._jobFinishedBody( job )
+				await navigator.locks.request( 'spiderpig-notify-finished', () => {
+					// Read directly from localStorage rather than the reactive
+					// ref so we observe writes from sibling tabs that may not
+					// have propagated through the storage event yet.
+					const stored = localStorage.getItem( 'spiderpig-job-id' );
+					if ( !stored || JSON.parse( stored ) !== job.id ) {
+						return;
+					}
+
+					// Clear before firing so any tab queued behind us on the
+					// lock sees null and bails.
+					this.jobId = null;
+
+					new Notification( 'SpiderPig job finished', {
+						body: this._jobFinishedBody( job )
+					} );
 				} );
-				this.jobId = null;
 			},
 			// Called from Interaction.vue when the user has responded.
 			closeNotification() {
