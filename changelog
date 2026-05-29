@@ -1,3 +1,13 @@
+scap (4.267.0)
+
+  * SpiderPig: Notify when job completes
+  * Fix miscellaneous doctest
+  * utils.py: py311 random.sample() now requires a sequence
+  * Address ResourceWarning in doctest
+  * tox.ini: enable doctest
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Fri, 29 May 2026 08:19:05 -0700
+
 scap (4.266.0)
 
   * backport: Warn when a l10n-touching change is backported
