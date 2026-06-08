@@ -828,7 +828,7 @@ def update_next_patches(patches_dir: str, logger, dry_run: bool = False) -> list
         else:
             logger.info(f"Copying {source_rel} to {target_path}")
             os.makedirs(os.path.dirname(target_path), exist_ok=True)
-            shutil.copy2(source_path, target_path)
+            shutil.copyfile(source_path, target_path)
             adds.append(target_path)
 
     # Removal phase
