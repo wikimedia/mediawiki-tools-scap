@@ -1,5 +1,12 @@
 scap (4.268.0)
 
+  * Release 4.268.0
+  * patches.py: replace `shutil.copy2` with `shutil.copyfile`
+
+ -- Jaime Nuche <jnuche@wikimedia.org>  Mon, 08 Jun 2026 19:23:58 +0200
+
+scap (4.268.0)
+
   * patches.py: replace `shutil.copy2` with `shutil.copyfile`
 
  -- Jaime Nuche <jnuche@wikimedia.org>  Mon, 08 Jun 2026 19:19:27 +0200
