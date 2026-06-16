@@ -166,7 +166,7 @@ class JSONFormatter(logging.Formatter):
         ("name", ""),
         ("levelno", logging.INFO),
         ("filename", None),
-        ("lineno", None),
+        ("lineno", 0),
         ("msg", ""),
         ("args", ()),
         ("exc_info", None),
