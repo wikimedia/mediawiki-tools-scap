@@ -1,3 +1,10 @@
+scap (4.269.0)
+
+  * config.py: Bump version_update_patch_timeout to 10 minutes
+  * log.py: Fix JSONFormatter to use 0 for lineno instead of None
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Tue, 16 Jun 2026 08:28:01 -0700
+
 scap (4.268.0)
 
   * Release 4.268.0
