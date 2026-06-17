@@ -10,6 +10,10 @@ stages:
   - build-docs
   - publish-docs
 
+default:
+  tags:
+    - staging
+
 verify-deps:
   stage: test
   extends: .kokkuri:build-and-run-image
