@@ -250,11 +250,12 @@ class AbstractSync(cli.Application):
                         depstage.pre_check_func()
 
                     if not self._run_stage_checks(stage, depstage.check_funcs):
-                        k8s_result = self._rollback_and_mark_stage_failure(
-                            stage,
-                            "checks-failed",
-                            k8s_stage_statuses,
-                        )
+                        if self.config["deploy_mw_container_image"]:
+                            k8s_result = self._rollback_and_mark_stage_failure(
+                                stage,
+                                "checks-failed",
+                                k8s_stage_statuses,
+                            )
                         sync_failed = True
                         break
                     if depstage.post_func:
