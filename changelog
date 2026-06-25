@@ -1,3 +1,10 @@
+scap (4.270.1)
+
+  * main.py: Only announce rollback when k8s deployment is enabled
+  * config.py: Fix default mw_web_clusters
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Thu, 25 Jun 2026 08:45:35 -0700
+
 scap (4.270.0)
 
   * main.py: Don't attempt k8s rollback unless deploy_mw_container_image is true
