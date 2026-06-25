@@ -289,7 +289,8 @@ class AbstractSync(cli.Application):
         return "rollback cancelled"
 
     def _announce_rollback(self):
-        self.announce("Rolling back deployment")
+        if self.config["deploy_mw_container_image"]:
+            self.announce("Rolling back deployment")
 
     def _run_stage_checks(
         self,
