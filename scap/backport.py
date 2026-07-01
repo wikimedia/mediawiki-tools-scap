@@ -1793,7 +1793,6 @@ class Backport(cli.Application):
     L10N_REBUILD_PATH_PATTERNS = (
         re.compile(r"(^|/)i18n/"),
         re.compile(r"(^|/)languages/"),
-        re.compile(r"(^|/)extension\.json$"),
     )
 
     def _likely_causes_large_l10n_rebuild(self, change) -> bool:
