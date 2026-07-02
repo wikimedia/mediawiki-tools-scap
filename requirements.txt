@@ -3,20 +3,22 @@ chardet==5.2
 charset-normalizer==2.1.1
 greenlet==3.0.3; python_version < '3.13'
 greenlet==3.3.0; python_version >= '3.13'
-idna==3.7
+idna==3.18
 Jinja2==3.1.6
 MarkupSafe==3.0.2
 packaging
 prettytable==3.7.0
 python-dateutil==2.9.0.post0
-Pygments==2.17.2
+Pygments==2.20.0
 pyparsing==3.0.9
 PyYAML==6.0.2
-requests==2.32.4
+requests==2.32.5; python_version < '3.10'
+requests==2.34.2; python_version >= '3.10'
 setuptools==78.1.1
 SQLAlchemy==2.0.32
 typing-extensions>=4.7.1
-urllib3==2.5.0
+urllib3==2.6.3; python_version < '3.10'
+urllib3==2.7.0; python_version >= '3.10'
 wcwidth==0.2.5
 
 # SpiderPig stuff
