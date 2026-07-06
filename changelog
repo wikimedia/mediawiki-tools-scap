@@ -1,3 +1,10 @@
+scap (4.272.0)
+
+  * package-lock.json: Updates from npm audit fix
+  * requirements: Bump vulnerable dependencies to address Dependabot alerts
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Mon, 06 Jul 2026 08:29:08 -0700
+
 scap (4.271.0)
 
   * backport: Remove extension.json from L10N_REBUILD_PATH_PATTERNS
