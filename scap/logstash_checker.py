@@ -43,7 +43,7 @@ class LogstashCheckerCommand(cli.Application):
             )
         logger.info("Analyzing logstash history for stage: %s", self.arguments.stage)
         logstash_checker.LogstashChecker(
-            self.config["logstash_host"],
+            logstash.logstash_url(self.config),
             self.config["canary_wait_time"],
             k8s_ops.get_stage_dep_configs(self.arguments.stage),
             baremetal_hosts,
@@ -54,7 +54,7 @@ class LogstashCheckerCommand(cli.Application):
 class LogstashChecker:
     def __init__(
         self,
-        logstash_host,
+        logstash_url,
         window_size,
         k8s_dep_configs,
         baremetal_hosts,
@@ -64,7 +64,7 @@ class LogstashChecker:
         self.k8s_dep_configs = k8s_dep_configs
         self.baremetal_hosts = baremetal_hosts
         self.logger = logger
-        self.logstash = logstash.Logstash(logstash_host, logger)
+        self.logstash = logstash.Logstash(logstash_url, logger)
 
     def check(self, threshold) -> bool:
         """

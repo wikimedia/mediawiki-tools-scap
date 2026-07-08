@@ -52,7 +52,11 @@ DEFAULT_CONFIG = {
     "lock_file": (str, None),
     "lock_dir": (str, "/var/lock"),
     "log_json": (bool, False),
-    "logstash_host": (str, "logstash1001.eqiad.wmnet:9200"),
+    # logstash_host (a bare host:port) is deprecated in favor of logstash_url
+    # (scheme://host:port). It is still accepted for a transition period; see
+    # logstash.logstash_url().  T431635
+    "logstash_host": (str, None),
+    "logstash_url": (str, None),
     "debug_logstash": (bool, False),
     "mw_web_clusters": (str, "jobrunner,appserver,api_appserver,testserver"),
     "manage_mediawiki_php_symlink": (bool, True),

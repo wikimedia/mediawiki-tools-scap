@@ -16,7 +16,7 @@ def main(cfg, logger, results_dir, debug_logstash):
     The logstash poller main loop.
     """
     poller = LogstashPoller(
-        cfg["logstash_host"], DEFAULT_WINDOW, logger, debug_logstash
+        logstash.logstash_url(cfg), DEFAULT_WINDOW, logger, debug_logstash
     )
     while True:
         try:
@@ -56,7 +56,7 @@ class LogstashPollCommand(cli.Application):
             logging.root.handlers[0].setLevel("DEBUG")
 
         poller = LogstashPoller(
-            self.config["logstash_host"],
+            logstash.logstash_url(self.config),
             window,
             logger,
             self.arguments.debug or self.config["debug_logstash"],
@@ -69,11 +69,11 @@ class LogstashPollCommand(cli.Application):
 
 
 class LogstashPoller:
-    def __init__(self, logstash_host, window_size, logger, debug_logstash):
+    def __init__(self, logstash_url, window_size, logger, debug_logstash):
         self.window_size = window_size
         self.logger = logger
         self.logstash = logstash.Logstash(
-            logstash_host, logger if debug_logstash else None
+            logstash_url, logger if debug_logstash else None
         )
 
     def poll(self) -> dict:

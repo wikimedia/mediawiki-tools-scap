@@ -41,6 +41,7 @@ import scap.interaction as interaction
 import scap.lint as lint
 import scap.lock as lock
 import scap.log as log
+import scap.logstash as logstash
 import scap.logstash_checker as logstash_checker
 import scap.mwscript as mwscript
 import scap.php_fpm as php_fpm
@@ -925,7 +926,7 @@ class AbstractSync(cli.Application):
 
     def _logstash_checker(self, dep_configs, baremetal_hosts):
         return logstash_checker.LogstashChecker(
-            self.config["logstash_host"],
+            logstash.logstash_url(self.config),
             self.config["canary_wait_time"],
             dep_configs,
             baremetal_hosts or [],

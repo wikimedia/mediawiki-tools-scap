@@ -13,6 +13,7 @@ import time
 from typing import Optional
 
 import scap.cli as cli
+import scap.logstash as logstash
 from scap.interaction import TerminalIO
 import scap.logstash_poller as logstash_poller
 
@@ -69,7 +70,7 @@ class JobRunner(cli.Application):
             os.makedirs(logdir, exist_ok=True)
             os.chmod(logdir, 0o770 | stat.S_ISGID)
 
-            if self.config["logstash_host"]:
+            if logstash.logstash_url(self.config):
                 threading.Thread(
                     target=logstash_poller.main,
                     daemon=True,
