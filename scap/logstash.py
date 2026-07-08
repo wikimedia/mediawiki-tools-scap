@@ -8,7 +8,6 @@
 """
 
 import json
-import os
 import urllib3
 import logging
 
@@ -42,9 +41,7 @@ class Logstash:
                 ca_certs="/etc/ssl/certs/ca-certificates.crt",
                 cert_reqs="CERT_REQUIRED",
             )
-            logstash_search_url = os.path.join(
-                self.logstash_host, "logstash-*", "_search"
-            )
+            logstash_search_url = f"https://{self.logstash_host}/logstash-*/_search"
             response = pool.urlopen(
                 "POST",
                 logstash_search_url,
