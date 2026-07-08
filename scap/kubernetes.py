@@ -13,7 +13,7 @@ import shlex
 import subprocess
 import tempfile
 import threading
-from typing import List, Optional
+from typing import Dict, List, Optional
 import queue
 
 import yaml
@@ -41,11 +41,19 @@ LABEL_PARENT_IMAGE = "vnd.wikimedia.parent-image"
 
 
 class InvalidDeploymentsConfig(Exception):
-    pass
+    def __init__(self, *args):
+        super().__init__(*args)
+        # A malformed deployments config is a user-facing error, not a scap bug,
+        # so it should not print a stack trace (unless SCAP_BACKTRACE is set for
+        # debugging). This flag is read by cli.Application._handle_exception.
+        self._scap_no_backtrace = os.environ.get("SCAP_BACKTRACE", None) is None
 
 
 # The default production image kind producted by the image build process.
 _DEFAULT_IMAGE_KIND = "image"
+
+# The scope assigned to a deployment target when none is specified.
+_DEFAULT_SCOPE = "train"
 
 
 @dataclass
@@ -89,6 +97,9 @@ class DepConfig:
     # Helmfile release
     release: str
     cluster: str
+    # The scope this target belongs to (e.g. "train" or "pretrain"). Used to
+    # filter what scap deploys (see --scope) and to select supervision rules.
+    scope: str
 
     mw_image_kind: Optional[str]
     mw_image_flavour: str
@@ -100,15 +111,68 @@ class DepConfig:
     helmfile_dir: str
 
 
+@dataclass
+class SupervisionCheck:
+    """A single health check to run at a deployment stage."""
+
+
+@dataclass
+class LogstashCheck(SupervisionCheck):
+    """An error-rate check evaluated against logstash.
+
+    `threshold` is the error count at or above which the check fails. By default
+    the check supervises the targets of its rule's scope at the current stage;
+    `scope` and `stage` override which deployments it supervises (see DeploymentsConfig
+    docstring).
+    """
+
+    threshold: int
+    scope: Optional[str] = None
+    stage: Optional[str] = None
+
+
+@dataclass
+class CommandsCheck(SupervisionCheck):
+    """A list of shell commands to run (e.g. httpbb invocations)."""
+
+    commands: List[str]
+
+
+@dataclass
+class SupervisionRule:
+    """Binds a set of per-stage checks to a deployment scope.
+
+    When scap deploys a target of `scope`, the checks in `stages[<stage>]` are
+    run at that stage. The overall set of checks executed at a stage is the
+    union across all rules whose scope was deployed in this run.
+    """
+
+    scope: str
+    # Maps a deployment stage name to the checks to run at that stage.
+    stages: Dict[str, List[SupervisionCheck]]
+
+
 class DeploymentsConfig:
     """
     Represents the configuration of MediaWiki deployments for use by Scap.
 
-    The deployments config is loaded from a YAML config file, containing a list of deployments
-    config items.
+    The deployments config is loaded from a YAML config file. Two top-level formats are
+    supported:
 
-    Each deployments config item has the following fields:
+      * Legacy: a bare list of deployment config items (as produced by the mw_releases
+        hieradata value).
+      * Mapping: a dict with a "deployment_targets" key holding the list of deployment
+        config items, and an optional "supervision_rules" key (see below). This format
+        allows supervision configuration to live alongside the deployment targets.
+
+    Both formats are accepted so that scap continues to work before and after the source
+    of truth (puppet's mw_releases) migrates to the mapping format.
+
+    Each deployment config item has the following fields:
       namespace: A k8s namespace containing one or more helmfile releases
+      scope: An arbitrary label grouping related targets (e.g. "train" or "pretrain").
+        Used by the --scope command line argument to filter what scap deploys, and to
+        select the applicable supervision rules. Optional (default: "train").
       releases: A mapping from helmfile release name to release configuration
       mw_kind: Default image kind for the MediaWiki image used by releases in this namespace. At a
         high level, an image kind is analogous to an image build target. This value must correspond
@@ -135,6 +199,43 @@ class DeploymentsConfig:
       web_flavour: Release-specific override to the namespace-level equivalent
       deploy: Whether this release should be deployed by scap. If false, scap will manage only the
         helmfile release values files for this release. Optional (default: true)
+
+    In the mapping format, an optional top-level "supervision_rules" key describes how to
+    verify the health of deployed targets. It is a list of rules, each with:
+      scope: When scap deploys a target of this scope, this rule's checks are run.
+      stages: A mapping from deployment stage name (testservers, canaries, production) to a
+        list of checks to run at that stage. Each check is a single-key mapping naming the
+        check type ("logstash_check" or "commands"). The set of checks executed at a stage is
+        the union across all rules whose scope was deployed in this run. At each stage, any
+        "commands" checks run before the "logstash_check" checks, so that the error rate the
+        latter measure reflects the traffic the commands generated.
+
+    A "commands" check is a list of shell command strings to run (e.g. httpbb invocations).
+    A "logstash_check" takes a "threshold" (error count) and optional "scope" and "stage"
+    overrides. By default a check supervises the targets of its rule's scope that were deployed
+    at the current stage. The overrides let a check instead supervise a different scope and/or
+    stage - for example, a pretrain canary-stage check can supervise the train production fleet
+    as a guardrail:
+
+      supervision_rules:
+        - scope: pretrain
+          stages:
+            canaries:
+              - logstash_check: {threshold: 5}
+              - logstash_check: {scope: train, stage: production, threshold: 150}
+        - scope: train
+          stages:
+            testservers:
+              - commands:
+                  - "httpbb /srv/deployment/httpbb-tests/appserver/* --hosts=mwdebug.discovery.wmnet --https_port=4444 --retry_on_timeout"
+                  - "httpbb /srv/deployment/httpbb-tests/appserver/* --hosts=mwdebug-next.discovery.wmnet --https_port=4453 --retry_on_timeout"
+            canaries:
+              - logstash_check: {threshold: 10}
+            production:
+              - logstash_check: {threshold: 150}
+
+    When no supervision_rules are configured (e.g. the legacy format), scap falls back to the
+    canary_threshold and production_error_threshold scap.cfg settings.
 
     Instances of this class translate that format into one that represents Scap workflow better by
     organizing the configurations around deployment stages.
@@ -175,6 +276,7 @@ class DeploymentsConfig:
         namespace="testservers",
         release="debug",
         cluster="default-cluster",
+        scope="train",
         mw_image_kind="debug-image",
         mw_image_flavour="publish",
         web_image_flavour="webserver",
@@ -187,6 +289,7 @@ class DeploymentsConfig:
         namespace="api1",
         release="canary",
         cluster="default-cluster",
+        scope="train",
         mw_image_kind=None,
         mw_image_flavour="publish",
         web_image_flavour="webserver",
@@ -199,6 +302,7 @@ class DeploymentsConfig:
         namespace="api1",
         release="main",
         cluster="default-cluster",
+        scope="train",
         mw_image_kind=None,
         mw_image_flavour="publish",
         web_image_flavour="webserver",
@@ -210,6 +314,7 @@ class DeploymentsConfig:
         namespace="api2",
         release="main",
         cluster="dse-eqiad",
+        scope="train",
         mw_image_kind=None,
         mw_image_flavour="publish",
         web_image_flavour="webserver",
@@ -221,6 +326,7 @@ class DeploymentsConfig:
         namespace="api2",
         release="experimental",
         cluster="dse-eqiad",
+        scope="train",
         mw_image_kind=None,
         mw_image_flavour="publish-experimental",
         web_image_flavour="webserver",
@@ -232,6 +338,7 @@ class DeploymentsConfig:
         namespace="api2",
         release="maintenance",
         cluster="dse-eqiad",
+        scope="train",
         mw_image_kind="cli-image",
         mw_image_flavour="publish",
         web_image_flavour="webserver",
@@ -258,26 +365,169 @@ class DeploymentsConfig:
         testservers: List[DepConfig],
         canaries: List[DepConfig],
         production: List[DepConfig],
+        supervision_rules: Optional[List[SupervisionRule]] = None,
+        scope_filter: Optional[set] = None,
     ):
         self.stages = {
             TEST_SERVERS: testservers,
             CANARIES: canaries,
             PRODUCTION: production,
         }
+        # None means "no supervision configured" (fall back to scap.cfg thresholds).
+        self.supervision_rules = supervision_rules
+        # The set of scopes that --scope restricts this run to. None means no
+        # restriction (all scopes). This is the requested filter; scopes_deployed()
+        # derives the scopes actually being deployed from it.
+        self.scope_filter = scope_filter
+
+    def deployed_stage_dep_configs(self, stage: str) -> List[DepConfig]:
+        """
+        Returns a list of DepConfigs for the specified stage, limited to the scopes
+        being deployed.
+
+        Used by deploy operations so that --scope restricts what scap touches.
+        Includes non-deploy releases (whose helmfile values files scap still
+        manages); filter on .deploy separately if needed.
+        """
+        dep_configs = self.stages[stage]
+        if self.scope_filter is None:
+            return dep_configs
+        return [dc for dc in dep_configs if dc.scope in self.scope_filter]
+
+    def supervised_dep_configs(self, scope: str, stage: str) -> List[DepConfig]:
+        """Deployable DepConfigs of a given scope at a given stage.
+
+        Used by supervision to determine which targets a check supervises. This is
+        NOT limited by the scope_filter: a check may supervise a scope other than the
+        one being deployed (e.g. a guardrail watching the train production fleet
+        while deploying pretrain).
+        """
+        return [dc for dc in self.stages[stage] if dc.deploy and dc.scope == scope]
+
+    def scopes_deployed(self) -> set:
+        """The set of scopes actually deployed in this run.
+
+        Restricted to scopes that have at least one deployable target, and further
+        limited to the scope_filter when --scope was used.
+        """
+        present = {
+            dc.scope
+            for dep_configs in self.stages.values()
+            for dc in dep_configs
+            if dc.deploy
+        }
+        if self.scope_filter is None:
+            return present
+        return present & self.scope_filter
+
+    def resolve_logstash_checks(self, stage: str) -> List[LogstashCheck]:
+        """
+        Return the logstash checks to run at a stage, de-duplicated.
+
+        Collects, for the given deployment stage, every logstash check defined by a rule
+        whose scope was deployed in this run. The returned LogstashCheck objects have
+        inheritance already applied: each supervises a (scope, stage) pair inherited from
+        its rule's scope and the current stage, unless the authored check overrode "scope"
+        and/or "stage". So, unlike an as-authored check, a returned check always has a
+        concrete scope and stage (never None). For example, at the pretrain canaries stage:
+
+            {threshold: 5}                                     supervises (pretrain, canaries)
+            {scope: train, stage: production, threshold: 150}  supervises (train, production)
+
+        The second is a system-wide guardrail: while deploying pretrain canaries, it watches
+        the train production fleet.
+
+        Returns an empty list when no supervision rules are configured, or when no rule
+        matches the deployed scopes at this stage.
+        """
+        if self.supervision_rules is None:
+            return []
+
+        deployed_scopes = self.scopes_deployed()
+
+        resolved = []
+        for rule in self.supervision_rules:
+            if rule.scope in deployed_scopes:
+                for check in rule.stages.get(stage, []):
+                    if isinstance(check, LogstashCheck):
+                        resolved_check = LogstashCheck(
+                            threshold=check.threshold,
+                            scope=check.scope or rule.scope,
+                            stage=check.stage or stage,
+                        )
+                        if resolved_check not in resolved:
+                            resolved.append(resolved_check)
+
+        return resolved
+
+    def resolve_command_checks(self, stage: str) -> List[str]:
+        """
+        Return the shell commands to run at a stage, in order and de-duplicated.
+
+        Collects, for the given deployment stage, the commands from every "commands"
+        check defined by a rule whose scope was deployed in this run. Unlike logstash
+        checks, commands are plain shell strings with no scope/stage of their own.
+
+        Returns an empty list when no supervision rules are configured, or when no rule
+        defines commands for the deployed scopes at this stage.
+        """
+        if self.supervision_rules is None:
+            return []
+
+        deployed_scopes = self.scopes_deployed()
+
+        commands = []
+        for rule in self.supervision_rules:
+            if rule.scope in deployed_scopes:
+                for check in rule.stages.get(stage, []):
+                    if isinstance(check, CommandsCheck):
+                        for command in check.commands:
+                            if command not in commands:
+                                commands.append(command)
+
+        return commands
 
     @classmethod
-    def parse(cls, app, default_clusters: List[str]) -> "DeploymentsConfig":
+    def parse(
+        cls, app, default_clusters: List[str], scope: Optional[set] = None
+    ) -> "DeploymentsConfig":
+        """Parse the deployments config file.
+
+        `scope` limits the deployment to targets in the given set of scopes; None (the
+        default) means all scopes.
+        """
         testservers = []
         canaries = []
         production = []
 
         with open(app.config["k8s_deployments_file"]) as f:
-            deployments = yaml.safe_load(f)
+            doc = yaml.safe_load(f)
+
+        # Two top-level formats are supported (see class docstring): a bare list of
+        # deployment targets (legacy), or a mapping with a "deployment_targets" key
+        # and an optional "supervision_rules" key.
+        if isinstance(doc, list):
+            deployments = doc
+            raw_supervision_rules = None
+        elif isinstance(doc, dict):
+            if "deployment_targets" not in doc:
+                raise InvalidDeploymentsConfig(
+                    'deployments config mapping is missing the "deployment_targets" key'
+                )
+            deployments = doc["deployment_targets"]
+            raw_supervision_rules = doc.get("supervision_rules")
+        else:
+            raise InvalidDeploymentsConfig(
+                "deployments config must be a list or a mapping"
+            )
 
         namespaces = defaultdict(set)  # Key is cluster
+        scopes_seen = set()
 
         for dep_config in deployments:
             namespace = dep_config["namespace"]
+            dep_scope = dep_config.get("scope", _DEFAULT_SCOPE)
+            scopes_seen.add(dep_scope)
 
             for cluster in dep_config.get("clusters", default_clusters):
                 if namespace in namespaces[cluster]:
@@ -315,6 +565,7 @@ class DeploymentsConfig:
                         namespace=namespace,
                         release=release,
                         cluster=cluster,
+                        scope=dep_scope,
                         mw_image_kind=mw_image_kind,
                         mw_image_flavour=mw_flavour,
                         web_image_flavour=web_flavour,
@@ -338,7 +589,99 @@ class DeploymentsConfig:
                     else:
                         production.append(parsed_dep_config)
 
-        return cls(testservers, canaries, production)
+        if scope is None:
+            scope_filter = None
+        else:
+            unknown = scope - scopes_seen
+            if unknown:
+                raise InvalidDeploymentsConfig(
+                    "--scope {} matches no deployment targets".format(
+                        ", ".join(sorted(unknown))
+                    )
+                )
+            scope_filter = set(scope)
+
+        supervision_rules = cls._parse_supervision_rules(raw_supervision_rules)
+
+        return cls(
+            testservers,
+            canaries,
+            production,
+            supervision_rules,
+            scope_filter,
+        )
+
+    @classmethod
+    def _parse_supervision_rules(cls, raw_rules) -> Optional[List[SupervisionRule]]:
+        if raw_rules is None:
+            return None
+
+        rules = []
+        for raw_rule in raw_rules:
+            scope = raw_rule.get("scope")
+            if not scope:
+                raise InvalidDeploymentsConfig("supervision rule is missing a scope")
+
+            stages = {}
+            for stage, raw_checks in raw_rule.get("stages", {}).items():
+                if stage not in STAGES:
+                    raise InvalidDeploymentsConfig(
+                        f'supervision rule for scope "{scope}" references '
+                        f'unsupported stage "{stage}"'
+                    )
+                stages[stage] = [
+                    cls._parse_supervision_check(scope, stage, raw_check)
+                    for raw_check in raw_checks
+                ]
+
+            rules.append(SupervisionRule(scope=scope, stages=stages))
+
+        return rules
+
+    @staticmethod
+    def _parse_supervision_check(
+        scope: str, stage: str, raw_check: dict
+    ) -> SupervisionCheck:
+        """Build a SupervisionCheck subclass from a single-key YAML mapping."""
+        if len(raw_check) != 1:
+            raise InvalidDeploymentsConfig(
+                f'a supervision check for scope "{scope}" must name '
+                "exactly one check type"
+            )
+        ((check_type, value),) = raw_check.items()
+
+        if check_type == "logstash_check":
+            # logstash_check measures an error rate under load; the testservers
+            # stage runs commands only (see AbstractSync.check_testservers), so a
+            # logstash_check there would be silently ignored - reject it.
+            if stage == TEST_SERVERS:
+                raise InvalidDeploymentsConfig(
+                    f'logstash_check is not supported at the "{TEST_SERVERS}" '
+                    f'stage (scope "{scope}")'
+                )
+            params = value or {}
+            if not isinstance(params, dict) or "threshold" not in params:
+                raise InvalidDeploymentsConfig(
+                    f'logstash_check for scope "{scope}" is missing a threshold'
+                )
+            return LogstashCheck(
+                threshold=params["threshold"],
+                scope=params.get("scope"),
+                stage=params.get("stage"),
+            )
+
+        if check_type == "commands":
+            if not (
+                isinstance(value, list) and all(isinstance(cmd, str) for cmd in value)
+            ):
+                raise InvalidDeploymentsConfig(
+                    f'commands for scope "{scope}" must be a list of command strings'
+                )
+            return CommandsCheck(commands=value)
+
+        raise InvalidDeploymentsConfig(
+            f'unsupported supervision check type "{check_type}" for scope "{scope}"'
+        )
 
 
 class K8sOps:
@@ -351,10 +694,14 @@ class K8sOps:
         app: Application,
         suffix: str = "",
         update_releases_repo: bool = True,
+        scope: Optional[set] = None,
     ):
         self.app = app
         self.suffix = suffix
         self.update_releases_repo = update_releases_repo
+        # The set of deployment-target scopes scap deploys. None means all scopes.
+        # Only affects Kubernetes deployments; bare-metal targets are unaffected.
+        self.scope = scope
         self.logger = app.get_logger()
         self.default_clusters = re.split(r"[,\s]+", self.app.config["k8s_clusters"])
         self.traindev = self.default_clusters == ["traindev"]
@@ -518,7 +865,7 @@ class K8sOps:
                 "diff_stdout": self._cmd_stdout(cmd, helmfile_dir, logger),
             }
 
-        dep_configs = self.k8s_deployments_config.stages[stage]
+        dep_configs = self.k8s_deployments_config.deployed_stage_dep_configs(stage)
         try:
             return self._foreach_depconfig(
                 dep_configs,
@@ -546,10 +893,12 @@ class K8sOps:
         # referenced image kinds and flavours exist prior to attempting updates.
         images_info = self._get_built_images_report()
         values = {}
-        for stage, dep_configs in self.k8s_deployments_config.stages.items():
+        for stage in self.k8s_deployments_config.stages:
+            dep_configs = self.k8s_deployments_config.deployed_stage_dep_configs(stage)
             values[stage] = self._collect_helmfile_values_for(dep_configs, images_info)
 
-        for stage, dep_configs in self.k8s_deployments_config.stages.items():
+        for stage in self.k8s_deployments_config.stages:
+            dep_configs = self.k8s_deployments_config.deployed_stage_dep_configs(stage)
             self.original_helmfile_values[stage] = self._read_helmfile_files(
                 dep_configs
             )
@@ -578,7 +927,8 @@ class K8sOps:
 
         stage_eligible_dep_configs = {}
         stage_skipped_dep_configs = {}
-        for stage, dep_configs in self.k8s_deployments_config.stages.items():
+        for stage in self.k8s_deployments_config.stages:
+            dep_configs = self.k8s_deployments_config.deployed_stage_dep_configs(stage)
             saved_values = self.original_helmfile_values[stage]
             (
                 stage_eligible_dep_configs[stage],
@@ -613,7 +963,7 @@ class K8sOps:
                 )
             dep_configs = self.rollback_dep_configs[stage]
         else:
-            dep_configs = self.k8s_deployments_config.stages[stage]
+            dep_configs = self.k8s_deployments_config.deployed_stage_dep_configs(stage)
 
         self._deploy_to_clusters(dep_configs, for_rollback)
 
@@ -634,7 +984,11 @@ class K8sOps:
 
         return [
             dep_config
-            for dep_config in self.k8s_deployments_config.stages[stage]
+            # Limited to the scopes being deployed (see --scope), so the fallback
+            # error-rate check supervises only what scap actually deployed.
+            for dep_config in self.k8s_deployments_config.deployed_stage_dep_configs(
+                stage
+            )
             # Exclude non-deploy releases from contributing to the stage deployment list,
             # since they will not have been deployed in that stage.
             if dep_config.deploy
@@ -1104,7 +1458,7 @@ class K8sOps:
             )
 
         self.k8s_deployments_config = DeploymentsConfig.parse(
-            self.app, self.default_clusters
+            self.app, self.default_clusters, self.scope
         )
 
     def _collect_helmfile_values_for(

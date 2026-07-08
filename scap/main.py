@@ -110,6 +110,15 @@ class AbstractSync(cli.Application):
         help="Deploy/sync to Kubernetes targets only",
     )
     @cli.argument(
+        "--scope",
+        default="*",
+        help="Limit deployment to Kubernetes targets in these scopes: a single "
+        "scope (e.g. 'pretrain') or a comma-separated list (e.g. "
+        "'pretrain,train'). Defaults to '*' (all scopes). Scopes apply only to "
+        "Kubernetes targets, so specifying anything other than '*' implies "
+        "--k8s-only.",
+    )
+    @cli.argument(
         "--k8s-confirm-diffs",
         action="store_true",
         help="Display and require confirmation of helmfile diffs before proceeding.",
@@ -135,7 +144,12 @@ class AbstractSync(cli.Application):
                 self.arguments.message = new_message
 
         with self.lock_mediawiki_staging(name="sync"):
-            self.k8s_ops = K8sOps(self)
+            scope_arg = self.arguments.scope
+            if scope_arg == "*":
+                scopes = None
+            else:
+                scopes = {s.strip() for s in scope_arg.split(",") if s.strip()}
+            self.k8s_ops = K8sOps(self, scope=scopes)
 
             # Begin by confirming helmfile diffs, if enabled. This avoids having
             # to clean up after operations with side-effects if cancelled.
@@ -459,7 +473,12 @@ class AbstractSync(cli.Application):
 
     def _k8s_only_sync(self):
         # Not all subclasses of AbstractSync define the --k8s-only option
-        return getattr(self.arguments, "k8s_only", False)
+        if getattr(self.arguments, "k8s_only", False):
+            return True
+        # A scoped deploy (--scope other than "*") only makes sense for
+        # Kubernetes targets, which carry scopes; bare-metal targets do not.
+        # So restricting the scope implies --k8s-only.
+        return self.arguments.scope != "*"
 
     def _confirm_k8s_diffs(self):
         if not getattr(self.arguments, "k8s_confirm_diffs", False):
@@ -904,34 +923,27 @@ class AbstractSync(cli.Application):
             "Acknowledge and release the deployment lock",
         )
 
-    def _logstash_checks(
-        self,
-        stage: str,
-        stage_label: str,
-        threshold: int,
-        baremetal_hosts: Optional[List[str]] = None,
-    ) -> bool:
-        """
-        Run logstash error rate checks for a deployment stage.
+    def _logstash_checker(self, dep_configs, baremetal_hosts):
+        return logstash_checker.LogstashChecker(
+            self.config["logstash_host"],
+            self.config["canary_wait_time"],
+            dep_configs,
+            baremetal_hosts or [],
+            self.get_logger(),
+        )
 
-        :param stage: The stage constant (CANARIES, PRODUCTION, etc.)
+    def _run_logstash_checks(self, stage_label: str, checks: list) -> bool:
+        """
+        Run one or more logstash error rate checks for a deployment stage.
+
         :param stage_label: Human-readable label for status messages ("canary", "production")
-        :param threshold: Error count threshold for this stage
-        :param baremetal_hosts: Optional baremetal hosts to include in the logstash query
+        :param checks: A list of (LogstashChecker, threshold) tuples. All must pass.
 
         Returns:
-            True if checks pass (possibly after retries), otherwise False
+            True if all checks pass (possibly after retries), otherwise False
         """
         logger = self.get_logger()
         canary_wait_time = self.config["canary_wait_time"]
-
-        checker = logstash_checker.LogstashChecker(
-            self.config["logstash_host"],
-            canary_wait_time,
-            self.k8s_ops.get_stage_dep_configs(stage),
-            baremetal_hosts or [],
-            logger,
-        )
 
         need_sleep = True
         last_check_time = time.time()
@@ -953,7 +965,12 @@ class AbstractSync(cli.Application):
 
             try:
                 last_check_time = time.time()
-                return checker.check(threshold)
+                # Run every check so that all failures are surfaced, not just the first.
+                passed = True
+                for checker, threshold in checks:
+                    if not checker.check(threshold):
+                        passed = False
+                return passed
             except logstash_checker.CheckServiceError as e:
                 logger.error("The %s error rate checker failed: %s", stage_label, e)
                 self.report_status(
@@ -964,9 +981,130 @@ class AbstractSync(cli.Application):
 
         return self.retry_ignore_rollback_or_exit(f"{stage_label} checks", test_func)
 
+    def _supervise(
+        self,
+        stage: str,
+        stage_label: str,
+        fallback_threshold: int,
+        baremetal_hosts: Optional[List[str]] = None,
+    ) -> bool:
+        """
+        Run the configured checks for a deployment stage.
+
+        When supervision rules are configured (see DeploymentsConfig), the checks run
+        are the union of the checks the matching rules define for this stage: any
+        "commands" checks run first - so the error rate the logstash checks measure
+        reflects the traffic the commands generated - followed by the logstash checks.
+        Otherwise, scap falls back to a single logstash check over everything it
+        deployed at this stage, using `fallback_threshold`.
+        """
+        # k8s_deployments_config (and thus supervision rules) only exists when we
+        # are deploying container images. For bare-metal-only syncs, behave as
+        # before: a single check over the (empty) k8s targets plus baremetal hosts.
+        rules = None
+        if self.config["deploy_mw_container_image"]:
+            rules = self.k8s_ops.k8s_deployments_config.supervision_rules
+
+        if rules is None:
+            # No supervision configured: preserve legacy behavior.
+            checker = self._logstash_checker(
+                self.k8s_ops.get_stage_dep_configs(stage), baremetal_hosts
+            )
+            return self._run_logstash_checks(
+                stage_label, [(checker, fallback_threshold)]
+            )
+
+        deployments_config = self.k8s_ops.k8s_deployments_config
+
+        # Commands run before the logstash checks so that the error rate the latter
+        # measure reflects any traffic the commands generated.
+        commands = deployments_config.resolve_command_checks(stage)
+        if commands and not self._run_command_checks(stage_label, commands):
+            return False
+
+        resolved_checks = deployments_config.resolve_logstash_checks(stage)
+
+        if not resolved_checks:
+            # If we deployed something at this stage but no rule supervises it (and no
+            # commands ran either), warn rather than silently skipping health checks.
+            if not commands and self.k8s_ops.get_stage_dep_configs(stage):
+                deployed_scopes = deployments_config.scopes_deployed()
+                self.get_logger().warning(
+                    "No supervision rule matched the %s stage for the deployed "
+                    "scope(s) %s; skipping %s error rate checks.",
+                    stage,
+                    ", ".join(sorted(deployed_scopes)) or "(none)",
+                    stage_label,
+                )
+            return True
+
+        # Supervision rules only exist for k8s deployments, where bare-metal
+        # targets carry no important error signal, so supervised checks cover
+        # k8s targets only. (Bare-metal-only syncs take the fallback path above,
+        # which still includes bare-metal hosts.)
+        checks = []
+        for check in resolved_checks:
+            dep_configs = deployments_config.supervised_dep_configs(
+                check.scope, check.stage
+            )
+            checker = self._logstash_checker(dep_configs, [])
+            checks.append((checker, check.threshold))
+
+        return self._run_logstash_checks(stage_label, checks)
+
+    def _run_checkslist(
+        self, checkslist: list, timer_name: str, status_msg: str, retry_label: str
+    ) -> bool:
+        """
+        Run a prepared list of checks.Check concurrently, with the standard status
+        reporting and retry/rollback handling. All checks must succeed.
+
+        Returns True if they all pass (possibly after retries), otherwise False.
+        """
+        logger = self.get_logger()
+
+        with (
+            self.Timer(timer_name),
+            self.reported_status(status_msg),
+        ):
+
+            def test_func() -> bool:
+                success, _jobs = checks.execute(
+                    checkslist, logger, concurrency=len(checkslist)
+                )
+                return success
+
+            return self.retry_ignore_rollback_or_exit(retry_label, test_func)
+
+    def _run_command_checks(self, stage_label: str, commands: List[str]) -> bool:
+        """
+        Run a list of supervision check commands for a deployment stage.
+
+        Each command is run as a shell command; all must succeed. Returns True if they
+        all pass (possibly after retries), otherwise False.
+        """
+        # Name each check after its command so the "Executing check ..." and
+        # "Check ... failed" log lines identify which command ran/failed (the
+        # command output alone may be empty, e.g. for a bare non-zero exit).
+        checkslist = [
+            checks.Check(
+                command,
+                command=command,
+                timeout=120,
+                shell=True,
+            )
+            for command in commands
+        ]
+        return self._run_checkslist(
+            checkslist,
+            f"{stage_label}-check-commands",
+            f"Running {stage_label} check commands",
+            f"{stage_label} check commands",
+        )
+
     def canary_checks(self, baremetal_hosts: Optional[List[str]] = None) -> bool:
         """Run logstash error rate checks for mw-on-k8s canaries."""
-        return self._logstash_checks(
+        return self._supervise(
             CANARIES,
             "canary",
             self.config["canary_threshold"],
@@ -975,7 +1113,7 @@ class AbstractSync(cli.Application):
 
     def production_checks(self, baremetal_hosts: Optional[List[str]] = None) -> bool:
         """Run logstash error rate checks for mw-on-k8s production."""
-        return self._logstash_checks(
+        return self._supervise(
             PRODUCTION,
             "production",
             self.config["production_error_threshold"],
@@ -986,9 +1124,20 @@ class AbstractSync(cli.Application):
         """
         Check bare metal and k8s testservers.
 
+        When supervision rules define commands for the testservers stage, run those
+        instead of the scap.cfg-configured checks. Otherwise fall back to the
+        testservers_check_cmd_baremetal and testservers_check_cmd_k8s settings.
+
         Returns:
             True if checks pass (possibly after retries), otherwise False.
         """
+        if self.config["deploy_mw_container_image"]:
+            commands = self.k8s_ops.k8s_deployments_config.resolve_command_checks(
+                TEST_SERVERS
+            )
+            if commands:
+                return self._run_command_checks("testserver", commands)
+
         baremetal_check_cmd = self.config["testservers_check_cmd_baremetal"]
         k8s_check_cmd = self.config["testservers_check_cmd_k8s"]
         checkslist = []
@@ -1030,20 +1179,12 @@ class AbstractSync(cli.Application):
         if not checkslist:
             return True
 
-        logger = self.get_logger()
-
-        with (
-            self.Timer("check-testservers"),
-            self.reported_status("Checking testservers"),
-        ):
-
-            def test_func() -> bool:
-                success, jobs = checks.execute(
-                    checkslist, logger, concurrency=len(checkslist)
-                )
-                return success
-
-            return self.retry_ignore_rollback_or_exit("testserver checks", test_func)
+        return self._run_checkslist(
+            checkslist,
+            "check-testservers",
+            "Checking testservers",
+            "testserver checks",
+        )
 
     def _setup_php(self):
         """
@@ -1316,6 +1457,15 @@ class ScapWorld(AbstractSync):
         help="Deploy/sync to Kubernetes targets only",
     )
     @cli.argument(
+        "--scope",
+        default="*",
+        help="Limit deployment to Kubernetes targets in these scopes: a single "
+        "scope (e.g. 'pretrain') or a comma-separated list (e.g. "
+        "'pretrain,train'). Defaults to '*' (all scopes). Scopes apply only to "
+        "Kubernetes targets, so specifying anything other than '*' implies "
+        "--k8s-only.",
+    )
+    @cli.argument(
         "--k8s-confirm-diffs",
         action="store_true",
         help="Display and require confirmation of helmfile diffs before proceeding.",
@@ -1508,6 +1658,15 @@ class SyncFile(AbstractSync):
         default=[],
         help="User to notify on IRC after sync to testservers."
         " Can be used multiple times",
+    )
+    @cli.argument(
+        "--scope",
+        default="*",
+        help="Limit deployment to Kubernetes targets in these scopes: a single "
+        "scope (e.g. 'pretrain') or a comma-separated list (e.g. "
+        "'pretrain,train'). Defaults to '*' (all scopes). Scopes apply only to "
+        "Kubernetes targets, so specifying anything other than '*' implies "
+        "--k8s-only.",
     )
     @cli.argument(
         "--backport",
