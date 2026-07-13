@@ -1,3 +1,10 @@
+scap (4.273.0)
+
+  * kubernetes: Add deployment scopes and check supervision rules
+  * requirements: Bump fastapi and starlette to fix CVE-2025-62727
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Mon, 13 Jul 2026 09:12:50 -0700
+
 scap (4.272.0)
 
   * package-lock.json: Updates from npm audit fix
