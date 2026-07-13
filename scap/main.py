@@ -41,7 +41,6 @@ import scap.interaction as interaction
 import scap.lint as lint
 import scap.lock as lock
 import scap.log as log
-import scap.logstash as logstash
 import scap.logstash_checker as logstash_checker
 import scap.mwscript as mwscript
 import scap.php_fpm as php_fpm
@@ -926,7 +925,7 @@ class AbstractSync(cli.Application):
 
     def _logstash_checker(self, dep_configs, baremetal_hosts):
         return logstash_checker.LogstashChecker(
-            logstash.logstash_url(self.config),
+            self.config["logstash_url"],
             self.config["canary_wait_time"],
             dep_configs,
             baremetal_hosts or [],
@@ -944,6 +943,13 @@ class AbstractSync(cli.Application):
             True if all checks pass (possibly after retries), otherwise False
         """
         logger = self.get_logger()
+
+        if not self.config["logstash_url"]:
+            logger.warning(
+                f"logstash_url is not configured; skipping {stage_label} error rate checks."
+            )
+            return True
+
         canary_wait_time = self.config["canary_wait_time"]
 
         need_sleep = True

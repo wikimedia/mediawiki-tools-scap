@@ -52,10 +52,7 @@ DEFAULT_CONFIG = {
     "lock_file": (str, None),
     "lock_dir": (str, "/var/lock"),
     "log_json": (bool, False),
-    # logstash_host (a bare host:port) is deprecated in favor of logstash_url
-    # (scheme://host:port). It is still accepted for a transition period; see
-    # logstash.logstash_url().  T431635
-    "logstash_host": (str, None),
+    # Logstash endpoint in scheme://host:port form
     "logstash_url": (str, None),
     "debug_logstash": (bool, False),
     "mw_web_clusters": (str, "jobrunner,appserver,api_appserver,testserver"),

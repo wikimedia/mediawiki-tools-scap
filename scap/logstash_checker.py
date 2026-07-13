@@ -28,8 +28,11 @@ class LogstashCheckerCommand(cli.Application):
         type=int,
     )
     def main(self, *extra_args):
-        k8s_ops = kubernetes.K8sOps(self)
         logger = self.get_logger()
+        if not self.config["logstash_url"]:
+            logger.warning("logstash_url is not configured; nothing to check.")
+            return
+        k8s_ops = kubernetes.K8sOps(self)
         baremetal_hosts = []
         if self.arguments.stage == kubernetes.CANARIES:
             baremetal_hosts = list(
@@ -43,7 +46,7 @@ class LogstashCheckerCommand(cli.Application):
             )
         logger.info("Analyzing logstash history for stage: %s", self.arguments.stage)
         logstash_checker.LogstashChecker(
-            logstash.logstash_url(self.config),
+            self.config["logstash_url"],
             self.config["canary_wait_time"],
             k8s_ops.get_stage_dep_configs(self.arguments.stage),
             baremetal_hosts,

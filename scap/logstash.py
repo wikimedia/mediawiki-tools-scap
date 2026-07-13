@@ -18,25 +18,6 @@ class CheckServiceError(Exception):
     pass
 
 
-def logstash_url(cfg):
-    """
-    Return the effective logstash base URL in scheme://host:port form, or None
-    if neither setting is configured.
-
-    'logstash_url' is the preferred setting and takes precedence. The older
-    'logstash_host' setting (a bare host:port) is still accepted for a
-    transition period; when it lacks a scheme, 'http://' is assumed.
-    """
-    url = cfg.get("logstash_url")
-    if url is not None:
-        return url
-
-    host = cfg.get("logstash_host")
-    if host and not host.startswith(("http://", "https://")):
-        host = f"http://{host}"
-    return host
-
-
 class Logstash:
     def __init__(self, logstash_url, logger):
         """
