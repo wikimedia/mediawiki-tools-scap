@@ -1,3 +1,9 @@
+scap (4.274.1)
+
+  * logstash: Remove logstash_host config option
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Tue, 14 Jul 2026 07:48:44 -0700
+
 scap (4.274.0)
 
   * logstash: Add logstash_url config, deprecate logstash_host
