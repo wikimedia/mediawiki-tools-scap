@@ -3,7 +3,6 @@
 Module providing containerized execution of MediaWiki scripts.
 """
 
-import re
 import shlex
 import subprocess
 import sys
@@ -11,9 +10,6 @@ import tempfile
 
 from scap import cli
 from scap.utils import log_context
-
-
-PHP_WARNING = r"^(?:PHP )?(Notice|Warning)(.*)$"
 
 
 @log_context("mwscript.run")
@@ -24,7 +20,7 @@ def run(
     wiki="aawiki",
     version=None,
     network=False,
-    check_warnings=False,
+    check_stderr=False,
     logger=None,
     stdout=subprocess.PIPE,
     stderr=subprocess.PIPE,
@@ -60,17 +56,12 @@ def run(
             **kwargs,
         )
 
-        if check_warnings:
-            warnings = ""
-
-            for match in re.finditer(PHP_WARNING, proc.stderr, re.MULTILINE):
-                warnings += match.group(0) + "\n"
-
-            if warnings:
+        if check_stderr:
+            if proc.stderr.strip():
                 raise SystemExit(
-                    "{} generated PHP notices/warnings:\n{}".format(
+                    "{} generated unexpected output:\n{}".format(
                         script,
-                        warnings,
+                        proc.stderr,
                     )
                 )
 

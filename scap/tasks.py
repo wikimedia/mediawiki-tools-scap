@@ -566,12 +566,16 @@ def update_localization_cache(
     mwscript.run(
         app,
         "mergeMessageFileList.php",
+        # --quiet suppresses the script's "Loading data from ..." progress
+        # output on stderr so that check_stderr only trips on genuine PHP
+        # diagnostics (notices, warnings, deprecations, fatals).
+        "--quiet",
         "--list-file",
         ext_list,
         "--output",
         new_extension_messages,
         version=version,
-        check_warnings=True,
+        check_stderr=True,
     )
 
     try:
