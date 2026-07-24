@@ -128,31 +128,64 @@
 				</div>
 			</template>
 
-			<template v-for="group of groups" #['item.'+group.step]>
-				<v-autocomplete
-					:key="group.name"
-					v-model="group.excludedWikis"
-					:label="'Exclude ' + group.name + ' wikis'"
-					:items="group.wikis"
-					item-color="warning"
-					multiple
-					clearable
-					hide-details
-					:disabled="!deployment.promote"
-				>
-					<template #chip="{ props }">
-						<v-chip
-							v-bind="props"
-							color="warning"
-							size="large" />
-					</template>
-				</v-autocomplete>
-			</template>
-
 			<v-card prepend-icon="mdi-train" title="Deployment Summary">
 				<template #title>
-					{{ currentOrProposedStatus }}
-					<v-progress-circular v-if="isRolling" size="small" color="primary" indeterminate />
+					<div class="d-flex align-center">
+						{{ currentOrProposedStatus }}
+						<v-progress-circular
+							v-if="isRolling"
+							size="small"
+							color="primary"
+							indeterminate
+							class="ms-2"
+						/>
+						<v-menu
+							:close-on-content-click="false"
+							location="bottom end"
+						>
+							<template #activator="{ props }">
+								<v-btn
+									v-bind="props"
+									variant="text"
+									size="small"
+									density="comfortable"
+									prepend-icon="mdi-filter-variant"
+									:disabled="!deployment.promote"
+									class="ms-auto"
+								>
+									Exclude wikis
+									<v-chip
+										v-if="deployment.group.excludedWikis?.length"
+										color="warning"
+										variant="flat"
+										size="x-small"
+										class="ms-2"
+									>
+										{{ deployment.group.excludedWikis.length }}
+									</v-chip>
+								</v-btn>
+							</template>
+							<v-card min-width="320" class="pa-2">
+								<v-autocomplete
+									v-model="deployment.group.excludedWikis"
+									:label="'Exclude ' + deployment.group.name + ' wikis'"
+									:items="deployment.group.wikis"
+									item-color="warning"
+									multiple
+									clearable
+									hide-details
+									autofocus
+								>
+									<template #chip="{ props: chipProps }">
+										<v-chip
+											v-bind="chipProps"
+											color="warning"
+											size="large" />
+									</template>
+								</v-autocomplete>
+							</v-card>
+						</v-menu>
+					</div>
 				</template>
 
 				<template #text>
@@ -227,6 +260,7 @@ import { VAutocomplete } from 'vuetify/components/VAutocomplete';
 import { VBtn } from 'vuetify/components/VBtn';
 import { VCard } from 'vuetify/components/VCard';
 import { VChip } from 'vuetify/components/VChip';
+import { VMenu } from 'vuetify/components/VMenu';
 import { VCol, VRow } from 'vuetify/components/VGrid';
 import { VIcon } from 'vuetify/components/VIcon';
 import { VProgressLinear } from 'vuetify/components/VProgressLinear';
@@ -248,6 +282,7 @@ export default {
 		VChip,
 		VCol,
 		VIcon,
+		VMenu,
 		VProgressLinear,
 		VRow,
 		VStepper,
@@ -532,6 +567,7 @@ export default {
 				}
 			].concat( train.groups.map( ( group, i ) => ( {
 				...group,
+				excludedWikis: group.excludedWikis || [],
 				step: i + 2
 			} as TrainGroup ) ) );
 
@@ -658,6 +694,13 @@ export default {
 
 	:deep(.v-stepper-item__avatar .v-icon) {
 		font-size: 1.5rem !important;
+	}
+
+	// The per-step content slots are unused (the exclusion control lives in
+	// the summary card's title), so collapse the auto-generated, empty window
+	// rather than let its default margin leave a large gap below the stepper.
+	:deep(.v-stepper-window) {
+		margin: 0 0 1rem;
 	}
 }
 
