@@ -155,11 +155,16 @@
 					<v-progress-circular v-if="isRolling" size="small" color="primary" indeterminate />
 				</template>
 
-				<template #subtitle>
-					Number of wikis on each version following deployment:
-				</template>
-
 				<template #text>
+					<sp-job-status
+						v-if="trainJobStatus"
+						:status="trainJobStatus"
+						:running="true"
+						class="mb-4"
+					/>
+					<div class="sp-deployment-summary-label">
+						Number of wikis on each version following deployment:
+					</div>
 					<v-alert
 						v-if="deployment.excludedWikis.length"
 						type="warning"
@@ -226,6 +231,7 @@ import { VCol, VRow } from 'vuetify/components/VGrid';
 import { VIcon } from 'vuetify/components/VIcon';
 import { VProgressLinear } from 'vuetify/components/VProgressLinear';
 import { VStepper } from 'vuetify/components/VStepper';
+import SpJobStatus from './JobStatus.vue';
 import useApi from '../api';
 import useJobrunner from '../jobrunner';
 import { notificationsStore } from '../state';
@@ -244,7 +250,8 @@ export default {
 		VIcon,
 		VProgressLinear,
 		VRow,
-		VStepper
+		VStepper,
+		SpJobStatus
 	},
 	setup() {
 		const { mdAndUp } = useDisplay();
@@ -342,6 +349,13 @@ export default {
 
 		const isRolling = computed(
 			() => jobrunner.status.value?.job?.type === 'train' || jobPending.value
+		);
+		// Live status/progress of the running train deployment job, if any.
+		// Null unless the currently running job is a train job.
+		const trainJobStatus = computed(
+			() => ( jobrunner.status.value?.job?.type === 'train' ?
+				jobrunner.status.value?.job?.status :
+				null )
 		);
 		const isBackporting = computed(
 			() => jobrunner.status.value?.job?.type === 'backport'
@@ -596,6 +610,7 @@ export default {
 			isDisabled,
 			isRolling,
 			isUpcoming,
+			trainJobStatus,
 			currentStatus,
 			currentOrProposedStatus,
 			mdAndUp,
@@ -648,6 +663,11 @@ export default {
 
 .sp-train-info-card {
 	min-height: 5.15rem;
+}
+
+.sp-deployment-summary-label {
+	margin-bottom: 0.5rem;
+	opacity: 0.7;
 }
 
 .processing {

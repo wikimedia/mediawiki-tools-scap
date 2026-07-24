@@ -58,22 +58,13 @@
 					<div class="job-card__label">
 						Status
 					</div>
-					<div class="job-card__status-row">
-						<span v-if="running" class="job-card__status">
-							{{ status.status }}
-						</span>
-						<cdx-info-chip
-							v-else
-							:status="statusType"
-							:icon="cdxIconInfoFilled"
-							class="job-card__chip"
-						>
-							{{ statusChipMessage }}
-						</cdx-info-chip>
-					</div>
-					<sp-progress-bar
-						v-if="running && status.progress"
-						:progress="status.progress"
+					<sp-job-status
+						:status="status"
+						:running="running"
+						:orphaned="orphaned"
+						:started-at="started_at"
+						:exit-status="exit_status"
+						:interaction="interaction"
 					/>
 				</div>
 
@@ -283,15 +274,15 @@
 
 <script lang="ts">
 import { defineComponent, ref, computed, PropType, watch } from 'vue';
-import { CdxCard, CdxInfoChip, CdxAccordion, CdxProgressBar, CdxIcon, CdxDialog, CdxButton, CdxMessage } from '@wikimedia/codex';
-import { cdxIconInfoFilled, cdxIconLinkExternal, cdxIconReload } from '@wikimedia/codex-icons';
+import { CdxCard, CdxAccordion, CdxProgressBar, CdxIcon, CdxDialog, CdxButton, CdxMessage } from '@wikimedia/codex';
+import { cdxIconLinkExternal, cdxIconReload } from '@wikimedia/codex-icons';
 import { VIcon } from 'vuetify/components/VIcon';
 import ChangeInfo, { CommitLink } from '../types/ChangeInfo';
 import Interaction from '../types/Interaction';
 import JobStatus from '../types/JobStatus';
 import SpInteraction from './Interaction.vue';
 import SpJobLog from './JobLog.vue';
-import SpProgressBar from './ProgressBar.vue';
+import SpJobStatus from './JobStatus.vue';
 
 import { RouterLink, useRoute, useRouter } from 'vue-router';
 import useApi from '../api';
@@ -304,7 +295,6 @@ export default defineComponent( {
 	components: {
 		CdxAccordion,
 		CdxCard,
-		CdxInfoChip,
 		CdxProgressBar,
 		CdxIcon,
 		CdxDialog,
@@ -314,7 +304,7 @@ export default defineComponent( {
 		VIcon,
 		SpInteraction,
 		SpJobLog,
-		SpProgressBar
+		SpJobStatus
 	},
 
 	props: {
@@ -443,41 +433,6 @@ export default defineComponent( {
 			'job-card--highlighted': props.running && !isJobDetailPage.value,
 			'job-card--has-details': showColumnLabels.value
 		} ) );
-
-		const statusType = computed( () => {
-			if ( props.exit_status === 0 ) {
-				return 'success';
-			} else if ( props.exit_status === 1 ) {
-				return 'error';
-			} else if ( props.exit_status === null && props.interaction ) {
-				return 'warning';
-			} else {
-				return 'notice';
-			}
-		} );
-
-		// This computes the content of the status chip of non-running jobs.
-		const statusChipMessage = computed( () => {
-			if ( !props.started_at ) {
-				// Job has not started yet.
-				return 'Pending';
-			}
-			// Everything below here is about a job that has stopped running.
-
-			if ( props.orphaned ) {
-				return 'Orphaned';
-			}
-
-			if ( props.exit_status === null ) {
-				return 'Unknown';
-			}
-
-			if ( props.exit_status === 0 ) {
-				return 'Finished';
-			} else {
-				return 'Error';
-			}
-		} );
 
 		function getFormattedDate( timestamp: number ) {
 			if ( !timestamp ) {
@@ -691,9 +646,6 @@ export default defineComponent( {
 
 		return {
 			getFormattedUser,
-			statusType,
-			statusChipMessage,
-			cdxIconInfoFilled,
 			cdxIconLinkExternal,
 			cdxIconReload,
 			rootClasses,
@@ -769,20 +721,6 @@ export default defineComponent( {
 		color: @color-base;
 		font-size: @font-size-medium;
 		line-height: @font-size-medium;
-	}
-
-	&__status {
-		font-weight: bold;
-	}
-
-	&__status-row {
-		display: inline-flex;
-		align-items: center;
-		gap: @spacing-50;
-	}
-
-	&__chip {
-		width: fit-content;
 	}
 
 	&__column--actions {
