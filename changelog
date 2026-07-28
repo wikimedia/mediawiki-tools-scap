@@ -1,3 +1,11 @@
+scap (4.275.0)
+
+  * spiderpig: Hoist JobCard.vue import out of timed test body
+  * spiderpig: Collapse train wiki-exclusion control to save space
+  * spiderpig: Show live train job status during deployment
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Tue, 28 Jul 2026 11:25:00 -0700
+
 scap (4.274.1)
 
   * logstash: Remove logstash_host config option
