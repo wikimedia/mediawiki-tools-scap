@@ -725,6 +725,9 @@ class AbstractSync(cli.Application):
         """
         `stage` must be a string like "testservers", "canaries", or "prod".
         """
+        if not target_hosts:
+            return
+
         # Ask target hosts to rebuild l10n CDB files
         with self.Timer(f"scap-cdb-rebuild-{stage}"):
             rebuild_cdbs = ssh.Job(
@@ -744,6 +747,9 @@ class AbstractSync(cli.Application):
                 self.soft_errors = True
 
     def _after_sync_sync_wikiversions(self, target_hosts, stage: str):
+        if not target_hosts:
+            return
+
         # Update and sync wikiversions.php
         succeeded, failed = tasks.sync_wikiversions(
             target_hosts, self, stage, key=self.get_keyholder_key()
