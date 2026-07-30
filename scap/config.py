@@ -40,7 +40,6 @@ DEFAULT_CONFIG = {
     # check (sub)commands separated by newlines, all of which will execute concurrently.
     "testservers_check_cmd_baremetal": (str, ""),
     "testservers_check_cmd_k8s": (str, ""),
-    "delay_messageblobstore_purge": (bool, False),
     "deploy_dir": (str, "/srv/mediawiki"),
     "failure_limit": (str, "0%"),
     "gerrit_url": (str, "https://gerrit.wikimedia.org/r/"),

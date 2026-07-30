@@ -427,7 +427,6 @@ def _call_rebuildLocalisationCache(
     lang=None,
     force=False,
     quiet=False,
-    delay_messageblobstore_purge=False,
 ):
     """
     Helper for update_localization_cache.
@@ -449,8 +448,7 @@ def _call_rebuildLocalisationCache(
 
     def _rebuild(store_class, file_extension):
         logging.info(f"Running rebuildLocalisationCache.php ({file_extension})")
-        # Passing --skip-message-purge for T263872 (if delay_messageblobstore_purge feature
-        # flag is enabled).
+        # Passing --skip-message-purge for T263872.
         # Note: mwscript runs maintenance scripts from /srv/mediawiki-staging if it exists,
         # otherwise it falls back to /srv/mediawiki.  If rebuildLocalisationCache.php is run
         # from /srv/mediawiki-staging (the usual case), it will update files in
@@ -461,6 +459,8 @@ def _call_rebuildLocalisationCache(
             store_class,
             "--threads",
             use_cores,
+            "--no-database",
+            "--skip-message-purge",
         ]
 
         if lang:
@@ -470,23 +470,14 @@ def _call_rebuildLocalisationCache(
         if quiet:
             args += ["--quiet"]
 
-        network = True
-        # If we're delaying the message purge, we don't strictly need the
-        # network or database access
-        if delay_messageblobstore_purge:
-            network = False
-            args += [
-                "--no-database",
-                "--skip-message-purge",
-            ]
-
+        # Skipping the message purge means no network or database access is needed.
         with log.pipe() as out:
             mwscript.run(
                 app,
                 "rebuildLocalisationCache.php",
                 *args,
                 version=version,
-                network=network,
+                network=False,
                 stdout=out,
             )
         mwscript.run_shell(app, "chmod 0664 {}/*.cdb", out_dir)
@@ -602,7 +593,6 @@ def update_localization_cache(
         php_l10n=cfg["php_l10n"],
         force=force_rebuild,
         quiet=quiet_rebuild,
-        delay_messageblobstore_purge=cfg["delay_messageblobstore_purge"],
     )
 
     cache_dir_owner = pwd.getpwuid(os.stat(cache_dir).st_uid).pw_name
