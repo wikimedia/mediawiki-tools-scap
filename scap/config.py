@@ -144,6 +144,18 @@ DEFAULT_CONFIG = {
     "k8s_max_concurrent_deployments_per_cluster": (int, 20),
     "k8s_deployments_info_target_freshness": (int, 10),
     # End settings related to building and deploying mediawiki container image
+    # Settings related to "deploy-service"
+    # The deployment config of each service that may be deployed with deploy-service
+    "service_catalog_file": (str, "/etc/scap/service-catalog.yaml"),
+    # Cluster group definitions (the helmfile environments of each cluster group)
+    "cluster_groups_file": (str, "/etc/scap/cluster-groups.yaml"),
+    # Conftool state, used to find the primary datacenter.
+    # TODO: Migrate to a scap-specific file, to be provided by SRE. This file is
+    # helmfile values for the mediawiki chart, so its structure may change.
+    "conftool_state_file": (
+        str,
+        "/etc/helmfile-defaults/mediawiki/conftool-state.yaml",
+    ),
     # Settings related to scap installation
     "install_ssh_user": (str, "scap"),
     "scap_source_dir": (str, "/srv/deployment/scap"),
