@@ -51,6 +51,126 @@ def test_scap_sync_world_flags(cmd):
         assert "defined" in str(ve)
 
 
+@pytest.mark.parametrize(
+    "cmd,expected",
+    [
+        (["sync-world"], False),
+        (["sync-world", "--scope", "*"], False),
+        (["sync-world", "--scope", "pretrain"], True),
+        (["sync-world", "--scope", "pretrain,train"], True),
+        (["sync-world", "--k8s-only"], True),
+        (["sync-file", "somefile"], False),
+        (["sync-file", "somefile", "--scope", "pretrain"], True),
+    ],
+    indirect=["cmd"],
+)
+def test_scope_implies_k8s_only(cmd, expected):
+    # A scoped deploy (--scope other than "*") applies only to Kubernetes
+    # targets, so it must force a k8s-only sync.
+    assert cmd._k8s_only_sync() is expected
+
+
+def test_supervise_without_k8s_deployment():
+    # When deploy_mw_container_image is False (e.g. a bare-metal-only sync on beta),
+    # k8s_ops.k8s_deployments_config is never populated. _supervise must not touch
+    # it; it should fall back to a single check over the (empty) k8s targets plus
+    # the bare-metal hosts.
+    from types import SimpleNamespace
+    from scap.main import AbstractSync
+    from scap.kubernetes import CANARIES
+
+    class _K8sOpsStub:
+        def get_stage_dep_configs(self, stage):
+            return []
+
+        def __getattr__(self, name):
+            raise AssertionError(
+                f"k8s_ops.{name} accessed when deploy_mw_container_image is False"
+            )
+
+    captured = {}
+
+    def fake_run_logstash_checks(stage_label, checks):
+        captured["checks"] = checks
+        return True
+
+    fake_self = SimpleNamespace(
+        config={"deploy_mw_container_image": False},
+        k8s_ops=_K8sOpsStub(),
+        _logstash_checker=lambda dep_configs, baremetal: (
+            "checker",
+            dep_configs,
+            baremetal,
+        ),
+        _run_logstash_checks=fake_run_logstash_checks,
+    )
+
+    result = AbstractSync._supervise(fake_self, CANARIES, "canary", 10, ["bm-canary"])
+
+    assert result is True
+    # One fallback check: empty k8s targets, bare-metal hosts, fallback threshold.
+    assert captured["checks"] == [(("checker", [], ["bm-canary"]), 10)]
+
+
+def _supervise_stub(commands, commands_ok, calls):
+    from types import SimpleNamespace
+    from scap.kubernetes import LogstashCheck
+
+    dep_conf = SimpleNamespace(
+        supervision_rules=[object()],  # non-None -> supervision path
+        resolve_command_checks=lambda stage: commands,
+        resolve_logstash_checks=lambda stage: [
+            LogstashCheck(threshold=10, scope="train", stage="canaries")
+        ],
+        supervised_dep_configs=lambda scope, stage: [],
+    )
+
+    def fake_run_commands(stage_label, cmds):
+        calls.append(("commands", cmds))
+        return commands_ok
+
+    def fake_run_logstash(stage_label, checks):
+        calls.append(("logstash", checks))
+        return True
+
+    return SimpleNamespace(
+        config={"deploy_mw_container_image": True},
+        k8s_ops=SimpleNamespace(k8s_deployments_config=dep_conf),
+        _run_command_checks=fake_run_commands,
+        _logstash_checker=lambda dep_configs, baremetal: ("checker", dep_configs),
+        _run_logstash_checks=fake_run_logstash,
+    )
+
+
+def test_supervise_runs_commands_before_logstash():
+    from scap.main import AbstractSync
+    from scap.kubernetes import CANARIES
+
+    calls = []
+    fake_self = _supervise_stub(["httpbb --hosts=x"], True, calls)
+
+    result = AbstractSync._supervise(fake_self, CANARIES, "canary", 10, [])
+
+    assert result is True
+    # Commands run first, then the logstash checks.
+    assert [kind for kind, _ in calls] == ["commands", "logstash"]
+    assert calls[0][1] == ["httpbb --hosts=x"]
+
+
+def test_supervise_failing_commands_skip_logstash():
+    from scap.main import AbstractSync
+    from scap.kubernetes import CANARIES
+
+    calls = []
+    fake_self = _supervise_stub(["httpbb --hosts=x"], False, calls)
+
+    result = AbstractSync._supervise(fake_self, CANARIES, "canary", 10, [])
+
+    assert result is False
+    # Commands failed, so the logstash checks are never run.
+    assert [kind for kind, _ in calls] == ["commands"]
+
+
 def test_increment_stat(cmd, mocker):
     assert cmd._stats is None
     stats = mocker.patch.object(cmd, "_stats")

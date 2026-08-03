@@ -69,7 +69,7 @@ class JobRunner(cli.Application):
             os.makedirs(logdir, exist_ok=True)
             os.chmod(logdir, 0o770 | stat.S_ISGID)
 
-            if self.config["logstash_host"]:
+            if self.config["logstash_url"]:
                 threading.Thread(
                     target=logstash_poller.main,
                     daemon=True,

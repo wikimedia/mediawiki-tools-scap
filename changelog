@@ -1,3 +1,75 @@
+scap (4.277.0)
+
+  * mwscript: Treat any script stderr as unexpected output
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Thu, 30 Jul 2026 15:02:07 -0700
+
+scap (4.276.1)
+
+  * Drop delay_messageblobstore_purge
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Thu, 30 Jul 2026 14:28:59 -0700
+
+scap (4.276.0)
+
+  * main.py: Handle empty baremetal target lists in a couple of places
+  * spiderpig: Update npm dependencies via npm audit fix
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Thu, 30 Jul 2026 14:06:34 -0700
+
+scap (4.275.0)
+
+  * spiderpig: Hoist JobCard.vue import out of timed test body
+  * spiderpig: Collapse train wiki-exclusion control to save space
+  * spiderpig: Show live train job status during deployment
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Tue, 28 Jul 2026 11:25:00 -0700
+
+scap (4.274.1)
+
+  * logstash: Remove logstash_host config option
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Tue, 14 Jul 2026 07:48:44 -0700
+
+scap (4.274.0)
+
+  * logstash: Add logstash_url config, deprecate logstash_host
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Mon, 13 Jul 2026 12:42:53 -0700
+
+scap (4.273.0)
+
+  * kubernetes: Add deployment scopes and check supervision rules
+  * requirements: Bump fastapi and starlette to fix CVE-2025-62727
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Mon, 13 Jul 2026 09:12:50 -0700
+
+scap (4.272.0)
+
+  * package-lock.json: Updates from npm audit fix
+  * requirements: Bump vulnerable dependencies to address Dependabot alerts
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Mon, 06 Jul 2026 08:29:08 -0700
+
+scap (4.271.0)
+
+  * backport: Remove extension.json from L10N_REBUILD_PATH_PATTERNS
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Wed, 01 Jul 2026 09:19:33 -0700
+
+scap (4.270.1)
+
+  * main.py: Only announce rollback when k8s deployment is enabled
+  * config.py: Fix default mw_web_clusters
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Thu, 25 Jun 2026 08:45:35 -0700
+
+scap (4.270.0)
+
+  * main.py: Don't attempt k8s rollback unless deploy_mw_container_image is true
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Tue, 23 Jun 2026 10:49:09 -0700
+
 scap (4.269.0)
 
   * config.py: Bump version_update_patch_timeout to 10 minutes

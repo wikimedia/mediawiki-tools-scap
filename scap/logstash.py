@@ -8,7 +8,6 @@
 """
 
 import json
-import os
 import urllib3
 import logging
 
@@ -20,14 +19,14 @@ class CheckServiceError(Exception):
 
 
 class Logstash:
-    def __init__(self, logstash_host, logger):
+    def __init__(self, logstash_url, logger):
         """
         If logger is supplied, the logstash query and response will be
         logged at DEBUG level. Note that query responses are very lengthy and
         are always unpleasantly split across multiple log records, so only
         use this when needed.
         """
-        self.logstash_host = logstash_host
+        self.logstash_url = logstash_url
         self.logger = logger
 
     def run_query(self, query_object) -> dict:
@@ -42,9 +41,7 @@ class Logstash:
                 ca_certs="/etc/ssl/certs/ca-certificates.crt",
                 cert_reqs="CERT_REQUIRED",
             )
-            logstash_search_url = os.path.join(
-                self.logstash_host, "logstash-*", "_search"
-            )
+            logstash_search_url = f"{self.logstash_url}/logstash-*/_search"
             response = pool.urlopen(
                 "POST",
                 logstash_search_url,

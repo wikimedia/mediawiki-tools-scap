@@ -40,7 +40,6 @@ DEFAULT_CONFIG = {
     # check (sub)commands separated by newlines, all of which will execute concurrently.
     "testservers_check_cmd_baremetal": (str, ""),
     "testservers_check_cmd_k8s": (str, ""),
-    "delay_messageblobstore_purge": (bool, False),
     "deploy_dir": (str, "/srv/mediawiki"),
     "failure_limit": (str, "0%"),
     "gerrit_url": (str, "https://gerrit.wikimedia.org/r/"),
@@ -52,9 +51,10 @@ DEFAULT_CONFIG = {
     "lock_file": (str, None),
     "lock_dir": (str, "/var/lock"),
     "log_json": (bool, False),
-    "logstash_host": (str, "logstash1001.eqiad.wmnet:9200"),
+    # Logstash endpoint in scheme://host:port form
+    "logstash_url": (str, None),
     "debug_logstash": (bool, False),
-    "mw_web_clusters": (str, "jobrunner,appserver,appserver_api,testserver"),
+    "mw_web_clusters": (str, "jobrunner,appserver,api_appserver,testserver"),
     "manage_mediawiki_php_symlink": (bool, True),
     "master_rsync": (str, "localhost"),
     "statsd_host": (str, "127.0.0.1"),

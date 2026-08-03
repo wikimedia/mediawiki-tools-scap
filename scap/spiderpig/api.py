@@ -672,6 +672,7 @@ async def jobrunner_status(
         job = Job.get(session, status.job_id)
         if job:
             session.expunge(job)
+            job.status = job.extract_status()
             job.data = load_job_data(job.data)
             i = get_parsed_interaction(session, job)
 

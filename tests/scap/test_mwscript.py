@@ -179,24 +179,8 @@ def test_run(mock_scap_call):
     )
 
 
-@mock.patch("scap.cli.Application.scap_call")
-def test_run_check_warnings(mock_scap_call):
-    mock_scap_call.return_value = mock.Mock(
-        **{
-            "stdout": "some stdout\n",
-            "stderr": (
-                "some stderr\n"
-                "PHP Notice: foo notice 1\n"
-                "Notice: foo notice 2\n"
-                "PHP Warning: foo warning 1\n"
-                "Warning: foo warning 2\n"
-                "some more stderr\n"
-            ),
-            "returncode": 0,
-        }
-    )
-
-    mock_app = mock.Mock(
+def _check_stderr_app(mock_scap_call):
+    return mock.Mock(
         **{
             "config": {
                 "docker_user": "fooser",
@@ -207,20 +191,46 @@ def test_run_check_warnings(mock_scap_call):
         }
     )
 
+
+@mock.patch("scap.cli.Application.scap_call")
+def test_run_check_stderr(mock_scap_call):
+    # check_stderr treats any output on stderr as unexpected. PHP runs with
+    # display_errors=stderr, so notices, warnings, deprecations and fatals all
+    # land here.
+    mock_scap_call.return_value = mock.Mock(
+        **{
+            "stdout": "some stdout\n",
+            "stderr": (
+                "PHP Notice: foo notice 1\n"
+                "Notice: foo notice 2\n"
+                "PHP Warning: foo warning 1\n"
+                "Warning: foo warning 2\n"
+                "PHP Deprecated: foo deprecated\n"
+                "PHP Fatal error: foo fatal\n"
+            ),
+            "returncode": 0,
+        }
+    )
+
+    mock_app = _check_stderr_app(mock_scap_call)
+
     with pytest.raises(SystemExit) as exc_info:
         mwscript.run(
             mock_app,
             "foo.php",
             "--arg1",
             "--arg2",
-            check_warnings=True,
+            check_stderr=True,
         )
 
-    exc_info.match(r"foo.php generated PHP notices/warnings")
+    exc_info.match(r"foo.php generated unexpected output")
     exc_info.match(r"foo notice 1")
     exc_info.match(r"foo notice 2")
     exc_info.match(r"foo warning 1")
     exc_info.match(r"foo warning 2")
+    # Deprecations and fatals appear on stderr too and must trigger the check.
+    exc_info.match(r"foo deprecated")
+    exc_info.match(r"foo fatal")
 
     mock_scap_call.assert_called_with(
         [
@@ -242,6 +252,29 @@ def test_run_check_warnings(mock_scap_call):
         stderr=subprocess.PIPE,
         check=True,
     )
+
+
+@mock.patch("scap.cli.Application.scap_call")
+def test_run_check_stderr_only_whitespace(mock_scap_call):
+    # Empty (or whitespace-only) stderr is the normal success case and must
+    # not raise, even with check_stderr=True.
+    mock_scap_call.return_value = mock.Mock(
+        **{
+            "stdout": "some stdout\n",
+            "stderr": "  \n\n",
+            "returncode": 0,
+        }
+    )
+
+    mock_app = _check_stderr_app(mock_scap_call)
+
+    proc = mwscript.run(
+        mock_app,
+        "foo.php",
+        check_stderr=True,
+    )
+
+    assert proc is mock_scap_call.return_value
 
 
 @mock.patch("scap.cli.Application.scap_call")

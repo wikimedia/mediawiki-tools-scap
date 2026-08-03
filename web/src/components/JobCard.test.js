@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import SpJobCard from './JobCard.vue';
 
 const retryJobMock = vi.fn();
 const setupUserNotificationsForJobMock = vi.fn();
@@ -76,8 +77,7 @@ describe( 'SpJobCard confirmRetry', () => {
 		retryJobMock.mockResolvedValue( { id: 91 } );
 		setupUserNotificationsForJobMock.mockResolvedValue();
 
-		const module = await import( './JobCard.vue' );
-		const setupResult = module.default.setup( testJobProps );
+		const setupResult = SpJobCard.setup( testJobProps );
 
 		await setupResult.confirmRetry();
 
@@ -89,8 +89,7 @@ describe( 'SpJobCard confirmRetry', () => {
 	it( 'does not update notification job tracking if retry response has no id', async () => {
 		retryJobMock.mockResolvedValue( {} );
 
-		const module = await import( './JobCard.vue' );
-		const setupResult = module.default.setup( testJobProps );
+		const setupResult = SpJobCard.setup( testJobProps );
 
 		await setupResult.confirmRetry();
 

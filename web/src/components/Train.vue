@@ -128,38 +128,76 @@
 				</div>
 			</template>
 
-			<template v-for="group of groups" #['item.'+group.step]>
-				<v-autocomplete
-					:key="group.name"
-					v-model="group.excludedWikis"
-					:label="'Exclude ' + group.name + ' wikis'"
-					:items="group.wikis"
-					item-color="warning"
-					multiple
-					clearable
-					hide-details
-					:disabled="!deployment.promote"
-				>
-					<template #chip="{ props }">
-						<v-chip
-							v-bind="props"
-							color="warning"
-							size="large" />
-					</template>
-				</v-autocomplete>
-			</template>
-
 			<v-card prepend-icon="mdi-train" title="Deployment Summary">
 				<template #title>
-					{{ currentOrProposedStatus }}
-					<v-progress-circular v-if="isRolling" size="small" color="primary" indeterminate />
-				</template>
-
-				<template #subtitle>
-					Number of wikis on each version following deployment:
+					<div class="d-flex align-center">
+						{{ currentOrProposedStatus }}
+						<v-progress-circular
+							v-if="isRolling"
+							size="small"
+							color="primary"
+							indeterminate
+							class="ms-2"
+						/>
+						<v-menu
+							:close-on-content-click="false"
+							location="bottom end"
+						>
+							<template #activator="{ props }">
+								<v-btn
+									v-bind="props"
+									variant="text"
+									size="small"
+									density="comfortable"
+									prepend-icon="mdi-filter-variant"
+									:disabled="!deployment.promote"
+									class="ms-auto"
+								>
+									Exclude wikis
+									<v-chip
+										v-if="deployment.group.excludedWikis?.length"
+										color="warning"
+										variant="flat"
+										size="x-small"
+										class="ms-2"
+									>
+										{{ deployment.group.excludedWikis.length }}
+									</v-chip>
+								</v-btn>
+							</template>
+							<v-card min-width="320" class="pa-2">
+								<v-autocomplete
+									v-model="deployment.group.excludedWikis"
+									:label="'Exclude ' + deployment.group.name + ' wikis'"
+									:items="deployment.group.wikis"
+									item-color="warning"
+									multiple
+									clearable
+									hide-details
+									autofocus
+								>
+									<template #chip="{ props: chipProps }">
+										<v-chip
+											v-bind="chipProps"
+											color="warning"
+											size="large" />
+									</template>
+								</v-autocomplete>
+							</v-card>
+						</v-menu>
+					</div>
 				</template>
 
 				<template #text>
+					<sp-job-status
+						v-if="trainJobStatus"
+						:status="trainJobStatus"
+						:running="true"
+						class="mb-4"
+					/>
+					<div class="sp-deployment-summary-label">
+						Number of wikis on each version following deployment:
+					</div>
 					<v-alert
 						v-if="deployment.excludedWikis.length"
 						type="warning"
@@ -222,10 +260,12 @@ import { VAutocomplete } from 'vuetify/components/VAutocomplete';
 import { VBtn } from 'vuetify/components/VBtn';
 import { VCard } from 'vuetify/components/VCard';
 import { VChip } from 'vuetify/components/VChip';
+import { VMenu } from 'vuetify/components/VMenu';
 import { VCol, VRow } from 'vuetify/components/VGrid';
 import { VIcon } from 'vuetify/components/VIcon';
 import { VProgressLinear } from 'vuetify/components/VProgressLinear';
 import { VStepper } from 'vuetify/components/VStepper';
+import SpJobStatus from './JobStatus.vue';
 import useApi from '../api';
 import useJobrunner from '../jobrunner';
 import { notificationsStore } from '../state';
@@ -242,9 +282,11 @@ export default {
 		VChip,
 		VCol,
 		VIcon,
+		VMenu,
 		VProgressLinear,
 		VRow,
-		VStepper
+		VStepper,
+		SpJobStatus
 	},
 	setup() {
 		const { mdAndUp } = useDisplay();
@@ -342,6 +384,13 @@ export default {
 
 		const isRolling = computed(
 			() => jobrunner.status.value?.job?.type === 'train' || jobPending.value
+		);
+		// Live status/progress of the running train deployment job, if any.
+		// Null unless the currently running job is a train job.
+		const trainJobStatus = computed(
+			() => ( jobrunner.status.value?.job?.type === 'train' ?
+				jobrunner.status.value?.job?.status :
+				null )
 		);
 		const isBackporting = computed(
 			() => jobrunner.status.value?.job?.type === 'backport'
@@ -518,6 +567,7 @@ export default {
 				}
 			].concat( train.groups.map( ( group, i ) => ( {
 				...group,
+				excludedWikis: group.excludedWikis || [],
 				step: i + 2
 			} as TrainGroup ) ) );
 
@@ -596,6 +646,7 @@ export default {
 			isDisabled,
 			isRolling,
 			isUpcoming,
+			trainJobStatus,
 			currentStatus,
 			currentOrProposedStatus,
 			mdAndUp,
@@ -644,10 +695,22 @@ export default {
 	:deep(.v-stepper-item__avatar .v-icon) {
 		font-size: 1.5rem !important;
 	}
+
+	// The per-step content slots are unused (the exclusion control lives in
+	// the summary card's title), so collapse the auto-generated, empty window
+	// rather than let its default margin leave a large gap below the stepper.
+	:deep(.v-stepper-window) {
+		margin: 0 0 1rem;
+	}
 }
 
 .sp-train-info-card {
 	min-height: 5.15rem;
+}
+
+.sp-deployment-summary-label {
+	margin-bottom: 0.5rem;
+	opacity: 0.7;
 }
 
 .processing {
