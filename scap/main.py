@@ -36,7 +36,6 @@ from concurrent.futures import ThreadPoolExecutor
 import scap.arg as arg
 import scap.checks as checks
 import scap.cli as cli
-import scap.git as git
 import scap.interaction as interaction
 import scap.lint as lint
 import scap.lock as lock
@@ -81,6 +80,9 @@ class AbstractSync(cli.Application):
         self.already_synced = []
         self.already_restarted = set()
         self.k8s_ops = None
+        # Set by write_deployment_info() and recorded in the deployment history
+        # by _init_history()
+        self.staged_checkouts = []
 
     @cli.argument(
         "--force",
@@ -164,6 +166,8 @@ class AbstractSync(cli.Application):
                 self._check_fatals()
             else:
                 self.get_logger().warning("check_fatals skipped by --force")
+
+            self.staged_checkouts = self.write_deployment_info()
 
             self._build_and_push_container_images()
             self.k8s_ops.update_helmfile_files()
@@ -336,30 +340,8 @@ class AbstractSync(cli.Application):
         self.deployment_log_entry = history.Deployment(
             starttime=datetime.datetime.now(datetime.timezone.utc),
             username=utils.get_real_username(),
+            checkouts=self.staged_checkouts,
         )
-
-        def _add_checkout(directory):
-            branch = git.get_branch(directory)
-            commit_ref = git.merge_base(directory, "origin", branch)
-
-            self.deployment_log_entry.checkouts.append(
-                history.Checkout(
-                    repo=git.remote_get_url(directory),
-                    branch=branch,
-                    directory=directory,
-                    commit_ref=commit_ref,
-                )
-            )
-
-        staging_dir = self.config["stage_dir"]
-
-        _add_checkout(staging_dir)
-
-        for version in self.active_wikiversions("stage"):
-            _add_checkout(os.path.join(staging_dir, f"php-{version}"))
-
-        for violation in self.config["foss_violations"]:
-            _add_checkout(os.path.join(staging_dir, violation["path"]))
 
     def _finalize_history(self):
         self.deployment_log_entry.errors = self.soft_errors

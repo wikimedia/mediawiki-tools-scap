@@ -1,3 +1,4 @@
+import json
 import os
 import sys
 import tempfile
@@ -411,3 +412,60 @@ def test_format_passthrough_args(app):
             "log_json:False",
         ]
     )
+
+
+def test_collect_staged_checkouts(app, mocker):
+    app.config = {
+        "stage_dir": "/srv/mediawiki-staging",
+        "foss_violations": [
+            {"repo": "https://example/repo-a", "branch": "main", "path": "viol-a"},
+            {"repo": "https://example/repo-b", "branch": "dev", "path": "viol-b"},
+        ],
+    }
+
+    mocker.patch.object(app, "active_wikiversions", return_value=["1.45.0-wmf.1"])
+    mocker.patch("scap.cli.git.get_branch", return_value="branch")
+    mocker.patch("scap.cli.git.merge_base", return_value="commit")
+    mocker.patch("scap.cli.git.remote_get_url", return_value="repo")
+
+    assert [checkout.directory for checkout in app.collect_staged_checkouts()] == [
+        "/srv/mediawiki-staging",
+        "/srv/mediawiki-staging/php-1.45.0-wmf.1",
+        "/srv/mediawiki-staging/viol-a",
+        "/srv/mediawiki-staging/viol-b",
+    ]
+
+
+def test_write_deployment_info(app, mocker, tmp_path):
+    stage_dir = str(tmp_path)
+    app.config = {"stage_dir": stage_dir, "foss_violations": []}
+
+    mocker.patch.object(app, "active_wikiversions", return_value=["1.45.0-wmf.1"])
+    mocker.patch("scap.cli.git.get_branch", side_effect=["master", "wmf/1.45.0-wmf.1"])
+    mocker.patch("scap.cli.git.merge_base", side_effect=["abc123", "def456"])
+    mocker.patch(
+        "scap.cli.git.remote_get_url", side_effect=["config-repo", "core-repo"]
+    )
+
+    checkouts = app.write_deployment_info()
+
+    assert [checkout.directory for checkout in checkouts] == [
+        stage_dir,
+        os.path.join(stage_dir, "php-1.45.0-wmf.1"),
+    ]
+
+    with open(os.path.join(stage_dir, "deployment-info.json")) as f:
+        assert json.load(f) == {
+            "checkouts": [
+                {
+                    "repo": "config-repo",
+                    "branch": "master",
+                    "commit_ref": "abc123",
+                },
+                {
+                    "repo": "core-repo",
+                    "branch": "wmf/1.45.0-wmf.1",
+                    "commit_ref": "def456",
+                },
+            ]
+        }

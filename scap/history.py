@@ -7,10 +7,11 @@
 
 import dataclasses
 from datetime import datetime, timedelta, timezone
+import json
 import os
 from prettytable import PrettyTable, SINGLE_BORDER
 
-from scap import browser
+from scap import browser, utils
 from scap.runcmd import gitcmd, FailedCommand
 
 from typing import List, Optional
@@ -20,6 +21,12 @@ from sqlalchemy.pool import NullPool
 
 # Maximum age of a history entry before it is gc'd
 MAX_HISTORY_LENGTH = timedelta(days=365)
+
+# Name of the file that describes the staged checkouts.  It is written in the
+# MediaWiki staging directory, which is copied into MediaWiki container
+# images and to bare-metal targets, so a running MediaWiki can be queried
+# for the checkouts that it was built from.
+DEPLOYMENT_INFO_FILENAME = "deployment-info.json"
 
 
 class ModelBase(DeclarativeBase):
@@ -148,6 +155,44 @@ class Checkout(ModelBase):
     commit_ref: Mapped[str]
 
     deployment: Mapped["Deployment"] = relationship(back_populates="checkouts")
+
+
+def deployment_info(checkouts: List[Checkout]) -> dict:
+    """
+    Returns the information about 'checkouts' to store in the staging
+    directory.
+
+    >>> deployment_info([
+    ...     Checkout(repo="https://gerrit.example/config", branch="master",
+    ...              directory="/srv/mediawiki-staging", commit_ref="abc123"),
+    ...     Checkout(repo="https://gerrit.example/core", branch="wmf/1.0",
+    ...              directory="/srv/mediawiki-staging/php-1.0", commit_ref="def456"),
+    ... ])
+    {'checkouts': [{'repo': 'https://gerrit.example/config', 'branch': 'master', 'commit_ref': 'abc123'}, {'repo': 'https://gerrit.example/core', 'branch': 'wmf/1.0', 'commit_ref': 'def456'}]}
+    """
+    return {
+        "checkouts": [
+            {
+                "repo": checkout.repo,
+                "branch": checkout.branch,
+                "commit_ref": checkout.commit_ref,
+            }
+            for checkout in checkouts
+        ]
+    }
+
+
+def write_deployment_info(stage_dir, checkouts: List[Checkout]) -> bool:
+    """
+    Writes information about 'checkouts' to stage_dir/deployment-info.json.
+
+    Returns True if the file was updated.
+    """
+    data = json.dumps(deployment_info(checkouts), indent=4) + "\n"
+
+    return utils.write_file_if_needed(
+        os.path.join(stage_dir, DEPLOYMENT_INFO_FILENAME), data
+    )
 
 
 @dataclasses.dataclass

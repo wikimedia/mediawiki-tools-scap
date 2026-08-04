@@ -36,6 +36,7 @@ from typing import List, Optional
 from functools import reduce
 
 from scap.gerrit import GerritSSH
+from scap import history
 import scap.version as version
 import scap.ansi as ansi
 import scap.arg as arg
@@ -246,6 +247,58 @@ class Application(object):
         )
         for directory in active_directories:
             git.cache_git_info(directory)
+
+    def collect_staged_checkouts(self) -> List[history.Checkout]:
+        """
+        Returns a history.Checkout for each git checkout that scap stages: the
+        MediaWiki config repo, each active MediaWiki version, and each
+        foss_violations repo.
+
+        commit_ref is the public head of the checkout.  Locally applied
+        security patches are not included.
+        """
+        stage_dir = self.config["stage_dir"]
+
+        directories = [stage_dir]
+        directories += [
+            os.path.join(stage_dir, f"php-{version}")
+            for version in self.active_wikiversions("stage")
+        ]
+        directories += [
+            os.path.join(stage_dir, violation["path"])
+            for violation in self.config["foss_violations"]
+        ]
+
+        checkouts = []
+        for directory in directories:
+            branch = git.get_branch(directory)
+            checkouts.append(
+                history.Checkout(
+                    repo=git.remote_get_url(directory),
+                    branch=branch,
+                    directory=directory,
+                    commit_ref=git.merge_base(directory, "origin", branch),
+                )
+            )
+
+        return checkouts
+
+    def write_deployment_info(self) -> List[history.Checkout]:
+        """
+        Records the public heads of the staged checkouts in
+        {stage_dir}/deployment-info.json and returns those checkouts.
+
+        The staging directory is copied into the MediaWiki container images and
+        to the bare-metal targets, so the file can be read at runtime.
+
+        The purpose of the file is to supply information on runnable code, so
+        it only includes information about live MediaWiki versions though there
+        might be a non-live version in the image (for fast rollback).
+        """
+        checkouts = self.collect_staged_checkouts()
+        history.write_deployment_info(self.config["stage_dir"], checkouts)
+
+        return checkouts
 
     def get_versions_to_include_in_image(self) -> List[str]:
         versions = self.active_wikiversions("stage")

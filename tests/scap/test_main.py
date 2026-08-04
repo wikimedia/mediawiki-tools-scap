@@ -1,5 +1,5 @@
 import pytest
-from scap import cli
+from scap import cli, history
 
 
 @pytest.fixture
@@ -250,25 +250,19 @@ def test_handle_exception(cmd, mocker):
     announcer.info.assert_called()
 
 
-def test_init_history_includes_foss_violations_checkouts(cmd, mocker):
-    cmd.config["stage_dir"] = "/srv/mediawiki-staging"
-    cmd.config["foss_violations"] = [
-        {"repo": "https://example/repo-a", "branch": "main", "path": "viol-a"},
-        {"repo": "https://example/repo-b", "branch": "dev", "path": "viol-b"},
+def test_init_history_records_the_staged_checkouts(cmd, mocker):
+    checkouts = [
+        history.Checkout(
+            repo="repo",
+            branch="branch",
+            directory="/srv/mediawiki-staging",
+            commit_ref="commit",
+        )
     ]
+    cmd.staged_checkouts = checkouts
 
     mocker.patch.object(cmd, "scap_history_dbfile", return_value="/tmp/history.db")
-    mocker.patch.object(cmd, "active_wikiversions", return_value=["1.45.0-wmf.1"])
-
-    mocker.patch("scap.main.git.get_branch", return_value="branch")
-    mocker.patch("scap.main.git.merge_base", return_value="commit")
-    mocker.patch("scap.main.git.remote_get_url", return_value="repo")
 
     cmd._init_history()
 
-    assert [checkout.directory for checkout in cmd.deployment_log_entry.checkouts] == [
-        "/srv/mediawiki-staging",
-        "/srv/mediawiki-staging/php-1.45.0-wmf.1",
-        "/srv/mediawiki-staging/viol-a",
-        "/srv/mediawiki-staging/viol-b",
-    ]
+    assert cmd.deployment_log_entry.checkouts == checkouts
