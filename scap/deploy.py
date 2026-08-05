@@ -70,6 +70,19 @@ class DeployGroupFailure(RuntimeError):
     pass
 
 
+def get_git_binary_managers(cfg, logger):
+    """Return the configured binary managers as a list, which can be empty."""
+
+    if cfg["git_fat"]:
+        logger.warning("Using deprecated git_fat config, swap to git_binary_manager")
+        return [git.FAT]
+
+    if cfg["git_binary_manager"]:
+        return config.multi_value(cfg["git_binary_manager"])
+
+    return []
+
+
 @cli.command("deploy-local", help=argparse.SUPPRESS)
 class DeployLocal(cli.Application):
     """
@@ -296,14 +309,7 @@ class DeployLocal(cli.Application):
         logger = self.get_logger()
 
         has_submodules = self.config["git_submodules"]
-        git_binary_manager = None
-        if self.config["git_fat"]:
-            logger.warning(
-                "Using deprecated git_fat config, swap to git_binary_manager"
-            )
-            git_binary_manager = [git.FAT]
-        elif self.config["git_binary_manager"]:
-            git_binary_manager = config.multi_value(self.config["git_binary_manager"])
+        git_binary_managers = get_git_binary_managers(self.config, logger)
 
         rev_dir = self.context.rev_path(self.rev)
 
@@ -345,11 +351,7 @@ class DeployLocal(cli.Application):
                 self.context.mark_rev_in_progress(self.rev)
                 return
 
-        if not os.path.isdir(rev_dir):
-            # if lfs is enabled and this is the first time cloning this repo,
-            # then we need to run `git lfs install`` before `git clone`
-            if git_binary_manager and git.LFS in git_binary_manager:
-                git.lfs_install()
+        lfs = git.LFS in git_binary_managers
 
         # clone/fetch from the local cache directory to the revision directory
         git.fetch(
@@ -360,6 +362,11 @@ class DeployLocal(cli.Application):
             recurse_submodules=False,
             config=fetch_config,
         )
+
+        if lfs:
+            # The revision directory is new on each deploy, so its config must be
+            # written again each time.
+            git.lfs_install_local(rev_dir)
 
         logger.info("Checkout rev: {}".format(self.rev))
 
@@ -374,13 +381,15 @@ class DeployLocal(cli.Application):
                 reference=self.context.cache_dir,
             )
 
-        if git_binary_manager:
-            for manager in git_binary_manager:
-                logger.info("Pulling large objects [using %s]", manager)
-                if manager in [git.FAT, git.LFS]:
-                    git.largefile_pull(rev_dir, manager, has_submodules)
-                else:
-                    logger.warning("Passed unrecognized binary manager %s", manager)
+            if lfs:
+                git.lfs_install_local_submodules(rev_dir)
+
+        for manager in git_binary_managers:
+            logger.info("Pulling large objects [using %s]", manager)
+            if manager in [git.FAT, git.LFS]:
+                git.largefile_pull(rev_dir, manager, has_submodules)
+            else:
+                logger.warning("Passed unrecognized binary manager %s", manager)
 
         self.context.mark_rev_in_progress(self.rev)
 
@@ -875,6 +884,13 @@ For `scap deploy` to work, the current directory must be the top level of a git 
                 # Run git update-server-info because git repo is a dumb
                 # apache server
                 git.update_server_info(self.config["git_submodules"])
+
+                if git.LFS in get_git_binary_managers(self.config, logger):
+                    # Ensure that running "git status" on the deploy server
+                    # is a pleasant experience.
+                    git.lfs_install_local(self.context.root)
+                    if self.config["git_submodules"]:
+                        git.lfs_install_local_submodules(self.context.root)
 
                 if self.arguments.init:
                     return 0

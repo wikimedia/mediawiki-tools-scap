@@ -92,6 +92,78 @@ class GitTest(unittest.TestCase):
     def test_git_gc(self):
         git.garbage_collect(TEMPDIR)
 
+    def test_lfs_install_passes_cwd(self):
+        with unittest.mock.patch("scap.git.gitcmd") as gitcmd:
+            git.lfs_install("--local", "--skip-repo", cwd="/some/repo")
+
+        gitcmd.assert_called_once_with(
+            "lfs", "install", "--local", "--skip-repo", cwd="/some/repo"
+        )
+
+    @unittest.skipUnless(scap.runcmd.which("git-lfs"), "git-lfs is not installed")
+    def test_lfs_install_local(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            repo = os.path.join(tmpdir, "repo")
+            home = os.path.join(tmpdir, "home")
+            os.mkdir(home)
+            git.init(repo)
+
+            # --skip-repo must leave an existing hook alone
+            hook = os.path.join(repo, ".git", "hooks", "pre-push")
+            with open(hook, "w") as f:
+                f.write("#!/bin/sh\nexit 0\n")
+
+            # HOME tells git and git-lfs where the user config is
+            with unittest.mock.patch.dict(os.environ, {"HOME": home}):
+                git.lfs_install_local(repo)
+
+            config = scap.runcmd.gitcmd("config", "--local", "--list", cwd=repo)
+            assert "filter.lfs.process=git-lfs filter-process" in config
+            assert "filter.lfs.required=true" in config
+
+            with open(hook) as f:
+                assert f.read() == "#!/bin/sh\nexit 0\n"
+
+            user_config = os.path.join(home, ".gitconfig")
+            assert not os.path.exists(user_config), "user config must not be written"
+
+    @unittest.skipUnless(scap.runcmd.which("git-lfs"), "git-lfs is not installed")
+    def test_lfs_install_local_submodules(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            sub = os.path.join(tmpdir, "sub")
+            parent = os.path.join(tmpdir, "parent")
+            home = os.path.join(tmpdir, "home")
+            os.mkdir(home)
+
+            git.init(sub)
+            scap.runcmd.touch("subfile", cwd=sub)
+            git.add_all(sub, "sub commit")
+
+            git.init(parent)
+            # git refuses a submodule on a local path without this
+            scap.runcmd.gitcmd(
+                "-c",
+                "protocol.file.allow=always",
+                "submodule",
+                "add",
+                sub,
+                "sub",
+                cwd=parent,
+            )
+            git.add_all(parent, "add submodule")
+
+            with unittest.mock.patch.dict(os.environ, {"HOME": home}):
+                git.lfs_install_local_submodules(parent)
+
+            # The config of the parent repo does not apply to the submodule
+            config = scap.runcmd.gitcmd(
+                "config", "--local", "--list", cwd=os.path.join(parent, "sub")
+            )
+            assert "filter.lfs.process=git-lfs filter-process" in config
+
+            user_config = os.path.join(home, ".gitconfig")
+            assert not os.path.exists(user_config), "user config must not be written"
+
     def test_parse_submodules(self):
         gitmodules_path = os.path.join(TEMPDIR, ".gitmodules")
 

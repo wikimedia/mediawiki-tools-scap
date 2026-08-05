@@ -173,11 +173,41 @@ def largefile_pull(location, implementor, submodules=False):
         raise ValueError("Must be passed one of lfs or fat")
 
 
-def lfs_install(*args):
+def lfs_install(*args, cwd=None):
     """Run git-lfs-install with provided arguments."""
     lfsargs = ["install"] + list(args)
     # run `git lfs install $args`
-    gitcmd("lfs", *lfsargs)
+    gitcmd("lfs", *lfsargs, cwd=cwd)
+
+
+# `git lfs install --local` writes filter.lfs.* to .git/config only.
+# `--skip-repo` keeps it from writing the repo hooks, which exits non-zero if a
+# foreign hook is already present.
+LFS_INSTALL_LOCAL_ARGS = ["--local", "--skip-repo"]
+
+
+def lfs_install_local(location):
+    """Install git-lfs filter config in the .git/config of `location`.
+
+    Without filter.lfs.* config, `git lfs pull` skips checkout and exits 0,
+    which leaves the pointer files in the working tree.
+    """
+    lfs_install(*LFS_INSTALL_LOCAL_ARGS, cwd=location)
+
+
+def lfs_install_local_submodules(location):
+    """Install git-lfs filter config in each submodule of `location`.
+
+    Each submodule has its own config file, so the config of the parent repo
+    does not apply. Submodules must be initialized before this runs.
+    """
+    gitcmd(
+        "submodule",
+        "foreach",
+        "--recursive",
+        "git lfs install " + " ".join(LFS_INSTALL_LOCAL_ARGS),
+        cwd=location,
+    )
 
 
 def get_branch(directory):

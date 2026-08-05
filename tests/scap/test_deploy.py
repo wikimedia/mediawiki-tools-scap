@@ -3,14 +3,14 @@ import tempfile
 import yaml
 
 import unittest
-from unittest.mock import patch, Mock
+from unittest.mock import patch, MagicMock, Mock
 
 import scap.cli
 import scap.config
 import scap.git
 import scap.script
 import scap.utils
-from scap.deploy import DeployLocal
+from scap.deploy import Deploy, DeployLocal, get_git_binary_managers
 from .test_config import override_default_config
 
 import pytest
@@ -179,6 +179,164 @@ def test_DeployLocal__load_config_passes_when_git_server_is_set():
             scap_deploy._load_config(use_global_config=False)
 
     assert scap_deploy.server_url == "http://" + git_server + repo_path
+
+
+def test_get_git_binary_managers():
+    logger = Mock()
+
+    def managers(git_fat, git_binary_manager):
+        return get_git_binary_managers(
+            {"git_fat": git_fat, "git_binary_manager": git_binary_manager}, logger
+        )
+
+    assert managers(False, None) == []
+    assert managers(False, "git-lfs") == ["git-lfs"]
+    assert managers(False, "git-fat, git-lfs") == ["git-fat", "git-lfs"]
+    assert logger.warning.call_count == 0
+
+    # The deprecated git_fat config wins over git_binary_manager
+    assert managers(True, "git-lfs") == ["git-fat"]
+    assert logger.warning.call_count == 1
+
+
+def make_deploy_local(tmp_path, git_binary_manager, git_submodules):
+    deploy_local = DeployLocal("deploy-local")
+    deploy_local.arguments = Mock(force=False)
+    deploy_local.rev = "somerev"
+    deploy_local.server_url = "http://deploy001/repo"
+    deploy_local.context = Mock(cache_dir=str(tmp_path / "cache"))
+    # A revision directory which does not exist yet
+    deploy_local.context.rev_path.return_value = str(tmp_path / "revs" / "somerev")
+    deploy_local.config = {
+        "git_fat": False,
+        "git_binary_manager": git_binary_manager,
+        "git_submodules": git_submodules,
+        "git_upstream_submodules": False,
+    }
+
+    return deploy_local
+
+
+def git_call_names(mock_git):
+    return [name for name, _, _ in mock_git.mock_calls]
+
+
+@patch("scap.deploy.git")
+def test_DeployLocal_fetch_installs_lfs_config(mock_git, tmp_path):
+    mock_git.LFS = scap.git.LFS
+    mock_git.FAT = scap.git.FAT
+
+    deploy_local = make_deploy_local(tmp_path, "git-lfs", git_submodules=True)
+    rev_dir = deploy_local.context.rev_path.return_value
+
+    deploy_local.fetch()
+
+    # The filter config of the revision directory must be in place before the
+    # checkout, and the config of the submodules before the pull
+    assert git_call_names(mock_git) == [
+        "fetch",
+        "update_submodules",
+        "fetch",
+        "lfs_install_local",
+        "checkout",
+        "update_submodules",
+        "lfs_install_local_submodules",
+        "largefile_pull",
+    ]
+    mock_git.lfs_install_local.assert_called_once_with(rev_dir)
+    mock_git.lfs_install_local_submodules.assert_called_once_with(rev_dir)
+
+
+@patch("scap.deploy.git")
+def test_DeployLocal_fetch_installs_lfs_config_without_submodules(mock_git, tmp_path):
+    mock_git.LFS = scap.git.LFS
+    mock_git.FAT = scap.git.FAT
+
+    deploy_local = make_deploy_local(tmp_path, "git-lfs", git_submodules=False)
+
+    deploy_local.fetch()
+
+    mock_git.lfs_install_local.assert_called_once()
+    mock_git.lfs_install_local_submodules.assert_not_called()
+
+
+@patch("scap.deploy.git")
+@pytest.mark.parametrize("git_binary_manager", [None, "git-fat"])
+def test_DeployLocal_fetch_without_lfs(mock_git, git_binary_manager, tmp_path):
+    mock_git.LFS = scap.git.LFS
+    mock_git.FAT = scap.git.FAT
+
+    deploy_local = make_deploy_local(tmp_path, git_binary_manager, git_submodules=True)
+
+    deploy_local.fetch()
+
+    mock_git.lfs_install_local.assert_not_called()
+    mock_git.lfs_install_local_submodules.assert_not_called()
+
+
+def make_deploy(tmp_path, git_binary_manager, git_submodules):
+    """Return a Deploy which runs in --init mode, so main() stops after setup."""
+
+    deploy = Deploy("deploy")
+    deploy.arguments = MagicMock(
+        init=True, stages=None, service_restart=False, dry_run=False, rev=None
+    )
+    deploy.context = Mock(root=str(tmp_path))
+    deploy.all_targets = ["target1"]
+    deploy._build_deploy_groups = Mock()
+    deploy.get_keyholder_key = Mock(return_value="somekey")
+    deploy.get_scap3_lock_file = Mock(return_value=str(tmp_path / "lock"))
+    deploy.lock = MagicMock()
+    deploy.Timer = MagicMock()
+    deploy.config_deploy_setup = Mock()
+    deploy.checks_setup = Mock()
+    deploy.config = {
+        "git_repo": "somerepo",
+        "git_rev": None,
+        "environment": None,
+        "tags_to_keep": 20,
+        "git_fat": False,
+        "git_binary_manager": git_binary_manager,
+        "git_submodules": git_submodules,
+    }
+
+    return deploy
+
+
+@patch("scap.deploy.git")
+def test_Deploy_installs_lfs_config_on_the_deploy_server(mock_git, tmp_path):
+    mock_git.LFS = scap.git.LFS
+    mock_git.FAT = scap.git.FAT
+    mock_git.info.return_value = {
+        "headSHA1": "1234567890",
+        "remoteURL": "http://gerrit/somerepo",
+    }
+
+    deploy = make_deploy(tmp_path, "git-lfs", git_submodules=True)
+
+    assert deploy.main() == 0
+
+    names = git_call_names(mock_git)
+    assert names.index("update_server_info") < names.index("lfs_install_local")
+    mock_git.lfs_install_local.assert_called_once_with(str(tmp_path))
+    mock_git.lfs_install_local_submodules.assert_called_once_with(str(tmp_path))
+
+
+@patch("scap.deploy.git")
+def test_Deploy_without_lfs(mock_git, tmp_path):
+    mock_git.LFS = scap.git.LFS
+    mock_git.FAT = scap.git.FAT
+    mock_git.info.return_value = {
+        "headSHA1": "1234567890",
+        "remoteURL": "http://gerrit/somerepo",
+    }
+
+    deploy = make_deploy(tmp_path, None, git_submodules=True)
+
+    assert deploy.main() == 0
+
+    mock_git.lfs_install_local.assert_not_called()
+    mock_git.lfs_install_local_submodules.assert_not_called()
 
 
 @pytest.mark.parametrize("expected,check,stage,group,when", valid_chk_testcases)
