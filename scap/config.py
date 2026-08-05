@@ -53,6 +53,10 @@ DEFAULT_CONFIG = {
     "log_json": (bool, False),
     # Logstash endpoint in scheme://host:port form
     "logstash_url": (str, None),
+    # File containing the credentials to use when querying logstash_url.
+    # The first line that is neither blank nor a #-prefixed comment must have
+    # "username:password" form. If unset, queries are not authenticated.
+    "logstash_credentials_file": (str, None),
     "debug_logstash": (bool, False),
     "mw_web_clusters": (str, "jobrunner,appserver,api_appserver,testserver"),
     "manage_mediawiki_php_symlink": (bool, True),

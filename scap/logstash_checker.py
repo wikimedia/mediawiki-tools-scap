@@ -51,6 +51,7 @@ class LogstashCheckerCommand(cli.Application):
             k8s_ops.get_stage_dep_configs(self.arguments.stage),
             baremetal_hosts,
             logger,
+            self.config["logstash_credentials_file"],
         ).analyze(self.arguments.stage, self.arguments.toohigh)
 
 
@@ -62,12 +63,13 @@ class LogstashChecker:
         k8s_dep_configs,
         baremetal_hosts,
         logger,
+        credentials_file=None,
     ):
         self.window_size = window_size
         self.k8s_dep_configs = k8s_dep_configs
         self.baremetal_hosts = baremetal_hosts
         self.logger = logger
-        self.logstash = logstash.Logstash(logstash_url, logger)
+        self.logstash = logstash.Logstash(logstash_url, logger, credentials_file)
 
     def check(self, threshold) -> bool:
         """

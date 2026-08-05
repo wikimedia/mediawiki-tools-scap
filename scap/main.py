@@ -936,6 +936,7 @@ class AbstractSync(cli.Application):
             dep_configs,
             baremetal_hosts or [],
             self.get_logger(),
+            self.config["logstash_credentials_file"],
         )
 
     def _run_logstash_checks(self, stage_label: str, checks: list) -> bool:
