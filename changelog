@@ -1,3 +1,9 @@
+scap (4.279.0)
+
+  * Record the staged checkouts in deployment-info.json
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Tue, 11 Aug 2026 08:20:48 -0700
+
 scap (4.278.0)
 
   * logstash: Support HTTP basic auth for logstash queries
