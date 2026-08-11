@@ -1,6 +1,13 @@
 import pytest
 from unittest.mock import Mock, patch
 
+from scap import lock
+
+
+@pytest.fixture(autouse=True)
+def global_lock_in_tmp_path(tmp_path, monkeypatch):
+    monkeypatch.setattr(lock, "GLOBAL_LOCK_FILE", str(tmp_path / "scap-global-lock"))
+
 
 class FakeChange:
     """Lightweight test double for GerritChange"""
