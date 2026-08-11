@@ -91,7 +91,13 @@ class Logstash:
                 log.log_large_message(
                     f"logstash response {resp}", self.logger, logging.DEBUG
                 )
+            if response.status != 200:
+                raise CheckServiceError(
+                    f"{logstash_search_url} returned HTTP {response.status}: {resp[:200]}"
+                )
             r = json.loads(resp)
+        except CheckServiceError:
+            raise
         except urllib3.exceptions.SSLError:
             raise CheckServiceError("Invalid certificate")
         except (
