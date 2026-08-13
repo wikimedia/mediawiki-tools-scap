@@ -11,7 +11,7 @@ DEFAULT_WINDOW = 600
 POLL_INTERVAL = 15
 
 
-def main(cfg, logger, results_dir, debug_logstash):
+def main(cfg, logger, results_dir):
     """
     The logstash poller main loop.
     """
@@ -19,7 +19,7 @@ def main(cfg, logger, results_dir, debug_logstash):
         cfg["logstash_url"],
         DEFAULT_WINDOW,
         logger,
-        debug_logstash,
+        cfg["debug_logstash"],
         cfg["logstash_credentials_file"],
     )
     while True:

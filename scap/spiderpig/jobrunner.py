@@ -77,7 +77,6 @@ class JobRunner(cli.Application):
                         self.config,
                         logger,
                         spiderpig_dir,
-                        self.config["debug_logstash"],
                     ),
                 ).start()
 
