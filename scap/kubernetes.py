@@ -44,24 +44,19 @@ LABEL_PARENT_IMAGE = "vnd.wikimedia.parent-image"
 # How long scap counts the replicas of a release after its command returns, in
 # seconds.  A rollout that k8s finishes stops the count, so only a rollout that
 # does not finish waits this long.
-PROGRESS_GRACE_PERIOD = 30
+PROGRESS_GRACE_PERIOD = 60
 
 
-def rollout_is_complete(deployment: dict) -> bool:
+def rollout_is_complete(deployment: dict, new_replicas: int) -> bool:
     """Returns True if k8s finished the rollout of a Deployment.
 
-    This is the same logic `kubectl rollout status` uses to determine if a
-    rollout is complete.
+    `new_replicas` is the available replicas of the new revision.
     """
     status = deployment["status"]
-    wanted = deployment["spec"].get("replicas", 0)
 
-    return (
-        status.get("observedGeneration", 0)
-        >= deployment["metadata"].get("generation", 0)
-        and status.get("updatedReplicas", 0) >= wanted
-        and status.get("availableReplicas", 0) >= wanted
-    )
+    return status.get("observedGeneration", 0) >= deployment["metadata"].get(
+        "generation", 0
+    ) and new_replicas >= deployment["spec"].get("replicas", 0)
 
 
 @dataclass
@@ -1455,13 +1450,12 @@ class K8sOps:
         if stop_event.is_set():
             # For no-op deployments, generate a final report that indicates 100% (T375514).
             deployment = get_deployment()
-            if release_monitor.ok and deployment and rollout_is_complete(deployment):
-                report_queue.put(
-                    (
-                        deployment_name,
-                        deployment["status"].get("availableReplicas", 0),
-                    )
-                )
+            if release_monitor.ok and deployment:
+                # This deployment made no new pod, so the pods that are there
+                # are the pods that it wants.
+                available = deployment["status"].get("availableReplicas", 0)
+                if rollout_is_complete(deployment, available):
+                    report_queue.put((deployment_name, available))
             return
 
         # Find the corresponding replicaset
@@ -1469,6 +1463,10 @@ class K8sOps:
         rs_name = rs["metadata"]["name"]
 
         def do_report():
+            """Reports the available replicas, and returns them.
+
+            Returns None when kubectl fails.
+            """
             cmd = kubectl_cmd("get", "rs", rs_name, "-o", "json")
             ret = subprocess.run(cmd, text=True, capture_output=True)
             if ret.returncode != 0:
@@ -1476,28 +1474,32 @@ class K8sOps:
                 # is that there is a brief connectivity issue to the cluster.
                 # Just skip this report cycle.  Kubectl's error message will
                 # be written to stderr. (T415839)
-                return
+                return None
             data = json.loads(ret.stdout)
             status = data["status"]
             availableReplicas = status.get("availableReplicas", 0)
 
             report_queue.put((deployment_name, availableReplicas))
+            return availableReplicas
 
         while not stop_event.wait(
             timeout=self.app.config["k8s_deployments_info_target_freshness"]
         ):
             do_report()
 
-        # helm returns as soon as the Deployment reaches MinReplicas, so scap
-        # keeps counting for a moment, and the replicas that arrive after that
-        # also count. It stops as soon as k8s reports that the rollout is
+        # helm returns as soon as the Deployment reaches MinReplicas. We
+        # keep monitoring for up to PROGRESS_GRACE_PERIOD seconds for the rollout to
         # complete. (T375514)
         deadline = time.monotonic() + PROGRESS_GRACE_PERIOD
-        while time.monotonic() < deadline:
+        while release_monitor.ok and time.monotonic() < deadline:
+            available = do_report()
             deployment = get_deployment()
-            if deployment and rollout_is_complete(deployment):
+            if (
+                available is not None
+                and deployment
+                and rollout_is_complete(deployment, available)
+            ):
                 break
-            do_report()
             time.sleep(1)
 
         # Perform one final report before stopping

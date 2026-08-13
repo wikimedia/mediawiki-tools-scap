@@ -574,25 +574,35 @@ def test_inspect_images(mock_popen):
     )
 
 
-def _deployment(generation=1, observed=1, wanted=3, updated=3, available=3):
+def _deployment(generation=1, observed=1, wanted=3, available=3):
     return {
         "metadata": {"name": "mw-web.traindev.main", "generation": generation},
         "spec": {"replicas": wanted},
         "status": {
             "observedGeneration": observed,
-            "updatedReplicas": updated,
             "availableReplicas": available,
         },
     }
 
 
 def test_rollout_is_complete():
-    """The rule of `kubectl rollout status`, which says when to stop counting."""
-    assert rollout_is_complete(_deployment())
+    """The rule that says when to stop counting the new pods."""
+    assert rollout_is_complete(_deployment(), 3)
 
     # k8s has not seen the last change of the Deployment yet.
-    assert not rollout_is_complete(_deployment(generation=2, observed=1))
-    # Some pods are of the release from before.
-    assert not rollout_is_complete(_deployment(updated=2))
+    assert not rollout_is_complete(_deployment(generation=2, observed=1), 3)
     # The new pods are not all available.
-    assert not rollout_is_complete(_deployment(available=2))
+    assert not rollout_is_complete(_deployment(), 2)
+
+
+def test_rollout_that_the_old_pods_make_look_complete():
+    """The pods that drain must not end the count of the new pods (T375514).
+
+    helm returns when the Deployment holds the number of pods that it wants.
+    At that moment the pods of the revision from before are still available, so
+    `status.availableReplicas` is at the wanted number while the new
+    ReplicaSet still misses pods.
+    """
+    # Two of the three pods are new, and one of the revision from before is
+    # still draining, so the Deployment counts three available pods.
+    assert not rollout_is_complete(_deployment(wanted=3, available=3), 2)
