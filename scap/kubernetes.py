@@ -13,6 +13,7 @@ import shlex
 import subprocess
 import tempfile
 import threading
+import time
 from typing import Dict, List, Optional
 import queue
 
@@ -38,6 +39,33 @@ LABEL_SCAP_STAGE_DIR = "vnd.wikimedia.scap.stage_dir"
 LABEL_SCAP_BUILD_STATE_DIR = "vnd.wikimedia.scap.build_state_dir"
 LABEL_BUILD_TYPE = "vnd.wikimedia.build-type"
 LABEL_PARENT_IMAGE = "vnd.wikimedia.parent-image"
+
+
+# How long scap counts the replicas of a release after its command returns, in
+# seconds.
+PROGRESS_GRACE_PERIOD = 5
+
+
+def rollout_is_complete(deployment: dict) -> bool:
+    """Returns True if k8s finished the rollout of a Deployment.
+
+    This is the same logic `kubectl rollout status` uses to determine if a
+    rollout is complete.
+    """
+    status = deployment["status"]
+    wanted = deployment["spec"].get("replicas", 0)
+
+    return (
+        status.get("observedGeneration", 0)
+        >= deployment["metadata"].get("generation", 0)
+        and status.get("updatedReplicas", 0) >= wanted
+        and status.get("availableReplicas", 0) >= wanted
+    )
+
+
+@dataclass
+class ReleaseMonitor:
+    ok: bool = True
 
 
 class InvalidDeploymentsConfig(Exception):
@@ -1320,26 +1348,33 @@ class K8sOps:
             str(self.app.config["k8s_helmfile_diff_context_lines"]),
         ]
 
-        with self._k8s_deployment_monitoring(dep_config, cluster, report_queue):
+        with self._k8s_deployment_monitoring(
+            dep_config, cluster, report_queue
+        ) as monitor:
             timer_name = f"helmfile_apply_{namespace}_{release}_{cluster}"
-            self._run_timed_cmd_quietly(
-                cmd, helmfile_dir, logger, really_quiet=True, timer_name=timer_name
-            )
+            try:
+                self._run_timed_cmd_quietly(
+                    cmd, helmfile_dir, logger, really_quiet=True, timer_name=timer_name
+                )
+            except BaseException:
+                monitor.ok = False
+                raise
 
     @contextlib.contextmanager
     def _k8s_deployment_monitoring(
         self, dep_config: DepConfig, cluster: str, report_queue
     ):
         stop_event = threading.Event()
+        release_monitor = ReleaseMonitor()
         monitor = threading.Thread(
             target=self._deployment_monitor,
-            args=(dep_config, cluster, stop_event, report_queue),
+            args=(dep_config, cluster, stop_event, report_queue, release_monitor),
             name="K8s deployment monitor",
         )
         monitor.start()
 
         try:
-            yield
+            yield release_monitor
         finally:
             stop_event.set()
             monitor.join()
@@ -1350,6 +1385,7 @@ class K8sOps:
         cluster: str,
         stop_event: threading.Event,
         report_queue,
+        release_monitor: ReleaseMonitor,
     ) -> None:
         namespace = dep_config.namespace
         release = dep_config.release
@@ -1416,6 +1452,15 @@ class K8sOps:
                 break
 
         if stop_event.is_set():
+            # For no-op deployments, generate a final report that indicates 100% (T375514).
+            deployment = get_deployment()
+            if release_monitor.ok and deployment and rollout_is_complete(deployment):
+                report_queue.put(
+                    (
+                        deployment_name,
+                        deployment["status"].get("availableReplicas", 0),
+                    )
+                )
             return
 
         # Find the corresponding replicaset
@@ -1441,6 +1486,18 @@ class K8sOps:
             timeout=self.app.config["k8s_deployments_info_target_freshness"]
         ):
             do_report()
+
+        # helm returns as soon as the Deployment reaches MinReplicas, so scap
+        # keeps counting for a moment, and the replicas that arrive after that
+        # also count. It stops as soon as k8s reports that the rollout is
+        # complete. (T375514)
+        deadline = time.monotonic() + PROGRESS_GRACE_PERIOD
+        while time.monotonic() < deadline:
+            deployment = get_deployment()
+            if deployment and rollout_is_complete(deployment):
+                break
+            do_report()
+            time.sleep(1)
 
         # Perform one final report before stopping
         do_report()

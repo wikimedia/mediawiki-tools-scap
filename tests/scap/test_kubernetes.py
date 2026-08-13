@@ -4,6 +4,7 @@ import pytest
 import subprocess
 
 from scap.kubernetes import (
+    rollout_is_complete,
     CommandsCheck,
     DeploymentsConfig,
     InvalidDeploymentsConfig,
@@ -571,3 +572,27 @@ def test_inspect_images(mock_popen):
         ],
         stdout=subprocess.PIPE,
     )
+
+
+def _deployment(generation=1, observed=1, wanted=3, updated=3, available=3):
+    return {
+        "metadata": {"name": "mw-web.traindev.main", "generation": generation},
+        "spec": {"replicas": wanted},
+        "status": {
+            "observedGeneration": observed,
+            "updatedReplicas": updated,
+            "availableReplicas": available,
+        },
+    }
+
+
+def test_rollout_is_complete():
+    """The rule of `kubectl rollout status`, which says when to stop counting."""
+    assert rollout_is_complete(_deployment())
+
+    # k8s has not seen the last change of the Deployment yet.
+    assert not rollout_is_complete(_deployment(generation=2, observed=1))
+    # Some pods are of the release from before.
+    assert not rollout_is_complete(_deployment(updated=2))
+    # The new pods are not all available.
+    assert not rollout_is_complete(_deployment(available=2))
