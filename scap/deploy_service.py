@@ -21,13 +21,14 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """
 import os
-import shlex
+import time
 from dataclasses import dataclass, field
-from typing import Dict, List
+from datetime import datetime, timezone
+from typing import Dict, List, Optional
 
 import yaml
 
-from scap import cli, utils
+from scap import cli, kubernetes, utils
 
 STAGING = "STAGING"
 PRODUCTION = "PRODUCTION"
@@ -45,7 +46,7 @@ class Environment:
 
     name: str
     datacenter: str
-    type: str
+    type: str  # One of ENVIRONMENT_TYPES
     aliases: List[str] = field(default_factory=list)
 
 
@@ -113,17 +114,60 @@ class ServiceConfig:
 
 
 @dataclass(frozen=True)
-class HelmfileCommand:
-    """A single helmfile invocation, and the context it was generated for."""
+class HelmfileCommand(kubernetes.HelmfileInvocation):
+    """One step of the plan: a helmfile invocation, and where it belongs.
 
-    directory: str
-    command: List[str]
+    The environment is the name that the service config uses, which may be an
+    alias of the environment of the cluster group.
+    """
+
     environment_type: str
     stage: str
     namespace: str
 
+    @property
+    def label(self) -> str:
+        """The text that identifies this step of the plan to the user."""
+        target = self.namespace
+        if self.release:
+            target = f"{self.release} of {target}"
+        return f"{target} in {self.environment} ({self.environment_type}/{self.stage})"
+
+    def release_label(self, release: str) -> str:
+        """The text that identifies one release of this step to the user."""
+        if release == self.release:
+            return self.label
+        return f"{release} of {self.label}"
+
+    def diff_job(self) -> kubernetes.CommandJob:
+        """Returns the review job of this step of the plan."""
+        return super().diff_job(self.label)
+
     def __str__(self) -> str:
-        return f"(cd {shlex.quote(self.directory)} && {shlex.join(self.command)})"
+        return utils.command_line(self.apply_command(), self.directory)
+
+
+@dataclass(frozen=True)
+class Rollback:
+    """One release to return to the state it had before the deployment.
+
+    `recorded` holds the revision of the release before the deployment, and the
+    time of that record. A revision of None is a release that was not
+    installed, and the rollback of such a release uninstalls it.
+    """
+
+    command: HelmfileCommand
+    release: str
+    recorded: kubernetes.RecordedRevision
+
+    @property
+    def label(self) -> str:
+        """The text that identifies this rollback to the user."""
+        what = self.command.release_label(self.release)
+        if self.recorded.revision is None:
+            return f"{what} (uninstall)"
+
+        return f"{what} to revision {self.recorded.revision}"
 
 
 def _assert_mapping(value, what: str) -> dict:
@@ -435,10 +479,17 @@ def _environments_to_deploy(
 
 
 def plan(
-    service_config: ServiceConfig, primary_datacenter: str, deployments_dir: str
-) -> List[HelmfileCommand]:
-    """Return the helmfile commands that deploy the service, in order."""
-    commands = []
+    service_config: ServiceConfig,
+    primary_datacenter: str,
+    deployments_dir: str,
+    context_lines: int,
+) -> List[List[HelmfileCommand]]:
+    """Returns the steps that deploy the service, in order.
+
+    Each inner list holds the steps of one environment at one stage. Those steps
+    run at the same time. The inner lists run one after the other.
+    """
+    steps = []
     group = service_config.cluster_group
 
     for environment_type in ENVIRONMENT_TYPES:
@@ -446,46 +497,56 @@ def plan(
             for env in _environments_to_deploy(
                 service_config, environment_type, primary_datacenter
             ):
+                concurrent = []
                 for namespace in service_config.namespaces:
                     service_env = namespace.environments.get(env.name)
                     if service_env is None:
                         continue
 
-                    for command in _commands_for(
+                    for release in _releases_to_deploy(
                         service_env, stage, group.environment_default_stage
                     ):
-                        commands.append(
+                        concurrent.append(
                             HelmfileCommand(
                                 directory=os.path.join(
                                     deployments_dir, group.dir, namespace.name
                                 ),
-                                command=command,
+                                environment=service_env.ref,
+                                release=release,
+                                context_lines=context_lines,
                                 environment_type=environment_type,
                                 stage=stage,
                                 namespace=namespace.name,
                             )
                         )
 
-    return commands
+                if concurrent:
+                    steps.append(concurrent)
+
+    return steps
 
 
-def _commands_for(
+def _releases_to_deploy(
     service_env: ServiceEnvironment, stage: str, default_stage: str
-) -> List[List[str]]:
-    base = ["helmfile", "apply", "-e", service_env.ref]
+) -> List[Optional[str]]:
+    """Returns the releases of an environment to deploy at this stage.
 
+    An entry of None deploys every release of the environment.
+    """
     if not service_env.releases:
         # An environment with no releases deploys all of its releases, at the
         # cluster group's default stage.
-        return [base] if stage == default_stage else []
+        return [None] if stage == default_stage else []
 
-    # Releases are selected by helmfile's built-in "name" label, one invocation per
-    # release, as scap already does elsewhere (see K8sOps).
-    return [
-        base + ["-l", f"name={release.name}"]
-        for release in service_env.releases
-        if release.stage == stage
-    ]
+    return [release.name for release in service_env.releases if release.stage == stage]
+
+
+def _namespaces_of(group: List[HelmfileCommand]) -> List[str]:
+    """The namespaces of one group, in the order of the plan.
+
+    A namespace with more than one release at this stage appears one time.
+    """
+    return list(dict.fromkeys(command.namespace for command in group))
 
 
 @cli.command(
@@ -493,43 +554,385 @@ def _commands_for(
     help="Deploy a service to Kubernetes",
 )
 class DeployService(cli.Application):
+    @cli.argument(
+        "--confirm-diffs",
+        action="store_true",
+        help="Display the helmfile diffs and request approval before the deployment.",
+    )
+    @cli.argument(
+        "--dry-run",
+        action="store_true",
+        help="Display the helmfile commands of the deployment, but run none of them.",
+    )
     @cli.argument("service", help="Name of the service to deploy")
+    @cli.argument("message", nargs="*", help="Log message that says why")
     def main(self, *extra_args):
-        logger = self.get_logger()
+        self.logger = self.get_logger()
+        self.k8s = kubernetes.K8sRunner(self, self.logger)
 
         service = self.arguments.service
-        catalog_file = self.config["service_catalog_file"]
+        service_config = self._service_config(service)
+        primary_datacenter = load_primary_datacenter(self.config["conftool_state_file"])
 
-        cluster_groups = load_cluster_groups(
-            self.config["cluster_groups_file"],
-            self.config["helmfile_default_cluster_dir"],
+        self.logger.info(
+            f"Deploying {service} using cluster group "
+            f"{service_config.cluster_group.name} (primary datacenter: {primary_datacenter})"
         )
-        catalog = load_service_catalog(catalog_file, cluster_groups)
+
+        steps = plan(
+            service_config,
+            primary_datacenter,
+            self.config["helmfile_deployments_dir"],
+            self.config["k8s_helmfile_diff_context_lines"],
+        )
+        if not steps:
+            self.logger.warning(f"Nothing to deploy for {service}")
+            return 0
+
+        self._assert_releases_exist(steps)
+
+        if self.arguments.dry_run:
+            self._show_plan(steps)
+            return 0
+
+        # The message is the reason of the lock, for whoever waits for it.
+        self.prompt_for_message()
+
+        with self.lock(self._lock_file(service)):
+            soft_errors = False
+            if self.arguments.confirm_diffs:
+                soft_errors = self._confirm_diffs(steps) > 0
+
+            status = self._deploy_and_announce(service, steps)
+
+        if status == 0 and soft_errors:
+            self.logger.warning("The deployment is complete, but a diff command failed")
+            return 1
+        return status
+
+    def _lock_file(self, service: str) -> str:
+        """The lock file of one service.
+
+        Each service has its own lock, so two separate services can deploy at the same time.
+        """
+        return os.path.join(
+            self.config["lock_dir"],
+            f"scap.deploy-service.{service.replace('/', '_')}.lock",
+        )
+
+    def _service_config(self, service: str) -> ServiceConfig:
+        """Returns the config of one service of the catalog."""
+        catalog_file = self.config["service_catalog_file"]
+        catalog = load_service_catalog(
+            catalog_file,
+            load_cluster_groups(
+                self.config["cluster_groups_file"],
+                self.config["helmfile_default_cluster_dir"],
+            ),
+        )
         if service not in catalog:
             raise InvalidDeployServiceConfig(
                 f"'{service}' is not a service in {catalog_file} "
                 f"(known: {', '.join(sorted(catalog))})"
             )
-        service_config = catalog[service]
 
-        primary_datacenter = load_primary_datacenter(self.config["conftool_state_file"])
+        return catalog[service]
 
-        logger.info(
-            f"Deploying {service} using cluster group "
-            f"{service_config.cluster_group.name} (primary datacenter: {primary_datacenter})"
-        )
+    def _assert_releases_exist(self, steps: List[List[HelmfileCommand]]):
+        """Checks that each release of the catalog exists in its environment.
 
-        commands = plan(
-            service_config,
-            primary_datacenter,
-            self.config["helmfile_deployments_dir"],
-        )
-        if not commands:
-            logger.warning(f"Nothing to deploy for {service}")
-            return 0
+        `helmfile --selector name=<release>` selects nothing when the name is
+        not one that the environment installs, so a name with a mistake would
+        stop the deployment at that step, after the earlier steps deployed.
+        """
+        catalog_file = self.config["service_catalog_file"]
 
-        # TODO: Run these instead of echoing them.
-        for command in commands:
-            logger.info(f"[{command.environment_type}/{command.stage}] {command}")
+        for group in steps:
+            for command in group:
+                if command.release is None:
+                    continue
 
+                installed = self.k8s.installed_releases(
+                    command.without_release_selector()
+                )
+                if command.release not in installed:
+                    raise InvalidDeployServiceConfig(
+                        f"{catalog_file} names release '{command.release}' of "
+                        f"{command.namespace} in {command.environment}, which that "
+                        f"environment does not install "
+                        f"(it installs: {', '.join(installed)})"
+                    )
+
+    def _show_plan(self, steps: List[List[HelmfileCommand]]):
+        """Displays the plan, one group of commands at a time.
+
+        The commands of one group are indented under the group that holds them,
+        to show that they run at the same time.
+        """
+        for group in steps:
+            first = group[0]
+            at_once = f", {len(group)} at once" if len(group) > 1 else ""
+            self.logger.info(
+                f"[{first.environment_type}/{first.stage}] {first.environment}{at_once}:"
+            )
+            for command in group:
+                self.logger.info(f"    {command}")
+
+    def _deploy_and_announce(
+        self, service: str, steps: List[List[HelmfileCommand]]
+    ) -> int:
+        """Deploys the service, and announces the start and the end.
+
+        The announcements bracket the deployment. The SAL entries that helmfile
+        makes for each apply are between them.
+        """
+        what = f"scap deploy-service {service}: {self.message_argument}"
+        self.announce(f"Started {what}")
+        started = time.time()
+
+        def announce_end(outcome: str):
+            duration = utils.human_duration(time.time() - started)
+            self.announce_final(f"{outcome} {what} (duration: {duration})")
+
+        try:
+            status = self._deploy(steps)
+        # BaseException, so that an interrupt also ends the announcements.
+        except BaseException:
+            announce_end("Failed")
+            raise
+
+        announce_end("Finished" if status == 0 else "Failed")
+        return status
+
+    def _deploy(self, steps: List[List[HelmfileCommand]]) -> int:
+        """Deploys the service, one group of the plan at a time.
+
+        The steps of one group deploy at the same time. A failure stops the
+        deployment and offers to roll back what was already deployed.
+        Returns the exit status of scap.
+        """
+        # What a rollback must restore, one list for each group of the plan, in
+        # the order that the groups deployed.
+        rollbacks = []
+
+        for group in steps:
+            first = group[0]
+            self.logger.info(
+                f"[{first.environment_type}/{first.stage}] Deploying "
+                f"{', '.join(_namespaces_of(group))} "
+                f"in {first.environment}"
+            )
+            # The revisions come from before the deployment, so that a rollback
+            # names the revision to return to. A release in a pending state
+            # accepts no deployment, so scap repairs it here.
+            group_rollbacks = [self._prepare(command) for command in group]
+
+            # Every release of the group rolls back, and not only the releases
+            # that deployed: helm undoes an atomic release that fails, but that
+            # rollback of helm can fail as well. A rollback that names the
+            # revision returns a release to the same revision each time, so it
+            # is safe to roll back a release that helm already returned.
+            rollbacks.append(
+                [
+                    rollback
+                    for step_rollbacks in group_rollbacks
+                    for rollback in step_rollbacks
+                ]
+            )
+
+            answer = self._apply_until_it_works(group)
+            if answer is None:
+                continue
+
+            self.logger.error(f"Deployment of {self.arguments.service} stopped")
+            if answer == "b":
+                self._roll_back(rollbacks)
+            else:
+                self.logger.warning("What already deployed stays as it is")
+            return 1
+
+        self.logger.info(f"Deployment of {self.arguments.service} complete")
         return 0
+
+    def _apply_until_it_works(self, group: List[HelmfileCommand]) -> Optional[str]:
+        """Deploys the steps of one group, and offers a retry of what failed.
+
+        Returns None when every step of the group deployed, and the choice of
+        the user when one did not. When the session is not interactive, scap
+        rolls back, as it does for a MediaWiki deployment.
+        """
+        first = group[0]
+        pending = list(group)
+        attempts = 0
+
+        def apply_pending() -> bool:
+            nonlocal pending, attempts
+            attempts += 1
+            if attempts > 1:
+                self.logger.info(
+                    f"Deploying again: {', '.join(c.label for c in pending)}"
+                )
+                # An apply that stopped in the middle can leave a release in a
+                # pending state. Clean up first.
+                for command in pending:
+                    for release in self.k8s.releases(command):
+                        self._repair(command, release)
+
+            results = self._apply(pending)
+            pending = [
+                command for command, result in zip(pending, results) if not result.ok
+            ]
+            return not pending
+
+        return self.retry_until(
+            f"the deployment of {', '.join(_namespaces_of(group))} "
+            f"in {first.environment}",
+            apply_pending,
+            {
+                "Roll back what was already deployed": "b",
+                "Exit without rolling back": "x",
+            },
+            self._prompt_default("r", "b"),
+        )
+
+    def _apply(self, group: List[HelmfileCommand]) -> List[kubernetes.CommandResult]:
+        """Deploys the steps of one group at the same time."""
+        with self.k8s.watch_releases(group) as monitors:
+            results = self.k8s.run_jobs(
+                [command.apply_job(command.label) for command in group]
+            )
+
+            # The report of a step that failed does not count its release as
+            # complete, because the release is not in the state that this
+            # deployment wanted.
+            for command, result in zip(group, results):
+                for monitor in monitors[command]:
+                    monitor.ok = result.ok
+
+            return results
+
+    def _prepare(self, command: HelmfileCommand) -> List[Rollback]:
+        """Repairs each release of one step, and returns information needed to roll back if necessary."""
+        recorded_at = datetime.now(timezone.utc)
+        state = self.k8s.releases_state(command)
+
+        rollbacks = []
+        for release in self.k8s.releases(command):
+            release_state = state.get(release)
+            if release_state and (release_state.status or "").startswith("pending-"):
+                self._repair(command, release)
+
+            rollbacks.append(
+                Rollback(
+                    command,
+                    release,
+                    kubernetes.RecordedRevision(
+                        release_state and release_state.revision, recorded_at
+                    ),
+                )
+            )
+
+        return rollbacks
+
+    def _repair(self, command: HelmfileCommand, release: str):
+        """Clears the pending state of a release, so that it accepts a deployment.
+
+        A failure asks the user to retry or to exit, because a pending release
+        accepts no deployment. When the session is not interactive, scap exits.
+        """
+        label = command.release_label(release)
+
+        def repair() -> bool:
+            try:
+                self.k8s.fix_pending_state(command, release)
+                return True
+            except kubernetes.HelmfileError as e:
+                self.logger.error(f"Could not repair {label}: {e}")
+                return False
+
+        self.retry_ignore_or_exit(f"the repair of {label}", repair, may_ignore=False)
+
+    def _roll_back(self, rollbacks: List[List[Rollback]]):
+        """Offers to return each deployed release to its revision.
+
+        The groups roll back in the reverse of the order that deployed them,
+        and the releases of one group roll back at the same time, as they
+        deployed.
+        """
+        groups = [group for group in reversed(rollbacks) if group]
+        if not groups:
+            self.logger.info("Nothing deployed, so there is nothing to roll back")
+            return
+
+        rollback_order = "\n".join(
+            f"    {rollback.label}" for group in groups for rollback in group
+        )
+        if not self.prompt_user_for_confirmation(
+            f"Roll back what was already deployed, in this order?\n{rollback_order}",
+            default="y",
+        ):
+            self.logger.warning("Not rolling back")
+            return
+
+        # The count of replicas is the target of the deployment. A rollback
+        # that changes it reports a total that does not match.
+        commands = list(
+            dict.fromkeys(rollback.command for group in groups for rollback in group)
+        )
+        with self.k8s.watch_releases(commands):
+            for group in groups:
+                self._roll_back_group(group)
+
+    def _roll_back_group(self, rollbacks: List[Rollback]):
+        """Rolls back one group, and offers a retry of the releases that failed."""
+        pending = list(rollbacks)
+        first = pending[0].command
+
+        def roll_back_pending() -> bool:
+            nonlocal pending
+            agreed = self._roll_back_all(pending)
+            pending = [rollback for rollback, ok in zip(pending, agreed) if not ok]
+            return not pending
+
+        self.retry_ignore_or_exit(
+            f"the rollback of "
+            f"{', '.join(_namespaces_of([r.command for r in rollbacks]))} "
+            f"in {first.environment}",
+            roll_back_pending,
+        )
+
+    def _roll_back_all(self, rollbacks: List[Rollback]) -> List[bool]:
+        """Rolls back the releases of one group at the same time.
+
+        Returns whether helm agreed to each rollback, in the order given.
+        """
+        with self.k8s.group_pools(
+            rollbacks, lambda rollback: rollback.command.environment
+        ) as pools:
+            futures = [
+                pools[rollback.command.environment].submit(
+                    self._roll_back_one, rollback
+                )
+                for rollback in rollbacks
+            ]
+
+            return [future.result() for future in futures]
+
+    def _roll_back_one(self, rollback: Rollback) -> bool:
+        """Returns one release to its revision. Returns True if helm agreed."""
+        self.logger.info(f"Rolling back {rollback.label}")
+        return self.k8s.roll_back(
+            rollback.command,
+            rollback.release,
+            rollback.recorded,
+            f"The rollback of {rollback.label}",
+        )
+
+    def _confirm_diffs(self, steps: List[List[HelmfileCommand]]) -> int:
+        """Displays the diff of each step of the plan, then requests approval.
+
+        Returns the number of diff commands that failed.
+        """
+        return self.k8s.review_diffs(
+            [command.diff_job() for group in steps for command in group]
+        )
