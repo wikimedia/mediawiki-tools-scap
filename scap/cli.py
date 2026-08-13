@@ -372,6 +372,69 @@ class Application(object):
     def prompt_user_for_confirmation(self, prompt_message, default="n") -> bool:
         return self.get_io().prompt_user_for_confirmation(prompt_message, default)
 
+    def _prompt_default(
+        self, interactive_default: str, noninteractive_default: str
+    ) -> str:
+        return (
+            interactive_default if interaction.interactive() else noninteractive_default
+        )
+
+    def retry_until(
+        self, description: str, test_func, choices: dict, default: str
+    ) -> Optional[str]:
+        """Runs test_func() until it succeeds (meaning returning truthy),
+        or until the user decides not to retry.
+
+        When test_func() fails, the user is prompted for what to do.
+        The first choice is to retry.  Additional `choices` maybe supplied
+        (but they should not use "r" as a choice value).
+
+        'description' describes the operation in the prompt.
+
+        Returns None when test_func finally suceeeds, otherwise
+        returns the user's selected choice.
+        """
+        while True:
+            if test_func():
+                return None
+
+            resp = self.prompt_choices(
+                f"{description.capitalize()} failed.\n\nWhat do you want to do?",
+                {f"Retry {description}": "r", **choices},
+                default,
+            )
+            if resp != "r":
+                return resp
+
+    def retry_ignore_or_exit(
+        self, description: str, test_func, may_ignore: bool = True
+    ) -> bool:
+        """Runs test_func() until it succeeds (meaning returning
+        truthy), or until the user decides not to retry.
+
+        If 'may_ignore' is true, the user will be offered the choice
+        to continue despite a failure.
+
+        Returns:
+            True if test_func() succeeded.
+            False if the user chose to ignore the failure.
+
+        Raises:
+            SystemExit: If the user chooses to exit (exit code 1).
+        """
+        choices = {"Ignore the failure and continue": "i"} if may_ignore else {}
+        choices["Exit immediately"] = "x"
+
+        resp = self.retry_until(
+            description, test_func, choices, self._prompt_default("r", "x")
+        )
+        if resp is None:
+            return True
+        if resp == "i":
+            return False
+
+        sys.exit(1)
+
     def report_status(self, status: Optional[str] = None, log=False):
         if log and status:
             self.get_logger().info(status)

@@ -778,36 +778,27 @@ class AbstractSync(cli.Application):
         Raises:
             SystemExit: If the user chooses to exit without rollback (exit code 1).
         """
-        while True:
-            if test_func():
-                return True
+        resp = self.retry_until(
+            description,
+            test_func,
+            {
+                "Ignore failure and continue deployment": "i",
+                "Roll back all stages and terminate": "b",
+                "Exit without rollback": "x",
+            },
+            self._prompt_default("r", "b"),
+        )
+        if resp is None:
+            return True
+        if resp == "i":
+            self.get_logger().info("Ignoring %s failure and continuing", description)
+            return True
+        if resp == "b":
+            self._announce_rollback()
+            return False
 
-            resp = self.prompt_choices(
-                f"{description.capitalize()} failed.\n\nWhat do you want to do?",
-                {
-                    f"Retry {description}": "r",
-                    "Ignore failure and continue deployment": "i",
-                    "Roll back all stages and terminate": "b",
-                    "Exit without rollback": "x",
-                },
-                self._prompt_default("r", "b"),
-            )
-            if resp == "r":
-                # loop around and try again
-                continue
-            elif resp == "i":
-                self.get_logger().info(
-                    "Ignoring %s failure and continuing", description
-                )
-                return True
-            elif resp == "b":
-                self._announce_rollback()
-                return False
-            elif resp == "x":
-                self.announce("Scap cancelled without rolling back.")
-                sys.exit(1)
-            else:
-                raise Exception("This should never happen")
+        self.announce("Scap cancelled without rolling back.")
+        sys.exit(1)
 
     def _deploy_k8s_stage_with_retry(self, stage: str) -> bool:
         while True:
@@ -881,14 +872,6 @@ class AbstractSync(cli.Application):
                         return False
 
         return True
-
-    def _prompt_default(
-        self, interactive_default: str, noninteractive_default: str
-    ) -> str:
-        if interaction.interactive():
-            return interactive_default
-
-        return noninteractive_default
 
     def _log_k8s_operation_summary(self, k8s_stage_statuses: dict, result: str):
         self.output_line("\nKubernetes deployment summary:")
