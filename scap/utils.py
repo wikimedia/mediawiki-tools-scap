@@ -26,6 +26,7 @@ import pwd
 import random
 import re
 import requests
+import shlex
 import socket
 import struct
 import subprocess
@@ -347,6 +348,11 @@ def log_context(context_name):
         return context_wrapper
 
     return arg_wrapper
+
+
+def command_line(cmd: List[str], directory: str) -> str:
+    """Returns a command in a form that the user can copy and run."""
+    return f"(cd {shlex.quote(directory)} && {shlex.join(cmd)})"
 
 
 def get_logger():

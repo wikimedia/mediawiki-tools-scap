@@ -2,6 +2,8 @@ import base64
 from collections import defaultdict
 import concurrent.futures
 import contextlib
+import copy
+import dataclasses
 from dataclasses import dataclass
 import glob
 import logging
@@ -14,7 +16,7 @@ import subprocess
 import tempfile
 import threading
 import time
-from typing import Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional, Tuple
 import queue
 
 import yaml
@@ -41,44 +43,16 @@ LABEL_BUILD_TYPE = "vnd.wikimedia.build-type"
 LABEL_PARENT_IMAGE = "vnd.wikimedia.parent-image"
 
 
-# How many reads in a row may fail before scap stops counting the replicas of a
-# release. kubectl reads nothing when it cannot reach the cluster.
-READ_ATTEMPTS = 3
+class HelmfileError(utils.NoBacktraceError):
+    """A helmfile command that scap needs did not complete."""
 
 
-def rollout_is_complete(deployment: dict, new_replicas: int) -> bool:
-    """Returns True if k8s finished the rollout of a Deployment.
+class DepConfigsFailed(Exception):
+    """The releases that an operation of K8sOps did not complete."""
 
-    `new_replicas` is the available replicas of the new revision.
-    """
-    status = deployment["status"]
-
-    return status.get("observedGeneration", 0) >= deployment["metadata"].get(
-        "generation", 0
-    ) and new_replicas >= deployment["spec"].get("replicas", 0)
-
-
-def rollout_is_progressing(deployment: dict) -> bool:
-    """Returns True unless k8s gave up on the rollout of a Deployment.
-
-    k8s holds a Progressing condition for each Deployment, and gives it the
-    reason ProgressDeadlineExceeded when it stops expecting the rollout to
-    finish. Scap counts the replicas until then. A Deployment that holds no
-    such condition yet is one that k8s has not given up on.
-    """
-    for condition in deployment["status"].get("conditions", []):
-        if condition.get("type") == "Progressing":
-            return (
-                condition.get("status") == "True"
-                and condition.get("reason") != "ProgressDeadlineExceeded"
-            )
-
-    return True
-
-
-@dataclass
-class ReleaseMonitor:
-    ok: bool = True
+    def __init__(self, message: str, dep_configs: List["DepConfig"]):
+        super().__init__(message)
+        self.dep_configs = dep_configs
 
 
 class InvalidDeploymentsConfig(utils.NoBacktraceError):
@@ -145,6 +119,875 @@ class DepConfig:
     fq_release_name: str
     values_file: str
     helmfile_dir: str
+
+
+# The exit status of "helmfile diff --detailed-exitcode" when no release has a
+# change, and when a release has one.
+DIFF_NO_CHANGES_EXIT_STATUS = 0
+DIFF_CHANGES_EXIT_STATUS = 2
+
+
+def objects_of_release(kubeconfig: str, kind: str, release: str) -> List[dict]:
+    """Returns the k8s objects of one kind that belong to one helm release.
+
+    The charts of deployment-charts label each object with the name of its
+    release.
+
+    Since this function is used for progress reporting (which is not critical),
+    it returns an empty list if kubectl fails.
+    """
+    cmd = [
+        "kubectl",
+        "--kubeconfig",
+        kubeconfig,
+        "get",
+        kind,
+        "-l",
+        f"release={release}",
+        "-o",
+        "json",
+    ]
+    ret = subprocess.run(cmd, text=True, capture_output=True)
+    if ret.returncode != 0:
+        return []
+
+    return json.loads(ret.stdout).get("items", [])
+
+
+def deployments_of_release(kubeconfig: str, release: str) -> List[dict]:
+    """Returns the k8s Deployments of one helm release."""
+    return objects_of_release(kubeconfig, "deployment", release)
+
+
+def _revision_of(obj: dict) -> Optional[str]:
+    """Returns the revision that k8s gave to a Deployment or to a ReplicaSet."""
+    return (
+        obj["metadata"].get("annotations", {}).get("deployment.kubernetes.io/revision")
+    )
+
+
+def rollout_is_complete(deployment: dict, new_replicas: int) -> bool:
+    """Returns True if k8s finished the rollout of a Deployment.
+
+    `new_replicas` is the available replicas of the new revision.
+    """
+    status = deployment["status"]
+
+    return status.get("observedGeneration", 0) >= deployment["metadata"].get(
+        "generation", 0
+    ) and new_replicas >= deployment["spec"].get("replicas", 0)
+
+
+def rollout_is_progressing(deployment: dict) -> bool:
+    """Returns True unless k8s gave up on the rollout of a Deployment.
+
+    k8s holds a Progressing condition for each Deployment, and gives it the
+    reason ProgressDeadlineExceeded when it stops expecting the rollout to
+    finish. Scap counts the replicas until then. A Deployment that holds no
+    such condition yet is one that k8s has not given up on.
+    """
+    for condition in deployment["status"].get("conditions", []):
+        if condition.get("type") == "Progressing":
+            return (
+                condition.get("status") == "True"
+                and condition.get("reason") != "ProgressDeadlineExceeded"
+            )
+
+    return True
+
+
+def _new_replicas_of_release(
+    kubeconfig: str,
+    release: str,
+    revisions_before: Dict[str, Optional[str]],
+    unchanged_is_done: bool = False,
+) -> Dict[str, Tuple[int, bool, bool]]:
+    """Returns the available replicas of the new pods of each Deployment.
+
+    The count is of the new pods: a Deployment that keeps the revision it had
+    before the deployment reports no replicas, and one that changed reports the
+    available replicas of the ReplicaSet of its new revision. The pods from
+    before the deployment therefore do not count as progress.
+
+    `unchanged_is_done` counts a Deployment that keeps its revision as
+    complete, for the report that a deployment makes at its end. That
+    deployment made no new pod, so there is nothing to wait for (T375514).
+
+    The second value of each entry says if k8s finished the rollout, which is
+    when scap stops counting. The third says if k8s is still working on it, so
+    that a rollout that takes its time does not end the count.
+    """
+    replicasets = objects_of_release(kubeconfig, "replicaset", release)
+
+    reports = {}
+    for deployment in deployments_of_release(kubeconfig, release):
+        name = deployment["metadata"]["name"]
+        revision = _revision_of(deployment)
+
+        if revision is None or revision == revisions_before.get(name):
+            # A deployment that changes no image makes no new pod, and the
+            # pods that are there are the pods that it wants (T375514).
+            available = deployment["status"].get("availableReplicas", 0)
+            complete = rollout_is_complete(deployment, available)
+            reports[name] = (
+                available if unchanged_is_done and complete else 0,
+                complete,
+                rollout_is_progressing(deployment),
+            )
+            continue
+
+        available = 0
+        for replicaset in replicasets:
+            owners = replicaset["metadata"].get("ownerReferences", [])
+            if _revision_of(replicaset) == revision and any(
+                owner.get("name") == name for owner in owners
+            ):
+                available = replicaset["status"].get("availableReplicas", 0)
+                break
+
+        reports[name] = (
+            available,
+            rollout_is_complete(deployment, available),
+            rollout_is_progressing(deployment),
+        )
+
+    return reports
+
+
+@dataclass
+class ReleaseMonitor:
+    ok: bool = True
+
+
+# How many reads in a row may fail before scap stops counting the replicas of
+# a release. kubectl reads nothing when it cannot reach the cluster.
+READ_ATTEMPTS = 3
+
+
+@contextlib.contextmanager
+def monitor_release(
+    kubeconfig: str,
+    release: str,
+    report_queue,
+    freshness: int,
+):
+    """Periodically reports (to `report_queue`) the number of available replicas
+    of the new pods of a release.
+
+    Reports every `freshness` seconds, and then until k8s finishes every
+    rollout of the release or gives up on one, because helm returns before
+    every new pod is available (T375514).
+
+    Does nothing when `report_queue` is None. A failure of kubectl skips one
+    cycle, because a brief loss of connection to the cluster must not stop the
+    deployment (T415839).
+    """
+    monitor = ReleaseMonitor()
+    if report_queue is None:
+        yield monitor
+        return
+
+    revisions_before = {
+        deployment["metadata"]["name"]: _revision_of(deployment)
+        for deployment in deployments_of_release(kubeconfig, release)
+    }
+    stop_event = threading.Event()
+
+    def report(unchanged_is_done: bool = False) -> Tuple[bool, Optional[int], bool]:
+        """Reports the replicas of the release.
+
+        Returns whether k8s finished every rollout, how many replicas this
+        report counted, and whether k8s is still working on a rollout. A count
+        of None says that this cycle read nothing.
+        """
+        counts = _new_replicas_of_release(
+            kubeconfig, release, revisions_before, unchanged_is_done
+        )
+        if revisions_before and not counts:
+            # kubectl reported no Deployment for a release that has them, so
+            # this cycle knows nothing. An empty report must not read as a
+            # rollout that k8s finished (T415839).
+            return (False, None, False)
+
+        for name, (available, _, _) in counts.items():
+            report_queue.put((name, available))
+
+        return (
+            all(complete for _, complete, _ in counts.values()),
+            sum(available for available, _, _ in counts.values()),
+            any(progressing for _, _, progressing in counts.values()),
+        )
+
+    def watch():
+        while not stop_event.wait(timeout=freshness):
+            report()
+        # Reach here when the stop_event has been signaled.
+
+        if not monitor.ok:
+            # The command of the release failed, and helm returns an atomic
+            # release to its prior revision. The Deployment then holds a
+            # revision that is neither the one from before nor the one that
+            # this deployment wanted, so a count of its pods describes neither.
+            # The report stops here instead.
+            return
+
+        # helm returns as soon as the new ReplicaSet of a Deployment holds the
+        # replicas that it wants, less the ones that its strategy allows to be
+        # unavailable, so the last pods of a rollout arrive after the command
+        # of the release returns. Scap counts them until k8s finishes every
+        # rollout or gives up on one. A Deployment that changed nothing made no
+        # new pod, so it is complete already. (T375514)
+        unreadable = 0
+        while True:
+            complete, counted, progressing = report(unchanged_is_done=True)
+            if complete:
+                return
+
+            if counted is None:
+                # kubectl read nothing. A brief loss of the connection to the
+                # cluster must only skip the cycle (T415839).
+                unreadable += 1
+                if unreadable == READ_ATTEMPTS:
+                    return
+            elif not progressing:
+                return
+            else:
+                unreadable = 0
+
+            time.sleep(1)
+
+    thread = threading.Thread(target=watch, name=f"k8s monitor {release}")
+    thread.start()
+    try:
+        yield monitor
+    finally:
+        stop_event.set()
+        thread.join()
+
+
+@contextlib.contextmanager
+def replica_progress(name: str, expected_replicas: int):
+    """Reports the progress of a deployment, as its pods become available.
+
+    Yields a queue. A monitor puts a (deployment name, available replicas) pair
+    on it, and the reporter shows the sum of the last value of each deployment.
+    Yields None when no replica is expected, because there is nothing to report.
+    """
+    if expected_replicas <= 0:
+        yield None
+        return
+
+    report_queue = queue.Queue()
+
+    def report():
+        reports = {}
+        reporter = log.reporter(name)
+        reporter.expect(expected_replicas)
+        reporter.start()
+
+        while True:
+            data = report_queue.get()
+            if data == "stop":
+                break
+
+            deployment, available_replicas = data
+            if reports.get(deployment) != available_replicas:
+                reports[deployment] = available_replicas
+                reporter.set_success(sum(reports.values()))
+
+        reporter.finish()
+
+    thread = threading.Thread(target=report, name="k8s deployment reporter")
+    thread.start()
+    try:
+        yield report_queue
+    finally:
+        report_queue.put("stop")
+        thread.join()
+
+
+@dataclass(frozen=True)
+class CommandJob:
+    """One command to run, and the label that identifies it."""
+
+    # The text that names this job to the user.
+    label: str
+    # The jobs of one group share a thread pool. The group is the k8s cluster,
+    # so that scap makes a limited number of requests to each cluster.
+    group: str
+    directory: str
+    command: List[str]
+    # The name that the duration of the command reports to statsd.
+    timer_name: str = "unsupplied"
+
+
+@dataclass(frozen=True)
+class CommandResult:
+    """The outcome of one subprocess.
+
+    `returncode` is None when the command gives no exit status of its own,
+    because it did not start, or an interrupt stopped it. `stderr` then says
+    what happened.
+    """
+
+    returncode: Optional[int]
+    stdout: str
+    stderr: str
+
+    @property
+    def ok(self) -> bool:
+        return self.returncode == 0
+
+    @property
+    def status(self) -> str:
+        """The exit status, for a report to the user."""
+        if self.returncode is None:
+            return "no exit status"
+        return f"exit status {self.returncode}"
+
+    @property
+    def output(self) -> str:
+        """The stdout and the stderr, for a report to the user."""
+        return f"stdout: {self.stdout}\nstderr: {self.stderr}"
+
+
+@dataclass(frozen=True)
+class ReleaseState:
+    """What helm holds for one release, before a deployment changes it."""
+
+    revision: int
+    status: Optional[str]
+
+
+@dataclass(frozen=True)
+class HelmfileInvocation:
+    """A helmfile directory, environment and release, and the commands for them.
+
+    `release` limits each command to one release. If `release` is None,
+    every release of the environment is targeted.
+    """
+
+    directory: str
+    environment: str
+    release: Optional[str]
+    # The apply command runs a diff first, so both commands limit that diff to
+    # this number of context lines. A failed deployment prints the diff, and
+    # without the limit that output can reach tens of thousands of lines
+    # (T424975).
+    context_lines: int
+
+    def apply_command(self) -> List[str]:
+        """Returns the command that deploys the release."""
+        return self._command("apply", "--context", str(self.context_lines))
+
+    def diff_command(self) -> List[str]:
+        """Returns the command that shows what the deployment changes.
+
+        The exit status says whether a release has a change, so that scap does
+        not have to read the format of the output.
+        """
+        return self._command(
+            "diff",
+            "--context",
+            str(self.context_lines),
+            "--detailed-exitcode",
+            # The diffs reach the terminal and the logs, and a reviewer does not
+            # need the secret values.
+            "--suppress-secrets",
+        )
+
+    def build_command(self) -> List[str]:
+        """Returns the command that prints the helmfile state as YAML."""
+        return self._command("build")
+
+    def list_command(self) -> List[str]:
+        """Returns the command that lists the releases of the environment."""
+        return self._command("list", "--output", "json")
+
+    def write_values_command(self, output_file_template: str) -> List[str]:
+        """Returns the command that writes the values of the release to a file."""
+        return self._command(
+            "write-values", "--output-file-template", output_file_template
+        )
+
+    def _command(self, subcommand: str, *arguments: str) -> List[str]:
+        """Returns the command line of one helmfile invocation (as a list of strings)."""
+        selector = ["--selector", f"name={self.release}"] if self.release else []
+        return (
+            ["helmfile", "-e", self.environment]
+            + selector
+            + [subcommand]
+            + list(arguments)
+        )
+
+    def every_release(self) -> "HelmfileInvocation":
+        """Returns this invocation, without the selector of one release."""
+        return dataclasses.replace(self, release=None)
+
+    def diff_job(self, label: str) -> CommandJob:
+        """Returns the job that shows what the deployment changes."""
+        return self._job(label, self.diff_command(), "helmfile_diff")
+
+    def apply_job(self, label: str) -> CommandJob:
+        """Returns the job that deploys the release."""
+        return self._job(label, self.apply_command(), "helmfile_apply")
+
+    def _job(self, label: str, command: List[str], timer_name: str) -> CommandJob:
+        return CommandJob(label, self.environment, self.directory, command, timer_name)
+
+
+def helm_command(kubeconfig: str, subcommand: str, *arguments: str) -> List[str]:
+    """Returns the command line of one helm invocation (as a list of strings).
+
+    `kubeconfig` comes from K8sRunner.kubeconfig(). Each helm subcommand names
+    its release in its own way, so the caller supplies that.
+    """
+    return ["helm", "--kubeconfig", kubeconfig, subcommand] + list(arguments)
+
+
+def _cache_key(invocation: HelmfileInvocation) -> tuple:
+    return (invocation.directory, invocation.environment, invocation.release)
+
+
+def _kubeconfig_of(state: dict, invocation: HelmfileInvocation) -> str:
+    """Returns the kubeconfig file of a helmfile state.
+
+    Raises HelmfileError if the helmfile declares no kubeconfig.
+    """
+    for arg in state["helmDefaults"]["args"]:
+        if re.search(r"/etc/kubernetes/", arg):
+            return arg
+
+    raise HelmfileError(
+        f"The helmfile in {invocation.directory} declares no kubeconfig for "
+        f"environment {invocation.environment}"
+    )
+
+
+def _helmfile_setting(state: dict, release: Optional[str], name: str):
+    """Returns one setting of a release, or of helmDefaults, or None."""
+    for entry in state.get("releases", []):
+        if entry.get("name") == release and name in entry:
+            return entry[name]
+
+    return state.get("helmDefaults", {}).get(name)
+
+
+class K8sRunner:
+    """Runs the helmfile, helm and kubectl commands of one scap application.
+
+    A HelmfileInvocation says which commands to run, and this class runs them.
+    It holds the logger, the environment of each subprocess, and the config
+    that says how many commands may run at the same time.
+    """
+
+    def __init__(self, app, logger, helm_env: Optional[dict] = None):
+        self.app = app
+        self.logger = logger
+        self.env = helm_augmented_environment(helm_env)
+        # What helmfile reports about an invocation, keyed by _cache_key().
+        self._states = {}
+        self._installed_releases = {}
+
+    def with_logger(self, logger) -> "K8sRunner":
+        """Returns a runner that reports to another logger."""
+        other = copy.copy(self)
+        other.logger = logger
+        return other
+
+    @property
+    def max_workers_per_group(self) -> int:
+        return self.app.config["k8s_max_concurrent_deployments_per_cluster"]
+
+    @contextlib.contextmanager
+    def group_pools(self, items: list, group_of: Callable[[Any], str]):
+        """Yields a dict containing one thread pool for each group of the items.
+
+        `group_of` is a function that returns the group of an item. The group
+        is the k8s cluster, so that scap makes a limited number of requests to
+        each one. The end of the block waits for the threads of every pool.
+        """
+        items_by_group = defaultdict(list)
+        for item in items:
+            items_by_group[group_of(item)].append(item)
+
+        with contextlib.ExitStack() as stack:
+            yield {
+                group: stack.enter_context(
+                    concurrent.futures.ThreadPoolExecutor(
+                        max_workers=min(len(group_items), self.max_workers_per_group)
+                    )
+                )
+                for group, group_items in items_by_group.items()
+            }
+
+    @contextlib.contextmanager
+    def timer(self, description: str, name: str):
+        """Times an operation, and reports the duration to statsd only."""
+        quiet = logging.Logger("silence")
+        quiet.addHandler(logging.NullHandler(level=0))
+        with self.app.Timer(description, name=name, logger=quiet):
+            yield
+
+    def run(
+        self, cmd: List[str], directory: str, env: Optional[dict] = None
+    ) -> CommandResult:
+        """Runs a command and returns its result. See run_command().
+
+        `env` holds variables to add for this command only.
+        """
+        return run_command(cmd, directory, self.logger, {**self.env, **(env or {})})
+
+    def stdout(self, cmd: List[str], directory: str) -> Optional[str]:
+        """Runs a command and returns its stdout.
+
+        Returns None if the exit status is not zero, and reports the failure.
+        """
+        result = self.run(cmd, directory)
+        if result.ok:
+            return result.stdout
+
+        self.logger.error(
+            f"Non-zero exit status ({result.returncode}) from "
+            f"{utils.command_line(cmd, directory)}"
+        )
+        log.log_large_message(f"stdout: {result.stdout}", self.logger, logging.ERROR)
+        log.log_large_message(f"stderr: {result.stderr}", self.logger, logging.ERROR)
+
+        return None
+
+    def run_jobs(
+        self, jobs: List[CommandJob], failed=lambda result: not result.ok
+    ) -> List[CommandResult]:
+        """Runs each job in a subprocess. The jobs of one group share a pool.
+
+        `failed` is a function which decides if a result is a failure. A diff
+        needs its own function, because its exit status also reports a change.
+
+        Returns the result of each job, in the order of `jobs`. A job that did
+        not run gets a result with no exit status, which says why. Reports each
+        job that failed.
+        """
+
+        def run(job) -> CommandResult:
+            try:
+                with self.timer(f"Running {job.label}", job.timer_name):
+                    return self.run(job.command, job.directory)
+            # A command that does not exist, or a directory that does not exist.
+            except Exception as e:
+                return CommandResult(None, "", f"{type(e).__name__}: {e}")
+
+        with self.group_pools(jobs, lambda job: job.group) as pools:
+            futures = [pools[job.group].submit(run, job) for job in jobs]
+
+            try:
+                results = [future.result() for future in futures]
+            # BaseException also catches KeyboardInterrupt.
+            except BaseException as e:
+                self.logger.error(f"Caught {type(e).__name__} {e}")
+                for pool in pools.values():
+                    # Cancel the jobs that did not start yet, and wait for the
+                    # jobs that are already in progress.
+                    pool.shutdown(cancel_futures=True)
+                results = [_finished_result(future) for future in futures]
+
+        for job, result in zip(jobs, results):
+            if failed(result):
+                log_command_failure(
+                    job.label, job.command, job.directory, result, self.logger
+                )
+
+        return results
+
+    def review_diffs(self, jobs: List[CommandJob]) -> int:
+        """Displays the diff of each job, then requests approval.
+
+        Exits if the user does not approve. Returns the number of jobs that
+        failed.
+        """
+        self.logger.info("Collecting helmfile diffs for review")
+        results = self.run_jobs(jobs, failed=diff_failed)
+
+        failures = 0
+        changed = 0
+        for job, result in zip(jobs, results):
+            if diff_failed(result):
+                failures += 1
+            elif result.returncode == DIFF_CHANGES_EXIT_STATUS:
+                changed += 1
+                self.app.output_line(
+                    f"=== Diff for {job.label} ===\n{result.stdout}",
+                    sensitive=True,  # Diffs may contain sensitive values.
+                )
+            else:
+                self.app.output_line(f"=== No changes for {job.label} ===")
+
+        if failures:
+            self.logger.error(f"{failures} of {len(jobs)} diff commands failed")
+        if not changed:
+            self.logger.info("None of the diffs show a change")
+
+        self.app.prompt_for_approval_or_exit(
+            "Note: Diffs are relative to the current helm charts and helmfile values. "
+            "These may become outdated if new changes are merged.\n"
+            "Continue with the deployment?",
+            "Deployment cancelled.",
+        )
+        return failures
+
+    def _cached(self, cache: dict, invocation: HelmfileInvocation, compute):
+        """Returns what helmfile reports about an invocation, computed one time.
+
+        Two threads that ask at the same moment both run the command, which
+        costs one extra command and gives the same answer.
+        """
+        key = _cache_key(invocation)
+        if key not in cache:
+            cache[key] = compute()
+
+        return cache[key]
+
+    def state(self, invocation: HelmfileInvocation) -> dict:
+        """Returns the helmfile state of an environment, as helmfile resolves it.
+
+        The result is cached.
+
+        Raises HelmfileError if helmfile fails. Scap reads the state to find the
+        kubeconfig and to decide how to repair a release, so a state that scap
+        cannot read makes every later step unreliable.
+        """
+
+        def read() -> dict:
+            cmd = invocation.build_command()
+            stdout = self.stdout(cmd, invocation.directory)
+            if stdout is None:
+                raise HelmfileError(
+                    "Could not read the helmfile state: "
+                    f"{utils.command_line(cmd, invocation.directory)}"
+                )
+
+            return yaml.safe_load(stdout)
+
+        return self._cached(self._states, invocation, read)
+
+    def kubeconfig(self, invocation: HelmfileInvocation) -> str:
+        """Returns the kubeconfig file that helmfile gives to helm.
+
+        Raises HelmfileError if the helmfile declares no kubeconfig.
+        """
+        return _kubeconfig_of(self.state(invocation), invocation)
+
+    def installed_releases(self, invocation: HelmfileInvocation) -> List[str]:
+        """Returns the releases that an environment installs.
+
+        Uses `helmfile list -e <env>` to list every release of the helmfile,
+        and selects those which have the `installed` and `enabled` flags set.
+
+        The result is cached.
+
+        Raises HelmfileError if helmfile fails.
+        """
+
+        def read() -> List[str]:
+            cmd = invocation.list_command()
+            stdout = self.stdout(cmd, invocation.directory)
+            if stdout is None:
+                raise HelmfileError(
+                    "Could not list the releases: "
+                    f"{utils.command_line(cmd, invocation.directory)}"
+                )
+
+            return [
+                release["name"]
+                for release in json.loads(stdout)
+                if release.get("installed") and release.get("enabled")
+            ]
+
+        return self._cached(self._installed_releases, invocation, read)
+
+    def releases(self, invocation: HelmfileInvocation) -> List[str]:
+        """Returns the releases that an invocation deploys.
+
+        An invocation that names no release deploys every release that the
+        environment installs, so ask helmfile for those names.
+        """
+        if invocation.release:
+            return [invocation.release]
+
+        return self.installed_releases(invocation)
+
+    def releases_state(self, invocation: HelmfileInvocation) -> Dict[str, ReleaseState]:
+        """Returns helm release state for each release of a directory.
+
+        Raises HelmfileError if scap cannot read the kubeconfig, or if helm fails.
+        """
+        cmd = helm_command(self.kubeconfig(invocation), "ls", "-a", "-o", "json")
+        stdout = self.stdout(cmd, invocation.directory)
+        if stdout is None:
+            raise HelmfileError(
+                f"Could not list the releases: {utils.command_line(cmd, invocation.directory)}"
+            )
+
+        return {
+            release["name"]: ReleaseState(
+                int(release["revision"]), release.get("status")
+            )
+            for release in json.loads(stdout)
+        }
+
+    def fix_pending_state(self, invocation: HelmfileInvocation, release: str) -> str:
+        """Repairs a release that helm left in a pending state.
+
+        A pending release accepts no upgrade and no rollback, so scap clears the
+        state first. It uninstalls a pending install, because that release never
+        completed, and it rolls back a pending upgrade or rollback.
+
+        Returns the kubeconfig that helmfile gives to helm, for the caller to
+        reuse. Raises HelmfileError if the repair fails.
+        """
+        kubeconfig = self.kubeconfig(invocation)
+        state = self.releases_state(invocation).get(release)
+        status = state.status if state else None
+        self.logger.debug(
+            f"Status is '{status}' for release {release} in {invocation.directory}"
+        )
+
+        recovery_commands = {
+            "pending-install": "uninstall",
+            "pending-upgrade": "rollback",
+            "pending-rollback": "rollback",
+        }
+        recovery_command = recovery_commands.get(status)
+        if not recovery_command:
+            return kubeconfig
+
+        self.logger.warning(
+            f"Release {release} in {invocation.directory} is in {status} state. "
+            "Attempting to clean up"
+        )
+        cmd = helm_command(kubeconfig, recovery_command, release)
+        with self.timer(f"Repairing {release}", f"helm_{recovery_command}"):
+            result = self.run(cmd, invocation.directory)
+
+        if not result.ok:
+            log_command_failure(
+                f"The repair of {release} in {invocation.environment}",
+                cmd,
+                invocation.directory,
+                result,
+                self.logger,
+            )
+            raise HelmfileError(f"Could not repair the {status} release {release}")
+
+        return kubeconfig
+
+    def expected_replicas(self, invocations: List[HelmfileInvocation]) -> int:
+        """Returns the number replicas that the releases of these invocations specify.
+
+        The count comes from the values that helmfile renders, so it is the
+        target of the deployment, and not what the cluster holds now. The charts
+        of deployment-charts hold it in resources.replicas.
+
+        Returns 0 when scap cannot read the values of a release, because a
+        progress report is not worth stopping a deployment for. A caller that
+        gets 0 reports no progress.
+        """
+        total = 0
+        for invocation in invocations:
+            values = self._rendered_values(invocation)
+            if values is None:
+                self.logger.warning(
+                    "Scap reports no deployment progress, because it cannot read "
+                    "the values of the releases"
+                )
+                return 0
+
+            total += sum(
+                release_values.get("resources", {}).get("replicas", 0)
+                for release_values in values
+            )
+
+        return total
+
+    def _rendered_values(self, invocation: HelmfileInvocation) -> Optional[List[dict]]:
+        """Returns the values that helmfile renders, one entry for each release.
+
+        Returns None when every attempt fails. Scap tries again after a delay,
+        because the command updates the chart repositories before it renders,
+        and that update can fail for a moment.
+        """
+
+        # How many times scap reads the values of the releases, and the delay
+        # between two attempts, in seconds.
+        attempts = 3
+        retry_delay = 2
+
+        def load_values(path: str) -> dict:
+            with open(path) as f:
+                return yaml.safe_load(f) or {}
+
+        for attempt in range(1, attempts + 1):
+            with tempfile.TemporaryDirectory() as output_dir:
+                # helmfile expands this Go template one time for each release
+                # that it writes.
+                cmd = invocation.write_values_command(
+                    os.path.join(output_dir, "{{ .Release.Name }}.yaml")
+                )
+                result = self.run(cmd, invocation.directory)
+                files = sorted(glob.glob(os.path.join(output_dir, "*.yaml")))
+                if result.ok and files:
+                    return [load_values(path) for path in files]
+
+            # A run that writes no file also counts as a failure, whatever its
+            # exit status, so this is not log_command_failure().
+            log.log_large_message(
+                f"The values of the releases in {invocation.environment} are not "
+                f"readable (attempt {attempt} of {attempts}): "
+                f"{utils.command_line(cmd, invocation.directory)}\n{result.output}",
+                self.logger,
+                logging.WARNING,
+            )
+            if attempt < attempts:
+                time.sleep(retry_delay)
+
+        return None
+
+    @contextlib.contextmanager
+    def watch_releases(self, invocations: List[HelmfileInvocation]):
+        """Reports the progress of the releases that these invocations deploy.
+
+        Yields the monitors of each invocation, so that the caller can say how
+        the command of that invocation ended.
+
+        Raises HelmfileError if scap cannot read the kubeconfig or the releases
+        of an invocation.
+        """
+        watched = [
+            (invocation, self.kubeconfig(invocation), release)
+            for invocation in invocations
+            for release in self.releases(invocation)
+        ]
+        freshness = self.app.config["k8s_deployments_info_target_freshness"]
+
+        with (
+            replica_progress(
+                "Deployment progress", self.expected_replicas(invocations)
+            ) as report_queue,
+            contextlib.ExitStack() as stack,
+        ):
+            monitors = defaultdict(list)
+            for invocation, kubeconfig, release in watched:
+                monitors[invocation].append(
+                    stack.enter_context(
+                        monitor_release(
+                            kubeconfig,
+                            release,
+                            report_queue,
+                            freshness,
+                        )
+                    )
+                )
+            yield monitors
 
 
 @dataclass
@@ -722,7 +1565,7 @@ class DeploymentsConfig:
 
 class K8sOps:
     """
-    Kubernetes operations
+    MediaWiki Kubernetes deployment operations
     """
 
     def __init__(
@@ -750,7 +1593,8 @@ class K8sOps:
         self.build_logfile = os.path.join(
             pathlib.Path.home(), "scap-image-build-and-push-log" + suffix
         )
-        self.helm_env = self._collect_helm_env()
+        self.helm_env = collect_helm_env()
+        self.runner = K8sRunner(app, self.logger, self.helm_env)
         self.original_helmfile_values = {}
         self.rollback_dep_configs = {}
         self.rollback_skipped_dep_configs = {}
@@ -877,48 +1721,51 @@ class K8sOps:
                 shell=True,
             )
 
-    # Called by AbstractSync.main
-    def helmfile_diffs_for_stage(self, stage: str):
-        def diff_for_cluster_and_deployment(dep_config: DepConfig, report_queue):
-            namespace = dep_config.namespace
-            release = dep_config.release
-            helmfile_dir = dep_config.helmfile_dir
-            cmd = [
-                "helmfile",
-                "-e",
-                dep_config.cluster,
-                "--selector",
-                "name={}".format(release),
-                "diff",
-                "--context",
-                str(self.app.config["k8s_helmfile_diff_context_lines"]),
-            ]
-            logger = logging.getLogger("scap.k8s.diff")
-            return {
-                "cluster": dep_config.cluster,
-                "namespace": namespace,
-                "release": release,
-                "diff_stdout": self._cmd_stdout(cmd, helmfile_dir, logger),
-            }
+    def _invocation(self, dep_config: DepConfig) -> HelmfileInvocation:
+        """Returns a HelmfileInvocation corresponding to DepConfig"""
+        return HelmfileInvocation(
+            dep_config.helmfile_dir,
+            dep_config.cluster,
+            dep_config.release,
+            self.app.config["k8s_helmfile_diff_context_lines"],
+        )
 
-        dep_configs = self.k8s_deployments_config.deployed_stage_dep_configs(stage)
-        try:
-            return self._foreach_depconfig(
+    # Called by AbstractSync._confirm_k8s_diffs
+    def diff_jobs_for_stage(self, stage: str) -> List[CommandJob]:
+        """Returns the diff of each release that scap deploys at this stage.
+
+        The jobs are sorted by cluster, namespace and release.
+        """
+        dep_configs = [
+            dep_config
+            for dep_config in self.k8s_deployments_config.deployed_stage_dep_configs(
+                stage
+            )
+            if dep_config.deploy
+        ]
+
+        return [
+            self._invocation(dep_config).diff_job(
+                f"{dep_config.cluster}/{dep_config.namespace}-{dep_config.release} in {stage}"
+            )
+            for dep_config in sorted(
                 dep_configs,
-                diff_for_cluster_and_deployment,
-                "Diff",
-                progress=False,
+                key=lambda dep_config: (
+                    dep_config.cluster,
+                    dep_config.namespace,
+                    dep_config.release,
+                ),
             )
-        # Using BaseException so that we catch KeyboardInterrupt too
-        except BaseException as e:
-            self.app.soft_errors = True
-            self.logger.error(
-                "K8s helmfile diffs for stage %s failed: %s %s",
-                stage,
-                type(e).__name__,
-                e,
-            )
-        return []
+        ]
+
+    # Called by AbstractSync.main()
+    def review_diffs(self, jobs: List[CommandJob]) -> int:
+        """Displays the diff of each job, then requests approval.
+
+        Exits if the user does not approve. Returns the number of jobs that
+        failed.
+        """
+        return self.runner.review_diffs(jobs)
 
     # Called by AbstractSync.main()
     def update_helmfile_files(self):
@@ -950,7 +1797,9 @@ class K8sOps:
         stage's releases.
 
         deploy_k8s_images_for_stage uses self.rollback_dep_configs when
-        for_rollback=True.
+        for_rollback=True.  The files hold the images of the revision that the
+        rollback returns each release to, so the cluster and the files agree
+        after a rollback.
         """
         if not self.app.config["deploy_mw_container_image"]:
             self.rollback_dep_configs = {
@@ -1095,45 +1944,17 @@ class K8sOps:
             "Rollback" if for_rollback else "Deployment",
         )
 
-    @contextlib.contextmanager
     def _start_deployment_reporter(self, progress, dep_configs: List[DepConfig]):
-        if progress:
-            total_expected_replicas = self._get_total_expected_replicas(dep_configs)
-            report_queue = queue.Queue()
-            reporter = threading.Thread(
-                target=self._deployment_reporter,
-                args=(report_queue, self.logger, total_expected_replicas),
-                name="k8s deployment reporter",
-            )
-            reporter.start()
-            try:
-                yield report_queue
-            finally:
-                report_queue.put("stop")
-                reporter.join()
-        else:
-            yield None
-
-    @contextlib.contextmanager
-    def _cluster_pools(self, dep_configs: List[DepConfig]):
-        dep_configs_by_cluster = defaultdict(list)
-        for dep_config in dep_configs:
-            dep_configs_by_cluster[dep_config.cluster].append(dep_config)
-
-        pools = {}
-        for cluster, cluster_dep_configs in dep_configs_by_cluster.items():
-            pools[cluster] = concurrent.futures.ThreadPoolExecutor(
-                max_workers=min(
-                    len(cluster_dep_configs),
-                    self.app.config["k8s_max_concurrent_deployments_per_cluster"],
+        return replica_progress(
+            "K8s deployment progress",
+            (
+                self.runner.expected_replicas(
+                    [self._invocation(dep_config) for dep_config in dep_configs]
                 )
-            )
-
-        try:
-            yield pools
-        finally:
-            for cluster, pool in pools.items():
-                pool.shutdown()
+                if progress
+                else 0
+            ),
+        )
 
     def _foreach_depconfig(
         self,
@@ -1166,10 +1987,13 @@ class K8sOps:
             return []
 
         with self._start_deployment_reporter(progress, dep_configs) as report_queue:
-            with self._cluster_pools(dep_configs) as pools:
+            with self.runner.group_pools(
+                dep_configs, lambda dep_config: dep_config.cluster
+            ) as pools:
                 futures = []
                 results = []
                 failed = []
+                messages = []
 
                 for dep_config in dep_configs:
                     future = pools[dep_config.cluster].submit(
@@ -1181,7 +2005,8 @@ class K8sOps:
                 for future in concurrent.futures.as_completed(futures):
                     exception = future.exception()
                     if exception:
-                        failed.append(
+                        failed.append(future._scap_dep_config)
+                        messages.append(
                             "{} of {} failed: {}".format(
                                 description,
                                 future._scap_dep_config.fq_release_name,
@@ -1192,148 +2017,13 @@ class K8sOps:
                         results.append(future.result())
 
             if failed:
-                raise Exception(
+                raise DepConfigsFailed(
                     f"K8s {description} had the following errors:\n "
-                    + "\n".join(failed)
+                    + "\n".join(messages),
+                    failed,
                 )
 
             return results
-
-    def _deployment_reporter(self, report_queue, logger, total_expected_replicas):
-        reports = {}
-        reporter = log.reporter("K8s deployment progress")
-        reporter.expect(total_expected_replicas)
-        reporter.start()
-
-        while True:
-            # Normal entries are added to the queue in _deployment_monitor(),
-            # and _deploy_to_clusters() adds "stop".
-            data = report_queue.get()
-
-            if data == "stop":
-                break
-
-            deployment, availableReplicas = data
-
-            if reports.get(deployment) != availableReplicas:
-                reports[deployment] = availableReplicas
-                reporter.set_success(sum(reports.values()))
-
-        reporter.finish()
-
-    def _get_total_expected_replicas(self, dep_configs: List[DepConfig]) -> int:
-        total = 0
-
-        for dep_config in dep_configs:
-            helmfile_dir = dep_config.helmfile_dir
-            with tempfile.NamedTemporaryFile() as tmp:
-                cmd = [
-                    "helmfile",
-                    "-e",
-                    dep_config.cluster,
-                    "--selector",
-                    f"name={dep_config.release}",
-                    "write-values",
-                    "--output-file-template",
-                    tmp.name,
-                ]
-                self._run_timed_cmd_quietly(
-                    cmd, helmfile_dir, self.logger, really_quiet=True
-                )
-                if not os.path.exists(tmp.name) or os.path.getsize(tmp.name) == 0:
-                    raise Exception(
-                        f"Failed read helmfile values for {dep_config}\nCheck {helmfile_dir}/helmfile.yaml configuration for environment '{dep_config.cluster}' and release '{dep_config.release}'."
-                    )
-                total += yaml.safe_load(tmp).get("resources", {}).get("replicas", 0)
-
-        return total
-
-    def _get_kubeconfig(self, cluster, helmfile_dir, release, logger):
-        cmd = ["helmfile", "-e", cluster, "-l", "name={}".format(release), "build"]
-        stdout = self._cmd_stdout(cmd, helmfile_dir, logger)
-        if not stdout:
-            return None
-
-        data = yaml.safe_load(stdout)
-        for arg in data["helmDefaults"]["args"]:
-            if re.search(r"/etc/kubernetes/", arg):
-                return arg
-        logger.warning(
-            "Could not figure out which kubeconfig file to use for cluster %s, helmfile_dir %s, release %s",
-            cluster,
-            helmfile_dir,
-            release,
-        )
-        return None
-
-    def _get_helm_release_status(self, kubeconfig, helmfile_dir, release, logger):
-        cmd = [
-            "helm",
-            "--kubeconfig",
-            kubeconfig,
-            "ls",
-            "-l",
-            "name={}".format(release),
-            "-a",
-            "-o",
-            "json",
-        ]
-        stdout = self._cmd_stdout(cmd, helmfile_dir, logger)
-        if not stdout:
-            return None
-
-        data = json.loads(stdout)
-        if not data:
-            return None
-
-        assert len(data) == 1
-
-        return data[0].get("status")
-
-    def _helm_fix_pending_state(
-        self, cluster, helmfile_dir, namespace, release, logger
-    ):
-        """
-        Fix the release if it is in a pending-* state
-        """
-
-        kubeconfig = self._get_kubeconfig(cluster, helmfile_dir, release, logger)
-
-        if not kubeconfig:
-            return
-
-        status = self._get_helm_release_status(
-            kubeconfig, helmfile_dir, release, logger
-        )
-        logger.debug(
-            "Status is '%s' for cluster %s, helmfile_dir %s, release %s",
-            status,
-            cluster,
-            helmfile_dir,
-            release,
-        )
-
-        recovery_commands = {
-            "pending-install": "uninstall",
-            "pending-upgrade": "rollback",
-            "pending-rollback": "rollback",
-        }
-
-        recovery_command = recovery_commands.get(status)
-        if recovery_command:
-            logger.warning(
-                "Release %s for cluster %s in %s is in %s state.  Attempting to clean up",
-                release,
-                cluster,
-                helmfile_dir,
-                status,
-            )
-            # Should this use --wait ?
-            cmd = ["helm", "--kubeconfig", kubeconfig, recovery_command, release]
-            timer_name = f"helm_{recovery_command}_{namespace}_{release}_{cluster}"
-            self._run_timed_cmd_quietly(
-                cmd, helmfile_dir, logger, timer_name=timer_name
-            )
 
     def _deploy_k8s_images_for_cluster(self, dep_config: DepConfig, report_queue):
         logger = logging.getLogger("scap.k8s.deploy")
@@ -1343,207 +2033,34 @@ class K8sOps:
         cluster = dep_config.cluster
         helmfile_dir = dep_config.helmfile_dir
 
-        self._helm_fix_pending_state(cluster, helmfile_dir, namespace, release, logger)
+        kubeconfig = self.runner.with_logger(logger).fix_pending_state(
+            self._invocation(dep_config), dep_config.release
+        )
 
-        cmd = [
-            "helmfile",
-            "-e",
-            cluster,
-            "--selector",
-            f"name={release}",
-            "apply",
-            "--context",
-            str(self.app.config["k8s_helmfile_diff_context_lines"]),
-        ]
+        cmd = self._invocation(dep_config).apply_command()
+        runner = self.runner.with_logger(logger)
 
-        with self._k8s_deployment_monitoring(
-            dep_config, cluster, report_queue
+        with monitor_release(
+            kubeconfig,
+            release,
+            report_queue,
+            self.app.config["k8s_deployments_info_target_freshness"],
         ) as monitor:
-            timer_name = f"helmfile_apply_{namespace}_{release}_{cluster}"
-            try:
-                self._run_timed_cmd_quietly(
-                    cmd, helmfile_dir, logger, really_quiet=True, timer_name=timer_name
-                )
-            except BaseException:
-                monitor.ok = False
-                raise
+            with runner.timer(
+                f"Deploying {dep_config.fq_release_name}",
+                f"helmfile_apply_{namespace}_{release}_{cluster}",
+            ):
+                # helmfile_log_sal.sh (operations/puppet) reads SUPPRESS_SAL.
+                # Scap makes its own SAL entries for a MediaWiki deployment.
+                result = runner.run(cmd, helmfile_dir, {"SUPPRESS_SAL": "true"})
 
-    @contextlib.contextmanager
-    def _k8s_deployment_monitoring(
-        self, dep_config: DepConfig, cluster: str, report_queue
-    ):
-        stop_event = threading.Event()
-        release_monitor = ReleaseMonitor()
-        monitor = threading.Thread(
-            target=self._deployment_monitor,
-            args=(dep_config, cluster, stop_event, report_queue, release_monitor),
-            name="K8s deployment monitor",
-        )
-        monitor.start()
+            monitor.ok = result.ok
 
-        try:
-            yield release_monitor
-        finally:
-            stop_event.set()
-            monitor.join()
-
-    def _deployment_monitor(
-        self,
-        dep_config: DepConfig,
-        cluster: str,
-        stop_event: threading.Event,
-        report_queue,
-        release_monitor: ReleaseMonitor,
-    ) -> None:
-        namespace = dep_config.namespace
-        release = dep_config.release
-        kubeconfig = f"/etc/kubernetes/{namespace}-deploy-{cluster}.config"
-        deployment_name = (
-            f"{namespace}.dev.{release}"
-            if cluster == "traindev"
-            else f"{namespace}.{cluster}.{release}"
-        )
-
-        def kubectl_cmd(*args) -> tuple:
-            return ("kubectl", "--kubeconfig", kubeconfig) + args
-
-        def get_deployment():
-            cmd = kubectl_cmd(
-                "get",
-                "deployment",
-                deployment_name,
-                "-o",
-                "json",
+        if not result.ok:
+            log_command_failure(
+                dep_config.fq_release_name, cmd, helmfile_dir, result, logger
             )
-            ret = subprocess.run(cmd, text=True, capture_output=True)
-            if ret.returncode == 0:
-                return json.loads(ret.stdout)
-            if "(NotFound)" in ret.stderr:
-                return None
-            raise Exception(" ".join(cmd) + f" failed:\n{ret.stderr}")
-
-        def get_deployment_revision():
-            d = get_deployment()
-            if not d:
-                return None
-            return d["metadata"]["annotations"].get("deployment.kubernetes.io/revision")
-
-        def get_current_replicaset(deployment_revision):
-            cmd = kubectl_cmd(
-                "get",
-                "rs",
-                "-o",
-                "json",
-                "-l",
-                f"deployment={namespace}",
-                "-l",
-                f"release={release}",
-            )
-            data = json.loads(subprocess.check_output(cmd, text=True))
-            assert data["kind"] == "List"
-
-            for rs in data["items"]:
-                revision = rs["metadata"]["annotations"][
-                    "deployment.kubernetes.io/revision"
-                ]
-                if revision == deployment_revision:
-                    return rs
-
-            return None
-
-        initial_revision = get_deployment_revision()
-
-        # Wait for the deployment revision to change
-        while not stop_event.wait(timeout=1):
-            revision = get_deployment_revision()
-            if revision != initial_revision:
-                break
-
-        if stop_event.is_set():
-            # For no-op deployments, generate a final report that indicates 100% (T375514).
-            deployment = get_deployment()
-            if release_monitor.ok and deployment:
-                # This deployment made no new pod, so the pods that are there
-                # are the pods that it wants.
-                available = deployment["status"].get("availableReplicas", 0)
-                if rollout_is_complete(deployment, available):
-                    report_queue.put((deployment_name, available))
-            return
-
-        # Find the corresponding replicaset
-        rs = get_current_replicaset(revision)
-        rs_name = rs["metadata"]["name"]
-
-        def do_report():
-            """Reports the available replicas, and returns them.
-
-            Returns None when kubectl fails.
-            """
-            cmd = kubectl_cmd("get", "rs", rs_name, "-o", "json")
-            ret = subprocess.run(cmd, text=True, capture_output=True)
-            if ret.returncode != 0:
-                # There was some issue running kubectl.  The most likely reason
-                # is that there is a brief connectivity issue to the cluster.
-                # Just skip this report cycle.  Kubectl's error message will
-                # be written to stderr. (T415839)
-                return None
-            data = json.loads(ret.stdout)
-            status = data["status"]
-            availableReplicas = status.get("availableReplicas", 0)
-
-            report_queue.put((deployment_name, availableReplicas))
-            return availableReplicas
-
-        while not stop_event.wait(
-            timeout=self.app.config["k8s_deployments_info_target_freshness"]
-        ):
-            do_report()
-
-        if not release_monitor.ok:
-            # The command of the release failed, and helm returns an atomic
-            # release to its prior revision. The Deployment then holds a
-            # revision that is neither the one from before nor the one that this
-            # deployment wanted, so a count of its pods describes neither. The
-            # report stops here instead.
-            return
-
-        def read_deployment():
-            """Returns the Deployment, or None when scap cannot read it.
-
-            get_deployment() raises for a failure that is not a Deployment that
-            is gone, and the count of a rollout must not end because one read
-            failed (T415839).
-            """
-            try:
-                return get_deployment()
-            except Exception as e:
-                self.logger.warning(f"Could not read {deployment_name}: {e}")
-                return None
-
-        # helm returns as soon as the Deployment holds the replicas that it
-        # wants, less the ones that its strategy allows to be unavailable, so
-        # the last pods of a rollout arrive after the command of the release
-        # returns. Scap counts them until k8s finishes the rollout or gives up
-        # on it. (T375514)
-        unreadable = 0
-        while True:
-            available = do_report()
-            deployment = read_deployment()
-
-            if available is None or not deployment:
-                # kubectl read nothing. A brief loss of the connection to the
-                # cluster must only skip the cycle (T415839).
-                unreadable += 1
-                if unreadable == READ_ATTEMPTS:
-                    return
-            elif rollout_is_complete(deployment, available):
-                return
-            elif not rollout_is_progressing(deployment):
-                return
-            else:
-                unreadable = 0
-
-            time.sleep(1)
+            raise Exception(f"The deployment of {dep_config.fq_release_name} failed")
 
     def _verify_build_and_push_prereqs(self):
         if self.app.config["release_repo_dir"] is None:
@@ -1668,69 +2185,6 @@ class K8sOps:
 
         return report
 
-    def _helm_augmented_environment(self, env: dict) -> dict:
-        """
-        Returns a new dictionary that is a copy of the current environment, with
-        HELM_* variables set, plus any additional variables from 'env'.
-        """
-        res = os.environ.copy()
-        res.update(self.helm_env)
-        res.update(env)
-        return res
-
-    def _cmd_stdout(self, cmd, dir, logger, env={}):
-        """
-        Runs cmd in a subprocess.  The process has a zero exit
-        status, return its stdout as a string.  Otherwise
-        return None.
-        """
-        # This is similiar to scap.runcmd._runcmd() except:
-        # * a specific logger can be supplied
-        # * stdout/stderr are logged (debug level)
-
-        logger.debug("Running {} in {}".format(cmd, dir))
-        proc = subprocess.Popen(
-            cmd,
-            cwd=dir,
-            text=True,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            env=self._helm_augmented_environment(env),
-        )
-        stdout, stderr = proc.communicate()
-        log.log_large_message(f"stdout: {stdout}", logger, logging.DEBUG)
-        log.log_large_message(f"stderr: {stderr}", logger, logging.DEBUG)
-        logger.debug("exit status: %s", proc.returncode)
-
-        if proc.returncode == 0:
-            return stdout
-
-        logger.error("Non-zero exit status (%d) from %s", proc.returncode, cmd)
-        log.log_large_message(f"stdout: {stdout}", logger, logging.ERROR)
-        log.log_large_message(f"stderr: {stderr}", logger, logging.ERROR)
-
-        return None
-
-    def _run_timed_cmd_quietly(
-        self, cmd, dir, logger, env={}, really_quiet=False, timer_name=None
-    ):
-        env = self._helm_augmented_environment(env)
-        env["SUPPRESS_SAL"] = "true"
-
-        timer_logger = None
-        if really_quiet:
-            timer_logger = logging.Logger("silence")
-            timer_logger.addHandler(logging.NullHandler(level=0))
-
-        with self.app.Timer(
-            "Running {} in {}".format(" ".join(cmd), dir),
-            name=timer_name,
-            logger=timer_logger,
-        ):
-            with tempfile.NamedTemporaryFile() as logstream:
-                with utils.suppress_backtrace():
-                    self._run_cmd(cmd, dir, logstream.name, logger, env=env)
-
     def _run_cmd(self, cmd, dir, logfile, logger, shell=False, env=None):
         """
         Runs a subprocess, logging its output at debug level unless the
@@ -1761,31 +2215,112 @@ class K8sOps:
             raise
 
     # T331479
-    def _collect_helm_env(self) -> dict:
-        env = dict()
 
-        filename = "/etc/profile.d/kube-env.sh"
-        if not os.path.exists(filename):
-            return env
 
-        vars = ["HELM_HOME", "HELM_CONFIG_HOME", "HELM_DATA_HOME", "HELM_CACHE_HOME"]
+def collect_helm_env() -> dict:
+    """Returns the HELM_* variables that /etc/profile.d/kube-env.sh sets.
 
-        cmd = f"source {filename}"
+    The result is empty if the host does not have that file.
+    """
+    env = dict()
 
-        for var in vars:
-            cmd += f" && echo {var}=${var}"
-
-        cmd = ["bash", "-c", cmd]
-        output = subprocess.check_output(cmd, text=True)
-
-        for line in output.splitlines():
-            m = re.match(r"([^=]+)=(.*)$", line)
-            if not m:
-                raise RuntimeError(f"Unexpected output from {cmd}:\n{output}")
-
-            env[m[1]] = m[2]
-
+    filename = "/etc/profile.d/kube-env.sh"
+    if not os.path.exists(filename):
         return env
+
+    vars = ["HELM_HOME", "HELM_CONFIG_HOME", "HELM_DATA_HOME", "HELM_CACHE_HOME"]
+
+    cmd = f"source {filename}"
+
+    for var in vars:
+        cmd += f" && echo {var}=${var}"
+
+    cmd = ["bash", "-c", cmd]
+    output = subprocess.check_output(cmd, text=True)
+
+    for line in output.splitlines():
+        m = re.match(r"([^=]+)=(.*)$", line)
+        if not m:
+            raise RuntimeError(f"Unexpected output from {cmd}:\n{output}")
+
+        env[m[1]] = m[2]
+
+    return env
+
+
+def log_command_failure(
+    label: str, cmd: List[str], directory: str, result: CommandResult, logger
+):
+    """Reports a command that failed, with a command line that the user can run."""
+    log.log_large_message(
+        f"{label} failed ({result.status}): "
+        f"{utils.command_line(cmd, directory)}\n{result.output}",
+        logger,
+        logging.ERROR,
+    )
+
+
+def diff_failed(result: CommandResult) -> bool:
+    """Returns True if a diff did not run, or did not complete."""
+    return result.returncode not in (
+        DIFF_NO_CHANGES_EXIT_STATUS,
+        DIFF_CHANGES_EXIT_STATUS,
+    )
+
+
+def _finished_result(future) -> CommandResult:
+    """Returns the result of a job, or a result that says why there is none."""
+    if future.cancelled():
+        return CommandResult(None, "", "The command did not start")
+    if not future.done():
+        return CommandResult(None, "", "The command did not finish")
+    try:
+        return future.result()
+    except BaseException as e:
+        return CommandResult(None, "", f"{type(e).__name__}: {e}")
+
+
+def helm_augmented_environment(helm_env: Optional[dict] = None) -> dict:
+    """Returns a copy of the environment of scap, with the HELM_* variables.
+
+    `helm_env` holds the HELM_* variables from collect_helm_env(), and comes
+    from a new call to collect_helm_env() when the caller supplies none. The
+    result is a new dictionary, which the caller can change.
+    """
+    res = os.environ.copy()
+    res.update(collect_helm_env() if helm_env is None else helm_env)
+    return res
+
+
+def run_command(cmd, dir, logger, env: dict) -> CommandResult:
+    """Runs cmd in a subprocess in the specified directory.
+
+    Logs at DEBUG level only, so that the caller controls the report of a
+    failure. `env` is the full environment of the process.
+
+    The result holds all of the output in memory, so a command that writes a
+    very large amount of output needs another way. `helmfile apply` and
+    `helmfile diff` keep their output small with --context (T424975).
+    """
+    # This is similiar to scap.runcmd._runcmd() except:
+    # * a specific logger can be supplied
+    # * stdout/stderr are logged (debug level)
+
+    logger.debug("Running {} in {}".format(cmd, dir))
+    proc = subprocess.Popen(
+        cmd,
+        cwd=dir,
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        env=env,
+    )
+    stdout, stderr = proc.communicate()
+    log.log_large_message(f"stdout: {stdout}", logger, logging.DEBUG)
+    log.log_large_message(f"stderr: {stderr}", logger, logging.DEBUG)
+    logger.debug("exit status: %s", proc.returncode)
+
+    return CommandResult(proc.returncode, stdout, stderr)
 
 
 def build_states(state_dir):

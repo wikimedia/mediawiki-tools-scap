@@ -463,32 +463,17 @@ class AbstractSync(cli.Application):
         if not getattr(self.arguments, "k8s_confirm_diffs", False):
             return
         logger = self.get_logger()
-        logger.info("Collecting helmfile diffs for review")
+
+        jobs = []
         for stage in STAGES:
-            diffs = self.k8s_ops.helmfile_diffs_for_stage(stage)
-            if not diffs:
+            stage_jobs = self.k8s_ops.diff_jobs_for_stage(stage)
+            if not stage_jobs:
                 logger.warning("No diffs for stage %s", stage)
                 continue
-            for diff in sorted(
-                diffs,
-                key=lambda diff: (
-                    diff["cluster"],
-                    diff["namespace"],
-                    diff["release"],
-                ),
-            ):
-                self.output_line(
-                    "=== Diff for {cluster}/{namespace}-{release} in {stage} ===\n{diff_stdout}".format(
-                        stage=stage, **diff
-                    ),
-                    sensitive=True,  # Diffs may contain sensitive values.
-                )
-        self.prompt_for_approval_or_exit(
-            "Note: Diffs are relative to the current helm charts and helmfile values. These may "
-            "become outdated if new changes are merged during sync.\n"
-            "Continue with sync?",
-            "Sync cancelled.",
-        )
+            jobs += stage_jobs
+
+        if self.k8s_ops.review_diffs(jobs):
+            self.soft_errors = True
 
     def _build_and_push_container_images(self):
         if not self.config["build_mw_container_image"]:
