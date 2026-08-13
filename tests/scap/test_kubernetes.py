@@ -1,5 +1,6 @@
 import concurrent.futures
 import contextlib
+from datetime import datetime, timedelta, timezone
 import io
 import queue
 import json
@@ -12,6 +13,7 @@ import time
 
 import scap.kubernetes
 from scap.kubernetes import (
+    K8sOps,
     CommandsCheck,
     DeploymentsConfig,
     CommandJob,
@@ -937,7 +939,26 @@ def test_releases_state():
         "-a",
         "-o",
         "json",
+        # An explicit limit, because `helm ls` asks for 256 without one.
+        "--max=1000",
     ]
+
+
+def test_releases_state_of_a_list_that_may_leave_releases_out():
+    """A full list is not release state, because helm reports no truncation."""
+    invocation = HelmfileInvocation("/services/shellbox", "codfw", None, 5)
+    listing = json.dumps(
+        [
+            {"name": f"release{number}", "revision": "1", "status": "deployed"}
+            for number in range(1000)
+        ]
+    )
+    with mock.patch.object(K8sRunner, "kubeconfig", return_value="/etc/kubernetes/a"):
+        with mock.patch.object(K8sRunner, "stdout", return_value=listing):
+            with pytest.raises(
+                scap.kubernetes.HelmfileError, match="might be truncated"
+            ):
+                _runner().releases_state(invocation)
 
 
 def test_fix_pending_state_repairs_a_pending_release():
@@ -970,6 +991,75 @@ def test_fix_pending_state_of_a_release_that_is_not_pending():
             with mock.patch.object(K8sRunner, "run") as run:
                 _runner().fix_pending_state(invocation, "canary")
     run.assert_not_called()
+
+
+STATE_WITHOUT_WAIT = {"helmDefaults": {"args": ["--kubeconfig", "/etc/kubernetes/a"]}}
+STATE_WITH_WAIT = {
+    "helmDefaults": {
+        "args": ["--kubeconfig", "/etc/kubernetes/a"],
+        "wait": True,
+        "timeout": 600,
+    }
+}
+
+
+RECORDED_AT = datetime(2026, 8, 21, tzinfo=timezone.utc)
+
+
+def _recorded(revision, recorded_at=RECORDED_AT):
+    """The revision that scap recorded before a deployment."""
+    return scap.kubernetes.RecordedRevision(revision, recorded_at)
+
+
+def test_roll_back_names_the_revision():
+    """The command names the revision, so that a second attempt does the same."""
+    invocation = HelmfileInvocation("/services/shellbox", "codfw", "canary", 5)
+    ok = scap.kubernetes.CommandResult(0, "Rollback was a success", "")
+    with mock.patch.object(K8sRunner, "state", return_value=STATE_WITHOUT_WAIT):
+        with mock.patch.object(K8sRunner, "run", return_value=ok) as run:
+            assert _runner().roll_back(
+                invocation, "canary", _recorded(41), "the rollback"
+            )
+    assert run.call_args[0][0] == [
+        "helm",
+        "--kubeconfig",
+        "/etc/kubernetes/a",
+        "rollback",
+        "canary",
+        "41",
+    ]
+
+
+def test_roll_back_waits_for_an_atomic_release():
+    """helm waits by itself for --atomic, and a rollback has no --atomic."""
+    invocation = HelmfileInvocation("/services/shellbox", "codfw", "canary", 5)
+    state = {
+        "helmDefaults": {
+            "args": ["--kubeconfig", "/etc/kubernetes/a"],
+            "wait": False,
+            "atomic": True,
+            "timeout": 600,
+        }
+    }
+    ok = scap.kubernetes.CommandResult(0, "", "")
+    with mock.patch.object(K8sRunner, "state", return_value=state):
+        with mock.patch.object(K8sRunner, "run", return_value=ok) as run:
+            assert _runner().roll_back(
+                invocation, "canary", _recorded(41), "the rollback"
+            )
+    assert run.call_args[0][0][-4:] == ["41", "--wait", "--timeout", "600s"]
+
+
+def test_roll_back_waits_when_the_helmfile_waits():
+    """A rollback completes in the same way as the deployment of the release."""
+    invocation = HelmfileInvocation("/services/shellbox", "codfw", "canary", 5)
+    ok = scap.kubernetes.CommandResult(0, "Rollback was a success", "")
+    with mock.patch.object(K8sRunner, "state", return_value=STATE_WITH_WAIT):
+        with mock.patch.object(K8sRunner, "run", return_value=ok) as run:
+            assert _runner().roll_back(
+                invocation, "canary", _recorded(41), "the rollback"
+            )
+    assert run.call_args[0][0][-4:] == ["41", "--wait", "--timeout", "600s"]
 
 
 def test_replica_progress_reports_nothing_without_replicas():
@@ -1093,6 +1183,86 @@ def test_expected_replicas_of_every_release_of_an_environment():
     assert run.call_count == 1
     # No selector, so helmfile writes the values of every release.
     assert "--selector" not in run.call_args[0][0]
+
+
+def test_roll_back_of_a_new_release_uninstalls_it():
+    """A release that the deployment installed returns to its state by going away."""
+    invocation = HelmfileInvocation("/services/shellbox", "codfw", "canary", 5)
+    ok = scap.kubernetes.CommandResult(0, 'release "canary" uninstalled', "")
+    # helm first deployed the release after scap recorded that it was not there.
+    installed = RECORDED_AT + timedelta(minutes=5)
+    with mock.patch.object(K8sRunner, "state", return_value=STATE_WITHOUT_WAIT):
+        with mock.patch.object(K8sRunner, "first_deployed", return_value=installed):
+            with mock.patch.object(K8sRunner, "run", return_value=ok) as run:
+                assert _runner().roll_back(
+                    invocation, "canary", _recorded(None), "the rollback"
+                )
+    assert run.call_args[0][0] == [
+        "helm",
+        "--kubeconfig",
+        "/etc/kubernetes/a",
+        "uninstall",
+        "canary",
+        # A second attempt also succeeds.
+        "--ignore-not-found",
+    ]
+
+
+def test_roll_back_keeps_a_release_that_the_deployment_did_not_install():
+    """A record of "not installed" is not enough to uninstall a release.
+
+    `helm ls` reports no release whose record it cannot read, so scap reads the
+    one release before it removes it. A release that stays is no failure of the
+    rollback, so the result is True.
+    """
+    invocation = HelmfileInvocation("/services/shellbox", "codfw", "canary", 5)
+    older = RECORDED_AT - timedelta(days=9)
+
+    with mock.patch.object(K8sRunner, "state", return_value=STATE_WITHOUT_WAIT):
+        with mock.patch.object(K8sRunner, "run") as run:
+            # helm first deployed the release before scap recorded the state.
+            with mock.patch.object(K8sRunner, "first_deployed", return_value=older):
+                assert _runner().roll_back(
+                    invocation, "canary", _recorded(None), "the rollback"
+                )
+
+            # Scap cannot read the release.
+            with mock.patch.object(K8sRunner, "first_deployed", return_value=None):
+                assert _runner().roll_back(
+                    invocation, "canary", _recorded(None), "the rollback"
+                )
+
+    run.assert_not_called()
+
+
+def test_first_deployed():
+    """The time that helm reports for one release, and None when it stops."""
+    invocation = HelmfileInvocation("/services/shellbox", "codfw", "canary", 5)
+    status = scap.kubernetes.CommandResult(
+        0,
+        '{"name":"canary","info":{"first_deployed":"2026-08-12T20:09:48.018880843Z"}}',
+        "",
+    )
+    with mock.patch.object(K8sRunner, "kubeconfig", return_value="/etc/kubernetes/a"):
+        with mock.patch.object(K8sRunner, "run", return_value=status) as run:
+            assert _runner().first_deployed(invocation, "canary") == datetime(
+                2026, 8, 12, 20, 9, 48, 18880, tzinfo=timezone.utc
+            )
+        assert run.call_args[0][0] == [
+            "helm",
+            "--kubeconfig",
+            "/etc/kubernetes/a",
+            "status",
+            "canary",
+            "-o",
+            "json",
+        ]
+
+        # helm stops for a release that it does not hold, and for a record that
+        # it cannot read.
+        failed = scap.kubernetes.CommandResult(1, "", "Error: release: not found")
+        with mock.patch.object(K8sRunner, "run", return_value=failed):
+            assert _runner().first_deployed(invocation, "canary") is None
 
 
 def _k8s_object(name, revision, available=0, owner=None, wanted=3):
@@ -1306,6 +1476,190 @@ def test_monitor_release_when_kubectl_fails(monkeypatch):
     waited = time.monotonic() - started
     assert waited < 10, f"waited {waited}s"
     assert list(reports.queue) == []
+
+
+def _ops_for_rollback(revisions):
+    """A K8sOps with only what the rollback of one release reads."""
+    ops = mock.Mock()
+    ops.rollback_revisions = {
+        name: _recorded(revision) for name, revision in revisions.items()
+    }
+    ops.app.config = {"k8s_deployments_info_target_freshness": 1}
+    return ops
+
+
+def test_record_rollback_revisions_notes_a_release_that_is_not_installed():
+    """A release that is not installed is recorded as None, not left out.
+
+    The rollback of such a release uninstalls it, so it needs an entry. A
+    release that scap does not deploy needs none, because the rollback does not
+    touch it.
+    """
+    ops = mock.Mock()
+    ops.rollback_revisions = {}
+    ops.runner.releases_state.return_value = {
+        "main": scap.kubernetes.ReleaseState(7, "deployed")
+    }
+    dep_configs = [
+        DepConfig(
+            namespace="mw-web",
+            release=release,
+            cluster="eqiad",
+            scope="train",
+            mw_image_kind=None,
+            mw_image_flavour="publish",
+            web_image_flavour="webserver",
+            deploy=release != "maintenance",
+            fq_release_name=f"mw-web-{release}-eqiad",
+            values_file=f"/values/mw-web-{release}-eqiad.yaml",
+            helmfile_dir="/helmfile/mw-web",
+        )
+        for release in ["main", "canary", "maintenance"]
+    ]
+
+    K8sOps._record_rollback_revisions(ops, dep_configs)
+
+    # main is installed, canary is not, and scap does not deploy maintenance.
+    assert {
+        name: recorded.revision for name, recorded in ops.rollback_revisions.items()
+    } == {
+        "mw-web-main-eqiad": 7,
+        "mw-web-canary-eqiad": None,
+    }
+    # One read of the state, so both releases record the same time.
+    assert (
+        len({recorded.recorded_at for recorded in ops.rollback_revisions.values()}) == 1
+    )
+
+
+def test_record_rollback_revisions_of_a_stage_that_cannot_read_the_state():
+    """A read that fails records no revision of the stage.
+
+    The stage stops before it deploys anything, so it must roll nothing back.
+    """
+    dep_configs = [
+        DepConfig(
+            namespace=namespace,
+            release="main",
+            cluster="eqiad",
+            scope="train",
+            mw_image_kind=None,
+            mw_image_flavour="publish",
+            web_image_flavour="webserver",
+            deploy=True,
+            fq_release_name=f"{namespace}-main-eqiad",
+            values_file=f"/values/{namespace}-main-eqiad.yaml",
+            helmfile_dir=f"/helmfile/{namespace}",
+        )
+        for namespace in ["mw-web", "mw-api-ext"]
+    ]
+
+    ops = mock.Mock()
+    ops.rollback_revisions = {}
+    ops._invocation.side_effect = lambda dep_config: HelmfileInvocation(
+        dep_config.helmfile_dir, "eqiad", dep_config.release, 5
+    )
+    # The first directory reads, and helm fails for the second one.
+    ops.runner.releases_state.side_effect = [
+        {"main": scap.kubernetes.ReleaseState(7, "deployed")},
+        scap.kubernetes.HelmfileError("Could not list the releases"),
+    ]
+
+    with pytest.raises(scap.kubernetes.HelmfileError):
+        K8sOps._record_rollback_revisions(ops, dep_configs)
+
+    assert ops.rollback_revisions == {}
+
+
+def test_record_rollback_revisions_covers_every_stage():
+    """One record covers the releases of every stage.
+
+    Scap records the revisions before the first stage deploys, so each release
+    rolls back to the revision it had before the run.
+    """
+    ops = mock.Mock()
+    ops.app.config = {"deploy_mw_container_image": True}
+    ops.k8s_deployments_config = _parse(MAP_CONFIG)
+    ops.get_stage_dep_configs.side_effect = lambda stage: K8sOps.get_stage_dep_configs(
+        ops, stage
+    )
+
+    K8sOps.record_rollback_revisions(ops)
+
+    ops._record_rollback_revisions.assert_called_once()
+    (dep_configs,) = ops._record_rollback_revisions.call_args.args
+    assert {dep_config.fq_release_name for dep_config in dep_configs} == {
+        "mw-pretrain-web-canary-default-cluster",
+        "mw-pretrain-web-default-cluster",
+        "mw-web-canary-default-cluster",
+        "mw-web-main-default-cluster",
+        "mw-legacy-main-default-cluster",
+    }
+
+
+def test_roll_back_k8s_release_uninstalls_one_that_was_not_installed():
+    """A release that the deployment installed goes away again."""
+    dep_config = DepConfig(
+        namespace="mw-web",
+        release="canary",
+        cluster="eqiad",
+        scope="train",
+        mw_image_kind=None,
+        mw_image_flavour="publish",
+        web_image_flavour="webserver",
+        deploy=True,
+        fq_release_name="mw-web-canary-eqiad",
+        values_file="/values/mw-web-canary-eqiad.yaml",
+        helmfile_dir="/helmfile/mw-web",
+    )
+    ops = _ops_for_rollback({"mw-web-canary-eqiad": None})
+    ops.runner.with_logger.return_value.roll_back.return_value = True
+
+    with mock.patch("scap.kubernetes.monitor_release") as monitor:
+        monitor.return_value.__enter__.return_value = scap.kubernetes.ReleaseMonitor()
+        K8sOps._roll_back_k8s_release_for_cluster(ops, dep_config, None)
+
+    # The revision of None is what makes roll_back() uninstall the release,
+    # and the time of the record is what says that this deployment installed it.
+    args = ops.runner.with_logger.return_value.roll_back.call_args[0]
+    assert args[1] == "canary"
+    assert args[2] == _recorded(None)
+
+
+def test_get_stage_dep_configs_excludes_a_release_that_scap_does_not_deploy():
+    """The releases that scap deploys at a stage.
+
+    A release that scap does not deploy is not one of them, so it counts for no
+    error-rate check and it does not roll back.
+    """
+    dep_configs = [
+        DepConfig(
+            namespace="mw-web",
+            release=release,
+            cluster="eqiad",
+            scope="train",
+            mw_image_kind=None,
+            mw_image_flavour="publish",
+            web_image_flavour="webserver",
+            deploy=release != "maintenance",
+            fq_release_name=f"mw-web-{release}-eqiad",
+            values_file=f"/values/mw-web-{release}-eqiad.yaml",
+            helmfile_dir="/helmfile/mw-web",
+        )
+        for release in ["main", "canary", "maintenance"]
+    ]
+
+    ops = mock.Mock()
+    ops.app.config = {"deploy_mw_container_image": True}
+    ops.k8s_deployments_config.deployed_stage_dep_configs.return_value = dep_configs
+
+    deployed = K8sOps.get_stage_dep_configs(ops, "production")
+
+    assert [dep_config.release for dep_config in deployed] == ["main", "canary"]
+
+    # A run that deploys no container image has no such release.
+    ops.app.config = {"deploy_mw_container_image": False}
+    assert K8sOps.get_stage_dep_configs(ops, "production") == []
 
 
 def test_rollout_was_abandoned():

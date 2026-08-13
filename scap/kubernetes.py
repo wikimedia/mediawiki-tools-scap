@@ -5,6 +5,8 @@ import contextlib
 import copy
 import dataclasses
 from dataclasses import dataclass
+from datetime import datetime, timezone
+from dateutil import parser as dateutil_parser
 import glob
 import logging
 import json
@@ -452,6 +454,17 @@ class CommandResult:
 
 
 @dataclass(frozen=True)
+class RecordedRevision:
+    """The revision of a release before a deployment, and the time of the record.
+
+    A revision of None means that helm reported no such release.
+    """
+
+    revision: Optional[int]
+    recorded_at: datetime
+
+
+@dataclass(frozen=True)
 class ReleaseState:
     """What helm reports for an installed release, before a deployment changes it."""
 
@@ -536,6 +549,24 @@ class HelmfileInvocation:
         return CommandJob(label, self.environment, self.directory, command, timer_name)
 
 
+def _helm_time(value: str) -> Optional[datetime]:
+    """Returns the time of a helm timestamp, or None it cannot be parsed
+
+    helm uses RFC 3339 with fractional seconds.
+
+    >>> _helm_time("2026-08-12T20:09:48.018880843Z") == datetime(
+    ...     2026, 8, 12, 20, 9, 48, 18880, timezone.utc
+    ... )
+    True
+    >>> _helm_time("") is None
+    True
+    """
+    try:
+        return dateutil_parser.isoparse(value)
+    except ValueError:
+        return None
+
+
 def helm_command(kubeconfig: str, subcommand: str, *arguments: str) -> List[str]:
     """Returns the command line of one helm invocation (as a list of strings).
 
@@ -571,6 +602,24 @@ def _helmfile_setting(state: dict, release: Optional[str], name: str):
             return entry[name]
 
     return state.get("helmDefaults", {}).get(name)
+
+
+def _wait_arguments(state: dict, release: str) -> List[str]:
+    """Returns the arguments that make helm wait for the pods of a release.
+
+    helmfile passes these to helm when it applies a release, and the timeout is
+    the one that the helmfile declares. An atomic release waits as well,
+    because helm sets --wait by itself for --atomic, and `helm rollback` has
+    no --atomic of its own.
+    """
+    if not (
+        _helmfile_setting(state, release, "wait")
+        or _helmfile_setting(state, release, "atomic")
+    ):
+        return []
+
+    timeout = _helmfile_setting(state, release, "timeout")
+    return ["--wait"] + (["--timeout", f"{timeout}s"] if timeout else [])
 
 
 class K8sRunner:
@@ -819,21 +868,113 @@ class K8sRunner:
     def releases_state(self, invocation: HelmfileInvocation) -> Dict[str, ReleaseState]:
         """Returns helm release state for each release of a directory.
 
-        Raises HelmfileError if scap cannot read the kubeconfig, or if helm fails.
+        Raises HelmfileError if scap cannot read the kubeconfig, if helm fails,
+        or if the list has as many releases as the command asks for, because
+        such a list may be truncated.
         """
-        cmd = helm_command(self.kubeconfig(invocation), "ls", "-a", "-o", "json")
+        # `helm ls` asks for 256 releases without this. Note that `--max 0`
+        # does not remove the limit: it asks for the default of the server.
+        max_releases = 1000
+
+        cmd = helm_command(
+            self.kubeconfig(invocation),
+            "ls",
+            "-a",
+            "-o",
+            "json",
+            f"--max={max_releases}",
+        )
         stdout = self.stdout(cmd, invocation.directory)
         if stdout is None:
             raise HelmfileError(
                 f"Could not list the releases: {utils.command_line(cmd, invocation.directory)}"
             )
 
+        releases = json.loads(stdout)
+        if len(releases) >= max_releases:
+            # TODO: Pagination?
+            raise HelmfileError(
+                f"{utils.command_line(cmd, invocation.directory)} reported "
+                f"{max_releases} releases, which might be truncated."
+            )
+
         return {
             release["name"]: ReleaseState(
                 int(release["revision"]), release.get("status")
             )
-            for release in json.loads(stdout)
+            for release in releases
         }
+
+    def first_deployed(
+        self, invocation: HelmfileInvocation, release: str
+    ) -> Optional[datetime]:
+        """Returns when helm first deployed a release, or None if unknown
+
+        Raises HelmfileError if the kubeconfig cannot be read.
+        """
+        cmd = helm_command(self.kubeconfig(invocation), "status", release, "-o", "json")
+        result = self.run(cmd, invocation.directory)
+        if not result.ok:
+            self.logger.warning(
+                f"Could not get the status of release {release}: "
+                f"{utils.command_line(cmd, invocation.directory)}: "
+                f"{result.stderr.strip()}"
+            )
+            return None
+
+        info = json.loads(result.stdout).get("info", {})
+        return _helm_time(info.get("first_deployed", ""))
+
+    def roll_back(
+        self,
+        invocation: HelmfileInvocation,
+        release: str,
+        recorded: RecordedRevision,
+        label: str,
+    ) -> bool:
+        """Rolls back one release to the recorded revision. Returns True if successful.
+
+        Raises HelmfileError if the kubeconfig cannot be read.
+        """
+        state = self.state(invocation)
+        kubeconfig = _kubeconfig_of(state, invocation)
+        wait = _wait_arguments(state, release)
+        if recorded.revision is None:
+            # Safeguard: Don't attempt to uninstall a release that was not installed in this run of scap.
+            first_deployed = self.first_deployed(invocation, release)
+            if first_deployed is None:
+                self.logger.warning(
+                    f"helm did not report when it first deployed {release}, for safety, not uninstalling it"
+                )
+                return True
+
+            if first_deployed < recorded.recorded_at:
+                self.logger.warning(
+                    f"{release} was first deployed some time before this run, so not uninstalling it."
+                )
+                return True
+
+            self.logger.info(
+                f"{release} was first deployed during this run, so rolling back uninstalls it."
+            )
+
+            # --ignore-not-found, so that a second attempt also succeeds.
+            cmd = helm_command(
+                kubeconfig, "uninstall", release, "--ignore-not-found", *wait
+            )
+        else:
+            cmd = helm_command(
+                kubeconfig, "rollback", release, str(recorded.revision), *wait
+            )
+
+        with self.timer(f"Rolling back {label}", "helm_rollback"):
+            result = self.run(cmd, invocation.directory)
+
+        if result.ok:
+            return True
+
+        log_command_failure(label, cmd, invocation.directory, result, self.logger)
+        return False
 
     def fix_pending_state(self, invocation: HelmfileInvocation, release: str) -> str:
         """Repairs a release that helm left in a pending state.
@@ -1596,8 +1737,9 @@ class K8sOps:
         self.helm_env = collect_helm_env()
         self.runner = K8sRunner(app, self.logger, self.helm_env)
         self.original_helmfile_values = {}
-        self.rollback_dep_configs = {}
-        self.rollback_skipped_dep_configs = {}
+        # The current revision of each release, before scap deploys.
+        # Keyed by the fully qualified release name.
+        self.rollback_revisions = {}
         self.build_state_dir = os.path.join(
             app.config["stage_dir"], "scap", "image-build" + suffix
         )
@@ -1791,37 +1933,17 @@ class K8sOps:
         """
         Reverts helmfile values files to their original state.
 
-        The result is stored as self.rollback_dep_configs, mapping each stage
-        to the list of DepConfigs that had prior state to roll back to.  An
-        empty list for a stage means no prior state was found for any of that
-        stage's releases.
-
-        deploy_k8s_images_for_stage uses self.rollback_dep_configs when
-        for_rollback=True.  The files hold the images of the revision that the
-        rollback returns each release to, so the cluster and the files agree
-        after a rollback.
+        The files hold the images of the revision that the rollback returns each
+        release to, so the cluster and the files agree after a rollback.
         """
         if not self.app.config["deploy_mw_container_image"]:
-            self.rollback_dep_configs = {
-                stage: [] for stage in self.k8s_deployments_config.stages
-            }
-            self.rollback_skipped_dep_configs = {
-                stage: [] for stage in self.k8s_deployments_config.stages
-            }
             return
 
-        stage_eligible_dep_configs = {}
-        stage_skipped_dep_configs = {}
         for stage in self.k8s_deployments_config.stages:
-            dep_configs = self.k8s_deployments_config.deployed_stage_dep_configs(stage)
-            saved_values = self.original_helmfile_values[stage]
-            (
-                stage_eligible_dep_configs[stage],
-                stage_skipped_dep_configs[stage],
-            ) = self._revert_helmfile_files(dep_configs, saved_values)
-
-        self.rollback_dep_configs = stage_eligible_dep_configs
-        self.rollback_skipped_dep_configs = stage_skipped_dep_configs
+            self._revert_helmfile_files(
+                self.k8s_deployments_config.deployed_stage_dep_configs(stage),
+                self.original_helmfile_values[stage],
+            )
 
     # Called by AbstractSync.main()
     def deploy_k8s_images_for_stage(
@@ -1832,21 +1954,18 @@ class K8sOps:
 
         When for_rollback is False, deploys the stage's configured releases and returns None.
 
-        When for_rollback is True, deploys only releases that had prior saved state, logs warnings
-        for releases that have nothing to roll back to, and returns one of:
-        * "nothing-to-roll-back-to" when no deployable releases remain for rollback
-        * "partially-rolled-back" when some releases were rolled back and others were skipped
-        * "rolled-back" when all rollback-targeted releases were rolled back
+        When for_rollback is True, returns each release of the stage to the
+        revision that record_rollback_revisions recorded, and returns one of:
+        * "nothing-to-roll-back-to" when the stage deploys no release
+        * "rolled-back" when the releases of the stage rolled back
         """
         if not self.app.config["deploy_mw_container_image"]:
             return
 
         if for_rollback:
-            for dep_config in self.rollback_skipped_dep_configs.get(stage, []):
-                self.logger.warning(
-                    f"Release {dep_config.fq_release_name} had no prior deployment, so it will not be rolled back."
-                )
-            dep_configs = self.rollback_dep_configs[stage]
+            # Every release that scap deploys at this stage rolls back, because
+            # record_rollback_revisions recorded the revision of each one.
+            dep_configs = self.get_stage_dep_configs(stage)
         else:
             dep_configs = self.k8s_deployments_config.deployed_stage_dep_configs(stage)
 
@@ -1856,9 +1975,6 @@ class K8sOps:
             return None
 
         if dep_configs:
-            if self.rollback_skipped_dep_configs.get(stage):
-                # There was at least one skipped DepConfig for this stage.
-                return "partially-rolled-back"
             return "rolled-back"
 
         return "nothing-to-roll-back-to"
@@ -1869,8 +1985,8 @@ class K8sOps:
 
         return [
             dep_config
-            # Limited to the scopes being deployed (see --scope), so the fallback
-            # error-rate check supervises only what scap actually deployed.
+            # Limited to the scopes being deployed (see --scope), so a caller
+            # sees only what scap deploys in this run.
             for dep_config in self.k8s_deployments_config.deployed_stage_dep_configs(
                 stage
             )
@@ -1900,47 +2016,94 @@ class K8sOps:
 
     def _revert_helmfile_files(
         self, dep_configs: List[DepConfig], saved_values: dict
-    ) -> tuple[List[DepConfig], List[DepConfig]]:
+    ) -> None:
         """
         Reverts helmfile values files for the given dep_configs to the provided saved_values.
 
-        Returns a tuple of lists containing:
-        * DepConfigs that need to be rolled back
-        * DepConfigs excluded from rollback because they had no prior saved values
+        A release with no saved values had no values file before the deployment,
+        so its file goes away again.
         """
         commit = False
-        dep_configs_with_prior_state: List[DepConfig] = []
-        dep_configs_without_prior_state: List[DepConfig] = []
 
         with utils.cd(self.app.config["helmfile_mediawiki_release_dir"]):
             for dep_config in dep_configs:
                 values_file = dep_config.values_file
-                had_saved_values = dep_config.fq_release_name in saved_values
 
-                if had_saved_values:
+                if dep_config.fq_release_name in saved_values:
                     values = saved_values[dep_config.fq_release_name]
                     utils.write_file_if_needed(values_file, yaml.dump(values))
                     if git.file_has_unstaged_changes(values_file):
-                        dep_configs_with_prior_state.append(dep_config)
                         gitcmd("add", values_file)
                         commit = True
                 elif os.path.exists(values_file):
-                    if dep_config.deploy:
-                        dep_configs_without_prior_state.append(dep_config)
                     gitcmd("rm", values_file)
                     commit = True
 
             if commit:
                 gitcmd("commit", "-m", "Configuration(s) reverted")
 
-        return dep_configs_with_prior_state, dep_configs_without_prior_state
+    # Called by AbstractSync.main()
+    def record_rollback_revisions(self) -> None:
+        """Records the revision of every release that scap deploys in this run.
+
+        Every release records the revision it had at the same moment, before the
+        first stage deployed.
+
+        Raises HelmfileError if helm fails, which stops the run before it
+        changes the cluster.
+        """
+        if not self.app.config["deploy_mw_container_image"]:
+            return
+
+        self._record_rollback_revisions(
+            [
+                dep_config
+                for stage in self.k8s_deployments_config.stages
+                for dep_config in self.get_stage_dep_configs(stage)
+            ]
+        )
+
+    def _record_rollback_revisions(self, dep_configs: List[DepConfig]) -> None:
+        """Records the current revision of each release, before the deployment.
+
+        Non-deploy releases are excluded.
+
+        Raises HelmfileError if helm fails, which stops the run before it
+        changes anything.
+        """
+        recorded_at = datetime.now(timezone.utc)
+        by_directory = {}
+        revisions = {}
+
+        for dep_config in dep_configs:
+            if not dep_config.deploy:
+                continue
+
+            invocation = self._invocation(dep_config)
+            key = (invocation.directory, invocation.environment)
+            if key not in by_directory:
+                # One read of a directory serves the releases of every stage.
+                by_directory[key] = self.runner.releases_state(invocation)
+
+            state = by_directory[key].get(dep_config.release)
+            # A release that is not installed records None (meaning rollback
+            # will uninstall it).
+            revisions[dep_config.fq_release_name] = RecordedRevision(
+                state.revision if state else None, recorded_at
+            )
+
+        self.rollback_revisions = revisions
 
     def _deploy_to_clusters(
         self, dep_configs: List[DepConfig], for_rollback: bool
     ) -> None:
         self._foreach_depconfig(
             dep_configs,
-            self._deploy_k8s_images_for_cluster,
+            (
+                self._roll_back_k8s_release_for_cluster
+                if for_rollback
+                else self._deploy_k8s_images_for_cluster
+            ),
             "Rollback" if for_rollback else "Deployment",
         )
 
@@ -2061,6 +2224,35 @@ class K8sOps:
                 dep_config.fq_release_name, cmd, helmfile_dir, result, logger
             )
             raise Exception(f"The deployment of {dep_config.fq_release_name} failed")
+
+    def _roll_back_k8s_release_for_cluster(self, dep_config: DepConfig, report_queue):
+        """
+        Rolls back one release to the revision it had before the deployment.
+        """
+        logger = logging.getLogger("scap.k8s.deploy")
+
+        release = dep_config.release
+        recorded = self.rollback_revisions[dep_config.fq_release_name]
+
+        kubeconfig = self.runner.with_logger(logger).fix_pending_state(
+            self._invocation(dep_config), dep_config.release
+        )
+
+        with monitor_release(
+            kubeconfig,
+            release,
+            report_queue,
+            self.app.config["k8s_deployments_info_target_freshness"],
+        ) as monitor:
+            monitor.ok = self.runner.with_logger(logger).roll_back(
+                self._invocation(dep_config),
+                release,
+                recorded,
+                dep_config.fq_release_name,
+            )
+
+        if not monitor.ok:
+            raise Exception(f"The rollback of {dep_config.fq_release_name} failed")
 
     def _verify_build_and_push_prereqs(self):
         if self.app.config["release_repo_dir"] is None:

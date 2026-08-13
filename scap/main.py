@@ -218,6 +218,10 @@ class AbstractSync(cli.Application):
                 ),
             ]
 
+            # Record the revisions that a rollback returns to before any stage
+            # deploys, so that a failure to record them changes nothing.
+            self.k8s_ops.record_rollback_revisions()
+
             self._init_history()
             k8s_stage_statuses = {stage: "not-started" for stage in STAGES}
             sync_failed = False
