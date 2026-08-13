@@ -42,8 +42,9 @@ LABEL_PARENT_IMAGE = "vnd.wikimedia.parent-image"
 
 
 # How long scap counts the replicas of a release after its command returns, in
-# seconds.
-PROGRESS_GRACE_PERIOD = 5
+# seconds.  A rollout that k8s finishes stops the count, so only a rollout that
+# does not finish waits this long.
+PROGRESS_GRACE_PERIOD = 30
 
 
 def rollout_is_complete(deployment: dict) -> bool:
