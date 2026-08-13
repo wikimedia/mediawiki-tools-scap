@@ -54,8 +54,17 @@ def check_valid_syntax(app, paths, procs=1):
     logger.debug("Running command: `%s`", cmd)
     proc = mwscript.run_shell(app, cmd, check=False)
     if proc.returncode != 0:
-        cleaned = clean_lint_output(proc.stdout)
-        raise SystemExit("php lint failed:\n{}".format(cleaned))
+        # The exit status and stderr are necessary to diagnose a failure of the
+        # command wrapper (sudo, `scap mwshell`, docker), which writes no
+        # output to stdout.
+        cleaned = clean_lint_output(proc.stdout or "")
+        message = "php lint failed (exit status {}):\n{}".format(
+            proc.returncode, cleaned
+        )
+        stderr = proc.stderr or ""
+        if stderr.strip():
+            message += "\nstderr:\n{}".format(stderr)
+        raise SystemExit(message)
 
     # Check validity of PHP and JSON files being synced
     for path in paths:
