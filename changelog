@@ -1,3 +1,13 @@
+scap (4.280.0)
+
+  * kubernetes.py: Continue progress reporting past MinReplicas
+  * logstash.py: Report a search response that is not 200
+  * tests: Tweak some tests for strict sandboxes
+  * logstash_poller: Read debug_logstash from the config
+  * lint: Include exit status and stderr when php lint fails
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Thu, 13 Aug 2026 09:15:16 -0700
+
 scap (4.279.0)
 
   * Record the staged checkouts in deployment-info.json
