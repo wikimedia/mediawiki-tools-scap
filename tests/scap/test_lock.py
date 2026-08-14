@@ -31,7 +31,7 @@ def test_lock_acquires_lock():
     (lock_file, release_signal_file) = get_temp_filepaths()
 
     def verify_wait_on_lock():
-        verifying_lock = lock.Lock(lock_file.name, timeout=10)
+        verifying_lock = lock.Lock(lock_file, timeout=10)
         with mock.patch("fcntl.lockf", wraps=fcntl.lockf) as lockf:
             with verifying_lock:
                 lockf.assert_has_calls(
@@ -43,8 +43,8 @@ def test_lock_acquires_lock():
                     ]
                 )
 
-    lock_proc = acquire_lock_in_subprocess(lock_file.name, release_signal_file.name)
-    lock_release_thread = start_release_thread(release_signal_file.name)
+    lock_proc = acquire_lock_in_subprocess(lock_file, release_signal_file)
+    lock_release_thread = start_release_thread(release_signal_file)
 
     time.sleep(1)
     verify_wait_on_lock()
@@ -59,7 +59,7 @@ def test_lock_times_out():
     (lock_file, release_signal_file) = get_temp_filepaths()
 
     def verify_lock_timeout():
-        verifying_lock = lock.Lock(lock_file.name)
+        verifying_lock = lock.Lock(lock_file)
         with mock.patch.object(
             verifying_lock, "_get_deadline_check_interval"
         ) as get_deadline_check_interval:
@@ -70,23 +70,27 @@ def test_lock_times_out():
                     with verifying_lock:
                         pass
 
-    lock_proc = acquire_lock_in_subprocess(lock_file.name, release_signal_file.name)
+    lock_proc = acquire_lock_in_subprocess(lock_file, release_signal_file)
 
     time.sleep(1)
     verify_lock_timeout()
 
-    start_release_thread(release_signal_file.name, 0).join()
+    start_release_thread(release_signal_file, 0).join()
     lock_proc.wait()
     if lock_proc.returncode != 0:
         pytest.fail("Failed to lock file at start of test")
 
 
 def get_temp_filepaths():
-    file1 = tempfile.NamedTemporaryFile()
-    os.unlink(file1.name)
-    file2 = tempfile.NamedTemporaryFile()
-    os.unlink(file2.name)
-    return file1, file2
+    """Return two temporary file paths that do not exist"""
+    paths = []
+    for _ in range(2):
+        fd, path = tempfile.mkstemp()
+        os.close(fd)
+        os.unlink(path)
+        paths.append(path)
+
+    return paths[0], paths[1]
 
 
 def acquire_lock_in_subprocess(lock_file, release_signal_file):
