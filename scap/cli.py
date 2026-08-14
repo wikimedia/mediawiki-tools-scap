@@ -690,13 +690,7 @@ class Application(object):
 
         :returns: exit status
         """
-        backtrace = True
-        if isinstance(ex, lock.LockFailedError) or getattr(
-            ex, "_scap_no_backtrace", False
-        ):
-            backtrace = False
-
-        if backtrace:
+        if not getattr(ex, "_scap_no_backtrace", False):
             self.get_logger().warning("Unhandled error:", exc_info=True)
 
         exception_type = type(ex).__name__

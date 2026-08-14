@@ -27,7 +27,7 @@ from typing import Dict, List
 
 import yaml
 
-from scap import cli
+from scap import cli, utils
 
 STAGING = "STAGING"
 PRODUCTION = "PRODUCTION"
@@ -35,13 +35,8 @@ PRODUCTION = "PRODUCTION"
 ENVIRONMENT_TYPES = [STAGING, PRODUCTION]
 
 
-class InvalidDeployServiceConfig(Exception):
-    def __init__(self, *args):
-        super().__init__(*args)
-        # A malformed config is a user-facing error, not a scap bug, so it should not
-        # print a stack trace (unless SCAP_BACKTRACE is set for debugging). This flag
-        # is read by cli.Application._handle_exception.
-        self._scap_no_backtrace = os.environ.get("SCAP_BACKTRACE", None) is None
+class InvalidDeployServiceConfig(utils.NoBacktraceError):
+    """The service catalog or the cluster groups that scap read are not valid."""
 
 
 @dataclass(frozen=True)

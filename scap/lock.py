@@ -20,10 +20,8 @@ import scap.utils as utils
 GLOBAL_LOCK_FILE = "/var/lock/scap-global-lock"
 
 
-class LockFailedError(RuntimeError):
+class LockFailedError(utils.NoBacktraceError):
     """Signal that a locking attempt failed."""
-
-    pass
 
 
 logger = utils.get_logger()

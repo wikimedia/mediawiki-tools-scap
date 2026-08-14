@@ -355,6 +355,21 @@ def get_logger():
     return logging.getLogger()
 
 
+class NoBacktraceError(Exception):
+    """An error that scap reports without a stack trace.
+
+    A subclass is a failure that the user can understand and act on, so a
+    trace adds nothing.
+
+    Can be overridden by setting the environment variable `SCAP_BACKTRACE`.
+    """
+
+    def __init__(self, *args):
+        super().__init__(*args)
+        # This value is read by _handle_exception in cli.py and main.py.
+        self._scap_no_backtrace = os.environ.get("SCAP_BACKTRACE", None) is None
+
+
 @contextlib.contextmanager
 def suppress_backtrace():
     """

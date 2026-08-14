@@ -64,13 +64,8 @@ class ReleaseMonitor:
     ok: bool = True
 
 
-class InvalidDeploymentsConfig(Exception):
-    def __init__(self, *args):
-        super().__init__(*args)
-        # A malformed deployments config is a user-facing error, not a scap bug,
-        # so it should not print a stack trace (unless SCAP_BACKTRACE is set for
-        # debugging). This flag is read by cli.Application._handle_exception.
-        self._scap_no_backtrace = os.environ.get("SCAP_BACKTRACE", None) is None
+class InvalidDeploymentsConfig(utils.NoBacktraceError):
+    """The deployments config that scap read is not valid."""
 
 
 # The default production image kind producted by the image build process.
