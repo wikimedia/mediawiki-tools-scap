@@ -2152,8 +2152,10 @@ class K8sOps:
         # Train-dev hack.  This is to override the mw-web canary-values.yaml
         # (which is read after values-traindev.yaml) which sets replicas to a
         # value suitable for production but too high for train-dev.
+        # k8s_traindev_replicas raises it, to watch a deployment of several
+        # replicas.
         if self.traindev:
-            values["resources"] = {"replicas": 1}
+            values["resources"] = {"replicas": self.app.config["k8s_traindev_replicas"]}
 
         values_file = dep_config.values_file
         utils.write_file_if_needed(values_file, yaml.dump(values))
