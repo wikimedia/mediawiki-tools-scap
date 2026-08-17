@@ -1507,6 +1507,19 @@ class K8sOps:
             # report stops here instead.
             return
 
+        def read_deployment():
+            """Returns the Deployment, or None when scap cannot read it.
+
+            get_deployment() raises for a failure that is not a Deployment that
+            is gone, and the count of a rollout must not end because one read
+            failed (T415839).
+            """
+            try:
+                return get_deployment()
+            except Exception as e:
+                self.logger.warning(f"Could not read {deployment_name}: {e}")
+                return None
+
         # helm returns as soon as the Deployment holds the replicas that it
         # wants, less the ones that its strategy allows to be unavailable, so
         # the last pods of a rollout arrive after the command of the release
@@ -1515,7 +1528,7 @@ class K8sOps:
         unreadable = 0
         while True:
             available = do_report()
-            deployment = get_deployment()
+            deployment = read_deployment()
 
             if available is None or not deployment:
                 # kubectl read nothing. A brief loss of the connection to the

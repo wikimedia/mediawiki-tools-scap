@@ -1,9 +1,16 @@
 import io
+import json
+import logging
 import mock
 import pytest
+import queue
 import subprocess
+import threading
 
+import scap.kubernetes
 from scap.kubernetes import (
+    K8sOps,
+    ReleaseMonitor,
     rollout_is_complete,
     rollout_is_progressing,
     CommandsCheck,
@@ -594,6 +601,99 @@ def test_rollout_is_complete():
     assert not rollout_is_complete(_deployment(generation=2, observed=1), 3)
     # The new pods are not all available.
     assert not rollout_is_complete(_deployment(), 2)
+
+
+def _dep_config():
+    return DepConfig(
+        namespace="mw-debug",
+        release="pinkunicorn",
+        cluster="traindev",
+        scope="train",
+        mw_image_kind=None,
+        mw_image_flavour="publish",
+        web_image_flavour="webserver",
+        deploy=True,
+        fq_release_name="mw-debug-pinkunicorn-traindev",
+        values_file="/values/mw-debug-pinkunicorn-traindev.yaml",
+        helmfile_dir="/helmfile/mw-debug",
+    )
+
+
+def _deployment_json(revision):
+    return json.dumps(
+        {
+            "metadata": {"generation": 1, "annotations": {REVISION: revision}},
+            "spec": {"replicas": 3},
+            "status": {"observedGeneration": 1},
+        }
+    )
+
+
+REVISION = "deployment.kubernetes.io/revision"
+
+
+def test_deployment_monitor_when_the_deployment_cannot_be_read(monkeypatch):
+    """A kubectl failure skips the cycle, and does not stop the deployment.
+
+    The read of the Deployment raises for a failure that is not a Deployment
+    that is gone, so the count of a rollout would otherwise end with it
+    (T415839).
+    """
+    monkeypatch.setattr(scap.kubernetes.time, "sleep", lambda seconds: None)
+    stop_event = threading.Event()
+    reads = []
+
+    def kubectl(cmd, **kwargs):
+        reads.append(cmd)
+        if "deployment" in cmd:
+            if len(reads) == 1:
+                # The revision from before the deployment.
+                return subprocess.CompletedProcess(cmd, 0, _deployment_json("4"), "")
+            if len(reads) == 2:
+                # The revision changed, so the rollout began.
+                return subprocess.CompletedProcess(cmd, 0, _deployment_json("5"), "")
+
+            # Every read after that fails, and not with a Deployment that is
+            # gone, so get_deployment() raises.
+            return subprocess.CompletedProcess(
+                cmd, 1, "", "Unable to connect to the server"
+            )
+
+        # The report of the replicas: two of the three are available.
+        return subprocess.CompletedProcess(
+            cmd, 0, json.dumps({"status": {"availableReplicas": 2}}), ""
+        )
+
+    ops = mock.Mock()
+    ops.logger = logging.getLogger("test")
+    ops.app.config = {"k8s_deployments_info_target_freshness": 10}
+    reports = queue.Queue()
+
+    def replicasets(cmd, **kwargs):
+        # get_current_replicaset() reads the ReplicaSets. The rollout is under
+        # way by then, so the command of the release may return.
+        stop_event.set()
+        return json.dumps(
+            {
+                "kind": "List",
+                "items": [
+                    {"metadata": {"name": "rs-new", "annotations": {REVISION: "5"}}}
+                ],
+            }
+        )
+
+    with mock.patch("subprocess.run", side_effect=kubectl):
+        with mock.patch("subprocess.check_output", side_effect=replicasets):
+            # No exception leaves the monitor.
+            K8sOps._deployment_monitor(
+                ops, _dep_config(), "traindev", stop_event, reports, ReleaseMonitor()
+            )
+
+    # The reports that arrived hold the replicas that were available, and the
+    # monitor ended of its own accord after READ_ATTEMPTS failed reads.
+    assert list(reports.queue) == [("mw-debug.dev.pinkunicorn", 2)] * (
+        scap.kubernetes.READ_ATTEMPTS
+    )
 
 
 def test_rollout_is_progressing():
