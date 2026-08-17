@@ -1,3 +1,13 @@
+scap (4.281.0)
+
+  * kubernetes.py: Count the replicas until k8s finishes the rollout
+  * test_lock.py: Close the temporary files
+  * utils.py: Add NoBacktraceError
+  * cli.py: Moved `AbstractSync._prompt_default` into `cli.Application`.
+  * deploy.py: Install git-lfs filter config per repo
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Mon, 17 Aug 2026 08:30:52 -0700
+
 scap (4.280.2)
 
   * kubernetes.py: Revise progress grace period strategy
