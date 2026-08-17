@@ -41,10 +41,9 @@ LABEL_BUILD_TYPE = "vnd.wikimedia.build-type"
 LABEL_PARENT_IMAGE = "vnd.wikimedia.parent-image"
 
 
-# How long scap counts the replicas of a release after its command returns, in
-# seconds.  A rollout that k8s finishes stops the count, so only a rollout that
-# does not finish waits this long.
-PROGRESS_GRACE_PERIOD = 60
+# How many reads in a row may fail before scap stops counting the replicas of a
+# release. kubectl reads nothing when it cannot reach the cluster.
+READ_ATTEMPTS = 3
 
 
 def rollout_is_complete(deployment: dict, new_replicas: int) -> bool:
@@ -57,6 +56,24 @@ def rollout_is_complete(deployment: dict, new_replicas: int) -> bool:
     return status.get("observedGeneration", 0) >= deployment["metadata"].get(
         "generation", 0
     ) and new_replicas >= deployment["spec"].get("replicas", 0)
+
+
+def rollout_is_progressing(deployment: dict) -> bool:
+    """Returns True unless k8s gave up on the rollout of a Deployment.
+
+    k8s holds a Progressing condition for each Deployment, and gives it the
+    reason ProgressDeadlineExceeded when it stops expecting the rollout to
+    finish. Scap counts the replicas until then. A Deployment that holds no
+    such condition yet is one that k8s has not given up on.
+    """
+    for condition in deployment["status"].get("conditions", []):
+        if condition.get("type") == "Progressing":
+            return (
+                condition.get("status") == "True"
+                and condition.get("reason") != "ProgressDeadlineExceeded"
+            )
+
+    return True
 
 
 @dataclass
@@ -1482,23 +1499,38 @@ class K8sOps:
         ):
             do_report()
 
-        # helm returns as soon as the Deployment reaches MinReplicas. We
-        # keep monitoring for up to PROGRESS_GRACE_PERIOD seconds for the rollout to
-        # complete. (T375514)
-        deadline = time.monotonic() + PROGRESS_GRACE_PERIOD
-        while release_monitor.ok and time.monotonic() < deadline:
+        if not release_monitor.ok:
+            # The command of the release failed, and helm returns an atomic
+            # release to its prior revision. The Deployment then holds a
+            # revision that is neither the one from before nor the one that this
+            # deployment wanted, so a count of its pods describes neither. The
+            # report stops here instead.
+            return
+
+        # helm returns as soon as the Deployment holds the replicas that it
+        # wants, less the ones that its strategy allows to be unavailable, so
+        # the last pods of a rollout arrive after the command of the release
+        # returns. Scap counts them until k8s finishes the rollout or gives up
+        # on it. (T375514)
+        unreadable = 0
+        while True:
             available = do_report()
             deployment = get_deployment()
-            if (
-                available is not None
-                and deployment
-                and rollout_is_complete(deployment, available)
-            ):
-                break
-            time.sleep(1)
 
-        # Perform one final report before stopping
-        do_report()
+            if available is None or not deployment:
+                # kubectl read nothing. A brief loss of the connection to the
+                # cluster must only skip the cycle (T415839).
+                unreadable += 1
+                if unreadable == READ_ATTEMPTS:
+                    return
+            elif rollout_is_complete(deployment, available):
+                return
+            elif not rollout_is_progressing(deployment):
+                return
+            else:
+                unreadable = 0
+
+            time.sleep(1)
 
     def _verify_build_and_push_prereqs(self):
         if self.app.config["release_repo_dir"] is None:

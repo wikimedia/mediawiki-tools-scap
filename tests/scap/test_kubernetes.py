@@ -5,6 +5,7 @@ import subprocess
 
 from scap.kubernetes import (
     rollout_is_complete,
+    rollout_is_progressing,
     CommandsCheck,
     DeploymentsConfig,
     InvalidDeploymentsConfig,
@@ -593,6 +594,42 @@ def test_rollout_is_complete():
     assert not rollout_is_complete(_deployment(generation=2, observed=1), 3)
     # The new pods are not all available.
     assert not rollout_is_complete(_deployment(), 2)
+
+
+def test_rollout_is_progressing():
+    """k8s says whether it still expects the rollout to finish (T375514)."""
+    working = {"status": {"conditions": [{"type": "Progressing", "status": "True"}]}}
+    assert rollout_is_progressing(working)
+
+    gave_up = {
+        "status": {
+            "conditions": [
+                {
+                    "type": "Progressing",
+                    "status": "False",
+                    "reason": "ProgressDeadlineExceeded",
+                }
+            ]
+        }
+    }
+    assert not rollout_is_progressing(gave_up)
+
+    # k8s reports the deadline on a condition that it leaves True as well.
+    exceeded = {
+        "status": {
+            "conditions": [
+                {
+                    "type": "Progressing",
+                    "status": "True",
+                    "reason": "ProgressDeadlineExceeded",
+                }
+            ]
+        }
+    }
+    assert not rollout_is_progressing(exceeded)
+
+    # k8s has not given up on a Deployment that holds no such condition.
+    assert rollout_is_progressing({"status": {}})
 
 
 def test_rollout_that_the_old_pods_make_look_complete():

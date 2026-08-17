@@ -264,6 +264,23 @@ def test_progress():
     assert (reporter.ok + reporter.failed) == reporter.done
 
 
+def test_progress_does_not_repeat_the_last_line():
+    """The report of the end says nothing when the report before it said it."""
+    output = StringIO()
+
+    with patch("sys.stdout.isatty", return_value=False):
+        reporter = log.ProgressReporter(name="TestProgress", expect=2, fd=output)
+        reporter.start()
+        reporter.set_success(2)
+        # The deployment ends with the numbers that the report above holds.
+        reporter.finish()
+
+    lines = [line for line in output.getvalue().splitlines() if line.strip()]
+    assert len(lines) == 2, lines
+    assert "0%" in lines[0]
+    assert "100%" in lines[1]
+
+
 def test_ecs_event_fields_to_logstash(caplog):
     caplog.set_level(logging.INFO)
     fname = "test_ecs_event_fields_to_logstash"

@@ -400,6 +400,9 @@ class ProgressReporter(object):
         self._in_flight = None
         self._fd = fd
         self._spinner = spinner
+        # What the last report wrote, so that the report of the end does not
+        # repeat a line that says the same.
+        self._last_output = None
         self._finished = False
 
     @property
@@ -498,6 +501,12 @@ class ProgressReporter(object):
             next(self._spinner) if show_spinner else "",
         )
 
+        if self._finished and output == self._last_output:
+            # The report before this one said the same, and the last line of an
+            # operation is not worth two lines.
+            return
+
+        self._last_output = output
         self._fd.write(fmt % output)
 
 
