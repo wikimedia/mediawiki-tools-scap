@@ -1,3 +1,4 @@
+import json
 import unittest
 import tempfile
 import os.path
@@ -7,6 +8,28 @@ from scap import git
 import scap
 
 TEMPDIR = tempfile.mkdtemp(suffix="-scap-test-repo")
+
+
+def add_submodule(repo, submodule, path):
+    """Add 'submodule' to 'repo' at 'path' and commit the result."""
+    scap.runcmd.gitcmd(
+        # git refuses a submodule on a local path without this
+        "-c",
+        "protocol.file.allow=always",
+        "submodule",
+        "add",
+        submodule,
+        path,
+        cwd=repo,
+    )
+    git.add_all(repo, "add submodule %s" % path)
+
+
+def fake_remote_branch(repo, branch, commit):
+    """Create the remote-tracking ref that a fetch from origin would create."""
+    scap.runcmd.gitcmd(
+        "update-ref", "refs/remotes/origin/%s" % branch, commit, cwd=repo
+    )
 
 
 class GitTest(unittest.TestCase):
@@ -187,6 +210,141 @@ class GitTest(unittest.TestCase):
         finally:
             if os.path.exists(gitmodules_path):
                 os.unlink(gitmodules_path)
+
+    def test_submodule_refs(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            deep = os.path.join(tmpdir, "deep")
+            sub = os.path.join(tmpdir, "sub")
+            parent = os.path.join(tmpdir, "parent")
+
+            for repo in [deep, sub, parent]:
+                git.init(repo)
+                scap.runcmd.touch("afile", cwd=repo)
+                git.add_all(repo, "first commit")
+
+            add_submodule(sub, deep, "lib/deep")
+            sub_ref = git.sha(sub, "HEAD")
+            add_submodule(parent, sub, "sub")
+
+            # 'sub/lib/deep' is not checked out yet
+            assert git.submodule_refs(parent, git.sha(parent, "HEAD")) == {
+                "sub": sub_ref
+            }
+
+            scap.runcmd.gitcmd(
+                "-c",
+                "protocol.file.allow=always",
+                "submodule",
+                "update",
+                "--init",
+                "--recursive",
+                cwd=parent,
+            )
+
+            assert git.submodule_refs(parent, git.sha(parent, "HEAD")) == {
+                "sub": sub_ref,
+                "sub/lib/deep": git.sha(deep, "HEAD"),
+            }
+
+            # A repo without submodules
+            assert git.submodule_refs(deep, git.sha(deep, "HEAD")) == {}
+
+    def test_collect_info_reports_the_public_submodule_ref(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            sub = os.path.join(tmpdir, "sub")
+            parent = os.path.join(tmpdir, "parent")
+
+            for repo in [sub, parent]:
+                git.init(repo)
+                scap.runcmd.touch("afile", cwd=repo)
+                git.add_all(repo, "first commit")
+
+            add_submodule(parent, sub, "sub")
+            subdir = os.path.join(parent, "sub")
+            public_ref = git.sha(subdir, "HEAD")
+
+            # A local commit in the submodule, like a security patch
+            scap.runcmd.touch("patched", cwd=subdir)
+            git.add_all(subdir, "security patch")
+            assert git.sha(subdir, "HEAD") != public_ref
+
+            git_infos = git.collect_info(parent)
+
+            assert [git_info["@directory"] for git_info in git_infos] == [
+                parent,
+                subdir,
+            ]
+            # The submodule is reported at the commit that the parent records,
+            # not at the local commit
+            assert git_infos[1]["headSHA1"] == public_ref
+            for git_info in git_infos:
+                assert git_info["branch"] == git.get_branch(parent)
+
+    def test_collect_info_reports_a_branch_that_has_the_commit(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            on_branch = os.path.join(tmpdir, "on-branch")
+            no_branch = os.path.join(tmpdir, "no-branch")
+            parent = os.path.join(tmpdir, "parent")
+
+            for repo in [on_branch, no_branch, parent]:
+                git.init(repo)
+                scap.runcmd.touch("afile", cwd=repo)
+                git.add_all(repo, "first commit")
+
+            add_submodule(parent, on_branch, "on-branch")
+            add_submodule(parent, no_branch, "no-branch")
+
+            # The parent is on a branch of the train, like a MediaWiki version
+            branch = "wmf/1.0"
+            scap.runcmd.gitcmd("branch", "-m", branch, cwd=parent)
+            fake_remote_branch(parent, branch, git.sha(parent, "HEAD"))
+
+            on_branch_dir = os.path.join(parent, "on-branch")
+            no_branch_dir = os.path.join(parent, "no-branch")
+
+            # One submodule has that branch too.  The other one is a library
+            # that only ever has its own branches.
+            fake_remote_branch(on_branch_dir, branch, git.sha(on_branch_dir, "HEAD"))
+
+            git_infos = {
+                git_info["@directory"]: git_info
+                for git_info in git.collect_info(parent)
+            }
+
+            assert git_infos[parent]["branch"] == branch
+            assert git_infos[on_branch_dir]["branch"] == branch
+            assert "branch" not in git_infos[no_branch_dir]
+
+    def test_cache_git_info(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            ext = os.path.join(tmpdir, "Echo")
+            branch_dir = os.path.join(tmpdir, "php-1.45.0-wmf.1")
+
+            for repo in [ext, branch_dir]:
+                git.init(repo)
+                scap.runcmd.touch("afile", cwd=repo)
+                git.add_all(repo, "first commit")
+
+            os.mkdir(os.path.join(branch_dir, "cache"))
+            os.mkdir(os.path.join(branch_dir, "skins"))
+            add_submodule(branch_dir, ext, "extensions/Echo")
+            # A directory that is not a git checkout
+            os.mkdir(os.path.join(branch_dir, "extensions", "NotACheckout"))
+
+            git_infos = git.cache_git_info(branch_dir)
+
+            assert [git_info["@directory"] for git_info in git_infos] == [
+                branch_dir,
+                os.path.join(branch_dir, "extensions", "Echo"),
+            ]
+
+            cache_dir = os.path.join(branch_dir, "cache", "gitinfo")
+            assert sorted(os.listdir(cache_dir)) == [
+                "info-extensions-Echo.json",
+                "info.json",
+            ]
+            with open(os.path.join(cache_dir, "info-extensions-Echo.json")) as f:
+                assert json.load(f) == git_infos[1]
 
     def test_remote_set_and_get_url(self):
         with tempfile.TemporaryDirectory() as tmpdir:

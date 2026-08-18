@@ -76,7 +76,7 @@ def test_history(tmpdir):
 
 def test_write_deployment_info(tmp_path):
     stage_dir = str(tmp_path)
-    checkouts = [
+    common = [
         history.Checkout(
             repo="https://foo.example/config",
             branch="master",
@@ -84,18 +84,37 @@ def test_write_deployment_info(tmp_path):
             commit_ref="abc123",
         )
     ]
+    versions = {
+        "1.0": [
+            history.Checkout(
+                repo="https://foo.example/core",
+                branch="wmf/1.0",
+                directory=os.path.join(stage_dir, "php-1.0"),
+                commit_ref="def456",
+            )
+        ]
+    }
 
-    assert history.write_deployment_info(stage_dir, checkouts) is True
+    assert history.write_deployment_info(stage_dir, common, versions) is True
     # The contents depend only on the checkouts, so a second write is a no-op.
-    assert history.write_deployment_info(stage_dir, checkouts) is False
+    assert history.write_deployment_info(stage_dir, common, versions) is False
 
     with open(os.path.join(stage_dir, "deployment-info.json")) as f:
         assert json.load(f) == {
-            "checkouts": [
+            "common": [
                 {
                     "repo": "https://foo.example/config",
                     "branch": "master",
                     "commit_ref": "abc123",
                 }
-            ]
+            ],
+            "versions": {
+                "1.0": [
+                    {
+                        "repo": "https://foo.example/core",
+                        "branch": "wmf/1.0",
+                        "commit_ref": "def456",
+                    }
+                ]
+            },
         }

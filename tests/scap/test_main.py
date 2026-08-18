@@ -259,8 +259,7 @@ def test_init_history_records_the_staged_checkouts(cmd, mocker):
             commit_ref="commit",
         )
     ]
-    cmd.staged_checkouts = checkouts
-
+    mocker.patch.object(cmd, "collect_staged_checkouts", return_value=checkouts)
     mocker.patch.object(cmd, "scap_history_dbfile", return_value="/tmp/history.db")
 
     cmd._init_history()

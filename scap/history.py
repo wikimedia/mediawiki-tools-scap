@@ -157,38 +157,62 @@ class Checkout(ModelBase):
     deployment: Mapped["Deployment"] = relationship(back_populates="checkouts")
 
 
-def deployment_info(checkouts: List[Checkout]) -> dict:
+def deployment_info(common: List[Checkout], versions: dict) -> dict:
     """
-    Returns the information about 'checkouts' to store in the staging
+    Returns the information about the staged checkouts to store in the staging
     directory.
 
-    >>> deployment_info([
-    ...     Checkout(repo="https://gerrit.example/config", branch="master",
-    ...              directory="/srv/mediawiki-staging", commit_ref="abc123"),
-    ...     Checkout(repo="https://gerrit.example/core", branch="wmf/1.0",
-    ...              directory="/srv/mediawiki-staging/php-1.0", commit_ref="def456"),
-    ... ])
-    {'checkouts': [{'repo': 'https://gerrit.example/config', 'branch': 'master', 'commit_ref': 'abc123'}, {'repo': 'https://gerrit.example/core', 'branch': 'wmf/1.0', 'commit_ref': 'def456'}]}
+    'common' are the checkouts that every MediaWiki version uses.  'versions'
+    maps each MediaWiki version to the checkouts of that version.  A wiki runs
+    one version, so w/deployment-info.php answers a request with the common
+    checkouts and the checkouts of the version of the requested wiki.
+
+    A checkout that is not on a branch has no "branch".
+
+    >>> deployment_info(
+    ...     [Checkout(repo="https://gerrit.example/config", branch="master",
+    ...               directory="/srv/mediawiki-staging", commit_ref="abc123")],
+    ...     {"1.0": [
+    ...         Checkout(repo="https://gerrit.example/core", branch="wmf/1.0",
+    ...                  directory="/srv/mediawiki-staging/php-1.0", commit_ref="def456"),
+    ...         Checkout(repo="https://gerrit.example/a-library", branch=None,
+    ...                  directory="/srv/mediawiki-staging/php-1.0/lib", commit_ref="789abc"),
+    ...     ]},
+    ... )
+    {'common': [{'repo': 'https://gerrit.example/config', 'branch': 'master', 'commit_ref': 'abc123'}], 'versions': {'1.0': [{'repo': 'https://gerrit.example/core', 'branch': 'wmf/1.0', 'commit_ref': 'def456'}, {'repo': 'https://gerrit.example/a-library', 'commit_ref': '789abc'}]}}
     """
+
+    def entry(checkout: Checkout) -> dict:
+        res = {
+            "repo": checkout.repo,
+            "branch": checkout.branch,
+            "commit_ref": checkout.commit_ref,
+        }
+
+        if checkout.branch is None:
+            del res["branch"]
+
+        return res
+
+    def entries(checkouts: List[Checkout]) -> List[dict]:
+        return [entry(checkout) for checkout in checkouts]
+
     return {
-        "checkouts": [
-            {
-                "repo": checkout.repo,
-                "branch": checkout.branch,
-                "commit_ref": checkout.commit_ref,
-            }
-            for checkout in checkouts
-        ]
+        "common": entries(common),
+        "versions": {
+            version: entries(checkouts) for version, checkouts in versions.items()
+        },
     }
 
 
-def write_deployment_info(stage_dir, checkouts: List[Checkout]) -> bool:
+def write_deployment_info(stage_dir, common: List[Checkout], versions: dict) -> bool:
     """
-    Writes information about 'checkouts' to stage_dir/deployment-info.json.
+    Writes information about the staged checkouts to
+    stage_dir/deployment-info.json.
 
     Returns True if the file was updated.
     """
-    data = json.dumps(deployment_info(checkouts), indent=4) + "\n"
+    data = json.dumps(deployment_info(common, versions), indent=4) + "\n"
 
     return utils.write_file_if_needed(
         os.path.join(stage_dir, DEPLOYMENT_INFO_FILENAME), data

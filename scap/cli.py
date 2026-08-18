@@ -74,6 +74,9 @@ class Application(object):
             self.program_name = os.path.basename(exe_name)
         self.exe_name = exe_name
         self.start = time.time()
+        # Maps each staged checkout directory to the git information for it and
+        # its submodules.  Populated by cache_git_info() and _git_info().
+        self.git_info = {}
         # Property and related code should be removed once a long-term solution for
         # https://phabricator.wikimedia.org/T304557 is implemented
         self.user_ssh_auth_sock = (
@@ -241,52 +244,95 @@ class Application(object):
 
         This method iterates through all active directories and calls git.cache_git_info
         for each one to ensure git information is cached for subsequent operations.
+
+        The collected information is kept in self.git_info so that
+        collect_staged_checkouts() does not repeat the work.
         """
         active_directories = utils.get_active_directories(
             self.config["stage_dir"], self.config["wmf_realm"]
         )
         for directory in active_directories:
-            git.cache_git_info(directory)
+            self.git_info[directory] = git.cache_git_info(directory)
 
-    def collect_staged_checkouts(self) -> List[history.Checkout]:
+    def staged_checkout_dirs(self) -> List[str]:
+        """
+        Returns the directories of the git checkouts that scap stages: the
+        MediaWiki config repo, each active MediaWiki version, and each
+        foss_violations repo.
+
+        The value of each directory is the MediaWiki version that it belongs
+        to, or None when every version uses it.
+        """
+        stage_dir = self.config["stage_dir"]
+
+        directories = {stage_dir: None}
+        directories.update(
+            {
+                os.path.join(stage_dir, f"php-{version}"): version
+                for version in self.active_wikiversions("stage")
+            }
+        )
+        directories.update(
+            {
+                os.path.join(stage_dir, violation["path"]): None
+                for violation in self.config["foss_violations"]
+            }
+        )
+
+        return directories
+
+    def _git_info(self, directory) -> List[dict]:
+        """
+        Returns the git information for 'directory' and its submodules.
+
+        Each directory is read only once.  cache_git_info() supplies the
+        information for the active MediaWiki version directories.
+        """
+        if directory not in self.git_info:
+            self.git_info[directory] = git.collect_info(directory)
+
+        return self.git_info[directory]
+
+    def _checkouts_for(self, directory, submodules) -> List[history.Checkout]:
+        """
+        Returns a history.Checkout for the git checkout in 'directory' and,
+        with submodules=True, for each of its submodules.
+        """
+        return [
+            history.Checkout(
+                repo=git_info["remoteURL"],
+                # A submodule that is not on a branch has no "branch"
+                branch=git_info.get("branch"),
+                directory=git_info["@directory"],
+                commit_ref=git_info["headSHA1"],
+            )
+            for git_info in self._git_info(directory)
+            if submodules or git_info["@directory"] == directory
+        ]
+
+    def collect_staged_checkouts(self, submodules=False) -> List[history.Checkout]:
         """
         Returns a history.Checkout for each git checkout that scap stages: the
         MediaWiki config repo, each active MediaWiki version, and each
         foss_violations repo.
 
+        With submodules=True, the result also has a history.Checkout for each
+        submodule of those checkouts, including the submodules of submodules.
+
         commit_ref is the public head of the checkout.  Locally applied
         security patches are not included.
         """
-        stage_dir = self.config["stage_dir"]
-
-        directories = [stage_dir]
-        directories += [
-            os.path.join(stage_dir, f"php-{version}")
-            for version in self.active_wikiversions("stage")
-        ]
-        directories += [
-            os.path.join(stage_dir, violation["path"])
-            for violation in self.config["foss_violations"]
-        ]
-
         checkouts = []
-        for directory in directories:
-            branch = git.get_branch(directory)
-            checkouts.append(
-                history.Checkout(
-                    repo=git.remote_get_url(directory),
-                    branch=branch,
-                    directory=directory,
-                    commit_ref=git.merge_base(directory, "origin", branch),
-                )
-            )
+
+        for directory in self.staged_checkout_dirs():
+            checkouts += self._checkouts_for(directory, submodules)
 
         return checkouts
 
-    def write_deployment_info(self) -> List[history.Checkout]:
+    def write_deployment_info(self):
         """
-        Records the public heads of the staged checkouts in
-        {stage_dir}/deployment-info.json and returns those checkouts.
+        Records the public heads of the staged checkouts, and of their
+        submodules, in {stage_dir}/deployment-info.json.
 
         The staging directory is copied into the MediaWiki container images and
         to the bare-metal targets, so the file can be read at runtime.
@@ -295,10 +341,17 @@ class Application(object):
         it only includes information about live MediaWiki versions though there
         might be a non-live version in the image (for fast rollback).
         """
-        checkouts = self.collect_staged_checkouts()
-        history.write_deployment_info(self.config["stage_dir"], checkouts)
+        common = []
+        versions = {}
 
-        return checkouts
+        for directory, mw_version in self.staged_checkout_dirs().items():
+            checkouts = self._checkouts_for(directory, submodules=True)
+            if mw_version is None:
+                common += checkouts
+            else:
+                versions[mw_version] = checkouts
+
+        history.write_deployment_info(self.config["stage_dir"], common, versions)
 
     def get_versions_to_include_in_image(self) -> List[str]:
         versions = self.active_wikiversions("stage")

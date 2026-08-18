@@ -414,58 +414,145 @@ def test_format_passthrough_args(app):
     )
 
 
-def test_collect_staged_checkouts(app, mocker):
-    app.config = {
-        "stage_dir": "/srv/mediawiki-staging",
-        "foss_violations": [
-            {"repo": "https://example/repo-a", "branch": "main", "path": "viol-a"},
-            {"repo": "https://example/repo-b", "branch": "dev", "path": "viol-b"},
+def fake_git_info(directory, repo, branch, commit_ref) -> dict:
+    """
+    Returns what git.info() returns for a checkout.  A branch of None is a
+    checkout that is on no branch, which git.info() reports by leaving the
+    "branch" key out.
+    """
+    git_info = {
+        "@directory": directory,
+        "head": commit_ref,
+        "headSHA1": commit_ref,
+        "headCommitDate": "1700000000",
+        "branch": branch,
+        "remoteURL": repo,
+    }
+
+    if branch is None:
+        del git_info["branch"]
+
+    return git_info
+
+
+def staged_git_info(stage_dir) -> dict:
+    """
+    Returns collected git information (as cli.Application.git_info holds it)
+    for a config repo with one submodule, one MediaWiki version with two
+    submodules, and one foss_violations repo.
+    """
+    version_dir = os.path.join(stage_dir, "php-1.45.0-wmf.1")
+    violation_dir = os.path.join(stage_dir, "viol-a")
+
+    return {
+        stage_dir: [
+            fake_git_info(stage_dir, "config-repo", "master", "aaa111"),
+            fake_git_info(
+                os.path.join(stage_dir, "portals"), "portals-repo", "master", "bbb222"
+            ),
+        ],
+        version_dir: [
+            fake_git_info(version_dir, "core-repo", "wmf/1.45.0-wmf.1", "ccc333"),
+            fake_git_info(
+                os.path.join(version_dir, "extensions/Echo"),
+                "echo-repo",
+                "wmf/1.45.0-wmf.1",
+                "ddd444",
+            ),
+            # A library submodule that has no branch of the train
+            fake_git_info(
+                os.path.join(version_dir, "extensions/Echo/lib/a-library"),
+                "library-repo",
+                None,
+                "fff666",
+            ),
+        ],
+        violation_dir: [
+            fake_git_info(violation_dir, "viol-repo", "main", "eee555"),
         ],
     }
 
-    mocker.patch.object(app, "active_wikiversions", return_value=["1.45.0-wmf.1"])
-    mocker.patch("scap.cli.git.get_branch", return_value="branch")
-    mocker.patch("scap.cli.git.merge_base", return_value="commit")
-    mocker.patch("scap.cli.git.remote_get_url", return_value="repo")
 
-    assert [checkout.directory for checkout in app.collect_staged_checkouts()] == [
-        "/srv/mediawiki-staging",
-        "/srv/mediawiki-staging/php-1.45.0-wmf.1",
-        "/srv/mediawiki-staging/viol-a",
-        "/srv/mediawiki-staging/viol-b",
+def configure_staged_checkouts(app, mocker, stage_dir):
+    app.config = {
+        "stage_dir": stage_dir,
+        "foss_violations": [
+            {"repo": "https://example/repo-a", "branch": "main", "path": "viol-a"},
+        ],
+    }
+    mocker.patch.object(app, "active_wikiversions", return_value=["1.45.0-wmf.1"])
+    # Pre-populated, so no git commands run
+    app.git_info = staged_git_info(stage_dir)
+
+
+def test_staged_checkout_dirs(app, mocker):
+    configure_staged_checkouts(app, mocker, "/srv/mediawiki-staging")
+
+    assert app.staged_checkout_dirs() == {
+        "/srv/mediawiki-staging": None,
+        "/srv/mediawiki-staging/php-1.45.0-wmf.1": "1.45.0-wmf.1",
+        "/srv/mediawiki-staging/viol-a": None,
+    }
+
+
+def test_collect_staged_checkouts(app, mocker):
+    configure_staged_checkouts(app, mocker, "/srv/mediawiki-staging")
+
+    assert [
+        (checkout.repo, checkout.branch, checkout.commit_ref)
+        for checkout in app.collect_staged_checkouts()
+    ] == [
+        ("config-repo", "master", "aaa111"),
+        ("core-repo", "wmf/1.45.0-wmf.1", "ccc333"),
+        ("viol-repo", "main", "eee555"),
+    ]
+
+
+def test_collect_staged_checkouts_with_submodules(app, mocker):
+    configure_staged_checkouts(app, mocker, "/srv/mediawiki-staging")
+
+    assert [
+        (checkout.repo, checkout.branch, checkout.commit_ref)
+        for checkout in app.collect_staged_checkouts(submodules=True)
+    ] == [
+        ("config-repo", "master", "aaa111"),
+        ("portals-repo", "master", "bbb222"),
+        ("core-repo", "wmf/1.45.0-wmf.1", "ccc333"),
+        ("echo-repo", "wmf/1.45.0-wmf.1", "ddd444"),
+        ("library-repo", None, "fff666"),
+        ("viol-repo", "main", "eee555"),
     ]
 
 
 def test_write_deployment_info(app, mocker, tmp_path):
     stage_dir = str(tmp_path)
-    app.config = {"stage_dir": stage_dir, "foss_violations": []}
+    configure_staged_checkouts(app, mocker, stage_dir)
 
-    mocker.patch.object(app, "active_wikiversions", return_value=["1.45.0-wmf.1"])
-    mocker.patch("scap.cli.git.get_branch", side_effect=["master", "wmf/1.45.0-wmf.1"])
-    mocker.patch("scap.cli.git.merge_base", side_effect=["abc123", "def456"])
-    mocker.patch(
-        "scap.cli.git.remote_get_url", side_effect=["config-repo", "core-repo"]
-    )
-
-    checkouts = app.write_deployment_info()
-
-    assert [checkout.directory for checkout in checkouts] == [
-        stage_dir,
-        os.path.join(stage_dir, "php-1.45.0-wmf.1"),
-    ]
+    app.write_deployment_info()
 
     with open(os.path.join(stage_dir, "deployment-info.json")) as f:
         assert json.load(f) == {
-            "checkouts": [
-                {
-                    "repo": "config-repo",
-                    "branch": "master",
-                    "commit_ref": "abc123",
-                },
-                {
-                    "repo": "core-repo",
-                    "branch": "wmf/1.45.0-wmf.1",
-                    "commit_ref": "def456",
-                },
-            ]
+            # The config repo and the foss_violations repo, which every
+            # MediaWiki version uses
+            "common": [
+                {"repo": "config-repo", "branch": "master", "commit_ref": "aaa111"},
+                {"repo": "portals-repo", "branch": "master", "commit_ref": "bbb222"},
+                {"repo": "viol-repo", "branch": "main", "commit_ref": "eee555"},
+            ],
+            "versions": {
+                "1.45.0-wmf.1": [
+                    {
+                        "repo": "core-repo",
+                        "branch": "wmf/1.45.0-wmf.1",
+                        "commit_ref": "ccc333",
+                    },
+                    {
+                        "repo": "echo-repo",
+                        "branch": "wmf/1.45.0-wmf.1",
+                        "commit_ref": "ddd444",
+                    },
+                    # No "branch", since this one is on no branch
+                    {"repo": "library-repo", "commit_ref": "fff666"},
+                ]
+            },
         }
