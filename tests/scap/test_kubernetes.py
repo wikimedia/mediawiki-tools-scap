@@ -24,7 +24,7 @@ from scap.kubernetes import (
     K8sRunner,
     DepConfig,
     rollout_is_complete,
-    rollout_is_progressing,
+    rollout_was_abandoned,
 )
 
 deployment_configs = [
@@ -1141,8 +1141,8 @@ def test_new_replicas_counts_only_the_pods_of_the_deployment():
         assert scap.kubernetes._new_replicas_of_release(
             "/etc/kubernetes/a", "main", before
         ) == {
-            "shellbox.codfw.main": (2, False, True),
-            "shellbox.codfw.main-tls": (0, True, True),
+            "shellbox.codfw.main": (2, False, False),
+            "shellbox.codfw.main-tls": (0, True, False),
         }
 
         # At the end of a deployment, a Deployment that keeps its revision made
@@ -1150,8 +1150,8 @@ def test_new_replicas_counts_only_the_pods_of_the_deployment():
         assert scap.kubernetes._new_replicas_of_release(
             "/etc/kubernetes/a", "main", before, unchanged_is_done=True
         ) == {
-            "shellbox.codfw.main": (2, False, True),
-            "shellbox.codfw.main-tls": (3, True, True),
+            "shellbox.codfw.main": (2, False, False),
+            "shellbox.codfw.main-tls": (3, True, False),
         }
 
 
@@ -1196,7 +1196,7 @@ def test_new_replicas_of_a_rollout_that_k8s_has_not_finished():
             "main",
             {"shellbox.codfw.main": "5"},
             unchanged_is_done=True,
-        ) == {"shellbox.codfw.main": (0, False, True)}
+        ) == {"shellbox.codfw.main": (0, False, False)}
 
 
 def test_rollout_that_the_old_pods_make_look_complete():
@@ -1223,7 +1223,7 @@ def test_rollout_that_the_old_pods_make_look_complete():
     with mock.patch("subprocess.run", side_effect=kubectl):
         assert scap.kubernetes._new_replicas_of_release(
             "/etc/kubernetes/a", "main", {"shellbox.codfw.main": "4"}
-        ) == {"shellbox.codfw.main": (2, False, True)}
+        ) == {"shellbox.codfw.main": (2, False, False)}
 
 
 def test_monitor_release_reports_until_the_replicas_arrive(monkeypatch):
@@ -1231,9 +1231,9 @@ def test_monitor_release_reports_until_the_replicas_arrive(monkeypatch):
 
     # The replicas arrive after the command returns.
     counts = [
-        {"main": (1, False, True)},
-        {"main": (2, False, True)},
-        {"main": (3, True, True)},
+        {"main": (1, False, False)},
+        {"main": (2, False, False)},
+        {"main": (3, True, False)},
     ]
     seen = []
 
@@ -1261,7 +1261,7 @@ def test_monitor_release_waits_while_k8s_works_on_the_rollout(monkeypatch):
     still working on the rollout, so the count waits for it.
     """
     # Nothing arrives for several passes, and then the last pod does.
-    counts = [{"main": (2, False, True)}] * 4 + [{"main": (3, True, True)}]
+    counts = [{"main": (2, False, False)}] * 4 + [{"main": (3, True, False)}]
     seen = []
 
     def new_replicas(kubeconfig, release, before, unchanged_is_done=False):
@@ -1309,10 +1309,10 @@ def test_monitor_release_when_kubectl_fails(monkeypatch):
     assert list(reports.queue) == []
 
 
-def test_rollout_is_progressing():
-    """k8s says whether more replicas are on their way."""
+def test_rollout_was_abandoned():
+    """k8s says when it stopped expecting the rollout to finish."""
     working = {"status": {"conditions": [{"type": "Progressing", "status": "True"}]}}
-    assert rollout_is_progressing(working)
+    assert not rollout_was_abandoned(working)
 
     gave_up = {
         "status": {
@@ -1325,7 +1325,7 @@ def test_rollout_is_progressing():
             ]
         }
     }
-    assert not rollout_is_progressing(gave_up)
+    assert rollout_was_abandoned(gave_up)
 
     # k8s reports the deadline on a condition that it leaves True as well.
     exceeded = {
@@ -1339,10 +1339,10 @@ def test_rollout_is_progressing():
             ]
         }
     }
-    assert not rollout_is_progressing(exceeded)
+    assert rollout_was_abandoned(exceeded)
 
     # k8s has not given up on a Deployment that holds no such condition.
-    assert rollout_is_progressing({"status": {}})
+    assert not rollout_was_abandoned({"status": {}})
 
 
 def test_monitor_release_gives_up_when_k8s_stops(monkeypatch):
@@ -1351,8 +1351,8 @@ def test_monitor_release_gives_up_when_k8s_stops(monkeypatch):
 
     def new_replicas(kubeconfig, release, before, unchanged_is_done=False):
         seen.append(unchanged_is_done)
-        # The same count each time, and k8s is not working on it.
-        return {"main": (2, False, False)}
+        # The same count each time, and k8s gave up on the rollout.
+        return {"main": (2, False, True)}
 
     monkeypatch.setattr(scap.kubernetes, "_new_replicas_of_release", new_replicas)
     monkeypatch.setattr(scap.kubernetes, "deployments_of_release", lambda *a: [])

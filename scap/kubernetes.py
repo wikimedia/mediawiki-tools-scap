@@ -178,8 +178,8 @@ def rollout_is_complete(deployment: dict, new_replicas: int) -> bool:
     ) and new_replicas >= deployment["spec"].get("replicas", 0)
 
 
-def rollout_is_progressing(deployment: dict) -> bool:
-    """Returns True unless k8s gave up on the rollout of a Deployment.
+def rollout_was_abandoned(deployment: dict) -> bool:
+    """Returns True when k8s gave up on the rollout of a Deployment.
 
     k8s holds a Progressing condition for each Deployment, and gives it the
     reason ProgressDeadlineExceeded when it stops expecting the rollout to
@@ -189,11 +189,11 @@ def rollout_is_progressing(deployment: dict) -> bool:
     for condition in deployment["status"].get("conditions", []):
         if condition.get("type") == "Progressing":
             return (
-                condition.get("status") == "True"
-                and condition.get("reason") != "ProgressDeadlineExceeded"
+                condition.get("status") != "True"
+                or condition.get("reason") == "ProgressDeadlineExceeded"
             )
 
-    return True
+    return False
 
 
 def _new_replicas_of_release(
@@ -214,8 +214,8 @@ def _new_replicas_of_release(
     deployment made no new pod, so there is nothing to wait for (T375514).
 
     The second value of each entry says if k8s finished the rollout, which is
-    when scap stops counting. The third says if k8s is still working on it, so
-    that a rollout that takes its time does not end the count.
+    when scap stops counting. The third value is True if k8s gave up on the
+    rollout; This value is only meaningful when the second is False.
     """
     replicasets = objects_of_release(kubeconfig, "replicaset", release)
 
@@ -232,7 +232,7 @@ def _new_replicas_of_release(
             reports[name] = (
                 available if unchanged_is_done and complete else 0,
                 complete,
-                rollout_is_progressing(deployment),
+                rollout_was_abandoned(deployment),
             )
             continue
 
@@ -248,7 +248,7 @@ def _new_replicas_of_release(
         reports[name] = (
             available,
             rollout_is_complete(deployment, available),
-            rollout_is_progressing(deployment),
+            rollout_was_abandoned(deployment),
         )
 
     return reports
@@ -297,8 +297,8 @@ def monitor_release(
         """Reports the replicas of the release.
 
         Returns whether k8s finished every rollout, how many replicas this
-        report counted, and whether k8s is still working on a rollout. A count
-        of None says that this cycle read nothing.
+        report counted, and whether k8s gave up on every rollout. A count of
+        None says that this cycle read nothing.
         """
         counts = _new_replicas_of_release(
             kubeconfig, release, revisions_before, unchanged_is_done
@@ -315,7 +315,7 @@ def monitor_release(
         return (
             all(complete for _, complete, _ in counts.values()),
             sum(available for available, _, _ in counts.values()),
-            any(progressing for _, _, progressing in counts.values()),
+            all(abandoned for _, _, abandoned in counts.values()),
         )
 
     def watch():
@@ -339,7 +339,7 @@ def monitor_release(
         # new pod, so it is complete already. (T375514)
         unreadable = 0
         while True:
-            complete, counted, progressing = report(unchanged_is_done=True)
+            complete, counted, abandoned = report(unchanged_is_done=True)
             if complete:
                 return
 
@@ -349,7 +349,7 @@ def monitor_release(
                 unreadable += 1
                 if unreadable == READ_ATTEMPTS:
                     return
-            elif not progressing:
+            elif abandoned:
                 return
             else:
                 unreadable = 0
