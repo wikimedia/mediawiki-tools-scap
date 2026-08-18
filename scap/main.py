@@ -472,7 +472,8 @@ class AbstractSync(cli.Application):
                 continue
             jobs += stage_jobs
 
-        if self.k8s_ops.review_diffs(jobs):
+        num_failed_jobs = self.k8s_ops.review_diffs(jobs)
+        if num_failed_jobs > 0:
             self.soft_errors = True
 
     def _build_and_push_container_images(self):
