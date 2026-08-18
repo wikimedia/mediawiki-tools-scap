@@ -692,12 +692,13 @@ def test_run_jobs_survives_an_interrupt(tmp_path):
         results = _runner(max_workers=1).run_jobs(
             jobs, failed=scap.kubernetes.diff_failed
         )
-    # Each job reports why it has no exit status of its own.
+    # Each job reports why it has no exit status of its own. The first job
+    # raises the interrupt, and the second reports the interrupt as well when
+    # it started before the shutdown, or that it did not start when the
+    # shutdown cancelled it first.
     assert [result.returncode for result in results] == [None, None]
-    assert [result.stderr for result in results] == [
-        "KeyboardInterrupt: ",
-        "KeyboardInterrupt: ",
-    ]
+    assert results[0].stderr == "KeyboardInterrupt: "
+    assert results[1].stderr in ("KeyboardInterrupt: ", "The command did not start")
 
 
 def test_finished_result_of_a_job_that_did_not_start():
