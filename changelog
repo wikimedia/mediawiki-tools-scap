@@ -1,3 +1,9 @@
+scap (4.282.0)
+
+  * deployment-info.json: Report the submodules of every checkout
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Tue, 18 Aug 2026 09:33:55 -0700
+
 scap (4.281.1)
 
   * kubernetes.py: Keep counting when the Deployment cannot be read
