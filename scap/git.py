@@ -45,6 +45,11 @@ DEFAULT_IGNORE = {"*~", "*.swp", "*/cache/l10n/*.cdb", "scap/log/*"}
 LFS = "git-lfs"
 FAT = "git-fat"
 
+# Directories of a MediaWiki version directory that can hold checkouts of their
+# own.  On the master branch of mediawiki/core they are separate checkouts and
+# not submodules.  See scap.prep._master_stuff.
+MEDIAWIKI_CHECKOUT_DIRS = ["extensions", "skins", "vendor"]
+
 
 def info_filename(directory, install_path, cache_path):
     """Compute the path for a git_info cache file related to a given
@@ -87,6 +92,9 @@ def collect_info(location, branch=None) -> list[dict]:
     branch of 'location' is reported for each submodule, since a submodule is
     checked out at a commit and not on a branch of its own.
 
+    Each of MEDIAWIKI_CHECKOUT_DIRS is reported too, with its own submodules,
+    when it is a checkout instead of a submodule, and so is each child of those
+    directories that is a checkout of its own.
     """
     if branch is None:
         branch = get_branch(location)
@@ -108,19 +116,46 @@ def collect_info(location, branch=None) -> list[dict]:
             return None
 
     with ThreadPoolExecutor(max_workers=utils.cpus_for_jobs()) as executor:
-        return [location_info] + [
+        git_infos = [location_info] + [
             git_info
             for git_info in executor.map(collect, heads)
             if git_info is not None
         ]
+
+    collected = {git_info["@directory"] for git_info in git_infos}
+
+    for dirname in MEDIAWIKI_CHECKOUT_DIRS:
+        subdir = os.path.join(location, dirname)
+
+        # A checkout of its own, which the master branch of mediawiki/core has
+        # instead of a submodule.  A directory that is not a checkout has no
+        # .git.
+        if subdir not in collected and os.path.exists(os.path.join(subdir, ".git")):
+            separate_infos = collect_info(subdir)
+            git_infos += separate_infos
+            collected.update(git_info["@directory"] for git_info in separate_infos)
+
+        if not os.path.isdir(subdir):
+            continue
+
+        # An extension or skin that is not a submodule
+        for child in utils.iterate_subdirectories(subdir):
+            # Skip .git, which a separate checkout has
+            if child in collected or os.path.basename(child).startswith("."):
+                continue
+            try:
+                git_infos.append(info(child, branch=branch))
+            except IOError:
+                pass
+
+    return git_infos
 
 
 def cache_git_info(branch_dir) -> list[dict]:
     """
     Create JSON cache files of git branch information.
 
-    Returns the git information (see info()) for branch_dir, its submodules,
-    and its extensions and skins subdirectories.
+    Returns the git information (see collect_info()) for branch_dir.
 
     :param branch_dir: MediaWiki version directory (eg '/srv/mediawiki-staging/1.38.0-wmf.20')
     :raises: :class:`IOError` if version directory is not found
@@ -136,18 +171,6 @@ def cache_git_info(branch_dir) -> list[dict]:
         os.mkdir(cache_dir)
 
     git_infos = collect_info(branch_dir, branch_name)
-
-    # Any extension or skin that is not a submodule
-    collected = {git_info["@directory"] for git_info in git_infos}
-    for dirname in ["extensions", "skins"]:
-        full_dir = os.path.join(branch_dir, dirname)
-        for subdir in utils.iterate_subdirectories(full_dir):
-            if subdir in collected:
-                continue
-            try:
-                git_infos.append(info(subdir, branch=branch_name))
-            except IOError:
-                pass
 
     for git_info in git_infos:
         write_info_cache_file(git_info, branch_dir, cache_dir)

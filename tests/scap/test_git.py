@@ -32,6 +32,14 @@ def fake_remote_branch(repo, branch, commit):
     )
 
 
+def clone(source, dest, recursive=False):
+    """Clone a repo that is on a local path, like scap prep does."""
+    args = ["-c", "protocol.file.allow=always", "clone", "--quiet", source, dest]
+    if recursive:
+        args.append("--recursive")
+    scap.runcmd.gitcmd(*args)
+
+
 class GitTest(unittest.TestCase):
     def setUp(self):
         git.init(TEMPDIR)
@@ -314,6 +322,55 @@ class GitTest(unittest.TestCase):
             assert git_infos[parent]["branch"] == branch
             assert git_infos[on_branch_dir]["branch"] == branch
             assert "branch" not in git_infos[no_branch_dir]
+
+    def test_collect_info_with_the_master_branch_layout(self):
+        # On the master branch of mediawiki/core, extensions, skins and vendor
+        # are separate checkouts and not submodules.  See prep._master_stuff.
+        with tempfile.TemporaryDirectory() as tmpdir:
+
+            def upstream(name):
+                repo = os.path.join(tmpdir, name)
+                git.init(repo)
+                scap.runcmd.touch("afile", cwd=repo)
+                git.add_all(repo, "first commit")
+                return repo
+
+            library = upstream("ve")
+            extension = upstream("Foo")
+            extensions = upstream("extensions")
+            skin = upstream("Bar")
+            skins = upstream("skins")
+            vendor = upstream("vendor")
+            core = upstream("core")
+
+            add_submodule(extension, library, "lib/ve")
+            add_submodule(extensions, extension, "Foo")
+            add_submodule(skins, skin, "Bar")
+
+            # What scap prep does for the master branch
+            branch_dir = os.path.join(tmpdir, "php-master")
+            clone(core, branch_dir)
+            clone(extensions, os.path.join(branch_dir, "extensions"), recursive=True)
+            clone(skins, os.path.join(branch_dir, "skins"), recursive=True)
+            clone(vendor, os.path.join(branch_dir, "vendor"))
+            with open(os.path.join(branch_dir, ".gitignore"), "a") as f:
+                f.write("/extensions\n/skins\n/vendor\n")
+            git.add_all(branch_dir, "scap prep auto setup")
+
+            git_infos = git.collect_info(branch_dir)
+
+            def path_of(git_info):
+                return os.path.relpath(git_info["@directory"], branch_dir)
+
+            assert [path_of(git_info) for git_info in git_infos] == [
+                ".",
+                "extensions",
+                "extensions/Foo",
+                "extensions/Foo/lib/ve",
+                "skins",
+                "skins/Bar",
+                "vendor",
+            ]
 
     def test_cache_git_info(self):
         with tempfile.TemporaryDirectory() as tmpdir:
