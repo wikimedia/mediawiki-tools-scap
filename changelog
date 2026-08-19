@@ -1,3 +1,13 @@
+scap (4.283.0)
+
+  * deployment-info.json: Report the checkouts of the master branch
+  * kubernetes.py: Rename rollout_is_progressing to rollout_was_abandoned
+  * main.py: Clarify what review_diffs() is returning
+  * tests: Do not require an interrupt to reach every job
+  * kubernetes.py: Split the command execution into K8sRunner
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Wed, 19 Aug 2026 08:33:46 -0700
+
 scap (4.282.0)
 
   * deployment-info.json: Report the submodules of every checkout
