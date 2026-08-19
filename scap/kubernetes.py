@@ -325,13 +325,13 @@ def monitor_release(
 
         if not monitor.ok:
             # The command of the release failed, and helm returns an atomic
-            # release to its prior revision. The Deployment then holds a
+            # release to its prior revision. The Deployment then has a
             # revision that is neither the one from before nor the one that
             # this deployment wanted, so a count of its pods describes neither.
             # The report stops here instead.
             return
 
-        # helm returns as soon as the new ReplicaSet of a Deployment holds the
+        # helm returns as soon as the new ReplicaSet of a Deployment has the
         # replicas that it wants, less the ones that its strategy allows to be
         # unavailable, so the last pods of a rollout arrive after the command
         # of the release returns. Scap counts them until k8s finishes every
@@ -453,7 +453,7 @@ class CommandResult:
 
 @dataclass(frozen=True)
 class ReleaseState:
-    """What helm holds for one release, before a deployment changes it."""
+    """What helm reports for an installed release, before a deployment changes it."""
 
     revision: int
     status: Optional[str]
