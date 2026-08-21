@@ -962,7 +962,7 @@ def test_fix_pending_state_repairs_a_pending_release():
 
 
 def test_fix_pending_state_of_a_release_that_is_not_pending():
-    """A release that helm holds in a good state runs no repair."""
+    """A release in a good state runs no repair."""
     invocation = HelmfileInvocation("/services/shellbox", "codfw", "canary", 5)
     state = {"canary": scap.kubernetes.ReleaseState(7, "deployed")}
     with mock.patch.object(K8sRunner, "kubeconfig", return_value="/etc/kubernetes/a"):
