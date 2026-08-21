@@ -1254,11 +1254,10 @@ def test_monitor_release_reports_until_the_replicas_arrive(monkeypatch):
 
 
 def test_monitor_release_waits_while_k8s_works_on_the_rollout(monkeypatch):
-    """A pod that takes longer than the grace period still counts (T375514).
+    """A pod that arrives long after helm returns still counts (T375514).
 
-    helm returns before the last pods of a rollout are available, and one pod
-    can take longer to arrive than the grace period allows. k8s says that it is
-    still working on the rollout, so the count waits for it.
+    helm returns before the last pods of a rollout are available. k8s says that
+    it is still working on the rollout, so the count waits for it.
     """
     # Nothing arrives for several passes, and then the last pod does.
     counts = [{"main": (2, False, False)}] * 4 + [{"main": (3, True, False)}]
@@ -1272,7 +1271,7 @@ def test_monitor_release_waits_while_k8s_works_on_the_rollout(monkeypatch):
     monkeypatch.setattr(scap.kubernetes, "deployments_of_release", lambda *a: [])
 
     reports = queue.Queue()
-    # A grace period of 1 second, and a pod that takes about 4.
+    # A pod that arrives after four cycles that count the same pods.
     with scap.kubernetes.monitor_release("/etc/kubernetes/a", "main", reports, 60):
         pass
 
@@ -1377,8 +1376,8 @@ def test_monitor_release_of_a_deployment_that_changed_nothing(monkeypatch):
         with scap.kubernetes.monitor_release("/etc/kubernetes/a", "main", reports, 60):
             pass
 
-    # No wait: k8s says the rollout is complete, so the grace period ends at
-    # once, and the last report counts the pods that are there.
+    # No wait: k8s says the rollout is complete, so the count ends at once,
+    # and the last report counts the pods that are there.
     assert time.monotonic() - started < 5
     assert list(reports.queue)[-1] == ("shellbox.codfw.main", 3)
 
@@ -1404,6 +1403,6 @@ def test_monitor_release_of_a_deployment_that_failed():
         ) as monitor:
             monitor.ok = False
 
-    # No grace period, because no more pods arrive, and no last report.
+    # The failure ends the count at once, and it reports nothing.
     assert time.monotonic() - started < 5
     assert list(reports.queue) == []
