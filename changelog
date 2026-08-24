@@ -1,3 +1,13 @@
+scap (4.284.0)
+
+  * logstash_checker.py: Add --wiki and --scope to scap analyze-logstash
+  * tests: Do not describe helm as holding a release
+  * tests: Drop the grace period from the monitor_release comments
+  * kubernetes.py: Make the train-dev replica count a setting
+  * kubernetes.py: Revise wording in docstrings
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Mon, 24 Aug 2026 13:14:12 -0700
+
 scap (4.283.0)
 
   * deployment-info.json: Report the checkouts of the master branch
