@@ -59,9 +59,47 @@ def get_deploy_promote_with_messages(task, p):
     return p
 
 
-def test_version_check(deploy_promote):
+DEPLOYMENT_INFO = {
+    "common": [
+        {
+            "repo": "https://gerrit.example/mediawiki-config",
+            "branch": "master",
+            "commit_ref": "abc123",
+        }
+    ],
+    "versions": {
+        "1.39.0-wmf.19": [
+            {
+                "repo": "https://gerrit.example/mediawiki/core",
+                "branch": "wmf/1.39.0-wmf.19",
+                "commit_ref": "def456",
+            },
+            {
+                "repo": "https://gerrit.example/a-library",
+                "commit_ref": "789abc",
+            },
+        ]
+    },
+}
+
+
+def wiki_response(version="1.39.0-wmf.19"):
+    return {
+        "dbname": "testwiki",
+        "version": version,
+        "branch": "wmf/%s" % version,
+        "checkouts": DEPLOYMENT_INFO["common"]
+        + DEPLOYMENT_INFO["versions"]["1.39.0-wmf.19"],
+    }
+
+
+def test_version_check(deploy_promote, tmp_path):
     deploy_promote.logger = mock.MagicMock(Logger)
     deploy_promote.promote_version = "1.39.0-wmf.19"
+    deploy_promote.config["stage_dir"] = str(tmp_path)
+
+    with open(tmp_path / "deployment-info.json", "w") as f:
+        json.dump(DEPLOYMENT_INFO, f)
 
     with mock.patch.object(requests, "get") as mock_get:
         mock_get.return_value = mock.MagicMock(Response)
@@ -70,21 +108,32 @@ def test_version_check(deploy_promote):
         with mock.patch.object(
             deploy_promote, "_get_check_versions_timeout", return_value=0
         ):
-            # Version matches
-            mock_get.return_value.text = (
-                '<meta name="generator" content="MediaWiki 1.39.0-wmf.19"/>'
-            )
+            # Version and checkouts match
+            mock_get.return_value.json.return_value = wiki_response()
+            deploy_promote._check_versions()
+
+            # Checkouts match in any order
+            response = wiki_response()
+            response["checkouts"] = list(reversed(response["checkouts"]))
+            mock_get.return_value.json.return_value = response
             deploy_promote._check_versions()
 
             # Version does not match
-            mock_get.return_value.text = (
-                '<meta name="generator" content="MediaWiki NoVersTooBad"/>'
-            )
+            mock_get.return_value.json.return_value = wiki_response("1.39.0-wmf.18")
             with pytest.raises(SystemExit):
                 deploy_promote._check_versions()
 
-            # Version could not be found in page
-            mock_get.return_value.text = "garbled nonsense dadadddd"
+            # Version matches but a checkout is on a different commit
+            response = wiki_response()
+            response["checkouts"] = [
+                dict(response["checkouts"][0], commit_ref="0000000")
+            ] + response["checkouts"][1:]
+            mock_get.return_value.json.return_value = response
+            with pytest.raises(SystemExit):
+                deploy_promote._check_versions()
+
+            # The wiki reports no deployment information
+            mock_get.return_value.json.return_value = {}
             with pytest.raises(SystemExit):
                 deploy_promote._check_versions()
 
@@ -92,10 +141,19 @@ def test_version_check(deploy_promote):
             with mock.patch.object(
                 mock_get.return_value, "raise_for_status"
             ) as mock_raise:
-                http_error = HTTPError()
-                http_error.response = mock.MagicMock(Response)
-                http_error.response.status_code = 500
-                mock_raise.side_effect = http_error
+                mock_raise.side_effect = HTTPError("500 Server Error")
 
                 with pytest.raises(SystemExit):
                     deploy_promote._check_versions()
+
+
+def test_version_check_without_staged_version(deploy_promote, tmp_path):
+    deploy_promote.logger = mock.MagicMock(Logger)
+    deploy_promote.promote_version = "1.39.0-wmf.20"
+    deploy_promote.config["stage_dir"] = str(tmp_path)
+
+    with open(tmp_path / "deployment-info.json", "w") as f:
+        json.dump(DEPLOYMENT_INFO, f)
+
+    with pytest.raises(SystemExit):
+        deploy_promote._check_versions()

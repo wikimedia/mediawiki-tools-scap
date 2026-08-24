@@ -35,13 +35,12 @@ import re
 import socket
 import time
 from functools import partial
+from typing import List, Tuple
 
 import requests
-from requests import HTTPError
 
-from scap import cli, interaction, utils, config, git, train
+from scap import cli, history, interaction, utils, config, git, train
 from scap.runcmd import gitcmd
-from scap.utils import BRANCH_RE_UNANCHORED
 
 print = partial(print, flush=True)
 
@@ -278,6 +277,7 @@ class DeployPromote(cli.Application):
 
     def _check_versions(self):
         check_url = self._get_check_url()
+        expected_checkouts = self._expected_checkouts()
 
         polling_interval = 1  # seconds
         timeout = self._get_check_versions_timeout()
@@ -285,10 +285,10 @@ class DeployPromote(cli.Application):
         deadline = time.time() + timeout
 
         while True:
-            actual_version = self._get_special_version(check_url)
-            self._notify_version_update_result(check_url, actual_version)
+            reached, actual = self._check_deployment_info(check_url, expected_checkouts)
+            self._notify_version_update_result(check_url, reached, actual)
 
-            if self.promote_version == actual_version:
+            if reached:
                 return
 
             if time.time() >= deadline:
@@ -310,33 +310,46 @@ class DeployPromote(cli.Application):
             check_domain = "en.wiktionary.org"
         else:
             check_domain = "en.wikipedia.org"
-        return "https://%s/wiki/Special:Version" % check_domain
+        return f"https://{check_domain}/w/deployment-info.php"
 
-    def _get_special_version(self, check_url) -> str:
+    def _expected_checkouts(self) -> List[dict]:
+        stage_dir = self.config["stage_dir"]
+        info = history.read_deployment_info(stage_dir)
+
+        checkouts = info["versions"].get(self.promote_version)
+        if checkouts is None:
+            utils.abort(
+                f"{history.DEPLOYMENT_INFO_FILENAME} in {stage_dir} has no checkouts for version {self.promote_version}"
+            )
+
+        return info["common"] + checkouts
+
+    def _check_deployment_info(self, check_url, expected_checkouts) -> Tuple[bool, str]:
+        """
+        Returns True if the checked wiki is running with the expected checkouts,
+        along with a description of what the wiki reports.
+        """
         try:
             res = requests.get(check_url)
             res.raise_for_status()
-
-            actual_version_match = re.search(
-                r"(?i)MediaWiki (%s)" % BRANCH_RE_UNANCHORED.pattern, res.text
-            )
-            actual_version = (
-                actual_version_match.group(1)
-                if actual_version_match
-                else "Version not found on checked page"
-            )
-        except HTTPError as e:
-            actual_version = (
-                f"Request to checked page failed with {e.response.status_code}"
-            )
+            info = res.json()
         except Exception as e:
-            actual_version = f"{type(e).__name__} exception: {e}"
+            return False, f"Request failed: {e}"
 
-        return actual_version
+        version = info.get("version")
 
-    def _notify_version_update_result(self, check_url, actual_version):
-        versions_match = self.promote_version == actual_version
-        log = self.logger.info if versions_match else self.logger.error
+        if version != self.promote_version:
+            return False, str(version)
+
+        if _checkout_set(expected_checkouts) != _checkout_set(
+            info.get("checkouts", [])
+        ):
+            return False, f"{version} with unexpected checkouts"
+
+        return True, str(version)
+
+    def _notify_version_update_result(self, check_url, reached, actual):
+        log = self.logger.info if reached else self.logger.error
         log(
             "==================================================\n"
             "Checking version on %s\n"
@@ -346,9 +359,20 @@ class DeployPromote(cli.Application):
             "==================================================",
             check_url,
             self.promote_version,
-            actual_version,
-            "SUCCESS" if versions_match else "FAIL",
+            actual,
+            "SUCCESS" if reached else "FAIL",
         )
+
+
+def _checkout_set(checkouts) -> set:
+    """
+    Returns the checkouts as a set, so that two lists can be compared
+    regardless of order.
+    """
+    return {
+        (checkout["repo"], checkout.get("branch"), checkout["commit_ref"])
+        for checkout in checkouts
+    }
 
 
 def _commit_arrived_to_remote(change_id) -> bool:

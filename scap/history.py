@@ -205,6 +205,15 @@ def deployment_info(common: List[Checkout], versions: dict) -> dict:
     }
 
 
+def read_deployment_info(stage_dir) -> dict:
+    """
+    Returns the information about the staged checkouts that
+    write_deployment_info() recorded in stage_dir.
+    """
+    with open(os.path.join(stage_dir, DEPLOYMENT_INFO_FILENAME)) as f:
+        return json.load(f)
+
+
 def write_deployment_info(stage_dir, common: List[Checkout], versions: dict) -> bool:
     """
     Writes information about the staged checkouts to
