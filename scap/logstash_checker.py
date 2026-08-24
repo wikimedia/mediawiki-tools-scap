@@ -27,32 +27,74 @@ class LogstashCheckerCommand(cli.Application):
         help="Test historical samples for the selected stage using the supplied threshold value",
         type=int,
     )
+    @cli.argument(
+        "--scope",
+        help="Analyze only the Kubernetes targets of this scope (e.g. 'pretrain'), "
+        "which are the ones a logstash_check of that scope supervises. Without it, "
+        "the analysis covers the targets of every scope at this stage, and the "
+        "bare-metal hosts too.",
+    )
+    @cli.argument(
+        "--wiki",
+        help="Count only errors reported for this wiki (e.g. 'testwiki')",
+    )
     def main(self, *extra_args):
         logger = self.get_logger()
         if not self.config["logstash_url"]:
             logger.warning("logstash_url is not configured; nothing to check.")
             return
-        k8s_ops = kubernetes.K8sOps(self)
+
+        stage = self.arguments.stage
+        scope = self.arguments.scope
+        wiki = self.arguments.wiki
+
+        if scope and not self.config["deploy_mw_container_image"]:
+            raise SystemExit(
+                "--scope selects Kubernetes deployment targets, but "
+                "deploy_mw_container_image is False"
+            )
+
+        k8s_ops = kubernetes.K8sOps(self, scope={scope} if scope else None)
+
         baremetal_hosts = []
-        if self.arguments.stage == kubernetes.CANARIES:
-            baremetal_hosts = list(
-                set(targets.get("dsh_api_canaries", self.config).all)
-                | set(targets.get("dsh_app_canaries", self.config).all)
+        if scope:
+            # Analyze what a logstash_check of this scope supervises: the scope's
+            # Kubernetes targets at this stage, and no bare-metal hosts.
+            dep_configs = k8s_ops.k8s_deployments_config.supervised_dep_configs(
+                scope, stage
             )
-        elif self.arguments.stage == kubernetes.PRODUCTION:
-            baremetal_hosts = list(
-                set(targets.get("dsh_proxies", self.config).all)
-                | set(targets.get("dsh_targets", self.config).all)
-            )
-        logger.info("Analyzing logstash history for stage: %s", self.arguments.stage)
+        else:
+            dep_configs = k8s_ops.get_stage_dep_configs(stage)
+            if stage == kubernetes.CANARIES:
+                baremetal_hosts = list(
+                    set(targets.get("dsh_api_canaries", self.config).all)
+                    | set(targets.get("dsh_app_canaries", self.config).all)
+                )
+            elif stage == kubernetes.PRODUCTION:
+                baremetal_hosts = list(
+                    set(targets.get("dsh_proxies", self.config).all)
+                    | set(targets.get("dsh_targets", self.config).all)
+                )
+
+        targets_description = f"scope: {scope or '(all)'}, stage: {stage}"
+
+        if not dep_configs and not baremetal_hosts:
+            logger.warning(f"No deployment targets match {targets_description}.")
+            return
+
+        logger.info(
+            f"Analyzing logstash history for {targets_description}, "
+            f"wiki: {wiki or '(all)'}"
+        )
         logstash_checker.LogstashChecker(
             self.config["logstash_url"],
             self.config["canary_wait_time"],
-            k8s_ops.get_stage_dep_configs(self.arguments.stage),
+            dep_configs,
             baremetal_hosts,
             logger,
             self.config["logstash_credentials_file"],
-        ).analyze(self.arguments.stage, self.arguments.toohigh)
+            wiki,
+        ).analyze(stage, self.arguments.toohigh)
 
 
 class LogstashChecker:
@@ -64,11 +106,14 @@ class LogstashChecker:
         baremetal_hosts,
         logger,
         credentials_file=None,
+        wiki=None,
     ):
         self.window_size = window_size
         self.k8s_dep_configs = k8s_dep_configs
         self.baremetal_hosts = baremetal_hosts
         self.logger = logger
+        # When set, only errors reported for this wiki are counted.
+        self.wiki = wiki
         self.logstash = logstash.Logstash(logstash_url, logger, credentials_file)
 
     def check(self, threshold) -> bool:
@@ -198,7 +243,8 @@ class LogstashChecker:
 
     def _build_base_query(self) -> dict:
         """
-        Build a query filtering for the relevant deployment targets, record type, and channel.
+        Build a query filtering for the relevant deployment targets, record type,
+        channel, and (when set) wiki.
         """
 
         deployment_terms = []
@@ -217,6 +263,9 @@ class LogstashChecker:
                 f"({' OR '.join(deployment_terms)}) AND type:mediawiki "
                 "AND channel:(exception OR error)"
             )
+            if self.wiki:
+                # Records without a wiki field do not match.
+                query += f" AND wiki:{self.wiki}"
             filters.append({"query_string": {"query": query}})
         else:
             filters.append({"match_none": {}})
