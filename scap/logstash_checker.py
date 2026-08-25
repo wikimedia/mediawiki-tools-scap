@@ -54,7 +54,9 @@ class LogstashCheckerCommand(cli.Application):
                 "deploy_mw_container_image is False"
             )
 
-        k8s_ops = kubernetes.K8sOps(self, scope={scope} if scope else None)
+        k8s_ops = kubernetes.K8sOps(
+            self, update_releases_repo=False, scope={scope} if scope else None
+        )
 
         baremetal_hosts = []
         if scope:
