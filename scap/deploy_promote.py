@@ -307,7 +307,7 @@ class DeployPromote(cli.Application):
         elif self.group == "group0":
             check_domain = "www.mediawiki.org"
         elif self.group == "group1":
-            check_domain = "en.wikinews.org"
+            check_domain = "en.wiktionary.org"
         else:
             check_domain = "en.wikipedia.org"
         return "https://%s/wiki/Special:Version" % check_domain
