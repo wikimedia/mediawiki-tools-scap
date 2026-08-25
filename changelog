@@ -1,3 +1,10 @@
+scap (4.285.0)
+
+  * logstash_checker.py: Do not update the release repository
+  * kubernetes.py: Roll back to the revision from before the deployment
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Tue, 25 Aug 2026 08:15:33 -0700
+
 scap (4.284.0)
 
   * logstash_checker.py: Add --wiki and --scope to scap analyze-logstash
