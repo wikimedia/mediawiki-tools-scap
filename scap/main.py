@@ -404,7 +404,7 @@ class AbstractSync(cli.Application):
         if brief:
             what = "Changes"
         else:
-            what = f"{self._get_notify_users()}: {self.arguments.message}"
+            what = f"{self._get_notify_users()}: {self.message_argument}"
 
         return f"{what} synced to the testservers (see {url})"
 
@@ -1460,7 +1460,7 @@ class ScapWorld(AbstractSync):
         return super().main(*extra_args)
 
     def _before_cluster_sync(self):
-        self.announce("Started scap sync-world: %s", self.arguments.message)
+        self.announce("Started scap sync-world: %s", self.message_argument)
         self.report_status("Starting scap sync-world")
 
         # Validate php syntax of wmf-config and multiversion
@@ -1503,7 +1503,7 @@ class ScapWorld(AbstractSync):
     def _after_lock_release(self):
         self.announce(
             "Finished scap sync-world: %s (duration: %s)",
-            self.arguments.message,
+            self.message_argument,
             utils.human_duration(self.get_duration()),
         )
         self.increment_stat("scap")
@@ -1678,7 +1678,7 @@ class SyncFile(AbstractSync):
         self.announce(
             "Synchronized %s: %s (duration: %s)",
             self.arguments.file,
-            self.arguments.message,
+            self.message_argument,
             utils.human_duration(self.get_duration()),
         )
         self.increment_stat("sync-file")
@@ -1729,7 +1729,7 @@ class SyncWikiversions(AbstractSync):
 
     def _after_lock_release(self):
         self.announce(
-            "rebuilt and synchronized wikiversions files: %s", self.arguments.message
+            "rebuilt and synchronized wikiversions files: %s", self.message_argument
         )
 
         self.increment_stat("sync-wikiversions")
@@ -1845,19 +1845,19 @@ class LockManager(cli.Application):
                 logger.fatal("--bg cannot be used with --unlock-all")
                 return 1
 
-            if self.arguments.message == cli.NO_MESSAGE:
+            if self.message_argument == cli.NO_MESSAGE:
                 logger.fatal("Cannot request to remove global lock without a reason")
                 return 1
 
-            self.announce(f"Forcefully removing global lock: {self.arguments.message}")
+            self.announce(f"Forcefully removing global lock: {self.message_argument}")
             lock.Lock.signal_gl_release(
-                self.arguments.message,
+                self.message_argument,
                 self.get_io(),
                 confirm=not self.arguments.yes,
             )
             return
 
-        if self.arguments.message == cli.NO_MESSAGE:
+        if self.message_argument == cli.NO_MESSAGE:
             logger.fatal("Cannot lock repositories without a reason")
             return 1
 
@@ -1939,7 +1939,7 @@ class LockManager(cli.Application):
             logger.error("Failed to acquire lock")
             return 1
 
-        self.announce("Locking from deployment [%s]: %s", repo, self.arguments.message)
+        self.announce("Locking from deployment [%s]: %s", repo, self.message_argument)
 
         if self.arguments.bg:
             # Background mode - exit immediately after lock is acquired
@@ -2046,7 +2046,7 @@ class LockManager(cli.Application):
         self.announce(
             "Unlocked for deployment [%s]: %s (duration: %s)",
             repo,
-            self.arguments.message,
+            self.message_argument,
             utils.human_duration(self.get_duration()),
         )
 

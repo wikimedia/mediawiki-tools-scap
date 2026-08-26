@@ -49,7 +49,7 @@ import scap.targets as targets
 import scap.utils as utils
 from scap.ssh import SSH_WITH_KEY
 
-# The message of a command line that supplied none.
+# The "message" used when one is not supplied on the command line
 NO_MESSAGE = "(no justification provided)"
 
 PRIMARY_DEPLOY_SERVER_ONLY_COMMAND = "_primary_deploy_server_only"
@@ -409,7 +409,7 @@ class Application(object):
 
         No effect if there is no terminal.
         """
-        if self.arguments.message != NO_MESSAGE:
+        if self.message_argument != NO_MESSAGE:
             return
 
         message = self.input_line("Log message (press enter for none): ")

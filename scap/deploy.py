@@ -759,7 +759,7 @@ For `scap deploy` to work, the current directory must be the top level of a git 
 
         if self.arguments.init:
             # T376996
-            if self.arguments.message == cli.NO_MESSAGE:
+            if self.message_argument == cli.NO_MESSAGE:
                 self.arguments.message = "scap deploy --init mode"
         else:
             self.prompt_for_message()
@@ -893,13 +893,13 @@ For `scap deploy` to work, the current directory must be the top level of a git 
                 if self.arguments.init:
                     return 0
 
-                self.announce("Started %s: %s", display_name, self.arguments.message)
+                self.announce("Started %s: %s", display_name, self.message_argument)
                 exec_result = self._execute_for_groups(stages)
                 if not restart_only:
                     self.announce(
                         "Finished %s: %s (duration: %s)",
                         display_name,
-                        self.arguments.message,
+                        self.message_argument,
                         utils.human_duration(self.get_duration()),
                     )
                 return exec_result
