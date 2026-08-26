@@ -49,6 +49,9 @@ import scap.targets as targets
 import scap.utils as utils
 from scap.ssh import SSH_WITH_KEY
 
+# The message of a command line that supplied none.
+NO_MESSAGE = "(no justification provided)"
+
 PRIMARY_DEPLOY_SERVER_ONLY_COMMAND = "_primary_deploy_server_only"
 REQUIRE_TTY_MULTIPLEXER_COMMAND = "_require_tty_multiplexer"
 
@@ -383,11 +386,11 @@ class Application(object):
     def message_argument(self) -> str:
         """
         The given `message` :func:`argument` if one was defined, otherwise it
-        returns "(no justification provided)".
+        returns NO_MESSAGE.
         """
         if hasattr(self, "arguments") and hasattr(self.arguments, "message"):
             return self.arguments.message
-        return "(no justification provided)"
+        return NO_MESSAGE
 
     # Interaction stuff
     def get_io(self):
@@ -400,6 +403,18 @@ class Application(object):
 
     def input_line(self, prompt: str) -> str:
         return self.get_io().input_line(prompt)
+
+    def prompt_for_message(self):
+        """Asks for a log message when one wasn't supplied on the command line.
+
+        No effect if there is no terminal.
+        """
+        if self.arguments.message != NO_MESSAGE:
+            return
+
+        message = self.input_line("Log message (press enter for none): ")
+        if message:
+            self.arguments.message = message
 
     def prompt_for_approval_or_exit(
         self, prompt_message, exit_message, exit_code=os.EX_OK
@@ -519,7 +534,7 @@ class Application(object):
             self._argparser.error("extra arguments found: %s" % " ".join(extra_args))
 
         if hasattr(args, "message"):
-            args.message = " ".join(args.message) or "(no justification provided)"
+            args.message = " ".join(args.message) or NO_MESSAGE
 
         return args, extra_args
 

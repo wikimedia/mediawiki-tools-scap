@@ -137,10 +137,7 @@ class AbstractSync(cli.Application):
 
         self._assert_auth_sock()
 
-        if self.arguments.message == "(no justification provided)":
-            new_message = self.input_line("Log message (press enter for none): ")
-            if new_message:
-                self.arguments.message = new_message
+        self.prompt_for_message()
 
         with self.lock_mediawiki_staging(name="sync"):
             scope_arg = self.arguments.scope
@@ -1848,7 +1845,7 @@ class LockManager(cli.Application):
                 logger.fatal("--bg cannot be used with --unlock-all")
                 return 1
 
-            if self.arguments.message == "(no justification provided)":
+            if self.arguments.message == cli.NO_MESSAGE:
                 logger.fatal("Cannot request to remove global lock without a reason")
                 return 1
 
@@ -1860,7 +1857,7 @@ class LockManager(cli.Application):
             )
             return
 
-        if self.arguments.message == "(no justification provided)":
+        if self.arguments.message == cli.NO_MESSAGE:
             logger.fatal("Cannot lock repositories without a reason")
             return 1
 

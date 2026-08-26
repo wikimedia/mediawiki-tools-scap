@@ -757,14 +757,12 @@ For `scap deploy` to work, the current directory must be the top level of a git 
                 )
             )
 
-        if self.arguments.message == "(no justification provided)":
-            if self.arguments.init:
-                # T376996
+        if self.arguments.init:
+            # T376996
+            if self.arguments.message == cli.NO_MESSAGE:
                 self.arguments.message = "scap deploy --init mode"
-            else:
-                new_message = self.input_line("Log message (press enter for none): ")
-                if new_message:
-                    self.arguments.message = new_message
+        else:
+            self.prompt_for_message()
 
         self.repo = repo
 
