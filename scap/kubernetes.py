@@ -2050,13 +2050,16 @@ class K8sOps:
         if not self.app.config["deploy_mw_container_image"]:
             return
 
-        self._record_rollback_revisions(
-            [
-                dep_config
-                for stage in self.k8s_deployments_config.stages
-                for dep_config in self.get_stage_dep_configs(stage)
-            ]
-        )
+        with self.app.Timer(
+            "Collecting rollback information", name="collect-rollback-information"
+        ):
+            self._record_rollback_revisions(
+                [
+                    dep_config
+                    for stage in self.k8s_deployments_config.stages
+                    for dep_config in self.get_stage_dep_configs(stage)
+                ]
+            )
 
     def _record_rollback_revisions(self, dep_configs: List[DepConfig]) -> None:
         """Records the current revision of each release, before the deployment.

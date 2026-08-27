@@ -1579,6 +1579,7 @@ def test_record_rollback_revisions_covers_every_stage():
     """
     ops = mock.Mock()
     ops.app.config = {"deploy_mw_container_image": True}
+    ops.app.Timer = mock.MagicMock()
     ops.k8s_deployments_config = _parse(MAP_CONFIG)
     ops.get_stage_dep_configs.side_effect = lambda stage: K8sOps.get_stage_dep_configs(
         ops, stage
