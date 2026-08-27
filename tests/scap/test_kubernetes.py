@@ -1497,6 +1497,10 @@ def test_record_rollback_revisions_notes_a_release_that_is_not_installed():
     """
     ops = mock.Mock()
     ops.rollback_revisions = {}
+    ops.runner.group_pools = _runner().group_pools
+    ops._read_releases_state.side_effect = (
+        lambda invocations: K8sOps._read_releases_state(ops, invocations)
+    )
     ops.runner.releases_state.return_value = {
         "main": scap.kubernetes.ReleaseState(7, "deployed")
     }
@@ -1536,6 +1540,7 @@ def test_record_rollback_revisions_of_a_stage_that_cannot_read_the_state():
     """A read that fails records no revision of the stage.
 
     The stage stops before it deploys anything, so it must roll nothing back.
+    Every directory reads, so one report names each one that failed.
     """
     dep_configs = [
         DepConfig(
@@ -1554,20 +1559,28 @@ def test_record_rollback_revisions_of_a_stage_that_cannot_read_the_state():
         for namespace in ["mw-web", "mw-api-ext"]
     ]
 
+    def releases_state(invocation):
+        # One directory reads, and helm fails for the other one.
+        if invocation.directory == "/helmfile/mw-web":
+            return {"main": scap.kubernetes.ReleaseState(7, "deployed")}
+        raise scap.kubernetes.HelmfileError("Could not list the releases")
+
     ops = mock.Mock()
     ops.rollback_revisions = {}
+    ops.runner.group_pools = _runner().group_pools
+    ops._read_releases_state.side_effect = (
+        lambda invocations: K8sOps._read_releases_state(ops, invocations)
+    )
     ops._invocation.side_effect = lambda dep_config: HelmfileInvocation(
         dep_config.helmfile_dir, "eqiad", dep_config.release, 5
     )
-    # The first directory reads, and helm fails for the second one.
-    ops.runner.releases_state.side_effect = [
-        {"main": scap.kubernetes.ReleaseState(7, "deployed")},
-        scap.kubernetes.HelmfileError("Could not list the releases"),
-    ]
+    ops.runner.releases_state.side_effect = releases_state
 
-    with pytest.raises(scap.kubernetes.HelmfileError):
+    with pytest.raises(scap.kubernetes.HelmfileError) as error:
         K8sOps._record_rollback_revisions(ops, dep_configs)
 
+    assert "/helmfile/mw-api-ext in eqiad" in str(error.value)
+    assert ops.runner.releases_state.call_count == 2
     assert ops.rollback_revisions == {}
 
 

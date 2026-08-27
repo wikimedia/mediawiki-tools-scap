@@ -580,6 +580,11 @@ def _cache_key(invocation: HelmfileInvocation) -> tuple:
     return (invocation.directory, invocation.environment, invocation.release)
 
 
+def _directory_key(invocation: HelmfileInvocation) -> Tuple[str, str]:
+    """Returns what identifies the helmfile directory that an invocation reads."""
+    return (invocation.directory, invocation.environment)
+
+
 def _kubeconfig_of(state: dict, invocation: HelmfileInvocation) -> str:
     """Returns the kubeconfig file of a helmfile state.
 
@@ -2070,20 +2075,22 @@ class K8sOps:
         changes anything.
         """
         recorded_at = datetime.now(timezone.utc)
-        by_directory = {}
         revisions = {}
+        deployed = [
+            (dep_config, self._invocation(dep_config))
+            for dep_config in dep_configs
+            if dep_config.deploy
+        ]
 
-        for dep_config in dep_configs:
-            if not dep_config.deploy:
-                continue
+        invocations = {}
+        for _, invocation in deployed:
+            # One read of a directory serves the releases of every stage.
+            invocations.setdefault(_directory_key(invocation), invocation)
 
-            invocation = self._invocation(dep_config)
-            key = (invocation.directory, invocation.environment)
-            if key not in by_directory:
-                # One read of a directory serves the releases of every stage.
-                by_directory[key] = self.runner.releases_state(invocation)
+        by_directory = self._read_releases_state(list(invocations.values()))
 
-            state = by_directory[key].get(dep_config.release)
+        for dep_config, invocation in deployed:
+            state = by_directory[_directory_key(invocation)].get(dep_config.release)
             # A release that is not installed records None (meaning rollback
             # will uninstall it).
             revisions[dep_config.fq_release_name] = RecordedRevision(
@@ -2091,6 +2098,45 @@ class K8sOps:
             )
 
         self.rollback_revisions = revisions
+
+    def _read_releases_state(
+        self, invocations: List[HelmfileInvocation]
+    ) -> Dict[Tuple[str, str], Dict[str, ReleaseState]]:
+        """Reads the release state of each invocation, keyed by directory.
+
+        The reads of one cluster share a thread pool, as a deployment does.
+
+        Every read runs, so one report names each directory that failed.
+
+        Raises HelmfileError if any read fails, which stops the run before it
+        changes anything.
+        """
+        with self.runner.group_pools(
+            invocations, lambda invocation: invocation.environment
+        ) as pools:
+            futures = {
+                _directory_key(invocation): pools[invocation.environment].submit(
+                    self.runner.releases_state, invocation
+                )
+                for invocation in invocations
+            }
+
+        # The pools have finished, so every future holds a state or an error.
+        states = {}
+        failures = []
+        for (directory, environment), future in futures.items():
+            error = future.exception()
+            if error:
+                failures.append(f"{directory} in {environment}: {error}")
+            else:
+                states[(directory, environment)] = future.result()
+
+        if failures:
+            raise HelmfileError(
+                "Could not read the state of the releases of:\n " + "\n ".join(failures)
+            )
+
+        return states
 
     def _deploy_to_clusters(
         self, dep_configs: List[DepConfig], for_rollback: bool
