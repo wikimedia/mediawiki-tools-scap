@@ -206,6 +206,17 @@ class ChecksExecuteTest(unittest.TestCase):
             if job is not later:
                 assert job.started < later.started
 
+    def test_execute_reports_the_error_that_stopped_it(self):
+        """The cleanup of the jobs that still run must not hide the error."""
+        chks = [checks.Check("foo", stage="x", command="echo foo; sleep 30")]
+
+        class Boom(Exception):
+            pass
+
+        with unittest.mock.patch.object(checks.CheckJob, "poll", side_effect=Boom):
+            with pytest.raises(Boom):
+                checks.execute(chks, logger=self.logger)
+
     def test_execute_timeout(self):
         chks = [checks.Check("foo", stage="x", command="sleep 30", timeout=0.01)]
 

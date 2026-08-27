@@ -145,7 +145,8 @@ def execute(checks, logger, concurrency=1):
                     handle_failure(job, msg)
 
     finally:
-        for job in doing.values():
+        # handle_failure() removes the job from `doing`, so iterate over a copy.
+        for job in list(doing.values()):
             msg = "Error running check '{}'".format(job.check.name)
             handle_failure(job, msg)
 
