@@ -2099,7 +2099,7 @@ class K8sOps:
         """Records the revision of every release that scap deploys in this run.
 
         Every release records the revision it had at the same moment, before the
-        first stage deployed.
+        first stage deploys. Non-deploy releases are excluded.
 
         Raises HelmfileError if helm fails, which stops the run before it
         changes the cluster.
@@ -2110,48 +2110,32 @@ class K8sOps:
         with self.app.Timer(
             "Collecting rollback information", name="collect-rollback-information"
         ):
-            self._record_rollback_revisions(
-                [
-                    dep_config
-                    for stage in self.k8s_deployments_config.stages
-                    for dep_config in self.get_stage_dep_configs(stage)
-                ]
+            recorded_at = datetime.now(timezone.utc)
+            deployed = [
+                (dep_config, self._invocation(dep_config))
+                for stage in self.k8s_deployments_config.stages
+                for dep_config in self.get_stage_dep_configs(stage)
+                if dep_config.deploy
+            ]
+
+            states_by_directory_key = self.runner.read_directories(
+                [invocation for _, invocation in deployed],
+                self.runner.releases_state,
+                "the state of the releases",
             )
 
-    def _record_rollback_revisions(self, dep_configs: List[DepConfig]) -> None:
-        """Records the current revision of each release, before the deployment.
+            revisions = {}
+            for dep_config, invocation in deployed:
+                state = states_by_directory_key[_directory_key(invocation)].get(
+                    dep_config.release
+                )
+                # A release that is not installed records None (meaning rollback
+                # will uninstall it).
+                revisions[dep_config.fq_release_name] = RecordedRevision(
+                    state.revision if state else None, recorded_at
+                )
 
-        Non-deploy releases are excluded.
-
-        Raises HelmfileError if helm fails, which stops the run before it
-        changes anything.
-        """
-        recorded_at = datetime.now(timezone.utc)
-        revisions = {}
-        deployed = [
-            (dep_config, self._invocation(dep_config))
-            for dep_config in dep_configs
-            if dep_config.deploy
-        ]
-
-        # One read of a directory serves the releases of every stage.
-        states_by_directory_key = self.runner.read_directories(
-            [invocation for _, invocation in deployed],
-            self.runner.releases_state,
-            "the state of the releases",
-        )
-
-        for dep_config, invocation in deployed:
-            state = states_by_directory_key[_directory_key(invocation)].get(
-                dep_config.release
-            )
-            # A release that is not installed records None (meaning rollback
-            # will uninstall it).
-            revisions[dep_config.fq_release_name] = RecordedRevision(
-                state.revision if state else None, recorded_at
-            )
-
-        self.rollback_revisions = revisions
+            self.rollback_revisions = revisions
 
     def _deploy_to_clusters(
         self, dep_configs: List[DepConfig], for_rollback: bool

@@ -1488,6 +1488,17 @@ def _ops_for_rollback(revisions):
     return ops
 
 
+def _ops_for_recording():
+    """A K8sOps that records the revisions of one stage of releases."""
+    ops = mock.Mock()
+    ops.rollback_revisions = {}
+    ops.app.config = {"deploy_mw_container_image": True}
+    ops.app.Timer = mock.MagicMock()
+    ops.k8s_deployments_config.stages = ["production"]
+    ops.runner.read_directories = _runner().read_directories
+    return ops
+
+
 def test_record_rollback_revisions_notes_a_release_that_is_not_installed():
     """A release that is not installed is recorded as None, not left out.
 
@@ -1495,9 +1506,7 @@ def test_record_rollback_revisions_notes_a_release_that_is_not_installed():
     release that scap does not deploy needs none, because the rollback does not
     touch it.
     """
-    ops = mock.Mock()
-    ops.rollback_revisions = {}
-    ops.runner.read_directories = _runner().read_directories
+    ops = _ops_for_recording()
     ops.runner.releases_state.return_value = {
         "main": scap.kubernetes.ReleaseState(7, "deployed")
     }
@@ -1518,7 +1527,8 @@ def test_record_rollback_revisions_notes_a_release_that_is_not_installed():
         for release in ["main", "canary", "maintenance"]
     ]
 
-    K8sOps._record_rollback_revisions(ops, dep_configs)
+    ops.get_stage_dep_configs.side_effect = lambda stage: dep_configs
+    K8sOps.record_rollback_revisions(ops)
 
     # main is installed, canary is not, and scap does not deploy maintenance.
     assert {
@@ -1562,16 +1572,15 @@ def test_record_rollback_revisions_of_a_stage_that_cannot_read_the_state():
             return {"main": scap.kubernetes.ReleaseState(7, "deployed")}
         raise scap.kubernetes.HelmfileError("Could not list the releases")
 
-    ops = mock.Mock()
-    ops.rollback_revisions = {}
-    ops.runner.read_directories = _runner().read_directories
+    ops = _ops_for_recording()
+    ops.get_stage_dep_configs.side_effect = lambda stage: dep_configs
     ops._invocation.side_effect = lambda dep_config: HelmfileInvocation(
         dep_config.helmfile_dir, "eqiad", dep_config.release, 5
     )
     ops.runner.releases_state.side_effect = releases_state
 
     with pytest.raises(scap.kubernetes.HelmfileError) as error:
-        K8sOps._record_rollback_revisions(ops, dep_configs)
+        K8sOps.record_rollback_revisions(ops)
 
     assert "/helmfile/mw-api-ext in eqiad" in str(error.value)
     assert ops.runner.releases_state.call_count == 2
@@ -1584,19 +1593,16 @@ def test_record_rollback_revisions_covers_every_stage():
     Scap records the revisions before the first stage deploys, so each release
     rolls back to the revision it had before the run.
     """
-    ops = mock.Mock()
-    ops.app.config = {"deploy_mw_container_image": True}
-    ops.app.Timer = mock.MagicMock()
+    ops = _ops_for_recording()
     ops.k8s_deployments_config = _parse(MAP_CONFIG)
     ops.get_stage_dep_configs.side_effect = lambda stage: K8sOps.get_stage_dep_configs(
         ops, stage
     )
+    ops.runner.releases_state.return_value = {}
 
     K8sOps.record_rollback_revisions(ops)
 
-    ops._record_rollback_revisions.assert_called_once()
-    (dep_configs,) = ops._record_rollback_revisions.call_args.args
-    assert {dep_config.fq_release_name for dep_config in dep_configs} == {
+    assert set(ops.rollback_revisions) == {
         "mw-pretrain-web-canary-default-cluster",
         "mw-pretrain-web-default-cluster",
         "mw-web-canary-default-cluster",
