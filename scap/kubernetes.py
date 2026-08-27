@@ -580,9 +580,16 @@ def _cache_key(invocation: HelmfileInvocation) -> tuple:
     return (invocation.directory, invocation.environment, invocation.release)
 
 
-def _directory_key(invocation: HelmfileInvocation) -> Tuple[str, str]:
-    """Returns what identifies the helmfile directory that an invocation reads."""
-    return (invocation.directory, invocation.environment)
+@dataclass(frozen=True)
+class _DirectoryKey:
+    """The helmfile directory and the environment that an invocation reads."""
+
+    directory: str
+    environment: str
+
+
+def _directory_key(invocation: HelmfileInvocation) -> _DirectoryKey:
+    return _DirectoryKey(invocation.directory, invocation.environment)
 
 
 def _kubeconfig_of(state: dict, invocation: HelmfileInvocation) -> str:
@@ -680,7 +687,7 @@ class K8sRunner:
         invocations: List[HelmfileInvocation],
         read: Callable[[HelmfileInvocation], Any],
         description: str,
-    ) -> Dict[Tuple[str, str], Any]:
+    ) -> Dict[_DirectoryKey, Any]:
         """Calls `read` one time for each helmfile directory of `invocations`.
 
         The HelmfileInvocation that is passed to `read` has no release selector.
@@ -706,12 +713,12 @@ class K8sRunner:
         # The pools have finished, so every future holds a result or an error.
         results = {}
         failures = []
-        for (directory, environment), future in futures.items():
+        for key, future in futures.items():
             error = future.exception()
             if error:
-                failures.append(f"{directory} in {environment}: {error}")
+                failures.append(f"{key.directory} in {key.environment}: {error}")
             else:
-                results[(directory, environment)] = future.result()
+                results[key] = future.result()
 
         if failures:
             raise HelmfileError(
