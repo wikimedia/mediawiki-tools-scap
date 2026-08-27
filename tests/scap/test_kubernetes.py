@@ -1089,23 +1089,25 @@ def test_helmfile_invocation_installed_releases():
             _runner().installed_releases(invocation)
 
 
-def _values_writer(*runs):
-    """A run_command that writes the values of each run, or fails.
+def _values_writer(runs):
+    """A run_command that writes the values of each call, or fails.
 
-    Each entry of `runs` is a {release: document} mapping for one call, or None
-    for a call that fails. The file names follow --output-file-template, as
-    helmfile expands it for each release.
+    `runs` maps a directory to the calls of that directory. Each entry of a
+    sequence is a {release: document} mapping for one call, or None for a call
+    that fails. The calls of two directories run at the same time, so each
+    directory holds its own sequence. The file names follow
+    --output-file-template, as helmfile expands it for each release.
     """
-    remaining = list(runs)
+    remaining = {directory: list(calls) for directory, calls in runs.items()}
 
     def run(cmd, directory, logger, env):
-        documents = remaining.pop(0)
+        documents = remaining[directory].pop(0)
         if documents is None:
             return scap.kubernetes.CommandResult(1, "", "Error: no such environment")
 
         template = cmd[cmd.index("--output-file-template") + 1]
         for release, document in documents.items():
-            path = template.replace("{{ .Release.Name }}.yaml", f"{release}.yaml")
+            path = template.replace("{{ .Release.Name }}", release)
             with open(path, "w") as f:
                 f.write(document)
         return scap.kubernetes.CommandResult(0, "", "")
@@ -1122,11 +1124,41 @@ def test_expected_replicas_reads_the_rendered_values():
     with mock.patch(
         "scap.kubernetes.run_command",
         side_effect=_values_writer(
-            {"canary": "resources:\n  replicas: 2\n"},
-            {"main": "resources:\n  replicas: 5\n"},
+            {
+                "/services/shellbox": [{"canary": "resources:\n  replicas: 2\n"}],
+                "/services/shellbox-media": [{"main": "resources:\n  replicas: 5\n"}],
+            }
         ),
-    ):
+    ) as run:
         assert _runner().expected_replicas(invocations) == 7
+    # One read of each directory, and the reads run at the same time.
+    assert run.call_count == 2
+
+
+def test_expected_replicas_reads_a_directory_one_time():
+    """One read serves each release of a directory, and counts no other."""
+    invocations = [
+        HelmfileInvocation("/services/shellbox", "codfw", "main", 5),
+        HelmfileInvocation("/services/shellbox", "codfw", "migration", 5),
+    ]
+    with mock.patch(
+        "scap.kubernetes.run_command",
+        side_effect=_values_writer(
+            {
+                "/services/shellbox": [
+                    {
+                        "main": "resources:\n  replicas: 2\n",
+                        "migration": "resources:\n  replicas: 1\n",
+                        # This deployment does not deploy canary, so the
+                        # replicas of canary do not count.
+                        "canary": "resources:\n  replicas: 9\n",
+                    }
+                ]
+            }
+        ),
+    ) as run:
+        assert _runner().expected_replicas(invocations) == 3
+    assert run.call_count == 1
 
 
 def test_expected_replicas_of_a_chart_without_the_key():
@@ -1134,7 +1166,9 @@ def test_expected_replicas_of_a_chart_without_the_key():
     invocation = HelmfileInvocation("/services/flink", "codfw", "main", 5)
     with mock.patch(
         "scap.kubernetes.run_command",
-        side_effect=_values_writer({"main": "replicaCount: 3\n"}),
+        side_effect=_values_writer(
+            {"/services/flink": [{"main": "replicaCount: 3\n"}]}
+        ),
     ):
         assert _runner().expected_replicas([invocation]) == 0
 
@@ -1153,7 +1187,14 @@ def test_expected_replicas_tries_again_then_gives_up(monkeypatch):
     # The second attempt works.
     with mock.patch(
         "scap.kubernetes.run_command",
-        side_effect=_values_writer(None, {"canary": "resources:\n  replicas: 4\n"}),
+        side_effect=_values_writer(
+            {
+                "/services/shellbox": [
+                    None,
+                    {"canary": "resources:\n  replicas: 4\n"},
+                ]
+            }
+        ),
     ) as run:
         assert _runner().expected_replicas([invocation]) == 4
     assert run.call_count == 2
@@ -1161,24 +1202,35 @@ def test_expected_replicas_tries_again_then_gives_up(monkeypatch):
     # Every attempt fails.
     with mock.patch(
         "scap.kubernetes.run_command",
-        side_effect=_values_writer(*[None] * ATTEMPTS),
+        side_effect=_values_writer({"/services/shellbox": [None] * ATTEMPTS}),
     ) as run:
         assert _runner().expected_replicas([invocation]) == 0
     assert run.call_count == ATTEMPTS
 
 
 def test_expected_replicas_of_every_release_of_an_environment():
-    """One call renders each release that the invocation selects."""
+    """An invocation that names no release counts each release it installs."""
     invocation = HelmfileInvocation("/services/shellbox", "staging", None, 5)
-    with mock.patch(
-        "scap.kubernetes.run_command",
-        side_effect=_values_writer(
-            {
-                "main": "resources:\n  replicas: 2\n",
-                "media": "resources:\n  replicas: 1\n",
-            }
+    with (
+        mock.patch.object(
+            K8sRunner, "installed_releases", return_value=["main", "media"]
         ),
-    ) as run:
+        mock.patch(
+            "scap.kubernetes.run_command",
+            side_effect=_values_writer(
+                {
+                    "/services/shellbox": [
+                        {
+                            "main": "resources:\n  replicas: 2\n",
+                            "media": "resources:\n  replicas: 1\n",
+                            # The environment does not install this one.
+                            "next": "resources:\n  replicas: 8\n",
+                        }
+                    ]
+                }
+            ),
+        ) as run,
+    ):
         assert _runner().expected_replicas([invocation]) == 3
     assert run.call_count == 1
     # No selector, so helmfile writes the values of every release.

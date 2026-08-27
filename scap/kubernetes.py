@@ -1080,39 +1080,43 @@ class K8sRunner:
         return kubeconfig
 
     def expected_replicas(self, invocations: List[HelmfileInvocation]) -> int:
-        """Returns the number replicas that the releases of these invocations specify.
-
-        The count comes from the values that helmfile renders, so it is the
-        target of the deployment, and not what the cluster holds now. The charts
-        of deployment-charts hold it in resources.replicas.
+        """Returns the number of replicas that the releases of the supplied invocations specify.
 
         Returns 0 when scap cannot read the values of a release, because a
-        progress report is not worth stopping a deployment for. A caller that
-        gets 0 reports no progress.
+        missing progress report is not worth stopping a deployment. A caller that gets 0 reports no progress.
         """
-        total = 0
+        releases_by_directory_key = defaultdict(set)
         for invocation in invocations:
-            values = self._rendered_values(invocation)
-            if values is None:
-                self.logger.warning(
-                    "Scap reports no deployment progress, because it cannot read "
-                    "the values of the releases"
-                )
-                return 0
-
-            total += sum(
-                release_values.get("resources", {}).get("replicas", 0)
-                for release_values in values
+            releases_by_directory_key[_directory_key(invocation)].update(
+                self.releases(invocation)
             )
 
-        return total
+        with self.timer(
+            "Reading the replicas of the releases", "helmfile_write_values"
+        ):
+            try:
+                rendered = self.read_directories(
+                    invocations,
+                    self._rendered_values,
+                    "the values of the releases",
+                )
+            except HelmfileError as error:
+                self.logger.warning(f"Scap cannot report deployment progress. {error}")
+                return 0
 
-    def _rendered_values(self, invocation: HelmfileInvocation) -> Optional[List[dict]]:
-        """Returns the values that helmfile renders, one entry for each release.
+        return sum(
+            release_values.get("resources", {}).get("replicas", 0)
+            for key, by_release in rendered.items()
+            for release, release_values in by_release.items()
+            if release in releases_by_directory_key[key]
+        )
 
-        Returns None when every attempt fails. Scap tries again after a delay,
-        because the command updates the chart repositories before it renders,
-        and that update can fail for a moment.
+    def _rendered_values(self, invocation: HelmfileInvocation) -> Dict[str, dict]:
+        """Returns the values that helmfile renders, keyed by release.
+
+        Raises HelmfileError when every attempt fails. Scap tries again after a
+        delay, because the command updates the chart repositories before it
+        renders, and that update can fail for a moment.
         """
 
         # How many times scap reads the values of the releases, and the delay
@@ -1127,14 +1131,18 @@ class K8sRunner:
         for attempt in range(1, attempts + 1):
             with tempfile.TemporaryDirectory() as output_dir:
                 # helmfile expands this Go template one time for each release
-                # that it writes.
+                # that it writes, so each filename is the name of a release.
                 cmd = invocation.write_values_command(
-                    os.path.join(output_dir, "{{ .Release.Name }}.yaml")
+                    os.path.join(output_dir, "{{ .Release.Name }}")
                 )
                 result = self.run(cmd, invocation.directory)
-                files = sorted(glob.glob(os.path.join(output_dir, "*.yaml")))
-                if result.ok and files:
-                    return [load_values(path) for path in files]
+                if result.ok:
+                    releases = sorted(os.listdir(output_dir))
+                    if releases:
+                        return {
+                            release: load_values(os.path.join(output_dir, release))
+                            for release in releases
+                        }
 
             # A run that writes no file also counts as a failure, whatever its
             # exit status, so this is not log_command_failure().
@@ -1148,7 +1156,7 @@ class K8sRunner:
             if attempt < attempts:
                 time.sleep(retry_delay)
 
-        return None
+        raise HelmfileError(f"{attempts} attempts to read the values failed")
 
     @contextlib.contextmanager
     def watch_releases(self, invocations: List[HelmfileInvocation]):
