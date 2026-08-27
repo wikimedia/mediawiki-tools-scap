@@ -1497,10 +1497,7 @@ def test_record_rollback_revisions_notes_a_release_that_is_not_installed():
     """
     ops = mock.Mock()
     ops.rollback_revisions = {}
-    ops.runner.group_pools = _runner().group_pools
-    ops._read_releases_state.side_effect = (
-        lambda invocations: K8sOps._read_releases_state(ops, invocations)
-    )
+    ops.runner.read_directories = _runner().read_directories
     ops.runner.releases_state.return_value = {
         "main": scap.kubernetes.ReleaseState(7, "deployed")
     }
@@ -1567,10 +1564,7 @@ def test_record_rollback_revisions_of_a_stage_that_cannot_read_the_state():
 
     ops = mock.Mock()
     ops.rollback_revisions = {}
-    ops.runner.group_pools = _runner().group_pools
-    ops._read_releases_state.side_effect = (
-        lambda invocations: K8sOps._read_releases_state(ops, invocations)
-    )
+    ops.runner.read_directories = _runner().read_directories
     ops._invocation.side_effect = lambda dep_config: HelmfileInvocation(
         dep_config.helmfile_dir, "eqiad", dep_config.release, 5
     )
