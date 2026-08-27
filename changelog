@@ -1,3 +1,13 @@
+scap (4.286.0)
+
+  * kubernetes.py: Read the state of the helmfile directories concurrently
+  * kubernetes.py: Add timer around rollback information collection
+  * Use message_argment property everywhere to access message
+  * cli.py: Add prompt_for_message()
+  * train.py: Initialize self.train_is_at at top of update()
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Thu, 27 Aug 2026 12:13:04 -0700
+
 scap (4.285.1)
 
   * deploy-promote: Check en.wiktionary.org for group1
