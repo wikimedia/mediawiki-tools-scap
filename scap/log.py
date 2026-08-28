@@ -382,11 +382,13 @@ class ProgressReporter(object):
     output line.
     """
 
-    def __init__(self, name, expect=0, fd=sys.stderr, spinner=None):
+    def __init__(self, name, expect=0, fd=None, spinner=None):
         """
         :param name: Name of operation being monitored
         :param expect: Number of results to expect
-        :param fd: File handle to write status messages to
+        :param fd: File handle to write status messages to.  Defaults to
+                   sys.stdout, which is where scap log records go, so that
+                   redirection of scap output captures progress reports too.
         :param spinner: Cyclical iterator that returns progress spinner.
         """
         if spinner is None:
@@ -398,7 +400,7 @@ class ProgressReporter(object):
         self._ok = 0
         self._failed = 0
         self._in_flight = None
-        self._fd = fd
+        self._fd = fd if fd is not None else sys.stdout
         self._spinner = spinner
         # What the last report wrote, so that the report of the end does not
         # repeat a line that says the same.
@@ -446,6 +448,7 @@ class ProgressReporter(object):
         self._progress()
         if sys.stdout.isatty():
             self._fd.write("\n")
+            self._fd.flush()
 
     def add_in_flight(self):
         if self._in_flight is None:
@@ -508,6 +511,7 @@ class ProgressReporter(object):
 
         self._last_output = output
         self._fd.write(fmt % output)
+        self._fd.flush()
 
 
 class RateLimitedProgressReporter(ProgressReporter):
@@ -561,7 +565,7 @@ class SpiderpigProgressReporter(RateLimitedProgressReporter):
 class MuteReporter(ProgressReporter):
     """A report that declines to report anything."""
 
-    def __init__(self, name="", expect=0, fd=sys.stderr):
+    def __init__(self, name="", expect=0, fd=None):
         super().__init__(name)
 
     def _progress(self):
@@ -577,7 +581,7 @@ class QueueReporter(ProgressReporter):
     a queue.  It does not generate any output.
     """
 
-    def __init__(self, name, expect=0, fd=sys.stderr, queue=None):
+    def __init__(self, name, expect=0, fd=None, queue=None):
         self.queue = queue
         super().__init__(name, expect, fd)
 
