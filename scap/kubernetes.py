@@ -533,8 +533,7 @@ class HelmfileInvocation:
             + list(arguments)
         )
 
-    def every_release(self) -> "HelmfileInvocation":
-        """Returns this invocation, without the selector of one release."""
+    def without_release_selector(self) -> "HelmfileInvocation":
         return dataclasses.replace(self, release=None)
 
     def diff_job(self, label: str) -> CommandJob:
@@ -698,7 +697,7 @@ class K8sRunner:
         invocations_by_directory_key = {}
         for invocation in invocations:
             invocations_by_directory_key.setdefault(
-                _directory_key(invocation), invocation.every_release()
+                _directory_key(invocation), invocation.without_release_selector()
             )
 
         with self.group_pools(
