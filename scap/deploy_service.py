@@ -28,6 +28,7 @@ from typing import Dict, List, Optional
 
 import yaml
 
+from scap import checks as scap_checks
 from scap import cli, kubernetes, utils
 
 STAGING = "STAGING"
@@ -67,11 +68,17 @@ class ClusterGroup:
     # Maps each environment name and alias to the environment it refers to.
     _index: Dict[str, Environment]
 
-    def resolve(self, ref: str) -> Environment:
-        """Return the environment named or aliased by `ref`."""
+    def resolve(self, ref: str, what: str) -> Environment:
+        """Return the environment named or aliased by `ref`.
+
+        `what` says where the reference comes from, so that the error names the
+        part of the config to repair.
+        """
         if ref not in self._index:
             raise InvalidDeployServiceConfig(
-                f"cluster group {self.name} has no environment named or aliased '{ref}' (known: {', '.join(sorted(self._index))})"
+                f"{what[:1].upper()}{what[1:]} names environment '{ref}', which "
+                f"cluster group {self.name} has no environment or alias for "
+                f"(known: {', '.join(sorted(self._index))})"
             )
         return self._index[ref]
 
@@ -104,6 +111,17 @@ class ServiceNamespace:
 
 
 @dataclass(frozen=True)
+class DeploymentGroup:
+    """One environment of a cluster group at one stage."""
+
+    environment: str  # The canonical name of the environment of the cluster group.
+    stage: str
+
+    def __str__(self) -> str:
+        return f"{self.environment} at stage {self.stage}"
+
+
+@dataclass(frozen=True)
 class ServiceConfig:
     """The deployment config of a single service, as declared in the service catalog."""
 
@@ -111,6 +129,9 @@ class ServiceConfig:
     cluster_group: ClusterGroup
     # In the order the namespaces were declared.
     namespaces: List[ServiceNamespace]
+    # The check commands that run after one group of the plan deploys, in the
+    # order they were declared.
+    checks: Dict[DeploymentGroup, List[str]] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)
@@ -359,7 +380,7 @@ def _parse_release(env_what: str, name: str, doc, default_stage: str) -> Release
 
 
 def _parse_namespace(
-    service_what: str, name: str, doc, group: ClusterGroup
+    service_what: str, name: str, doc, cluster_group: ClusterGroup
 ) -> ServiceNamespace:
     what = f"namespace {name} of {service_what}"
     doc = _assert_mapping(doc, what)
@@ -374,7 +395,7 @@ def _parse_namespace(
     parsed = {}
     for ref, env_doc in environments.items():
         ref = _assert_nonempty_string(ref, f"each environment name of {what}")
-        env = group.resolve(ref)
+        env = cluster_group.resolve(ref, f"the environments of {what}")
         if env.name in parsed:
             raise InvalidDeployServiceConfig(
                 f"'{ref}' and '{parsed[env.name].ref}' both refer to environment {env.name} of {what}"
@@ -384,13 +405,15 @@ def _parse_namespace(
         env_doc = _assert_mapping(env_doc, env_what)
         _assert_no_unexpected_keys(env_doc, ["releases"], env_what)
 
-        releases = _parse_releases(env_what, env_doc, group.environment_default_stage)
+        releases = _parse_releases(
+            env_what, env_doc, cluster_group.environment_default_stage
+        )
         for release in releases:
-            if release.stage not in group.environment_stages:
+            if release.stage not in cluster_group.environment_stages:
                 raise InvalidDeployServiceConfig(
                     f"the stage of release {release.name} of {env_what} must be one of "
-                    f"{', '.join(group.environment_stages)} (the environment_stages of cluster group "
-                    f"{group.name}), not '{release.stage}'"
+                    f"{', '.join(cluster_group.environment_stages)} (the environment_stages of cluster group "
+                    f"{cluster_group.name}), not '{release.stage}'"
                 )
 
         parsed[env.name] = ServiceEnvironment(
@@ -400,12 +423,85 @@ def _parse_namespace(
     return ServiceNamespace(name=name, environments=parsed)
 
 
+def _parse_checks(
+    service_what: str, doc, cluster_group: ClusterGroup
+) -> Dict[DeploymentGroup, List[str]]:
+    """Returns the check commands of a service, keyed by the group that runs them."""
+    if doc is None:
+        return {}
+
+    what = f"the checks of {service_what}"
+    doc = _assert_mapping(doc, what)
+
+    checks = {}
+    refs = {}
+    for ref, raw_stages in doc.items():
+        ref = _assert_nonempty_string(ref, f"each environment name of {what}")
+        env = cluster_group.resolve(ref, what)
+        if env.name in refs:
+            raise InvalidDeployServiceConfig(
+                f"'{ref}' and '{refs[env.name]}' both refer to environment "
+                f"{env.name} of {what}"
+            )
+        refs[env.name] = ref
+
+        env_what = f"environment {ref} of {service_what}"
+        for stage, raw_checks in _assert_mapping(raw_stages, env_what).items():
+            if stage not in cluster_group.environment_stages:
+                raise InvalidDeployServiceConfig(
+                    f"{env_what} names stage '{stage}', which cluster group "
+                    f"{cluster_group.name} does not define "
+                    f"(known: {', '.join(cluster_group.environment_stages)})"
+                )
+
+            checks[DeploymentGroup(env.name, stage)] = _parse_check_commands(
+                f"the checks of stage {stage} of {env_what}", raw_checks
+            )
+
+    return checks
+
+
+def _parse_check_commands(what: str, raw_checks) -> List[str]:
+    """Returns the commands of the checks of one environment at one stage.
+
+    Duplicate commands are removed.
+    """
+    if not isinstance(raw_checks, list):
+        raise InvalidDeployServiceConfig(f"{what} must be a list")
+
+    commands = []
+    for raw_check in raw_checks:
+        check = _assert_mapping(raw_check, f"each check of {what}")
+        if len(check) != 1:
+            raise InvalidDeployServiceConfig(
+                f"each check of {what} must name exactly one check type"
+            )
+
+        ((check_type, value),) = check.items()
+        if check_type != "commands":
+            raise InvalidDeployServiceConfig(
+                f"{what} names unsupported check type '{check_type}' "
+                "(expected: commands)"
+            )
+
+        if not (isinstance(value, list) and all(isinstance(cmd, str) for cmd in value)):
+            raise InvalidDeployServiceConfig(
+                f"the commands of {what} must be a list of command strings"
+            )
+
+        for command in value:
+            if command not in commands:
+                commands.append(command)
+
+    return commands
+
+
 def _parse_service(
     catalog_what: str, name: str, doc, cluster_groups: Dict[str, ClusterGroup]
 ) -> ServiceConfig:
     what = f"service {name} of {catalog_what}"
     doc = _assert_mapping(doc, what)
-    _assert_no_unexpected_keys(doc, ["cluster_group", "namespaces"], what)
+    _assert_no_unexpected_keys(doc, ["cluster_group", "checks", "namespaces"], what)
 
     group_name = _assert_nonempty_string(
         doc.get("cluster_group"), f"the cluster_group of {what}"
@@ -415,7 +511,7 @@ def _parse_service(
             f"the cluster_group of {what} refers to undefined cluster group '{group_name}' "
             f"(known: {', '.join(sorted(cluster_groups))})"
         )
-    group = cluster_groups[group_name]
+    cluster_group = cluster_groups[group_name]
 
     namespaces = _assert_mapping(doc.get("namespaces"), f"the namespaces of {what}")
     if not namespaces:
@@ -423,13 +519,14 @@ def _parse_service(
 
     return ServiceConfig(
         name=name,
-        cluster_group=group,
+        cluster_group=cluster_group,
+        checks=_parse_checks(what, doc.get("checks"), cluster_group),
         namespaces=[
             _parse_namespace(
                 what,
                 _assert_nonempty_string(ns_name, f"each namespace name of {what}"),
                 ns_doc,
-                group,
+                cluster_group,
             )
             for ns_name, ns_doc in namespaces.items()
         ],
@@ -490,10 +587,10 @@ def plan(
     run at the same time. The inner lists run one after the other.
     """
     steps = []
-    group = service_config.cluster_group
+    cluster_group = service_config.cluster_group
 
     for environment_type in ENVIRONMENT_TYPES:
-        for stage in group.environment_stages:
+        for stage in cluster_group.environment_stages:
             for env in _environments_to_deploy(
                 service_config, environment_type, primary_datacenter
             ):
@@ -504,12 +601,12 @@ def plan(
                         continue
 
                     for release in _releases_to_deploy(
-                        service_env, stage, group.environment_default_stage
+                        service_env, stage, cluster_group.environment_default_stage
                     ):
                         concurrent.append(
                             HelmfileCommand(
                                 directory=os.path.join(
-                                    deployments_dir, group.dir, namespace.name
+                                    deployments_dir, cluster_group.dir, namespace.name
                                 ),
                                 environment=service_env.ref,
                                 release=release,
@@ -571,7 +668,7 @@ class DeployService(cli.Application):
         self.k8s = kubernetes.K8sRunner(self, self.logger)
 
         service = self.arguments.service
-        service_config = self._service_config(service)
+        service_config = self.service_config = self._service_config(service)
         primary_datacenter = load_primary_datacenter(self.config["conftool_state_file"])
 
         self.logger.info(
@@ -590,6 +687,7 @@ class DeployService(cli.Application):
             return 0
 
         self._assert_releases_exist(steps)
+        self._assert_checks_run(steps)
 
         if self.arguments.dry_run:
             self._show_plan(steps)
@@ -678,6 +776,9 @@ class DeployService(cli.Application):
             for command in group:
                 self.logger.info(f"    {command}")
 
+            for check in self._checks_of(group):
+                self.logger.info(f"    check: {check}")
+
     def _deploy_and_announce(
         self, service: str, steps: List[List[HelmfileCommand]]
     ) -> int:
@@ -742,6 +843,9 @@ class DeployService(cli.Application):
 
             answer = self._apply_until_it_works(group)
             if answer is None:
+                answer = self._check_until_it_works(group)
+
+            if answer is None:
                 continue
 
             self.logger.error(f"Deployment of {self.arguments.service} stopped")
@@ -794,6 +898,76 @@ class DeployService(cli.Application):
             },
             self._prompt_default("r", "b"),
         )
+
+    def _assert_checks_run(self, steps: List[List[HelmfileCommand]]):
+        """Checks that each DeploymentGroup of the checks is in the plan."""
+        deployed = {self._group_of(steps_of_group) for steps_of_group in steps}
+
+        for deployment_group in self.service_config.checks:
+            if deployment_group not in deployed:
+                raise InvalidDeployServiceConfig(
+                    f"the checks of service {self.service_config.name} of "
+                    f"{self.config['service_catalog_file']} name "
+                    f"{deployment_group}, which deploys no release "
+                    "(the deployment of the service has: "
+                    f"{', '.join(sorted(str(one) for one in deployed))})"
+                )
+
+    def _group_of(self, steps: List[HelmfileCommand]) -> DeploymentGroup:
+        """The DeploymentGroup that the steps of one group of the plan deploy.
+
+        The environment of a step is the name that the service uses, which may
+        be an alias, so it resolves to the environment of the cluster group.
+        """
+        first = steps[0]
+        environment = self.service_config.cluster_group.resolve(
+            first.environment, f"the plan of service {self.service_config.name}"
+        )
+        return DeploymentGroup(environment.name, first.stage)
+
+    def _checks_of(self, group: List[HelmfileCommand]) -> List[str]:
+        """The check commands that run after one group deploys."""
+        return self.service_config.checks.get(self._group_of(group), [])
+
+    def _check_until_it_works(self, group: List[HelmfileCommand]) -> Optional[str]:
+        """Runs the checks of the stage of one group, offering to retry on failure.
+
+        Returns None if no checks are defined.
+        Returns None if every check was successful (or ignored).
+        Otherwise returns the user's response to a failure.
+        """
+        commands = self._checks_of(group)
+        if not commands:
+            return None
+
+        # Each check carries the name of its command, so that the log says
+        # which one ran and which one failed.
+        checkslist = [
+            scap_checks.Check(command, command=command, timeout=120, shell=True)
+            for command in commands
+        ]
+
+        def run_checks() -> bool:
+            ok, _ = scap_checks.execute(
+                checkslist, self.logger, concurrency=len(checkslist)
+            )
+            return ok
+
+        answer = self.retry_until(
+            f"the checks of {group[0].environment}",
+            run_checks,
+            {
+                "Ignore the failure and continue": "i",
+                "Roll back what was already deployed": "b",
+                "Exit without rolling back": "x",
+            },
+            self._prompt_default("r", "b"),
+        )
+        if answer == "i":
+            self.logger.warning("Ignoring check failures and continuing")
+            return None
+
+        return answer
 
     def _apply(self, group: List[HelmfileCommand]) -> List[kubernetes.CommandResult]:
         """Deploys the steps of one group at the same time."""

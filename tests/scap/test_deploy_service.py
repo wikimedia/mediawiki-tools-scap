@@ -8,9 +8,11 @@ import threading
 
 import pytest
 
+import scap.deploy_service
 from scap import kubernetes, lock
 from scap.deploy_service import (
     DeployService,
+    DeploymentGroup,
     HelmfileCommand,
     Rollback,
     InvalidDeployServiceConfig,
@@ -147,8 +149,8 @@ def test_load_cluster_groups(cluster_groups):
     assert group.environment_default_stage == "DEFAULT"
     assert group.dir == "services"
     assert cluster_groups["dse-k8s"].dir == "dse-k8s-services"
-    assert group.resolve("staging").name == "staging-eqiad"
-    assert group.resolve("codfw").type == "PRODUCTION"
+    assert group.resolve("staging", "a test").name == "staging-eqiad"
+    assert group.resolve("codfw", "a test").type == "PRODUCTION"
 
 
 def test_load_service_catalog(tmp_path, cluster_groups):
@@ -493,7 +495,7 @@ def test_invalid_cluster_groups(tmp_path, contents, expected):
         ),
         (
             SHELLBOX.replace("      staging: {}", "      testing: {}"),
-            "no environment named or aliased 'testing'",
+            "names environment 'testing'",
         ),
         (
             SHELLBOX.replace(
@@ -675,6 +677,229 @@ def _announcements(app, monkeypatch):
         app, "announce_final", lambda *args: said.append(args[0] % args[1:])
     )
     return said
+
+
+CHECKS = """
+checks:
+  # "staging" is an alias of the staging-eqiad environment.
+  staging:
+    DEFAULT:
+      - commands:
+          - httpbb --host=shellbox.staging /srv/tests/shellbox.yaml
+  codfw:
+    CANARY:
+      - commands:
+          - httpbb --host=shellbox-canary.codfw /srv/tests/shellbox.yaml
+    DEFAULT:
+      - commands:
+          - httpbb --host=shellbox.codfw /srv/tests/shellbox.yaml
+          - check-graphs shellbox
+      - commands:
+          # A duplicate of a command of the check above.
+          - check-graphs shellbox
+  eqiad:
+    DEFAULT:
+      - commands:
+          - httpbb --host=shellbox.eqiad /srv/tests/shellbox.yaml
+"""
+
+SHELLBOX_WITH_CHECKS = CHECKS + SHELLBOX
+
+
+def test_load_checks(tmp_path, cluster_groups):
+    """The checks of a service are the commands of one environment at one stage.
+
+    An alias names the environment that it refers to.
+    """
+    service_config = load(tmp_path, cluster_groups, SHELLBOX_WITH_CHECKS)
+
+    assert service_config.checks == {
+        DeploymentGroup("staging-eqiad", "DEFAULT"): [
+            "httpbb --host=shellbox.staging /srv/tests/shellbox.yaml"
+        ],
+        DeploymentGroup("codfw", "CANARY"): [
+            "httpbb --host=shellbox-canary.codfw /srv/tests/shellbox.yaml"
+        ],
+        DeploymentGroup("codfw", "DEFAULT"): [
+            "httpbb --host=shellbox.codfw /srv/tests/shellbox.yaml",
+            "check-graphs shellbox",
+        ],
+        DeploymentGroup("eqiad", "DEFAULT"): [
+            "httpbb --host=shellbox.eqiad /srv/tests/shellbox.yaml"
+        ],
+    }
+
+
+def test_load_checks_of_a_service_that_defines_none(tmp_path, cluster_groups):
+    assert load(tmp_path, cluster_groups, SHELLBOX).checks == {}
+
+
+@pytest.mark.parametrize(
+    "contents,message",
+    [
+        # An environment that the cluster group does not define.
+        (
+            "checks:\n  nowhere:\n    DEFAULT:\n      - commands: [true]\n",
+            "names environment 'nowhere'",
+        ),
+        # Two names of one environment.
+        (
+            "checks:\n  staging:\n    DEFAULT: []\n"
+            "  staging-eqiad:\n    DEFAULT: []\n",
+            "both refer to environment",
+        ),
+        # A stage that the cluster group does not define.
+        (
+            "checks:\n  codfw:\n    STAGING:\n      - commands: [true]\n",
+            "does not define",
+        ),
+        # A check type that scap does not run.
+        (
+            "checks:\n  codfw:\n    DEFAULT:\n      - logstash_check: {threshold: 5}\n",
+            "unsupported check type",
+        ),
+        # Two check types in one check.
+        (
+            "checks:\n  codfw:\n    DEFAULT:\n      - commands: [true]\n        other: []\n",
+            "exactly one check type",
+        ),
+        # Commands that are not a list of strings.
+        (
+            "checks:\n  codfw:\n    DEFAULT:\n      - commands: true\n",
+            "list of command strings",
+        ),
+        # The checks of a stage that are not a list.
+        (
+            "checks:\n  codfw:\n    DEFAULT:\n      commands: [true]\n",
+            "must be a list",
+        ),
+    ],
+)
+def test_load_checks_rejects(tmp_path, cluster_groups, contents, message):
+    with pytest.raises(InvalidDeployServiceConfig, match=message):
+        load(tmp_path, cluster_groups, contents + SHELLBOX)
+
+
+def _app_with_checks(tmp_path, monkeypatch, **arguments):
+    """A DeployService whose service declares a check for each stage."""
+    app = _app(tmp_path, **arguments)
+    app.config["service_catalog_file"] = write(
+        tmp_path,
+        "service-catalog.yaml",
+        "services:\n  shellbox:\n"
+        + textwrap.indent(SHELLBOX_WITH_CHECKS.strip("\n"), "    "),
+    )
+    monkeypatch.setattr(app, "lock", _no_lock)
+    monkeypatch.setattr(app, "_assert_releases_exist", lambda steps: None)
+    return app
+
+
+def test_deploy_runs_the_checks_of_each_stage(tmp_path, monkeypatch):
+    """The checks of a stage run after each group of that stage deploys."""
+    app = _app_with_checks(tmp_path, monkeypatch)
+    done = []
+
+    monkeypatch.setattr(app, "_prepare", lambda command: [])
+    monkeypatch.setattr(
+        app, "_apply_until_it_works", lambda group: done.append(group[0].label) or None
+    )
+    monkeypatch.setattr(
+        scap.deploy_service.scap_checks,
+        "execute",
+        lambda checkslist, logger, concurrency: (
+            done.append([check.command for check in checkslist]),
+            (True, []),
+        )[1],
+    )
+
+    assert app.main() == 0
+
+    # Every group deploys, and the checks of its stage follow it.
+    # One stage of every environment, and then the next stage. Each group runs
+    # the checks of its own environment at its own stage, and a group that the
+    # checks do not name runs none.
+    assert done == [
+        "shellbox in staging (STAGING/DEFAULT)",
+        ["httpbb --host=shellbox.staging /srv/tests/shellbox.yaml"],
+        "canary of shellbox in codfw (PRODUCTION/CANARY)",
+        ["httpbb --host=shellbox-canary.codfw /srv/tests/shellbox.yaml"],
+        "canary of shellbox in eqiad (PRODUCTION/CANARY)",
+        "production of shellbox in codfw (PRODUCTION/DEFAULT)",
+        [
+            "httpbb --host=shellbox.codfw /srv/tests/shellbox.yaml",
+            "check-graphs shellbox",
+        ],
+        "production of shellbox in eqiad (PRODUCTION/DEFAULT)",
+        ["httpbb --host=shellbox.eqiad /srv/tests/shellbox.yaml"],
+    ]
+
+
+def test_deploy_stops_when_a_check_fails(tmp_path, monkeypatch):
+    """A check that fails stops the deployment, and offers the same choices."""
+    app = _app_with_checks(tmp_path, monkeypatch)
+    rolled_back = []
+
+    monkeypatch.setattr(app, "_prepare", lambda command: [])
+    monkeypatch.setattr(app, "_apply_until_it_works", lambda group: None)
+    monkeypatch.setattr(app, "_roll_back", lambda rollbacks: rolled_back.append(True))
+    monkeypatch.setattr(
+        scap.deploy_service.scap_checks,
+        "execute",
+        lambda checkslist, logger, concurrency: (False, []),
+    )
+    # The user rolls back what already deployed.
+    monkeypatch.setattr(app, "retry_until", lambda *args, **kwargs: "b")
+
+    assert app.main() == 1
+    assert rolled_back == [True]
+
+
+def test_deploy_continues_when_the_user_ignores_a_check(tmp_path, monkeypatch):
+    """The deployment carries on, as a MediaWiki deployment does."""
+    app = _app_with_checks(tmp_path, monkeypatch)
+    deployed = []
+
+    monkeypatch.setattr(app, "_prepare", lambda command: [])
+    monkeypatch.setattr(
+        app,
+        "_apply_until_it_works",
+        lambda group: deployed.append(group[0].label) or None,
+    )
+    monkeypatch.setattr(
+        scap.deploy_service.scap_checks,
+        "execute",
+        lambda checkslist, logger, concurrency: (False, []),
+    )
+    monkeypatch.setattr(app, "retry_until", lambda *args, **kwargs: "i")
+
+    assert app.main() == 0
+    assert len(deployed) == 5
+
+
+def test_main_rejects_checks_that_no_group_runs(tmp_path, monkeypatch):
+    """A pair that deploys no release is a mistake of the catalog.
+
+    The releases of the namespaces decide the groups of the plan, so the checks
+    do not show such a mistake by themselves.
+    """
+    app = _app_with_checks(tmp_path, monkeypatch)
+    app.config["service_catalog_file"] = write(
+        tmp_path,
+        "service-catalog.yaml",
+        "services:\n  shellbox:\n"
+        + textwrap.indent(
+            # staging deploys every release at the default stage, so it has no
+            # group at the CANARY stage.
+            (
+                "checks:\n  staging:\n    CANARY:\n      - commands: ['true']\n"
+                + SHELLBOX
+            ).strip("\n"),
+            "    ",
+        ),
+    )
+
+    with pytest.raises(InvalidDeployServiceConfig, match="which deploys no release"):
+        app.main()
 
 
 def test_main_announces_the_deployment(tmp_path, monkeypatch):
