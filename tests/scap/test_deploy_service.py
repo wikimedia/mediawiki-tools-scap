@@ -9,10 +9,11 @@ import threading
 import pytest
 
 import scap.deploy_service
-from scap import kubernetes, lock
+from scap import interaction, kubernetes, lock
 from scap.deploy_service import (
     DeployService,
     DeploymentGroup,
+    GroupChecks,
     HelmfileCommand,
     Rollback,
     InvalidDeployServiceConfig,
@@ -715,6 +716,7 @@ checks:
     CANARY:
       - commands:
           - httpbb --host=shellbox-canary.codfw /srv/tests/shellbox.yaml
+      - manual: Check the dashboards of shellbox
     DEFAULT:
       - commands:
           - httpbb --host=shellbox.codfw /srv/tests/shellbox.yaml
@@ -726,6 +728,8 @@ checks:
     DEFAULT:
       - commands:
           - httpbb --host=shellbox.eqiad /srv/tests/shellbox.yaml
+      # No question: the deployer is asked about the group by name.
+      - manual:
 """
 
 SHELLBOX_WITH_CHECKS = CHECKS + SHELLBOX
@@ -739,19 +743,23 @@ def test_load_checks(tmp_path, cluster_groups):
     service_config = load(tmp_path, cluster_groups, SHELLBOX_WITH_CHECKS)
 
     assert service_config.checks == {
-        DeploymentGroup("staging-eqiad", "DEFAULT"): [
-            "httpbb --host=shellbox.staging /srv/tests/shellbox.yaml"
-        ],
-        DeploymentGroup("codfw", "CANARY"): [
-            "httpbb --host=shellbox-canary.codfw /srv/tests/shellbox.yaml"
-        ],
-        DeploymentGroup("codfw", "DEFAULT"): [
-            "httpbb --host=shellbox.codfw /srv/tests/shellbox.yaml",
-            "check-graphs shellbox",
-        ],
-        DeploymentGroup("eqiad", "DEFAULT"): [
-            "httpbb --host=shellbox.eqiad /srv/tests/shellbox.yaml"
-        ],
+        DeploymentGroup("staging-eqiad", "DEFAULT"): GroupChecks(
+            ["httpbb --host=shellbox.staging /srv/tests/shellbox.yaml"], []
+        ),
+        DeploymentGroup("codfw", "CANARY"): GroupChecks(
+            ["httpbb --host=shellbox-canary.codfw /srv/tests/shellbox.yaml"],
+            ["Check the dashboards of shellbox"],
+        ),
+        DeploymentGroup("codfw", "DEFAULT"): GroupChecks(
+            [
+                "httpbb --host=shellbox.codfw /srv/tests/shellbox.yaml",
+                "check-graphs shellbox",
+            ],
+            [],
+        ),
+        DeploymentGroup("eqiad", "DEFAULT"): GroupChecks(
+            ["httpbb --host=shellbox.eqiad /srv/tests/shellbox.yaml"], [""]
+        ),
     }
 
 
@@ -787,6 +795,11 @@ def test_load_checks_of_a_service_that_defines_none(tmp_path, cluster_groups):
         (
             "checks:\n  codfw:\n    DEFAULT:\n      - commands: [true]\n        other: []\n",
             "exactly one check type",
+        ),
+        # A manual check that is not a question.
+        (
+            "checks:\n  codfw:\n    DEFAULT:\n      - manual: [a, b]\n",
+            "must be the question to ask",
         ),
         # Commands that are not a list of strings.
         (
@@ -825,6 +838,7 @@ def test_deploy_runs_the_checks_of_each_stage(tmp_path, monkeypatch):
     done = []
 
     monkeypatch.setattr(app, "_prepare", lambda command: [])
+    monkeypatch.setattr(app, "prompt_choices", lambda *args, **kwargs: "c")
     monkeypatch.setattr(
         app, "_apply_until_it_works", lambda group: done.append(group[0].label) or None
     )
@@ -885,6 +899,7 @@ def test_deploy_continues_when_the_user_ignores_a_check(tmp_path, monkeypatch):
     deployed = []
 
     monkeypatch.setattr(app, "_prepare", lambda command: [])
+    monkeypatch.setattr(app, "prompt_choices", lambda *args, **kwargs: "c")
     monkeypatch.setattr(
         app,
         "_apply_until_it_works",
@@ -899,6 +914,71 @@ def test_deploy_continues_when_the_user_ignores_a_check(tmp_path, monkeypatch):
 
     assert app.main() == 0
     assert len(deployed) == 5
+
+
+def test_deploy_asks_the_manual_checks(tmp_path, monkeypatch):
+    """A deployer answers after the commands of the group pass."""
+    app = _app_with_checks(tmp_path, monkeypatch)
+    asked = []
+
+    monkeypatch.setattr(app, "_prepare", lambda command: [])
+    monkeypatch.setattr(app, "_apply_until_it_works", lambda group: None)
+    monkeypatch.setattr(
+        scap.deploy_service.scap_checks,
+        "execute",
+        lambda checkslist, logger, concurrency: (True, []),
+    )
+    monkeypatch.setattr(
+        app,
+        "prompt_choices",
+        lambda question, choices, default: asked.append(question) or "c",
+    )
+
+    assert app.main() == 0
+
+    # The question of the config, and the name of the group when it has none.
+    assert [question.splitlines()[0] for question in asked] == [
+        "Check the dashboards of shellbox.",
+        "The deployment of eqiad at stage DEFAULT is complete.",
+    ]
+
+
+def test_deploy_stops_when_a_manual_check_is_not_approved(tmp_path, monkeypatch):
+    """The answer of the deployer stops the deployment, as a check that fails."""
+    app = _app_with_checks(tmp_path, monkeypatch)
+    rolled_back = []
+
+    monkeypatch.setattr(app, "_prepare", lambda command: [])
+    monkeypatch.setattr(app, "_apply_until_it_works", lambda group: None)
+    monkeypatch.setattr(app, "_roll_back", lambda rollbacks: rolled_back.append(True))
+    monkeypatch.setattr(
+        scap.deploy_service.scap_checks,
+        "execute",
+        lambda checkslist, logger, concurrency: (True, []),
+    )
+    monkeypatch.setattr(app, "prompt_choices", lambda *args, **kwargs: "b")
+
+    assert app.main() == 1
+    assert rolled_back == [True]
+
+
+def test_manual_check_of_a_session_with_no_terminal(tmp_path, monkeypatch):
+    """Nobody can answer, so the deployment rolls back."""
+    app = _app_with_checks(tmp_path, monkeypatch)
+    rolled_back = []
+
+    monkeypatch.setattr(app, "_prepare", lambda command: [])
+    monkeypatch.setattr(app, "_apply_until_it_works", lambda group: None)
+    monkeypatch.setattr(app, "_roll_back", lambda rollbacks: rolled_back.append(True))
+    monkeypatch.setattr(
+        scap.deploy_service.scap_checks,
+        "execute",
+        lambda checkslist, logger, concurrency: (True, []),
+    )
+    monkeypatch.setattr(interaction, "interactive", lambda: False)
+
+    assert app.main() == 1
+    assert rolled_back == [True]
 
 
 def test_main_rejects_checks_that_no_group_runs(tmp_path, monkeypatch):

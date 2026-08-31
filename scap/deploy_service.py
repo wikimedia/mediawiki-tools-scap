@@ -121,7 +121,19 @@ class DeploymentGroup:
         return f"{self.environment} at stage {self.stage}"
 
 
-Checks = Dict[DeploymentGroup, List[str]]
+@dataclass(frozen=True)
+class GroupChecks:
+    """The checks that run after one group of the plan deploys."""
+
+    # The shell commands, in the order they were declared.
+    commands: List[str] = field(default_factory=list)
+    # The questions of the manual checks, in the order they were declared. A
+    # deployer answers each one after the commands pass. An empty question
+    # takes the name of the group.
+    manual: List[str] = field(default_factory=list)
+
+
+Checks = Dict[DeploymentGroup, GroupChecks]
 
 
 @dataclass(frozen=True)
@@ -456,15 +468,15 @@ def _parse_checks(service_what: str, doc, cluster_group: ClusterGroup) -> Checks
                     f"(known: {', '.join(cluster_group.environment_stages)})"
                 )
 
-            checks[DeploymentGroup(env.name, stage)] = _parse_check_commands(
+            checks[DeploymentGroup(env.name, stage)] = _parse_group_checks(
                 f"the checks of stage {stage} of {env_what}", raw_checks
             )
 
     return checks
 
 
-def _parse_check_commands(what: str, raw_checks) -> List[str]:
-    """Returns the commands of the checks of one environment at one stage.
+def _parse_group_checks(what: str, raw_checks) -> GroupChecks:
+    """Returns the checks of one environment at one stage.
 
     Duplicate commands are removed.
     """
@@ -472,6 +484,7 @@ def _parse_check_commands(what: str, raw_checks) -> List[str]:
         raise InvalidDeployServiceConfig(f"{what} must be a list")
 
     commands = []
+    manual = []
     for raw_check in raw_checks:
         check = _assert_mapping(raw_check, f"each check of {what}")
         if len(check) != 1:
@@ -480,22 +493,32 @@ def _parse_check_commands(what: str, raw_checks) -> List[str]:
             )
 
         ((check_type, value),) = check.items()
-        if check_type != "commands":
+        if check_type == "commands":
+            if not (
+                isinstance(value, list) and all(isinstance(cmd, str) for cmd in value)
+            ):
+                raise InvalidDeployServiceConfig(
+                    f"the commands of {what} must be a list of command strings"
+                )
+
+            for command in value:
+                if command not in commands:
+                    commands.append(command)
+        elif check_type == "manual":
+            if value is not None and not isinstance(value, str):
+                raise InvalidDeployServiceConfig(
+                    f"the manual check of {what} must be the question to ask, "
+                    "or nothing"
+                )
+
+            manual.append(value or "")
+        else:
             raise InvalidDeployServiceConfig(
                 f"{what} names unsupported check type '{check_type}' "
-                "(expected: commands)"
+                "(expected: commands, manual)"
             )
 
-        if not (isinstance(value, list) and all(isinstance(cmd, str) for cmd in value)):
-            raise InvalidDeployServiceConfig(
-                f"the commands of {what} must be a list of command strings"
-            )
-
-        for command in value:
-            if command not in commands:
-                commands.append(command)
-
-    return commands
+    return GroupChecks(commands, manual)
 
 
 def _parse_service(
@@ -773,8 +796,12 @@ class DeployService(cli.Application):
             for command in group:
                 self.logger.info(f"    {command}")
 
-            for check in self._checks_of(deployment_group):
-                self.logger.info(f"    check: {check}")
+            checks = self._checks_of(deployment_group)
+            for command in checks.commands:
+                self.logger.info(f"    check: {command}")
+
+            for question in checks.manual:
+                self.logger.info(f"    manual: {question or '(no question)'}")
 
     def _deploy_and_announce(self, service: str, plan: Plan) -> int:
         """Deploys the service, and announces the start and the end.
@@ -906,51 +933,80 @@ class DeployService(cli.Application):
                     f"{', '.join(sorted(str(one) for one in plan))})"
                 )
 
-    def _checks_of(self, deployment_group: DeploymentGroup) -> List[str]:
-        """The check commands that run after one group deploys."""
-        return self.service_config.checks.get(deployment_group, [])
+    def _checks_of(self, deployment_group: DeploymentGroup) -> GroupChecks:
+        """The checks that run after one group deploys."""
+        return self.service_config.checks.get(deployment_group, GroupChecks())
 
     def _check_until_it_works(
         self, deployment_group: DeploymentGroup, group: List[HelmfileCommand]
     ) -> Optional[str]:
         """Runs the checks of the stage of one group, offering to retry on failure.
 
+        The commands run first, and the manual checks follow them (just like the
+        commands of a MediaWiki deployment run before its logstash checks). The
+        order of the list of checks does not decide this.
+
         Returns None if no checks are defined.
         Returns None if every check was successful (or ignored).
         Otherwise returns the user's response to a failure.
         """
-        commands = self._checks_of(deployment_group)
-        if not commands:
-            return None
+        checks = self._checks_of(deployment_group)
 
-        # Each check carries the name of its command, so that the log says
-        # which one ran and which one failed.
-        checkslist = [
-            scap_checks.Check(command, command=command, timeout=120, shell=True)
-            for command in commands
-        ]
+        if checks.commands:
+            # Each check carries the name of its command, so that the log says
+            # which one ran and which one failed.
+            checkslist = [
+                scap_checks.Check(command, command=command, timeout=120, shell=True)
+                for command in checks.commands
+            ]
 
-        def run_checks() -> bool:
-            ok, _ = scap_checks.execute(
-                checkslist, self.logger, concurrency=len(checkslist)
+            def run_checks() -> bool:
+                ok, _ = scap_checks.execute(
+                    checkslist, self.logger, concurrency=len(checkslist)
+                )
+                return ok
+
+            answer = self.retry_until(
+                f"the checks of {group[0].environment}",
+                run_checks,
+                {
+                    "Ignore the failure and continue": "i",
+                    "Roll back what was already deployed": "b",
+                    "Exit without rolling back": "x",
+                },
+                self._prompt_default("r", "b"),
             )
-            return ok
+            if answer == "i":
+                self.logger.warning("Ignoring check failures and continuing")
+            elif answer is not None:
+                return answer
 
-        answer = self.retry_until(
-            f"the checks of {group[0].environment}",
-            run_checks,
-            {
-                "Ignore the failure and continue": "i",
-                "Roll back what was already deployed": "b",
-                "Exit without rolling back": "x",
-            },
-            self._prompt_default("r", "b"),
-        )
-        if answer == "i":
-            self.logger.warning("Ignoring check failures and continuing")
-            return None
+        return self._approve(deployment_group, checks)
 
-        return answer
+    def _approve(
+        self, deployment_group: DeploymentGroup, checks: GroupChecks
+    ) -> Optional[str]:
+        """Asks the questions of the manual checks of one group.
+
+        Returns None when a deployer answers each question with a continue, and
+        the answer that stops the deployment otherwise. A session with no
+        terminal has nobody to ask, so it rolls back.
+        """
+        for question in checks.manual:
+            answer = self.prompt_choices(
+                f"{question or f'The deployment of {deployment_group} is complete'}."
+                "\n\nWhat do you want to do?",
+                {
+                    "Continue the deployment": "c",
+                    "Roll back what was already deployed": "b",
+                    "Exit without rolling back": "x",
+                },
+                self._prompt_default("c", "b"),
+            )
+            if answer != "c":
+                return answer
+
+        return None
 
     def _apply(self, group: List[HelmfileCommand]) -> List[kubernetes.CommandResult]:
         """Deploys the steps of one group at the same time."""
