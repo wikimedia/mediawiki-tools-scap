@@ -1077,11 +1077,22 @@ class DeployService(cli.Application):
             self.logger.info("Nothing deployed, so there is nothing to roll back")
             return
 
-        rollback_order = "\n".join(
-            f"    {rollback.label}" for group in groups for rollback in group
-        )
+        lines = []
+        for group in groups:
+            first = group[0].command
+            namespaces = _namespaces_of([rollback.command for rollback in group])
+            lines.append(
+                f"    [{first.environment_type}/{first.stage}] {first.environment}: "
+                f"{', '.join(namespaces)}"
+            )
+            lines += [
+                f"        uninstalls {rollback.release} of {rollback.command.namespace}"
+                for rollback in group
+                if rollback.recorded.revision is None
+            ]
+
         if not self.prompt_user_for_confirmation(
-            f"Roll back what was already deployed, in this order?\n{rollback_order}",
+            "Roll back what was already deployed?\n" + "\n".join(lines),
             default="y",
         ):
             self.logger.warning("Not rolling back")

@@ -1187,6 +1187,8 @@ def test_roll_back_unwinds_the_later_group_first(tmp_path, monkeypatch):
     app = _app(tmp_path)
     app.logger = logging.getLogger("test")
     app.k8s = kubernetes.K8sRunner(app, app.logger)
+    # The question of the rollback names the groups of the service.
+    app.service_config = app._service_config("shellbox")
     monkeypatch.setattr(app, "prompt_user_for_confirmation", lambda *a, **k: True)
     monkeypatch.setattr(
         kubernetes.K8sRunner,
@@ -1210,6 +1212,37 @@ def test_roll_back_unwinds_the_later_group_first(tmp_path, monkeypatch):
     assert rolled_back == ["production", "canary"]
 
 
+def test_roll_back_question(tmp_path, monkeypatch):
+    """The question names the groups, as the deployment reported them."""
+    app = _app(tmp_path)
+    app.logger = logging.getLogger("test")
+    app.k8s = kubernetes.K8sRunner(app, app.logger)
+    asked = []
+    monkeypatch.setattr(
+        app,
+        "prompt_user_for_confirmation",
+        lambda question, default=None: asked.append(question) or False,
+    )
+
+    app._roll_back(
+        [
+            [_rollback("staging", "shellbox", "main")],
+            [
+                _rollback("codfw", "shellbox", "canary"),
+                # The deployment installed this one, so the rollback removes it.
+                _rollback("codfw", "shellbox-media", "canary", revision=None),
+            ],
+        ]
+    )
+
+    assert asked == [
+        "Roll back what was already deployed?\n"
+        "    [PRODUCTION/PRODUCTION] codfw: shellbox, shellbox-media\n"
+        "        uninstalls canary of shellbox-media\n"
+        "    [PRODUCTION/PRODUCTION] staging: shellbox"
+    ]
+
+
 def test_roll_back_of_one_group_runs_at_the_same_time(tmp_path, monkeypatch):
     """The releases of one group roll back together, as they deployed.
 
@@ -1219,6 +1252,8 @@ def test_roll_back_of_one_group_runs_at_the_same_time(tmp_path, monkeypatch):
     app = _app(tmp_path)
     app.logger = logging.getLogger("test")
     app.k8s = kubernetes.K8sRunner(app, app.logger)
+    # The question of the rollback names the groups of the service.
+    app.service_config = app._service_config("shellbox")
     monkeypatch.setattr(app, "prompt_user_for_confirmation", lambda *a, **k: True)
     monkeypatch.setattr(
         kubernetes.K8sRunner,
