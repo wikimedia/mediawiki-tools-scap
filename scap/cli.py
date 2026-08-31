@@ -99,9 +99,11 @@ class Application(object):
 
     def get_stats(self):
         if self._stats is None:
-            self._stats = log.Stats(
-                self.config["statsd_host"], int(self.config["statsd_port"])
-            )
+            host = self.config["statsd_host"]
+            if host:
+                self._stats = log.Stats(host, int(self.config["statsd_port"]))
+            else:
+                self._stats = log.NullStats()
         return self._stats
 
     def get_mediawiki_staging_lock_file(self):

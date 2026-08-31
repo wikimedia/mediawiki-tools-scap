@@ -10,7 +10,7 @@ except ImportError:
 
 import pytest
 
-from scap import arg, cli, lock, utils, version
+from scap import arg, cli, lock, log, utils, version
 
 
 @cli.command("dummy")
@@ -79,6 +79,11 @@ def test_get_stats(app, mocker):
     stats = mocker.patch("scap.log.Stats")
     assert stats.return_value == app.get_stats()
     stats.assert_called_with("foo_bar", 678)
+
+
+def test_get_stats_without_statsd_host(app):
+    app.config = {"statsd_host": None, "statsd_port": "678"}
+    assert isinstance(app.get_stats(), log.NullStats)
 
 
 def test_get_mediawiki_staging_lock_file(app):

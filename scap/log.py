@@ -839,6 +839,26 @@ class Stats(object):
             self.logger.exception('Failed to send metric "%s"', metric)
 
 
+class NullStats(object):
+    """
+    A Stats work-alike that discards all metrics.
+
+    It is used when no StatsD host is configured.
+    """
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        pass
+
+    def timing(self, name, milliseconds):
+        pass
+
+    def increment(self, name, value=1):
+        pass
+
+
 class Timer(object):
     """
     Context manager to track and record the time taken to execute a block.
@@ -848,7 +868,7 @@ class Timer(object):
     >>> with Timer('example'):
     ...     time.sleep(0.1)
 
-    >>> with Stats('127.0.0.1', 2003) as s:
+    >>> with NullStats() as s:
     ...     with Timer('example', stats=s):
     ...         time.sleep(0.1)
     """
