@@ -793,11 +793,8 @@ class DeployService(cli.Application):
         to show that they run at the same time.
         """
         for deployment_group, group in plan.items():
-            first = group[0]
             at_once = f", {len(group)} at once" if len(group) > 1 else ""
-            self.logger.info(
-                f"[{first.environment_type}/{first.stage}] {first.environment}{at_once}:"
-            )
+            self.logger.info(f"{self._label_of(deployment_group)}{at_once}:")
             for command in group:
                 self.logger.info(f"    {command}")
 
@@ -841,14 +838,12 @@ class DeployService(cli.Application):
         """
         # What a rollback must restore, one list for each group of the plan, in
         # the order that the groups deployed.
-        rollbacks = []
+        rollbacks = {}
 
         for deployment_group, group in plan.items():
-            first = group[0]
             self.logger.info(
-                f"[{first.environment_type}/{first.stage}] Deploying "
-                f"{', '.join(_namespaces_of(group))} "
-                f"in {first.environment}"
+                f"{self._label_of(deployment_group)} Deploying "
+                f"{', '.join(_namespaces_of(group))}"
             )
             # The revisions come from before the deployment, so that a rollback
             # names the revision to return to. A release in a pending state
@@ -860,15 +855,13 @@ class DeployService(cli.Application):
             # rollback of helm can fail as well. A rollback that names the
             # revision returns a release to the same revision each time, so it
             # is safe to roll back a release that helm already returned.
-            rollbacks.append(
-                [
-                    rollback
-                    for step_rollbacks in group_rollbacks
-                    for rollback in step_rollbacks
-                ]
-            )
+            rollbacks[deployment_group] = [
+                rollback
+                for step_rollbacks in group_rollbacks
+                for rollback in step_rollbacks
+            ]
 
-            answer = self._apply_until_it_works(group)
+            answer = self._apply_until_it_works(deployment_group, group)
             if answer is None:
                 answer = self._check_until_it_works(deployment_group, group)
 
@@ -885,14 +878,15 @@ class DeployService(cli.Application):
         self.logger.info(f"Deployment of {self.arguments.service} complete")
         return 0
 
-    def _apply_until_it_works(self, group: List[HelmfileCommand]) -> Optional[str]:
+    def _apply_until_it_works(
+        self, deployment_group: DeploymentGroup, group: List[HelmfileCommand]
+    ) -> Optional[str]:
         """Deploys the steps of one group, and offers a retry of what failed.
 
         Returns None when every step of the group deployed, and the choice of
         the user when one did not. When the session is not interactive, scap
         rolls back, as it does for a MediaWiki deployment.
         """
-        first = group[0]
         pending = list(group)
         attempts = 0
 
@@ -917,7 +911,7 @@ class DeployService(cli.Application):
 
         return self.retry_until(
             f"the deployment of {', '.join(_namespaces_of(group))} "
-            f"in {first.environment}",
+            f"in {deployment_group.environment}",
             apply_pending,
             {
                 "Roll back what was already deployed": "b",
@@ -937,6 +931,17 @@ class DeployService(cli.Application):
                     "(the deployment of the service has: "
                     f"{', '.join(sorted(str(one) for one in plan))})"
                 )
+
+    def _label_of(self, deployment_group: DeploymentGroup) -> str:
+        """The text that identifies one group of the plan to the user.
+
+        The environment is the one of the cluster group, and not the alias that
+        a namespace of the service uses for it.
+        """
+        environment = self.service_config.cluster_group.environments[
+            deployment_group.environment
+        ]
+        return f"[{environment.type}/{deployment_group.stage}] {environment.name}"
 
     def _checks_of(self, deployment_group: DeploymentGroup) -> GroupChecks:
         """The checks that run after one group deploys."""
@@ -1070,25 +1075,27 @@ class DeployService(cli.Application):
 
         self.retry_ignore_or_exit(f"the repair of {label}", repair, may_ignore=False)
 
-    def _roll_back(self, rollbacks: List[List[Rollback]]):
+    def _roll_back(self, rollbacks: Dict[DeploymentGroup, List[Rollback]]):
         """Offers to return each deployed release to its revision.
 
         The groups roll back in the reverse of the order that deployed them,
         and the releases of one group roll back at the same time, as they
         deployed.
         """
-        groups = [group for group in reversed(rollbacks) if group]
+        groups = [
+            (deployment_group, group)
+            for deployment_group, group in reversed(list(rollbacks.items()))
+            if group
+        ]
         if not groups:
             self.logger.info("Nothing deployed, so there is nothing to roll back")
             return
 
         lines = []
-        for group in groups:
-            first = group[0].command
+        for deployment_group, group in groups:
             namespaces = _namespaces_of([rollback.command for rollback in group])
             lines.append(
-                f"    [{first.environment_type}/{first.stage}] {first.environment}: "
-                f"{', '.join(namespaces)}"
+                f"    {self._label_of(deployment_group)}: {', '.join(namespaces)}"
             )
             lines += [
                 f"        uninstalls {rollback.release} of {rollback.command.namespace}"
@@ -1106,16 +1113,17 @@ class DeployService(cli.Application):
         # The count of replicas is the target of the deployment. A rollback
         # that changes it reports a total that does not match.
         commands = list(
-            dict.fromkeys(rollback.command for group in groups for rollback in group)
+            dict.fromkeys(rollback.command for _, group in groups for rollback in group)
         )
         with self.k8s.watch_releases(commands):
-            for group in groups:
-                self._roll_back_group(group)
+            for deployment_group, group in groups:
+                self._roll_back_group(deployment_group, group)
 
-    def _roll_back_group(self, rollbacks: List[Rollback]):
+    def _roll_back_group(
+        self, deployment_group: DeploymentGroup, rollbacks: List[Rollback]
+    ):
         """Rolls back one group, and offers a retry of the releases that failed."""
         pending = list(rollbacks)
-        first = pending[0].command
 
         def roll_back_pending() -> bool:
             nonlocal pending
@@ -1126,7 +1134,7 @@ class DeployService(cli.Application):
         self.retry_ignore_or_exit(
             f"the rollback of "
             f"{', '.join(_namespaces_of([r.command for r in rollbacks]))} "
-            f"in {first.environment}",
+            f"in {deployment_group.environment}",
             roll_back_pending,
         )
 
