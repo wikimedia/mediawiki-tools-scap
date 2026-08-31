@@ -840,7 +840,9 @@ def test_deploy_runs_the_checks_of_each_stage(tmp_path, monkeypatch):
     monkeypatch.setattr(app, "_prepare", lambda command: [])
     monkeypatch.setattr(app, "prompt_choices", lambda *args, **kwargs: "c")
     monkeypatch.setattr(
-        app, "_apply_until_it_works", lambda group: done.append(group[0].label) or None
+        app,
+        "_apply_until_it_works",
+        lambda deployment_group, group: done.append(group[0].label) or None,
     )
     monkeypatch.setattr(
         scap.deploy_service.scap_checks,
@@ -879,7 +881,9 @@ def test_deploy_stops_when_a_check_fails(tmp_path, monkeypatch):
     rolled_back = []
 
     monkeypatch.setattr(app, "_prepare", lambda command: [])
-    monkeypatch.setattr(app, "_apply_until_it_works", lambda group: None)
+    monkeypatch.setattr(
+        app, "_apply_until_it_works", lambda deployment_group, group: None
+    )
     monkeypatch.setattr(app, "_roll_back", lambda rollbacks: rolled_back.append(True))
     monkeypatch.setattr(
         scap.deploy_service.scap_checks,
@@ -903,7 +907,7 @@ def test_deploy_continues_when_the_user_ignores_a_check(tmp_path, monkeypatch):
     monkeypatch.setattr(
         app,
         "_apply_until_it_works",
-        lambda group: deployed.append(group[0].label) or None,
+        lambda deployment_group, group: deployed.append(group[0].label) or None,
     )
     monkeypatch.setattr(
         scap.deploy_service.scap_checks,
@@ -922,7 +926,9 @@ def test_deploy_asks_the_manual_checks(tmp_path, monkeypatch):
     asked = []
 
     monkeypatch.setattr(app, "_prepare", lambda command: [])
-    monkeypatch.setattr(app, "_apply_until_it_works", lambda group: None)
+    monkeypatch.setattr(
+        app, "_apply_until_it_works", lambda deployment_group, group: None
+    )
     monkeypatch.setattr(
         scap.deploy_service.scap_checks,
         "execute",
@@ -949,7 +955,9 @@ def test_deploy_stops_when_a_manual_check_is_not_approved(tmp_path, monkeypatch)
     rolled_back = []
 
     monkeypatch.setattr(app, "_prepare", lambda command: [])
-    monkeypatch.setattr(app, "_apply_until_it_works", lambda group: None)
+    monkeypatch.setattr(
+        app, "_apply_until_it_works", lambda deployment_group, group: None
+    )
     monkeypatch.setattr(app, "_roll_back", lambda rollbacks: rolled_back.append(True))
     monkeypatch.setattr(
         scap.deploy_service.scap_checks,
@@ -968,7 +976,9 @@ def test_manual_check_of_a_session_with_no_terminal(tmp_path, monkeypatch):
     rolled_back = []
 
     monkeypatch.setattr(app, "_prepare", lambda command: [])
-    monkeypatch.setattr(app, "_apply_until_it_works", lambda group: None)
+    monkeypatch.setattr(
+        app, "_apply_until_it_works", lambda deployment_group, group: None
+    )
     monkeypatch.setattr(app, "_roll_back", lambda rollbacks: rolled_back.append(True))
     monkeypatch.setattr(
         scap.deploy_service.scap_checks,
@@ -1143,7 +1153,7 @@ def test_apply_retries_only_the_steps_that_failed(
 
     monkeypatch.setattr(app, "_apply", fake_apply)
 
-    assert app._apply_until_it_works(group) is None
+    assert app._apply_until_it_works(DeploymentGroup("eqiad", "CANARY"), group) is None
     assert attempts == [["shellbox", "shellbox-media"], ["shellbox"]]
     # The step that failed is repaired before it runs again.
     assert repaired == ["main"]
@@ -1160,7 +1170,7 @@ def test_apply_that_keeps_failing_rolls_back(tmp_path, cluster_groups, monkeypat
     (group,) = plan(
         load(tmp_path, cluster_groups, TWO_NAMESPACES), "eqiad", "/", 5
     ).values()
-    assert app._apply_until_it_works(group) == "b"
+    assert app._apply_until_it_works(DeploymentGroup("eqiad", "CANARY"), group) == "b"
 
 
 def _rollback(environment, namespace, release, revision=1):
@@ -1204,10 +1214,14 @@ def test_roll_back_unwinds_the_later_group_first(tmp_path, monkeypatch):
     )
 
     app._roll_back(
-        [
-            [_rollback("codfw", "shellbox", "canary")],
-            [_rollback("eqiad", "shellbox", "production")],
-        ]
+        {
+            DeploymentGroup("codfw", "CANARY"): [
+                _rollback("codfw", "shellbox", "canary")
+            ],
+            DeploymentGroup("eqiad", "DEFAULT"): [
+                _rollback("eqiad", "shellbox", "production")
+            ],
+        }
     )
     assert rolled_back == ["production", "canary"]
 
@@ -1217,6 +1231,7 @@ def test_roll_back_question(tmp_path, monkeypatch):
     app = _app(tmp_path)
     app.logger = logging.getLogger("test")
     app.k8s = kubernetes.K8sRunner(app, app.logger)
+    app.service_config = app._service_config("shellbox")
     asked = []
     monkeypatch.setattr(
         app,
@@ -1225,21 +1240,23 @@ def test_roll_back_question(tmp_path, monkeypatch):
     )
 
     app._roll_back(
-        [
-            [_rollback("staging", "shellbox", "main")],
-            [
+        {
+            DeploymentGroup("staging-eqiad", "DEFAULT"): [
+                _rollback("staging", "shellbox", "main")
+            ],
+            DeploymentGroup("codfw", "CANARY"): [
                 _rollback("codfw", "shellbox", "canary"),
                 # The deployment installed this one, so the rollback removes it.
                 _rollback("codfw", "shellbox-media", "canary", revision=None),
             ],
-        ]
+        }
     )
 
     assert asked == [
         "Roll back what was already deployed?\n"
-        "    [PRODUCTION/PRODUCTION] codfw: shellbox, shellbox-media\n"
+        "    [PRODUCTION/CANARY] codfw: shellbox, shellbox-media\n"
         "        uninstalls canary of shellbox-media\n"
-        "    [PRODUCTION/PRODUCTION] staging: shellbox"
+        "    [STAGING/DEFAULT] staging-eqiad: shellbox"
     ]
 
 
@@ -1267,11 +1284,11 @@ def test_roll_back_of_one_group_runs_at_the_same_time(tmp_path, monkeypatch):
     )
 
     app._roll_back(
-        [
-            [
+        {
+            DeploymentGroup("eqiad", "CANARY"): [
                 _rollback("eqiad", "shellbox", "canary"),
                 _rollback("eqiad", "shellbox-media", "canary"),
             ]
-        ]
+        }
     )
     assert not barrier.broken
