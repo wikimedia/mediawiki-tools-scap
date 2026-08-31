@@ -131,7 +131,7 @@ def commands(service_config, primary_datacenter="eqiad"):
     """Returns (directory, command) pairs, with "/" as the deployments dir."""
     return [
         (command.directory, " ".join(command.apply_command()))
-        for group in plan(service_config, primary_datacenter, "/", 5)
+        for group in plan(service_config, primary_datacenter, "/", 5).values()
         for command in group
     ]
 
@@ -216,11 +216,34 @@ def test_plan(tmp_path, cluster_groups):
     ]
 
 
+def test_plan_names_the_group_of_each_step(tmp_path, cluster_groups):
+    """The plan is keyed by group, in the order that the groups deploy.
+
+    The key holds the name of the environment, and not the alias that the
+    service uses for it ("staging" here).
+    """
+    steps = plan(load(tmp_path, cluster_groups, SHELLBOX), "eqiad", "/", 5)
+
+    assert list(steps) == [
+        DeploymentGroup("staging-eqiad", "DEFAULT"),
+        DeploymentGroup("codfw", "CANARY"),
+        DeploymentGroup("eqiad", "CANARY"),
+        DeploymentGroup("codfw", "DEFAULT"),
+        DeploymentGroup("eqiad", "DEFAULT"),
+    ]
+    assert [
+        command.environment
+        for command in steps[DeploymentGroup("staging-eqiad", "DEFAULT")]
+    ] == ["staging"]
+
+
 def test_diff_job_of_each_command(tmp_path, cluster_groups):
     """Each apply command has a diff job with the same selectors."""
     commands = [
         command
-        for group in plan(load(tmp_path, cluster_groups, SHELLBOX), "eqiad", "/", 5)
+        for group in plan(
+            load(tmp_path, cluster_groups, SHELLBOX), "eqiad", "/", 5
+        ).values()
         for command in group
     ]
     jobs = [command.diff_job() for command in commands]
@@ -256,7 +279,7 @@ namespaces:
             stage: CANARY
 """,
     )
-    (group,) = plan(service_config, "eqiad", "/", 5)
+    (group,) = plan(service_config, "eqiad", "/", 5).values()
     assert [command.label for command in group] == [
         "canary of shellbox in codfw (PRODUCTION/CANARY)",
         "canary-media of shellbox in codfw (PRODUCTION/CANARY)",
@@ -264,7 +287,9 @@ namespaces:
     # A step that names a release does not repeat it.
     assert group[0].release_label("canary") == group[0].label
     # A step that deploys every release names the one that is rolling back.
-    step = plan(load(tmp_path, cluster_groups, SHELLBOX), "eqiad", "/", 5)[0][0]
+    step = next(
+        iter(plan(load(tmp_path, cluster_groups, SHELLBOX), "eqiad", "/", 5).values())
+    )[0]
     assert step.release_label("main") == "main of shellbox in staging (STAGING/DEFAULT)"
 
 
@@ -563,7 +588,7 @@ namespaces:
             group[0].environment,
             [command.namespace for command in group],
         )
-        for group in plan(service_config, "eqiad", "/", 5)
+        for group in plan(service_config, "eqiad", "/", 5).values()
     ] == [
         ("PRODUCTION", "CANARY", "codfw", ["shellbox", "shellbox-media"]),
         ("PRODUCTION", "DEFAULT", "codfw", ["shellbox", "shellbox-media"]),
@@ -1021,7 +1046,9 @@ def test_apply_retries_only_the_steps_that_failed(
 
     app.k8s = FakeRunner()
 
-    (group,) = plan(load(tmp_path, cluster_groups, TWO_NAMESPACES), "eqiad", "/", 5)
+    (group,) = plan(
+        load(tmp_path, cluster_groups, TWO_NAMESPACES), "eqiad", "/", 5
+    ).values()
     failed = kubernetes.CommandResult(1, "", "Error: UPGRADE FAILED")
     ok = kubernetes.CommandResult(0, "", "")
     attempts = []
@@ -1050,7 +1077,9 @@ def test_apply_that_keeps_failing_rolls_back(tmp_path, cluster_groups, monkeypat
     failed = kubernetes.CommandResult(1, "", "Error: UPGRADE FAILED")
     monkeypatch.setattr(app, "_apply", lambda steps: [failed for _ in steps])
 
-    (group,) = plan(load(tmp_path, cluster_groups, TWO_NAMESPACES), "eqiad", "/", 5)
+    (group,) = plan(
+        load(tmp_path, cluster_groups, TWO_NAMESPACES), "eqiad", "/", 5
+    ).values()
     assert app._apply_until_it_works(group) == "b"
 
 

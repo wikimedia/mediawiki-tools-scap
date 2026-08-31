@@ -121,6 +121,9 @@ class DeploymentGroup:
         return f"{self.environment} at stage {self.stage}"
 
 
+Checks = Dict[DeploymentGroup, List[str]]
+
+
 @dataclass(frozen=True)
 class ServiceConfig:
     """The deployment config of a single service, as declared in the service catalog."""
@@ -129,9 +132,8 @@ class ServiceConfig:
     cluster_group: ClusterGroup
     # In the order the namespaces were declared.
     namespaces: List[ServiceNamespace]
-    # The check commands that run after one group of the plan deploys, in the
-    # order they were declared.
-    checks: Dict[DeploymentGroup, List[str]] = field(default_factory=dict)
+    # In the order they were declared.
+    checks: Checks = field(default_factory=dict)
 
 
 @dataclass(frozen=True)
@@ -166,6 +168,9 @@ class HelmfileCommand(kubernetes.HelmfileInvocation):
 
     def __str__(self) -> str:
         return utils.command_line(self.apply_command(), self.directory)
+
+
+Plan = Dict[DeploymentGroup, List[HelmfileCommand]]
 
 
 @dataclass(frozen=True)
@@ -423,10 +428,7 @@ def _parse_namespace(
     return ServiceNamespace(name=name, environments=parsed)
 
 
-def _parse_checks(
-    service_what: str, doc, cluster_group: ClusterGroup
-) -> Dict[DeploymentGroup, List[str]]:
-    """Returns the check commands of a service, keyed by the group that runs them."""
+def _parse_checks(service_what: str, doc, cluster_group: ClusterGroup) -> Checks:
     if doc is None:
         return {}
 
@@ -580,13 +582,8 @@ def plan(
     primary_datacenter: str,
     deployments_dir: str,
     context_lines: int,
-) -> List[List[HelmfileCommand]]:
-    """Returns the steps that deploy the service, in order.
-
-    Each inner list holds the steps of one environment at one stage. Those steps
-    run at the same time. The inner lists run one after the other.
-    """
-    steps = []
+) -> Plan:
+    steps = {}
     cluster_group = service_config.cluster_group
 
     for environment_type in ENVIRONMENT_TYPES:
@@ -618,7 +615,7 @@ def plan(
                         )
 
                 if concurrent:
-                    steps.append(concurrent)
+                    steps[DeploymentGroup(env.name, stage)] = concurrent
 
     return steps
 
@@ -736,7 +733,7 @@ class DeployService(cli.Application):
 
         return catalog[service]
 
-    def _assert_releases_exist(self, steps: List[List[HelmfileCommand]]):
+    def _assert_releases_exist(self, plan: Plan):
         """Checks that each release of the catalog exists in its environment.
 
         `helmfile --selector name=<release>` selects nothing when the name is
@@ -745,7 +742,7 @@ class DeployService(cli.Application):
         """
         catalog_file = self.config["service_catalog_file"]
 
-        for group in steps:
+        for group in plan.values():
             for command in group:
                 if command.release is None:
                     continue
@@ -761,13 +758,13 @@ class DeployService(cli.Application):
                         f"(it installs: {', '.join(installed)})"
                     )
 
-    def _show_plan(self, steps: List[List[HelmfileCommand]]):
+    def _show_plan(self, plan: Plan):
         """Displays the plan, one group of commands at a time.
 
         The commands of one group are indented under the group that holds them,
         to show that they run at the same time.
         """
-        for group in steps:
+        for deployment_group, group in plan.items():
             first = group[0]
             at_once = f", {len(group)} at once" if len(group) > 1 else ""
             self.logger.info(
@@ -776,12 +773,10 @@ class DeployService(cli.Application):
             for command in group:
                 self.logger.info(f"    {command}")
 
-            for check in self._checks_of(group):
+            for check in self._checks_of(deployment_group):
                 self.logger.info(f"    check: {check}")
 
-    def _deploy_and_announce(
-        self, service: str, steps: List[List[HelmfileCommand]]
-    ) -> int:
+    def _deploy_and_announce(self, service: str, plan: Plan) -> int:
         """Deploys the service, and announces the start and the end.
 
         The announcements bracket the deployment. The SAL entries that helmfile
@@ -796,7 +791,7 @@ class DeployService(cli.Application):
             self.announce_final(f"{outcome} {what} (duration: {duration})")
 
         try:
-            status = self._deploy(steps)
+            status = self._deploy(plan)
         # BaseException, so that an interrupt also ends the announcements.
         except BaseException:
             announce_end("Failed")
@@ -805,7 +800,7 @@ class DeployService(cli.Application):
         announce_end("Finished" if status == 0 else "Failed")
         return status
 
-    def _deploy(self, steps: List[List[HelmfileCommand]]) -> int:
+    def _deploy(self, plan: Plan) -> int:
         """Deploys the service, one group of the plan at a time.
 
         The steps of one group deploy at the same time. A failure stops the
@@ -816,7 +811,7 @@ class DeployService(cli.Application):
         # the order that the groups deployed.
         rollbacks = []
 
-        for group in steps:
+        for deployment_group, group in plan.items():
             first = group[0]
             self.logger.info(
                 f"[{first.environment_type}/{first.stage}] Deploying "
@@ -843,7 +838,7 @@ class DeployService(cli.Application):
 
             answer = self._apply_until_it_works(group)
             if answer is None:
-                answer = self._check_until_it_works(group)
+                answer = self._check_until_it_works(deployment_group, group)
 
             if answer is None:
                 continue
@@ -899,44 +894,32 @@ class DeployService(cli.Application):
             self._prompt_default("r", "b"),
         )
 
-    def _assert_checks_run(self, steps: List[List[HelmfileCommand]]):
+    def _assert_checks_run(self, plan: Plan):
         """Checks that each DeploymentGroup of the checks is in the plan."""
-        deployed = {self._group_of(steps_of_group) for steps_of_group in steps}
-
         for deployment_group in self.service_config.checks:
-            if deployment_group not in deployed:
+            if deployment_group not in plan:
                 raise InvalidDeployServiceConfig(
                     f"the checks of service {self.service_config.name} of "
                     f"{self.config['service_catalog_file']} name "
                     f"{deployment_group}, which deploys no release "
                     "(the deployment of the service has: "
-                    f"{', '.join(sorted(str(one) for one in deployed))})"
+                    f"{', '.join(sorted(str(one) for one in plan))})"
                 )
 
-    def _group_of(self, steps: List[HelmfileCommand]) -> DeploymentGroup:
-        """The DeploymentGroup that the steps of one group of the plan deploy.
-
-        The environment of a step is the name that the service uses, which may
-        be an alias, so it resolves to the environment of the cluster group.
-        """
-        first = steps[0]
-        environment = self.service_config.cluster_group.resolve(
-            first.environment, f"the plan of service {self.service_config.name}"
-        )
-        return DeploymentGroup(environment.name, first.stage)
-
-    def _checks_of(self, group: List[HelmfileCommand]) -> List[str]:
+    def _checks_of(self, deployment_group: DeploymentGroup) -> List[str]:
         """The check commands that run after one group deploys."""
-        return self.service_config.checks.get(self._group_of(group), [])
+        return self.service_config.checks.get(deployment_group, [])
 
-    def _check_until_it_works(self, group: List[HelmfileCommand]) -> Optional[str]:
+    def _check_until_it_works(
+        self, deployment_group: DeploymentGroup, group: List[HelmfileCommand]
+    ) -> Optional[str]:
         """Runs the checks of the stage of one group, offering to retry on failure.
 
         Returns None if no checks are defined.
         Returns None if every check was successful (or ignored).
         Otherwise returns the user's response to a failure.
         """
-        commands = self._checks_of(group)
+        commands = self._checks_of(deployment_group)
         if not commands:
             return None
 
@@ -1102,11 +1085,11 @@ class DeployService(cli.Application):
             f"The rollback of {rollback.label}",
         )
 
-    def _confirm_diffs(self, steps: List[List[HelmfileCommand]]) -> int:
+    def _confirm_diffs(self, plan: Plan) -> int:
         """Displays the diff of each step of the plan, then requests approval.
 
         Returns the number of diff commands that failed.
         """
         return self.k8s.review_diffs(
-            [command.diff_job() for group in steps for command in group]
+            [command.diff_job() for group in plan.values() for command in group]
         )
