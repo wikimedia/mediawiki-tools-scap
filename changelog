@@ -1,3 +1,22 @@
+scap (4.287.0)
+
+  * deploy-service: Reduce rollback prompt verbosity
+  * deploy-service: Add manual check support
+  * deploy-service: Factor out some types
+  * deploy-promote: Verify the promotion with deployment-info.php
+  * statsd_host now defaults to None
+  * deploy-service: Run the check commands of the service catalog
+  * deploy-service: Run helmfile commands, add --confirm-diffs
+  * log.py: Write progress reports to stdout
+  * kubernetes.py: Rename every_release to without_release_selector
+  * kubernetes.py: Read the values of the releases concurrently
+  * kubernetes.py: Fold _record_rollback_revisions into its caller
+  * kubernetes.py: Define and use _DirectoryKey class
+  * kubernetes.py: Read each helmfile directory through one helper
+  * checks.py: Avoid dictionary changed size during iteration error
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Tue, 01 Sep 2026 09:23:29 -0700
+
 scap (4.286.0)
 
   * kubernetes.py: Read the state of the helmfile directories concurrently
