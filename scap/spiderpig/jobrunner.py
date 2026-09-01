@@ -136,13 +136,12 @@ class JobRunner(cli.Application):
             .filter(
                 Job.started_at != null(),
                 Job.finished_at == null(),
-                Job.status != "orphaned",
             )
             .all()
         )
         for job in orphaned_jobs:
-            Interaction.clear(session, job.id)
             job.set_status(session, "orphaned")
+            job.finish(session, None)
 
 
 class EndOfStdout:
