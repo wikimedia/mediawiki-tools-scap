@@ -1412,7 +1412,8 @@ async def get_favicon():
     return FileResponse(favicon)
 
 
-# The following routes correspond to Vue routes established in router.js
+# The following routes correspond to Vue routes established in router.js.
+# tests/scap/test_spiderpig_routes.py compares the two lists.
 @app.get("/")
 @app.get("/admin")
 @app.get("/login")
