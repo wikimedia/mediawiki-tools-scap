@@ -1,3 +1,9 @@
+scap (4.288.0)
+
+  * kubernetes.py: Add k8s_wait_for_all_replicas
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Wed, 02 Sep 2026 13:07:49 -0700
+
 scap (4.287.0)
 
   * deploy-service: Reduce rollback prompt verbosity
