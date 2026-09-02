@@ -261,6 +261,11 @@ class ReleaseMonitor:
     ok: bool = True
 
 
+@dataclass
+class ProgressOutcome:
+    ok: bool = True
+
+
 # How many reads in a row may fail before scap stops counting the replicas of
 # a release. kubectl reads nothing when it cannot reach the cluster.
 READ_ATTEMPTS = 3
@@ -272,13 +277,12 @@ def monitor_release(
     release: str,
     report_queue,
     freshness: int,
+    wait_for_all_replicas: bool = False,
 ):
     """Periodically reports (to `report_queue`) the number of available replicas
     of the new pods of a release.
 
-    Reports every `freshness` seconds, and then until k8s finishes every
-    rollout of the release or gives up on one, because helm returns before
-    every new pod is available (T375514).
+    Reports every `freshness` seconds.
 
     Does nothing when `report_queue` is None. A failure of kubectl skips one
     cycle, because a brief loss of connection to the cluster must not stop the
@@ -333,6 +337,10 @@ def monitor_release(
             # The report stops here instead.
             return
 
+        if not wait_for_all_replicas:
+            report(unchanged_is_done=True)
+            return
+
         # helm returns as soon as the new ReplicaSet of a Deployment has the
         # replicas that it wants, less the ones that its strategy allows to be
         # unavailable, so the last pods of a rollout arrive after the command
@@ -368,7 +376,12 @@ def monitor_release(
 
 
 @contextlib.contextmanager
-def replica_progress(name: str, expected_replicas: int):
+def replica_progress(
+    name: str,
+    expected_replicas: int,
+    wait_for_all_replicas: bool,
+    outcome: ProgressOutcome,
+):
     """Reports the progress of a deployment, as its pods become available.
 
     Yields a queue. A monitor puts a (deployment name, available replicas) pair
@@ -398,6 +411,12 @@ def replica_progress(name: str, expected_replicas: int):
                 reporter.set_success(sum(reports.values()))
 
         reporter.finish()
+
+        left = expected_replicas - sum(reports.values())
+        if left > 0 and not wait_for_all_replicas and outcome.ok:
+            logging.getLogger("scap.k8s.deploy").info(
+                "K8s deployment continues in the background."
+            )
 
     thread = threading.Thread(target=report, name="k8s deployment reporter")
     thread.start()
@@ -1173,10 +1192,15 @@ class K8sRunner:
             for release in self.releases(invocation)
         ]
         freshness = self.app.config["k8s_deployments_info_target_freshness"]
+        wait_for_all_replicas = self.app.config["k8s_wait_for_all_replicas"]
+        outcome = ProgressOutcome()
 
         with (
             replica_progress(
-                "Deployment progress", self.expected_replicas(invocations)
+                "Deployment progress",
+                self.expected_replicas(invocations),
+                wait_for_all_replicas,
+                outcome,
             ) as report_queue,
             contextlib.ExitStack() as stack,
         ):
@@ -1189,10 +1213,16 @@ class K8sRunner:
                             release,
                             report_queue,
                             freshness,
+                            wait_for_all_replicas,
                         )
                     )
                 )
-            yield monitors
+            try:
+                yield monitors
+            finally:
+                outcome.ok = all(
+                    monitor.ok for group in monitors.values() for monitor in group
+                )
 
 
 @dataclass
@@ -2157,7 +2187,9 @@ class K8sOps:
             "Rollback" if for_rollback else "Deployment",
         )
 
-    def _start_deployment_reporter(self, progress, dep_configs: List[DepConfig]):
+    def _start_deployment_reporter(
+        self, progress, dep_configs: List[DepConfig], outcome: ProgressOutcome
+    ):
         return replica_progress(
             "K8s deployment progress",
             (
@@ -2167,6 +2199,8 @@ class K8sOps:
                 if progress
                 else 0
             ),
+            self.app.config["k8s_wait_for_all_replicas"],
+            outcome,
         )
 
     def _foreach_depconfig(
@@ -2199,7 +2233,10 @@ class K8sOps:
         if not dep_configs:
             return []
 
-        with self._start_deployment_reporter(progress, dep_configs) as report_queue:
+        outcome = ProgressOutcome()
+        with self._start_deployment_reporter(
+            progress, dep_configs, outcome
+        ) as report_queue:
             with self.runner.group_pools(
                 dep_configs, lambda dep_config: dep_config.cluster
             ) as pools:
@@ -2228,6 +2265,8 @@ class K8sOps:
                         )
                     else:
                         results.append(future.result())
+
+            outcome.ok = not failed
 
             if failed:
                 raise DepConfigsFailed(
@@ -2258,6 +2297,7 @@ class K8sOps:
             release,
             report_queue,
             self.app.config["k8s_deployments_info_target_freshness"],
+            self.app.config["k8s_wait_for_all_replicas"],
         ) as monitor:
             with runner.timer(
                 f"Deploying {dep_config.fq_release_name}",
@@ -2293,6 +2333,7 @@ class K8sOps:
             release,
             report_queue,
             self.app.config["k8s_deployments_info_target_freshness"],
+            self.app.config["k8s_wait_for_all_replicas"],
         ) as monitor:
             monitor.ok = self.runner.with_logger(logger).roll_back(
                 self._invocation(dep_config),

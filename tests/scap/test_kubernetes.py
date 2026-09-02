@@ -599,6 +599,7 @@ class FakeApp:
         self.config = {
             "k8s_max_concurrent_deployments_per_cluster": max_workers,
             "k8s_deployments_info_target_freshness": 1,
+            "k8s_wait_for_all_replicas": False,
             "k8s_helmfile_diff_context_lines": 5,
         }
 
@@ -1063,8 +1064,58 @@ def test_roll_back_waits_when_the_helmfile_waits():
 
 
 def test_replica_progress_reports_nothing_without_replicas():
-    with scap.kubernetes.replica_progress("test", 0) as report_queue:
+    with scap.kubernetes.replica_progress(
+        "test", 0, False, scap.kubernetes.ProgressOutcome()
+    ) as report_queue:
         assert report_queue is None
+
+
+def _progress_note(
+    expected, counts, wait_for_all_replicas=False, outcome=None, caplog=None
+):
+    """Runs a report of `counts` and returns what it logged at the end."""
+    if outcome is None:
+        outcome = scap.kubernetes.ProgressOutcome()
+    with caplog.at_level(logging.INFO, logger="scap.k8s.deploy"):
+        with scap.kubernetes.replica_progress(
+            "test", expected, wait_for_all_replicas, outcome
+        ) as report_queue:
+            for name, available in counts:
+                report_queue.put((name, available))
+    return caplog.text
+
+
+def test_replica_progress_says_that_the_rollout_continues(caplog):
+    """A report that ends short says why, because the wait is off (T375514)."""
+    text = _progress_note(10, [("main", 4), ("main", 7)], caplog=caplog)
+    assert "K8s deployment continues in the background." in text
+
+
+def test_replica_progress_of_a_report_that_reaches_every_replica(caplog):
+    """A report that counts every replica has nothing to say."""
+    text = _progress_note(10, [("main", 10)], caplog=caplog)
+    assert text == ""
+
+
+def test_replica_progress_when_the_wait_is_on(caplog):
+    """The wait ended, so k8s is not still working on the replicas that are left."""
+    text = _progress_note(10, [("main", 7)], wait_for_all_replicas=True, caplog=caplog)
+    assert text == ""
+
+
+def test_replica_progress_of_a_deployment_that_failed(caplog):
+    """A failure leaves releases that helm returns to their prior revision.
+
+    The rollout of those releases does not continue, so the report of a
+    deployment that failed says nothing about the replicas that are left.
+    """
+    text = _progress_note(
+        10,
+        [("main", 7)],
+        outcome=scap.kubernetes.ProgressOutcome(ok=False),
+        caplog=caplog,
+    )
+    assert text == ""
 
 
 def test_helmfile_invocation_installed_releases():
@@ -1467,7 +1518,9 @@ def test_monitor_release_reports_until_the_replicas_arrive(monkeypatch):
     monkeypatch.setattr(scap.kubernetes, "deployments_of_release", lambda *a: [])
 
     reports = queue.Queue()
-    with scap.kubernetes.monitor_release("/etc/kubernetes/a", "main", reports, 60):
+    with scap.kubernetes.monitor_release(
+        "/etc/kubernetes/a", "main", reports, 60, wait_for_all_replicas=True
+    ):
         pass
 
     # The report of the last pod arrives one time, and not two.
@@ -1494,7 +1547,9 @@ def test_monitor_release_waits_while_k8s_works_on_the_rollout(monkeypatch):
 
     reports = queue.Queue()
     # A pod that arrives after four cycles that count the same pods.
-    with scap.kubernetes.monitor_release("/etc/kubernetes/a", "main", reports, 60):
+    with scap.kubernetes.monitor_release(
+        "/etc/kubernetes/a", "main", reports, 60, wait_for_all_replicas=True
+    ):
         pass
 
     assert list(reports.queue)[-1] == ("main", 3)
@@ -1521,7 +1576,9 @@ def test_monitor_release_when_kubectl_fails(monkeypatch):
     reports = queue.Queue()
     started = time.monotonic()
     with mock.patch("subprocess.run", side_effect=kubectl):
-        with scap.kubernetes.monitor_release("/etc/kubernetes/a", "main", reports, 60):
+        with scap.kubernetes.monitor_release(
+            "/etc/kubernetes/a", "main", reports, 60, wait_for_all_replicas=True
+        ):
             pass
 
     # READ_ATTEMPTS reads bound the wait, and nothing was reported.
@@ -1536,7 +1593,10 @@ def _ops_for_rollback(revisions):
     ops.rollback_revisions = {
         name: _recorded(revision) for name, revision in revisions.items()
     }
-    ops.app.config = {"k8s_deployments_info_target_freshness": 1}
+    ops.app.config = {
+        "k8s_deployments_info_target_freshness": 1,
+        "k8s_wait_for_all_replicas": False,
+    }
     return ops
 
 
@@ -1778,7 +1838,9 @@ def test_monitor_release_gives_up_when_k8s_stops(monkeypatch):
 
     reports = queue.Queue()
     started = time.monotonic()
-    with scap.kubernetes.monitor_release("/etc/kubernetes/a", "main", reports, 60):
+    with scap.kubernetes.monitor_release(
+        "/etc/kubernetes/a", "main", reports, 60, wait_for_all_replicas=True
+    ):
         pass
 
     assert time.monotonic() - started < 5
@@ -1793,13 +1855,42 @@ def test_monitor_release_of_a_deployment_that_changed_nothing(monkeypatch):
     reports = queue.Queue()
     started = time.monotonic()
     with mock.patch("subprocess.run", return_value=listing):
-        with scap.kubernetes.monitor_release("/etc/kubernetes/a", "main", reports, 60):
+        with scap.kubernetes.monitor_release(
+            "/etc/kubernetes/a", "main", reports, 60, wait_for_all_replicas=True
+        ):
             pass
 
     # No wait: k8s says the rollout is complete, so the count ends at once,
     # and the last report counts the pods that are there.
     assert time.monotonic() - started < 5
     assert list(reports.queue)[-1] == ("shellbox.codfw.main", 3)
+
+
+def test_monitor_release_without_the_wait(monkeypatch):
+    """The default reports the count of the moment the command returned.
+
+    The wait for every replica adds the time of the end of the rollout to a
+    deployment, so k8s_wait_for_all_replicas turns it on (T375514).
+    """
+    seen = []
+
+    def new_replicas(kubeconfig, release, before, unchanged_is_done=False):
+        seen.append(unchanged_is_done)
+        # k8s is still working on the rollout of the last pod.
+        return {"main": (2, False, False)}
+
+    monkeypatch.setattr(scap.kubernetes, "_new_replicas_of_release", new_replicas)
+    monkeypatch.setattr(scap.kubernetes, "deployments_of_release", lambda *a: [])
+
+    reports = queue.Queue()
+    started = time.monotonic()
+    with scap.kubernetes.monitor_release("/etc/kubernetes/a", "main", reports, 60):
+        pass
+
+    # One last report, and no wait for the pod that k8s has not made available.
+    assert time.monotonic() - started < 5
+    assert list(reports.queue) == [("main", 2)]
+    assert seen == [True]
 
 
 def test_monitor_release_of_a_deployment_that_failed():

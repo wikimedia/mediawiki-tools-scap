@@ -147,6 +147,7 @@ DEFAULT_CONFIG = {
     "k8s_helmfile_diff_context_lines": (int, 5),
     "k8s_max_concurrent_deployments_per_cluster": (int, 20),
     "k8s_deployments_info_target_freshness": (int, 10),
+    "k8s_wait_for_all_replicas": (bool, False),
     # How many replicas each MediaWiki release gets in train-dev, where the
     # replicas of production do not fit. Only train-dev reads this.
     "k8s_traindev_replicas": (int, 1),
