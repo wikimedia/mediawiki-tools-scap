@@ -251,6 +251,12 @@ const useAuthStore = defineStore( 'spiderpig-auth',
 			async startTrain( promotion ) {
 				return await this.post( '/api/jobs/train', promotion );
 			},
+			async getServices() {
+				return await this.call( '/api/services' );
+			},
+			async startDeployService( deployment ) {
+				return await this.post( '/api/jobs/deploy-service', deployment );
+			},
 			async retryJob( job_id ) {
 				return await this.post( `/api/jobs/${ job_id }/retry` );
 			},

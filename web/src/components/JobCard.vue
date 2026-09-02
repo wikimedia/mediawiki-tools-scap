@@ -190,6 +190,25 @@
 					{{ error }}
 				</div>
 				<div v-else>
+					<div v-if="serviceInfo" class="job-card__details__change-info">
+						<div class="job-card__details__change-info__grid">
+							<div class="job-card__details__change-info__grid__item">
+								<div class="job-card__details__change-info__label">
+									Service
+								</div>
+								<div>{{ serviceInfo.service }}</div>
+							</div>
+							<div
+								v-if="serviceInfo.message"
+								class="job-card__details__change-info__grid__item"
+							>
+								<div class="job-card__details__change-info__label">
+									Log message
+								</div>
+								<div>{{ serviceInfo.message }}</div>
+							</div>
+						</div>
+					</div>
 					<div v-for="( info, index ) in changeInfos" :key="index">
 						<cdx-accordion
 							:open="changeInfos.length === 1"
@@ -388,6 +407,12 @@ export default defineComponent( {
 			}
 
 			return infos.map( formatChangeInfo );
+		} );
+
+		// A deploy-service job carries the service it deploys instead of changes.
+		const serviceInfo = computed( () => {
+			const { service, message } = props.data || {};
+			return service ? { service, message } : null;
 		} );
 
 		function formatCommitMsg( linkifiedCommitMsg: Array<string | CommitLink> ) {
@@ -655,6 +680,7 @@ export default defineComponent( {
 			finishedInfo,
 			startedInfo,
 			changeInfos,
+			serviceInfo,
 			handleClick,
 			isLoading,
 			error,

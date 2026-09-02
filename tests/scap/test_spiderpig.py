@@ -26,8 +26,16 @@ from scap.spiderpig.api import (
     MAX_2FA_FAILURES,
     TWO_FA_FAILURE_WINDOW_SECONDS,
     TWO_FA_LOCKOUT_SECONDS,
+    start_deploy_service,
 )
-from scap.spiderpig.model import Base, Job, JobType, UnknownQueue, User
+from scap.spiderpig.model import (
+    Base,
+    Job,
+    JobType,
+    ServiceDeployment,
+    UnknownQueue,
+    User,
+)
 from scap.spiderpig.model import TrainGroup, TrainPromotion, TrainStatus
 from scap.spiderpig.session import SessionCookie
 import scap.spiderpig
@@ -752,3 +760,62 @@ def test_pop_passes_over_a_busy_queue(job_session):
 def test_pop_returns_none_when_every_queue_is_busy(job_session):
     add_job(job_session, JobType.BACKPORT)
     assert Job.pop(job_session, {"mediawiki"}) is None
+
+
+def test_service_deployment_command():
+    assert ServiceDeployment(service="shellbox", message="bump image").command == [
+        "scap",
+        "deploy-service",
+        "--",
+        "shellbox",
+        "bump image",
+    ]
+    assert ServiceDeployment(
+        service="shellbox", message="bump image", confirmDiffs=True
+    ).command == [
+        "scap",
+        "deploy-service",
+        "--confirm-diffs",
+        "--",
+        "shellbox",
+        "bump image",
+    ]
+
+
+@pytest.mark.parametrize("message", [None, "", "   "])
+def test_service_deployment_requires_a_message(message):
+    with pytest.raises(ValidationError):
+        ServiceDeployment(service="shellbox", message=message)
+
+
+@pytest.mark.parametrize("service", ["--dry-run", "", "-x", "a b", "../etc/passwd"])
+def test_service_deployment_rejects_a_bad_service_name(service):
+    with pytest.raises(ValidationError, match="Invalid service name"):
+        ServiceDeployment(service=service, message="bump image")
+
+
+def test_service_deployment_job_runs_in_the_queue_of_its_service(job_session):
+    deployment = ServiceDeployment(service="shellbox", message="bump image")
+    job = Job.get(job_session, deployment.add_job(session=job_session, user="bruce"))
+
+    assert job.type == JobType.DEPLOY_SERVICE
+    assert job.queue == "service:shellbox"
+    assert job.extract_data()["service"] == "shellbox"
+
+
+@pytest.mark.anyio
+async def test_start_deploy_service_rejects_a_service_that_scap_does_not_deploy(
+    job_session,
+):
+    with unittest.mock.patch.object(
+        scap.spiderpig.api, "get_service_catalog", return_value={"shellbox": None}
+    ):
+        with pytest.raises(HTTPException) as excinfo:
+            await start_deploy_service(
+                ServiceDeployment(service="nosuchservice", message="bump image"),
+                SessionUser(name="bruce", groups=[], fully_authenticated=True),
+                job_session,
+            )
+
+    assert excinfo.value.status_code == 400
+    assert "not in the service catalog" in excinfo.value.detail["message"]
