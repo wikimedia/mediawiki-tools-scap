@@ -581,6 +581,17 @@ def load_service_catalog(
     }
 
 
+def load_catalog(config) -> Dict[str, ServiceConfig]:
+    """Load the service catalog that the scap config names."""
+    return load_service_catalog(
+        config["service_catalog_file"],
+        load_cluster_groups(
+            config["cluster_groups_file"],
+            config["helmfile_default_cluster_dir"],
+        ),
+    )
+
+
 def _environments_to_deploy(
     service_config: ServiceConfig, environment_type: str, primary_datacenter: str
 ) -> List[Environment]:
@@ -741,13 +752,7 @@ class DeployService(cli.Application):
     def _service_config(self, service: str) -> ServiceConfig:
         """Returns the config of one service of the catalog."""
         catalog_file = self.config["service_catalog_file"]
-        catalog = load_service_catalog(
-            catalog_file,
-            load_cluster_groups(
-                self.config["cluster_groups_file"],
-                self.config["helmfile_default_cluster_dir"],
-            ),
-        )
+        catalog = load_catalog(self.config)
         if service not in catalog:
             raise InvalidDeployServiceConfig(
                 f"'{service}' is not a service in {catalog_file} "
