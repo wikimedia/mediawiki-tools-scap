@@ -43,6 +43,9 @@
 					&nbsp;
 					<error-logs-count />
 				</v-tab>
+				<v-tab to="/service/deploy">
+					Deploy Service
+				</v-tab>
 			</v-tabs>
 		</template>
 	</v-app-bar>

@@ -661,6 +661,57 @@ class TrainPromotion(BasePydantic):
         return self.dict(by_alias=True)
 
 
+SERVICE_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._/-]*$")
+
+
+class ServiceDeployment(BasePydantic):
+    service: str
+    message: str
+    confirm_diffs: bool = False
+
+    @field_validator("service")
+    @classmethod
+    def _validate_service(cls, value: str) -> str:
+        if not SERVICE_RE.match(value):
+            raise ValueError(
+                f"Invalid service name '{value}'. Allowed characters are letters, "
+                "digits, period, underscore, slash and hyphen, and the name must "
+                "start with a letter or a digit."
+            )
+        return value
+
+    @field_validator("message")
+    @classmethod
+    def _validate_message(cls, value: str) -> str:
+        value = value.strip()
+        if not value:
+            raise ValueError("A log message stating the deployment reason is required.")
+        return value
+
+    def add_job(self, **kwargs) -> int:
+        return Job.add(
+            JobType.DEPLOY_SERVICE,
+            command=self.command,
+            data=self.data,
+            **kwargs,
+        )
+
+    @property
+    def command(self) -> List[str]:
+        cmd = ["scap", "deploy-service"]
+
+        if self.confirm_diffs:
+            cmd.append("--confirm-diffs")
+
+        # Everything after `--` is positional, so a message that starts with a
+        # hyphen does not look like a flag.
+        return cmd + ["--", self.service, self.message]
+
+    @property
+    def data(self) -> dict:
+        return self.model_dump(by_alias=True)
+
+
 def setup_db(engine, db_filename):
     Base.metadata.create_all(engine)
 

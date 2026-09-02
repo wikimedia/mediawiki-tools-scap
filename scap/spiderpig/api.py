@@ -56,6 +56,7 @@ from fastapi.staticfiles import StaticFiles
 from sqlalchemy.orm import Session
 
 from scap import cli, log, utils, gerrit, train, logstash_poller
+from scap.deploy_service import InvalidDeployServiceConfig, load_catalog
 
 import scap.spiderpig
 from scap.spiderpig.model import (
@@ -65,6 +66,7 @@ from scap.spiderpig.model import (
     Interaction,
     Interruption,
     AlreadyResponded,
+    ServiceDeployment,
     TrainPromotion,
     TrainStatus,
     User,
@@ -692,6 +694,40 @@ async def start_train(
     return {
         "message": "Job created",
         "id": promotion.add_job(session=session, user=user.name),
+    }
+
+
+def get_service_catalog() -> dict:
+    """The deployment config of every service that scap deploys, by name."""
+    try:
+        return load_catalog(get_scap_config())
+    except InvalidDeployServiceConfig as e:
+        raise HTTPException(status_code=500, detail={"message": str(e)})
+
+
+@app.get("/api/services")
+async def get_services():
+    return {"services": sorted(get_service_catalog())}
+
+
+@app.post("/api/jobs/deploy-service")
+async def start_deploy_service(
+    deployment: ServiceDeployment,
+    user: Annotated[SessionUser, Depends(get_current_user)],
+    session: Session = Depends(get_db_session),
+):
+    if deployment.service not in get_service_catalog():
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "message": f"'{deployment.service}' is not in the service catalog",
+                "service": deployment.service,
+            },
+        )
+
+    return {
+        "message": "Job created",
+        "id": deployment.add_job(session=session, user=user.name),
     }
 
 
@@ -1386,6 +1422,7 @@ async def get_favicon():
 @app.get("/mediawiki/backport")
 @app.get("/mediawiki/train")
 @app.get("/mediawiki/logs")
+@app.get("/service/deploy")
 async def index_page():
     return FileResponse(index_html, headers={"Cache-Control": "no-cache"})
 
