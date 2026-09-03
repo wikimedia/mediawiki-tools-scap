@@ -832,7 +832,6 @@ async def retry_job(
     gerritsession: Annotated[gerrit.GerritSession, Depends(get_gerrit_session)],
     session: Session = Depends(get_db_session),
 ):
-    """Extract change numbers from a finished job and create a new backport job."""
     # Ensure the job has finished
     if job.finished_at is None:
         raise HTTPException(
@@ -843,17 +842,27 @@ async def retry_job(
             },
         )
 
-    # Only allow retrying backport jobs
-    if job.type != JobType.BACKPORT:
-        raise HTTPException(
-            status_code=400,
-            detail={
-                "message": "Only backport jobs can be retried",
-                "job_id": job.id,
-            },
-        )
+    if job.type == JobType.BACKPORT:
+        return await _retry_backport(job, user, gerritsession, session)
 
-    # Extract change numbers from the original job's data
+    if job.type == JobType.DEPLOY_SERVICE:
+        return _retry_deploy_service(job, user, session)
+
+    raise HTTPException(
+        status_code=400,
+        detail={
+            "message": f"A {job.type.value} job cannot be retried",
+            "job_id": job.id,
+        },
+    )
+
+
+async def _retry_backport(
+    job: Job,
+    user: SessionUser,
+    gerritsession: gerrit.GerritSession,
+    session: Session,
+) -> dict:
     change_numbers = [
         info["number"] for info in job.extract_data().get("change_infos", [])
     ]
@@ -867,12 +876,30 @@ async def retry_job(
             },
         )
 
-    # Create a new backport job with fresh change data
     # Convert change numbers to strings for the command line
     change_urls = [str(num) for num in change_numbers]
     return await _create_backport_job(
         change_urls, change_urls, user, gerritsession, session
     )
+
+
+def _retry_deploy_service(job: Job, user: SessionUser, session: Session) -> dict:
+    deployment = ServiceDeployment(**job.extract_data())
+
+    if deployment.service not in get_service_catalog():
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "message": f"'{deployment.service}' is no longer in the service catalog",
+                "service": deployment.service,
+                "job_id": job.id,
+            },
+        )
+
+    return {
+        "message": "Job created",
+        "id": deployment.add_job(session=session, user=user.name),
+    }
 
 
 def set_additional_job_attributes(job: Job):
@@ -902,6 +929,7 @@ async def get_jobs(
         # safely modify it without the changes being committed back to the
         # database.
         session.expunge(job)
+        job.queue_name = job_queue_name(job)
         job.status = job.extract_status()
         job.interaction = get_parsed_interaction(session, job)
         job.data = load_job_data(job)
@@ -923,6 +951,7 @@ async def get_job(
     # safely modify it without the changes being committed back to the
     # database.
     session.expunge(job)
+    job.queue_name = job_queue_name(job)
     job.status = job.extract_status()
     job.data = load_job_data(job)
     set_additional_job_attributes(job)

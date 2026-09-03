@@ -93,6 +93,7 @@
 							<span class="job-card__stop-button__label">STOP</span>
 						</button>
 						<button
+							v-if="showRetryButton"
 							class="job-card__retry-button"
 							:disabled="!canRetry || retrying"
 							:title="
@@ -308,6 +309,9 @@ import useApi from '../api';
 import useJobrunner from '../jobrunner';
 import { notificationsStore } from '../state';
 
+// The kinds of job that retry_job() in scap/spiderpig/api.py creates again.
+const RETRYABLE_TYPES = [ 'backport', 'deploy-service' ];
+
 export default defineComponent( {
 	name: 'SpJobCard',
 
@@ -329,6 +333,14 @@ export default defineComponent( {
 	props: {
 		id: {
 			type: Number,
+			default: null
+		},
+		type: {
+			type: String,
+			required: true
+		},
+		queue_name: {
+			type: String,
 			default: null
 		},
 		command_decoded: {
@@ -570,14 +582,28 @@ export default defineComponent( {
 			window.open( url );
 		}
 
+		// The queue that a retry of this job would run in, or null when the
+		// apiserver does not retry this kind of job.
+		const retryQueue = computed(
+			() => ( RETRYABLE_TYPES.includes( props.type ) ? props.queue_name : null )
+		);
+
+		const retryQueueIsBusy = computed(
+			() => !!retryQueue.value && jobrunner.queueIsBusy( retryQueue.value )
+		);
+
 		const canRetry = computed( () => (
+			retryQueue.value !== null &&
 			props.finished_at &&
 			!props.running &&
 			props.started_at !== null &&
-			jobrunner.idle.value
+			!retryQueueIsBusy.value
 		) );
 
 		const retryDisabledReason = computed( () => {
+			if ( retryQueue.value === null ) {
+				return `A ${ props.type } job cannot be retried`;
+			}
 			if ( !props.finished_at ) {
 				return 'Job has not finished yet';
 			}
@@ -587,13 +613,16 @@ export default defineComponent( {
 			if ( props.started_at === null ) {
 				return 'Job has not started';
 			}
-			if ( !jobrunner.idle.value ) {
-				return 'Another job is running';
+			if ( retryQueueIsBusy.value ) {
+				return props.type === 'deploy-service' ?
+					`${ props.data?.service } is deploying` :
+					'MediaWiki is deploying';
 			}
 			return '';
 		} );
 
 		const showViewLogButton = computed( () => !isJobDetailPage.value );
+		const showRetryButton = computed( () => retryQueue.value !== null );
 
 		function openRetryConfirmation() {
 			confirmRetryOpen.value = true;
@@ -676,6 +705,7 @@ export default defineComponent( {
 			rootClasses,
 			showInteraction,
 			showJobLog,
+			showRetryButton,
 			showViewLogButton,
 			finishedInfo,
 			startedInfo,

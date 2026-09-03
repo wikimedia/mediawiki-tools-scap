@@ -28,6 +28,9 @@ from scap.spiderpig.api import (
     MAX_2FA_FAILURES,
     TWO_FA_FAILURE_WINDOW_SECONDS,
     TWO_FA_LOCKOUT_SECONDS,
+    get_jobs,
+    job_queue_name,
+    retry_job,
     start_deploy_service,
 )
 import scap.spiderpig.jobrunner as jobrunner
@@ -84,6 +87,8 @@ def scap_config():
         "spiderpig_auth_server": "https://cas.example.org/cas",
         "spiderpig_admin_groups": "cn=admins,ou=groups,dc=example,dc=org",
         "spiderpig_user_groups": "cn=deployers,ou=groups,dc=example,dc=org",
+        "gerrit_url": "https://gerrit.example.org",
+        "phorge_url": "https://phabricator.example.org",
     }
 
     env = {
@@ -916,3 +921,130 @@ def test_the_jobrunner_runs_one_job_at_a_time_in_each_queue(
     # A job of a busy queue waits, and does not hold up the jobs behind it.
     assert started[shellbox_again] >= started[shellbox] + JOB_SECONDS
 
+
+def finished_deploy_service_job(session, **kwargs) -> Job:
+    deployment = ServiceDeployment(
+        service=kwargs.get("service", "shellbox"),
+        message=kwargs.get("message", "bump image"),
+        confirmDiffs=kwargs.get("confirm_diffs", True),
+    )
+    job = Job.get(session, deployment.add_job(session=session, user="bruce"))
+    job.started_at = time.time()
+    session.commit()
+    job.finish(session, 1)
+    return job
+
+
+@pytest.mark.anyio
+async def test_retry_of_a_deploy_service_job_deploys_the_same_service(job_session):
+    job = finished_deploy_service_job(job_session)
+
+    with unittest.mock.patch.object(
+        scap.spiderpig.api, "get_service_catalog", return_value={"shellbox": None}
+    ):
+        result = await retry_job(
+            job,
+            SessionUser(name="clark", groups=[], fully_authenticated=True),
+            None,
+            job_session,
+        )
+
+    retried = Job.get(job_session, result["id"])
+    assert retried.type == JobType.DEPLOY_SERVICE
+    assert retried.queue == "service:shellbox"
+    assert json.loads(retried.command) == json.loads(job.command)
+    assert retried.extract_data() == job.extract_data()
+    # The retry belongs to whoever asked for it.
+    assert retried.user == "clark"
+
+
+@pytest.mark.anyio
+async def test_retry_refuses_a_service_that_scap_no_longer_deploys(job_session):
+    job = finished_deploy_service_job(job_session, service="goneaway")
+
+    with unittest.mock.patch.object(
+        scap.spiderpig.api, "get_service_catalog", return_value={"shellbox": None}
+    ):
+        with pytest.raises(HTTPException) as excinfo:
+            await retry_job(
+                job,
+                SessionUser(name="bruce", groups=[], fully_authenticated=True),
+                None,
+                job_session,
+            )
+
+    assert excinfo.value.status_code == 400
+    assert "no longer in the service catalog" in excinfo.value.detail["message"]
+
+
+@pytest.mark.anyio
+async def test_retry_refuses_a_train_job(job_session):
+    job_id = add_job(job_session, JobType.TRAIN)
+    job = Job.get(job_session, job_id)
+    job.started_at = time.time()
+    job_session.commit()
+    job.finish(job_session, 1)
+
+    with pytest.raises(HTTPException) as excinfo:
+        await retry_job(
+            job,
+            SessionUser(name="bruce", groups=[], fully_authenticated=True),
+            None,
+            job_session,
+        )
+
+    assert excinfo.value.status_code == 400
+    assert excinfo.value.detail["message"] == "A train job cannot be retried"
+
+
+@pytest.mark.anyio
+async def test_retry_refuses_a_job_that_is_still_running(job_session):
+    add_job(job_session, JobType.BACKPORT)
+    job = Job.pop(job_session, set())
+
+    with pytest.raises(HTTPException) as excinfo:
+        await retry_job(
+            job,
+            SessionUser(name="bruce", groups=[], fully_authenticated=True),
+            None,
+            job_session,
+        )
+
+    assert excinfo.value.status_code == 400
+    assert "still running" in excinfo.value.detail["message"]
+
+
+def test_job_queue_name_reports_the_queue_of_each_kind_of_job(job_session):
+    backport = Job.get(job_session, add_job(job_session, JobType.BACKPORT))
+    train = Job.get(job_session, add_job(job_session, JobType.TRAIN))
+    deployment = ServiceDeployment(service="shellbox", message="bump image")
+    service = Job.get(
+        job_session, deployment.add_job(session=job_session, user="bruce")
+    )
+
+    assert job_queue_name(backport) == "mediawiki"
+    assert job_queue_name(train) == "mediawiki"
+    assert job_queue_name(service) == "service:shellbox"
+
+
+def test_job_queue_name_of_a_job_with_no_queue(job_session):
+    # A deploy-service job whose data does not name a service.
+    job = Job.get(job_session, add_job(job_session, JobType.DEPLOY_SERVICE))
+
+    assert job_queue_name(job) is None
+
+
+@pytest.mark.anyio
+async def test_get_jobs_reports_the_queue_of_each_job(job_session):
+    add_job(job_session, JobType.BACKPORT)
+    ServiceDeployment(service="shellbox", message="bump image").add_job(
+        session=job_session, user="bruce"
+    )
+
+    result = await get_jobs(job_session, limit=10, skip=0)
+
+    # `queue_name` must be read before `data` is replaced with its parsed form.
+    assert [job.queue_name for job in result["jobs"]] == [
+        "service:shellbox",
+        "mediawiki",
+    ]
