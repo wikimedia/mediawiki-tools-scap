@@ -1,7 +1,9 @@
 # Test spiderpig apiserver auth-related functions
 
 import json
+import logging
 import re
+import time
 from fastapi.datastructures import State
 import pyotp
 import os
@@ -28,8 +30,10 @@ from scap.spiderpig.api import (
     TWO_FA_LOCKOUT_SECONDS,
     start_deploy_service,
 )
+import scap.spiderpig.jobrunner as jobrunner
 from scap.spiderpig.model import (
     Base,
+    JobrunnerStatus,
     Job,
     JobType,
     ServiceDeployment,
@@ -694,22 +698,27 @@ def test_train_promotion_rejects_invalid_excluded_wiki_name(train_status_fixture
 
 
 @pytest.fixture
-def job_session(tmpdir):
+def job_engine(tmpdir):
     engine = scap.spiderpig.engine(f"{tmpdir}/spiderpig.db")
     Base.metadata.create_all(engine)
     try:
-        with Session(engine) as session:
-            yield session
+        yield engine
     finally:
         engine.dispose()
 
 
-def add_job(session, type, service=None) -> int:
+@pytest.fixture
+def job_session(job_engine):
+    with Session(job_engine) as session:
+        yield session
+
+
+def add_job(session, type, service=None, command=None) -> int:
     return Job.add(
         type,
         session,
         user="bruce",
-        command=["scap", type.value],
+        command=command or ["scap", type.value],
         data={"service": service} if service else None,
     )
 
@@ -819,3 +828,91 @@ async def test_start_deploy_service_rejects_a_service_that_scap_does_not_deploy(
 
     assert excinfo.value.status_code == 400
     assert "not in the service catalog" in excinfo.value.detail["message"]
+
+
+def test_jobrunner_status_records_the_process(job_session):
+    assert JobrunnerStatus.get(job_session) is None
+
+    JobrunnerStatus.set_pid(job_session, 4242)
+    assert JobrunnerStatus.get(job_session).pid == 4242
+
+    # Only one row records the jobrunner.
+    JobrunnerStatus.set_pid(job_session, 99)
+    assert JobrunnerStatus.get(job_session).pid == 99
+
+    JobrunnerStatus.set_pid(job_session, None)
+    assert JobrunnerStatus.get(job_session).pid is None
+
+
+def test_get_running_reports_the_jobs_that_started_and_did_not_finish(job_session):
+    queued = add_job(job_session, JobType.BACKPORT)
+    running = Job.pop(job_session, set())
+    assert [job.id for job in Job.get_running(job_session)] == [running.id]
+
+    running.finish(job_session, 0)
+    assert Job.get_running(job_session) == []
+    assert Job.get(job_session, queued).finished_at is not None
+
+
+# How long each job of the dispatch test runs.  It must be long enough that a
+# job which waits for a queue starts measurably later.
+JOB_SECONDS = 0.4
+
+
+def sleeper(seconds: float) -> list:
+    return ["bash", "-c", f"sleep {seconds}"]
+
+
+def drive_jobrunner(session, engine, logdir, job_ids, timeout=30) -> dict:
+    """Runs the dispatch loop of the jobrunner until every job has finished.
+
+    Returns the time at which each job started, counted from the first pop.
+    """
+    logger = logging.getLogger("test-jobrunner")
+    workers = {}
+    started = {}
+    began = time.time()
+
+    while time.time() - began < timeout:
+        jobrunner.reap_workers(workers)
+
+        job = Job.pop(session, set(workers))
+        if job is None:
+            if not workers and all(
+                Job.get(session, job_id).finished_at for job_id in job_ids
+            ):
+                break
+            time.sleep(0.02)
+            continue
+
+        started[job.id] = time.time() - began
+        workers[job.queue] = jobrunner.start_worker(job, engine, logger, logdir)
+
+    jobrunner.reap_workers(workers)
+    return started
+
+
+def test_the_jobrunner_runs_one_job_at_a_time_in_each_queue(
+    job_session, job_engine, tmpdir
+):
+    logdir = str(tmpdir.mkdir("jobs"))
+    command = sleeper(JOB_SECONDS)
+
+    shellbox = add_job(job_session, JobType.DEPLOY_SERVICE, "shellbox", command)
+    echostore = add_job(job_session, JobType.DEPLOY_SERVICE, "echostore", command)
+    backport = add_job(job_session, JobType.BACKPORT, None, command)
+    # Behind the first shellbox job, in the same queue.
+    shellbox_again = add_job(job_session, JobType.DEPLOY_SERVICE, "shellbox", command)
+
+    job_ids = [shellbox, echostore, backport, shellbox_again]
+    started = drive_jobrunner(job_session, job_engine, logdir, job_ids)
+
+    for job_id in job_ids:
+        assert Job.get(job_session, job_id).exit_status == 0
+
+    # A job of another queue does not wait.
+    assert started[echostore] < started[shellbox] + JOB_SECONDS
+    assert started[backport] < started[shellbox] + JOB_SECONDS
+    # A job of a busy queue waits, and does not hold up the jobs behind it.
+    assert started[shellbox_again] >= started[shellbox] + JOB_SECONDS
+

@@ -6,7 +6,7 @@
 			</template>
 		</v-toolbar>
 		<v-sheet color="surface-light">
-			<slot name="new-job" :idle="idle" />
+			<slot name="new-job" />
 		</v-sheet>
 		<sp-job-history />
 	</div>
@@ -16,7 +16,6 @@
 import { defineComponent } from 'vue';
 import { VSheet } from 'vuetify/components/VSheet';
 import { VToolbar } from 'vuetify/components/VToolbar';
-import useJobrunner from '../jobrunner';
 import SpJobHistory from './JobHistory.vue';
 
 export default defineComponent( {
@@ -32,14 +31,6 @@ export default defineComponent( {
 			type: String,
 			default: ''
 		}
-	},
-
-	setup() {
-		const jobrunner = useJobrunner();
-
-		return {
-			idle: jobrunner.idle
-		};
 	}
 } );
 </script>
