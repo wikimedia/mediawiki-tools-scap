@@ -1,7 +1,7 @@
 <template>
 	<sp-job-page title="Deploy Service">
-		<template #new-job="{ idle }">
-			<sp-deploy-service :idle="idle" />
+		<template #new-job>
+			<sp-deploy-service />
 		</template>
 	</sp-job-page>
 </template>

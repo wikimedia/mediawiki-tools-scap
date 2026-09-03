@@ -69,6 +69,7 @@ from scap.spiderpig.model import (
     ServiceDeployment,
     TrainPromotion,
     TrainStatus,
+    UnknownQueue,
     User,
 )
 from scap.spiderpig.session import SessionCookie
@@ -617,6 +618,14 @@ def linkify_commit_mesage(commit_message) -> List:
     return res
 
 
+def job_queue_name(job: Job) -> Optional[str]:
+    """The name of the queue that this job runs in, or None when it has none."""
+    try:
+        return job.queue
+    except UnknownQueue:
+        return None
+
+
 def load_job_data(job: Job) -> dict:
     scap_config = get_scap_config()
     gerrit_url = scap_config["gerrit_url"]
@@ -660,28 +669,30 @@ async def jobrunner_status(
 
     status = JobrunnerStatus.get(session)
 
-    if not status.pid or not pid_exists(status.pid):
+    if not status or not status.pid or not pid_exists(status.pid):
         return {
             "status": "Jobrunner not running",
-            "job": None,
-            "pending_interaction": None,
+            "running_jobs": [],
+            "busy_queues": [],
         }
 
-    job = None
-    i = None
+    running_jobs = Job.get_running(session)
+    busy_queues = sorted(job.queue for job in running_jobs)
 
-    if status.job_id:
-        job = Job.get(session, status.job_id)
-        if job:
-            session.expunge(job)
-            job.status = job.extract_status()
-            job.data = load_job_data(job)
-            i = get_parsed_interaction(session, job)
+    for job in running_jobs:
+        # Detach the job object from the SQLAlchemy session so that we can
+        # safely modify it without the changes being committed back to the
+        # database.
+        session.expunge(job)
+        job.queue_name = job_queue_name(job)
+        job.status = job.extract_status()
+        job.data = load_job_data(job)
+        job.interaction = get_parsed_interaction(session, job)
 
     return {
-        "status": status.status,
-        "job": job,
-        "pending_interaction": i,
+        "status": "idle" if not running_jobs else "running",
+        "running_jobs": running_jobs,
+        "busy_queues": busy_queues,
     }
 
 

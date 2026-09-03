@@ -8,7 +8,7 @@
 			<v-autocomplete
 				ref="autocomplete"
 				v-model="changeNumbers"
-				:disabled="!idle"
+				:disabled="mediawikiIsBusy"
 				:hide-no-data="hideNoData"
 				:items="menuItems"
 				:loading="searching"
@@ -66,6 +66,7 @@ import { ref, computed } from 'vue';
 import { CdxButton, CdxDialog, CdxField } from '@wikimedia/codex';
 import { VAutocomplete, VListItem } from 'vuetify/lib/components/index.mjs';
 import useApi from '../api';
+import useJobrunner from '../jobrunner';
 import { notificationsStore } from '@/state';
 
 export default {
@@ -79,9 +80,6 @@ export default {
 	},
 
 	props: {
-		idle: {
-			type: Boolean
-		},
 		initialChangeNumbers: {
 			type: Array<string>,
 			default: () => []
@@ -91,6 +89,8 @@ export default {
 	setup( props ) {
 		const autocomplete = ref( null );
 		const api = useApi();
+		const jobrunner = useJobrunner();
+		const mediawikiIsBusy = jobrunner.mediawikiIsBusy;
 		const notifications = notificationsStore();
 		const alertDialogOpen = ref( false );
 		const alertDialogText = ref( '' );
@@ -102,13 +102,9 @@ export default {
 
 		changeNumbers.value = props.initialChangeNumbers;
 
-		const buttonDisabled = computed( () => {
-			if ( changeNumbers.value.length > 0 ) {
-				return false;
-			} else {
-				return true;
-			}
-		} );
+		const buttonDisabled = computed(
+			() => mediawikiIsBusy.value || changeNumbers.value.length === 0
+		);
 
 		async function startBackport() {
 			hideNoData.value = true;
@@ -164,6 +160,7 @@ export default {
 			changeNumbers,
 			closeMenu,
 			hideNoData,
+			mediawikiIsBusy,
 			menuItems,
 			onSearch,
 			searching,

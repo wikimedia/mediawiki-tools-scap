@@ -86,49 +86,23 @@ class JobRunner(cli.Application):
 
             with Session(engine) as session:
                 self._clear_orphaned_jobs(session)
+                JobrunnerStatus.set_pid(session, os.getpid())
 
-                busy_queues = set()
+                # The queue of each job that a worker is running.
+                workers = {}
 
                 try:
                     while True:
-                        self._set_status(session, "idle")
+                        reap_workers(workers)
 
-                        job = Job.pop(session, busy_queues)
+                        job = Job.pop(session, set(workers))
                         if job is None:
                             time.sleep(self.arguments.polling_interval)
                             continue
 
-                        exit_status = None
-                        try:
-                            exit_status = run_job(
-                                job,
-                                engine,
-                                session,
-                                logger,
-                                logdir,
-                                self._set_running_job_status,
-                            )
-                        finally:
-                            job.finish(session, exit_status)
+                        workers[job.queue] = start_worker(job, engine, logger, logdir)
                 finally:
-                    self._set_status(session, "Terminated", clear_pid=True)
-
-    def _set_status(
-        self,
-        session: Session,
-        status: str,
-        job_id: Optional[int] = None,
-        clear_pid: bool = False,
-    ):
-        JobrunnerStatus.set(session, status, job_id, clear_pid)
-
-    def _set_running_job_status(
-        self, session: Session, job_id: int, sub_status: Optional[str] = None
-    ):
-        status = f"Running job {job_id}"
-        if sub_status:
-            status += f", {sub_status}"
-        self._set_status(session, status, job_id)
+                    JobrunnerStatus.set_pid(session, None)
 
     def _clear_orphaned_jobs(self, session: Session):
         orphaned_jobs = (
@@ -142,6 +116,45 @@ class JobRunner(cli.Application):
         for job in orphaned_jobs:
             job.set_status(session, "orphaned")
             job.finish(session, None)
+
+
+def start_worker(
+    job: Job, engine: Engine, logger: logging.Logger, logdir: str
+) -> threading.Thread:
+    """Starts a thread that runs one job."""
+    thread = threading.Thread(
+        target=_run_job_in_thread,
+        name=f"job-{job.id}",
+        daemon=True,
+        args=(job.id, engine, logger, logdir),
+    )
+    thread.start()
+    return thread
+
+
+def _run_job_in_thread(
+    job_id: int, engine: Engine, logger: logging.Logger, logdir: str
+):
+    """Runs one job to its end.
+
+    The session belongs to this thread.  A Session and the transactions that it
+    starts are for one thread only.
+    """
+    with Session(engine) as session:
+        job = Job.get(session, job_id)
+        exit_status = None
+        try:
+            exit_status = run_job(job, engine, session, logger, logdir)
+        except Exception:
+            logger.exception("Job %d ended with an unhandled error", job_id)
+        finally:
+            job.finish(session, exit_status)
+
+
+def reap_workers(workers: dict):
+    done = [name for name, thread in workers.items() if not thread.is_alive()]
+    for name in done:
+        workers.pop(name).join()
 
 
 class EndOfStdout:
@@ -238,12 +251,10 @@ def run_job(
     session: Session,
     logger: logging.Logger,
     logdir: str,
-    set_jobrunner_status: callable,
 ) -> Optional[int]:
     """
     Returns the exit status of the subprocess (if any)
     """
-    set_jobrunner_status(session, job.id)
     logger.info(
         "Running job %d created by %s at %s",
         job.id,
@@ -290,7 +301,7 @@ def run_job(
             """
             line_stripped = line.rstrip()
 
-            logger.log(level, line_stripped)
+            logger.log(level, "[job %d] %s", job.id, line_stripped)
             if dojsonlog:
                 jsonlog({"type": "line", "line": line_stripped})
 
@@ -309,120 +320,126 @@ def run_job(
             log(msg, logging.ERROR)
             return
 
-        with running_job(engine, job.id, p, iokey) as rj:
-            job_status = None
-            old_job_status = None
+        # `with p` closes its pipes on every path out of this block.
+        with p:
+            with running_job(engine, job.id, p, iokey) as rj:
+                job_status = None
+                old_job_status = None
 
-            while True:
-                got = rj.get()
+                while True:
+                    got = rj.get()
 
-                if isinstance(got, EndOfStdout):
-                    break
+                    if isinstance(got, EndOfStdout):
+                        break
 
-                if isinstance(got, Interruption):
-                    i = got
-                    msg = f"[Jobrunner: {i.user} {i.type}ed]\n"
-                    log(msg, logging.WARNING)
-                    jsonlog(
-                        {
-                            "type": "signal",
-                            "user": i.user,
-                            "signal": i.type,
-                        }
-                    )
-                    signo = signal.SIGINT if i.type == "interrupt" else signal.SIGKILL
-                    os.killpg(os.getpgid(p.pid), signo)
-                    continue
-
-                if isinstance(got, str):
-                    log(got)
-                    continue
-
-                if isinstance(got, dict):
-                    msg = got
-                    jsonlog(msg)
-
-                    type = msg.get("type")
-
-                    if type == "status":
-                        job_status = msg.get("status")
-                        job.set_status(session, job_status)
-                        continue
-
-                    if type == "line":
-                        line = msg.get("line") + "\n"
-                        sensitive = msg.get("sensitive")
-                        if not sensitive:
-                            log(line, dojsonlog=False)
-                        continue
-
-                    if type == "progress":
-                        progress = msg["progress"]
-                        job.set_progress(session, progress)
-                        continue
-
-                    if type != "interaction":
-                        logger.warning(
-                            "Unexpected message type '%s' received from subprocess.  Ignoring.",
-                            type,
+                    if isinstance(got, Interruption):
+                        i = got
+                        msg = f"[Jobrunner: {i.user} {i.type}ed]\n"
+                        log(msg, logging.WARNING)
+                        jsonlog(
+                            {
+                                "type": "signal",
+                                "user": i.user,
+                                "signal": i.type,
+                            }
                         )
-                        continue
-                    # Set up an interaction
-                    subtype = msg.get("subtype")
-                    if subtype not in ["choices", "input_line"]:
-                        logger.warning(
-                            "Unexpected interaction type '%s' received from subprocess.  Ignoring.",
-                            subtype,
+                        signo = (
+                            signal.SIGINT if i.type == "interrupt" else signal.SIGKILL
                         )
+                        os.killpg(os.getpgid(p.pid), signo)
                         continue
-                    prompt = msg["prompt"]
-                    choices = msg["choices"] if subtype == "choices" else None
-                    default = msg.get("default")
 
-                    # Show the terminal style prompt in the job log
-                    if subtype == "input_line":
-                        log(prompt)
-                    else:
-                        log(TerminalIO.generate_prompt_text(prompt, choices, default))
+                    if isinstance(got, str):
+                        log(got)
+                        continue
 
-                    Interaction.register(
-                        session, job.id, subtype, prompt, choices, default
-                    )
-                    set_jobrunner_status(session, job.id, "awaiting user interaction")
-                    old_job_status = job_status
-                    job.set_status(session, "Awaiting user interaction")
-                    logger.info("Waiting for an interaction")
-                    continue
+                    if isinstance(got, dict):
+                        msg = got
+                        jsonlog(msg)
 
-                if isinstance(got, Interaction):
-                    message = (
-                        f"User '{got.responded_by}' responded with '{got.response}'"
-                    )
-                    logger.info(message)
-                    jsonlog(
-                        {
-                            "type": "response",
-                            "user": got.responded_by,
-                            "response": got.response,
-                        }
-                    )
-                    print(got.response, file=rj.proc.stdin, flush=True)
-                    set_jobrunner_status(session, job.id)  # Clear jobrunner status
-                    job.set_status(session, old_job_status)
-                    continue
+                        type = msg.get("type")
 
-                raise Exception(f"Unexpected item retrieved from job_queue: {got}")
+                        if type == "status":
+                            job_status = msg.get("status")
+                            job.set_status(session, job_status)
+                            continue
 
-        p.stdin.close()
-        exit_status = p.wait()
-        jsonlog({"type": "exit", "status": exit_status})
-        if exit_status == 0:
-            final_status = f"Job {job.id} finished normally"
-        elif exit_status < 0:
-            final_status = f"Job {job.id} terminated by signal {-exit_status}"
-        else:
-            final_status = f"Job {job.id} finished with status {exit_status}"
-        logger.info(final_status)
-        job.set_status(session, final_status)
+                        if type == "line":
+                            line = msg.get("line") + "\n"
+                            sensitive = msg.get("sensitive")
+                            if not sensitive:
+                                log(line, dojsonlog=False)
+                            continue
 
-        return exit_status
+                        if type == "progress":
+                            progress = msg["progress"]
+                            job.set_progress(session, progress)
+                            continue
+
+                        if type != "interaction":
+                            logger.warning(
+                                "Unexpected message type '%s' received from subprocess.  Ignoring.",
+                                type,
+                            )
+                            continue
+                        # Set up an interaction
+                        subtype = msg.get("subtype")
+                        if subtype not in ["choices", "input_line"]:
+                            logger.warning(
+                                "Unexpected interaction type '%s' received from subprocess.  Ignoring.",
+                                subtype,
+                            )
+                            continue
+                        prompt = msg["prompt"]
+                        choices = msg["choices"] if subtype == "choices" else None
+                        default = msg.get("default")
+
+                        # Show the terminal style prompt in the job log
+                        if subtype == "input_line":
+                            log(prompt)
+                        else:
+                            log(
+                                TerminalIO.generate_prompt_text(
+                                    prompt, choices, default
+                                )
+                            )
+
+                        Interaction.register(
+                            session, job.id, subtype, prompt, choices, default
+                        )
+                        old_job_status = job_status
+                        job.set_status(session, "Awaiting user interaction")
+                        logger.info("Waiting for an interaction")
+                        continue
+
+                    if isinstance(got, Interaction):
+                        message = (
+                            f"User '{got.responded_by}' responded with '{got.response}'"
+                        )
+                        logger.info(message)
+                        jsonlog(
+                            {
+                                "type": "response",
+                                "user": got.responded_by,
+                                "response": got.response,
+                            }
+                        )
+                        print(got.response, file=rj.proc.stdin, flush=True)
+                        job.set_status(session, old_job_status)
+                        continue
+
+                    raise Exception(f"Unexpected item retrieved from job_queue: {got}")
+
+            p.stdin.close()
+            exit_status = p.wait()
+            jsonlog({"type": "exit", "status": exit_status})
+            if exit_status == 0:
+                final_status = f"Job {job.id} finished normally"
+            elif exit_status < 0:
+                final_status = f"Job {job.id} terminated by signal {-exit_status}"
+            else:
+                final_status = f"Job {job.id} finished with status {exit_status}"
+            logger.info(final_status)
+            job.set_status(session, final_status)
+
+            return exit_status

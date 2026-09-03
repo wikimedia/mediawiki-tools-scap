@@ -7,7 +7,6 @@
 		<div class="deploy-service__input">
 			<v-autocomplete
 				v-model="service"
-				:disabled="!idle"
 				:items="services"
 				:loading="loading"
 				aria-label="Choose a service to deploy"
@@ -25,7 +24,6 @@
 
 			<v-text-field
 				v-model="message"
-				:disabled="!idle"
 				aria-label="Log message that says why"
 				density="compact"
 				persistent-placeholder
@@ -36,6 +34,7 @@
 				<template #append>
 					<cdx-button
 						:disabled="buttonDisabled"
+						:title="buttonDisabledReason"
 						@click="startDeployService"
 					>
 						Deploy Service
@@ -44,7 +43,7 @@
 			</v-text-field>
 		</div>
 
-		<cdx-checkbox v-model="confirmDiffs" :disabled="!idle">
+		<cdx-checkbox v-model="confirmDiffs">
 			Show the diffs and ask for approval before the deployment
 		</cdx-checkbox>
 
@@ -65,6 +64,7 @@ import { VAutocomplete } from 'vuetify/components/VAutocomplete';
 import { VListItem } from 'vuetify/components/VList';
 import { VTextField } from 'vuetify/components/VTextField';
 import useApi from '../api';
+import useJobrunner, { serviceQueue } from '../jobrunner';
 import { notificationsStore } from '../state';
 
 export default {
@@ -79,14 +79,9 @@ export default {
 		VTextField
 	},
 
-	props: {
-		idle: {
-			type: Boolean
-		}
-	},
-
-	setup( props ) {
+	setup() {
 		const api = useApi();
+		const jobrunner = useJobrunner();
 		const notifications = notificationsStore();
 
 		const services = ref<string[]>( [] );
@@ -102,9 +97,24 @@ export default {
 			() => loadError.value || 'No services found.'
 		);
 
-		const buttonDisabled = computed(
-			() => !props.idle || !service.value || !message.value.trim()
+		const serviceIsDeploying = computed(
+			() => !!service.value && jobrunner.queueIsBusy( serviceQueue( service.value ) )
 		);
+
+		const buttonDisabledReason = computed( () => {
+			if ( !service.value ) {
+				return 'Choose a service';
+			}
+			if ( !message.value.trim() ) {
+				return 'Enter a log message that says why';
+			}
+			if ( serviceIsDeploying.value ) {
+				return `${ service.value } is deploying`;
+			}
+			return '';
+		} );
+
+		const buttonDisabled = computed( () => buttonDisabledReason.value !== '' );
 
 		async function loadServices() {
 			loading.value = true;
@@ -143,6 +153,7 @@ export default {
 			alertDialogOpen,
 			alertDialogText,
 			buttonDisabled,
+			buttonDisabledReason,
 			confirmDiffs,
 			loading,
 			message,

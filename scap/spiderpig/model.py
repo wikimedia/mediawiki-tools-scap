@@ -169,25 +169,19 @@ class JobrunnerStatus(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     pid: Mapped[Optional[int]]
-    status: Mapped[str]
-    job_id: Mapped[Optional[int]]
 
     @classmethod
-    def get(self, session: Session) -> "JobrunnerStatus":
+    def get(self, session: Session) -> Optional["JobrunnerStatus"]:
         return session.scalar(select(JobrunnerStatus))
 
     @classmethod
-    def set(
-        self,
-        session: Session,
-        status: str,
-        job_id: Optional[int] = None,
-        clear_pid: bool = False,
-    ):
+    def set_pid(self, session: Session, pid: Optional[int]):
+        """Records the jobrunner process, or None when it stops.
+
+        This method commits.
+        """
         session.execute(delete(JobrunnerStatus))
-        pid = None if clear_pid else os.getpid()
-        status = JobrunnerStatus(pid=pid, status=status, job_id=job_id)
-        session.add(status)
+        session.add(JobrunnerStatus(pid=pid))
         session.commit()
 
 
@@ -257,6 +251,16 @@ class Job(Base):
                 select(Job).order_by(Job.id.desc()).limit(limit).offset(skip)
             )
         ]
+
+    @classmethod
+    def get_running(cls, session) -> List["Job"]:
+        """Return a list of jobs that have started and but not finished, oldest first."""
+        stmt = (
+            select(Job)
+            .where(Job.started_at != null(), Job.finished_at == null())
+            .order_by(Job.id)
+        )
+        return list(session.scalars(stmt))
 
     @property
     def queue(self) -> str:

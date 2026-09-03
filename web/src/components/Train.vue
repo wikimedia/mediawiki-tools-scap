@@ -45,7 +45,7 @@
 				</v-card>
 			</v-col>
 		</v-row>
-		<v-row v-if="error || warnings.length || isBackporting">
+		<v-row v-if="error || warnings.length || anotherMediawikiJob">
 			<v-col>
 				<v-alert v-if="error" type="error" closable>
 					{{ error }}
@@ -61,8 +61,9 @@
 					reports {{ trainVersion }}. Be sure the MediaWiki branch cut was successful before
 					proceeding.
 				</v-alert>
-				<v-alert v-if="isBackporting" type="warning">
-					Backports are in progress. Train deployment is unavailable until they complete.
+				<v-alert v-if="anotherMediawikiJob" type="warning">
+					Another MediaWiki deployment is in progress. Train deployment is unavailable
+					until it completes.
 				</v-alert>
 			</v-col>
 		</v-row>
@@ -382,21 +383,19 @@ export default {
 			};
 		} );
 
-		const isRolling = computed(
-			() => jobrunner.status.value?.job?.type === 'train' || jobPending.value
-		);
+		// The running train job, if the jobrunner is running one.
+		const trainJob = computed( () => jobrunner.runningJobOfType( 'train' ) );
+
+		const isRolling = computed( () => !!trainJob.value || jobPending.value );
 		// Live status/progress of the running train deployment job, if any.
-		// Null unless the currently running job is a train job.
-		const trainJobStatus = computed(
-			() => ( jobrunner.status.value?.job?.type === 'train' ?
-				jobrunner.status.value?.job?.status :
-				null )
-		);
-		const isBackporting = computed(
-			() => jobrunner.status.value?.job?.type === 'backport'
+		const trainJobStatus = computed( () => trainJob.value?.status ?? null );
+		const mediawikiIsBusy = jobrunner.mediawikiIsBusy;
+		// The queue holds a job that is not this train deployment.
+		const anotherMediawikiJob = computed(
+			() => mediawikiIsBusy.value && !trainJob.value
 		);
 		const isDisabled = computed(
-			() => deployment.value.noop || isRolling.value || isBackporting.value
+			() => deployment.value.noop || isRolling.value || mediawikiIsBusy.value
 		);
 		const isUpcoming = computed(
 			() => taskReleaseDate.value && ( ( new Date() ) < taskReleaseDate.value )
@@ -538,10 +537,14 @@ export default {
 
 				originalTrainStatus = trainStatus;
 
-				if ( jrStatus?.job?.type === 'train' && jrStatus?.job?.data?.originalTrainStatus ) {
+				const running = ( jrStatus?.running_jobs ?? [] ).find(
+					( job ) => job.type === 'train'
+				);
+
+				if ( running?.data?.originalTrainStatus ) {
 					updateFromTrainStatus(
-						jrStatus.job.data.originalTrainStatus,
-						jrStatus.job.data?.group
+						running.data.originalTrainStatus,
+						running.data?.group
 					);
 				} else {
 					updateFromTrainStatus( trainStatus, null );
@@ -604,9 +607,9 @@ export default {
 			}
 		}
 
-		// Refresh from current train status after jobs complete
-		watch( jobrunner.idle, async ( idle ) => {
-			if ( idle ) {
+		// Refresh from current train status when the MediaWiki queue frees up.
+		watch( mediawikiIsBusy, async ( busy ) => {
+			if ( !busy ) {
 				await refresh();
 			}
 		} );
@@ -615,21 +618,16 @@ export default {
 		// one returned by the API since the latter is based on the unsynced on-disk state. This
 		// will ensure that all users see the same status during deployments.
 		let prevJobID;
-		watch( jobrunner.status, async ( status ) => {
-			// Reset the job pending flag upon the first train or backport job status update
-			if ( status?.job?.type === 'train' || status?.job?.type === 'backport' ) {
+		watch( jobrunner.status, async () => {
+			// Reset the job pending flag when a MediaWiki job starts
+			if ( mediawikiIsBusy.value ) {
 				jobPending.value = false;
 			}
 
-			if ( status?.job?.type === 'train' && status?.job?.data?.originalTrainStatus ) {
-
-				if ( prevJobID !== status.job.id ) {
-					updateFromTrainStatus(
-						status?.job?.data?.originalTrainStatus,
-						status?.job?.data?.group
-					);
-					prevJobID = status.job.id;
-				}
+			const data = trainJob.value?.data;
+			if ( data?.originalTrainStatus && prevJobID !== trainJob.value.id ) {
+				updateFromTrainStatus( data.originalTrainStatus, data?.group );
+				prevJobID = trainJob.value.id;
 			}
 		} );
 
@@ -642,7 +640,7 @@ export default {
 			groupNames,
 			groups,
 			hasLoaded,
-			isBackporting,
+			anotherMediawikiJob,
 			isDisabled,
 			isRolling,
 			isUpcoming,
