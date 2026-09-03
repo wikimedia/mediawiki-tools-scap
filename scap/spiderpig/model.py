@@ -6,7 +6,7 @@ import re
 import time
 from contextlib import contextmanager
 
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Set
 from pydantic import (
     BaseModel,
     ConfigDict,
@@ -195,9 +195,20 @@ class AlreadyFinished(Exception):
     pass
 
 
+class UnknownQueue(Exception):
+    pass
+
+
 class JobType(enum.Enum):
     BACKPORT = "backport"
     TRAIN = "train"
+    DEPLOY_SERVICE = "deploy-service"
+
+
+# The jobrunner runs one job at a time in each queue.  Jobs in different queues
+# can run at the same time.
+MEDIAWIKI_QUEUE = "mediawiki"
+SERVICE_QUEUE_PREFIX = "service:"
 
 
 class Job(Base):
@@ -247,10 +258,35 @@ class Job(Base):
             )
         ]
 
+    @property
+    def queue(self) -> str:
+        """
+        The name of the queue that this job runs in.
+
+        Backports and train operations share a queue.
+        Each service has a queue of its own.
+        """
+        if self.type in (JobType.BACKPORT, JobType.TRAIN):
+            return MEDIAWIKI_QUEUE
+
+        if self.type == JobType.DEPLOY_SERVICE:
+            service = self.extract_data().get("service")
+            if not service:
+                raise UnknownQueue(
+                    f"job {self.id} is a {self.type.value} job, but its data does"
+                    " not name a service"
+                )
+            return SERVICE_QUEUE_PREFIX + service
+
+        raise UnknownQueue(f"job {self.id} has type {self.type}, which has no queue")
+
     @classmethod
-    def pop(cls, session) -> Optional["Job"]:
+    def pop(cls, session, busy_queues: Set[str]) -> Optional["Job"]:
         """
         Return the next eligible job to run, if any.
+
+        A job is eligible when it hasn't been started yet and its queue
+        is not in `busy_queues`.
 
         This method starts and ends a transaction.
         """
@@ -258,17 +294,18 @@ class Job(Base):
         # We use BEGIN IMMEDIATE to serialize concurrent processes.
         #   xref: https://www.sqlite.org/lang_transaction.html
         session.execute(text("BEGIN IMMEDIATE"))
-        stmt = select(Job).where(Job.started_at == null()).order_by(Job.id).limit(1)
-        job = session.scalar(stmt)
-        if not job:
-            session.rollback()
-            return
+        stmt = select(Job).where(Job.started_at == null()).order_by(Job.id)
+        for job in session.scalars(stmt).all():
+            if job.queue in busy_queues:
+                continue
 
-        # Claim the job by setting started_at
-        job.started_at = time.time()
-        session.commit()
+            # Claim the job by setting started_at
+            job.started_at = time.time()
+            session.commit()
+            return job
 
-        return job
+        session.rollback()
+        return
 
     def signal(self, session: Session, user: str, type: str):
         """
@@ -284,6 +321,13 @@ class Job(Base):
 
         Interruption.add(session, self.id, user, type)
         session.commit()
+
+    def extract_data(self) -> dict:
+        """
+        The auxiliary information of this job.  Empty when there is none.
+        """
+        data = json.loads(self.data) if self.data else None
+        return data or {}
 
     def extract_status(self) -> dict:
         if not self.status:

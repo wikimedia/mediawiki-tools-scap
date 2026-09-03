@@ -615,12 +615,12 @@ def linkify_commit_mesage(commit_message) -> List:
     return res
 
 
-def load_job_data(job_data):
+def load_job_data(job: Job) -> dict:
     scap_config = get_scap_config()
     gerrit_url = scap_config["gerrit_url"]
-    data = json.loads(job_data)
+    data = job.extract_data()
 
-    if data is not None and "change_infos" in data:
+    if "change_infos" in data:
         for change_info in data["change_infos"]:
             change_info["linkifiedCommitMsg"] = linkify_commit_mesage(
                 change_info["commit_msg"]
@@ -673,7 +673,7 @@ async def jobrunner_status(
         if job:
             session.expunge(job)
             job.status = job.extract_status()
-            job.data = load_job_data(job.data)
+            job.data = load_job_data(job)
             i = get_parsed_interaction(session, job)
 
     return {
@@ -807,10 +807,9 @@ async def retry_job(
         )
 
     # Extract change numbers from the original job's data
-    original_data = json.loads(job.data) if job.data else None
-    change_numbers = []
-    if original_data and "change_infos" in original_data:
-        change_numbers = [info["number"] for info in original_data["change_infos"]]
+    change_numbers = [
+        info["number"] for info in job.extract_data().get("change_infos", [])
+    ]
 
     if not change_numbers:
         raise HTTPException(
@@ -858,7 +857,7 @@ async def get_jobs(
         session.expunge(job)
         job.status = job.extract_status()
         job.interaction = get_parsed_interaction(session, job)
-        job.data = load_job_data(job.data)
+        job.data = load_job_data(job)
         set_additional_job_attributes(job)
 
     return {
@@ -878,7 +877,7 @@ async def get_job(
     # database.
     session.expunge(job)
     job.status = job.extract_status()
-    job.data = load_job_data(job.data)
+    job.data = load_job_data(job)
     set_additional_job_attributes(job)
 
     return {

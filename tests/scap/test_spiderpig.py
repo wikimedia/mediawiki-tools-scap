@@ -27,10 +27,13 @@ from scap.spiderpig.api import (
     TWO_FA_FAILURE_WINDOW_SECONDS,
     TWO_FA_LOCKOUT_SECONDS,
 )
-from scap.spiderpig.model import User
+from scap.spiderpig.model import Base, Job, JobType, UnknownQueue, User
 from scap.spiderpig.model import TrainGroup, TrainPromotion, TrainStatus
 from scap.spiderpig.session import SessionCookie
+import scap.spiderpig
 import scap.utils
+
+from sqlalchemy.orm import Session
 
 from fastapi import HTTPException
 from fastapi.responses import JSONResponse, RedirectResponse
@@ -680,3 +683,72 @@ def test_train_promotion_rejects_invalid_excluded_wiki_name(train_status_fixture
             excluded_wikis=["enwiki,bad"],
             original_train_status=train_status_fixture,
         )
+
+
+@pytest.fixture
+def job_session(tmpdir):
+    engine = scap.spiderpig.engine(f"{tmpdir}/spiderpig.db")
+    Base.metadata.create_all(engine)
+    try:
+        with Session(engine) as session:
+            yield session
+    finally:
+        engine.dispose()
+
+
+def add_job(session, type, service=None) -> int:
+    return Job.add(
+        type,
+        session,
+        user="bruce",
+        command=["scap", type.value],
+        data={"service": service} if service else None,
+    )
+
+
+@pytest.mark.parametrize(
+    "type,service,expected",
+    [
+        (JobType.BACKPORT, None, "mediawiki"),
+        (JobType.TRAIN, None, "mediawiki"),
+        (JobType.DEPLOY_SERVICE, "shellbox", "service:shellbox"),
+    ],
+)
+def test_job_queue(job_session, type, service, expected):
+    job = Job.get(job_session, add_job(job_session, type, service))
+    assert job.queue == expected
+
+
+def test_extract_data_of_a_job_without_data(job_session):
+    job = Job.get(job_session, add_job(job_session, JobType.BACKPORT))
+    # Job.add stores the JSON encoding of None, which is "null".
+    assert job.data == "null"
+    assert job.extract_data() == {}
+
+    job.data = None
+    assert job.extract_data() == {}
+
+
+def test_deploy_service_job_without_a_service_has_no_queue(job_session):
+    job = Job.get(job_session, add_job(job_session, JobType.DEPLOY_SERVICE))
+    with pytest.raises(UnknownQueue, match="does not name a service"):
+        job.queue
+
+
+def test_pop_passes_over_a_busy_queue(job_session):
+    backport = add_job(job_session, JobType.BACKPORT)
+    train = add_job(job_session, JobType.TRAIN)
+    shellbox = add_job(job_session, JobType.DEPLOY_SERVICE, "shellbox")
+
+    assert Job.pop(job_session, set()).id == backport
+
+    # The train job is behind the running backport in the mediawiki queue, so
+    # the shellbox job starts first.
+    assert Job.pop(job_session, {"mediawiki"}).id == shellbox
+    assert Job.pop(job_session, {"mediawiki", "service:shellbox"}) is None
+    assert Job.pop(job_session, set()).id == train
+
+
+def test_pop_returns_none_when_every_queue_is_busy(job_session):
+    add_job(job_session, JobType.BACKPORT)
+    assert Job.pop(job_session, {"mediawiki"}) is None

@@ -87,11 +87,13 @@ class JobRunner(cli.Application):
             with Session(engine) as session:
                 self._clear_orphaned_jobs(session)
 
+                busy_queues = set()
+
                 try:
                     while True:
                         self._set_status(session, "idle")
 
-                        job = Job.pop(session)
+                        job = Job.pop(session, busy_queues)
                         if job is None:
                             time.sleep(self.arguments.polling_interval)
                             continue
