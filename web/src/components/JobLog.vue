@@ -57,7 +57,9 @@ export default defineComponent( {
 		const terminalRef = ref<HTMLElement|null>( null );
 		const bottomAnchorRef = ref<HTMLElement|null>( null );
 		let abortPopulateTerminal: AbortController | null = null;
-		const showSensitive = ref( false );
+		// A job log link in an interaction prompt asks for the sensitive lines,
+		// because the prompt asks the user to approve what they say.
+		const showSensitive = ref( route.query.sensitive === '1' );
 		let logCursor = 0;
 		let shouldRedrawLog = true;
 

@@ -179,7 +179,7 @@
 				:interaction="interaction"
 			/>
 			<div
-				v-if="!interaction"
+				v-if="!interaction || !showInteraction"
 				class="job-card__details"
 			>
 				<hr>

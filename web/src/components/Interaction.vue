@@ -2,6 +2,7 @@
 	<div class="interaction">
 		<div
 			class="interaction__prompt"
+			@click="onPromptClick"
 			v-html="renderedPromptHtml" />
 		<div class="interaction__action">
 			<cdx-button
@@ -24,6 +25,9 @@ import Interaction from '../types/Interaction';
 import { CdxButton } from '@wikimedia/codex';
 import { notificationsStore } from '@/state';
 import linkifyStr from 'linkify-string';
+
+// The prompt that scap deploy-service --confirm-diffs asks.
+const DIFF_PROMPT_RE = /^Note: Diffs are relative to/;
 
 export default defineComponent( {
 	name: 'SpInteraction',
@@ -51,6 +55,21 @@ export default defineComponent( {
 			defaultProtocol: 'https'
 		};
 
+		// v-html cannot hold a router-link, so the job log link goes through
+		// the router here.  The other links that may be in the prompt are
+		// handled normally.
+		function onPromptClick( event: MouseEvent ) {
+			const anchor = ( event.target as HTMLElement ).closest(
+				'a[data-job-log]'
+			);
+			if ( !anchor ) {
+				return;
+			}
+
+			event.preventDefault();
+			router.push( anchor.getAttribute( 'href' ) );
+		}
+
 		function choiceSelected( code: string ) {
 			api.respondInteraction(
 				props.interaction.job_id,
@@ -72,37 +91,45 @@ export default defineComponent( {
 
 		const renderedPromptHtml = computed( () => {
 			const prompt = props.interaction.prompt;
-			const failedPromptMatch = prompt.match( /^(.*?failed\.)\n\n(.*)$/s );
 			const onCurrentJobPage = route.name === 'job' &&
 				String( route.params.jobId ) === String( props.interaction.job_id );
 
-			if (
-				props.interaction.type !== 'choices' ||
-				!failedPromptMatch ||
-				onCurrentJobPage
-			) {
+			if ( props.interaction.type !== 'choices' || onCurrentJobPage ) {
 				return linkifyStr( prompt, linkifyOptions );
 			}
 
-			const [ , prefix, suffix ] = failedPromptMatch;
+			// review_diffs() in scap/kubernetes.py writes the diffs to the job
+			// log as sensitive lines, so the link for that prompt needs to include
+			// the query parameter that allows viewing sensitive lines.
+			const opensSensitive = DIFF_PROMPT_RE.test( prompt );
 			const jobLogHref = router.resolve( {
 				name: 'job',
 				params: { jobId: props.interaction.job_id },
+				query: opensSensitive ? { sensitive: '1' } : {},
 				hash: '#log'
 			} ).href;
-			const jobLogLink =
-				`<a href="${ jobLogHref }" ` +
-				`class="interaction__prompt__link">job log</a>`;
+			const jobLogLine =
+				`View the <a href="${ jobLogHref }" data-job-log ` +
+				`class="interaction__prompt__link">job log</a> for details.`;
 
-			return (
-				linkifyStr( prefix, linkifyOptions ) +
-				`\nView the ${ jobLogLink } for details.\n\n` +
-				linkifyStr( suffix, linkifyOptions )
-			);
+			// A prompt that reports a failure reads better with the line after
+			// the report and before the question.
+			const failedPromptMatch = prompt.match( /^(.*?failed\.)\n\n(.*)$/s );
+			if ( failedPromptMatch ) {
+				const [ , prefix, suffix ] = failedPromptMatch;
+				return (
+					linkifyStr( prefix, linkifyOptions ) +
+					`\n${ jobLogLine }\n\n` +
+					linkifyStr( suffix, linkifyOptions )
+				);
+			}
+
+			return `${ jobLogLine }\n\n` + linkifyStr( prompt, linkifyOptions );
 		} );
 
 		return {
 			choiceSelected,
+			onPromptClick,
 			renderedPromptHtml
 		};
 	}
