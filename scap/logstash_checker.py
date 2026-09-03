@@ -1,6 +1,7 @@
 import collections
 import math
 import statistics
+from typing import Optional
 
 from scap import cli, kubernetes, logstash, logstash_checker, targets
 
@@ -153,7 +154,9 @@ class LogstashChecker:
         orig_samples = samples = self._fetch_history_counts(HISTORY_DAYS)
 
         if not samples:
-            self.logger.warn("No matching logstash records found for stage %s.", stage)
+            self.logger.warning(
+                "No matching logstash records found for stage %s.", stage
+            )
             return
 
         def summarize(samples, description):
@@ -220,57 +223,74 @@ class LogstashChecker:
 
         return res, outliers
 
-    def _one_of_query(self, key, values) -> str:
-        return f"{key}:(" + " OR ".join(values) + ")"
-
-    def _build_deployment_query(self) -> str:
+    # A bool clause combines other clauses. The name of the list decides how:
+    #   filter    every clause must match
+    #   should    at least one clause must match (with minimum_should_match 1)
+    #   must_not  no clause may match
+    # A list of filter clauses is an AND. A bool with should is an OR.
+    #
+    # These clauses match a field:
+    #   term      the field holds one value
+    #   terms     the field holds any of several values
+    #   range     the field falls between bounds
+    def _deployment_filters(self) -> list:
         deployments_by_release = collections.defaultdict(set)
         for dep_config in self.k8s_dep_configs:
             deployments_by_release[dep_config.release].add(dep_config.namespace)
 
-        clauses = [
-            f"(kubernetes.labels.release:{release} AND {self._one_of_query('kubernetes.labels.deployment', sorted(deployments))})"
+        release_field = "kubernetes.labels.release.keyword"
+        deployment_field = "kubernetes.labels.deployment.keyword"
+
+        return [
+            {
+                "bool": {
+                    "filter": [
+                        {"term": {release_field: release}},
+                        {"terms": {deployment_field: sorted(deployments)}},
+                    ]
+                }
+            }
             for release, deployments in sorted(deployments_by_release.items())
         ]
 
-        return " OR ".join(clauses)
-
-    def _build_baremetal_query(self) -> str:
+    def _baremetal_filter(self) -> Optional[dict]:
         if not self.baremetal_hosts:
-            return ""
+            return None
 
         # Logstash stores baremetal hostnames without the domain suffix.
         hostnames = sorted({host.split(".")[0] for host in self.baremetal_hosts})
-        return self._one_of_query("host", hostnames)
+        return {"terms": {"host": hostnames}}
 
     def _build_base_query(self) -> dict:
         """
         Build a query filtering for the relevant deployment targets, record type,
         channel, and (when set) wiki.
+
+        Do not use a query_string clause here. It splits "mw-pretrain" into
+        "mw" and "pretrain", and then it matches a namespace that holds
+        either part (T435419).
+
+        type, host and level are keyword fields. channel, wiki and the
+        kubernetes labels are text fields, so those clauses name the .keyword
+        subfield.
         """
+        targets = self._deployment_filters()
 
-        deployment_terms = []
-        deployment_query = self._build_deployment_query()
-        baremetal_query = self._build_baremetal_query()
+        baremetal = self._baremetal_filter()
+        if baremetal:
+            targets.append(baremetal)
 
-        if deployment_query:
-            deployment_terms.append(f"({deployment_query})")
-        if baremetal_query:
-            deployment_terms.append(baremetal_query)
-
-        filters = []
-
-        if deployment_terms:
-            query = (
-                f"({' OR '.join(deployment_terms)}) AND type:mediawiki "
-                "AND channel:(exception OR error)"
-            )
+        if not targets:
+            filters = [{"match_none": {}}]
+        else:
+            filters = [
+                {"bool": {"should": targets, "minimum_should_match": 1}},
+                {"term": {"type": "mediawiki"}},
+                {"terms": {"channel.keyword": ["exception", "error"]}},
+            ]
             if self.wiki:
                 # Records without a wiki field do not match.
-                query += f" AND wiki:{self.wiki}"
-            filters.append({"query_string": {"query": query}})
-        else:
-            filters.append({"match_none": {}})
+                filters.append({"term": {"wiki.keyword": self.wiki}})
 
         return {
             "query": {
