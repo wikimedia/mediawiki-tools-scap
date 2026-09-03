@@ -131,15 +131,10 @@ class LogstashPoller:
     # Innards #
     ###########
 
-    def _one_of_query(self, key, values) -> str:
-        return f"{key}:(" + " OR ".join(values) + ")"
-
     def _build_base_query(self) -> dict:
         """
-        Build a query filtering for the relevant hosts/labels, record type, and channel.
+        Build a query filtering for the record type and the channel.
         """
-
-        query = "type:mediawiki AND channel:(exception OR error)"
 
         return {
             # TODO: Figure out how to make aggregations actually-useful:
@@ -154,7 +149,11 @@ class LogstashPoller:
             "query": {
                 "bool": {
                     "filter": [
-                        {"query_string": {"query": query}},
+                        # "type" and "level" are keyword fields. "channel" is
+                        # a text field, so that clause names the ".keyword"
+                        # subfield (T435419).
+                        {"term": {"type": "mediawiki"}},
+                        {"terms": {"channel.keyword": ["exception", "error"]}},
                     ],
                     "must_not": [
                         {"terms": {"level": ["DEBUG"]}},
