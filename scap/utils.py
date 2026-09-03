@@ -201,12 +201,14 @@ def get_user_fullname(name=None):
 
 
 def is_docker_user(config):
-    """Return True if the current user is the same as docker_user from config."""
+    """Return True if the effective user is the same as docker_user from config."""
     docker_user = config.get("docker_user")
     if docker_user is None:
         return False
 
-    return get_real_username() == docker_user
+    # Not the real user: after sudo to docker_user, the real user is still
+    # the person that started scap.
+    return get_username() == docker_user
 
 
 def get_env_specific_filename(path, env=None):
