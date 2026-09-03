@@ -76,7 +76,7 @@ export default defineComponent( {
 				props.interaction.id,
 				code
 			);
-			notifications.closeNotification();
+			notifications.closeNotification( props.interaction.job_id );
 		}
 
 		// Notify when a new interaction arrives, even if this component instance
