@@ -196,6 +196,12 @@ const useAuthStore = defineStore( 'spiderpig-auth',
 			async getLogs() {
 				return await this.call( '/api/monitoring/logs/mediawiki' );
 			},
+			async setErrorNote( message, note ) {
+				return await this.post(
+					'/api/monitoring/logs/mediawiki/note',
+					{ message, note }
+				);
+			},
 			async getLogsTotal() {
 				// Setting redirectOn401 here avoids the total widget causing
 				// a redirect loop for users who haven't entered their OTP yet:
