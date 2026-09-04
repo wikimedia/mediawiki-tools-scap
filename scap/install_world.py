@@ -24,6 +24,7 @@
 import os
 import random
 import re
+import shutil
 import socket
 import subprocess
 import sys
@@ -31,6 +32,7 @@ from os.path import expanduser
 
 import requests
 from packaging.version import Version, InvalidVersion
+from prettytable import PrettyTable, SINGLE_BORDER
 
 if sys.version_info < (3, 9):
     from typing_extensions import Tuple
@@ -91,7 +93,18 @@ class InstallWorld(cli.Application):
         help="Exclude hosts matching regex. The hosts are removed after --limit-hosts is applied",
     )
     @cli.argument("-y", "--yes", action="store_true", help="Answer yes to all prompts")
+    @cli.argument(
+        "--inventory",
+        nargs="?",
+        const="table",
+        choices=["table", "list"],
+        help="Generate a report of all the Debian versions in use by scap targets, then exit. Nothing is installed."
+        ' "table" mode shows a brief summary. "list" generates a full report.',
+    )
     def main(self, *extra_args):
+        if self.arguments.inventory:
+            return self._report_inventory()
+
         # The lock ensures a scap installation cannot happen during a MediaWiki update
         with self.lock_mediawiki_staging(
             name="install-world",
@@ -352,6 +365,149 @@ class InstallWorld(cli.Application):
         _, failed = targets_install.run()
         if failed:
             self._abort(f"{failed} targets failed to install scap")
+
+    def _report_inventory(self):
+        self._initialize_from_config()
+        self._select_masters()
+        self._select_targets()
+
+        all_targets = self.selected_masters + self.selected_targets
+        if not all_targets:
+            utils.abort("No targets to query. Nothing to do")
+
+        self.logger.info(
+            f"Collecting the Debian codename of {len(all_targets)} target(s)"
+        )
+        inventory = self._collect_codenames(all_targets)
+
+        if self.arguments.inventory == "list":
+            lines = self._inventory_list(inventory)
+        else:
+            width = shutil.get_terminal_size((80, 24)).columns
+            lines = self._inventory_table(inventory, width).get_string().splitlines()
+
+        for line in lines:
+            self.output_line(line)
+
+    def _collect_codenames(self, all_targets) -> dict:
+        """
+        Map each Debian codename to the sorted list of targets that run it.
+
+        A target that does not answer goes in the "unknown" group.
+        """
+        inventory_job = self._get_ssh_job_for(all_targets)
+        inventory_job.command(["lsb_release", "-cs"])
+        inventory_job.progress(log.reporter("scap-inventory"))
+        results = inventory_job.run(return_jobresults=True)
+
+        inventory = {}
+        for result in results:
+            codename = None
+            if result.status == 0:
+                codename = self._parse_codename(result.output)
+            inventory.setdefault(codename or "unknown", []).append(result.host)
+
+        for group_targets in inventory.values():
+            group_targets.sort()
+
+        return inventory
+
+    @staticmethod
+    def _parse_codename(output: str):
+        """
+        Return the codename in the output of "lsb_release -cs", or None.
+
+        ssh mixes stderr into the output. Use the last line that looks like a codename.
+        """
+        for line in reversed(output.splitlines()):
+            line = line.strip()
+            if re.fullmatch(r"[a-z][a-z0-9]*", line):
+                return line
+        return None
+
+    @staticmethod
+    def _codenames_most_targets_first(inventory: dict) -> list:
+        return sorted(
+            inventory, key=lambda codename: (-len(inventory[codename]), codename)
+        )
+
+    @staticmethod
+    def _inventory_list(inventory: dict) -> list:
+        """
+        Show each codename, its target count, and every target that runs it.
+        """
+        lines = []
+
+        for codename in InstallWorld._codenames_most_targets_first(inventory):
+            group_targets = inventory[codename]
+            noun = "target" if len(group_targets) == 1 else "targets"
+            if lines:
+                lines.append("")
+            lines.append(f"{codename} ({len(group_targets)} {noun})")
+            lines += [f"  {target}" for target in group_targets]
+
+        return lines
+
+    @staticmethod
+    def _inventory_table(inventory: dict, width: int = 80) -> PrettyTable:
+        codenames = InstallWorld._codenames_most_targets_first(inventory)
+        codename_width = max([len("codename")] + [len(c) for c in codenames])
+        count_width = max(
+            [len("targets")] + [len(str(len(inventory[c]))) for c in codenames]
+        )
+        # A bordered table of 3 columns adds 4 border characters and 6 spaces
+        examples_width = width - (codename_width + count_width + 10)
+
+        table = PrettyTable()
+        table.set_style(SINGLE_BORDER)
+        table.field_names = ["codename", "targets", "examples"]
+        table.align = "l"
+        table.align["targets"] = "r"
+
+        for codename in codenames:
+            group_targets = inventory[codename]
+            table.add_row(
+                [
+                    codename,
+                    len(group_targets),
+                    InstallWorld._examples(group_targets, examples_width),
+                ]
+            )
+
+        return table
+
+    @staticmethod
+    def _examples(group_targets, width: int) -> str:
+        """
+        List as many targets as fit in `width` characters.
+
+        A remainder of 3 targets gets the suffix ", ... (3 more)". If not even
+        one target fits, the first target is cut short with "…".
+        """
+        width = max(width, 0)
+        shown = []
+        text = ""
+
+        for target in group_targets:
+            candidate = ", ".join(shown + [target])
+            remainder = len(group_targets) - len(shown) - 1
+            if remainder:
+                candidate += f", ... ({remainder} more)"
+            if shown and len(candidate) > width:
+                break
+            shown.append(target)
+            text = candidate
+
+        if len(text) > width:
+            remainder = len(group_targets) - 1
+            suffix = f", ... ({remainder} more)" if remainder else ""
+            # Drop the suffix if it leaves no room for the target
+            if suffix and len(suffix) + 2 > width:
+                suffix = ""
+            cut = max(width - len(suffix) - 1, 0)
+            text = (group_targets[0][:cut] + "…" + suffix)[:width]
+
+        return text
 
     def _get_ssh_job_for(self, hosts) -> ssh.Job:
         return ssh.Job(hosts, user=self.install_user, key=self.install_user_ssh_key)
