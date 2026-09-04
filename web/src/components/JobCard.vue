@@ -297,7 +297,8 @@ import { defineComponent, ref, computed, PropType, watch } from 'vue';
 import { CdxCard, CdxAccordion, CdxProgressBar, CdxIcon, CdxDialog, CdxButton, CdxMessage } from '@wikimedia/codex';
 import { cdxIconLinkExternal, cdxIconReload } from '@wikimedia/codex-icons';
 import { VIcon } from 'vuetify/components/VIcon';
-import ChangeInfo, { CommitLink } from '../types/ChangeInfo';
+import ChangeInfo from '../types/ChangeInfo';
+import { formatLinkifiedMessage } from '../linkify';
 import Interaction from '../types/Interaction';
 import JobStatus from '../types/JobStatus';
 import SpInteraction from './Interaction.vue';
@@ -427,28 +428,12 @@ export default defineComponent( {
 			return service ? { service, message } : null;
 		} );
 
-		function formatCommitMsg( linkifiedCommitMsg: Array<string | CommitLink> ) {
-			// Returns an HTML string.
-			//
-			// NOTE: linkifiedCommitMsg is already processed on the
-			// server side to escape potential HTML tags.
-			let res = '';
-
-			for ( const elt of linkifiedCommitMsg ) {
-				if ( typeof ( elt ) === 'string' ) {
-					res += elt;
-				} else {
-					res += `<a href="${ elt.href }" target="_blank" class="job-card__details__change-info__link">${ elt.text }</a>`;
-				}
-			}
-
-			return res;
-		}
-
 		function formatChangeInfo( changeInfo: ChangeInfo ) {
 			const { linkifiedCommitMsg, subject, project, branch,
 				number, url, repoQueryUrl, branchQueryUrl } = changeInfo;
-			const formattedCommitMsg = formatCommitMsg( linkifiedCommitMsg );
+			const formattedCommitMsg = formatLinkifiedMessage(
+				linkifiedCommitMsg, 'job-card__details__change-info__link'
+			);
 
 			return {
 				project,

@@ -1,10 +1,7 @@
-export interface CommitLink {
-	href: string
-	text: string
-}
+import LinkSegment from './LinkSegment';
 
 export default interface ChangeInfo {
-	linkifiedCommitMsg: Array<string | CommitLink>
+	linkifiedCommitMsg: Array<string | LinkSegment>
 	subject: string
 	project: string
 	branch: string
