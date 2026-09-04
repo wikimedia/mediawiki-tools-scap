@@ -541,6 +541,48 @@ class Interaction(Base):
         session.commit()
 
 
+class ErrorNote(Base):
+    __tablename__ = "error_note"
+
+    # The normalized message of the error, as the logstash poller reports it.
+    message: Mapped[str] = mapped_column(primary_key=True)
+    note: Mapped[str]
+    user: Mapped[str]
+    updated_at: Mapped[float] = mapped_column(default=time.time)
+
+    @classmethod
+    def all_by_message(cls, session: Session) -> Dict[str, "ErrorNote"]:
+        return {note.message: note for note in session.scalars(select(ErrorNote))}
+
+    @classmethod
+    def save(cls, session: Session, message: str, note: str, user: str) -> None:
+        """
+        Add the note of a message, or replace the note that it has.
+
+        This method starts and ends a transaction.
+        """
+        session.execute(text("BEGIN IMMEDIATE"))
+        existing = session.get(ErrorNote, message)
+        if existing:
+            existing.note = note
+            existing.user = user
+            existing.updated_at = time.time()
+        else:
+            session.add(ErrorNote(message=message, note=note, user=user))
+        session.commit()
+
+    @classmethod
+    def remove(cls, session: Session, message: str) -> None:
+        """
+        Delete the note of a message, if it has one.
+
+        This method starts and ends a transaction.
+        """
+        session.execute(text("BEGIN IMMEDIATE"))
+        session.execute(delete(ErrorNote).where(ErrorNote.message == message))
+        session.commit()
+
+
 class TrainGroup(BasePydantic):
     name: str
     versions: List[str]
@@ -714,6 +756,23 @@ class ServiceDeployment(BasePydantic):
     @property
     def data(self) -> dict:
         return self.model_dump(by_alias=True)
+
+
+class ErrorNoteUpdate(BasePydantic):
+    message: str
+    note: str
+
+    @field_validator("message")
+    @classmethod
+    def _validate_message(cls, value: str) -> str:
+        if not value:
+            raise ValueError("The message that the note describes is required.")
+        return value
+
+    @field_validator("note")
+    @classmethod
+    def _validate_note(cls, value: str) -> str:
+        return value.strip()
 
 
 def setup_db(engine, db_filename):

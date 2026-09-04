@@ -28,14 +28,19 @@ from scap.spiderpig.api import (
     MAX_2FA_FAILURES,
     TWO_FA_FAILURE_WINDOW_SECONDS,
     TWO_FA_LOCKOUT_SECONDS,
+    get_errors,
     get_jobs,
     job_queue_name,
     retry_job,
+    set_error_note,
     start_deploy_service,
 )
+import scap.logstash_poller as logstash_poller
 import scap.spiderpig.jobrunner as jobrunner
 from scap.spiderpig.model import (
     Base,
+    ErrorNote,
+    ErrorNoteUpdate,
     JobrunnerStatus,
     Job,
     JobType,
@@ -1048,3 +1053,80 @@ async def test_get_jobs_reports_the_queue_of_each_job(job_session):
         "service:shellbox",
         "mediawiki",
     ]
+
+
+@pytest.fixture
+def error_notes_session(job_session, spiderpigdir):
+    """A db session, with a report of the logstash poller in place."""
+    report = {
+        "errors": {
+            "Fatal error: bad thing": {"count": 3, "versions": ["1.46.0-wmf.1"]},
+            "Notice: other thing": {"count": 1, "versions": []},
+        },
+        "total": 4,
+    }
+    with open(os.path.join(str(spiderpigdir), logstash_poller.LOG_FILE), "w") as f:
+        json.dump(report, f)
+    return job_session
+
+
+def test_error_note_save_replaces_the_note_of_a_message(job_session):
+    ErrorNote.save(job_session, "bad thing", "T1", "bruce")
+    ErrorNote.save(job_session, "bad thing", "T2, still broken", "clark")
+
+    notes = ErrorNote.all_by_message(job_session)
+    assert list(notes) == ["bad thing"]
+    assert notes["bad thing"].note == "T2, still broken"
+    assert notes["bad thing"].user == "clark"
+
+
+def test_error_note_remove(job_session):
+    ErrorNote.save(job_session, "bad thing", "T1", "bruce")
+    ErrorNote.remove(job_session, "bad thing")
+    assert ErrorNote.all_by_message(job_session) == {}
+
+    # Removal of a message that has no note is not an error.
+    ErrorNote.remove(job_session, "bad thing")
+
+
+@pytest.mark.anyio
+async def test_get_errors_attaches_the_note_of_each_message(error_notes_session):
+    ErrorNote.save(error_notes_session, "Fatal error: bad thing", "T1 is open", "bruce")
+
+    errors = (await get_errors(error_notes_session))["log"]
+
+    assert errors["Fatal error: bad thing"]["note"] == {
+        "text": "T1 is open",
+        "linkified": [
+            "",
+            {
+                "type": "link",
+                "href": "https://phabricator.example.org/T1",
+                "text": "T1",
+            },
+            " is open",
+        ],
+        "user": "bruce",
+        "updatedAt": unittest.mock.ANY,
+    }
+    assert "note" not in errors["Notice: other thing"]
+
+
+@pytest.mark.anyio
+async def test_set_error_note_with_no_text_removes_the_note(job_session):
+    user = SessionUser(name="bruce", groups=[])
+
+    await set_error_note(
+        ErrorNoteUpdate(message="bad thing", note="T1"), user, job_session
+    )
+    assert "bad thing" in ErrorNote.all_by_message(job_session)
+
+    await set_error_note(
+        ErrorNoteUpdate(message="bad thing", note="   "), user, job_session
+    )
+    assert ErrorNote.all_by_message(job_session) == {}
+
+
+def test_error_note_update_requires_a_message():
+    with pytest.raises(ValidationError, match="message that the note describes"):
+        ErrorNoteUpdate(message="", note="T1")

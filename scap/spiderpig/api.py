@@ -60,6 +60,8 @@ from scap.deploy_service import InvalidDeployServiceConfig, load_catalog
 
 import scap.spiderpig
 from scap.spiderpig.model import (
+    ErrorNote,
+    ErrorNoteUpdate,
     JobrunnerStatus,
     Job,
     JobType,
@@ -1129,11 +1131,39 @@ def _get_logs():
 
 
 @app.get("/api/monitoring/logs/mediawiki")
-async def get_errors():
+async def get_errors(session: Session = Depends(get_db_session)):
     logs = _get_logs()
-    if logs:
-        return {"message": "Logs retrieved", "log": logs["errors"]}
-    return {"message": "No log data - creation may be pending", "log": {}}
+    if not logs:
+        return {"message": "No log data - creation may be pending", "log": {}}
+
+    errors = logs["errors"]
+    notes = ErrorNote.all_by_message(session)
+
+    for message, error in errors.items():
+        note = notes.get(message)
+        if note:
+            error["note"] = {
+                "text": note.note,
+                "linkified": linkify_commit_mesage(note.note),
+                "user": note.user,
+                "updatedAt": note.updated_at,
+            }
+
+    return {"message": "Logs retrieved", "log": errors}
+
+
+@app.post("/api/monitoring/logs/mediawiki/note")
+async def set_error_note(
+    update: ErrorNoteUpdate,
+    user: Annotated[SessionUser, Depends(get_current_user)],
+    session: Session = Depends(get_db_session),
+):
+    if update.note:
+        ErrorNote.save(session, update.message, update.note, user.name)
+        return {"message": "Note saved"}
+
+    ErrorNote.remove(session, update.message)
+    return {"message": "Note removed"}
 
 
 @app.get("/api/monitoring/logs/mediawiki/total")
