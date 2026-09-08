@@ -1,8 +1,15 @@
 <template>
 	<v-sheet id="job-history" class="job-history">
-		<h2 class="job-history__heading">
-			Job History
-		</h2>
+		<div class="job-history__heading">
+			<h2>{{ heading }}</h2>
+			<cdx-checkbox
+				v-if="jobType"
+				v-model="showAllTypes"
+				:inline="true"
+			>
+				Show all job types
+			</cdx-checkbox>
+		</div>
 
 		<!-- Column labels -->
 		<div class="job-history__column-labels">
@@ -62,9 +69,9 @@
 </template>
 
 <script lang="ts">
-import { ref, onMounted, onUnmounted } from 'vue';
+import { ref, computed, watch, onMounted, onUnmounted } from 'vue';
 import { VSheet } from 'vuetify/components/VSheet';
-import { CdxButton } from '@wikimedia/codex';
+import { CdxButton, CdxCheckbox } from '@wikimedia/codex';
 import SpJobCard from './JobCard.vue';
 import useApi from '../api';
 
@@ -75,12 +82,21 @@ export default {
 	components: {
 		SpJobCard,
 		CdxButton,
+		CdxCheckbox,
 		VSheet
+	},
+	props: {
+		// A JobType value from scap/spiderpig/model.py, or null to show
+		// every kind of job.
+		jobType: {
+			type: String,
+			default: null
+		}
 	},
 	emits: [
 		'rowClicked'
 	],
-	setup() {
+	setup( props ) {
 		// Pinia store.
 		const api = useApi();
 
@@ -88,6 +104,17 @@ export default {
 		const loaded = ref( false );
 		const jobs = ref( [] );
 		const possiblyMoreHistory = ref( false );
+		const showAllTypes = ref( false );
+
+		const selectedType = computed(
+			() => ( showAllTypes.value ? null : props.jobType )
+		);
+
+		const heading = computed( () => ( {
+			backport: 'Backport History',
+			train: 'Train History',
+			'deploy-service': 'Service Deployment History'
+		}[ selectedType.value ] ?? 'Job History' ) );
 
 		let intervalTimer = null;
 
@@ -95,7 +122,9 @@ export default {
 
 		async function loadHistory() {
 			try {
-				const apiResponse = await api.getJobs( numJobsToDisplay, 0 );
+				const apiResponse = await api.getJobs(
+					numJobsToDisplay, 0, selectedType.value
+				);
 				const apiJobs = apiResponse.jobs;
 
 				for ( const job of apiJobs ) {
@@ -115,6 +144,13 @@ export default {
 			await loadHistory();
 		}
 
+		watch( selectedType, () => {
+			numJobsToDisplay = 5;
+			jobs.value = [];
+			loaded.value = false;
+			loadHistory();
+		} );
+
 		onMounted( () => {
 			loadHistory();
 			intervalTimer = setInterval( loadHistory, INTERVAL );
@@ -128,10 +164,12 @@ export default {
 		} );
 
 		return {
+			heading,
 			jobs,
 			loaded,
 			loadMoreHistory,
-			possiblyMoreHistory
+			possiblyMoreHistory,
+			showAllTypes
 		};
 	}
 };
@@ -143,11 +181,18 @@ export default {
 
 .job-history {
 	&__heading {
-		font-size: @font-size-x-large;
+		display: flex;
+		align-items: baseline;
+		justify-content: space-between;
+		gap: @spacing-100;
 		margin-top: @spacing-100;
 		margin-bottom: @spacing-100;
 		padding-bottom: @spacing-25;
 		border-bottom: @border-subtle;
+
+		h2 {
+			font-size: @font-size-x-large;
+		}
 	}
 
 	&__column-labels {

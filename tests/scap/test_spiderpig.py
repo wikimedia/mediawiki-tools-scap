@@ -1055,6 +1055,19 @@ async def test_get_jobs_reports_the_queue_of_each_job(job_session):
     ]
 
 
+@pytest.mark.anyio
+async def test_get_jobs_selects_one_type_of_job(job_session):
+    add_job(job_session, JobType.BACKPORT)
+    add_job(job_session, JobType.TRAIN)
+    ServiceDeployment(service="shellbox", message="bump image").add_job(
+        session=job_session, user="bruce"
+    )
+
+    result = await get_jobs(job_session, limit=10, skip=0, type=JobType.TRAIN)
+
+    assert [job.type for job in result["jobs"]] == [JobType.TRAIN]
+
+
 @pytest.fixture
 def error_notes_session(job_session, spiderpigdir):
     """A db session, with a report of the logstash poller in place."""

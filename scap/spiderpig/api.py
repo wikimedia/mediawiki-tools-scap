@@ -923,8 +923,9 @@ async def get_jobs(
     session: Session = Depends(get_db_session),
     limit: int = 10,
     skip: Optional[int] = 0,
+    type: Optional[JobType] = None,
 ):
-    jobs = Job.get_jobs(session, limit, skip)
+    jobs = Job.get_jobs(session, limit, skip, type)
 
     for job in jobs:
         # Detach the job object from the SQLAlchemy session so that we can
