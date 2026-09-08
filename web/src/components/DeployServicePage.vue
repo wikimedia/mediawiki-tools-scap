@@ -1,5 +1,5 @@
 <template>
-	<sp-job-page title="Deploy Service">
+	<sp-job-page title="Deploy Service" job-type="deploy-service">
 		<template #new-job>
 			<sp-deploy-service />
 		</template>

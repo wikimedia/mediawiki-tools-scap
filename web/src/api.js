@@ -184,10 +184,13 @@ const useAuthStore = defineStore( 'spiderpig-auth',
 			async getJobrunnerStatus() {
 				return await this.call( '/api/jobrunner/status' );
 			},
-			async getJobs( limit, skip ) {
+			async getJobs( limit, skip, type = null ) {
 				const url = new URL( '/api/jobs', this.apiserverBaseURL );
 				url.searchParams.append( 'limit', limit );
 				url.searchParams.append( 'skip', skip );
+				if ( type ) {
+					url.searchParams.append( 'type', type );
+				}
 				return await this.call( url );
 			},
 			async getJobInfo( job_id ) {

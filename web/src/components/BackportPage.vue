@@ -1,5 +1,5 @@
 <template>
-	<sp-job-page title="MediaWiki Backport">
+	<sp-job-page title="MediaWiki Backport" job-type="backport">
 		<template #new-job>
 			<sp-backport :initial-change-numbers="backportChangeNumbers" />
 		</template>

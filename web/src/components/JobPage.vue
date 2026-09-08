@@ -8,7 +8,7 @@
 		<v-sheet color="surface-light">
 			<slot name="new-job" />
 		</v-sheet>
-		<sp-job-history />
+		<sp-job-history :job-type="jobType" />
 	</div>
 </template>
 
@@ -30,6 +30,12 @@ export default defineComponent( {
 		title: {
 			type: String,
 			default: ''
+		},
+		// The kind of job that this page starts.  The job history shows only
+		// jobs of this kind, unless the user asks for all of them.
+		jobType: {
+			type: String,
+			default: null
 		}
 	}
 } );

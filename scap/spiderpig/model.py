@@ -244,13 +244,17 @@ class Job(Base):
         return session.scalar(select(Job).where(Job.id == job_id))
 
     @classmethod
-    def get_jobs(cls, session, limit: int, skip: int) -> List["Job"]:
-        return [
-            job
-            for job in session.scalars(
-                select(Job).order_by(Job.id.desc()).limit(limit).offset(skip)
-            )
-        ]
+    def get_jobs(
+        cls,
+        session,
+        limit: int,
+        skip: int,
+        type: Optional["JobType"] = None,
+    ) -> List["Job"]:
+        stmt = select(Job).order_by(Job.id.desc())
+        if type is not None:
+            stmt = stmt.where(Job.type == type)
+        return list(session.scalars(stmt.limit(limit).offset(skip)))
 
     @classmethod
     def get_running(cls, session) -> List["Job"]:
