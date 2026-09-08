@@ -9,8 +9,9 @@ import ErrorLogsPage from './components/ErrorLogsPage.vue';
 
 const routes = [
 	{
+		// Redirect to a route handled by the Navigation bar (T433287).
 		path: '/',
-		component: BackportPage
+		redirect: ( to ) => ( { path: '/mediawiki/backport', query: to.query } )
 	},
 	{
 		path: '/mediawiki/backport',
