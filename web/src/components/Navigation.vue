@@ -31,7 +31,7 @@
 		</v-btn>
 
 		<template #extension>
-			<v-tabs fixed>
+			<v-tabs fixed :mandatory="false">
 				<v-tab to="/mediawiki/backport">
 					MediaWiki Backport
 				</v-tab>
