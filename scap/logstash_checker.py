@@ -358,12 +358,7 @@ class LogstashChecker:
     def _summarize_errors(self, r):
         hits = collections.Counter()
         for hit in r["hits"]["hits"]:
-            hit = hit["_source"]
-            message = hit.get("normalized_message") or hit.get("message")
-
-            if message.startswith("[{reqId}] {exception_url}   "):
-                message = message[len("[{reqId}] {exception_url}   ") :]
-
+            message = logstash.error_message(hit["_source"])
             hits[message] += 1
 
         top = hits.most_common(5)

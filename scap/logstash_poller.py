@@ -197,11 +197,7 @@ class LogstashPoller:
 
         for hit in r.get("hits", {}).get("hits"):
             hit = hit.get("_source", {})
-            message = hit.get("normalized_message") or hit.get("message")
-
-            # Trim some boilerplate:
-            if message.startswith("[{reqId}] {exception_url}   "):
-                message = message[len("[{reqId}] {exception_url}   ") :]
+            message = logstash.error_message(hit)
 
             # Potential TODO: Use aggregations here instead
             if message not in errors:

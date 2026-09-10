@@ -8,6 +8,7 @@
 """
 
 import json
+import re
 import urllib3
 import logging
 
@@ -16,6 +17,29 @@ from scap import log
 
 class CheckServiceError(Exception):
     pass
+
+
+def error_message(source: dict) -> str:
+    """
+    Returns the message of a logstash record, without the prefix that
+    MediaWiki puts before the message of an exception.
+
+    `normalized_message` is preferred if available, falling back to
+    `message`.
+
+    The Phatality plugin strips the same prefix, with the same pattern. A
+    message from here therefore matches the title of a task that Phatality
+    filed.
+
+    >>> error_message({"normalized_message": "[{reqId}] {exception_url}   Boom"})
+    'Boom'
+    >>> error_message({"normalized_message": "  [{reqId}]  {exception_url} Boom"})
+    'Boom'
+    >>> error_message({"message": "Boom"})
+    'Boom'
+    """
+    message = source.get("normalized_message") or source.get("message")
+    return re.sub(r"^\s*\[{reqId}\]\s*{exception_url}\s*", "", message)
 
 
 def _read_credentials(credentials_file) -> str:
