@@ -23,14 +23,24 @@
 			item-value="message"
 		>
 			<template #item.message="{ value }">
-				<a
-					:href="value.link"
-					class="cdx-link"
-					target="_blank"
-				>
-					{{ value.message }}
-					<cdx-icon :icon="cdxIconLinkExternal" />
-				</a>
+				<div class="error-message">
+					<a
+						:href="value.link"
+						class="cdx-link"
+						target="_blank"
+					>
+						{{ value.message }}
+						<cdx-icon :icon="cdxIconLinkExternal" />
+					</a>
+					<a
+						:href="value.searchUrl"
+						class="error-message__search"
+						target="_blank"
+						title="Search Phabricator for the open tasks with this message"
+					>
+						<cdx-icon :icon="cdxIconSearch" />
+					</a>
+				</div>
 			</template>
 
 			<template #item.note="{ item }">
@@ -128,6 +138,7 @@ import {
 	cdxIconAdd,
 	cdxIconEdit,
 	cdxIconLinkExternal,
+	cdxIconSearch,
 	cdxIconTrash
 } from '@wikimedia/codex-icons';
 import rison from 'rison-node';
@@ -135,6 +146,7 @@ const search = ref( '' );
 
 import useApi from '../api';
 import { formatLinkifiedMessage } from '../linkify';
+import { taskSearchUrl } from '../phabricator';
 import { formatAge } from '../time';
 
 export default defineComponent( {
@@ -251,7 +263,11 @@ export default defineComponent( {
 				newData.push( {
 					count: value.count,
 					versions: value.versions.join( ' ' ),
-					message: { message: message, link: link },
+					message: {
+						message: message,
+						link: link,
+						searchUrl: taskSearchUrl( key )
+					},
 					fullMessage: key,
 					noteText: value.note ? value.note.text : '',
 					note: value.note ? {
@@ -341,6 +357,7 @@ export default defineComponent( {
 			cdxIconAdd,
 			cdxIconEdit,
 			cdxIconLinkExternal,
+			cdxIconSearch,
 			cdxIconTrash
 		};
 	}
@@ -361,6 +378,31 @@ export default defineComponent( {
 
 .cdx-table {
 	background-color: white;
+}
+
+.error-message {
+	display: flex;
+	align-items: flex-start;
+	gap: @spacing-25;
+
+	// This link holds an icon and no text, so it does not use the cdx-link
+	// mixin. The mixin sizes the last icon of a link to match link text.
+	&__search {
+		flex-shrink: 0;
+		color: @color-progressive;
+
+		&:hover {
+			color: @color-progressive--hover;
+		}
+
+		&:active {
+			color: @color-progressive--active;
+		}
+
+		.cdx-icon {
+			color: inherit;
+		}
+	}
 }
 
 .error-logs__filters {
