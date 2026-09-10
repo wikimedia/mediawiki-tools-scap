@@ -5,6 +5,7 @@ import sys
 from types import SimpleNamespace
 from unittest import mock
 
+from scap import logstash_checker
 from scap.logstash_checker import LogstashChecker
 
 # The records and the query evaluation live beside the fake-logstash service of
@@ -208,8 +209,96 @@ def test_analyze_reads_every_sample(caplog):
         checker.analyze("production")
 
     samples = checker._fetch_history_counts(90)
-    assert f"#samples: {len(samples)}" in caplog.text
+    assert f"#error-windows: {len(samples)}" in caplog.text
     assert "Suggested alert threshold" in caplog.text
+
+
+def test_analyze_reports_the_distribution(caplog):
+    """The report says how many windows hold an error, and how many hold more.
+
+    A sample is a window with one or more errors. A reader who takes a sample
+    for a window reads the mean of the summaries as the mean of the history.
+    """
+    checker = _checker([_dep_config("mw-web", "main")])
+
+    with caplog.at_level(logging.INFO):
+        checker.analyze("production")
+
+    samples = checker._fetch_history_counts(90)
+    windows = 90 * 24 * 3600 // fake_logstash.BUCKET_SECONDS
+    messages = [record.getMessage() for record in caplog.records]
+
+    # The shape of the history comes before the selection of a threshold.
+    assert messages[0].startswith("Percentiles of every window with an error:")
+    assert messages[1] == (
+        f"Windows with 0 or more errors: {windows}, over 90 days, "
+        f"{fake_logstash.BUCKET_SECONDS} seconds each"
+    )
+    # A level of 1 counts every sample.
+    assert f"Windows with 1 or more errors: {len(samples):>{len(str(windows))}}" in (
+        caplog.text
+    )
+    assert "Windows with 2 or more errors:" in caplog.text
+
+    summaries = next(i for i, one in enumerate(messages) if one.startswith("Initial"))
+    assert summaries > 1
+
+    # One line follows the suggestion. It counts the error-windows that reach
+    # the threshold, and then every window.
+    suggestion = next(
+        i for i, one in enumerate(messages) if one.startswith("Suggested alert")
+    )
+    threshold = int(messages[suggestion].split(": ")[1].split()[0])
+    reached = sum(1 for one in samples if one >= threshold)
+    assert messages[suggestion + 1] == (
+        f"That would trigger for {reached} of {len(samples)} error-windows, "
+        f"or {reached} of {windows} windows"
+    )
+
+
+def test_analyze_reports_the_outliers(caplog):
+    """The report names the cutoff of the outlier removal, and the zscore."""
+    checker = _checker([_dep_config("mw-web", "main")])
+
+    with caplog.at_level(logging.INFO):
+        checker.analyze("production")
+
+    initial = checker._fetch_history_counts(90)
+    remaining, outliers, cutoff = checker._exclude_outliers(
+        initial, logstash_checker.DEFAULT_ZSCORE
+    )
+
+    assert (
+        f"Outliers               : {len(outliers)} error-windows at or above "
+        f"{cutoff:.2f} (zscore=3.00), max: {max(outliers)}" in caplog.text
+    )
+    assert f"#error-windows: {len(remaining)}" in caplog.text
+
+
+def test_analyze_takes_a_zscore_of_each_kind(caplog):
+    """A zscore of the command line reaches the cutoff and the suggestion."""
+    checker = _checker([_dep_config("mw-web", "main")])
+
+    with caplog.at_level(logging.INFO):
+        checker.analyze("production", None, 1.5, 2)
+
+    assert "(zscore=1.50)" in caplog.text
+    assert "(zscore=2.00)" in caplog.text
+
+
+def test_analyze_keeps_every_sample_of_a_wide_zscore(caplog):
+    """A cutoff above every sample drops none, and names no largest."""
+    checker = _checker([_dep_config("mw-web", "main")])
+    samples = checker._fetch_history_counts(90)
+
+    with caplog.at_level(logging.INFO):
+        checker.analyze("production", None, 99)
+
+    assert "Outliers               : 0 error-windows at or above " in caplog.text
+    # No sample was dropped, so the line names no largest one.
+    assert "(zscore=99.00), max" not in caplog.text
+    # The summaries of before and after hold the same samples.
+    assert caplog.text.count(f"#error-windows: {len(samples)}") == 2
 
 
 def test_analyze_of_a_stage_with_no_target(caplog):

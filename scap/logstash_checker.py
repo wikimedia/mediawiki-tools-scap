@@ -10,6 +10,9 @@ from scap import cli, kubernetes, logstash, logstash_checker, targets
 # needing to import scap.logstash too.
 CheckServiceError = logstash.CheckServiceError
 
+# The default of --outlier-zscore and --threshold-zscore.
+DEFAULT_ZSCORE = 3
+
 
 @cli.command(
     "analyze-logstash",
@@ -38,6 +41,22 @@ class LogstashCheckerCommand(cli.Application):
     @cli.argument(
         "--wiki",
         help="Count only errors reported for this wiki (e.g. 'testwiki')",
+    )
+    @cli.argument(
+        "--outlier-zscore",
+        metavar="FLOAT",
+        type=float,
+        default=DEFAULT_ZSCORE,
+        help="A sample this many standard deviations above the mean is an "
+        "outlier. The analysis drops it before it suggests a threshold.",
+    )
+    @cli.argument(
+        "--threshold-zscore",
+        metavar="FLOAT",
+        type=float,
+        default=DEFAULT_ZSCORE,
+        help="The suggested threshold is the mean of the filtered samples, "
+        "plus this many standard deviations.",
     )
     def main(self, *extra_args):
         logger = self.get_logger()
@@ -68,6 +87,7 @@ class LogstashCheckerCommand(cli.Application):
             )
         else:
             dep_configs = k8s_ops.get_stage_dep_configs(stage)
+
             if stage == kubernetes.CANARIES:
                 baremetal_hosts = list(
                     set(targets.get("dsh_api_canaries", self.config).all)
@@ -97,7 +117,12 @@ class LogstashCheckerCommand(cli.Application):
             logger,
             self.config["logstash_credentials_file"],
             wiki,
-        ).analyze(stage, self.arguments.toohigh)
+        ).analyze(
+            stage,
+            self.arguments.toohigh,
+            self.arguments.outlier_zscore,
+            self.arguments.threshold_zscore,
+        )
 
 
 class LogstashChecker:
@@ -143,12 +168,14 @@ class LogstashChecker:
             self.logger.info("%s. OK.", prefix)
             return True
 
-    def analyze(self, stage, toohigh=None):
+    def analyze(
+        self,
+        stage,
+        toohigh=None,
+        outlier_zscore=DEFAULT_ZSCORE,
+        threshold_zscore=DEFAULT_ZSCORE,
+    ):
         """Analyze historical error counts for a deployment stage and suggest a threshold."""
-        # The Zscore used to filter outliers from the history samples
-        OUTLIER_ZSCORE = 3
-        # The Zscore used to suggest an error count threshold.
-        THRESHOLD_ZSCORE = 3
         HISTORY_DAYS = 90
 
         orig_samples = samples = self._fetch_history_counts(HISTORY_DAYS)
@@ -159,14 +186,16 @@ class LogstashChecker:
             )
             return
 
+        windows = HISTORY_DAYS * 24 * 3600 // self.window_size
+        self._report_distribution(orig_samples, windows, HISTORY_DAYS)
+
         def summarize(samples, description):
             mean = statistics.mean(samples)
             stdev = statistics.stdev(samples)
             self.logger.info(
-                "%s: #samples: %d, min: %d, mean: %.2f, stdev: %.2f, max: %d",
+                "%s: #error-windows: %d, mean: %.2f, stdev: %.2f, max: %d",
                 description,
                 len(samples),
-                min(samples),
                 mean,
                 stdev,
                 max(samples),
@@ -175,15 +204,23 @@ class LogstashChecker:
 
         if toohigh is None:
             summarize(samples, "Initial                ")
-            samples, outliers = self._exclude_outliers(samples, OUTLIER_ZSCORE)
+
+            samples, outliers, cutoff = self._exclude_outliers(samples, outlier_zscore)
+            largest = f", max: {max(outliers)}" if outliers else ""
+            self.logger.info(
+                f"Outliers               : {len(outliers)} error-windows at or "
+                f"above "
+                f"{cutoff:.2f} (zscore={outlier_zscore:.2f}){largest}"
+            )
+
             mean, stdev = summarize(samples, "After removing outliers")
 
-            toohigh = math.ceil(mean + THRESHOLD_ZSCORE * stdev)
+            toohigh = math.ceil(mean + threshold_zscore * stdev)
             self.logger.info(
                 "Suggested alert threshold for stage %s: %d (zscore=%.2f)",
                 stage,
                 toohigh,
-                THRESHOLD_ZSCORE,
+                threshold_zscore,
             )
         else:
             summarize(samples, "History")
@@ -194,34 +231,71 @@ class LogstashChecker:
             if sample >= toohigh:
                 count += 1
 
-        pct = count / len(orig_samples) * 100
+        self.logger.info(
+            f"That would trigger for {count} of {len(orig_samples)} "
+            f"error-windows, or {count} of {windows} windows"
+        )
+
+    def _report_distribution(self, samples, windows, history_days):
+        samples = sorted(samples)
+
+        levels = {}
+        for percentile in [50, 75, 90, 95, 99]:
+            index = min(len(samples) - 1, percentile * len(samples) // 100)
+            levels[percentile] = samples[index]
 
         self.logger.info(
-            "That would trigger for %d of %d samples (%.2f%%)",
-            count,
-            len(orig_samples),
-            pct,
+            "Percentiles of every window with an error: "
+            + ", ".join(f"{p}th: {level}" for p, level in levels.items())
+            + f", max: {samples[-1]}"
         )
+
+        # Construct a set of levels to report, including the max sample value,
+        # then convert to a sorted list.
+        levels_to_report = sorted({*levels.values(), samples[-1]})
+
+        windows_at_or_above = {0: windows}
+        for level in levels_to_report:
+            windows_at_or_above[level] = sum(1 for one in samples if one >= level)
+
+        level_width = max(len(str(level)) for level in windows_at_or_above)
+        count_width = max(len(str(count)) for count in windows_at_or_above.values())
+
+        for level, count in sorted(windows_at_or_above.items()):
+            period = (
+                f", over {history_days} days, {self.window_size} seconds each"
+                if not level
+                else ""
+            )
+            self.logger.info(
+                f"Windows with {level:>{level_width}} or more errors: "
+                f"{count:>{count_width}}{period}"
+            )
 
     ###########
     # Innards #
     ###########
 
     def _exclude_outliers(self, data, zscore):
+        """Splits the data at the mean plus `zscore` standard deviations.
+
+        Returns the samples below the cutoff, the samples at or above it, and
+        the cutoff.
+        """
         mean = statistics.mean(data)
         stdev = statistics.stdev(data)
-        toohigh = mean + stdev * zscore
+        cutoff = mean + stdev * zscore
 
         res = []
         outliers = []
 
         for x in data:
-            if x >= toohigh:
+            if x >= cutoff:
                 outliers.append(x)
             else:
                 res.append(x)
 
-        return res, outliers
+        return res, outliers, cutoff
 
     # A bool clause combines other clauses. The name of the list decides how:
     #   filter    every clause must match
