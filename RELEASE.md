@@ -33,9 +33,8 @@ prompt you for confirmation.
 
 ## Beta Release
 
-(For the following steps to work you must have ssh access to and sudo privileges on 
-**deployment-cumin-3.deployment-prep.eqiad.wmflabs** and **deployment-deploy03.deployment-prep.
-eqiad1.wikimedia.cloud**)
+(For the following steps to work, you must have ssh access to and sudo
+privileges on the Cumin and deployment hosts in deployment-prep)
 
 1. Run `release-scripts/scaps-installed-in-beta`.  It will print a
 list of the versions of Scap that are installed on beta hosts.  Save
@@ -47,12 +46,12 @@ Example output:
 
 ```
 $ ./release-scripts/scaps-installed-in-beta
-11 hosts will be targeted:
-deployment-deploy04.deployment-prep.eqiad1.wikimedia.cloud,deployment-echostore02.deployment-prep.eqiad1.wikimedia.cloud,deployment-jobrunner05.deployment-prep.eqiad1.wikimedia.cloud,deployment-mediawiki[13-14].deployment-prep.eqiad1.wikimedia.cloud,deployment-mwmaint03.deployment-prep.eqiad1.wikimedia.cloud,deployment-restbase05.deployment-prep.eqiad1.wikimedia.cloud,deployment-sessionstore06.deployment-prep.eqiad1.wikimedia.cloud,deployment-snapshot05.deployment-prep.eqiad1.wikimedia.cloud,deployment-webperf[21-22].deployment-prep.eqiad1.wikimedia.cloud
+15 hosts will be targeted:
+deployment-arclamp01.deployment-prep.eqiad1.wikimedia.cloud,deployment-deploy[04,06].deployment-prep.eqiad1.wikimedia.cloud,deployment-echostore02.deployment-prep.eqiad1.wikimedia.cloud,deployment-jobrunner[05-06].deployment-prep.eqiad1.wikimedia.cloud,deployment-mediawiki[13-16].deployment-prep.eqiad1.wikimedia.cloud,deployment-mwmaint[03-04].deployment-prep.eqiad1.wikimedia.cloud,deployment-restbase05.deployment-prep.eqiad1.wikimedia.cloud,deployment-sessionstore06.deployment-prep.eqiad1.wikimedia.cloud,deployment-webperf31.deployment-prep.eqiad1.wikimedia.cloud
 FORCE mode enabled, continuing without confirmation
-100.0% (11/11) success ratio (>= 100.0% threshold) for command: 'sudo -u scap scap version'.
-100.0% (11/11) success ratio (>= 100.0% threshold) of nodes successfully executed all commands.
-4.182.0
+100.0% (15/15) success ratio (>= 100.0% threshold) for command #1: 'sudo -u scap scap version'.
+100.0% (15/15) success ratio (>= 100.0% threshold) of nodes successfully executed all commands.
+4.287.0
 ```
 
 2. Run `release-scripts/update-scap-in-beta`. This script will list the latest
@@ -98,9 +97,10 @@ Press enter to deploy (Ctrl-C to cancel)
   `release-scripts/update-scap-in-beta OLDVERSION`, replacing
   OLDVERSION with the version saved in earlier steps.
 
-* Manually run a deployment from deployment-deploy03 *(FIXME: This needs to be replaced by pre-release automated testing)*
+* Manually run a deployment from the active deployment host *(FIXME: This needs
+  to be replaced by pre-release automated testing)*
 
-    * `ssh deployment-deploy03.deployment-prep.eqiad1.wikimedia.cloud`
+    * `ssh deploy.svc.deployment-prep.eqiad1.wikimedia.cloud`
     * `cd /srv/deployment/integration/slave-scripts`
     * make a dummy change to README and commit it
     * run: `scap version && dpkg -l scap`
@@ -109,7 +109,7 @@ Press enter to deploy (Ctrl-C to cancel)
     * run: `scap deploy-log`
     * kill that with control-C if it looks good
     * output from 'scap deploy' might mention a host like
-      deployment-mediawiki-07.deployment-prep.eqiad.wmflabs; log in
+      `deployment-xxxxxx99.deployment-prep.eqiad1.wikimedia.cloud`; log in
       there and check that
       /srv/deployment/integration/slave-scripts-cache has a current
       symlinked to a refs/... directory and that
