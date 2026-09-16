@@ -2,10 +2,10 @@
 """For cleaning up old MediaWiki."""
 import os
 import shutil
-import subprocess
 import sys
 
 from scap import ansi, cli, git, log, main, mwscript, ssh, utils
+from scap.runcmd import gitcmd, FailedCommand
 
 
 @cli.command("clean", primary_deploy_server_only=True)
@@ -143,13 +143,19 @@ class Clean(main.AbstractSync):
                     gerrit_ssh_env = self.get_gerrit_ssh_env()
 
                     logger.info("Deleting mediawiki/core branch")
-                    if (
-                        subprocess.call(
-                            ["git", "-C", branch_dir] + prune_branch_args,
+
+                    try:
+                        gitcmd(
+                            *prune_branch_args,
+                            cwd=branch_dir,
                             env=gerrit_ssh_env,
+                            _stream=True,
                         )
-                        != 0
-                    ):
+                        core_branch_deleted = True
+                    except FailedCommand:
+                        core_branch_deleted = False
+
+                    if not core_branch_deleted:
                         # When the deletion for core has failed, the branch is
                         # still a superproject in Gerrit and the deletion of
                         # subprojects would cause it to try to craft an object
@@ -167,17 +173,17 @@ class Clean(main.AbstractSync):
                         # Prune all the submodules' remote branches
                         logger.info("Deleting branch from other projects")
                         for submodule_path in Clean._get_submodules_paths(branch_dir):
-                            completed = subprocess.run(
-                                ["git", "-C", submodule_path] + prune_branch_args,
-                                stdout=subprocess.DEVNULL,
-                                stderr=subprocess.PIPE,
-                                env=gerrit_ssh_env,
-                            )
-                            if completed.returncode != 0:
+                            try:
+                                gitcmd(
+                                    *prune_branch_args,
+                                    cwd=submodule_path,
+                                    env=gerrit_ssh_env,
+                                )
+                            except FailedCommand as e:
                                 logger.info(
                                     "Failed deleting branch in %s", submodule_path
                                 )
-                                print(completed.stderr, file=sys.stderr)
+                                print(e.stderr, file=sys.stderr)
 
         logger.info("Clean %s", branch_dir)
         self._maybe_delete(branch_dir)
@@ -194,14 +200,13 @@ class Clean(main.AbstractSync):
         "Return a list of absolute paths for each submodule within `git_dir`"
         # fmt: off
         try:
-            submodules_paths = subprocess.check_output([
-                "git",
-                "-C", git_dir,
+            submodules_paths = gitcmd(
                 "config",
                 "--null",
                 "--file", ".gitmodules",
                 "--get-regexp", "^submodule\\..*\\.path$",
-            ], text=True)
+                cwd=git_dir,
+            )
         except Exception as e:
             raise e
         # fmt: on

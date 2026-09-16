@@ -18,6 +18,7 @@ from prettytable import PrettyTable, SINGLE_BORDER
 from random import randint
 from scap import cli, git, log, utils
 from scap.gerrit import GerritSession, parse_gerrit_datetime
+from scap.runcmd import gitcmd
 
 
 def make_table(backports, display_mergable):
@@ -752,29 +753,34 @@ class Backport(cli.Application):
                 # The staging directory will be restored to a deployable state at
                 # the end of this function.
                 if repo_branch_key not in fetched_repo_branches:
-                    subprocess.check_call(
-                        ["git", "-C", repo_location, "fetch", "origin", branch]
+                    gitcmd(
+                        "fetch",
+                        "origin",
+                        branch,
+                        cwd=repo_location,
+                        _stream=True,
                     )
                     fetched_repo_branches.add(repo_branch_key)
 
                 if active_branch_by_repo.get(repo_location) != branch:
-                    subprocess.check_call(
-                        [
-                            "git",
-                            "-C",
-                            repo_location,
-                            "checkout",
-                            "--force",
-                            "-B",
-                            branch,
-                            f"origin/{branch}",
-                        ]
+                    gitcmd(
+                        "checkout",
+                        "--force",
+                        "-B",
+                        branch,
+                        f"origin/{branch}",
+                        cwd=repo_location,
+                        _stream=True,
                     )
                     active_branch_by_repo[repo_location] = branch
 
                 with git.with_env_vars_set_for_user():
-                    subprocess.check_call(
-                        ["git", "-C", repo_location, "revert", "--no-commit", commit]
+                    gitcmd(
+                        "revert",
+                        "--no-commit",
+                        commit,
+                        cwd=repo_location,
+                        _stream=True,
                     )
 
             commit_msg = f'Revert "{change.get("subject")}"\n'
@@ -785,8 +791,12 @@ class Backport(cli.Application):
 
             with utils.suppress_backtrace():
                 with git.with_env_vars_set_for_user():
-                    subprocess.check_call(
-                        ["git", "-C", repo_location, "commit", "-m", commit_msg]
+                    gitcmd(
+                        "commit",
+                        "-m",
+                        commit_msg,
+                        cwd=repo_location,
+                        _stream=True,
                     )
 
             revert_number = self.gerritssh.push_and_collect_change_number(
@@ -1615,22 +1625,17 @@ class Backport(cli.Application):
 
     def _fetch_git_changes(self, location):
         with utils.suppress_backtrace():
-            subprocess.check_call(["git", "-C", location, "fetch"])
+            gitcmd("fetch", cwd=location, _stream=True)
 
     def _grep_for_git_commit(self, directory, branch, search_string):
         with utils.suppress_backtrace():
-            return subprocess.check_output(
-                [
-                    "git",
-                    "-C",
-                    directory,
-                    "rev-list",
-                    branch,
-                    "--regexp-ignore-case",
-                    "--grep",
-                    search_string,
-                ],
-                text=True,
+            return gitcmd(
+                "rev-list",
+                branch,
+                "--regexp-ignore-case",
+                "--grep",
+                search_string,
+                cwd=directory,
             ).strip("\n")
 
     def _collect_commit_fingerprints(self):
@@ -1691,17 +1696,12 @@ class Backport(cli.Application):
             with utils.suppress_backtrace():
                 # The merge commit is the latest descendant in the chain between the original commit and upstream.
                 # It appears last in the list.
-                ancestors = subprocess.check_output(
-                    [
-                        "git",
-                        "-C",
-                        repo_location,
-                        "rev-list",
-                        "%s..@{u}" % commit,
-                        "--ancestry-path",
-                        "--merges",
-                    ],
-                    text=True,
+                ancestors = gitcmd(
+                    "rev-list",
+                    "%s..@{u}" % commit,
+                    "--ancestry-path",
+                    "--merges",
+                    cwd=repo_location,
                 ).splitlines()
             if ancestors:
                 merge_commit = ancestors[-1]
@@ -1724,16 +1724,11 @@ class Backport(cli.Application):
                 new_commits = set(
                     filter(
                         None,
-                        subprocess.check_output(
-                            [
-                                "git",
-                                "-C",
-                                repo,
-                                "rev-list",
-                                "--left-only",
-                                "@{upstream}...HEAD",
-                            ],
-                            text=True,
+                        gitcmd(
+                            "rev-list",
+                            "--left-only",
+                            "@{upstream}...HEAD",
+                            cwd=repo,
                         ).splitlines(),
                     )
                 )
@@ -1746,8 +1741,12 @@ class Backport(cli.Application):
                     % repo
                 )
                 with utils.suppress_backtrace():
-                    subprocess.check_call(
-                        ["git", "-C", repo, "show", "-s"] + list(extra_commits)
+                    gitcmd(
+                        "show",
+                        "-s",
+                        *extra_commits,
+                        cwd=repo,
+                        _stream=True,
                     )
 
                 if self.arguments.yes:
@@ -1759,16 +1758,13 @@ class Backport(cli.Application):
                     )
                 if check_diff:
                     with utils.suppress_backtrace():
-                        subprocess.check_call(
-                            [
-                                "git",
-                                "--no-pager",
-                                "-C",
-                                repo,
-                                "show",
-                                "--submodule=diff",
-                            ]
-                            + list(extra_commits)
+                        gitcmd(
+                            "--no-pager",
+                            "show",
+                            "--submodule=diff",
+                            *extra_commits,
+                            cwd=repo,
+                            _stream=True,
                         )
 
                 self._prompt_for_approval_or_exit(

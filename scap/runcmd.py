@@ -44,23 +44,34 @@ def _runcmd(argv, **kwargs) -> str:
     is considered true) to return the command's stderr instead of its
     stdout.
 
+    Set the keyword argument _stream to True (not just a value that is
+    considered true) to not capture stdout/stderr or change stdin.
+    The function returns an empty string in this case.
+
     Other keyword arguments are passed to subprocess.Popen, except that
-    stdout, stderr, and stdin are overridden to capture output and make
-    stdin come from /dev/null.
+    stdout, stderr, and stdin are always set by this function.
     """
 
     want_stderr = kwargs.pop("_want_stderr", False) is True
+    stream = kwargs.pop("_stream", False) is True
 
-    # Set keyword arguments to capture stdout and stderr.
-    kwargs["stdout"] = subprocess.PIPE
-    kwargs["stderr"] = subprocess.PIPE
+    if stream:
+        # None makes Popen pass on the streams of scap.
+        kwargs["stdout"] = None
+        kwargs["stderr"] = None
+        kwargs["stdin"] = None
+    else:
+        # Set keyword arguments to capture stdout and stderr.
+        kwargs["stdout"] = subprocess.PIPE
+        kwargs["stderr"] = subprocess.PIPE
+
+        # Open /dev/null so stdin can be redirected to come from there. This
+        # way, if a command is accidentally invoked in a way that it reads
+        # from stdin, it won't get stuck.
+        kwargs["stdin"] = subprocess.DEVNULL
+
     # Enable text mode
     kwargs["text"] = True
-
-    # Open /dev/null so stdin can be redirected to come from there. This way,
-    # if a command is accidentally invoked in a way that it reads from stdin,
-    # it won't get stuck.
-    kwargs["stdin"] = subprocess.DEVNULL
 
     # Invoke the commmand.
     logging.debug("Running {argv!r} with {kwargs!r}".format(argv=argv, kwargs=kwargs))
@@ -72,9 +83,11 @@ def _runcmd(argv, **kwargs) -> str:
     # Check if command failed.
     if p.returncode != 0:
         logging.debug("Command exited with code %s", p.returncode)
-        raise FailedCommand(argv, p.returncode, stdout, stderr)
+        raise FailedCommand(argv, p.returncode, stdout or "", stderr or "")
 
     # All good, return captured stdout or stderr.
+    if stream:
+        return ""
     if want_stderr:
         return stderr
     return stdout
@@ -85,7 +98,13 @@ def gitcmd(subcommand, *args, **kwargs) -> str:
 
     Return the output of git as a Unicode string.
     """
-    return _runcmd(["git", subcommand] + list(args), **kwargs)
+
+    # gc.autoDetach=false prevents git from sneakily running in the background
+    # after exit, possibly causing a lock error on a later git command.
+    # (T438236).
+    return _runcmd(
+        ["git", "-c", "gc.autoDetach=false", subcommand] + list(args), **kwargs
+    )
 
 
 def delete_file_in_tree(dirname, basename):
