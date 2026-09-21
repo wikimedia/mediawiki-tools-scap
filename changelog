@@ -1,3 +1,28 @@
+scap (4.290.0)
+
+  * integration/test_backport.py: Retrieve the commit-msg hook over HTTP
+  * spiderpig: Add Phatality-style Phabricator error message search
+  * logstash: Strip the exception prefix in one place
+  * spiderpig: JobHistory: Only show jobs of a particular type
+  * spiderpig: Keep the navigation bar in step with the page
+  * spiderpig: Add a note to a MediaWiki error message
+  * spiderpig: Share the formatter of a linkified message
+  * web/eslint.config.js: Lint TypeScript files too
+  * spiderpig: Update notifications to handle multiple jobs
+  * spiderpig: Add support for retrying a service deployment
+  * jobrunner: Run jobs in separate queues concurrently
+  * tests: Check that the apiserver serves every Vue route
+  * install-world: Add an --inventory mode
+  * spiderpig: Deploy a service
+  * deploy-service: Name the group of the plan from the plan
+  * perform-release: add user agent to requests going out to GitLab
+  * spiderpig: Show the output that an interaction prompt asks about
+  * deploy-service: Add load_catalog()
+  * jobrunner.py: Fix Jobrunner._clear_orphaned_jobs
+  * spiderpig: Give each job a queue
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Mon, 21 Sep 2026 15:02:07 -0700
+
 scap (4.289.0)
 
   * clean-images: Fix the endless re-execution as docker_user
