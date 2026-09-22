@@ -5,7 +5,8 @@
 
 set -eu -o pipefail
 
-CUMIN_HOST="deployment-cumin-3.deployment-prep.eqiad1.wikimedia.cloud"
+# Active Cumin host
+CUMIN_HOST="cumin.svc.deployment-prep.eqiad1.wikimedia.cloud"
 
 function usage {
     cat <<EOF
