@@ -1,3 +1,10 @@
+scap (4.292.0)
+
+  * scaps-installed-in-beta: Switch to new Cumin host
+  * logstash: Match the fields of a query exactly
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Tue, 22 Sep 2026 14:39:01 -0700
+
 scap (4.291.0)
 
   * git: Do not let auto gc run in the background
