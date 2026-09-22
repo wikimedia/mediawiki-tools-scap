@@ -1,3 +1,10 @@
+scap (4.291.0)
+
+  * git: Do not let auto gc run in the background
+  * Update Beta Cluster-related documentation
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Tue, 22 Sep 2026 09:05:04 -0700
+
 scap (4.290.0)
 
   * integration/test_backport.py: Retrieve the commit-msg hook over HTTP
