@@ -70,6 +70,7 @@ def test_scap_prep_pushInsteadOf_urls_are_normalized(scap_prep_git):
     scap_prep_git.gitcmd.assert_any_call(
         "submodule",
         "foreach",
+        "--recursive",
         "git",
         "config",
         "--local",

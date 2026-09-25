@@ -4,6 +4,7 @@ import pytest
 
 from scap import cli, git
 from scap.clean import Clean
+from scap.runcmd import gitcmd, touch
 
 
 def test_scap_clean(tmpdir):
@@ -46,26 +47,49 @@ def test_scap_clean(tmpdir):
 
 
 def test__get_submodules_path(tmpdir):
-    with open(os.path.join(tmpdir, ".gitmodules"), "w") as f:
-        f.write(
-            """
-[submodule "extensions/AbuseFilter"]
-    path = extensions/AbuseFilter
-    url = https://gerrit.wikimedia.org/r/mediawiki/extensions/AbuseFilter
-    branch = .
-[submodule "extensions/Wikibase"]
-    path = extensions/Wikibase
-    url = https://gerrit.wikimedia.org/r/mediawiki/extensions/Wikibase
-    branch = .
-[submodule "vendor"]
-    path = vendor
-    url = https://gerrit.wikimedia.org/r/mediawiki/vendor
-    branch = .
-"""
-        )
+    def make_repo(name, submodules=()):
+        repo = os.path.join(tmpdir, name)
+        git.init(repo)
+        touch("README", cwd=repo)
+        for path, submodule in submodules:
+            # git refuses a submodule on a local path without this
+            gitcmd(
+                "-c",
+                "protocol.file.allow=always",
+                "submodule",
+                "add",
+                submodule,
+                path,
+                cwd=repo,
+            )
+        git.add_all(repo, "testing")
+        return repo
+
+    ve = make_repo("VisualEditor")
+    core = make_repo(
+        "core",
+        [
+            ("extensions/AbuseFilter", make_repo("AbuseFilter")),
+            (
+                "extensions/VisualEditor",
+                make_repo("extension-VisualEditor", [("lib/ve", ve)]),
+            ),
+            ("vendor", make_repo("vendor")),
+        ],
+    )
+    gitcmd(
+        "-c",
+        "protocol.file.allow=always",
+        "submodule",
+        "update",
+        "--init",
+        "--recursive",
+        cwd=core,
+    )
 
     assert [
-        os.path.join(tmpdir, "extensions/AbuseFilter"),
-        os.path.join(tmpdir, "extensions/Wikibase"),
-        os.path.join(tmpdir, "vendor"),
-    ] == Clean._get_submodules_paths(tmpdir)
+        os.path.join(core, "extensions/AbuseFilter"),
+        os.path.join(core, "extensions/VisualEditor"),
+        os.path.join(core, "extensions/VisualEditor/lib/ve"),
+        os.path.join(core, "vendor"),
+    ] == Clean._get_submodules_paths(core)
