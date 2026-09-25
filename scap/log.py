@@ -139,10 +139,12 @@ class IRCSocketHandler(logging.Handler):
         self.timeout = timeout
 
     def emit(self, record):
+        # IRC messages cannot contain line breaks.
+        text = re.sub(r"\s*[\r\n]+\s*", " ", record.getMessage())
         message = "!log %s@%s %s" % (
             utils.get_real_username(),
             socket.gethostname(),
-            record.getMessage(),
+            text,
         )
         try:
             sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)

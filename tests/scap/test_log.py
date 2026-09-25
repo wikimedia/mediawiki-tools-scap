@@ -358,3 +358,26 @@ def test_pipe():
             call(logging.DEBUG, "bar"),
         ]
     )
+
+
+@patch("scap.log.socket.gethostname", return_value="deploy1003")
+@patch("scap.utils.get_real_username", return_value="deployer")
+@patch("scap.log.socket.socket")
+def test_IRCSocketHandler_replaces_line_breaks(mock_socket, *_):
+    handler = log.IRCSocketHandler("localhost", 9200)
+    record = logging.LogRecord(
+        "scap.announce",
+        logging.INFO,
+        __file__,
+        0,
+        "Could not read the state of:\n /srv/a in eqiad: X\r\n /srv/b in codfw: Y",
+        (),
+        None,
+    )
+
+    handler.emit(record)
+
+    mock_socket.return_value.sendall.assert_called_once_with(
+        b"!log deployer@deploy1003 Could not read the state of:"
+        b" /srv/a in eqiad: X /srv/b in codfw: Y"
+    )
