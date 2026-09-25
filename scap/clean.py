@@ -198,22 +198,9 @@ class Clean(main.AbstractSync):
     @staticmethod
     def _get_submodules_paths(git_dir):
         "Return a list of absolute paths for each submodule within `git_dir`"
-        # fmt: off
-        try:
-            submodules_paths = gitcmd(
-                "config",
-                "--null",
-                "--file", ".gitmodules",
-                "--get-regexp", "^submodule\\..*\\.path$",
-                cwd=git_dir,
-            )
-        except Exception as e:
-            raise e
-        # fmt: on
-        return [
-            os.path.join(git_dir, kv.split("\n", maxsplit=1)[1])
-            for kv in submodules_paths.rstrip("\0").split("\0")
-        ]
+        return gitcmd(
+            "submodule", "--quiet", "foreach", "--recursive", "pwd", cwd=git_dir
+        ).splitlines()
 
     def _clean_remote_caches(self, target_hosts):
         """

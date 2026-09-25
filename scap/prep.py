@@ -360,6 +360,7 @@ class CheckoutMediaWiki(cli.Application):
             git.gitcmd(
                 "submodule",
                 "foreach",
+                "--recursive",
                 "git",
                 "config",
                 "--local",
