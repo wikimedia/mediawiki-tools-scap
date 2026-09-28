@@ -1,3 +1,9 @@
+scap (4.293.1)
+
+  * Switch mediawiki_runtime_image to PHP 8.5
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Mon, 28 Sep 2026 12:34:14 -0700
+
 scap (4.293.0)
 
   * log.py: Strip message newlines before emitting to IRC
