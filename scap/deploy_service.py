@@ -732,7 +732,7 @@ class DeployService(cli.Application):
             if self.arguments.confirm_diffs:
                 soft_errors = self._confirm_diffs(steps) > 0
 
-            status = self._deploy_and_announce(service, steps)
+            status = self._deploy_and_announce(steps)
 
         if status == 0 and soft_errors:
             self.logger.warning("The deployment is complete, but a diff command failed")
@@ -805,13 +805,8 @@ class DeployService(cli.Application):
             for question in checks.manual:
                 self.logger.info(f"    manual: {question or '(no question)'}")
 
-    def _deploy_and_announce(self, service: str, plan: Plan) -> int:
-        """Deploys the service, and announces the start and the end.
-
-        The announcements bracket the deployment. The SAL entries that helmfile
-        makes for each apply are between them.
-        """
-        what = f"scap deploy-service {service}: {self.message_argument}"
+    def _deploy_and_announce(self, plan: Plan) -> int:
+        what = f"{self._what()}: {self.message_argument}"
         self.announce(f"Started {what}")
         started = time.time()
 
@@ -841,8 +836,8 @@ class DeployService(cli.Application):
         rollbacks = {}
 
         for deployment_group, group in plan.items():
-            self.logger.info(
-                f"{self._label_of(deployment_group)} Deploying "
+            self.announce(
+                f"{self._what()}: {self._label_of(deployment_group)} Deploying "
                 f"{', '.join(_namespaces_of(group))}"
             )
             # The revisions come from before the deployment, so that a rollback
@@ -931,6 +926,10 @@ class DeployService(cli.Application):
                     "(the deployment of the service has: "
                     f"{', '.join(sorted(str(one) for one in plan))})"
                 )
+
+    def _what(self) -> str:
+        """The text that names this deployment in announcements."""
+        return f"scap deploy-service {self.arguments.service}"
 
     def _label_of(self, deployment_group: DeploymentGroup) -> str:
         """The text that identifies one group of the plan to the user.
@@ -1123,6 +1122,11 @@ class DeployService(cli.Application):
         self, deployment_group: DeploymentGroup, rollbacks: List[Rollback]
     ):
         """Rolls back one group, and offers a retry of the releases that failed."""
+        namespaces = ", ".join(_namespaces_of([r.command for r in rollbacks]))
+        self.announce(
+            f"{self._what()}: {self._label_of(deployment_group)} "
+            f"Rolling back {namespaces}"
+        )
         pending = list(rollbacks)
 
         def roll_back_pending() -> bool:
@@ -1132,9 +1136,7 @@ class DeployService(cli.Application):
             return not pending
 
         self.retry_ignore_or_exit(
-            f"the rollback of "
-            f"{', '.join(_namespaces_of([r.command for r in rollbacks]))} "
-            f"in {deployment_group.environment}",
+            f"the rollback of {namespaces} in {deployment_group.environment}",
             roll_back_pending,
         )
 

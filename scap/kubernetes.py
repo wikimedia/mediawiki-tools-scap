@@ -664,6 +664,8 @@ class K8sRunner:
         self.app = app
         self.logger = logger
         self.env = helm_augmented_environment(helm_env)
+        # Prevent helmfile_log_sal.sh (operations/puppet) from generating IRC announcements.
+        self.env["SUPPRESS_SAL"] = "true"
         # What helmfile reports about an invocation, keyed by _cache_key().
         self._states = {}
         self._installed_releases = {}
@@ -2303,9 +2305,7 @@ class K8sOps:
                 f"Deploying {dep_config.fq_release_name}",
                 f"helmfile_apply_{namespace}_{release}_{cluster}",
             ):
-                # helmfile_log_sal.sh (operations/puppet) reads SUPPRESS_SAL.
-                # Scap makes its own SAL entries for a MediaWiki deployment.
-                result = runner.run(cmd, helmfile_dir, {"SUPPRESS_SAL": "true"})
+                result = runner.run(cmd, helmfile_dir)
 
             monitor.ok = result.ok
 
