@@ -1,3 +1,9 @@
+scap (4.294.0)
+
+  * deploy-service: Announce each group of the plan
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Fri, 02 Oct 2026 14:46:32 -0700
+
 scap (4.293.1)
 
   * Switch mediawiki_runtime_image to PHP 8.5
