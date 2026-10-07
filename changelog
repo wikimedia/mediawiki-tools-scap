@@ -1,3 +1,9 @@
+scap (4.295.0)
+
+  * scap clean: Handle recursive submodules properly
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Wed, 07 Oct 2026 10:06:09 -0700
+
 scap (4.294.0)
 
   * deploy-service: Announce each group of the plan
