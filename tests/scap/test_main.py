@@ -265,3 +265,52 @@ def test_init_history_records_the_staged_checkouts(cmd, mocker):
     cmd._init_history()
 
     assert cmd.deployment_log_entry.checkouts == checkouts
+
+
+@pytest.mark.parametrize(
+    "command,succeeded,expected",
+    [
+        (
+            ["sync-wikiversions", "group1 to 1.42.0-wmf.00"],
+            True,
+            "rebuilt and synchronized wikiversions files: group1 to 1.42.0-wmf.00",
+        ),
+        (
+            ["sync-wikiversions", "group1 to 1.42.0-wmf.00"],
+            False,
+            "failed to synchronize wikiversions files: group1 to 1.42.0-wmf.00",
+        ),
+        (
+            ["sync-world", "Backport for Fix foo"],
+            True,
+            "Finished scap sync-world: Backport for Fix foo (duration: 00m 00s)",
+        ),
+        (
+            ["sync-world", "Backport for Fix foo"],
+            False,
+            "Failed scap sync-world: Backport for Fix foo (duration: 00m 00s)",
+        ),
+        (
+            ["sync-file", "php", "Update php"],
+            True,
+            "Synchronized php: Update php (duration: 00m 00s)",
+        ),
+        (
+            ["sync-file", "php", "Update php"],
+            False,
+            "Failed to synchronize php: Update php (duration: 00m 00s)",
+        ),
+    ],
+)
+def test_sync_announces_the_outcome(mocker, command, succeeded, expected):
+    app = cli.Application.factory(command)
+    app.setup()
+    announce = mocker.patch.object(app, "announce")
+    mocker.patch.object(app, "increment_stat")
+    mocker.patch.object(app, "get_duration", return_value=0)
+
+    app._after_lock_release(succeeded)
+
+    announce.assert_called_once()
+    args = announce.call_args.args
+    assert args[0] % args[1:] == expected

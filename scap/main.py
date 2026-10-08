@@ -289,7 +289,7 @@ class AbstractSync(cli.Application):
             finally:
                 self._finalize_history()
 
-        self._after_lock_release()
+        self._after_lock_release(succeeded=not sync_failed)
 
         if sync_failed or self.soft_errors:
             return 1
@@ -684,7 +684,7 @@ class AbstractSync(cli.Application):
     def _after_cluster_sync(self):
         pass
 
-    def _after_lock_release(self):
+    def _after_lock_release(self, succeeded: bool):
         pass
 
     def _after_sync_rebuild_cdbs(self, target_hosts, stage: str):
@@ -1500,9 +1500,10 @@ class ScapWorld(AbstractSync):
         self._restart_php()
         tasks.clear_message_blobs(self)
 
-    def _after_lock_release(self):
+    def _after_lock_release(self, succeeded: bool):
         self.announce(
-            "Finished scap sync-world: %s (duration: %s)",
+            "%s scap sync-world: %s (duration: %s)",
+            "Finished" if succeeded else "Failed",
             self.message_argument,
             utils.human_duration(self.get_duration()),
         )
@@ -1674,9 +1675,10 @@ class SyncFile(AbstractSync):
     def _after_cluster_sync(self):
         self._restart_php()
 
-    def _after_lock_release(self):
+    def _after_lock_release(self, succeeded: bool):
         self.announce(
-            "Synchronized %s: %s (duration: %s)",
+            "%s %s: %s (duration: %s)",
+            "Synchronized" if succeeded else "Failed to synchronize",
             self.arguments.file,
             self.message_argument,
             utils.human_duration(self.get_duration()),
@@ -1727,10 +1729,16 @@ class SyncWikiversions(AbstractSync):
         # Tell the remaining stages to only rsync wikiversions*.* files.
         self.include = "wikiversions*.*"
 
-    def _after_lock_release(self):
-        self.announce(
-            "rebuilt and synchronized wikiversions files: %s", self.message_argument
-        )
+    def _after_lock_release(self, succeeded: bool):
+        if succeeded:
+            self.announce(
+                "rebuilt and synchronized wikiversions files: %s",
+                self.message_argument,
+            )
+        else:
+            self.announce(
+                "failed to synchronize wikiversions files: %s", self.message_argument
+            )
 
         self.increment_stat("sync-wikiversions")
 
