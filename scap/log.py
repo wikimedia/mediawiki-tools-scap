@@ -1016,6 +1016,12 @@ def setup_loggers(cfg, console_level=logging.INFO, handlers=None):
         Filter({"name": "scap.k8s.deploy", "levelno": lambda lvl: lvl < console_level})
     )
 
+    # Don't bother users with retry warnings (T320436)
+    if console_level > logging.DEBUG:
+        logging.root.handlers[0].addFilter(
+            Filter({"name": "urllib3.connectionpool", "msg": "Retrying *"})
+        )
+
     if cfg["log_json"]:
         logging.root.handlers[0].setFormatter(JSONFormatter())
     else:

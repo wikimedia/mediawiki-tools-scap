@@ -9,6 +9,8 @@ import unittest
 from unittest.mock import call, Mock, patch
 from time import sleep
 
+import pytest
+
 from scap import log
 
 
@@ -142,6 +144,35 @@ def test_filter_parse():
         ("baz", "~", "qux"),
         ("blah", "=", "splat.*"),
     ]
+
+
+@pytest.mark.parametrize(
+    "console_level,name,msg,shown",
+    [
+        (logging.INFO, "urllib3.connectionpool", "Retrying (%r) after ...", False),
+        (logging.INFO, "urllib3.connectionpool", "Connection pool is full", True),
+        (logging.DEBUG, "urllib3.connectionpool", "Retrying (%r) after ...", True),
+    ],
+)
+def test_setup_loggers_console_hides_urllib3_retries(console_level, name, msg, shown):
+    console = logging.StreamHandler(StringIO())
+    cfg = {
+        "log_json": False,
+        "udp2log_host": None,
+        "use_syslog": False,
+        "tcpircbot_host": None,
+    }
+    record = logging.LogRecord(name, logging.WARNING, __file__, 1, msg, None, None)
+
+    scap_sh = logging.getLogger("scap.sh")
+    with (
+        patch.object(logging.root, "handlers", [console]),
+        patch.object(logging.root, "level", logging.root.level),
+        patch.object(scap_sh, "level", scap_sh.level),
+    ):
+        log.setup_loggers(cfg, console_level=console_level)
+
+    assert bool(console.filter(record)) == shown
 
 
 def test_make_record():
