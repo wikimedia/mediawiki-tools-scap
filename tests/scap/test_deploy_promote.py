@@ -162,7 +162,18 @@ def test_version_check_without_staged_version(deploy_promote, tmp_path):
         deploy_promote._check_versions()
 
 
-def test_push_failure_removes_the_local_commit(deploy_promote, tmp_path):
+@pytest.mark.parametrize(
+    "push,error",
+    [
+        (
+            {"side_effect": subprocess.CalledProcessError(1, ["git", "push"])},
+            subprocess.CalledProcessError,
+        ),
+        # The push output has no change number
+        ({"return_value": None}, SystemExit),
+    ],
+)
+def test_push_failure_removes_the_local_commit(deploy_promote, tmp_path, push, error):
     gitcmd("init", "--quiet", cwd=tmp_path)
     gitcmd("config", "user.name", "Test", cwd=tmp_path)
     gitcmd("config", "user.email", "test@example.org", cwd=tmp_path)
@@ -178,12 +189,11 @@ def test_push_failure_removes_the_local_commit(deploy_promote, tmp_path):
     )
     deploy_promote.promote_version = "1.42.0-wmf.00"
     deploy_promote._gerritssh = mock.Mock()
-    deploy_promote._gerritssh.push_and_collect_change_number.side_effect = (
-        subprocess.CalledProcessError(1, ["git", "push"])
-    )
+    deploy_promote._gerritssh.push_and_collect_change_number.configure_mock(**push)
 
     with utils.cd(str(tmp_path)):
-        with pytest.raises(subprocess.CalledProcessError):
+        with pytest.raises(error):
             deploy_promote._push_patch_and_wait_for_merge()
 
     assert gitcmd("rev-parse", "HEAD", cwd=tmp_path).strip() == initial
+    deploy_promote._gerritssh.review.assert_not_called()

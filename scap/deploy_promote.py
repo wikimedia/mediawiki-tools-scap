@@ -233,6 +233,12 @@ class DeployPromote(cli.Application):
         finally:
             gitcmd("reset", "--hard", "HEAD^")
 
+        if changeno is None:
+            utils.abort(
+                f"Could not find the change number of {change_id} in the push output. "
+                "The push to Gerrit may have failed."
+            )
+
         user = utils.get_real_username() + "@" + socket.gethostname()
         self.gerritssh.review(f"{changeno},1", f"Initiated by {user}", "+2")
 
