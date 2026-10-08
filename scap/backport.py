@@ -615,22 +615,54 @@ class Backport(cli.Application):
 
     def _build_sal(self) -> str:
         """Build a Server Admin Log entry"""
+        groups = {}
+        # Group changes by their project and subject
+        for change in self.backports.changes.values():
+            key = (change.get("project"), change.get("subject"))
+            groups.setdefault(key, []).append(change)
         return "Backport for {}".format(
-            ", ".join(map(self._build_sal_1, self.backports.changes.values()))
+            ", ".join(map(self._build_sal_1, groups.values()))
         )
 
-    # This code was inspired by https://gerrit.wikimedia.org/r/plugins/gitiles/labs/tools/deploy-commands/+/refs/heads/master/deploy_commands/bacc.py#10
-    def _build_sal_1(self, change) -> str:
-        bug_ids = self._extract_bug_ids_from_gerrit_change_details(change.details)
+    def _build_sal_1(self, changes) -> str:
+        """Build the Server Admin Log text for changes that share a subject"""
+        bug_ids = []
+        for change in changes:
+            for bug_id in self._extract_bug_ids_from_gerrit_change_details(
+                change.details
+            ):
+                if bug_id not in bug_ids:
+                    bug_ids.append(bug_id)
 
         if not bug_ids:
             bug_str = ""
         else:
             bug_str = " (" + " ".join(bug_ids) + ")"
 
-        return "[[gerrit:{}|{}{}]]".format(
-            change.number, change.get("subject"), bug_str
+        title = changes[0].get("subject") + bug_str
+        versions = [
+            re.sub(r"^wmf/", "", change.get("branch"))
+            for change in changes
+            if change.get("project") != self.OPERATIONS_CONFIG
+        ]
+
+        if len(changes) == 1:
+            sal = "[[gerrit:{}|{}]]".format(changes[0].number, title)
+            if not versions:
+                return sal
+            return "{} ({})".format(sal, versions[0])
+
+        # Label each link with its version.
+        # Use change numbers if the group has config changes or a repeated version.
+        if len(set(versions)) < len(changes):
+            labels = [change.number for change in changes]
+        else:
+            labels = versions
+        links = ", ".join(
+            "[[gerrit:{}|{}]]".format(change.number, label)
+            for change, label in zip(changes, labels)
         )
+        return "{} ({})".format(title, links)
 
     def _list_available_backports(self):
         backports = self._get_available_backports()

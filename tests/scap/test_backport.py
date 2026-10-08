@@ -2148,3 +2148,102 @@ class TestIsRelevantDep:
         assert (
             result is True
         ), "Master dep should be relevant when it's the only one in siblings list"
+
+
+def _sal_change(number, subject, project, branch, bugs=()):
+    footers = "".join(f"Bug: {bug}\n" for bug in bugs)
+    change = Mock(number=number)
+    change.details = {
+        "current_revision": "rev",
+        "revisions": {"rev": {"commit_with_footers": f"{subject}\n\n{footers}"}},
+    }
+    change.get.side_effect = {
+        "subject": subject,
+        "project": project,
+        "branch": branch,
+    }.get
+    return change
+
+
+CONFIG = "operations/mediawiki-config"
+CORE = "mediawiki/core"
+RL_FIX = "resourceloader: Fix hash"
+
+
+@pytest.mark.parametrize(
+    "changes,expected",
+    [
+        pytest.param(
+            [_sal_change(1, "Raise limit", CONFIG, "master", ["T2"])],
+            "Backport for [[gerrit:1|Raise limit (T2)]]",
+            id="single config change",
+        ),
+        pytest.param(
+            [_sal_change(1, "Fix foo", CORE, "wmf/1.44.0-wmf.14", ["T1"])],
+            "Backport for [[gerrit:1|Fix foo (T1)]] (1.44.0-wmf.14)",
+            id="single train change",
+        ),
+        pytest.param(
+            [
+                _sal_change(1, RL_FIX, CORE, "wmf/1.44.0-wmf.13", ["T3"]),
+                _sal_change(2, RL_FIX, CORE, "wmf/1.44.0-wmf.14", ["T3", "T4"]),
+            ],
+            f"Backport for {RL_FIX} (T3 T4) "
+            "([[gerrit:1|1.44.0-wmf.13]], [[gerrit:2|1.44.0-wmf.14]])",
+            id="same subject on two trains",
+        ),
+        pytest.param(
+            [
+                _sal_change(1, "Raise limit", CONFIG, "master"),
+                _sal_change(2, RL_FIX, CORE, "wmf/1.44.0-wmf.13"),
+                _sal_change(3, "Fix foo", CORE, "wmf/1.44.0-wmf.14"),
+                _sal_change(4, RL_FIX, CORE, "wmf/1.44.0-wmf.14"),
+            ],
+            "Backport for [[gerrit:1|Raise limit]], "
+            f"{RL_FIX} ([[gerrit:2|1.44.0-wmf.13]], [[gerrit:4|1.44.0-wmf.14]]), "
+            "[[gerrit:3|Fix foo]] (1.44.0-wmf.14)",
+            id="mixed groups",
+        ),
+        pytest.param(
+            [
+                _sal_change(1, "Update Foo", CORE, "wmf/1.44.0-wmf.14"),
+                _sal_change(
+                    2, "Update Foo", "mediawiki/extensions/Foo", "wmf/1.44.0-wmf.14"
+                ),
+            ],
+            "Backport for [[gerrit:1|Update Foo]] (1.44.0-wmf.14), "
+            "[[gerrit:2|Update Foo]] (1.44.0-wmf.14)",
+            id="same subject in two projects",
+        ),
+        pytest.param(
+            [
+                _sal_change(1, "Update Foo", CONFIG, "master"),
+                _sal_change(2, "Update Foo", CORE, "wmf/1.44.0-wmf.14"),
+            ],
+            "Backport for [[gerrit:1|Update Foo]], "
+            "[[gerrit:2|Update Foo]] (1.44.0-wmf.14)",
+            id="same subject in config and core",
+        ),
+        pytest.param(
+            [
+                _sal_change(1, "Update Foo", CONFIG, "master"),
+                _sal_change(2, "Update Foo", CONFIG, "master"),
+            ],
+            "Backport for Update Foo ([[gerrit:1|1]], [[gerrit:2|2]])",
+            id="two config changes",
+        ),
+        pytest.param(
+            [
+                _sal_change(1, "Update Foo", CORE, "wmf/1.44.0-wmf.14"),
+                _sal_change(2, "Update Foo", CORE, "wmf/1.44.0-wmf.14"),
+            ],
+            "Backport for Update Foo ([[gerrit:1|1]], [[gerrit:2|2]])",
+            id="repeated version",
+        ),
+    ],
+)
+def test_build_sal(backport_factory, changes, expected):
+    bp = backport_factory(
+        backports=Mock(changes={change.number: change for change in changes})
+    )
+    assert bp._build_sal() == expected
