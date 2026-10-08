@@ -1,3 +1,9 @@
+scap (4.296.0)
+
+  * log.py: Hide urllib3 retrying messages
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Thu, 08 Oct 2026 09:11:38 -0700
+
 scap (4.295.0)
 
   * scap clean: Handle recursive submodules properly
