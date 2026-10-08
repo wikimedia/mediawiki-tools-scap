@@ -225,11 +225,13 @@ class DeployPromote(cli.Application):
     def _push_patch_and_wait_for_merge(self):
         branch = gitcmd("symbolic-ref", "--short", "HEAD").strip()
 
-        changeno = self.gerritssh.push_and_collect_change_number(
-            ".", "operations/mediawiki-config", branch, topic=self.promote_version
-        )
         change_id = re.search(r"(?m)Change-Id:.+$", gitcmd("log", "-1")).group()
-        gitcmd("reset", "--hard", "HEAD^")
+        try:
+            changeno = self.gerritssh.push_and_collect_change_number(
+                ".", "operations/mediawiki-config", branch, topic=self.promote_version
+            )
+        finally:
+            gitcmd("reset", "--hard", "HEAD^")
 
         user = utils.get_real_username() + "@" + socket.gethostname()
         self.gerritssh.review(f"{changeno},1", f"Initiated by {user}", "+2")

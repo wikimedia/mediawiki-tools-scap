@@ -1,4 +1,5 @@
 import json
+import subprocess
 import tempfile
 from logging import Logger
 from unittest import mock
@@ -8,7 +9,9 @@ import pytest
 import requests
 from requests import HTTPError, Response
 
+from scap import utils
 from scap.deploy_promote import DeployPromote
+from scap.runcmd import gitcmd
 
 messages_tests = [
     (
@@ -157,3 +160,30 @@ def test_version_check_without_staged_version(deploy_promote, tmp_path):
 
     with pytest.raises(SystemExit):
         deploy_promote._check_versions()
+
+
+def test_push_failure_removes_the_local_commit(deploy_promote, tmp_path):
+    gitcmd("init", "--quiet", cwd=tmp_path)
+    gitcmd("config", "user.name", "Test", cwd=tmp_path)
+    gitcmd("config", "user.email", "test@example.org", cwd=tmp_path)
+    gitcmd("commit", "--quiet", "--allow-empty", "-m", "Initial", cwd=tmp_path)
+    initial = gitcmd("rev-parse", "HEAD", cwd=tmp_path).strip()
+    gitcmd(
+        "commit",
+        "--quiet",
+        "--allow-empty",
+        "-m",
+        "group1 to 1.42.0-wmf.00\n\nChange-Id: I123",
+        cwd=tmp_path,
+    )
+    deploy_promote.promote_version = "1.42.0-wmf.00"
+    deploy_promote._gerritssh = mock.Mock()
+    deploy_promote._gerritssh.push_and_collect_change_number.side_effect = (
+        subprocess.CalledProcessError(1, ["git", "push"])
+    )
+
+    with utils.cd(str(tmp_path)):
+        with pytest.raises(subprocess.CalledProcessError):
+            deploy_promote._push_patch_and_wait_for_merge()
+
+    assert gitcmd("rev-parse", "HEAD", cwd=tmp_path).strip() == initial
