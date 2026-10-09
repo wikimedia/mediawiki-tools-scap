@@ -51,6 +51,8 @@ import scap.version as scapversion
 from scap import ansi, history
 from scap.kubernetes import K8sOps, TEST_SERVERS, CANARIES, PRODUCTION, STAGES
 
+ROLLED_BACK_STATUS = 3
+
 
 @dataclass
 class DeploymentStage:
@@ -291,6 +293,8 @@ class AbstractSync(cli.Application):
 
         self._after_lock_release(succeeded=not sync_failed)
 
+        if k8s_result == "rolled back":
+            return ROLLED_BACK_STATUS
         if sync_failed or self.soft_errors:
             return 1
         return 0

@@ -9,9 +9,9 @@ import pytest
 import requests
 from requests import HTTPError, Response
 
-from scap import utils
+from scap import main, utils
 from scap.deploy_promote import DeployPromote
-from scap.runcmd import gitcmd
+from scap.runcmd import FailedCommand, gitcmd
 
 messages_tests = [
     (
@@ -193,7 +193,138 @@ def test_push_failure_removes_the_local_commit(deploy_promote, tmp_path, push, e
 
     with utils.cd(str(tmp_path)):
         with pytest.raises(error):
-            deploy_promote._push_patch_and_wait_for_merge()
+            deploy_promote._push_patch()
 
     assert gitcmd("rev-parse", "HEAD", cwd=tmp_path).strip() == initial
-    deploy_promote._gerritssh.review.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    "returncode,change_id,reverts",
+    [
+        (main.ROLLED_BACK_STATUS, "Change-Id: I123", True),
+        (1, "Change-Id: I123", False),
+        # deploy-promote made no change, so there is nothing to revert
+        (main.ROLLED_BACK_STATUS, None, False),
+    ],
+)
+def test_sync_versions_reverts_after_rollback(
+    deploy_promote, returncode, change_id, reverts
+):
+    deploy_promote.logger = mock.MagicMock(Logger)
+    deploy_promote.arguments = mock.Mock(pause_after_testserver_sync=False)
+    deploy_promote.group = "group1"
+    deploy_promote.announce_message = "group1 to 1.42.0-wmf.00  refs T777"
+    deploy_promote.version_update_change_id = change_id
+
+    error = subprocess.CalledProcessError(returncode, ["scap", "sync-wikiversions"])
+    with (
+        mock.patch.object(deploy_promote, "scap_check_call", side_effect=error),
+        mock.patch.object(deploy_promote, "_revert_version_update_patch") as revert,
+    ):
+        with pytest.raises(subprocess.CalledProcessError):
+            deploy_promote._sync_versions()
+
+    assert revert.called is reverts
+
+
+def make_config_repo(path):
+    gitcmd("init", "--quiet", cwd=path)
+    gitcmd("config", "user.name", "Test", cwd=path)
+    gitcmd("config", "user.email", "test@example.org", cwd=path)
+    (path / "wikiversions.json").write_text('{"enwiktionary": "php-1.42.0-wmf.99"}\n')
+    gitcmd("add", "wikiversions.json", cwd=path)
+    gitcmd("commit", "--quiet", "-m", "Initial", cwd=path)
+    (path / "wikiversions.json").write_text('{"enwiktionary": "php-1.42.0-wmf.00"}\n')
+    gitcmd(
+        "commit",
+        "--quiet",
+        "-a",
+        "-m",
+        "group1 to 1.42.0-wmf.00\n\nBug: T777\nChange-Id: I123",
+        cwd=path,
+    )
+
+
+def test_commit_revert(deploy_promote, tmp_path):
+    make_config_repo(tmp_path)
+    promote_commit = gitcmd("rev-parse", "HEAD", cwd=tmp_path).strip()
+    deploy_promote.commit_message = "group1 to 1.42.0-wmf.00\n\nBug: T777"
+    deploy_promote.version_update_change_id = "Change-Id: I123"
+
+    with utils.cd(str(tmp_path)):
+        deploy_promote._commit_revert()
+
+    assert (tmp_path / "wikiversions.json").read_text() == (
+        '{"enwiktionary": "php-1.42.0-wmf.99"}\n'
+    )
+    assert gitcmd("log", "-1", "--format=%B", cwd=tmp_path).strip() == (
+        'Revert "group1 to 1.42.0-wmf.00"\n'
+        "\n"
+        f"This reverts commit {promote_commit}.\n"
+        "\n"
+        "Bug: T777"
+    )
+
+
+def test_commit_revert_with_conflict(deploy_promote, tmp_path):
+    make_config_repo(tmp_path)
+    (tmp_path / "wikiversions.json").write_text(
+        '{"enwiktionary": "php-1.42.0-wmf.01"}\n'
+    )
+    gitcmd("commit", "--quiet", "-a", "-m", "group1 to 1.42.0-wmf.01", cwd=tmp_path)
+    head = gitcmd("rev-parse", "HEAD", cwd=tmp_path).strip()
+    deploy_promote.commit_message = "group1 to 1.42.0-wmf.00\n\nBug: T777"
+    deploy_promote.version_update_change_id = "Change-Id: I123"
+
+    with utils.cd(str(tmp_path)):
+        with pytest.raises(FailedCommand):
+            deploy_promote._commit_revert()
+
+    assert gitcmd("rev-parse", "HEAD", cwd=tmp_path).strip() == head
+    assert gitcmd("status", "--porcelain", cwd=tmp_path) == ""
+
+
+@pytest.mark.parametrize(
+    "failing_step,action",
+    [
+        (
+            "_commit_revert",
+            "You must revert http://gerrit.example/r/105 in Gerrit and merge the revert",
+        ),
+        (
+            "_push_patch",
+            "You must revert http://gerrit.example/r/105 in Gerrit and merge the revert",
+        ),
+        (
+            "_merge_patch",
+            "You must make sure that http://gerrit.example/r/106 is merged",
+        ),
+    ],
+)
+def test_revert_failure_names_the_change(
+    deploy_promote, tmp_path, failing_step, action
+):
+    deploy_promote.logger = mock.MagicMock(Logger)
+    deploy_promote.config["stage_dir"] = str(tmp_path)
+    deploy_promote.config["gerrit_url"] = "http://gerrit.example/"
+    deploy_promote.commit_message = "group1 to 1.42.0-wmf.00\n\nBug: T777"
+    deploy_promote.version_update_change_number = "105"
+    steps = {
+        "_commit_revert": mock.Mock(),
+        "_push_patch": mock.Mock(return_value=("Change-Id: I456", "106")),
+        "_merge_patch": mock.Mock(),
+        "alert": mock.Mock(),
+    }
+    steps[failing_step].side_effect = SystemExit("Aborting: test failure")
+
+    with mock.patch.multiple(deploy_promote, **steps):
+        deploy_promote._revert_version_update_patch()
+
+    deploy_promote.logger.error.assert_called_once_with(
+        'Could not revert "group1 to 1.42.0-wmf.00": Aborting: test failure'
+    )
+    steps["alert"].assert_called_once_with(
+        'The revert of "group1 to 1.42.0-wmf.00" failed.\n\n'
+        f'MANUAL RECOVERY NEEDED: {action}, then run "scap prep auto".',
+        "Acknowledge",
+    )

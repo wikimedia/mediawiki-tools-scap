@@ -33,14 +33,15 @@
 import os
 import re
 import socket
+import subprocess
 import time
 from functools import partial
 from typing import List, Tuple
 
 import requests
 
-from scap import cli, history, interaction, utils, config, git, train
-from scap.runcmd import gitcmd
+from scap import cli, history, interaction, utils, config, git, main, train
+from scap.runcmd import FailedCommand, gitcmd
 
 print = partial(print, flush=True)
 
@@ -62,6 +63,8 @@ class DeployPromote(cli.Application):
     promote_version = None
     announce_message = None
     commit_message = None
+    version_update_change_id = None
+    version_update_change_number = None
 
     @cli.argument(
         "group",
@@ -171,7 +174,10 @@ class DeployPromote(cli.Application):
         with utils.cd(self.config["stage_dir"]):
             if self._commit_files():
                 self.logger.info("Pushing versions update patch")
-                self._push_patch_and_wait_for_merge()
+                change_id, changeno = self._push_patch()
+                self._merge_patch(change_id, changeno)
+                self.version_update_change_id = change_id
+                self.version_update_change_number = changeno
                 self.logger.info("Running git pull")
                 gitcmd("pull")
                 git.tag("scap-prep-point", "HEAD", force=True)
@@ -222,7 +228,11 @@ class DeployPromote(cli.Application):
         gitcmd("commit", "-m", self.commit_message)
         return True
 
-    def _push_patch_and_wait_for_merge(self):
+    def _push_patch(self) -> Tuple[str, str]:
+        """
+        Pushes the commit at HEAD for review and removes it from the local
+        branch. Returns its Change-Id line and its change number.
+        """
         branch = gitcmd("symbolic-ref", "--short", "HEAD").strip()
 
         change_id = re.search(r"(?m)Change-Id:.+$", gitcmd("log", "-1")).group()
@@ -239,14 +249,16 @@ class DeployPromote(cli.Application):
                 "The push to Gerrit may have failed."
             )
 
+        return change_id, changeno
+
+    def _merge_patch(self, change_id, changeno):
         user = utils.get_real_username() + "@" + socket.gethostname()
         self.gerritssh.review(f"{changeno},1", f"Initiated by {user}", "+2")
 
-        change_url = os.path.join(self.config["gerrit_url"], f"r/{changeno}")
-
         # FIXME: Try to consolidate with _wait_for_changes_to_be_merged in backport.py
         with self.reported_status(
-            f"Waiting for jenkins to merge change {change_url}", log=True
+            f"Waiting for jenkins to merge change {self._change_url(changeno)}",
+            log=True,
         ):
             timeout = self.config["version_update_patch_timeout"]
             start = time.time()
@@ -260,6 +272,9 @@ class DeployPromote(cli.Application):
                 time.sleep(5)
         print()
 
+    def _change_url(self, changeno) -> str:
+        return os.path.join(self.config["gerrit_url"], f"r/{changeno}")
+
     def _sync_versions(self):
         flags = []
         if self.arguments.pause_after_testserver_sync:
@@ -268,13 +283,20 @@ class DeployPromote(cli.Application):
         if self.group == "testwikis":
             self.logger.info("Running scap prep auto")
             self.scap_check_call(["prep", "auto"])
-            self.logger.info("Running scap sync-world")
-            self.scap_check_call(["sync-world"] + flags + [self.announce_message])
+            sync_command = "sync-world"
         else:
-            self.logger.info("Running scap sync-wikiversions")
-            self.scap_check_call(
-                ["sync-wikiversions"] + flags + [self.announce_message]
-            )
+            sync_command = "sync-wikiversions"
+
+        self.logger.info(f"Running scap {sync_command}")
+        try:
+            self.scap_check_call([sync_command] + flags + [self.announce_message])
+        except subprocess.CalledProcessError as e:
+            if (
+                e.returncode == main.ROLLED_BACK_STATUS
+                and self.version_update_change_id
+            ):
+                self._revert_version_update_patch()
+            raise
 
         # Group1 day is also the day we sync the php symlink
         if self.config["manage_mediawiki_php_symlink"] and self.group == "group1":
@@ -282,6 +304,59 @@ class DeployPromote(cli.Application):
             self.scap_check_call(["sync-file", "php", self.announce_message])
 
         self._check_versions()
+
+    def _revert_version_update_patch(self):
+        subject = self.commit_message.split("\n")[0]
+
+        self.logger.info(f'The deployment was rolled back. Reverting "{subject}"')
+        revert_number = None
+        try:
+            with utils.cd(self.config["stage_dir"]):
+                self._commit_revert()
+                self.logger.info("Pushing the revert of the versions update patch")
+                revert_id, revert_number = self._push_patch()
+                self._merge_patch(revert_id, revert_number)
+                self.logger.info("Running git pull")
+                gitcmd("pull")
+                git.tag("scap-prep-point", "HEAD", force=True)
+        # _push_patch() and _merge_patch() stop with utils.abort(), which raises SystemExit.
+        except (Exception, SystemExit) as e:
+            if revert_number:
+                action = f"You must make sure that {self._change_url(revert_number)} is merged"
+            else:
+                forward_url = self._change_url(self.version_update_change_number)
+                action = f"You must revert {forward_url} in Gerrit and merge the revert"
+            self.logger.error(f'Could not revert "{subject}": {e}')
+            self.alert(
+                f'The revert of "{subject}" failed.\n\n'
+                f'MANUAL RECOVERY NEEDED: {action}, then run "scap prep auto".',
+                "Acknowledge",
+            )
+            return
+
+        self.logger.info(f'Reverted "{subject}"')
+
+    def _commit_revert(self):
+        commit = gitcmd(
+            "log",
+            "-1",
+            "--format=%H",
+            "--fixed-strings",
+            f"--grep={self.version_update_change_id}",
+        ).strip()
+        subject, trailers = self.commit_message.split("\n\n", 1)
+
+        try:
+            gitcmd("revert", "--no-commit", commit)
+            gitcmd(
+                "commit",
+                "-m",
+                f'Revert "{subject}"\n\nThis reverts commit {commit}.\n\n{trailers}',
+            )
+        except FailedCommand:
+            # Remove a partial revert, but keep other local changes.
+            gitcmd("reset", "--merge")
+            raise
 
     def _check_versions(self):
         check_url = self._get_check_url()
