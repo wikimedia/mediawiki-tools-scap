@@ -953,6 +953,7 @@ class Application(object):
         # Silence noisy loggers early
         logging.getLogger("urllib3").setLevel(logging.WARNING)
         logging.getLogger("scap.sh").setLevel(logging.WARNING)
+        logging.getLogger("alembic.runtime.plugins").setLevel(logging.WARNING)
 
         # Setup instance for logger access
         app = cls("scap")
