@@ -9,7 +9,7 @@ import threading
 import pytest
 
 import scap.deploy_service
-from scap import interaction, kubernetes, lock
+from scap import interaction, kubernetes, lock, utils
 from scap.deploy_service import (
     DeployService,
     DeploymentGroup,
@@ -624,6 +624,8 @@ def _app(tmp_path, **arguments):
         "k8s_helmfile_diff_context_lines": 5,
         "k8s_max_concurrent_deployments_per_cluster": 2,
         "lock_dir": "/var/lock",
+        # main() sets this umask, so keep the umask of the test process.
+        "umask": utils.get_umask(),
     }
     return app
 

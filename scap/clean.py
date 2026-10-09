@@ -44,6 +44,8 @@ class Clean(main.AbstractSync):
         if self.arguments.logo:
             print(ansi.logo(color=utils.should_colorize_output()))
 
+        os.umask(self.config["umask"])
+
         self._assert_auth_sock()
 
         if self.arguments.branch == "auto":

@@ -695,6 +695,7 @@ class DeployService(cli.Application):
     @cli.argument("service", help="Name of the service to deploy")
     @cli.argument("message", nargs="*", help="Log message that says why")
     def main(self, *extra_args):
+        os.umask(self.config["umask"])
         self.logger = self.get_logger()
         self.k8s = kubernetes.K8sRunner(self, self.logger)
 
