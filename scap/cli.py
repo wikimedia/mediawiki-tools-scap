@@ -428,6 +428,11 @@ class Application(object):
         return self.get_io().prompt_choices(question, choices, default)
 
     def alert(self, prompt: str, action: str = "continue"):
+        if not interaction.interactive():
+            self.get_logger().warning(prompt)
+            return
+
+        logging.getLogger("scap.alert").warning(prompt)
         return self.get_io().alert(prompt, action)
 
     def prompt_user_for_confirmation(self, prompt_message, default="n") -> bool:

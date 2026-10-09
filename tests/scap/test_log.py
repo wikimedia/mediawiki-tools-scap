@@ -175,6 +175,33 @@ def test_setup_loggers_console_hides_urllib3_retries(console_level, name, msg, s
     assert bool(console.filter(record)) == shown
 
 
+@pytest.mark.parametrize("console_level", [logging.INFO, logging.DEBUG])
+@pytest.mark.parametrize(
+    "name,shown", [("scap.alert", False), ("deploy-promote", True)]
+)
+def test_setup_loggers_console_hides_alerts(console_level, name, shown):
+    console = logging.StreamHandler(StringIO())
+    cfg = {
+        "log_json": False,
+        "udp2log_host": None,
+        "use_syslog": False,
+        "tcpircbot_host": None,
+    }
+    record = logging.LogRecord(
+        name, logging.WARNING, __file__, 1, "The revert failed.", None, None
+    )
+
+    scap_sh = logging.getLogger("scap.sh")
+    with (
+        patch.object(logging.root, "handlers", [console]),
+        patch.object(logging.root, "level", logging.root.level),
+        patch.object(scap_sh, "level", scap_sh.level),
+    ):
+        log.setup_loggers(cfg, console_level=console_level)
+
+    assert bool(console.filter(record)) == shown
+
+
 def test_make_record():
     data = dedent(
         """

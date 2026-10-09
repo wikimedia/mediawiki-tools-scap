@@ -1006,6 +1006,8 @@ def setup_loggers(cfg, console_level=logging.INFO, handlers=None):
 
     # Log messages matching these filters will be prevented from reaching the console.
     logging.root.handlers[0].addFilter(Filter({"name": "target.*"}))
+    # The user sees an alert as a prompt. Its log record is only for the other handlers.
+    logging.root.handlers[0].addFilter(Filter({"name": "scap.alert"}))
 
     # Normally we don't want scap.k8s.build and scap.k8s.deploy channel debug messages to reach the console, but we
     # do want to see them when scap is run with the -v flag (which causes console_level to be logging.DEBUG).

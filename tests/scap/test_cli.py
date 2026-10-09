@@ -1,4 +1,5 @@
 import json
+import logging
 import os
 import sys
 import tempfile
@@ -167,6 +168,27 @@ def test_announce(app, mocker):
     get_log.assert_called_with("scap.announce")
     assert app._announce_logger == announcer
     announcer.info.assert_called_with("test %s", "bar")
+
+
+@pytest.mark.parametrize("interactive", [True, False])
+def test_alert(app, mocker, caplog, interactive):
+    mocker.patch("scap.interaction.interactive", return_value=interactive)
+    io = mocker.patch.object(app, "get_io").return_value
+
+    with caplog.at_level(logging.WARNING):
+        app.alert("The revert failed.", "Acknowledge")
+
+    assert [(r.name, r.levelname, r.getMessage()) for r in caplog.records] == [
+        (
+            "scap.alert" if interactive else app.program_name,
+            "WARNING",
+            "The revert failed.",
+        )
+    ]
+    if interactive:
+        io.alert.assert_called_once_with("The revert failed.", "Acknowledge")
+    else:
+        io.alert.assert_not_called()
 
 
 def test_get_get_realm_specific_filename():
