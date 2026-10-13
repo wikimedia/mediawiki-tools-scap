@@ -20,7 +20,7 @@
     You should have received a copy of the GNU General Public License
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """
-from contextlib import contextmanager
+from contextlib import ExitStack, contextmanager
 import errno
 import locale
 import logging
@@ -451,7 +451,7 @@ class Application(object):
         )
 
     def retry_until(
-        self, description: str, test_func, choices: dict, default: str
+        self, description: str, test_func, choices: dict, default: str, *, operation
     ) -> Optional[str]:
         """Runs test_func() until it succeeds (meaning returning truthy),
         or until the user decides not to retry.
@@ -460,7 +460,8 @@ class Application(object):
         The first choice is to retry.  Additional `choices` maybe supplied
         (but they should not use "r" as a choice value).
 
-        'description' describes the operation in the prompt.
+        'description' describes the operation in the prompt.  'operation' names
+        it in the metrics, for example "service-checks".
 
         Returns None when test_func finally suceeeds, otherwise
         returns the user's selected choice.
@@ -474,11 +475,25 @@ class Application(object):
                 {f"Retry {description}": "r", **choices},
                 default,
             )
+            self.record_failure_answer(operation, resp)
             if resp != "r":
                 return resp
 
+    def record_failure_answer(self, operation: str, choice: str):
+        """Counts the choice that the user made after `operation` failed."""
+        answers = {
+            "r": "retry",
+            "i": "ignore",
+            "b": "rollback",
+            "c": "cancel",
+            "x": "exit",
+        }
+        self.metrics.failure_answers.inc(
+            operation=operation, answer=answers.get(choice, "other")
+        )
+
     def retry_ignore_or_exit(
-        self, description: str, test_func, may_ignore: bool = True
+        self, description: str, test_func, may_ignore: bool = True, *, operation
     ) -> bool:
         """Runs test_func() until it succeeds (meaning returning
         truthy), or until the user decides not to retry.
@@ -497,7 +512,11 @@ class Application(object):
         choices["Exit immediately"] = "x"
 
         resp = self.retry_until(
-            description, test_func, choices, self._prompt_default("r", "x")
+            description,
+            test_func,
+            choices,
+            self._prompt_default("r", "x"),
+            operation=operation,
         )
         if resp is None:
             return True
@@ -861,9 +880,12 @@ class Application(object):
         )
 
     @contextmanager
-    def lock(self, lock_file, **kwargs):
+    def lock(self, lock_file, kind="other", service="", **kwargs):
         """
         Acquire a lock for the main work of this application.
+
+        `kind` and `service` label the wait for the lock in the metrics, for
+        example kind="deploy-service" and service="shellbox".
         """
         if "name" not in kwargs:
             kwargs["name"] = self.program_name
@@ -871,7 +893,20 @@ class Application(object):
         if "reason" not in kwargs:
             kwargs["reason"] = self.message_argument
 
-        with lock.Lock(lock_file, **kwargs):
+        started = time.time()
+
+        def record(outcome: str):
+            self.metrics.lock_wait_duration.observe(
+                time.time() - started, lock=kind, service=service, outcome=outcome
+            )
+
+        with ExitStack() as stack:
+            try:
+                stack.enter_context(lock.Lock(lock_file, **kwargs))
+            except BaseException:
+                record("failed")
+                raise
+            record("acquired")
             yield
 
     @contextmanager
@@ -879,7 +914,9 @@ class Application(object):
         """
         Acquire a lock for the main work of this MediaWiki staging related application.
         """
-        with self.lock(self.get_mediawiki_staging_lock_file(), **kwargs):
+        with self.lock(
+            self.get_mediawiki_staging_lock_file(), kind="mediawiki", **kwargs
+        ):
             yield
 
     @contextmanager

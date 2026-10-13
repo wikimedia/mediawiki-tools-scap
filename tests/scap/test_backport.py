@@ -2305,6 +2305,7 @@ def test_recover_from_rollback(
         arguments=Mock(yes=False, no_revert_after_rollback=no_revert),
         backports=Mock(changes=changes),
     )
+    bp.metrics = Mock()
     selected_changes = [changes[number] for number in selected]
 
     with (
@@ -2333,6 +2334,12 @@ def test_recover_from_rollback(
         alert_mock.assert_called_once_with(
             alert, "Acknowledge and release the deployment lock"
         )
+    not_reverted = len(changes) if no_revert else len(changes) - len(selected)
+    assert bp.metrics.rollback_reverts.inc.call_args_list == (
+        [mock.call(not_reverted, command="backport", outcome="not-reverted")]
+        if not_reverted
+        else []
+    )
 
 
 @pytest.mark.parametrize(
@@ -2410,9 +2417,9 @@ def test_alert_changes_still_merged(backport_factory, numbers, expected):
 
 
 @pytest.mark.parametrize(
-    "create_results,merge_error,expected",
+    "create_results,merge_error,expected,recorded",
     [
-        (["201", "202"], None, []),
+        (["201", "202"], None, [], {"reverted": 2}),
         # The newest change is reverted first. Its revert fails, and the other
         # change is still reverted.
         (
@@ -2421,6 +2428,7 @@ def test_alert_changes_still_merged(backport_factory, numbers, expected):
             [
                 "You must revert http://gerrit.example/r/102 in Gerrit and merge the revert."
             ],
+            {"revert-failed": 1, "reverted": 1},
         ),
         (
             ["202", "201"],
@@ -2431,11 +2439,15 @@ def test_alert_changes_still_merged(backport_factory, numbers, expected):
                 "You must make sure that http://gerrit.example/r/202 is merged.",
                 "You must make sure that http://gerrit.example/r/201 is merged.",
             ],
+            {"merge-failed": 2},
         ),
     ],
 )
-def test_revert_and_merge(backport_factory, create_results, merge_error, expected):
+def test_revert_and_merge(
+    backport_factory, create_results, merge_error, expected, recorded
+):
     bp = backport_factory()
+    bp.metrics = Mock()
     bp.config = {"gerrit_url": "http://gerrit.example/"}
     bp.deploy_user = "deployer@deploy"
     changes = [Mock(number=101), Mock(number=102)]
@@ -2454,6 +2466,10 @@ def test_revert_and_merge(backport_factory, create_results, merge_error, expecte
         "\nReason for revert: deployer@deploy reverted after deployment rollback.\n"
     )
     reset.assert_called_once()
+    assert {
+        c.kwargs["outcome"]: c.args[0]
+        for c in bp.metrics.rollback_reverts.inc.call_args_list
+    } == recorded
 
 
 def make_checkout(tmp_path):
@@ -2570,9 +2586,27 @@ def test_create_revert(backport_factory, tmp_path):
 def test_sync_world_counts_the_backported_changes(error, outcome):
     bp = Mock()
     bp.arguments.yes = True
-    change = Mock()
-    change.get.return_value.username = "deployer"
-    bp.backports.changes = {1: change, 2: change}
+    bp.OPERATIONS_CONFIG = Backport.OPERATIONS_CONFIG
+    bp.MEDIAWIKI_CORE = Backport.MEDIAWIKI_CORE
+    bp._record_backport_changes = lambda outcome: Backport._record_backport_changes(
+        bp, outcome
+    )
+    projects = [
+        "operations/mediawiki-config",
+        "mediawiki/core",
+        "mediawiki/extensions/Echo",
+        "mediawiki/extensions/Cite",
+        "mediawiki/skins/Vector",
+        "mediawiki/vendor",
+    ]
+    changes = {}
+    for number, project in enumerate(projects):
+        change = Mock()
+        change.get.side_effect = lambda key, project=project: (
+            project if key == "project" else Mock(username="deployer")
+        )
+        changes[number] = change
+    bp.backports.changes = changes
     bp._build_sal.return_value = "Backport for [[gerrit:1|Fix]]"
     bp.scap_check_call.side_effect = error
 
@@ -2582,4 +2616,48 @@ def test_sync_world_counts_the_backported_changes(error, outcome):
     else:
         Backport._sync_world(bp)
 
-    bp.metrics.backport_changes.inc.assert_called_once_with(2, outcome=outcome)
+    inc = bp.metrics.backport_changes.inc
+    assert inc.call_count == 5
+    inc.assert_has_calls(
+        [
+            mock.call(1, repository="config", outcome=outcome),
+            mock.call(1, repository="core", outcome=outcome),
+            mock.call(2, repository="extension", outcome=outcome),
+            mock.call(1, repository="skin", outcome=outcome),
+            mock.call(1, repository="other", outcome=outcome),
+        ],
+        any_order=True,
+    )
+
+
+@pytest.mark.parametrize(
+    "status,vetoed,build_failed,outcome",
+    [
+        ("MERGED", None, False, "merged"),
+        ("NEW", {"name": "Reviewer"}, False, "rejected"),
+        ("NEW", None, True, "build-failed"),
+    ],
+)
+def test_merge_wait_is_recorded(mocker, status, vetoed, build_failed, outcome):
+    mocker.patch("scap.backport.log.reporter")
+    change = Mock()
+    change.get.side_effect = {
+        "current_revision_number": 1,
+        "status": status,
+        "labels": {"Code-Review": Mock(rejected=vetoed)},
+        "mergeable": True,
+    }.get
+    bp = Mock()
+    bp.backports = mock.MagicMock(change_numbers=[1], changes={1: change})
+    bp.backports.__len__.return_value = 1
+    bp._get_post_approval_jenkins_rejections.return_value = build_failed
+
+    if outcome == "merged":
+        Backport._wait_for_changes_to_be_merged(bp, bp.backports, "backport")
+    else:
+        with pytest.raises(MergeFailedError):
+            Backport._wait_for_changes_to_be_merged(bp, bp.backports, "backport")
+
+    bp.metrics.backport_merge_wait_duration.observe.assert_called_once_with(
+        ANY, changes="backport", outcome=outcome
+    )

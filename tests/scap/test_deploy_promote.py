@@ -284,6 +284,29 @@ def test_commit_revert_with_conflict(deploy_promote, tmp_path):
     assert gitcmd("status", "--porcelain", cwd=tmp_path) == ""
 
 
+def test_revert_records_a_success(deploy_promote, tmp_path):
+    deploy_promote.logger = mock.MagicMock(Logger)
+    deploy_promote.config["stage_dir"] = str(tmp_path)
+    deploy_promote.commit_message = "group1 to 1.42.0-wmf.00\n\nBug: T777"
+    deploy_promote.metrics = mock.Mock()
+    steps = {
+        "_commit_revert": mock.Mock(),
+        "_push_patch": mock.Mock(return_value=("Change-Id: I456", "106")),
+        "_merge_patch": mock.Mock(),
+    }
+
+    with (
+        mock.patch.multiple(deploy_promote, **steps),
+        mock.patch("scap.deploy_promote.gitcmd"),
+        mock.patch("scap.git.tag"),
+    ):
+        deploy_promote._revert_version_update_patch()
+
+    deploy_promote.metrics.rollback_reverts.inc.assert_called_once_with(
+        command="deploy-promote", outcome="reverted"
+    )
+
+
 @pytest.mark.parametrize(
     "failing_step,action",
     [
@@ -316,9 +339,14 @@ def test_revert_failure_names_the_change(
         "alert": mock.Mock(),
     }
     steps[failing_step].side_effect = SystemExit("Aborting: test failure")
+    deploy_promote.metrics = mock.Mock()
 
     with mock.patch.multiple(deploy_promote, **steps):
         deploy_promote._revert_version_update_patch()
+
+    deploy_promote.metrics.rollback_reverts.inc.assert_called_once_with(
+        command="deploy-promote", outcome="failed"
+    )
 
     deploy_promote.logger.error.assert_called_once_with(
         'Could not revert "group1 to 1.42.0-wmf.00": Aborting: test failure'

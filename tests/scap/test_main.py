@@ -1,5 +1,5 @@
 import pytest
-from scap import cli, history
+from scap import cli, history, kubernetes
 
 
 @pytest.fixture
@@ -313,3 +313,33 @@ def test_rollback_is_counted(cmd, mocker, rollback_ok, outcome):
     cmd.metrics.sync_rollbacks.inc.assert_called_once_with(
         stage="canaries", reason="checks-failed", outcome=outcome
     )
+
+
+def test_failed_k8s_deployment_records_each_answer(cmd, mocker):
+    cmd.k8s_ops = mocker.Mock()
+    cmd.k8s_ops.deploy_k8s_images_for_stage.side_effect = RuntimeError("boom")
+    mocker.patch.object(cmd, "prompt_choices", side_effect=["r", "b"])
+    mocker.patch.object(cmd, "_announce_rollback")
+    record = mocker.patch.object(cmd, "record_failure_answer")
+
+    assert cmd._deploy_k8s_stage_with_retry("canaries") is False
+
+    assert record.call_args_list == [
+        mocker.call("k8s-deployment", "r"),
+        mocker.call("k8s-deployment", "b"),
+    ]
+
+
+def test_failed_k8s_rollback_records_each_answer(cmd, mocker):
+    cmd.k8s_ops = mocker.Mock()
+    cmd.k8s_ops.deploy_k8s_images_for_stage.side_effect = RuntimeError("boom")
+    mocker.patch.object(cmd, "prompt_choices", side_effect=["r", "c"])
+    record = mocker.patch.object(cmd, "record_failure_answer")
+    statuses = {stage: "not-started" for stage in kubernetes.STAGES}
+
+    assert cmd._rollback_k8s_stages("canaries", statuses) is False
+
+    assert record.call_args_list == [
+        mocker.call("k8s-rollback", "r"),
+        mocker.call("k8s-rollback", "c"),
+    ]

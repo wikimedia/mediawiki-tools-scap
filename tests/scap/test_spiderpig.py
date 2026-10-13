@@ -914,7 +914,13 @@ def test_get_running_reports_the_jobs_that_started_and_did_not_finish(job_sessio
 
 
 def drive_jobrunner(
-    session, engine, logdir, job_ids, after_start_func, timeout=30
+    session,
+    engine,
+    logdir,
+    job_ids,
+    after_start_func,
+    timeout=30,
+    metrics=scap.metrics.Metrics(),
 ) -> dict:
     """Runs the dispatch loop of the jobrunner until every job has finished.
 
@@ -941,7 +947,9 @@ def drive_jobrunner(
             continue
 
         others_running[job.id] = set(running.values())
-        workers[job.queue] = jobrunner.start_worker(job, engine, logger, logdir)
+        workers[job.queue] = jobrunner.start_worker(
+            job, engine, logger, logdir, metrics
+        )
         running[job.queue] = job.id
         after_start_func(others_running)
 
@@ -1046,6 +1054,7 @@ def test_a_prompt_after_a_rolled_back_scap_command_waits_for_a_response(
         job_engine,
         logging.getLogger("test-jobrunner"),
         logdir,
+        scap.metrics.Metrics(),
     )
 
     try:
@@ -1091,6 +1100,7 @@ def test_the_details_of_a_prompt_go_to_the_interaction_and_the_job_log(
         job_engine,
         logging.getLogger("test-jobrunner"),
         logdir,
+        scap.metrics.Metrics(),
     )
 
     try:
@@ -1624,6 +1634,23 @@ async def test_get_log_hides_each_run_of_sensitive_lines(
 
     lines = [(r["line"], r["recno"]) for r in records if r["type"] == "line"]
     assert lines == expected
+
+
+def test_the_jobrunner_records_each_job(job_session, job_engine, tmpdir):
+    logdir = str(tmpdir.mkdir("jobs"))
+    metrics = Mock()
+    job_id = add_job(job_session, JobType.BACKPORT, None, ["true"])
+
+    drive_jobrunner(
+        job_session, job_engine, logdir, [job_id], lambda _: None, metrics=metrics
+    )
+
+    metrics.spiderpig_job_queue_wait_duration.observe.assert_called_once_with(
+        unittest.mock.ANY, type="backport"
+    )
+    metrics.spiderpig_job_duration.observe.assert_called_once_with(
+        unittest.mock.ANY, type="backport", exit_status=0
+    )
 
 
 def finished_deploy_service_job(session, **kwargs) -> Job:

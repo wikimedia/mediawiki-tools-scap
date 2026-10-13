@@ -749,7 +749,9 @@ class AbstractSync(cli.Application):
         self._after_sync_sync_wikiversions(targets, stage)
         self._restart_php_hostgroups([targets], stage)
 
-    def retry_ignore_rollback_or_exit(self, description, test_func) -> bool:
+    def retry_ignore_rollback_or_exit(
+        self, description, test_func, *, operation
+    ) -> bool:
         """
         Runs test_func() until success, ignore, rollback, or exit selection.
 
@@ -777,6 +779,7 @@ class AbstractSync(cli.Application):
                 "Exit without rollback": "x",
             },
             self._prompt_default("r", "b"),
+            operation=operation,
         )
         if resp is None:
             return True
@@ -809,6 +812,7 @@ class AbstractSync(cli.Application):
                     },
                     self._prompt_default("r", "b"),
                 )
+                self.record_failure_answer("k8s-deployment", resp)
                 if resp == "r":
                     continue
 
@@ -855,6 +859,7 @@ class AbstractSync(cli.Application):
                             },
                             self._prompt_default("r", "c"),
                         )
+                        self.record_failure_answer("k8s-rollback", resp)
                         if resp == "r":
                             continue
 
@@ -879,6 +884,7 @@ class AbstractSync(cli.Application):
             self.get_logger(),
             self.config["logstash_credentials_file"],
             label=label,
+            metrics=self.metrics,
         )
 
     def _run_logstash_checks(self, stage_label: str, checks: list) -> bool:
@@ -924,7 +930,7 @@ class AbstractSync(cli.Application):
                 # Run every check so that all failures are surfaced, not just the first.
                 passed = True
                 for checker, threshold in checks:
-                    if not checker.check(threshold):
+                    if not checker.check(threshold, stage=stage_label):
                         passed = False
                 return passed
             except logstash_checker.CheckServiceError as e:
@@ -935,7 +941,9 @@ class AbstractSync(cli.Application):
                 need_sleep = False
                 return False
 
-        return self.retry_ignore_rollback_or_exit(f"{stage_label} checks", test_func)
+        return self.retry_ignore_rollback_or_exit(
+            f"{stage_label} checks", test_func, operation="logstash-checks"
+        )
 
     def _supervise(
         self,
@@ -1011,7 +1019,12 @@ class AbstractSync(cli.Application):
         return self._run_logstash_checks(stage_label, checks)
 
     def _run_checkslist(
-        self, checkslist: list, timer_name: str, status_msg: str, retry_label: str
+        self,
+        checkslist: list,
+        timer_name: str,
+        status_msg: str,
+        retry_label: str,
+        operation: str,
     ) -> bool:
         """
         Run a prepared list of checks.Check concurrently, with the standard status
@@ -1032,7 +1045,9 @@ class AbstractSync(cli.Application):
                 )
                 return success
 
-            return self.retry_ignore_rollback_or_exit(retry_label, test_func)
+            return self.retry_ignore_rollback_or_exit(
+                retry_label, test_func, operation=operation
+            )
 
     def _run_command_checks(self, stage_label: str, commands: List[str]) -> bool:
         """
@@ -1058,6 +1073,7 @@ class AbstractSync(cli.Application):
             f"{stage_label}-check-commands",
             f"Running {stage_label} check commands",
             f"{stage_label} check commands",
+            "check-commands",
         )
 
     def canary_checks(self, baremetal_hosts: Optional[List[str]] = None) -> bool:
@@ -1142,6 +1158,7 @@ class AbstractSync(cli.Application):
             "check-testservers",
             "Checking testservers",
             "testserver checks",
+            "testserver-checks",
         )
 
     def _setup_php(self):
@@ -1863,10 +1880,12 @@ class LockManager(cli.Application):
 
         if self.arguments.all:
             lock_path = lock.GLOBAL_LOCK_FILE
+            lock_kind = "global"
             repo = "ALL REPOSITORIES"
         else:
             try:
                 lock_path = self.get_scap3_lock_file()
+                lock_kind = "scap3"
                 repo = self.config["git_repo"]
             except LookupError:
                 # The current directory does not appear to be a proper
@@ -1874,6 +1893,7 @@ class LockManager(cli.Application):
                 # and assume the user means to lock the MediaWiki staging
                 # directory.
                 lock_path = self.get_mediawiki_staging_lock_file()
+                lock_kind = "mediawiki"
                 repo = "MediaWiki"
 
         # self.locker() writes to locker_status_w to signal the parent that
@@ -1901,6 +1921,7 @@ class LockManager(cli.Application):
             # The child process handles acquiring and holding the lock
             return self.locker(
                 lock_path,
+                lock_kind,
                 repo,
                 locker_status_r,
                 locker_status_w,
@@ -1973,6 +1994,7 @@ class LockManager(cli.Application):
     def locker(
         self,
         lock_path,
+        lock_kind,
         repo,
         locker_status_r,
         locker_status_w,
@@ -1984,7 +2006,9 @@ class LockManager(cli.Application):
         os.close(release_w)
 
         try:
-            with self.lock(lock_path, allow_forced_release=self.arguments.all):
+            with self.lock(
+                lock_path, kind=lock_kind, allow_forced_release=self.arguments.all
+            ):
                 # Notify self.ui() that lock is acquired
                 os.write(locker_status_w, b"\x01")
 

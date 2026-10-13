@@ -111,6 +111,7 @@ class LogstashChecker:
         credentials_file=None,
         wiki=None,
         label=None,
+        metrics=None,
     ):
         self.window_size = window_size
         self.k8s_dep_configs = k8s_dep_configs
@@ -120,9 +121,10 @@ class LogstashChecker:
         self.wiki = wiki
         # Names the checked targets in the log line, e.g. "train canaries".
         self.label = label
+        self.metrics = metrics
         self.logstash = logstash.Logstash(logstash_url, logger, credentials_file)
 
-    def check(self, threshold) -> bool:
+    def check(self, threshold, stage=None) -> bool:
         """
         Retrieve matching deployment errors for the last self.window_size seconds.
         If the error count is below threshold, returns True. If at or above the
@@ -138,6 +140,11 @@ class LogstashChecker:
 
         targets = f" for {self.label}" if self.label else ""
         prefix = f"Logstash checker counted {count} error(s){targets} in the last {self.window_size} seconds"
+
+        if self.metrics:
+            self.metrics.logstash_check_errors.observe(
+                count, stage=stage, outcome="passed" if count < threshold else "failed"
+            )
 
         if count >= threshold:
             self.logger.error("%s. The threshold is %d.", prefix, threshold)

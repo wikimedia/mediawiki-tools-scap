@@ -338,6 +338,9 @@ class DeployPromote(cli.Application):
                 forward_url = self._change_url(self.version_update_change_number)
                 action = f"You must revert {forward_url} in Gerrit and merge the revert"
             self.logger.error(f'Could not revert "{subject}": {e}')
+            self.metrics.rollback_reverts.inc(
+                command="deploy-promote", outcome="failed"
+            )
             self.alert(
                 f'The revert of "{subject}" failed.\n\n'
                 f'MANUAL RECOVERY NEEDED: {action}, then run "scap prep auto".',
@@ -346,6 +349,7 @@ class DeployPromote(cli.Application):
             return
 
         self.logger.info(f'Reverted "{subject}"')
+        self.metrics.rollback_reverts.inc(command="deploy-promote", outcome="reverted")
 
     def _commit_revert(self):
         commit = gitcmd(
