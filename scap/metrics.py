@@ -337,8 +337,12 @@ class Metrics:
         self.command_duration = Histogram(
             file,
             "scap_command_duration_seconds",
-            "The duration of each scap command, by exit status.",
-            ["command", "exit_status"],
+            "The duration of each scap command, by exit status. The caller is the "
+            "scap command that started the command, for example spiderpig-jobrunner, "
+            "or empty if no scap command started it. "
+            "The interface is how the command can prompt a user: spiderpig, "
+            "terminal or none.",
+            ["command", "caller", "interface", "exit_status"],
             durations,
         )
         self.operation_duration = Histogram(

@@ -259,15 +259,9 @@ class CheckoutMediaWiki(cli.Application):
         write_settings_stub(os.path.join(dest_dir, "LocalSettings.php"))
 
         if apply_patches:
-            with utils.suppress_backtrace():
-                args = [
-                    self.get_script_path(),
-                    "apply-patches",
-                    "--abort-git-am-on-fail",
-                    "--train",
-                    branch,
-                ] + self.format_passthrough_args()
-                subprocess.check_call(args)
+            self.scap_check_call(
+                ["apply-patches", "--abort-git-am-on-fail", "--train", branch]
+            )
             SecurityPatches.fix_mtimes(pre_patch_state)
 
         logger.info("MediaWiki %s successfully checked out." % checkout_version)
