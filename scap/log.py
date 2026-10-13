@@ -800,101 +800,36 @@ class Filter(object):
         return any(attr == attribute for attr, _ in self.criteria)
 
 
-class Stats(object):
-    """
-    A simple StatsD metric client.
-
-    It can log measurements and counts to a remote StatsD host.
-    See <https://github.com/etsy/statsd/wiki/Protocol> for details.
-    """
-
-    @utils.log_context("stats")
-    def __init__(self, host, port, logger=None):
-        self.logger = logger
-        self.socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        self.address = (host, port)
-
-    def __enter__(self):
-        return self
-
-    def __exit__(self, exc_type, exc_value, traceback):
-        if self.socket:
-            self.socket.close()
-
-    def timing(self, name, milliseconds):
-        """Report a timing measurement in milliseconds."""
-        metric = "%s:%s|ms" % (name, int(round(milliseconds)))
-        self._send_metric(metric)
-
-    def increment(self, name, value=1):
-        """Increment a measurement."""
-        metric = "%s:%s|c" % (name, value)
-        self._send_metric(metric)
-
-    def _send_metric(self, metric):
-        try:
-            if isinstance(metric, str):
-                metric = metric.encode("UTF-8")
-            assert isinstance(metric, bytes)
-            self.socket.sendto(metric, self.address)
-        except Exception:
-            self.logger.exception('Failed to send metric "%s"', metric)
-
-
-class NullStats(object):
-    """
-    A Stats work-alike that discards all metrics.
-
-    It is used when no StatsD host is configured.
-    """
-
-    def __enter__(self):
-        return self
-
-    def __exit__(self, exc_type, exc_value, traceback):
-        pass
-
-    def timing(self, name, milliseconds):
-        pass
-
-    def increment(self, name, value=1):
-        pass
-
-
 class Timer(object):
     """
     Context manager to track and record the time taken to execute a block.
 
-    Elapsed time will be recorded to a logger and optionally a StatsD server.
+    The elapsed time is recorded to a logger and optionally to the
+    "scap_operation_duration_seconds" metric.
 
     >>> with Timer('example'):
     ...     time.sleep(0.1)
-
-    >>> with NullStats() as s:
-    ...     with Timer('example', stats=s):
-    ...         time.sleep(0.1)
     """
 
     @utils.log_context("timer")
-    def __init__(self, description, name="unsupplied", stats=None, logger=None):
+    def __init__(self, description, name="unsupplied", metrics=None, logger=None):
         """
         :param description: The human friendly description of the operation being timed.
         :type description: str
-        :param name: The measurement name to use when transmitting the operation time the stats recording system.
+        :param name: The "operation" label of the measurement of the operation time.
 
                      If `name` is not supplied, the description will be used as the measurement name.
 
-                     If None, no measurement will be transmitted.
+                     If None, no measurement will be recorded.
 
-                     Note that the measurement name will have "scap." prefixed to it and any non-word
-                     characters in the name will be replaced with underscores.
+                     Any non-word characters in the name will be replaced with underscores.
         :type name: str|None
-        :param stats: StatsD client to record block invocation and duration
-        :type stats: scap.log.Stats
+        :param metrics: The metrics to record the duration in
+        :type metrics: scap.metrics.Metrics
         """
         self.description = description
         self.name = description if name == "unsupplied" else name
-        self.stats = stats
+        self.metrics = metrics
         self.logger = logger
         self.start = None
         self.end = None
@@ -942,9 +877,9 @@ class Timer(object):
             utils.human_duration(elapsed),
             extra=extras,
         )
-        if self.name and self.stats:
+        if self.name and self.metrics:
             massaged_name = re.sub(r"\W", "_", self.name.lower())
-            self.stats.timing("scap.%s" % massaged_name, elapsed * 1000)
+            self.metrics.operation_duration.observe(elapsed, operation=massaged_name)
 
 
 class Udp2LogHandler(logging.handlers.DatagramHandler):

@@ -61,8 +61,6 @@ DEFAULT_CONFIG = {
     "mw_web_clusters": (str, "jobrunner,appserver,api_appserver,testserver"),
     "manage_mediawiki_php_symlink": (bool, True),
     "master_rsync": (str, "localhost"),
-    "statsd_host": (str, None),
-    "statsd_port": (str, "2003"),
     "tcpircbot_host": (str, None),
     "tcpircbot_port": (str, "9200"),
     "udp2log_host": (str, None),

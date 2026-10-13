@@ -11,7 +11,7 @@ except ImportError:
 
 import pytest
 
-from scap import arg, cli, lock, log, utils, version
+from scap import arg, cli, lock, utils, version
 
 
 @cli.command("dummy")
@@ -64,27 +64,12 @@ def test_init(app_name, expected_name):
     # Reset the program_name
     app.program_name = None
     assert app._logger is None
-    assert app._stats is None
 
 
 def test_get_logger(app, mocker):
     logger = mocker.patch("logging.getLogger")
     assert logger.return_value == app.get_logger()
     logger.assert_called_with("cmd.exe")
-
-
-def test_get_stats(app, mocker):
-    assert app._stats is None
-    # app.config is *None* at init time. inject the needed values
-    app.config = {"statsd_host": "foo_bar", "statsd_port": "678"}
-    stats = mocker.patch("scap.log.Stats")
-    assert stats.return_value == app.get_stats()
-    stats.assert_called_with("foo_bar", 678)
-
-
-def test_get_stats_without_statsd_host(app):
-    app.config = {"statsd_host": None, "statsd_port": "678"}
-    assert isinstance(app.get_stats(), log.NullStats)
 
 
 def test_get_mediawiki_staging_lock_file(app):
@@ -404,6 +389,7 @@ def test_run(cmd, mocker):
     cmd.config = {"block_deployments": False}
     cmd._setup_loggers = mock.MagicMock()
     cmd._setup_environ = mock.MagicMock()
+    cmd._setup_metrics = mock.MagicMock()
     cmd._handle_exception = mock.MagicMock(return_value=70)
     cmd.handle_keyboard_interrupt = mock.MagicMock(return_value=130)
     # Running as root causes an exception handling
@@ -422,6 +408,42 @@ def test_run(cmd, mocker):
     cmd._load_config.side_effect = None
     cli.Application.run()
     ex.assert_called_with(666)
+
+
+@pytest.mark.parametrize(
+    "outcome,exit_status",
+    [
+        (lambda: 3, 3),
+        (lambda: None, 0),
+        (SystemExit("Aborting: no"), 1),
+        (SystemExit(2), 2),
+        (RuntimeError("boom"), 70),
+    ],
+)
+def test_run_records_the_command(cmd, mocker, outcome, exit_status):
+    mocker.patch("sys.exit")
+    mocker.patch("os.geteuid", return_value=1000)
+    mocker.patch("scap.cli.Application.factory", return_value=cmd)
+    mocker.patch.object(cmd, "get_duration", return_value=42)
+    cmd.metrics = mock.Mock()
+    cmd.setup = mock.MagicMock()
+    cmd.config = {}
+    cmd._handle_exception = mock.MagicMock(return_value=70)
+    cmd.main = mock.MagicMock(spec=[])
+    if callable(outcome):
+        cmd.main.side_effect = lambda *args: outcome()
+    else:
+        cmd.main.side_effect = outcome
+
+    if isinstance(outcome, SystemExit):
+        with pytest.raises(SystemExit):
+            cli.Application.run()
+    else:
+        cli.Application.run()
+
+    cmd.metrics.command_duration.observe.assert_called_once_with(
+        42, command=cmd.program_name, exit_status=exit_status
+    )
 
 
 def test_format_passthrough_args(app):

@@ -2557,3 +2557,29 @@ def test_create_revert(backport_factory, tmp_path):
     assert message.startswith('Revert "Add file"\n')
     assert f"This reverts commit {commit}" in message
     bp._gerritssh.review.assert_called_once()
+
+
+@pytest.mark.parametrize(
+    "error,outcome",
+    [
+        (None, "success"),
+        (subprocess.CalledProcessError(3, ["scap"]), "rolled-back"),
+        (subprocess.CalledProcessError(1, ["scap"]), "failure"),
+    ],
+)
+def test_sync_world_counts_the_backported_changes(error, outcome):
+    bp = Mock()
+    bp.arguments.yes = True
+    change = Mock()
+    change.get.return_value.username = "deployer"
+    bp.backports.changes = {1: change, 2: change}
+    bp._build_sal.return_value = "Backport for [[gerrit:1|Fix]]"
+    bp.scap_check_call.side_effect = error
+
+    if error:
+        with pytest.raises(subprocess.CalledProcessError):
+            Backport._sync_world(bp)
+    else:
+        Backport._sync_world(bp)
+
+    bp.metrics.backport_changes.inc.assert_called_once_with(2, outcome=outcome)

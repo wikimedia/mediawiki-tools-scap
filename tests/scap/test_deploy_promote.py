@@ -328,3 +328,37 @@ def test_revert_failure_names_the_change(
         f'MANUAL RECOVERY NEEDED: {action}, then run "scap prep auto".',
         "Acknowledge",
     )
+
+
+@pytest.mark.parametrize(
+    "error,outcome",
+    [
+        (None, "success"),
+        (
+            subprocess.CalledProcessError(main.ROLLED_BACK_STATUS, ["scap"]),
+            "rolled-back",
+        ),
+        (subprocess.CalledProcessError(1, ["scap"]), "failure"),
+        (SystemExit("Aborting: no"), "failure"),
+    ],
+)
+def test_update_versions_records_the_promotion(deploy_promote, error, outcome):
+    deploy_promote.arguments = mock.Mock(exclude_wikis="", train=False)
+    deploy_promote.group = "group1"
+    deploy_promote.promote_version = "1.42.0-wmf.00"
+    deploy_promote.metrics = mock.Mock()
+    with (
+        mock.patch.object(deploy_promote, "_set_messages"),
+        mock.patch.object(deploy_promote, "scap_check_call"),
+        mock.patch.object(deploy_promote, "_create_version_update_patch"),
+        mock.patch.object(deploy_promote, "_sync_versions", side_effect=error),
+    ):
+        if error:
+            with pytest.raises(type(error)):
+                deploy_promote._update_versions()
+        else:
+            deploy_promote._update_versions()
+
+    deploy_promote.metrics.train_promotion_duration.observe.assert_called_once_with(
+        mock.ANY, group="group1", outcome=outcome
+    )

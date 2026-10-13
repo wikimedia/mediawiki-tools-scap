@@ -171,21 +171,6 @@ def test_supervise_failing_commands_skip_logstash():
     assert [kind for kind, _ in calls] == ["commands"]
 
 
-def test_increment_stat(cmd, mocker):
-    assert cmd._stats is None
-    stats = mocker.patch.object(cmd, "_stats")
-
-    # Case 1
-    cmd.increment_stat("scap")
-    stats.increment.assert_any_call("deploy.scap", 1)
-    stats.increment.assert_any_call("deploy.all", 1)
-
-    # Case 2
-    mocker.resetall()
-    cmd.increment_stat("sync-file", all_stat=False, value=5)
-    stats.increment.assert_called_once_with("deploy.sync-file", 5)
-
-
 api_canaries = ["pigeon.w.o", "crow.w.o", "cormorant.w.o", "flamingo.w.o"]
 app_canaries = ["birdy.w.o", "hawk.w.o", "duck.w.o", "chick.w.o"]
 
@@ -306,7 +291,6 @@ def test_sync_announces_the_outcome(mocker, command, succeeded, expected):
     app = cli.Application.factory(command)
     app.setup()
     announce = mocker.patch.object(app, "announce")
-    mocker.patch.object(app, "increment_stat")
     mocker.patch.object(app, "get_duration", return_value=0)
 
     app._after_lock_release(succeeded)
@@ -314,3 +298,17 @@ def test_sync_announces_the_outcome(mocker, command, succeeded, expected):
     announce.assert_called_once()
     args = announce.call_args.args
     assert args[0] % args[1:] == expected
+
+
+@pytest.mark.parametrize(
+    "rollback_ok,outcome", [(True, "rolled-back"), (False, "cancelled")]
+)
+def test_rollback_is_counted(cmd, mocker, rollback_ok, outcome):
+    mocker.patch.object(cmd, "_rollback_k8s_stages", return_value=rollback_ok)
+    cmd.metrics = mocker.Mock()
+
+    cmd._rollback_and_mark_stage_failure("canaries", "checks-failed", {})
+
+    cmd.metrics.sync_rollbacks.inc.assert_called_once_with(
+        stage="canaries", reason="checks-failed", outcome=outcome
+    )

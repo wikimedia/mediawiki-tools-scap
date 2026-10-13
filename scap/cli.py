@@ -47,6 +47,7 @@ import scap.lock as lock
 import scap.log as log
 import scap.targets as targets
 import scap.utils as utils
+from scap.metrics import Metrics
 from scap.ssh import SSH_WITH_KEY
 
 # The "message" used when one is not supplied on the command line
@@ -64,7 +65,11 @@ class Application(object):
     _announce_logger = None
     _io = None
     _have_announced = False
-    _stats = None
+    # This Metrics instance discards everything it receives.  _setup_metrics()
+    # replaces it with a Metrics instance that saves the recorded metrics to a file.
+    # This is to keep tests simple and avoid having to conditionalize access to
+    # self.metrics elsewhere in the code.
+    metrics = Metrics()
     arguments = None
     config = None
     _gerritssh = None
@@ -96,15 +101,6 @@ class Application(object):
         if self._logger is None:
             self._logger = logging.getLogger(self.program_name)
         return self._logger
-
-    def get_stats(self):
-        if self._stats is None:
-            host = self.config["statsd_host"]
-            if host:
-                self._stats = log.Stats(host, int(self.config["statsd_port"]))
-            else:
-                self._stats = log.NullStats()
-        return self._stats
 
     def get_mediawiki_staging_lock_file(self):
         """Get the path to the lock file corresponding to the MediaWiki staging directory"""
@@ -545,6 +541,7 @@ class Application(object):
         self._load_config(use_global_config=use_global_config)
         self._setup_loggers()
         self._setup_environ()
+        self._setup_metrics()
 
     def _load_config(self, use_global_config=True):
         """Load configuration."""
@@ -583,6 +580,9 @@ class Application(object):
         auth_sock = self.config.get("ssh_auth_sock")
         if auth_sock is not None and self.arguments.shared_authsock:
             os.environ["SSH_AUTH_SOCK"] = auth_sock
+
+    def _setup_metrics(self):
+        self.metrics = Metrics(self.spiderpig_metrics_dir())
 
     def main(self, *extra_args):
         """
@@ -901,20 +901,18 @@ class Application(object):
     def spiderpig_session_secret_file(self):
         return os.path.join(self.spiderpig_dir(), "session.key")
 
+    def spiderpig_metrics_dir(self):
+        return os.path.join(self.spiderpig_dir(), "metrics")
+
     def timed(self, fn, *args, **kwargs):
         """
         Call a function wrapped in a log.Timer.
         """
-        with log.Timer(fn.__name__, self.get_stats()):
+        with self.Timer(fn.__name__):
             fn(*args, **kwargs)
 
     def Timer(self, description, name="unsupplied", logger=None):
-        return log.Timer(
-            description,
-            name=name,
-            stats=self.get_stats(),
-            logger=logger,
-        )
+        return log.Timer(description, name=name, metrics=self.metrics, logger=logger)
 
     @staticmethod
     def factory(argv=None):
@@ -1014,8 +1012,18 @@ class Application(object):
             # Handle all unhandled exceptions and errors
             exit_status = app._handle_exception(ex)
 
+        except SystemExit as e:
+            # sys.exit("message") exits with status 1.
+            exit_status = 1 if isinstance(e.code, str) else e.code
+            raise
+
         finally:
             exit_status = app._before_exit(exit_status)
+            app.metrics.command_duration.observe(
+                app.get_duration(),
+                command=app.program_name,
+                exit_status=exit_status or 0,
+            )
 
         # Flush logger before exiting
         logging.shutdown()

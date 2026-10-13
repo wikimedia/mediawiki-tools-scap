@@ -30,6 +30,7 @@ from scap.spiderpig.api import (
     TWO_FA_LOCKOUT_SECONDS,
     get_errors,
     get_jobs,
+    get_metrics,
     job_queue_name,
     retry_job,
     set_error_note,
@@ -51,10 +52,13 @@ from scap.spiderpig.model import (
 )
 from scap.spiderpig.model import TrainGroup, TrainPromotion, TrainStatus
 from scap.spiderpig.session import SessionCookie
+import scap.metrics
 import scap.spiderpig
 import scap.utils
 
 from sqlalchemy.orm import Session
+
+import prometheus_client
 
 from fastapi import HTTPException
 from fastapi.responses import JSONResponse, RedirectResponse
@@ -1176,3 +1180,38 @@ async def test_set_error_note_with_no_text_removes_the_note(job_session):
 def test_error_note_update_requires_a_message():
     with pytest.raises(ValidationError, match="message that the note describes"):
         ErrorNoteUpdate(message="", note="T1")
+
+
+@pytest.mark.parametrize(
+    "accept,content_type,promotions",
+    [
+        (
+            None,
+            "text/plain; version=0.0.4",
+            "# TYPE scap_backport_changes_total counter",
+        ),
+        (
+            "application/openmetrics-text;version=1.0.0,text/plain;version=0.0.4;q=0.5",
+            "application/openmetrics-text; version=1.0.0",
+            "# TYPE scap_backport_changes counter",
+        ),
+    ],
+)
+def test_get_metrics_exports_the_metrics_of_commands(
+    tmp_path, accept, content_type, promotions
+):
+    scap.metrics.Metrics(str(tmp_path)).operation_duration.observe(10, operation="prep")
+    request = Mock(headers={"Accept": accept} if accept else {})
+
+    collector = scap.metrics.FileCollector(scap.metrics.MetricsFile(str(tmp_path)))
+    prometheus_client.REGISTRY.register(collector)
+    try:
+        response = get_metrics(request)
+    finally:
+        prometheus_client.REGISTRY.unregister(collector)
+
+    assert response.media_type.startswith(content_type)
+    body = response.body.decode()
+    assert 'scap_operation_duration_seconds_count{operation="prep"} 1' in body
+    assert "process_cpu_seconds_total" in body
+    assert promotions in body
