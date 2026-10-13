@@ -24,7 +24,7 @@ import os
 import time
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 import yaml
 
@@ -228,6 +228,41 @@ def _assert_no_unexpected_keys(value: dict, expected: List[str], what: str):
         )
 
 
+def _named_entries(what: str, doc, noun: str) -> List[Tuple[str, Any]]:
+    """The (name, body) pairs of a list of entries.
+
+    An entry is a name, or a mapping of one name to the body of that name:
+
+        - eqiad
+        - codfw:
+            releases: ...
+
+    A mapping of name to body is the old format.  It is accepted until
+    every service catalog uses a list.
+    """
+    if isinstance(doc, dict):
+        return list(doc.items())
+
+    if not isinstance(doc, list):
+        raise InvalidDeployServiceConfig(f"{what} must be a list")
+
+    entries = []
+    for entry in doc:
+        if isinstance(entry, str):
+            entries.append((entry, None))
+            continue
+
+        entry = _assert_mapping(entry, f"each entry of {what}")
+        if len(entry) != 1:
+            raise InvalidDeployServiceConfig(
+                f"each entry of {what} must name one {noun}"
+            )
+
+        entries.append(next(iter(entry.items())))
+
+    return entries
+
+
 def _load_yaml_file(path: str, what: str):
     try:
         with open(path) as f:
@@ -367,7 +402,7 @@ def _parse_releases(what: str, doc, default_stage: str) -> List[Release]:
         # No releases means all releases.
         return []
 
-    releases = _assert_mapping(releases, f"the releases of {what}")
+    releases = _named_entries(f"the releases of {what}", releases, "release")
     if not releases:
         raise InvalidDeployServiceConfig(
             f"the releases of {what} is empty; omit the key to deploy all releases"
@@ -380,13 +415,13 @@ def _parse_releases(what: str, doc, default_stage: str) -> List[Release]:
             release_doc,
             default_stage,
         )
-        for name, release_doc in releases.items()
+        for name, release_doc in releases
     ]
 
 
 def _parse_release(env_what: str, name: str, doc, default_stage: str) -> Release:
     what = f"release {name} of {env_what}"
-    doc = _assert_mapping(doc, what)
+    doc = _assert_mapping(doc or {}, what)
     _assert_no_unexpected_keys(doc, ["stage"], what)
     return Release(
         name=name,
@@ -403,14 +438,14 @@ def _parse_namespace(
     doc = _assert_mapping(doc, what)
     _assert_no_unexpected_keys(doc, ["environments"], what)
 
-    environments = _assert_mapping(
-        doc.get("environments"), f"the environments of {what}"
+    environments = _named_entries(
+        f"the environments of {what}", doc.get("environments"), "environment"
     )
     if not environments:
         raise InvalidDeployServiceConfig(f"{what} defines no environments")
 
     parsed = {}
-    for ref, env_doc in environments.items():
+    for ref, env_doc in environments:
         ref = _assert_nonempty_string(ref, f"each environment name of {what}")
         env = cluster_group.resolve(ref, f"the environments of {what}")
         if env.name in parsed:
@@ -419,7 +454,7 @@ def _parse_namespace(
             )
 
         env_what = f"environment {ref} of {what}"
-        env_doc = _assert_mapping(env_doc, env_what)
+        env_doc = _assert_mapping(env_doc or {}, env_what)
         _assert_no_unexpected_keys(env_doc, ["releases"], env_what)
 
         releases = _parse_releases(

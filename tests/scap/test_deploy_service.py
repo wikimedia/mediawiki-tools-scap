@@ -1294,3 +1294,140 @@ def test_roll_back_of_one_group_runs_at_the_same_time(tmp_path, monkeypatch):
         }
     )
     assert not barrier.broken
+
+
+def test_environments_as_a_list(tmp_path, cluster_groups):
+    """A list of names deploys every release, as the mapping of empty bodies does."""
+    as_list = load(
+        tmp_path,
+        cluster_groups,
+        """
+cluster_group: wikikube
+namespaces:
+  shellbox:
+    environments:
+      - staging
+      - codfw
+      - eqiad
+""",
+    )
+    as_mapping = load(
+        tmp_path,
+        cluster_groups,
+        """
+cluster_group: wikikube
+namespaces:
+  shellbox:
+    environments:
+      staging: {}
+      codfw: {}
+      eqiad: {}
+""",
+    )
+    assert commands(as_list) == commands(as_mapping)
+
+
+def test_an_environment_of_the_list_names_its_releases(tmp_path, cluster_groups):
+    service_config = load(
+        tmp_path,
+        cluster_groups,
+        """
+cluster_group: wikikube
+namespaces:
+  shellbox:
+    environments:
+      - staging
+      - codfw:
+          releases:
+            - canary:
+                stage: CANARY
+            - main
+""",
+    )
+    (staging,) = [
+        env
+        for ns in service_config.namespaces
+        for name, env in ns.environments.items()
+        if name == "staging-eqiad"
+    ]
+    (codfw,) = [
+        env
+        for ns in service_config.namespaces
+        for name, env in ns.environments.items()
+        if name == "codfw"
+    ]
+
+    # An entry with no body deploys every release.
+    assert staging.releases == []
+    assert [(r.name, r.stage) for r in codfw.releases] == [
+        ("canary", "CANARY"),
+        ("main", "DEFAULT"),
+    ]
+
+
+def test_releases_as_a_list_match_the_mapping(tmp_path, cluster_groups):
+    def releases_of(contents):
+        service_config = load(tmp_path, cluster_groups, contents)
+        (ns,) = service_config.namespaces
+        return [(r.name, r.stage) for r in ns.environments["codfw"].releases]
+
+    as_list = releases_of(
+        """
+cluster_group: wikikube
+namespaces:
+  shellbox:
+    environments:
+      - codfw:
+          releases:
+            - canary:
+                stage: CANARY
+            - main
+"""
+    )
+    as_mapping = releases_of(
+        """
+cluster_group: wikikube
+namespaces:
+  shellbox:
+    environments:
+      codfw:
+        releases:
+          canary:
+            stage: CANARY
+          main: {}
+"""
+    )
+    assert as_list == as_mapping == [("canary", "CANARY"), ("main", "DEFAULT")]
+
+
+@pytest.mark.parametrize(
+    "contents,expected",
+    [
+        (
+            # Two environments in one entry, from a wrong indentation.
+            "environments:\n  - codfw:\n      releases:\n        - main\n"
+            "    eqiad:\n      releases:\n        - main\n",
+            "each entry of the environments of .* must name one environment",
+        ),
+        (
+            "environments: eqiad\n",
+            "the environments of .* must be a list",
+        ),
+        (
+            "environments:\n  - codfw:\n      releases: main\n",
+            "the releases of .* must be a list",
+        ),
+        (
+            "environments:\n  - codfw:\n      releases:\n        - main: bad\n",
+            "release main of .* must be a mapping",
+        ),
+    ],
+)
+def test_invalid_environment_list(tmp_path, cluster_groups, contents, expected):
+    with pytest.raises(InvalidDeployServiceConfig, match=expected):
+        load(
+            tmp_path,
+            cluster_groups,
+            "cluster_group: wikikube\nnamespaces:\n  shellbox:\n"
+            + textwrap.indent(contents, "    "),
+        )
