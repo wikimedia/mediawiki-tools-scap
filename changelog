@@ -1,3 +1,11 @@
+scap (4.298.0)
+
+  * deploy-service: Accept a list of environments and releases
+  * requirements.txt: Pin alembic, and hide its plugin messages
+  * scap: Set the configured umask in clean, php-fpm-restart and deploy-service
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Tue, 13 Oct 2026 14:10:21 -0700
+
 scap (4.297.0)
 
   * scap deploy-promote: Revert the versions change after a rollback
