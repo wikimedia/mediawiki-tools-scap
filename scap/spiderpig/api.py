@@ -35,6 +35,7 @@ from typing import List, Optional
 
 import prometheus_client
 import prometheus_client.exposition
+from prometheus_fastapi_instrumentator import Instrumentator
 from pydantic import BaseModel
 
 from fastapi import (
@@ -1672,3 +1673,11 @@ async def access_log_middleware(request: Request, call_next):
     )
 
     return response
+
+
+# This middleware is processed first, so it also measures the requests that
+# require_user() rejects. Leave out the job log. A request for it streams
+# until a proxy closes it, and these long durations distort the histograms.
+Instrumentator(
+    excluded_handlers=[r"^/metrics$", r"^/api/jobs/\{job_id\}/log$", r"^/assets"]
+).instrument(app)

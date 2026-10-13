@@ -23,6 +23,8 @@ urllib3==2.7.0; python_version >= '3.10'
 wcwidth==0.2.5
 
 # SpiderPig stuff
+prometheus-fastapi-instrumentator==7.1.0; python_version < '3.10'
+prometheus-fastapi-instrumentator==8.1.0; python_version >= '3.10'
 fastapi[standard]==0.122.0; python_version < '3.10'
 fastapi[standard]==0.141.1; python_version >= '3.10'
 pydantic==2.10.6
