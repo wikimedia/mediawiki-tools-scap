@@ -1,3 +1,14 @@
+scap (4.297.0)
+
+  * scap deploy-promote: Revert the versions change after a rollback
+  * cli.py: Record alerts in the logs
+  * scap deploy-promote: Stop when the push gives no change number
+  * scap deploy-promote: Remove the local commit when the push fails
+  * main.py: Properly announce sync failures
+  * backport: Consolidate backport SAL
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Tue, 13 Oct 2026 07:45:47 -0700
+
 scap (4.296.0)
 
   * log.py: Hide urllib3 retrying messages
