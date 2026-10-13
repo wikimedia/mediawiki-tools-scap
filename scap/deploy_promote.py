@@ -150,25 +150,36 @@ class DeployPromote(cli.Application):
         return self.prompt_user_for_confirmation(prompt_message)
 
     def _update_versions(self):
-        self._set_messages()
+        started = time.time()
+        try:
+            self._set_messages()
 
-        cmd = ["update-wikiversions", "--no-check"]
+            cmd = ["update-wikiversions", "--no-check"]
 
-        if self.arguments.exclude_wikis != "":
-            cmd += ["--exclude", self.arguments.exclude_wikis]
+            if self.arguments.exclude_wikis != "":
+                cmd += ["--exclude", self.arguments.exclude_wikis]
 
-        if self.arguments.train:
-            cmd += ["all", self.arguments.old_version]
-            for group in train.GROUPS:
-                cmd += [group, self.promote_version]
-                if group == self.group:
-                    break
-        else:
-            cmd += [self.group, self.promote_version]
+            if self.arguments.train:
+                cmd += ["all", self.arguments.old_version]
+                for group in train.GROUPS:
+                    cmd += [group, self.promote_version]
+                    if group == self.group:
+                        break
+            else:
+                cmd += [self.group, self.promote_version]
 
-        self.scap_check_call(cmd)
-        self._create_version_update_patch()
-        self._sync_versions()
+            self.scap_check_call(cmd)
+            self._create_version_update_patch()
+            self._sync_versions()
+        except BaseException as e:
+            self._record_promotion(started, main.failure_outcome(e))
+            raise
+        self._record_promotion(started, "success")
+
+    def _record_promotion(self, started: float, outcome: str):
+        self.metrics.train_promotion_duration.observe(
+            time.time() - started, group=self.group, outcome=outcome
+        )
 
     def _create_version_update_patch(self):
         with utils.cd(self.config["stage_dir"]):

@@ -14,6 +14,7 @@ import pyotp
 import qrcode
 import re
 import socket
+import stat
 import subprocess
 import sys
 import time
@@ -32,6 +33,8 @@ else:
 
 from typing import List, Optional
 
+import prometheus_client
+import prometheus_client.exposition
 from pydantic import BaseModel
 
 from fastapi import (
@@ -55,7 +58,7 @@ from fastapi.staticfiles import StaticFiles
 
 from sqlalchemy.orm import Session
 
-from scap import cli, log, utils, gerrit, train, logstash_poller
+from scap import cli, log, metrics, utils, gerrit, train, logstash_poller
 from scap.deploy_service import Catalog, InvalidDeployServiceConfig, load_catalog
 
 import scap.spiderpig
@@ -201,6 +204,10 @@ class SpiderpigAPIServer(cli.Application):
             # to be required to make uvicorn monitor it for changes.
             os.chdir(os.path.dirname(__file__))
 
+        metrics_dir = self.spiderpig_metrics_dir()
+        os.makedirs(metrics_dir, exist_ok=True)
+        os.chmod(metrics_dir, 0o770 | stat.S_ISGID)
+
         env = os.environ.copy()
         env["SPIDERPIG_SCAP_CONFIG"] = utils.string_to_base64_string(
             json.dumps(self.config)
@@ -215,6 +222,7 @@ class SpiderpigAPIServer(cli.Application):
                 "SPIDERPIG_JOB_LOG_DIR": self.spiderpig_joblogdir(),
                 "SPIDERPIG_DBFILE": self.spiderpig_dbfile(),
                 "SPIDERPIG_SESSION_KEY_FILE": self.spiderpig_session_secret_file(),
+                "SPIDERPIG_METRICS_DIR": metrics_dir,
             }
         )
         if self.arguments.dev:
@@ -257,6 +265,10 @@ async def lifespan(app: FastAPI):
         logger.handlers.clear()
 
     app.state.session_cookie = SessionCookie(get_session_key())
+
+    metrics_file = metrics.MetricsFile(os.environ["SPIDERPIG_METRICS_DIR"])
+    metrics_file.remove_stale_data()
+    prometheus_client.REGISTRY.register(metrics.FileCollector(metrics_file))
 
     yield
 
@@ -1218,6 +1230,21 @@ def searchPatch(
         return gerritsession.changes().query(f"change:{change_num}", 1)
     except Exception:
         return []
+
+
+###########
+# METRICS #
+###########
+
+
+# This function is intentionally not marked "async" due to the blocking
+# io that happens when the collector reads the metrics file.
+@app.get("/metrics")
+def get_metrics(request: Request):
+    encoder, content_type = prometheus_client.exposition.choose_encoder(
+        request.headers.get("Accept")
+    )
+    return Response(encoder(prometheus_client.REGISTRY), media_type=content_type)
 
 
 #####################

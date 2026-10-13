@@ -614,12 +614,18 @@ class Backport(cli.Application):
 
         sync_arguments.insert(0, "--backport")
 
+        changes = len(self.backports.changes)
         try:
             self.scap_check_call(["sync-world"] + sync_arguments)
-        except subprocess.CalledProcessError as e:
-            if e.returncode == main.ROLLED_BACK_STATUS:
+        except BaseException as e:
+            self.metrics.backport_changes.inc(changes, outcome=main.failure_outcome(e))
+            if (
+                isinstance(e, subprocess.CalledProcessError)
+                and e.returncode == main.ROLLED_BACK_STATUS
+            ):
                 self._recover_from_rollback()
             raise
+        self.metrics.backport_changes.inc(changes, outcome="success")
 
     def _recover_from_rollback(self):
         if self.arguments.no_revert_after_rollback:

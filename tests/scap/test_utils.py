@@ -1,6 +1,7 @@
 import argparse
 import json
 import os
+import stat
 import pytest
 from unittest.mock import patch
 
@@ -158,6 +159,18 @@ stuff after
         "total_bytes_sent": 5603,
         "total_bytes_received": 4744454,
     }
+
+
+def test_temp_to_permanent_file_sets_the_permissions(tmp_path):
+    testfile = tmp_path / "test_temp_to_permanent_file"
+    old_umask = os.umask(0o077)
+    try:
+        with utils.temp_to_permanent_file(str(testfile), permissions=0o640) as f:
+            f.write("Very important")
+    finally:
+        os.umask(old_umask)
+
+    assert stat.S_IMODE(os.stat(testfile).st_mode) == 0o640
 
 
 def test_temp_to_permanent_file(tmpdir):

@@ -371,9 +371,16 @@ def test_timer_no_name():
     with log.Timer("x", name=None):
         sleep(0.001)
 
-    stats = Mock()
-    with log.Timer("x", name=None, stats=stats):
-        sleep(0.001)
+
+def test_timer_records_duration():
+    metrics = Mock()
+    with log.Timer("Sync k8s", name="sync-prod-k8s", metrics=metrics):
+        pass
+
+    metrics.operation_duration.observe.assert_called_once()
+    assert metrics.operation_duration.observe.call_args.kwargs == {
+        "operation": "sync_prod_k8s"
+    }
 
 
 @patch.dict("os.environ", clear=True)

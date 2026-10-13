@@ -925,7 +925,7 @@ def write_file_if_needed(filename, data: str) -> bool:
 
 
 @contextlib.contextmanager
-def temp_to_permanent_file(final_filename, mode="w"):
+def temp_to_permanent_file(final_filename, mode="w", permissions=None):
     """
     temp_to_permanent_file yields (by default) a text stream on a temporary file
     that is open for writing.  If the context body completes without
@@ -935,6 +935,9 @@ def temp_to_permanent_file(final_filename, mode="w"):
     and `final_filename` remains unaffected.
 
     Specify mode="wb" for a binary stream.
+
+    The file gets `permissions` if given, for example 0o640, and otherwise
+    0o666 less the umask.
 
     Example:
 
@@ -956,7 +959,7 @@ def temp_to_permanent_file(final_filename, mode="w"):
             raise e
 
     # Reach here on success
-    os.chmod(tmp.name, 0o666 & ~get_umask())
+    os.chmod(tmp.name, 0o666 & ~get_umask() if permissions is None else permissions)
     # This is atomic
     os.rename(tmp.name, final_filename)
 

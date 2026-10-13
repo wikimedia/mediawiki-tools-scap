@@ -28,6 +28,7 @@ import locale
 import os
 import select
 import socket
+import subprocess
 import sys
 import time
 from typing import Callable, List, Optional
@@ -51,6 +52,16 @@ from scap import ansi, history
 from scap.kubernetes import K8sOps, TEST_SERVERS, CANARIES, PRODUCTION, STAGES
 
 ROLLED_BACK_STATUS = 3
+
+
+def failure_outcome(error: BaseException) -> str:
+    """Returns the "outcome" label of a sync that raised `error`."""
+    if (
+        isinstance(error, subprocess.CalledProcessError)
+        and error.returncode == ROLLED_BACK_STATUS
+    ):
+        return "rolled-back"
+    return "failure"
 
 
 @dataclass
@@ -301,6 +312,11 @@ class AbstractSync(cli.Application):
     ) -> str:
         k8s_stage_statuses[stage] = failure_status
         rollback_ok = self._rollback_k8s_stages(stage, k8s_stage_statuses)
+        self.metrics.sync_rollbacks.inc(
+            stage=stage,
+            reason=failure_status,
+            outcome="rolled-back" if rollback_ok else "cancelled",
+        )
         if rollback_ok:
             return "rolled back"
         return "rollback cancelled"
@@ -365,17 +381,6 @@ class AbstractSync(cli.Application):
                 full_target_list,
                 shuffle=True,
             )
-
-    def increment_stat(self, stat, all_stat=True, value=1):
-        """Increment a stat in deploy.*
-
-        :param stat: String name of stat to increment
-        :param all_stat: Whether to increment deploy.all as well
-        :param value: How many to increment by, default of 1 is normal
-        """
-        self.get_stats().increment("deploy.%s" % stat, value)
-        if all_stat:
-            self.get_stats().increment("deploy.all", value)
 
     def get_keyholder_key(self, *args, **kwargs):
         """
@@ -1494,15 +1499,9 @@ class ScapWorld(AbstractSync):
             self.message_argument,
             utils.human_duration(self.get_duration()),
         )
-        self.increment_stat("scap")
 
     def _handle_exception_log_message(self, message):
         self.announce(message)
-
-    def _before_exit(self, exit_status):
-        if self.config:
-            self.get_stats().timing("scap.scap", self.get_duration() * 1000)
-        return exit_status
 
 
 @cli.command("pull-master", help=argparse.SUPPRESS)
@@ -1670,7 +1669,6 @@ class SyncFile(AbstractSync):
             self.message_argument,
             utils.human_duration(self.get_duration()),
         )
-        self.increment_stat("sync-file")
 
 
 @cli.command(
@@ -1726,8 +1724,6 @@ class SyncWikiversions(AbstractSync):
             self.announce(
                 "failed to synchronize wikiversions files: %s", self.message_argument
             )
-
-        self.increment_stat("sync-wikiversions")
 
     def _after_cluster_sync(self):
         self._restart_php()

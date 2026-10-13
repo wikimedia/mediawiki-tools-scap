@@ -438,7 +438,7 @@ class CommandJob:
     group: str
     directory: str
     command: List[str]
-    # The name that the duration of the command reports to statsd.
+    # The "operation" label of the duration of the command in the metrics.
     timer_name: str = "unsupplied"
 
 
@@ -749,7 +749,7 @@ class K8sRunner:
 
     @contextlib.contextmanager
     def timer(self, description: str, name: str):
-        """Times an operation, and reports the duration to statsd only."""
+        """Records the duration of an operation in the metrics, with no "Started" and "Finished" log messages."""
         quiet = logging.Logger("silence")
         quiet.addHandler(logging.NullHandler(level=0))
         with self.app.Timer(description, name=name, logger=quiet):
