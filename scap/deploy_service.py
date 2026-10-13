@@ -774,7 +774,9 @@ class DeployService(cli.Application):
         # The message is the reason of the lock, for whoever waits for it.
         self.prompt_for_message()
 
-        with self.lock(self._lock_file(service)):
+        with self.lock(
+            self._lock_file(service), kind="deploy-service", service=service
+        ):
             soft_errors = False
             if self.arguments.confirm_diffs:
                 soft_errors = self._confirm_diffs(steps) > 0
@@ -881,22 +883,31 @@ class DeployService(cli.Application):
             duration = utils.human_duration(time.time() - started)
             self.announce_final(f"{outcome} {what} (duration: {duration})")
 
+        def record(outcome: str):
+            self.metrics.service_deployment_duration.observe(
+                time.time() - started,
+                service=self.arguments.service,
+                outcome=outcome,
+            )
+
         try:
-            status = self._deploy(plan)
+            outcome = self._deploy(plan)
         # BaseException, so that an interrupt also ends the announcements.
         except BaseException:
             announce_end("Failed")
+            record("failure")
             raise
 
-        announce_end("Finished" if status == 0 else "Failed")
-        return status
+        announce_end("Finished" if outcome == "success" else "Failed")
+        record(outcome)
+        return 0 if outcome == "success" else 1
 
-    def _deploy(self, plan: Plan) -> int:
+    def _deploy(self, plan: Plan) -> str:
         """Deploys the service, one group of the plan at a time.
 
         The steps of one group deploy at the same time. A failure stops the
         deployment and offers to roll back what was already deployed.
-        Returns the exit status of scap.
+        Returns "success", "rolled-back" or "stopped".
         """
         # What a rollback must restore, one list for each group of the plan, in
         # the order that the groups deployed.
@@ -933,12 +944,12 @@ class DeployService(cli.Application):
             self.logger.error(f"Deployment of {self.arguments.service} stopped")
             if answer == "b":
                 self._roll_back(rollbacks)
-            else:
-                self.logger.warning("What already deployed stays as it is")
-            return 1
+                return "rolled-back"
+            self.logger.warning("What already deployed stays as it is")
+            return "stopped"
 
         self.logger.info(f"Deployment of {self.arguments.service} complete")
-        return 0
+        return "success"
 
     def _apply_until_it_works(
         self, deployment_group: DeploymentGroup, group: List[HelmfileCommand]

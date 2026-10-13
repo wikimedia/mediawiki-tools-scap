@@ -13,6 +13,7 @@ import time
 from typing import Optional
 
 import scap.cli as cli
+from scap.metrics import Metrics
 from scap.interaction import TerminalIO
 import scap.logstash_poller as logstash_poller
 
@@ -49,6 +50,7 @@ class JobRunner(cli.Application):
 
         with self.lock(
             self.spiderpig_jobrunner_lockfile(),
+            kind="spiderpig-jobrunner",
             reason="Spiderpig jobrunner running",
             timeout=0,
             do_global_lock=False,
@@ -100,7 +102,9 @@ class JobRunner(cli.Application):
                             time.sleep(self.arguments.polling_interval)
                             continue
 
-                        workers[job.queue] = start_worker(job, engine, logger, logdir)
+                        workers[job.queue] = start_worker(
+                            job, engine, logger, logdir, self.metrics
+                        )
                 finally:
                     JobrunnerStatus.set_pid(session, None)
 
@@ -119,21 +123,24 @@ class JobRunner(cli.Application):
 
 
 def start_worker(
-    job: Job, engine: Engine, logger: logging.Logger, logdir: str
+    job: Job, engine: Engine, logger: logging.Logger, logdir: str, metrics: Metrics
 ) -> threading.Thread:
     """Starts a thread that runs one job."""
+    metrics.spiderpig_job_queue_wait_duration.observe(
+        job.started_at - job.queued_at, type=job.type.value
+    )
     thread = threading.Thread(
         target=_run_job_in_thread,
         name=f"job-{job.id}",
         daemon=True,
-        args=(job.id, engine, logger, logdir),
+        args=(job.id, engine, logger, logdir, metrics),
     )
     thread.start()
     return thread
 
 
 def _run_job_in_thread(
-    job_id: int, engine: Engine, logger: logging.Logger, logdir: str
+    job_id: int, engine: Engine, logger: logging.Logger, logdir: str, metrics: Metrics
 ):
     """Runs one job to its end.
 
@@ -149,6 +156,11 @@ def _run_job_in_thread(
             logger.exception("Job %d ended with an unhandled error", job_id)
         finally:
             job.finish(session, exit_status)
+            metrics.spiderpig_job_duration.observe(
+                job.finished_at - job.started_at,
+                type=job.type.value,
+                exit_status="none" if exit_status is None else exit_status,
+            )
 
 
 def reap_workers(workers: dict):

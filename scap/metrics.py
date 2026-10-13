@@ -352,17 +352,81 @@ class Metrics:
             ["operation"],
             durations,
         )
+        self.service_deployment_duration = Histogram(
+            file,
+            "scap_service_deployment_duration_seconds",
+            "The duration of each scap deploy-service deployment, by service and "
+            "outcome.",
+            ["service", "outcome"],
+            durations,
+        )
+        self.spiderpig_job_queue_wait_duration = Histogram(
+            file,
+            "scap_spiderpig_job_queue_wait_duration_seconds",
+            "How long each SpiderPig job waited in its queue, by type of job.",
+            ["type"],
+            durations,
+        )
+        self.spiderpig_job_duration = Histogram(
+            file,
+            "scap_spiderpig_job_duration_seconds",
+            "The duration of each SpiderPig job, by type of job and exit status. The "
+            "exit status is none when the job ran no command.",
+            ["type", "exit_status"],
+            durations,
+        )
         self.sync_rollbacks = Counter(
             file,
             "scap_sync_rollbacks_total",
             "The Kubernetes rollbacks of sync commands, by the stage that failed.",
             ["stage", "reason", "outcome"],
         )
+        self.backport_merge_wait_duration = Histogram(
+            file,
+            "scap_backport_merge_wait_duration_seconds",
+            "How long scap backport waited for Gerrit to merge the changes, by kind "
+            "of changes (backport or revert) and outcome: merged, build-failed, "
+            "rejected, unmergeable or failure.",
+            ["changes", "outcome"],
+            durations,
+        )
         self.backport_changes = Counter(
             file,
             "scap_backport_changes_total",
-            "The changes that scap backport synced, by the outcome of the sync.",
-            ["outcome"],
+            "The changes that scap backport synced, by kind of repository (config, "
+            "core, extension, skin or other) and by the outcome of the sync.",
+            ["repository", "outcome"],
+        )
+        self.lock_wait_duration = Histogram(
+            file,
+            "scap_lock_wait_duration_seconds",
+            "How long each scap command waited for a lock, by kind of lock, by "
+            "service for a deploy-service lock, and by outcome: acquired or failed.",
+            ["lock", "service", "outcome"],
+            durations,
+        )
+        self.logstash_check_errors = Histogram(
+            file,
+            "scap_logstash_check_errors",
+            "The errors that each logstash check of a sync counted, by stage and "
+            "outcome: passed or failed.",
+            ["stage", "outcome"],
+            (0, 1, 5, 10, 25, 50, 100, 250, 500, 1000, 5000),
+        )
+        self.rollback_reverts = Counter(
+            file,
+            "scap_rollback_reverts_total",
+            "The changes to revert after the sync of a command rolled back, by "
+            "command and outcome. For backport, one count for each change: "
+            "reverted, revert-failed, merge-failed or not-reverted. For "
+            "deploy-promote, one count for each rollback: reverted or failed.",
+            ["command", "outcome"],
+        )
+        self.failure_answers = Counter(
+            file,
+            "scap_failure_answers_total",
+            "The answers to the prompt that follows a failed operation.",
+            ["operation", "answer"],
         )
         self.train_promotion_duration = Histogram(
             file,

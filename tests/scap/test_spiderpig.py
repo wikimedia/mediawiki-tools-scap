@@ -880,7 +880,9 @@ def sleeper(seconds: float) -> list:
     return ["bash", "-c", f"sleep {seconds}"]
 
 
-def drive_jobrunner(session, engine, logdir, job_ids, timeout=30) -> dict:
+def drive_jobrunner(
+    session, engine, logdir, job_ids, timeout=30, metrics=scap.metrics.Metrics()
+) -> dict:
     """Runs the dispatch loop of the jobrunner until every job has finished.
 
     Returns the time at which each job started, counted from the first pop.
@@ -903,7 +905,9 @@ def drive_jobrunner(session, engine, logdir, job_ids, timeout=30) -> dict:
             continue
 
         started[job.id] = time.time() - began
-        workers[job.queue] = jobrunner.start_worker(job, engine, logger, logdir)
+        workers[job.queue] = jobrunner.start_worker(
+            job, engine, logger, logdir, metrics
+        )
 
     jobrunner.reap_workers(workers)
     return started
@@ -932,6 +936,21 @@ def test_the_jobrunner_runs_one_job_at_a_time_in_each_queue(
     assert started[backport] < started[shellbox] + JOB_SECONDS
     # A job of a busy queue waits, and does not hold up the jobs behind it.
     assert started[shellbox_again] >= started[shellbox] + JOB_SECONDS
+
+
+def test_the_jobrunner_records_each_job(job_session, job_engine, tmpdir):
+    logdir = str(tmpdir.mkdir("jobs"))
+    metrics = Mock()
+    job_id = add_job(job_session, JobType.BACKPORT, None, sleeper(0))
+
+    drive_jobrunner(job_session, job_engine, logdir, [job_id], metrics=metrics)
+
+    metrics.spiderpig_job_queue_wait_duration.observe.assert_called_once_with(
+        unittest.mock.ANY, type="backport"
+    )
+    metrics.spiderpig_job_duration.observe.assert_called_once_with(
+        unittest.mock.ANY, type="backport", exit_status=0
+    )
 
 
 def finished_deploy_service_job(session, **kwargs) -> Job:

@@ -555,7 +555,9 @@ class Backport(cli.Application):
         # here or backport would deadlock itself when calling "sync-world" further down the flow.
         # Also, a backport revert calls backport recursively, deferring to the lock here instead of itself locking
         # '/var/lock/scap.backport.lock'. Otherwise, deadlock again
-        with self.lock("/var/lock/scap.backport.lock", reason=self._build_sal()):
+        with self.lock(
+            "/var/lock/scap.backport.lock", kind="backport", reason=self._build_sal()
+        ):
             # Validate root changes for deployability first
             self.validate_root_changes()
 
@@ -575,7 +577,7 @@ class Backport(cli.Application):
                     "Backport the changes?" % table.get_string()
                 )
             self._approve_changes(changes_to_backport)
-            self._wait_for_changes_to_be_merged(self.backports)
+            self._wait_for_changes_to_be_merged(self.backports, "backport")
             num_commits = self._confirm_commits_to_sync()
             if num_commits == 0:
                 self.get_logger().info(
@@ -614,25 +616,44 @@ class Backport(cli.Application):
 
         sync_arguments.insert(0, "--backport")
 
-        changes = len(self.backports.changes)
         try:
             self.scap_check_call(["sync-world"] + sync_arguments)
         except BaseException as e:
-            self.metrics.backport_changes.inc(changes, outcome=main.failure_outcome(e))
+            self._record_backport_changes(main.failure_outcome(e))
             if (
                 isinstance(e, subprocess.CalledProcessError)
                 and e.returncode == main.ROLLED_BACK_STATUS
             ):
                 self._recover_from_rollback()
             raise
-        self.metrics.backport_changes.inc(changes, outcome="success")
+        self._record_backport_changes("success")
+
+    def _record_backport_changes(self, outcome: str):
+        """Counts the changes of the sync by kind of repository, for example "core"."""
+        kinds = defaultdict(int)
+        for change in self.backports.changes.values():
+            project = change.get("project")
+            if project == self.OPERATIONS_CONFIG:
+                kinds["config"] += 1
+            elif project == self.MEDIAWIKI_CORE:
+                kinds["core"] += 1
+            elif project.startswith("mediawiki/extensions/"):
+                kinds["extension"] += 1
+            elif project.startswith("mediawiki/skins/"):
+                kinds["skin"] += 1
+            else:
+                kinds["other"] += 1
+        for kind, count in kinds.items():
+            self.metrics.backport_changes.inc(count, repository=kind, outcome=outcome)
 
     def _recover_from_rollback(self):
         if self.arguments.no_revert_after_rollback:
+            self._record_reverts("not-reverted", len(self.backports.changes))
             self._alert_changes_still_merged()
             return
 
         changes = self._select_changes_to_revert(list(self.backports.changes.values()))
+        self._record_reverts("not-reverted", len(self.backports.changes) - len(changes))
         if not changes:
             self._alert_changes_still_merged()
             return
@@ -712,12 +733,15 @@ class Backport(cli.Application):
                     "and merge the revert."
                 )
 
+        self._record_reverts("revert-failed", len(changes) - len(revert_numbers))
         if revert_numbers:
             try:
                 reverts = GerritChanges(self.get_logger(), self.gerrit, revert_numbers)
                 self._approve_changes(list(reverts.changes.values()))
-                self._wait_for_changes_to_be_merged(reverts)
+                self._wait_for_changes_to_be_merged(reverts, "revert")
+                self._record_reverts("reverted", len(revert_numbers))
             except Exception as e:
+                self._record_reverts("merge-failed", len(revert_numbers))
                 self.get_logger().error(f"The reverts were not merged: {e}")
                 manual_steps += [
                     f"You must make sure that {self._change_url(number)} is merged."
@@ -726,6 +750,12 @@ class Backport(cli.Application):
 
         self._reset_workspace()
         return manual_steps
+
+    def _record_reverts(self, outcome: str, count: int):
+        if count:
+            self.metrics.rollback_reverts.inc(
+                count, command="backport", outcome=outcome
+            )
 
     def _change_url(self, number) -> str:
         return os.path.join(self.config["gerrit_url"], f"r/{number}")
@@ -1708,7 +1738,7 @@ class Backport(cli.Application):
                     % change_number
                 )
 
-    def _wait_for_changes_to_be_merged(self, backports: GerritChanges):
+    def _wait_for_changes_to_be_merged(self, backports: GerritChanges, kind: str):
         self.report_status(
             "Waiting for changes to be merged. "
             "This may take some time if there are long running tests.",
@@ -1722,6 +1752,8 @@ class Backport(cli.Application):
         changes = set(backports.change_numbers)
         attempts = {change_number: 0 for change_number in changes}
         changes_merged = set()
+        started = time.time()
+        outcome = "failure"
 
         try:
             while not finished:
@@ -1748,6 +1780,7 @@ class Backport(cli.Application):
                             attempts[number] += 1
 
                             if attempts[number] >= self.allowed_attempts:
+                                outcome = "unmergeable"
                                 raise MergeFailedError(
                                     "Gerrit could not merge the change '%s' as is and could require a "
                                     "rebase" % number
@@ -1760,12 +1793,14 @@ class Backport(cli.Application):
                             )
 
                         if vetoed:
+                            outcome = "rejected"
                             raise MergeFailedError(
                                 "The change '%s' has been rejected (Code-Review -2) by '%s'"
                                 % (number, vetoed["name"])
                             )
 
                         if self._get_post_approval_jenkins_rejections(change):
+                            outcome = "build-failed"
                             raise MergeFailedError(
                                 "The change '%s' failed build tests and could not be merged"
                                 % number
@@ -1789,9 +1824,13 @@ class Backport(cli.Application):
                 if not finished:
                     reporter.refresh()
                     time.sleep(self.interval)
+            outcome = "merged"
 
         finally:
             reporter.finish()
+            self.metrics.backport_merge_wait_duration.observe(
+                time.time() - started, changes=kind, outcome=outcome
+            )
 
         self.report_status("All changes have been merged", log=True)
 

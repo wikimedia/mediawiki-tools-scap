@@ -450,6 +450,42 @@ def test_run_records_the_command(cmd, mocker, outcome, exit_status):
     )
 
 
+def test_retry_until_records_each_answer(app, mocker):
+    app.metrics = mock.Mock()
+    mocker.patch.object(app, "prompt_choices", side_effect=["r", "b"])
+
+    resp = app.retry_until(
+        "canary checks", lambda: False, {"Roll back": "b"}, default="r"
+    )
+
+    assert resp == "b"
+    assert app.metrics.failure_answers.inc.call_args_list == [
+        mock.call(operation="canary checks", answer="retry"),
+        mock.call(operation="canary checks", answer="rollback"),
+    ]
+
+
+@pytest.mark.parametrize(
+    "choice,answer",
+    [
+        ("r", "retry"),
+        ("i", "ignore"),
+        ("b", "rollback"),
+        ("c", "cancel"),
+        ("x", "exit"),
+        ("z", "other"),
+    ],
+)
+def test_record_failure_answer(app, choice, answer):
+    app.metrics = mock.Mock()
+
+    app.record_failure_answer("canary checks", choice)
+
+    app.metrics.failure_answers.inc.assert_called_once_with(
+        operation="canary checks", answer=answer
+    )
+
+
 @pytest.mark.parametrize(
     "environ,caller",
     [
@@ -491,6 +527,37 @@ def test_interface(mocker, spiderpig, terminal, interface):
     mocker.patch("scap.interaction.have_terminal", return_value=terminal)
 
     assert cli.Application._interface() == interface
+
+
+def test_lock_records_the_wait(app, tmp_path):
+    app.metrics = mock.Mock()
+    app.arguments = mock.Mock(message="testing")
+
+    with app.lock(
+        str(tmp_path / "test.lock"),
+        kind="deploy-service",
+        service="shellbox",
+        do_global_lock=False,
+    ):
+        pass
+
+    app.metrics.lock_wait_duration.observe.assert_called_once_with(
+        mock.ANY, lock="deploy-service", service="shellbox", outcome="acquired"
+    )
+
+
+def test_lock_records_a_wait_that_failed(app, mocker):
+    app.metrics = mock.Mock()
+    app.arguments = mock.Mock(message="testing")
+    mocker.patch("scap.lock.Lock", side_effect=lock.LockFailedError("busy"))
+
+    with pytest.raises(lock.LockFailedError):
+        with app.lock("/var/lock/scap.backport.lock", kind="backport"):
+            pass
+
+    app.metrics.lock_wait_duration.observe.assert_called_once_with(
+        mock.ANY, lock="backport", service="", outcome="failed"
+    )
 
 
 def test_format_passthrough_args(app):

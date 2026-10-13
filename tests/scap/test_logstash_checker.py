@@ -5,6 +5,8 @@ import sys
 from types import SimpleNamespace
 from unittest import mock
 
+import pytest
+
 from scap.logstash_checker import LogstashChecker
 
 # The records and the query evaluation live beside the fake-logstash service of
@@ -22,7 +24,7 @@ def _dep_config(namespace, release):
     return SimpleNamespace(namespace=namespace, release=release)
 
 
-def _checker(dep_configs, wiki=None, baremetal_hosts=None):
+def _checker(dep_configs, wiki=None, baremetal_hosts=None, metrics=None):
     """A checker that asks the fake logstash instead of a real one."""
     checker = LogstashChecker(
         "http://fake-logstash.example",
@@ -32,6 +34,7 @@ def _checker(dep_configs, wiki=None, baremetal_hosts=None):
         logging.getLogger("test.logstash"),
         None,
         wiki,
+        metrics,
     )
     checker.logstash.run_query = lambda query: fake_logstash.search(query, NOW)
     return checker
@@ -247,3 +250,15 @@ def test_history_reads_every_page():
     assert len(counts) == 10003
     assert sum(counts) == 10006
     assert checker.logstash.run_query.call_count == 2
+
+
+@pytest.mark.parametrize("threshold,outcome", [(1, "failed"), (sys.maxsize, "passed")])
+def test_check_records_the_errors(threshold, outcome):
+    metrics = mock.Mock()
+    checker = _checker([_dep_config("mw-web", "main")], metrics=metrics)
+
+    checker.check(threshold, stage="canary")
+
+    metrics.logstash_check_errors.observe.assert_called_once_with(
+        _recent(namespace="mw-web", release="main"), stage="canary", outcome=outcome
+    )

@@ -6,6 +6,7 @@ import os
 import re
 import textwrap
 import threading
+from unittest import mock
 
 import pytest
 
@@ -705,7 +706,7 @@ def test_main_locks_the_service(tmp_path, monkeypatch):
             return False
 
     monkeypatch.setattr(lock, "Lock", FakeLock)
-    monkeypatch.setattr(app, "_deploy", lambda steps: 0)
+    monkeypatch.setattr(app, "_deploy", lambda steps: "success")
     monkeypatch.setattr(app, "_assert_helmfile_dirs_exist", lambda steps: None)
     monkeypatch.setattr(app, "_assert_releases_exist", lambda steps: None)
 
@@ -739,7 +740,7 @@ def test_main_asks_for_a_message(tmp_path, monkeypatch):
 
     monkeypatch.setattr(lock, "Lock", FakeLock)
     monkeypatch.setattr(app, "input_line", input_line)
-    monkeypatch.setattr(app, "_deploy", lambda steps: 0)
+    monkeypatch.setattr(app, "_deploy", lambda steps: "success")
     monkeypatch.setattr(app, "_assert_helmfile_dirs_exist", lambda steps: None)
     monkeypatch.setattr(app, "_assert_releases_exist", lambda steps: None)
 
@@ -946,9 +947,12 @@ def test_deploy_stops_when_a_check_fails(tmp_path, monkeypatch):
     )
     # The user rolls back what already deployed.
     monkeypatch.setattr(app, "retry_until", lambda *args, **kwargs: "b")
+    app.metrics = mock.Mock()
 
     assert app.main() == 1
     assert rolled_back == [True]
+    observe = app.metrics.service_deployment_duration.observe
+    assert observe.call_args.kwargs["outcome"] == "rolled-back"
 
 
 def test_deploy_continues_when_the_user_ignores_a_check(tmp_path, monkeypatch):
@@ -1078,7 +1082,7 @@ def test_main_announces_the_deployment(tmp_path, monkeypatch):
     monkeypatch.setattr(app, "lock", _no_lock)
     monkeypatch.setattr(app, "_assert_helmfile_dirs_exist", lambda steps: None)
     monkeypatch.setattr(app, "_assert_releases_exist", lambda steps: None)
-    monkeypatch.setattr(app, "_deploy", lambda steps: 0)
+    monkeypatch.setattr(app, "_deploy", lambda steps: "success")
 
     assert app.main() == 0
     assert said[0] == "Started scap deploy-service shellbox: T435419 new images"
@@ -1094,7 +1098,7 @@ def test_main_announces_a_deployment_that_failed(tmp_path, monkeypatch):
     monkeypatch.setattr(app, "lock", _no_lock)
     monkeypatch.setattr(app, "_assert_helmfile_dirs_exist", lambda steps: None)
     monkeypatch.setattr(app, "_assert_releases_exist", lambda steps: None)
-    monkeypatch.setattr(app, "_deploy", lambda steps: 1)
+    monkeypatch.setattr(app, "_deploy", lambda steps: "stopped")
 
     assert app.main() == 1
     assert said[1].startswith("Failed scap deploy-service shellbox: ")
@@ -1119,12 +1123,55 @@ def test_main_announces_a_deployment_that_stopped(tmp_path, monkeypatch):
     assert said[1].startswith("Failed scap deploy-service shellbox: ")
 
 
+@pytest.mark.parametrize(
+    "deploy,outcome,status",
+    [
+        (lambda steps: "success", "success", 0),
+        (lambda steps: "rolled-back", "rolled-back", 1),
+        (lambda steps: "stopped", "stopped", 1),
+    ],
+)
+def test_main_records_the_deployment(tmp_path, monkeypatch, deploy, outcome, status):
+    app = _app(tmp_path)
+    app.metrics = mock.Mock()
+    monkeypatch.setattr(app, "lock", _no_lock)
+    monkeypatch.setattr(app, "_assert_helmfile_dirs_exist", lambda steps: None)
+    monkeypatch.setattr(app, "_assert_releases_exist", lambda steps: None)
+    monkeypatch.setattr(app, "_deploy", deploy)
+
+    assert app.main() == status
+
+    app.metrics.service_deployment_duration.observe.assert_called_once_with(
+        mock.ANY, service="shellbox", outcome=outcome
+    )
+
+
+def test_main_records_a_deployment_that_raised(tmp_path, monkeypatch):
+    app = _app(tmp_path)
+    app.metrics = mock.Mock()
+    monkeypatch.setattr(app, "lock", _no_lock)
+    monkeypatch.setattr(app, "_assert_helmfile_dirs_exist", lambda steps: None)
+    monkeypatch.setattr(app, "_assert_releases_exist", lambda steps: None)
+
+    def interrupt(steps):
+        raise KeyboardInterrupt()
+
+    monkeypatch.setattr(app, "_deploy", interrupt)
+
+    with pytest.raises(KeyboardInterrupt):
+        app.main()
+
+    app.metrics.service_deployment_duration.observe.assert_called_once_with(
+        mock.ANY, service="shellbox", outcome="failure"
+    )
+
+
 def test_main_reports_a_diff_command_that_failed(tmp_path, monkeypatch):
     """A failed diff makes scap exit 1 after a deployment that worked."""
     app = _app(tmp_path, confirm_diffs=True)
     reviewed = []
     monkeypatch.setattr(app, "lock", _no_lock)
-    monkeypatch.setattr(app, "_deploy", lambda steps: 0)
+    monkeypatch.setattr(app, "_deploy", lambda steps: "success")
     monkeypatch.setattr(app, "_assert_helmfile_dirs_exist", lambda steps: None)
     monkeypatch.setattr(app, "_assert_releases_exist", lambda steps: None)
     monkeypatch.setattr(
@@ -1140,7 +1187,7 @@ def test_main_reports_a_diff_command_that_failed(tmp_path, monkeypatch):
 def test_main_keeps_the_status_of_a_deployment_that_failed(tmp_path, monkeypatch):
     app = _app(tmp_path, confirm_diffs=True)
     monkeypatch.setattr(app, "lock", _no_lock)
-    monkeypatch.setattr(app, "_deploy", lambda steps: 1)
+    monkeypatch.setattr(app, "_deploy", lambda steps: "stopped")
     monkeypatch.setattr(app, "_assert_helmfile_dirs_exist", lambda steps: None)
     monkeypatch.setattr(app, "_assert_releases_exist", lambda steps: None)
     monkeypatch.setattr(kubernetes.K8sRunner, "review_diffs", lambda self, jobs: 0)

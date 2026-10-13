@@ -809,6 +809,7 @@ class AbstractSync(cli.Application):
                     },
                     self._prompt_default("r", "b"),
                 )
+                self.record_failure_answer(f"k8s deployment to stage {stage}", resp)
                 if resp == "r":
                     continue
 
@@ -855,6 +856,9 @@ class AbstractSync(cli.Application):
                             },
                             self._prompt_default("r", "c"),
                         )
+                        self.record_failure_answer(
+                            f"rollback deployment for stage {stage}", resp
+                        )
                         if resp == "r":
                             continue
 
@@ -878,6 +882,7 @@ class AbstractSync(cli.Application):
             baremetal_hosts or [],
             self.get_logger(),
             self.config["logstash_credentials_file"],
+            metrics=self.metrics,
         )
 
     def _run_logstash_checks(self, stage_label: str, checks: list) -> bool:
@@ -923,7 +928,7 @@ class AbstractSync(cli.Application):
                 # Run every check so that all failures are surfaced, not just the first.
                 passed = True
                 for checker, threshold in checks:
-                    if not checker.check(threshold):
+                    if not checker.check(threshold, stage=stage_label):
                         passed = False
                 return passed
             except logstash_checker.CheckServiceError as e:
@@ -1858,10 +1863,12 @@ class LockManager(cli.Application):
 
         if self.arguments.all:
             lock_path = lock.GLOBAL_LOCK_FILE
+            lock_kind = "global"
             repo = "ALL REPOSITORIES"
         else:
             try:
                 lock_path = self.get_scap3_lock_file()
+                lock_kind = "scap3"
                 repo = self.config["git_repo"]
             except LookupError:
                 # The current directory does not appear to be a proper
@@ -1869,6 +1876,7 @@ class LockManager(cli.Application):
                 # and assume the user means to lock the MediaWiki staging
                 # directory.
                 lock_path = self.get_mediawiki_staging_lock_file()
+                lock_kind = "mediawiki"
                 repo = "MediaWiki"
 
         # self.locker() writes to locker_status_w to signal the parent that
@@ -1896,6 +1904,7 @@ class LockManager(cli.Application):
             # The child process handles acquiring and holding the lock
             return self.locker(
                 lock_path,
+                lock_kind,
                 repo,
                 locker_status_r,
                 locker_status_w,
@@ -1968,6 +1977,7 @@ class LockManager(cli.Application):
     def locker(
         self,
         lock_path,
+        lock_kind,
         repo,
         locker_status_r,
         locker_status_w,
@@ -1979,7 +1989,7 @@ class LockManager(cli.Application):
         os.close(release_w)
 
         try:
-            with self.lock(lock_path):
+            with self.lock(lock_path, kind=lock_kind):
                 # Notify self.ui() that lock is acquired
                 os.write(locker_status_w, b"\x01")
 
