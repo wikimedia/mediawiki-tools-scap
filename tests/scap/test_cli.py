@@ -442,8 +442,55 @@ def test_run_records_the_command(cmd, mocker, outcome, exit_status):
         cli.Application.run()
 
     cmd.metrics.command_duration.observe.assert_called_once_with(
-        42, command=cmd.program_name, exit_status=exit_status
+        42,
+        command=cmd.program_name,
+        caller="",
+        interface=mock.ANY,
+        exit_status=exit_status,
     )
+
+
+@pytest.mark.parametrize(
+    "environ,caller",
+    [
+        (None, ""),
+        ("sync-world", "sync-world"),
+        ("made-up", "other"),
+    ],
+)
+def test_caller(monkeypatch, environ, caller):
+    if environ is not None:
+        monkeypatch.setenv("SCAP_CALLER", environ)
+
+    assert cli.Application.factory(["version"])._caller() == caller
+
+
+def test_run_names_the_command_for_the_commands_it_starts(cmd, mocker):
+    mocker.patch("sys.exit")
+    mocker.patch("os.geteuid", return_value=1000)
+    mocker.patch("scap.cli.Application.factory", return_value=cmd)
+    cmd.setup = mock.MagicMock()
+    cmd.config = {}
+    cmd.main = mock.MagicMock(spec=[], return_value=0)
+
+    cli.Application.run()
+
+    assert os.environ["SCAP_CALLER"] == cmd.program_name
+
+
+@pytest.mark.parametrize(
+    "spiderpig,terminal,interface",
+    [
+        (True, False, "spiderpig"),
+        (False, True, "terminal"),
+        (False, False, "none"),
+    ],
+)
+def test_interface(mocker, spiderpig, terminal, interface):
+    mocker.patch("scap.interaction.spiderpig_mode", return_value=spiderpig)
+    mocker.patch("scap.interaction.have_terminal", return_value=terminal)
+
+    assert cli.Application._interface() == interface
 
 
 def test_format_passthrough_args(app):

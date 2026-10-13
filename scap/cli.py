@@ -55,6 +55,10 @@ NO_MESSAGE = "(no justification provided)"
 
 PRIMARY_DEPLOY_SERVER_ONLY_COMMAND = "_primary_deploy_server_only"
 REQUIRE_TTY_MULTIPLEXER_COMMAND = "_require_tty_multiplexer"
+# Each scap command puts its name in this environment variable for the scap
+# commands that it starts. sudo configuration must include SCAP_CALLER in its
+# env_keep setting for it to work across sudo calls.
+CALLER_ENV_VAR = "SCAP_CALLER"
 
 
 class Application(object):
@@ -90,6 +94,7 @@ class Application(object):
         self.user_ssh_auth_sock = (
             os.environ["SSH_AUTH_SOCK"] if "SSH_AUTH_SOCK" in os.environ else None
         )
+        self.caller = os.environ.get(CALLER_ENV_VAR, "")
 
         try:
             locale.setlocale(locale.LC_ALL, "")
@@ -672,6 +677,19 @@ class Application(object):
                 **kwargs,
             )
 
+    def _caller(self) -> str:
+        """Returns the scap command that started this command, or "" if none."""
+        if not self.caller:
+            return ""
+        return self.caller if self.caller in COMMAND_REGISTRY else "other"
+
+    @staticmethod
+    def _interface() -> str:
+        """Returns how this command can prompt a user, for example "spiderpig"."""
+        if interaction.spiderpig_mode():
+            return "spiderpig"
+        return "terminal" if interaction.have_terminal() else "none"
+
     def scap_check_call(self, scap_cmd: list, **kwargs) -> subprocess.CompletedProcess:
         """
         Call scap subcommand and check for a non-zero exit status
@@ -959,6 +977,7 @@ class Application(object):
         exit_status = 0
         try:
             app = Application.factory()
+            os.environ[CALLER_ENV_VAR] = app.program_name
 
             if os.geteuid() == 0:
                 raise OSError(errno.EPERM, "Scap should not be run as root")
@@ -1022,6 +1041,8 @@ class Application(object):
             app.metrics.command_duration.observe(
                 app.get_duration(),
                 command=app.program_name,
+                caller=app._caller(),
+                interface=app._interface(),
                 exit_status=exit_status or 0,
             )
 

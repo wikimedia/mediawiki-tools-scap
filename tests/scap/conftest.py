@@ -9,6 +9,12 @@ def global_lock_in_tmp_path(tmp_path, monkeypatch):
     monkeypatch.setattr(lock, "GLOBAL_LOCK_FILE", str(tmp_path / "scap-global-lock"))
 
 
+@pytest.fixture(autouse=True)
+def no_scap_caller(monkeypatch):
+    # cli.Application.run() sets SCAP_CALLER. Restore it after each test.
+    monkeypatch.delenv("SCAP_CALLER", raising=False)
+
+
 class FakeChange:
     """Lightweight test double for GerritChange"""
 
