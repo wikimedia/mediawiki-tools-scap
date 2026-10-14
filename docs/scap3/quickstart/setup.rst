@@ -46,19 +46,16 @@ The ``scap/scap.cfg`` file needs, at a minimum, values for these keys:
 #. ``git_repo``
 #. ``dsh_targets``
 
-The ``git_repo`` is the path on the ``git_server`` (which is setup on
-deployment-hosts and should not be set manually) where your repository lives.
+The ``git_repo`` is the path on the deployment server where your repository
+lives.
 
 The ``dsh_targets`` file is the list of deployment targets for your repository.
 
 An example of a sensible default ``scap/scap.cfg`` file is seen here::
 
     [global]
-    # The repo "mockbase" will be fetched from the active git_server
+    # The repo "mockbase" will be fetched from the deployment server
     git_repo: mockbase
-
-    # code will be deployed to /srv/deployment/ on the target
-    git_deploy_dir: /srv/deployment
 
     # connect to targets with user deploy-mockbase
     ssh_user: deploy-mockbase
@@ -123,9 +120,6 @@ The full ``scap/scap.cfg`` file would now look like::
     [global]
     # Code will be fetched from deployXXXX:/srv/deployment/mockbase
     git_repo: mockbase
-
-    # code will be deployed to /srv/deployment/mockbase on the target
-    git_deploy_dir: /srv/deployment
 
     # connect to targets with user deploy-mockbase
     ssh_user: deploy-mockbase
@@ -387,7 +381,7 @@ this service by adding the following directive to ``scap/scap.cfg``::
     config_deploy: True
 
 During the next ``scap deploy`` run, in the ``config_deploy`` phase, this template
-will be fetched from the active ``git_server`` and symlinked to its final
+will be fetched from the deployment server and symlinked to its final
 location at ``/etc/mockbase/config.yaml``.
 
 Config Template Variables
