@@ -120,19 +120,6 @@ class DeployLocal(cli.Application):
             )
         )
 
-        # FIXME: this makes the assumption that the git_deploy_dir specified on
-        # the target machines in /etc/scap.cfg is correct. Currently, we have
-        # no deployments that don't use /srv/deployment as the deployment
-        # directory; however, this may not always be the case.
-        #
-        # I think in order to work around this issue `scap deploy-local` will
-        # need to be passed more information about the state of the world it's
-        # intended to create, i.e.:
-        #
-        #     scap deploy-local http://deployment.eqiad.wmnet/[repo] \
-        #         /srv/deployment/[repo]
-        #
-        # Might prove to be a better way to do this.
         self.final_path = os.path.join(
             self.config["git_deploy_dir"], self.arguments.repo
         )
@@ -642,11 +629,8 @@ class Deploy(cli.Application):
         "config_deploy",
         "config_files",
         "environment",
-        "git_deploy_dir",
         "git_fat",
         "git_binary_manager",
-        "git_server",
-        "git_scheme",
         "git_repo",
         "git_rev",
         "git_submodules",
