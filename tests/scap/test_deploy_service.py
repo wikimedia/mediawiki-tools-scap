@@ -31,15 +31,15 @@ services:
     namespaces:
       eventstreams:
         environments:
-          staging: {}
-          codfw: {}
-          eqiad: {}
+          - staging
+          - codfw
+          - eqiad
   api2:
     cluster_group: dse-k8s
     namespaces:
       api2:
         environments:
-          dse-k8s-eqiad: {}
+          - dse-k8s-eqiad
 """
 
 CLUSTER_GROUPS = """
@@ -87,17 +87,17 @@ cluster_group: wikikube
 namespaces:
   shellbox:
     environments:
-      staging: {}
-      codfw:
-        releases:
-          canary:
-            stage: CANARY
-          production: {}
-      eqiad:
-        releases:
-          canary:
-            stage: CANARY
-          production: {}
+      - staging
+      - codfw:
+          releases:
+            - canary:
+                stage: CANARY
+            - production
+      - eqiad:
+          releases:
+            - canary:
+                stage: CANARY
+            - production
 """
 
 
@@ -321,12 +321,12 @@ cluster_group: wikikube
 namespaces:
   shellbox:
     environments:
-      codfw:
-        releases:
-          canary:
-            stage: CANARY
-          canary-media:
-            stage: CANARY
+      - codfw:
+          releases:
+            - canary:
+                stage: CANARY
+            - canary-media:
+                stage: CANARY
 """,
     )
     (group,) = plan(service_config, "eqiad", "/", 5).values()
@@ -352,11 +352,11 @@ cluster_group: wikikube
 namespaces:
   shellbox-media:
     environments:
-      codfw: {}
-      eqiad: {}
+      - codfw
+      - eqiad
   shellbox-syntaxhighlight:
     environments:
-      eqiad: {}
+      - eqiad
 """,
     )
     assert commands(service_config) == [
@@ -375,12 +375,12 @@ cluster_group: dse-k8s
 namespaces:
   api2:
     environments:
-      dse-k8s-codfw:
-        releases:
-          canary:
-            stage: CANARY
-          main: {}
-      dse-k8s-eqiad: {}
+      - dse-k8s-codfw:
+          releases:
+            - canary:
+                stage: CANARY
+            - main
+      - dse-k8s-eqiad
 """,
     )
     assert commands(service_config) == [
@@ -483,12 +483,12 @@ cluster_group: ml-serve
 namespaces:
   revscoring:
     environments:
-      ml-serve-codfw:
-        releases:
-          trial:
-            stage: experimental
-          main: {}
-      ml-serve-eqiad: {}
+      - ml-serve-codfw:
+          releases:
+            - trial:
+                stage: experimental
+            - main
+      - ml-serve-eqiad
 """,
         service="revscoring",
     )
@@ -569,12 +569,12 @@ def test_invalid_cluster_groups(tmp_path, contents, expected):
             "undefined cluster group 'dse'",
         ),
         (
-            SHELLBOX.replace("      staging: {}", "      testing: {}"),
+            SHELLBOX.replace("      - staging", "      - testing"),
             "names environment 'testing'",
         ),
         (
             SHELLBOX.replace(
-                "      staging: {}", "      staging: {}\n      staging-eqiad: {}"
+                "      - staging", "      - staging\n      - staging-eqiad"
             ),
             "both refer to environment staging-eqiad",
         ),
@@ -584,8 +584,8 @@ def test_invalid_cluster_groups(tmp_path, contents, expected):
         ),
         (
             SHELLBOX.replace(
-                "          production: {}",
-                "          production: {}\n        release: {}",
+                "            - production",
+                "            - production\n          release: {}",
                 1,
             ),
             r"unexpected key\(s\): release",
@@ -595,7 +595,7 @@ def test_invalid_cluster_groups(tmp_path, contents, expected):
             "defines no namespaces",
         ),
         (
-            "cluster_group: wikikube\nnamespaces:\n  shellbox:\n    environments:\n      staging:\n        releases: {}\n",
+            "cluster_group: wikikube\nnamespaces:\n  shellbox:\n    environments:\n      - staging:\n          releases: []\n",
             "omit the key to deploy all releases",
         ),
     ],
@@ -615,20 +615,20 @@ cluster_group: wikikube
 namespaces:
   shellbox:
     environments:
-      codfw:
-        releases:
-          canary:
-            stage: CANARY
-          main: {}
-      eqiad: {}
+      - codfw:
+          releases:
+            - canary:
+                stage: CANARY
+            - main
+      - eqiad
   shellbox-media:
     environments:
-      codfw:
-        releases:
-          canary:
-            stage: CANARY
-          main: {}
-      eqiad: {}
+      - codfw:
+          releases:
+            - canary:
+                stage: CANARY
+            - main
+      - eqiad
 """,
     )
     assert [
@@ -1369,8 +1369,8 @@ def test_roll_back_of_one_group_runs_at_the_same_time(tmp_path, monkeypatch):
 
 
 def test_environments_as_a_list(tmp_path, cluster_groups):
-    """A list of names deploys every release, as the mapping of empty bodies does."""
-    as_list = load(
+    """An entry with no body deploys every release of the environment."""
+    service_config = load(
         tmp_path,
         cluster_groups,
         """
@@ -1383,20 +1383,11 @@ namespaces:
       - eqiad
 """,
     )
-    as_mapping = load(
-        tmp_path,
-        cluster_groups,
-        """
-cluster_group: wikikube
-namespaces:
-  shellbox:
-    environments:
-      staging: {}
-      codfw: {}
-      eqiad: {}
-""",
-    )
-    assert commands(as_list) == commands(as_mapping)
+    assert commands(service_config) == [
+        ("/services/shellbox", "helmfile -e staging apply --context 5"),
+        ("/services/shellbox", "helmfile -e codfw apply --context 5"),
+        ("/services/shellbox", "helmfile -e eqiad apply --context 5"),
+    ]
 
 
 def test_an_environment_of_the_list_names_its_releases(tmp_path, cluster_groups):
@@ -1437,13 +1428,11 @@ namespaces:
     ]
 
 
-def test_releases_as_a_list_match_the_mapping(tmp_path, cluster_groups):
-    def releases_of(contents):
-        service_config = load(tmp_path, cluster_groups, contents)
-        (ns,) = service_config.namespaces
-        return [(r.name, r.stage) for r in ns.environments["codfw"].releases]
-
-    as_list = releases_of(
+def test_releases_as_a_list(tmp_path, cluster_groups):
+    """A release is a name, or a mapping of one name to its body."""
+    service_config = load(
+        tmp_path,
+        cluster_groups,
         """
 cluster_group: wikikube
 namespaces:
@@ -1454,22 +1443,13 @@ namespaces:
             - canary:
                 stage: CANARY
             - main
-"""
+""",
     )
-    as_mapping = releases_of(
-        """
-cluster_group: wikikube
-namespaces:
-  shellbox:
-    environments:
-      codfw:
-        releases:
-          canary:
-            stage: CANARY
-          main: {}
-"""
-    )
-    assert as_list == as_mapping == [("canary", "CANARY"), ("main", "DEFAULT")]
+    (ns,) = service_config.namespaces
+    assert [(r.name, r.stage) for r in ns.environments["codfw"].releases] == [
+        ("canary", "CANARY"),
+        ("main", "DEFAULT"),
+    ]
 
 
 @pytest.mark.parametrize(
@@ -1483,6 +1463,11 @@ namespaces:
         ),
         (
             "environments: eqiad\n",
+            "the environments of .* must be a list",
+        ),
+        (
+            # The mapping of name to body.  The list replaced it.
+            "environments:\n  codfw:\n    releases:\n      main: {}\n",
             "the environments of .* must be a list",
         ),
         (

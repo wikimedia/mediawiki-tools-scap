@@ -248,13 +248,7 @@ def _named_entries(what: str, doc, noun: str) -> List[Tuple[str, Any]]:
         - eqiad
         - codfw:
             releases: ...
-
-    A mapping of name to body is the old format.  It is accepted until
-    every service catalog uses a list.
     """
-    if isinstance(doc, dict):
-        return list(doc.items())
-
     if not isinstance(doc, list):
         raise InvalidDeployServiceConfig(f"{what} must be a list")
 
