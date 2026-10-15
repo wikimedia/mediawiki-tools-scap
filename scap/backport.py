@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 
 """Scap command for listing, applying, and rolling back backports."""
+import argparse
 import hashlib
 import os
 import platform
@@ -16,9 +17,9 @@ from collections import defaultdict
 
 from prettytable import PrettyTable, SINGLE_BORDER
 from random import randint
-from scap import cli, git, log, utils
+from scap import cli, git, log, main, utils
 from scap.gerrit import GerritSession, parse_gerrit_datetime
-from scap.runcmd import gitcmd
+from scap.runcmd import FailedCommand, gitcmd
 
 
 def make_table(backports, display_mergable):
@@ -232,6 +233,10 @@ class GitRepos:
 
 class InvalidChangeException(SystemExit):
     """Exception for changes which are determined to be invalid for backport"""
+
+
+class MergeFailedError(utils.NoBacktraceError):
+    """Gerrit did not merge a change, and will not merge it without help"""
 
 
 class GerritChanges:
@@ -468,6 +473,11 @@ class Backport(cli.Application):
     )
     @cli.argument("--revert", help="revert a backport", action="store_true")
     @cli.argument(
+        "--no-revert-after-rollback",
+        help=argparse.SUPPRESS,
+        action="store_true",
+    )
+    @cli.argument(
         "change_numbers", nargs="*", help="Change numbers/URLs to backport or revert"
     )
     def main(self, *extra_args):
@@ -528,7 +538,8 @@ class Backport(cli.Application):
     def _do_revert(self):
         self._validate_reverts()
 
-        arguments = ["backport"]
+        # Do not offer to revert a revert backport.
+        arguments = ["backport", "--no-revert-after-rollback"]
         if self.arguments.yes:
             arguments.append("--yes")
         if self.arguments.stop_before_sync:
@@ -564,7 +575,7 @@ class Backport(cli.Application):
                     "Backport the changes?" % table.get_string()
                 )
             self._approve_changes(changes_to_backport)
-            self._wait_for_changes_to_be_merged()
+            self._wait_for_changes_to_be_merged(self.backports)
             num_commits = self._confirm_commits_to_sync()
             if num_commits == 0:
                 self.get_logger().info(
@@ -603,7 +614,115 @@ class Backport(cli.Application):
 
         sync_arguments.insert(0, "--backport")
 
-        self.scap_check_call(["sync-world"] + sync_arguments)
+        try:
+            self.scap_check_call(["sync-world"] + sync_arguments)
+        except subprocess.CalledProcessError as e:
+            if e.returncode == main.ROLLED_BACK_STATUS:
+                self._recover_from_rollback()
+            raise
+
+    def _recover_from_rollback(self):
+        if self.arguments.no_revert_after_rollback:
+            self._alert_changes_still_merged()
+            return
+
+        changes = self._select_changes_to_revert(list(self.backports.changes.values()))
+        if not changes:
+            self._alert_changes_still_merged()
+            return
+
+        manual_steps = self._revert_and_merge(changes)
+        if manual_steps:
+            self._alert_before_lock_release(
+                "The revert of the backported changes failed.\n\n"
+                "MANUAL RECOVERY NEEDED:\n"
+                + "".join(f"* {step}\n" for step in manual_steps)
+                + 'Then run "scap prep auto".'
+            )
+
+    def _select_changes_to_revert(
+        self, changes: List["GerritChange"]
+    ) -> List["GerritChange"]:
+        """Returns the changes that the user wants to revert."""
+        if self.arguments.yes:
+            return changes
+
+        selected = []
+        for change in changes:
+            answer = self.prompt_choices(
+                f"The deployment was rolled back, but change {change.number} is still merged:\n"
+                f"{change.get('subject')} ({change.get('project')}, {change.get('branch')})\n\n"
+                f"Revert change {change.number}?",
+                {"Yes": "y", "No": "n", "Exit without reverting": "x"},
+                "y",
+            )
+            if answer == "x":
+                return []
+            if answer == "y":
+                selected.append(change)
+        return selected
+
+    def _alert_changes_still_merged(self):
+        numbers = list(self.backports.changes)
+        if len(numbers) == 1:
+            still_merged = "The backported change was undeployed by rollback, but it still exists in the codebase"
+            fixes = "a fix or revert commit"
+        else:
+            still_merged = "The backported changes were undeployed by rollback, but they still exist in the codebase"
+            fixes = "fixes or revert commits"
+        self._alert_before_lock_release(
+            f"{still_merged}:\n"
+            + "".join(f"* {self._change_url(number)}\n" for number in numbers)
+            + f"\nYou must merge {fixes} before allowing further backports to proceed."
+        )
+
+    def _alert_before_lock_release(self, message: str):
+        """The backport lock stays held until the user acknowledges `message`."""
+        self.alert(message, "Acknowledge and release the deployment lock")
+
+    @staticmethod
+    def _newest_first(changes):
+        return sorted(changes, key=lambda change: change.number, reverse=True)
+
+    def _revert_and_merge(self, changes: List["GerritChange"]) -> List[str]:
+        """
+        Returns the steps that the user must do by hand after the reverts and
+        their merges. A failure does not stop the reverts of the other changes.
+        """
+        reason_msg = f"\nReason for revert: {self.deploy_user} reverted after deployment rollback.\n"
+        manual_steps = []
+        revert_numbers = []
+        checkouts = {}
+
+        for change in self._newest_first(changes):
+            try:
+                revert_numbers.append(
+                    self._create_revert(change, reason_msg, checkouts)
+                )
+            except Exception as e:
+                self.get_logger().error(f"Could not revert change {change.number}: {e}")
+                manual_steps.append(
+                    f"You must revert {self._change_url(change.number)} in Gerrit "
+                    "and merge the revert."
+                )
+
+        if revert_numbers:
+            try:
+                reverts = GerritChanges(self.get_logger(), self.gerrit, revert_numbers)
+                self._approve_changes(list(reverts.changes.values()))
+                self._wait_for_changes_to_be_merged(reverts)
+            except Exception as e:
+                self.get_logger().error(f"The reverts were not merged: {e}")
+                manual_steps += [
+                    f"You must make sure that {self._change_url(number)} is merged."
+                    for number in revert_numbers
+                ]
+
+        self._reset_workspace()
+        return manual_steps
+
+    def _change_url(self, number) -> str:
+        return os.path.join(self.config["gerrit_url"], f"r/{number}")
 
     def _extract_bug_ids_from_gerrit_change_details(self, details) -> list:
         """Returns a list of Phabricator task id strings"""
@@ -761,51 +880,59 @@ class Backport(cli.Application):
 
         Returns a list of change numbers (as strings)
         """
-        revert_numbers = []
         self.get_logger().info("Reverting %s change(s)" % len(self.backports))
         reason_msg = self._collect_revert_reason()
+        checkouts = {}
 
-        fetched_repo_branches = set()
-        active_branch_by_repo = {}
+        # The staging directory is restored to a deployable state at the end.
+        try:
+            return [
+                self._create_revert(change, reason_msg, checkouts)
+                for change in self._newest_first(self.backports.changes.values())
+            ]
+        finally:
+            self._reset_workspace()
 
-        for change in sorted(
-            self.backports.changes.values(), key=lambda c: c.number, reverse=True
-        ):
-            revision = self.gerrit.change_revision_commit(change.get("id")).get()
-            commit = revision["commit"]
-            project = change.get("project")
-            branch = change.get("branch")
+    def _create_revert(
+        self, change: GerritChange, reason_msg: str, checkouts: Dict[str, str]
+    ) -> str:
+        """
+        Returns the change number of a new revert of `change`.
 
-            repo_location = self.git_repos.get_repo_location(change, True)
-            repo_branch_key = (repo_location, branch)
+        `checkouts` maps each repository location to the branch that an
+        earlier call checked out. A revert in the same repository and branch
+        goes on top of the earlier revert.
+        """
+        revision = self.gerrit.change_revision_commit(change.get("id")).get()
+        commit = revision["commit"]
+        project = change.get("project")
+        branch = change.get("branch")
 
-            with utils.suppress_backtrace():
-                # Make sure we're working with the same repository state as Gerrit.
-                # This will discard any local changes such as security patches.
-                # The staging directory will be restored to a deployable state at
-                # the end of this function.
-                if repo_branch_key not in fetched_repo_branches:
-                    gitcmd(
-                        "fetch",
-                        "origin",
-                        branch,
-                        cwd=repo_location,
-                        _stream=True,
-                    )
-                    fetched_repo_branches.add(repo_branch_key)
+        repo_location = self.git_repos.get_repo_location(change, True)
 
-                if active_branch_by_repo.get(repo_location) != branch:
-                    gitcmd(
-                        "checkout",
-                        "--force",
-                        "-B",
-                        branch,
-                        f"origin/{branch}",
-                        cwd=repo_location,
-                        _stream=True,
-                    )
-                    active_branch_by_repo[repo_location] = branch
+        with utils.suppress_backtrace():
+            # Make sure we're working with the same repository state as Gerrit.
+            # This will discard any local changes such as security patches.
+            if checkouts.get(repo_location) != branch:
+                gitcmd(
+                    "fetch",
+                    "origin",
+                    branch,
+                    cwd=repo_location,
+                    _stream=True,
+                )
+                gitcmd(
+                    "checkout",
+                    "--force",
+                    "-B",
+                    branch,
+                    f"origin/{branch}",
+                    cwd=repo_location,
+                    _stream=True,
+                )
+                checkouts[repo_location] = branch
 
+            try:
                 with git.with_env_vars_set_for_user():
                     gitcmd(
                         "revert",
@@ -814,44 +941,51 @@ class Backport(cli.Application):
                         cwd=repo_location,
                         _stream=True,
                     )
+            except FailedCommand:
+                # The next revert in this repository needs a clean tree.
+                try:
+                    gitcmd("revert", "--abort", cwd=repo_location)
+                except Exception:
+                    pass
+                raise
 
-            commit_msg = f'Revert "{change.get("subject")}"\n'
-            revert_id = self._generate_change_id(commit_msg)
-            commit_msg = self._create_revert_message(
-                revert_id, commit, commit_msg, reason_msg
-            )
+        commit_msg = f'Revert "{change.get("subject")}"\n'
+        revert_id = self._generate_change_id(commit_msg)
+        commit_msg = self._create_revert_message(
+            revert_id, commit, commit_msg, reason_msg
+        )
 
-            with utils.suppress_backtrace():
-                with git.with_env_vars_set_for_user():
-                    gitcmd(
-                        "commit",
-                        "-m",
-                        commit_msg,
-                        cwd=repo_location,
-                        _stream=True,
-                    )
+        with utils.suppress_backtrace():
+            with git.with_env_vars_set_for_user():
+                gitcmd(
+                    "commit",
+                    "-m",
+                    commit_msg,
+                    cwd=repo_location,
+                    _stream=True,
+                )
 
+        try:
             revert_number = self.gerritssh.push_and_collect_change_number(
                 repo_location, project, branch
             )
             if revert_number is None:
-                self.get_logger().warning(
-                    "Could not find change number for revert of %s. Push to gerrit may have failed."
-                    % change.number
+                raise RuntimeError(
+                    f"Could not find change number for revert of {change.number}. "
+                    "Push to gerrit may have failed."
                 )
-                self._reset_workspace()
-                raise SystemExit(1)
+        except BaseException:
+            # The next revert in this repository must not push this commit.
+            gitcmd("reset", "--hard", "HEAD^", cwd=repo_location)
+            raise
 
-            revert_numbers.append(revert_number)
-            self.get_logger().info("Change %s created" % revert_number)
-            # Add a note to the original change about the revert
-            self.gerritssh.review(
-                change.get("current_revision"),
-                f"{self.deploy_user} created a revert of this change as {revert_id}",
-            )
-
-        self._reset_workspace()
-        return revert_numbers
+        self.get_logger().info("Change %s created" % revert_number)
+        # Add a note to the original change about the revert
+        self.gerritssh.review(
+            change.get("current_revision"),
+            f"{self.deploy_user} created a revert of this change as {revert_id}",
+        )
+        return revert_number
 
     def _approve_changes(self, changes: List[GerritChange]) -> None:
         """Approves the given changes by voting Code-Review+2"""
@@ -1568,7 +1702,7 @@ class Backport(cli.Application):
                     % change_number
                 )
 
-    def _wait_for_changes_to_be_merged(self):
+    def _wait_for_changes_to_be_merged(self, backports: GerritChanges):
         self.report_status(
             "Waiting for changes to be merged. "
             "This may take some time if there are long running tests.",
@@ -1577,9 +1711,9 @@ class Backport(cli.Application):
 
         finished = False
         reporter = log.reporter("awaiting-backport-merges")
-        reporter.expect(len(self.backports))
+        reporter.expect(len(backports))
         reporter.start()
-        changes = set(self.backports.change_numbers)
+        changes = set(backports.change_numbers)
         attempts = {change_number: 0 for change_number in changes}
         changes_merged = set()
 
@@ -1587,7 +1721,7 @@ class Backport(cli.Application):
             while not finished:
                 finished = True  # optimism
                 for number in changes.difference(changes_merged):
-                    change = self.backports.changes[number]
+                    change = backports.changes[number]
                     old_revision_number = change.get("current_revision_number")
                     change.update_details(True)
                     new_revision_number = change.get("current_revision_number")
@@ -1608,7 +1742,7 @@ class Backport(cli.Application):
                             attempts[number] += 1
 
                             if attempts[number] >= self.allowed_attempts:
-                                raise SystemExit(
+                                raise MergeFailedError(
                                     "Gerrit could not merge the change '%s' as is and could require a "
                                     "rebase" % number
                                 )
@@ -1620,13 +1754,13 @@ class Backport(cli.Application):
                             )
 
                         if vetoed:
-                            raise SystemExit(
+                            raise MergeFailedError(
                                 "The change '%s' has been rejected (Code-Review -2) by '%s'"
                                 % (number, vetoed["name"])
                             )
 
                         if self._get_post_approval_jenkins_rejections(change):
-                            raise SystemExit(
+                            raise MergeFailedError(
                                 "The change '%s' failed build tests and could not be merged"
                                 % number
                             )

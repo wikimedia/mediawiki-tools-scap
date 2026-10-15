@@ -1,17 +1,21 @@
 import shlex
+import subprocess
 from unittest import mock
 from unittest.mock import patch, ANY, Mock
 import unittest
 import pytest
 
 import scap.cli
+from scap import main
 from scap.backport import (
     DependencyTrail,
     Backport,
     InvalidChangeException,
+    MergeFailedError,
     GitRepos,
     GerritChange,
 )
+from scap.runcmd import FailedCommand, gitcmd
 
 
 @patch.dict("os.environ", clear=True)
@@ -2247,3 +2251,309 @@ def test_build_sal(backport_factory, changes, expected):
         backports=Mock(changes={change.number: change for change in changes})
     )
     assert bp._build_sal() == expected
+
+
+@pytest.mark.parametrize(
+    "returncode,recovers",
+    [(main.ROLLED_BACK_STATUS, True), (1, False)],
+)
+def test_sync_world_recovers_after_rollback(backport_factory, returncode, recovers):
+    bp = backport_factory(arguments=Mock(yes=True))
+    error = subprocess.CalledProcessError(returncode, ["scap", "sync-world"])
+
+    with (
+        patch.object(bp, "_build_sal", return_value="Backport for x"),
+        patch.object(bp, "scap_check_call", side_effect=error),
+        patch.object(bp, "_recover_from_rollback") as recover,
+    ):
+        with pytest.raises(subprocess.CalledProcessError):
+            bp._sync_world()
+
+    assert recover.called is recovers
+
+
+@pytest.mark.parametrize(
+    "no_revert,selected,manual_steps,alert",
+    [
+        # A rollback of "scap backport --revert" leaves the reverts alone
+        (True, [101, 102], [], "still merged"),
+        # The user chose to revert nothing
+        (False, [], [], "still merged"),
+        (False, [101, 102], [], None),
+        (False, [102], [], None),
+        (
+            False,
+            [101],
+            [
+                "You must revert http://gerrit.example/r/101 in Gerrit and merge the revert."
+            ],
+            "The revert of the backported changes failed.\n\n"
+            "MANUAL RECOVERY NEEDED:\n"
+            "* You must revert http://gerrit.example/r/101 in Gerrit and merge the revert.\n"
+            'Then run "scap prep auto".',
+        ),
+    ],
+)
+def test_recover_from_rollback(
+    backport_factory, no_revert, selected, manual_steps, alert
+):
+    changes = {
+        101: Mock(number=101, details={}),
+        102: Mock(number=102, details={}),
+    }
+    bp = backport_factory(
+        arguments=Mock(yes=False, no_revert_after_rollback=no_revert),
+        backports=Mock(changes=changes),
+    )
+    selected_changes = [changes[number] for number in selected]
+
+    with (
+        patch.object(
+            bp, "_select_changes_to_revert", return_value=selected_changes
+        ) as select,
+        patch.object(bp, "_revert_and_merge", return_value=manual_steps) as revert,
+        patch.object(bp, "_alert_changes_still_merged") as still_merged,
+        patch.object(bp, "alert") as alert_mock,
+    ):
+        bp._recover_from_rollback()
+
+    assert still_merged.called is (alert == "still merged")
+    if no_revert:
+        select.assert_not_called()
+    else:
+        # The user chooses from every supplied change
+        select.assert_called_once_with(list(changes.values()))
+    if alert == "still merged":
+        revert.assert_not_called()
+    else:
+        revert.assert_called_once_with(selected_changes)
+    if alert in (None, "still merged"):
+        alert_mock.assert_not_called()
+    else:
+        alert_mock.assert_called_once_with(
+            alert, "Acknowledge and release the deployment lock"
+        )
+
+
+@pytest.mark.parametrize(
+    "yes,answers,expected",
+    [
+        # --yes reverts every change without a question
+        (True, [], [101, 102]),
+        (False, ["y", "y"], [101, 102]),
+        (False, ["n", "y"], [102]),
+        (False, ["n", "n"], []),
+        # Exit after a "yes" reverts nothing, and asks no more questions
+        (False, ["y", "x"], []),
+        (False, ["x"], []),
+    ],
+)
+def test_select_changes_to_revert(backport_factory, yes, answers, expected):
+    bp = backport_factory(arguments=Mock(yes=yes))
+    changes = []
+    for number in [101, 102]:
+        change = Mock(number=number)
+        change.get.side_effect = {
+            "subject": f"Fix {number}",
+            "project": "mediawiki/core",
+            "branch": "wmf/1.0",
+        }.get
+        changes.append(change)
+
+    with patch.object(bp, "prompt_choices", side_effect=answers) as prompt:
+        selected = bp._select_changes_to_revert(changes)
+
+    assert [change.number for change in selected] == expected
+    assert prompt.call_count == len(answers)
+    if answers:
+        prompt.assert_any_call(
+            "The deployment was rolled back, but change 101 is still merged:\n"
+            "Fix 101 (mediawiki/core, wmf/1.0)\n\n"
+            "Revert change 101?",
+            {"Yes": "y", "No": "n", "Exit without reverting": "x"},
+            "y",
+        )
+
+
+@pytest.mark.parametrize(
+    "numbers,expected",
+    [
+        (
+            [101],
+            "The backported change was undeployed by rollback, but it still exists in the codebase:\n"
+            "* http://gerrit.example/r/101\n"
+            "\n"
+            "You must merge a fix or revert commit before allowing further backports to proceed.",
+        ),
+        (
+            [101, 102],
+            "The backported changes were undeployed by rollback, but they still exist in the codebase:\n"
+            "* http://gerrit.example/r/101\n"
+            "* http://gerrit.example/r/102\n"
+            "\n"
+            "You must merge fixes or revert commits before allowing further backports to proceed.",
+        ),
+    ],
+)
+def test_alert_changes_still_merged(backport_factory, numbers, expected):
+    bp = backport_factory(
+        backports=Mock(changes={number: Mock(number=number) for number in numbers})
+    )
+    bp.config = {"gerrit_url": "http://gerrit.example/"}
+
+    with patch.object(bp, "alert") as alert:
+        bp._alert_changes_still_merged()
+
+    alert.assert_called_once_with(
+        expected, "Acknowledge and release the deployment lock"
+    )
+
+
+@pytest.mark.parametrize(
+    "create_results,merge_error,expected",
+    [
+        (["201", "202"], None, []),
+        # The newest change is reverted first. Its revert fails, and the other
+        # change is still reverted.
+        (
+            [RuntimeError("conflict"), "201"],
+            None,
+            [
+                "You must revert http://gerrit.example/r/102 in Gerrit and merge the revert."
+            ],
+        ),
+        (
+            ["202", "201"],
+            MergeFailedError(
+                "The change '202' failed build tests and could not be merged"
+            ),
+            [
+                "You must make sure that http://gerrit.example/r/202 is merged.",
+                "You must make sure that http://gerrit.example/r/201 is merged.",
+            ],
+        ),
+    ],
+)
+def test_revert_and_merge(backport_factory, create_results, merge_error, expected):
+    bp = backport_factory()
+    bp.config = {"gerrit_url": "http://gerrit.example/"}
+    bp.deploy_user = "deployer@deploy"
+    changes = [Mock(number=101), Mock(number=102)]
+
+    with (
+        patch.object(bp, "_create_revert", side_effect=create_results) as create,
+        patch("scap.backport.GerritChanges"),
+        patch.object(bp, "_approve_changes"),
+        patch.object(bp, "_wait_for_changes_to_be_merged", side_effect=merge_error),
+        patch.object(bp, "_reset_workspace") as reset,
+    ):
+        assert bp._revert_and_merge(changes) == expected
+
+    assert [call.args[0].number for call in create.call_args_list] == [102, 101]
+    assert create.call_args.args[1] == (
+        "\nReason for revert: deployer@deploy reverted after deployment rollback.\n"
+    )
+    reset.assert_called_once()
+
+
+def make_checkout(tmp_path):
+    """Returns a clone of a new repository, and the commit that adds "file"."""
+    origin = tmp_path / "origin.git"
+    checkout = tmp_path / "checkout"
+    gitcmd("init", "--quiet", "--bare", "--initial-branch=wmf/1.0", str(origin))
+    gitcmd("clone", "--quiet", str(origin), str(checkout))
+    for key, value in [("user.name", "Test"), ("user.email", "test@example.org")]:
+        gitcmd("config", key, value, cwd=checkout)
+    (checkout / "file").write_text("one\n")
+    gitcmd("add", "file", cwd=checkout)
+    gitcmd("commit", "--quiet", "-m", "Add file", cwd=checkout)
+    commit = gitcmd("rev-parse", "HEAD", cwd=checkout).strip()
+    gitcmd("push", "--quiet", "origin", "HEAD:wmf/1.0", cwd=checkout)
+    return checkout, commit
+
+
+def backport_for_revert(backport_factory, checkout, commit):
+    bp = backport_factory()
+    bp.deploy_user = "deployer@deploy"
+    bp.git_repos.get_repo_location.return_value = str(checkout)
+    bp.gerrit.change_revision_commit.return_value.get.return_value = {"commit": commit}
+    bp._gerritssh = Mock()
+    change = Mock(number=101)
+    change.get.side_effect = {
+        "id": "I101",
+        "project": "mediawiki/core",
+        "branch": "wmf/1.0",
+        "subject": "Add file",
+        "current_revision": "abc",
+    }.get
+    return bp, change
+
+
+def test_create_revert_with_conflict(backport_factory, tmp_path):
+    checkout, commit = make_checkout(tmp_path)
+    (checkout / "file").write_text("two\n")
+    gitcmd("commit", "--quiet", "-a", "-m", "Change file", cwd=checkout)
+    gitcmd("push", "--quiet", "origin", "HEAD:wmf/1.0", cwd=checkout)
+    head = gitcmd("rev-parse", "HEAD", cwd=checkout).strip()
+    bp, change = backport_for_revert(backport_factory, checkout, commit)
+
+    with pytest.raises(FailedCommand):
+        bp._create_revert(change, "\nReason for revert: test\n", {})
+
+    assert gitcmd("rev-parse", "HEAD", cwd=checkout).strip() == head
+    assert gitcmd("status", "--porcelain", cwd=checkout) == ""
+    bp._gerritssh.push_and_collect_change_number.assert_not_called()
+
+
+def test_create_revert_refused(backport_factory, tmp_path):
+    """git refuses to start the revert, so there is no revert to abort."""
+    checkout, commit = make_checkout(tmp_path)
+    bp, change = backport_for_revert(backport_factory, checkout, commit)
+    (checkout / "file").write_text("local change\n")
+    # An earlier revert checked out the branch, so this call does not reset it.
+    checkouts = {str(checkout): "wmf/1.0"}
+
+    with pytest.raises(FailedCommand) as excinfo:
+        bp._create_revert(change, "\nReason for revert: test\n", checkouts)
+
+    # The original failure is raised, not the failure of "git revert --abort"
+    assert "revert --no-commit" in str(excinfo.value)
+    assert gitcmd("rev-parse", "HEAD", cwd=checkout).strip() == commit
+    assert (checkout / "file").read_text() == "local change\n"
+    bp._gerritssh.push_and_collect_change_number.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    "push",
+    [
+        {"side_effect": subprocess.CalledProcessError(1, ["git", "push"])},
+        # The push output has no change number
+        {"return_value": None},
+    ],
+)
+def test_create_revert_push_failure_removes_the_commit(
+    backport_factory, tmp_path, push
+):
+    checkout, commit = make_checkout(tmp_path)
+    bp, change = backport_for_revert(backport_factory, checkout, commit)
+    bp._gerritssh.push_and_collect_change_number.configure_mock(**push)
+
+    with pytest.raises((subprocess.CalledProcessError, RuntimeError)):
+        bp._create_revert(change, "\nReason for revert: test\n", {})
+
+    assert gitcmd("rev-parse", "HEAD", cwd=checkout).strip() == commit
+    assert gitcmd("status", "--porcelain", cwd=checkout) == ""
+
+
+def test_create_revert(backport_factory, tmp_path):
+    checkout, commit = make_checkout(tmp_path)
+    bp, change = backport_for_revert(backport_factory, checkout, commit)
+    bp._gerritssh.push_and_collect_change_number.return_value = "201"
+
+    assert bp._create_revert(change, "\nReason for revert: test\n", {}) == "201"
+
+    assert not (checkout / "file").exists()
+    message = gitcmd("log", "-1", "--format=%B", cwd=checkout)
+    assert message.startswith('Revert "Add file"\n')
+    assert f"This reverts commit {commit}" in message
+    bp._gerritssh.review.assert_called_once()

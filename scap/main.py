@@ -36,7 +36,6 @@ from concurrent.futures import ThreadPoolExecutor
 import scap.arg as arg
 import scap.checks as checks
 import scap.cli as cli
-import scap.interaction as interaction
 import scap.lint as lint
 import scap.lock as lock
 import scap.log as log
@@ -286,8 +285,6 @@ class AbstractSync(cli.Application):
                     self.soft_errors = True
                     if self.config["deploy_mw_container_image"]:
                         self._log_k8s_operation_summary(k8s_stage_statuses, k8s_result)
-                    if k8s_result == "rolled back":
-                        self._notify_backport_rollback()
             finally:
                 self._finalize_history()
 
@@ -867,20 +864,6 @@ class AbstractSync(cli.Application):
             self.output_line(f"- {stage}: {k8s_stage_statuses[stage]}")
         self.output_line(f"Result: {result}")
         self.output_line("See the job log for detailed error information.")
-
-    def _notify_backport_rollback(self):
-        if (
-            not getattr(self.arguments, "backport", False)
-            or not interaction.interactive()
-        ):
-            return
-
-        self.alert(
-            "The backported change was undeployed by rollback, but it still exists in the codebase.\n"
-            "You must merge a fix or revert commit before allowing further backports to proceed.\n"
-            "\n",
-            "Acknowledge and release the deployment lock",
-        )
 
     def _logstash_checker(self, dep_configs, baremetal_hosts):
         return logstash_checker.LogstashChecker(
