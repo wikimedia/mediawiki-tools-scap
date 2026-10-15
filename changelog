@@ -1,3 +1,11 @@
+scap (4.299.0)
+
+  * deploy-service: Accept only a list of environments and releases
+  * deploy-service: Check the helmfile directory before the deployment
+  * deploy-service: Report and skip bad service catalog entries
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Thu, 15 Oct 2026 10:33:18 -0700
+
 scap (4.298.0)
 
   * deploy-service: Accept a list of environments and releases
