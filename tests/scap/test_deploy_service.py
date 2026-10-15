@@ -706,6 +706,7 @@ def test_main_locks_the_service(tmp_path, monkeypatch):
 
     monkeypatch.setattr(lock, "Lock", FakeLock)
     monkeypatch.setattr(app, "_deploy", lambda steps: 0)
+    monkeypatch.setattr(app, "_assert_helmfile_dirs_exist", lambda steps: None)
     monkeypatch.setattr(app, "_assert_releases_exist", lambda steps: None)
 
     assert app.main() == 0
@@ -739,6 +740,7 @@ def test_main_asks_for_a_message(tmp_path, monkeypatch):
     monkeypatch.setattr(lock, "Lock", FakeLock)
     monkeypatch.setattr(app, "input_line", input_line)
     monkeypatch.setattr(app, "_deploy", lambda steps: 0)
+    monkeypatch.setattr(app, "_assert_helmfile_dirs_exist", lambda steps: None)
     monkeypatch.setattr(app, "_assert_releases_exist", lambda steps: None)
 
     assert app.main() == 0
@@ -879,6 +881,7 @@ def _app_with_checks(tmp_path, monkeypatch, **arguments):
         + textwrap.indent(SHELLBOX_WITH_CHECKS.strip("\n"), "    "),
     )
     monkeypatch.setattr(app, "lock", _no_lock)
+    monkeypatch.setattr(app, "_assert_helmfile_dirs_exist", lambda steps: None)
     monkeypatch.setattr(app, "_assert_releases_exist", lambda steps: None)
     return app
 
@@ -1073,6 +1076,7 @@ def test_main_announces_the_deployment(tmp_path, monkeypatch):
     app = _app(tmp_path, message="T435419 new images")
     said = _announcements(app, monkeypatch)
     monkeypatch.setattr(app, "lock", _no_lock)
+    monkeypatch.setattr(app, "_assert_helmfile_dirs_exist", lambda steps: None)
     monkeypatch.setattr(app, "_assert_releases_exist", lambda steps: None)
     monkeypatch.setattr(app, "_deploy", lambda steps: 0)
 
@@ -1088,6 +1092,7 @@ def test_main_announces_a_deployment_that_failed(tmp_path, monkeypatch):
     app = _app(tmp_path, message="T435419 new images")
     said = _announcements(app, monkeypatch)
     monkeypatch.setattr(app, "lock", _no_lock)
+    monkeypatch.setattr(app, "_assert_helmfile_dirs_exist", lambda steps: None)
     monkeypatch.setattr(app, "_assert_releases_exist", lambda steps: None)
     monkeypatch.setattr(app, "_deploy", lambda steps: 1)
 
@@ -1100,6 +1105,7 @@ def test_main_announces_a_deployment_that_stopped(tmp_path, monkeypatch):
     app = _app(tmp_path, message="T435419 new images")
     said = _announcements(app, monkeypatch)
     monkeypatch.setattr(app, "lock", _no_lock)
+    monkeypatch.setattr(app, "_assert_helmfile_dirs_exist", lambda steps: None)
     monkeypatch.setattr(app, "_assert_releases_exist", lambda steps: None)
 
     def interrupt(steps):
@@ -1119,6 +1125,7 @@ def test_main_reports_a_diff_command_that_failed(tmp_path, monkeypatch):
     reviewed = []
     monkeypatch.setattr(app, "lock", _no_lock)
     monkeypatch.setattr(app, "_deploy", lambda steps: 0)
+    monkeypatch.setattr(app, "_assert_helmfile_dirs_exist", lambda steps: None)
     monkeypatch.setattr(app, "_assert_releases_exist", lambda steps: None)
     monkeypatch.setattr(
         kubernetes.K8sRunner, "review_diffs", lambda self, jobs: len(reviewed)
@@ -1134,6 +1141,7 @@ def test_main_keeps_the_status_of_a_deployment_that_failed(tmp_path, monkeypatch
     app = _app(tmp_path, confirm_diffs=True)
     monkeypatch.setattr(app, "lock", _no_lock)
     monkeypatch.setattr(app, "_deploy", lambda steps: 1)
+    monkeypatch.setattr(app, "_assert_helmfile_dirs_exist", lambda steps: None)
     monkeypatch.setattr(app, "_assert_releases_exist", lambda steps: None)
     monkeypatch.setattr(kubernetes.K8sRunner, "review_diffs", lambda self, jobs: 0)
     assert app.main() == 1
@@ -1144,6 +1152,7 @@ def test_main_rejects_a_release_that_the_environment_does_not_install(
 ):
     """A name with a mistake stops the deployment before the first step."""
     app = _app(tmp_path)
+    monkeypatch.setattr(app, "_assert_helmfile_dirs_exist", lambda steps: None)
     monkeypatch.setattr(
         kubernetes.K8sRunner, "installed_releases", lambda self, invocation: ["main"]
     )
@@ -1152,19 +1161,33 @@ def test_main_rejects_a_release_that_the_environment_does_not_install(
         app.main()
 
 
+def test_main_rejects_a_helmfile_directory_that_does_not_exist(tmp_path):
+    """A cluster group that names the wrong directory stops the deployment.
+
+    helmfile runs in the directory of the namespace, so a wrong "dir" raised
+    FileNotFoundError at the first step.  T441310
+    """
+    app = _app(tmp_path)
+
+    with pytest.raises(
+        InvalidDeployServiceConfig, match="/services/shellbox does not exist"
+    ):
+        app.main()
+
+
 TWO_NAMESPACES = """
 cluster_group: wikikube
 namespaces:
   shellbox:
     environments:
-      codfw:
-        releases:
-          main: {}
+      - codfw:
+          releases:
+            - main
   shellbox-media:
     environments:
-      codfw:
-        releases:
-          main: {}
+      - codfw:
+          releases:
+            - main
 """
 
 

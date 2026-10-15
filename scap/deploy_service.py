@@ -769,6 +769,7 @@ class DeployService(cli.Application):
             self.logger.warning(f"Nothing to deploy for {service}")
             return 0
 
+        self._assert_helmfile_dirs_exist(steps)
         self._assert_releases_exist(steps)
         self._assert_checks_run(steps)
 
@@ -814,6 +815,24 @@ class DeployService(cli.Application):
             )
 
         return catalog.services[service]
+
+    def _assert_helmfile_dirs_exist(self, plan: Plan):
+        """Checks that the helmfile directory of each step of the plan exists.
+
+        helmfile runs in the directory of the namespace. A cluster group with
+        the wrong `dir` stops the deployment at its first step.
+        """
+        groups_file = self.config["cluster_groups_file"]
+        cluster_group = self.service_config.cluster_group
+
+        for group in plan.values():
+            for command in group:
+                if not os.path.isdir(command.directory):
+                    raise InvalidDeployServiceConfig(
+                        f"{command.directory} does not exist. Cluster group "
+                        f"'{cluster_group.name}' of {groups_file} uses "
+                        f"directory '{cluster_group.dir}'"
+                    )
 
     def _assert_releases_exist(self, plan: Plan):
         """Checks that each release of the catalog exists in its environment.
