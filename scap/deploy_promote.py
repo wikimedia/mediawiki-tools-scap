@@ -354,8 +354,10 @@ class DeployPromote(cli.Application):
                 f'Revert "{subject}"\n\nThis reverts commit {commit}.\n\n{trailers}',
             )
         except FailedCommand:
-            # Remove a partial revert, but keep other local changes.
-            gitcmd("reset", "--merge")
+            try:
+                gitcmd("revert", "--abort")
+            except Exception:
+                pass
             raise
 
     def _check_versions(self):
