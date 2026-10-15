@@ -4,6 +4,19 @@
 			To run scap deploy-service, choose a service and say why you're deploying it
 		</template>
 
+		<cdx-message
+			v-if="catalogErrors.length"
+			class="deploy-service__catalog-errors"
+			type="warning"
+		>
+			<p>These services have an error in the service catalog. They cannot be deployed.</p>
+			<ul>
+				<li v-for="[ name, error ] in catalogErrors" :key="name">
+					<strong>{{ name }}</strong>: {{ error }}
+				</li>
+			</ul>
+		</cdx-message>
+
 		<div class="deploy-service__input">
 			<v-autocomplete
 				v-model="service"
@@ -59,7 +72,7 @@
 
 <script lang="ts">
 import { ref, computed, onMounted } from 'vue';
-import { CdxButton, CdxCheckbox, CdxDialog, CdxField } from '@wikimedia/codex';
+import { CdxButton, CdxCheckbox, CdxDialog, CdxField, CdxMessage } from '@wikimedia/codex';
 import { VAutocomplete } from 'vuetify/components/VAutocomplete';
 import { VListItem } from 'vuetify/components/VList';
 import { VTextField } from 'vuetify/components/VTextField';
@@ -74,6 +87,7 @@ export default {
 		CdxCheckbox,
 		CdxDialog,
 		CdxField,
+		CdxMessage,
 		VAutocomplete,
 		VListItem,
 		VTextField
@@ -90,6 +104,8 @@ export default {
 		const confirmDiffs = ref( true );
 		const loading = ref( false );
 		const loadError = ref<string | null>( null );
+		// The [ name, error ] pair of each service entry that is not valid.
+		const catalogErrors = ref<[string, string][]>( [] );
 		const alertDialogOpen = ref( false );
 		const alertDialogText = ref( '' );
 
@@ -121,6 +137,7 @@ export default {
 			try {
 				const res = await api.getServices();
 				services.value = res.services;
+				catalogErrors.value = Object.entries( res.errors || {} );
 				loadError.value = null;
 			} catch ( error ) {
 				loadError.value = error.respJson?.detail?.message || error.message;
@@ -154,6 +171,7 @@ export default {
 			alertDialogText,
 			buttonDisabled,
 			buttonDisabledReason,
+			catalogErrors,
 			confirmDiffs,
 			loading,
 			message,
@@ -172,6 +190,10 @@ export default {
 .deploy-service {
 	&.cdx-field {
 		margin-bottom: @spacing-150;
+	}
+
+	&__catalog-errors {
+		margin-bottom: @spacing-50;
 	}
 
 	&__input {

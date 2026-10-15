@@ -149,6 +149,18 @@ class ServiceConfig:
 
 
 @dataclass(frozen=True)
+class Catalog:
+    """The services of the service catalog, by name.
+
+    `errors` holds the message of each service entry that has an error, by
+    service name. Services with non-empty errors cannot be deployed.
+    """
+
+    services: Dict[str, ServiceConfig]
+    errors: Dict[str, str]
+
+
+@dataclass(frozen=True)
 class HelmfileCommand(kubernetes.HelmfileInvocation):
     """One step of the plan: a helmfile invocation, and where it belongs.
 
@@ -593,12 +605,12 @@ def _parse_service(
     )
 
 
-def load_service_catalog(
-    path: str, cluster_groups: Dict[str, ClusterGroup]
-) -> Dict[str, ServiceConfig]:
+def load_service_catalog(path: str, cluster_groups: Dict[str, ClusterGroup]) -> Catalog:
     """Load the deployment config of every service that may be deployed.
 
     The catalog is the source of truth for which services deploy-service accepts.
+    A service entry with an error goes to `Catalog.errors`. The other services
+    remain deployable.
     """
     what = f"the service catalog {path}"
     doc = _assert_mapping(_load_yaml_file(path, "service catalog"), what)
@@ -608,15 +620,19 @@ def load_service_catalog(
     if not services:
         raise InvalidDeployServiceConfig(f"{what} defines no services")
 
-    return {
-        _assert_nonempty_string(name, f"each service name of {what}"): _parse_service(
-            what, name, service_doc, cluster_groups
-        )
-        for name, service_doc in services.items()
-    }
+    parsed = {}
+    errors = {}
+    for name, service_doc in services.items():
+        name = _assert_nonempty_string(name, f"each service name of {what}")
+        try:
+            parsed[name] = _parse_service(what, name, service_doc, cluster_groups)
+        except InvalidDeployServiceConfig as e:
+            errors[name] = str(e)
+
+    return Catalog(services=parsed, errors=errors)
 
 
-def load_catalog(config) -> Dict[str, ServiceConfig]:
+def load_catalog(config) -> Catalog:
     """Load the service catalog that the scap config names."""
     return load_service_catalog(
         config["service_catalog_file"],
@@ -789,13 +805,15 @@ class DeployService(cli.Application):
         """Returns the config of one service of the catalog."""
         catalog_file = self.config["service_catalog_file"]
         catalog = load_catalog(self.config)
-        if service not in catalog:
+        if service in catalog.errors:
+            raise InvalidDeployServiceConfig(catalog.errors[service])
+        if service not in catalog.services:
             raise InvalidDeployServiceConfig(
                 f"'{service}' is not a service in {catalog_file} "
-                f"(known: {', '.join(sorted(catalog))})"
+                f"(known: {', '.join(sorted(catalog.services))})"
             )
 
-        return catalog[service]
+        return catalog.services[service]
 
     def _assert_releases_exist(self, plan: Plan):
         """Checks that each release of the catalog exists in its environment.

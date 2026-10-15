@@ -3,6 +3,7 @@ import contextlib
 from datetime import datetime, timezone
 import logging
 import os
+import re
 import textwrap
 import threading
 
@@ -125,7 +126,9 @@ def load(tmp_path, cluster_groups, contents, service="shellbox"):
         ),
         cluster_groups,
     )
-    return catalog[service]
+    if service in catalog.errors:
+        raise InvalidDeployServiceConfig(catalog.errors[service])
+    return catalog.services[service]
 
 
 def commands(service_config, primary_datacenter="eqiad"):
@@ -159,10 +162,11 @@ def test_load_service_catalog(tmp_path, cluster_groups):
     catalog = load_service_catalog(
         write(tmp_path, "service-catalog.yaml", SERVICE_CATALOG), cluster_groups
     )
-    assert list(catalog) == ["eventstreams", "api2"]
-    assert catalog["eventstreams"].cluster_group.name == "wikikube"
-    assert catalog["api2"].cluster_group.name == "dse-k8s"
-    assert commands(catalog["api2"]) == [
+    assert list(catalog.services) == ["eventstreams", "api2"]
+    assert catalog.errors == {}
+    assert catalog.services["eventstreams"].cluster_group.name == "wikikube"
+    assert catalog.services["api2"].cluster_group.name == "dse-k8s"
+    assert commands(catalog.services["api2"]) == [
         ("/dse-k8s-services/api2", "helmfile -e dse-k8s-eqiad apply --context 5")
     ]
 
@@ -173,11 +177,6 @@ def test_load_service_catalog(tmp_path, cluster_groups):
         ("services: {}\n", "defines no services"),
         ("services:\n  - shellbox\n", "the services of .* must be a mapping"),
         ("shellbox: {}\n", r"unexpected key\(s\): shellbox"),
-        ("services:\n  shellbox:\n", "service shellbox of .* must be a mapping"),
-        (
-            "services:\n  shellbox:\n    dir: shellbox\n",
-            r"service shellbox of .* has unexpected key\(s\): dir",
-        ),
     ],
 )
 def test_invalid_service_catalog(tmp_path, cluster_groups, contents, expected):
@@ -185,6 +184,56 @@ def test_invalid_service_catalog(tmp_path, cluster_groups, contents, expected):
         load_service_catalog(
             write(tmp_path, "service-catalog.yaml", contents), cluster_groups
         )
+
+
+@pytest.mark.parametrize(
+    "contents,expected",
+    [
+        ("services:\n  shellbox:\n", "service shellbox of .* must be a mapping"),
+        (
+            "services:\n  shellbox:\n    dir: shellbox\n",
+            r"service shellbox of .* has unexpected key\(s\): dir",
+        ),
+    ],
+)
+def test_invalid_service_entry(tmp_path, cluster_groups, contents, expected):
+    """A service entry with an error is reported, not raised."""
+    catalog = load_service_catalog(
+        write(tmp_path, "service-catalog.yaml", contents), cluster_groups
+    )
+    assert catalog.services == {}
+    assert re.search(expected, catalog.errors["shellbox"])
+
+
+def test_an_invalid_service_leaves_the_others_deployable(tmp_path, cluster_groups):
+    """One bad entry held up every service.  T441311"""
+    catalog = load_service_catalog(
+        write(
+            tmp_path,
+            "service-catalog.yaml",
+            """
+services:
+  eventstreams:
+    cluster_group: wikikube
+    namespaces:
+      eventstreams:
+        environments:
+          - staging
+  api2:
+    cluster_group: dse-k8s
+    namespaces:
+      api2:
+        environments:
+          - dse-k8s-eqiad:
+              releases:
+                - production:
+                    stage: NO-SUCH-STAGE
+""",
+        ),
+        cluster_groups,
+    )
+    assert list(catalog.services) == ["eventstreams"]
+    assert "NO-SUCH-STAGE" in catalog.errors["api2"]
 
 
 def test_load_primary_datacenter(tmp_path):

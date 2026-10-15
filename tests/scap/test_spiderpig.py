@@ -35,6 +35,7 @@ from scap.spiderpig.api import (
     set_error_note,
     start_deploy_service,
 )
+from scap.deploy_service import Catalog
 import scap.logstash_poller as logstash_poller
 import scap.spiderpig.jobrunner as jobrunner
 from scap.spiderpig.model import (
@@ -827,7 +828,9 @@ async def test_start_deploy_service_rejects_a_service_that_scap_does_not_deploy(
     job_session,
 ):
     with unittest.mock.patch.object(
-        scap.spiderpig.api, "get_service_catalog", return_value={"shellbox": None}
+        scap.spiderpig.api,
+        "get_service_catalog",
+        return_value=Catalog(services={"shellbox": None}, errors={}),
     ):
         with pytest.raises(HTTPException) as excinfo:
             await start_deploy_service(
@@ -941,11 +944,39 @@ def finished_deploy_service_job(session, **kwargs) -> Job:
 
 
 @pytest.mark.anyio
+async def test_start_deploy_service_rejects_a_service_with_a_catalog_error(
+    job_session,
+):
+    """A mistake in one entry of the catalog reports that entry.  T441311"""
+    with unittest.mock.patch.object(
+        scap.spiderpig.api,
+        "get_service_catalog",
+        return_value=Catalog(
+            services={"shellbox": None},
+            errors={"airflow": "service airflow of the service catalog is bad"},
+        ),
+    ):
+        with pytest.raises(HTTPException) as excinfo:
+            await start_deploy_service(
+                ServiceDeployment(service="airflow", message="bump image"),
+                SessionUser(name="bruce", groups=[], fully_authenticated=True),
+                job_session,
+            )
+
+    assert excinfo.value.status_code == 400
+    assert excinfo.value.detail["message"] == (
+        "service airflow of the service catalog is bad"
+    )
+
+
+@pytest.mark.anyio
 async def test_retry_of_a_deploy_service_job_deploys_the_same_service(job_session):
     job = finished_deploy_service_job(job_session)
 
     with unittest.mock.patch.object(
-        scap.spiderpig.api, "get_service_catalog", return_value={"shellbox": None}
+        scap.spiderpig.api,
+        "get_service_catalog",
+        return_value=Catalog(services={"shellbox": None}, errors={}),
     ):
         result = await retry_job(
             job,
@@ -968,7 +999,9 @@ async def test_retry_refuses_a_service_that_scap_no_longer_deploys(job_session):
     job = finished_deploy_service_job(job_session, service="goneaway")
 
     with unittest.mock.patch.object(
-        scap.spiderpig.api, "get_service_catalog", return_value={"shellbox": None}
+        scap.spiderpig.api,
+        "get_service_catalog",
+        return_value=Catalog(services={"shellbox": None}, errors={}),
     ):
         with pytest.raises(HTTPException) as excinfo:
             await retry_job(

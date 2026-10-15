@@ -56,7 +56,7 @@ from fastapi.staticfiles import StaticFiles
 from sqlalchemy.orm import Session
 
 from scap import cli, log, utils, gerrit, train, logstash_poller
-from scap.deploy_service import InvalidDeployServiceConfig, load_catalog
+from scap.deploy_service import Catalog, InvalidDeployServiceConfig, load_catalog
 
 import scap.spiderpig
 from scap.spiderpig.model import (
@@ -710,7 +710,7 @@ async def start_train(
     }
 
 
-def get_service_catalog() -> dict:
+def get_service_catalog() -> Catalog:
     """The deployment config of every service that scap deploys, by name."""
     try:
         return load_catalog(get_scap_config())
@@ -720,7 +720,8 @@ def get_service_catalog() -> dict:
 
 @app.get("/api/services")
 async def get_services():
-    return {"services": sorted(get_service_catalog())}
+    catalog = get_service_catalog()
+    return {"services": sorted(catalog.services), "errors": catalog.errors}
 
 
 @app.post("/api/jobs/deploy-service")
@@ -729,7 +730,16 @@ async def start_deploy_service(
     user: Annotated[SessionUser, Depends(get_current_user)],
     session: Session = Depends(get_db_session),
 ):
-    if deployment.service not in get_service_catalog():
+    catalog = get_service_catalog()
+    if deployment.service in catalog.errors:
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "message": catalog.errors[deployment.service],
+                "service": deployment.service,
+            },
+        )
+    if deployment.service not in catalog.services:
         raise HTTPException(
             status_code=400,
             detail={
@@ -888,7 +898,17 @@ async def _retry_backport(
 def _retry_deploy_service(job: Job, user: SessionUser, session: Session) -> dict:
     deployment = ServiceDeployment(**job.extract_data())
 
-    if deployment.service not in get_service_catalog():
+    catalog = get_service_catalog()
+    if deployment.service in catalog.errors:
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "message": catalog.errors[deployment.service],
+                "service": deployment.service,
+                "job_id": job.id,
+            },
+        )
+    if deployment.service not in catalog.services:
         raise HTTPException(
             status_code=400,
             detail={
