@@ -1,3 +1,10 @@
+scap (4.300.0)
+
+  * scap backport: Offer to revert the changes after a rollback
+  * scap deploy-promote: Abort a failed revert with "git revert --abort"
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Fri, 16 Oct 2026 09:49:35 -0700
+
 scap (4.299.0)
 
   * deploy-service: Accept only a list of environments and releases
