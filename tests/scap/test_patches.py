@@ -1441,6 +1441,136 @@ class TestApplyPatches:
         assert apply_patches_app.config["notify_patch_failures"] is False
         logger_mock.warning.assert_called()
 
+    @pytest.mark.parametrize("notify", [True, False])
+    def test_apply_patches_notifies_already_applied(
+        self, apply_patches_app, real_patches_setup, notify
+    ):
+        core_dir = real_patches_setup["version_dir"] / "core"
+        core_dir.mkdir()
+        (core_dir / "01-T123456.patch").write_text("Simple patch content")
+        apply_patches_app.config["notify_patch_failures"] = notify
+
+        with (
+            patch("os.umask"),
+            patch.object(apply_patches_app, "_post_init"),
+            patch.object(apply_patches_app, "_notify_already_applied") as mock_notify,
+            patch.object(
+                patches_module.Patch,
+                "apply",
+                return_value=patches_module.ALREADY_APPLIED,
+            ),
+        ):
+            assert apply_patches_app.main([]) == 0
+
+        assert mock_notify.called == notify
+
+    @pytest.fixture
+    def notify_app(self, apply_patches_app):
+        apply_patches_app.phorge_conduit = MagicMock()
+        apply_patches_app.phorge_conduit.task_comments.return_value = []
+        apply_patches_app.security_patch_bot_phid = "PHID-USER-bot"
+        return apply_patches_app
+
+    def test_notify_already_applied_patch_next(self, notify_app, real_patches_setup):
+        notify_app.arguments.train = "next"
+        patches_dir = real_patches_setup["patches_dir"]
+        patch_path = (
+            patches_dir / "next" / "extensions" / "Example" / "01-T123456.patch"
+        )
+        updated = patches_module.Patch(f"{patch_path}.updated", "extensions/Example")
+
+        notify_app._notify_already_applied_patch(updated)
+
+        notify_app.phorge_conduit.task_comments.assert_called_once_with(
+            "T123456", {"authorPHIDs": ["PHID-USER-bot"]}
+        )
+        task_id, transactions = notify_app.phorge_conduit.edit_task.call_args.args
+        assert task_id == "T123456"
+        assert len(transactions) == 1
+        assert transactions[0]["type"] == "comment"
+        comment = transactions[0]["value"]
+        assert "Patch is already applied" in comment
+        assert "mainline branch of `extensions/Example`" in comment
+        assert "scap remove-patch" in comment
+        assert f" {patch_path}\n" in comment
+
+    def test_notify_already_applied_patch_version(self, notify_app, real_patches_setup):
+        patch_path = real_patches_setup["version_dir"] / "core" / "01-T123456.patch"
+
+        notify_app._notify_already_applied_patch(
+            patches_module.Patch(str(patch_path), ".")
+        )
+
+        _, transactions = notify_app.phorge_conduit.edit_task.call_args.args
+        comment = transactions[0]["value"]
+        assert "already applied in version 1.42.0-wmf.20 of `core`" in comment
+        assert f" {patch_path}\n" in comment
+
+    def test_notify_already_applied_patch_skips_notified_patch(
+        self, notify_app, real_patches_setup
+    ):
+        patch_path = real_patches_setup["version_dir"] / "core" / "01-T123456.patch"
+        already_applied = patches_module.Patch(str(patch_path), ".")
+        notify_app._notify_already_applied_patch(already_applied)
+        comment = notify_app.phorge_conduit.edit_task.call_args.args[1][0]["value"]
+        notify_app.phorge_conduit.edit_task.reset_mock()
+        notify_app.phorge_conduit.task_comments.return_value = [
+            {"comments": [{"content": {"raw": comment}}]}
+        ]
+
+        notify_app._notify_already_applied_patch(already_applied)
+
+        notify_app.phorge_conduit.edit_task.assert_not_called()
+
+    def test_notify_already_applied_logs_errors(self, notify_app):
+        results = [
+            (patches_module.ALREADY_APPLIED, MagicMock()),
+            (patches_module.APPLIED, MagicMock()),
+        ]
+
+        with patch.object(
+            notify_app,
+            "_notify_already_applied_patch",
+            side_effect=Exception("boom"),
+        ) as mock_notify:
+            notify_app._notify_already_applied(results)
+
+        mock_notify.assert_called_once_with(results[0][1])
+        notify_app.get_logger().warning.assert_called()
+
+    @pytest.mark.parametrize(
+        "comment,expected",
+        [
+            ("/srv/patches/1.42.0-wmf.20/core/01-T123456.patch", True),
+            ("/srv/patches/1.42.0-wmf.20/vendor/01-T123456.patch", False),
+        ],
+    )
+    def test_patch_task_has_been_notified(
+        self, notify_app, real_patches_setup, comment, expected
+    ):
+        patch_path = real_patches_setup["version_dir"] / "core" / "01-T123456.patch"
+        notification_info = patches_module.ApplyPatches.NotificationInfo(
+            notify_app.config["patch_path"],
+            patches_module.Patch(str(patch_path), "."),
+            {"version": "1.42.0-wmf.20", "task_id": "T789"},
+        )
+        conduit = notify_app.phorge_conduit
+        conduit.base_task_info.return_value = {
+            "fields": {
+                "status": {"name": "Open"},
+                "priority": {"name": "Unbreak Now!"},
+            }
+        }
+        conduit.parents_of.return_value = ["T789"]
+        conduit.task_comments.return_value = [
+            {"comments": [{"content": {"raw": comment}}]}
+        ]
+
+        assert notify_app._patch_task_has_been_notified(notification_info) == expected
+        conduit.task_comments.assert_called_once_with(
+            "T123456", {"authorPHIDs": ["PHID-USER-bot"]}
+        )
+
 
 class TestUpdateNextPatches:
     """Test UpdateNextPatches functionality."""
