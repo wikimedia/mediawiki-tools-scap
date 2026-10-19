@@ -172,6 +172,8 @@ DEFAULT_CONFIG = {
     "notify_patch_failures": (bool, False),
     "patch_bot_phorge_name": (str, "SecurityPatchBot"),
     "patch_bot_phorge_token": (str, None),
+    # The patch bot comments give paths in this directory.
+    "notify_patch_failures_deploy_server_patch_path": (str, "/srv/patches"),
     # SpiderPig settings
     "spiderpig_auth_server": (str, None),
     # One group per line
