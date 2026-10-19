@@ -1,4 +1,6 @@
 coverage
+# The starlette >= 1.7 test client uses httpx2.
+httpx2; python_version>="3.10"
 mock
 pexpect
 # pytest < 9.0.3 has vulns: https://github.com/advisories/GHSA-6w46-j5rx-g56g
