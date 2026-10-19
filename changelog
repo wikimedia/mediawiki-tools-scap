@@ -1,3 +1,10 @@
+scap (4.301.0)
+
+  * spiderpig: Export Prometheus metrics
+  * deploy: Do not write deploy server info into DEPLOY_HEAD
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Mon, 19 Oct 2026 12:55:39 -0700
+
 scap (4.300.0)
 
   * scap backport: Offer to revert the changes after a rollback
