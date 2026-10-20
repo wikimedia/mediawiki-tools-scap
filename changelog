@@ -1,3 +1,10 @@
+scap (4.302.0)
+
+  * patches.py: Name the patch with a bad "diff --git" line
+  * requirements.txt: Bump fastapi and starlette on Python 3.10 and newer
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Tue, 20 Oct 2026 07:54:14 -0700
+
 scap (4.301.0)
 
   * spiderpig: Export Prometheus metrics
