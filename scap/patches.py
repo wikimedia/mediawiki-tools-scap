@@ -1080,7 +1080,11 @@ class Patch:
                 if m:
                     a, b = m[1], m[2]
                     if a != b:
-                        raise Exception(f"Patch a != b: {a} != {b}")
+                        with utils.suppress_backtrace():
+                            raise Exception(
+                                f"Cannot determine the files that security patch {self.path()} changes. "
+                                f'The patch has a "diff --git" line with two different paths: a/{a} b/{b}'
+                            )
                     res.append(os.path.join(srcroot, self._relative, a))
         return res
 
