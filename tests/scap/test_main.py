@@ -137,7 +137,7 @@ def _supervise_stub(commands, commands_ok, calls):
         config={"deploy_mw_container_image": True},
         k8s_ops=SimpleNamespace(k8s_deployments_config=dep_conf),
         _run_command_checks=fake_run_commands,
-        _logstash_checker=lambda dep_configs, baremetal: ("checker", dep_configs),
+        _logstash_checker=lambda dep_configs, baremetal, label: ("checker", label),
         _run_logstash_checks=fake_run_logstash,
     )
 
@@ -155,6 +155,7 @@ def test_supervise_runs_commands_before_logstash():
     # Commands run first, then the logstash checks.
     assert [kind for kind, _ in calls] == ["commands", "logstash"]
     assert calls[0][1] == ["httpbb --hosts=x"]
+    assert calls[1][1] == [(("checker", "train canaries"), 10)]
 
 
 def test_supervise_failing_commands_skip_logstash():

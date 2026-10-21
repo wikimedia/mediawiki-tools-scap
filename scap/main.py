@@ -870,7 +870,7 @@ class AbstractSync(cli.Application):
         self.output_line(f"Result: {result}")
         self.output_line("See the job log for detailed error information.")
 
-    def _logstash_checker(self, dep_configs, baremetal_hosts):
+    def _logstash_checker(self, dep_configs, baremetal_hosts, label=None):
         return logstash_checker.LogstashChecker(
             self.config["logstash_url"],
             self.config["canary_wait_time"],
@@ -878,6 +878,7 @@ class AbstractSync(cli.Application):
             baremetal_hosts or [],
             self.get_logger(),
             self.config["logstash_credentials_file"],
+            label=label,
         )
 
     def _run_logstash_checks(self, stage_label: str, checks: list) -> bool:
@@ -1002,7 +1003,9 @@ class AbstractSync(cli.Application):
             dep_configs = deployments_config.supervised_dep_configs(
                 check.scope, check.stage
             )
-            checker = self._logstash_checker(dep_configs, [])
+            checker = self._logstash_checker(
+                dep_configs, [], label=f"{check.scope} {check.stage}"
+            )
             checks.append((checker, check.threshold))
 
         return self._run_logstash_checks(stage_label, checks)

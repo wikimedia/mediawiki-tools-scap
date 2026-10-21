@@ -22,7 +22,7 @@ def _dep_config(namespace, release):
     return SimpleNamespace(namespace=namespace, release=release)
 
 
-def _checker(dep_configs, wiki=None, baremetal_hosts=None):
+def _checker(dep_configs, wiki=None, baremetal_hosts=None, label=None):
     """A checker that asks the fake logstash instead of a real one."""
     checker = LogstashChecker(
         "http://fake-logstash.example",
@@ -32,6 +32,7 @@ def _checker(dep_configs, wiki=None, baremetal_hosts=None):
         logging.getLogger("test.logstash"),
         None,
         wiki,
+        label,
     )
     checker.logstash.run_query = lambda query: fake_logstash.search(query, NOW)
     return checker
@@ -146,6 +147,15 @@ def test_a_count_below_the_threshold_passes():
     checker = _checker([_dep_config("mw-web", "main")])
 
     assert checker.check(1000) is True
+
+
+def test_the_log_line_names_the_label(caplog):
+    checker = _checker([_dep_config("mw-web", "main")], label="train canaries")
+
+    with caplog.at_level(logging.INFO):
+        checker.check(1000)
+
+    assert "error(s) for train canaries in the last" in caplog.text
 
 
 def test_a_count_at_the_threshold_fails(caplog):

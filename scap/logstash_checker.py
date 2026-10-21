@@ -110,6 +110,7 @@ class LogstashChecker:
         logger,
         credentials_file=None,
         wiki=None,
+        label=None,
     ):
         self.window_size = window_size
         self.k8s_dep_configs = k8s_dep_configs
@@ -117,6 +118,8 @@ class LogstashChecker:
         self.logger = logger
         # When set, only errors reported for this wiki are counted.
         self.wiki = wiki
+        # Names the checked targets in the log line, e.g. "train canaries".
+        self.label = label
         self.logstash = logstash.Logstash(logstash_url, logger, credentials_file)
 
     def check(self, threshold) -> bool:
@@ -133,7 +136,8 @@ class LogstashChecker:
         hits_rel = hits_total["relation"]
         assert hits_rel in ["eq", "gte"]
 
-        prefix = f"Logstash checker counted {count} error(s) in the last {self.window_size} seconds"
+        targets = f" for {self.label}" if self.label else ""
+        prefix = f"Logstash checker counted {count} error(s){targets} in the last {self.window_size} seconds"
 
         if count >= threshold:
             self.logger.error("%s. The threshold is %d.", prefix, threshold)
