@@ -304,7 +304,8 @@ class Lock:
             )
 
     @staticmethod
-    def signal_gl_release(release_reason, io, confirm=True):
+    def signal_gl_release(release_reason, io, confirm=True) -> bool:
+        """Returns True if the process that holds the lock acknowledged the release."""
         if os.path.exists(GLOBAL_LOCK_FILE):
             with open(GLOBAL_LOCK_FILE, encoding="UTF-8") as f:
                 lock_info = json.loads(f.read())
@@ -343,16 +344,16 @@ class Lock:
                 while time.time() < timeout:
                     if os.path.isfile(Lock.ACK_GL_SIGNAL_FILE):
                         logger.info("Global lock removed")
-                        break
+                        return True
                     time.sleep(0.5)
-                else:
-                    logger.warning(
-                        "Could not clear lock. The lock process may not be running, in which case there is no actual lock"
-                    )
 
-                return
+                logger.warning(
+                    "Could not clear lock. The lock process may not be running, in which case there is no actual lock"
+                )
+                return False
 
         logger.info("No global lock set. Nothing to do")
+        return False
 
     @staticmethod
     def watch_for_gl_release_signal(release_callback):

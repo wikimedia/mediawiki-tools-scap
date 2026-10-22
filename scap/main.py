@@ -1843,12 +1843,14 @@ class LockManager(cli.Application):
                 logger.fatal("Cannot request to remove global lock without a reason")
                 return 1
 
-            self.announce(f"Forcefully removing global lock: {self.message_argument}")
-            lock.Lock.signal_gl_release(
+            if lock.Lock.signal_gl_release(
                 self.message_argument,
                 self.get_io(),
                 confirm=not self.arguments.yes,
-            )
+            ):
+                self.announce(
+                    f"Forcefully removed global lock: {self.message_argument}"
+                )
             return
 
         if self.message_argument == cli.NO_MESSAGE:
