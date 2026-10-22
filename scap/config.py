@@ -122,11 +122,10 @@ DEFAULT_CONFIG = {
     "mediawiki_image_extra_packages": (str, ""),
     # Path to a CA cert to inject into the image
     "mediawiki_image_extra_ca_cert": (str, None),
-    # Container used to execute PHP scripts during prep, etc.
-    "mediawiki_runtime_image": (
-        str,
-        "docker-registry.wikimedia.org/php8.5-fpm-multiversion-base",
-    ),
+    # The container image used to execute PHP scripts during prep, etc
+    # There is no default.  This must be set explicitly in /etc/scap.cfg.
+    # The value will be something like "docker-registry.wikimedia.org/phpX.Y-fpm-multiversion-base"
+    "mediawiki_runtime_image": (str, None),
     # Runtime user of the containerized MediaWiki (mwscript) processes
     "mediawiki_runtime_user": (str, "www-data"),
     # User that has access to Docker. If set, sudo will be used to run
