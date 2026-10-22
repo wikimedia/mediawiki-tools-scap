@@ -1,3 +1,11 @@
+scap (4.303.0)
+
+  * config.py: Remove the default of mediawiki_runtime_image
+  * scap: Record who ran each command
+  * main.py: Name the scope and stage of each logstash check
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Thu, 22 Oct 2026 09:30:00 -0700
+
 scap (4.302.0)
 
   * patches.py: Name the patch with a bad "diff --git" line
