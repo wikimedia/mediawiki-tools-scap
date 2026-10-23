@@ -1,3 +1,10 @@
+scap (4.304.0)
+
+  * scap lock: Announce --unlock-all only after the lock is removed
+  * requirements.txt: Bump certifi to 2026.10.19
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Fri, 23 Oct 2026 07:55:52 -0700
+
 scap (4.303.0)
 
   * config.py: Remove the default of mediawiki_runtime_image
