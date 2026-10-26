@@ -61,7 +61,8 @@ class ApplyPatches(cli.Application):
     )
     @cli.argument(
         "--abort-git-am-on-fail",
-        action="store_true",
+        action=argparse.BooleanOptionalAction,
+        default=True,
         help='Run "git am --abort" if patch application fails',
         required=False,
     )
