@@ -307,7 +307,7 @@ def sync_common(
         deploy_dir,
     )
     logger.debug("Running rsync command: `%s`", " ".join(rsync))
-    with app.Timer("rsync common"):
+    with app.Timer("rsync common"), utils.suppress_backtrace():
         subprocess.check_call(rsync)
 
     # Bug 58618: Invalidate local configuration cache by updating the
