@@ -359,8 +359,18 @@ class InstallWorld(cli.Application):
         install_script_path = (
             f"{self.install_user_home}/{InstallWorld.INSTALL_SCAP_SCRIPT}"
         )
+        # Puppet's bootstrap-scap-target.sh takes the same lock
+        lock_path = f"{self.install_user_home}/install.lock"
         targets_install = self._get_ssh_job_for(self.selected_targets)
-        targets_install.command([install_script_path, "--user", self.install_user])
+        targets_install.command(
+            [
+                "/usr/bin/flock",
+                lock_path,
+                install_script_path,
+                "--user",
+                self.install_user,
+            ]
+        )
         targets_install.progress(log.reporter("scap-install-to-targets"))
         _, failed = targets_install.run()
         if failed:
