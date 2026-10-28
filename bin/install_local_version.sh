@@ -253,8 +253,10 @@ function install_scap {
 
   local DIST_DIR=
   DIST_DIR=$($GET_DIST_DIR_PATH "$HOST_DISTRO")
-  local SCAP_VENV_DIR=${USER_HOME}/scap
-  local OLD_SCAP_VENV_DIR=
+  # These two variables are global because the EXIT trap below reads them.
+  # When `set -e` stops the script in this function, local variables are unset in the trap.
+  SCAP_VENV_DIR=${USER_HOME}/scap
+  OLD_SCAP_VENV_DIR=
 
   if [ -d "$SCAP_VENV_DIR" ]; then
     OLD_SCAP_VENV_DIR=$($AS_USER mktemp --tmpdir -d scap.XXX)
