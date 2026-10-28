@@ -32,8 +32,12 @@ from scap.spiderpig.api import (
     TWO_FA_FAILURE_WINDOW_SECONDS,
     TWO_FA_LOCKOUT_SECONDS,
     get_errors,
+    get_job,
     get_jobs,
+    get_log,
     get_metrics,
+    interact,
+    jobrunner_status,
     job_queue_name,
     retry_job,
     set_error_note,
@@ -1009,6 +1013,141 @@ def test_a_prompt_after_a_rolled_back_scap_command_waits_for_a_response(
     assert Job.get(job_session, job_id).exit_status == 0
 
 
+REVERT_CHOICES = {"Yes": "y", "No": "n", "Exit without reverting": "x"}
+
+
+def job_with_revert_prompt(session) -> Job:
+    add_job(session, JobType.BACKPORT)
+    job = Job.pop(session, set())
+    Interaction.register(
+        session, job.id, "choices", "Revert change 1359282?", REVERT_CHOICES, "y"
+    )
+    return job
+
+
+@pytest.mark.anyio
+async def test_get_job_reports_the_pending_interaction(job_session):
+    job = job_with_revert_prompt(job_session)
+
+    result = await get_job(job, job_session)
+
+    assert result["pending_interaction"] == {
+        "id": unittest.mock.ANY,
+        "job_id": job.id,
+        "type": "choices",
+        "prompt": "Revert change 1359282?",
+        "choices": REVERT_CHOICES,
+        "default": "y",
+        "responded_by": None,
+        "response": None,
+    }
+
+
+@pytest.mark.anyio
+async def test_get_job_reports_no_interaction_after_the_response(job_session):
+    job = job_with_revert_prompt(job_session)
+    Interaction.lookup_pending(job_session, job.id).respond(job_session, "bruce", "y")
+
+    result = await get_job(job, job_session)
+
+    assert result["pending_interaction"] is None
+
+
+@pytest.mark.anyio
+async def test_job_lists_report_the_pending_interaction(job_session):
+    job = job_with_revert_prompt(job_session)
+    JobrunnerStatus.set_pid(job_session, os.getpid())
+
+    jobs = (await get_jobs(job_session, limit=10, skip=0))["jobs"]
+    running_jobs = (await jobrunner_status(job_session))["running_jobs"]
+
+    assert [j.interaction["choices"] for j in jobs] == [REVERT_CHOICES]
+    assert [j.interaction["choices"] for j in running_jobs] == [REVERT_CHOICES]
+    assert job.id == jobs[0].id == running_jobs[0].id
+
+
+@pytest.mark.anyio
+async def test_interact_stores_the_response(job_session):
+    job = job_with_revert_prompt(job_session)
+    interaction_id = Interaction.lookup_pending(job_session, job.id).id
+
+    result = await interact(
+        job,
+        interaction_id,
+        "x",
+        SessionUser(name="bruce", groups=[], fully_authenticated=True),
+        job_session,
+    )
+
+    assert result["message"] == "Response stored"
+    responded = Interaction.pop_responded(job_session, job.id)
+    assert (responded.responded_by, responded.response) == ("bruce", "x")
+
+
+@pytest.mark.anyio
+async def test_interact_refuses_an_interaction_that_is_not_pending(job_session):
+    job = job_with_revert_prompt(job_session)
+    interaction_id = Interaction.lookup_pending(job_session, job.id).id
+
+    with pytest.raises(HTTPException) as excinfo:
+        await interact(
+            job,
+            interaction_id + 1,
+            "y",
+            SessionUser(name="bruce", groups=[], fully_authenticated=True),
+            job_session,
+        )
+
+    assert excinfo.value.status_code == 404
+    assert excinfo.value.detail["message"] == "No pending interactions"
+
+
+@pytest.mark.anyio
+async def test_interact_refuses_a_second_response(job_session, job_engine):
+    job = job_with_revert_prompt(job_session)
+    interaction_id = Interaction.lookup_pending(job_session, job.id).id
+    respond = Interaction.respond
+
+    # Clark responds after the lookup of the interaction for Bruce.
+    def respond_after_clark(interaction, session, responded_by, response):
+        with Session(job_engine) as clark_session:
+            pending = Interaction.lookup_pending(clark_session, job.id)
+            respond(pending, clark_session, "clark", "n")
+        respond(interaction, session, responded_by, response)
+
+    with unittest.mock.patch.object(Interaction, "respond", respond_after_clark):
+        with pytest.raises(HTTPException) as excinfo:
+            await interact(
+                job,
+                interaction_id,
+                "y",
+                SessionUser(name="bruce", groups=[], fully_authenticated=True),
+                job_session,
+            )
+
+    assert excinfo.value.status_code == 409
+    assert excinfo.value.detail["responded_by"] == "clark"
+    assert excinfo.value.detail["response"] == "n"
+
+
+# The job log that the jobrunner writes for a rolled-back backport.
+ROLLED_BACK_BACKPORT_LOG = [
+    {"type": "line", "line": "17:39:39 Failed scap sync-world: Backport for x"},
+    {"type": "line", "line": "\x1b[0m\x07"},
+    {
+        "type": "interaction",
+        "subtype": "choices",
+        "prompt": "Revert change 1359282?",
+        "choices": REVERT_CHOICES,
+        "default": "y",
+    },
+    {"type": "line", "line": "Revert change 1359282? (default: [y]):"},
+    {"type": "response", "user": "bruce", "response": "y"},
+    {"type": "status", "status": "Reverting"},
+    {"type": "exit", "status": 0},
+]
+
+
 @pytest.fixture
 def api_db_file(tmpdir, job_engine):
     """The database file of the job_engine fixture, for the apiserver."""
@@ -1022,6 +1161,105 @@ def api_db_file(tmpdir, job_engine):
 def test_db_sessions_of_the_apiserver_share_one_engine(api_db_file):
     with _get_db_session() as first, _get_db_session() as second:
         assert first.get_bind() is second.get_bind()
+
+
+@pytest.fixture
+def job_log_dir(tmpdir, api_db_file):
+    logdir = tmpdir.mkdir("jobs")
+    with unittest.mock.patch.dict(os.environ, {"SPIDERPIG_JOB_LOG_DIR": str(logdir)}):
+        yield logdir
+
+
+def finished_job_with_log(session, logdir, payloads) -> int:
+    add_job(session, JobType.BACKPORT)
+    job = Job.pop(session, set())
+    job.finish(session, 0)
+    with open(os.path.join(logdir, f"{job.id}.log.jsonl"), "w") as f:
+        for payload in payloads:
+            print(json.dumps({"timestamp": 0, "payload": payload, "gap": 0}), file=f)
+    return job.id
+
+
+async def read_log(job_id, include_sensitive=False, resume_record=0) -> list:
+    response = await get_log(job_id, include_sensitive, resume_record)
+    return [json.loads(record) async for record in response.body_iterator]
+
+
+@pytest.mark.anyio
+async def test_get_log_sends_the_lines_and_responses_of_the_job(
+    job_session, job_log_dir
+):
+    job_id = finished_job_with_log(job_session, job_log_dir, ROLLED_BACK_BACKPORT_LOG)
+
+    assert await read_log(job_id) == [
+        {"type": "connected", "recno": 0},
+        {
+            "type": "line",
+            "line": "17:39:39 Failed scap sync-world: Backport for x",
+            "recno": 1,
+        },
+        {"type": "line", "line": "\x1b[0m\x07", "recno": 2},
+        {"type": "line", "line": "Revert change 1359282? (default: [y]):", "recno": 4},
+        {"type": "response", "user": "bruce", "response": "y", "recno": 5},
+        {"type": "EOF", "recno": 7},
+    ]
+
+
+@pytest.mark.anyio
+async def test_get_log_resumes_after_the_supplied_record(job_session, job_log_dir):
+    job_id = finished_job_with_log(job_session, job_log_dir, ROLLED_BACK_BACKPORT_LOG)
+
+    assert await read_log(job_id, resume_record=4) == [
+        {"type": "connected", "recno": 4},
+        {"type": "response", "user": "bruce", "response": "y", "recno": 5},
+        {"type": "EOF", "recno": 7},
+    ]
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize(
+    "include_sensitive,expected",
+    [
+        (
+            False,
+            [
+                ("diff of shellbox", 1),
+                ("<sensitive information hidden>", 2),
+                ("Apply the diffs?", 4),
+                ("<sensitive information hidden>", 5),
+            ],
+        ),
+        (
+            True,
+            [
+                ("diff of shellbox", 1),
+                ("secret 1", 2),
+                ("secret 2", 3),
+                ("Apply the diffs?", 4),
+                ("secret 3", 5),
+            ],
+        ),
+    ],
+)
+async def test_get_log_hides_each_run_of_sensitive_lines(
+    job_session, job_log_dir, include_sensitive, expected
+):
+    job_id = finished_job_with_log(
+        job_session,
+        job_log_dir,
+        [
+            {"type": "line", "line": "diff of shellbox"},
+            {"type": "line", "line": "secret 1", "sensitive": True},
+            {"type": "line", "line": "secret 2", "sensitive": True},
+            {"type": "line", "line": "Apply the diffs?"},
+            {"type": "line", "line": "secret 3", "sensitive": True},
+        ],
+    )
+
+    records = await read_log(job_id, include_sensitive=include_sensitive)
+
+    lines = [(r["line"], r["recno"]) for r in records if r["type"] == "line"]
+    assert lines == expected
 
 
 def finished_deploy_service_job(session, **kwargs) -> Job:
