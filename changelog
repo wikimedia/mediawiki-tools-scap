@@ -1,3 +1,10 @@
+scap (4.308.0)
+
+  * install-world: Lock the install on targets
+  * install_local_version.sh: Restore the previous venv after a failed install
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Wed, 28 Oct 2026 13:11:56 -0700
+
 scap (4.307.0)
 
   * spiderpig: Add tests of Interaction, JobLog and JobViewerPage
