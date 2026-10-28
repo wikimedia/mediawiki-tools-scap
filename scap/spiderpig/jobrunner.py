@@ -10,7 +10,7 @@ import stat
 import subprocess
 import threading
 import time
-from typing import Optional
+from typing import Optional, Tuple
 
 import scap.cli as cli
 from scap.interaction import TerminalIO
@@ -176,24 +176,35 @@ class RunningJob:
             if not line:
                 self.job_queue.put(EndOfStdout())
                 break
-            msg = self.decode_message(line)
-            # This will enqueue either a dictionary (representing
-            # a message) or a string (a line of output)
-            self.job_queue.put(msg or line)
+            output, msg = self.decode_message(line)
+            # A string is a line of output.  A dictionary is a message.
+            if output:
+                self.job_queue.put(output)
+            if msg:
+                self.job_queue.put(msg)
 
-    def decode_message(self, line) -> Optional[dict]:
-        if line[0] != "{":
-            return
+    def decode_message(self, line) -> Tuple[str, Optional[dict]]:
+        """
+        Returns the output on `line` before the message, and the message.
+        Returns `line` and None if `line` has no message.
+        """
+        if self.iokey not in line:
+            return line, None
 
-        try:
-            msg = json.loads(line)
-        except Exception:
-            return
-
-        if msg.get("iokey") == self.iokey:
+        # Output with no newline can come before the message.  For example,
+        # a scap subcommand writes "\x1b[0m" when it exits.
+        for start in [i for i, char in enumerate(line) if char == "{"]:
+            try:
+                msg = json.loads(line[start:])
+            except ValueError:
+                continue
+            if msg.get("iokey") != self.iokey:
+                break
             # Discard the iokey before returning the message
             del msg["iokey"]
-            return msg
+            return line[:start], msg
+
+        return line, None
 
     def monitor_interruptions(self):
         POLLING_INTERVAL = 1.0

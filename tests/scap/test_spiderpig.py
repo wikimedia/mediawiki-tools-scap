@@ -3,11 +3,13 @@
 import json
 import logging
 import re
+import textwrap
 import time
 from fastapi.datastructures import State
 import pyotp
 import os
 import sys
+from typing import Optional
 from pydantic import ValidationError
 
 from scap.spiderpig.api import (
@@ -43,6 +45,8 @@ from scap.spiderpig.model import (
     Base,
     ErrorNote,
     ErrorNoteUpdate,
+    Interaction,
+    Interruption,
     JobrunnerStatus,
     Job,
     JobType,
@@ -932,6 +936,76 @@ def test_the_jobrunner_runs_one_job_at_a_time_in_each_queue(
     assert started[backport] < started[shellbox] + JOB_SECONDS
     # A job of a busy queue waits, and does not hold up the jobs behind it.
     assert started[shellbox_again] >= started[shellbox] + JOB_SECONDS
+
+
+ROLLED_BACK_SCAP_COMMAND = textwrap.dedent(
+    """
+    import sys
+    import scap.main
+    from scap import cli
+
+    @cli.command("rolled-back")
+    class RolledBack(cli.Application):
+        def main(self, *extra_args):
+            return scap.main.ROLLED_BACK_STATUS
+
+    sys.argv = ["scap", "rolled-back"]
+    cli.Application.run()
+    """
+)
+
+# The same sequence as "scap backport" after the rollback of its sync-world.
+PROMPT_AFTER_ROLLED_BACK_SCAP_COMMAND = textwrap.dedent(
+    f"""
+    import subprocess
+    import sys
+    from scap.interaction import GetIO
+
+    subprocess.run([sys.executable, "-c", {ROLLED_BACK_SCAP_COMMAND!r}])
+    answer = GetIO().prompt_choices("Revert?", {{"Yes": "y", "No": "n"}}, "y")
+    sys.exit(0 if answer == "n" else 1)
+    """
+)
+
+
+def wait_for_interaction(session, job_id, timeout=15) -> Optional[Interaction]:
+    began = time.time()
+    while time.time() - began < timeout:
+        # End the read transaction to see the commits of the jobrunner.
+        session.rollback()
+        interaction = Interaction.lookup_pending(session, job_id)
+        if interaction:
+            return interaction
+        time.sleep(0.05)
+
+
+def test_a_prompt_after_a_rolled_back_scap_command_waits_for_a_response(
+    job_session, job_engine, tmpdir, monkeypatch
+):
+    monkeypatch.setenv("PYTHONPATH", os.path.dirname(os.path.dirname(scap.__file__)))
+    logdir = str(tmpdir.mkdir("jobs"))
+    command = [sys.executable, "-c", PROMPT_AFTER_ROLLED_BACK_SCAP_COMMAND]
+    job_id = add_job(job_session, JobType.BACKPORT, None, command)
+    worker = jobrunner.start_worker(
+        Job.pop(job_session, set()),
+        job_engine,
+        logging.getLogger("test-jobrunner"),
+        logdir,
+    )
+
+    try:
+        interaction = wait_for_interaction(job_session, job_id)
+        assert interaction is not None, "The prompt did not become an interaction"
+        assert interaction.prompt == "Revert?"
+        interaction.respond(job_session, "bruce", "n")
+        worker.join(timeout=15)
+    finally:
+        if worker.is_alive():
+            Interruption.add(job_session, job_id, "bruce", "kill")
+            job_session.commit()
+            worker.join(timeout=15)
+
+    assert Job.get(job_session, job_id).exit_status == 0
 
 
 def finished_deploy_service_job(session, **kwargs) -> Job:
