@@ -6,6 +6,8 @@ export default interface Interaction {
 	prompt: string
 	choices?: string
 	default?: string
+	details_title?: string
+	has_details?: boolean
 	responded_by?: string
 	response?: string
 }

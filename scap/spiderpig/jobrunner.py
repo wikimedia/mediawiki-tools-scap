@@ -404,6 +404,13 @@ def run_job(
                         prompt = msg["prompt"]
                         choices = msg["choices"] if subtype == "choices" else None
                         default = msg.get("default")
+                        details = msg.get("details")
+                        details_title = msg.get("details_title")
+
+                        if details:
+                            jsonlog(
+                                {"type": "line", "line": details, "sensitive": True}
+                            )
 
                         # Show the terminal style prompt in the job log
                         if subtype == "input_line":
@@ -416,7 +423,14 @@ def run_job(
                             )
 
                         Interaction.register(
-                            session, job.id, subtype, prompt, choices, default
+                            session,
+                            job.id,
+                            subtype,
+                            prompt,
+                            choices,
+                            default,
+                            details,
+                            details_title,
                         )
                         old_job_status = job_status
                         job.set_status(session, "Awaiting user interaction")

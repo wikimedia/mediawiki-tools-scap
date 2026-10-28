@@ -836,17 +836,20 @@ class K8sRunner:
 
         failures = 0
         changed = 0
+        sections = []
         for job, result in zip(jobs, results):
             if diff_failed(result):
                 failures += 1
+                sections.append(f"=== Diff failed for {job.label} ===")
             elif result.returncode == DIFF_CHANGES_EXIT_STATUS:
                 changed += 1
-                self.app.output_line(
-                    f"=== Diff for {job.label} ===\n{result.stdout}",
-                    sensitive=True,  # Diffs may contain sensitive values.
-                )
+                sections.append(f"=== Diff for {job.label} ===\n{result.stdout}")
             else:
-                self.app.output_line(f"=== No changes for {job.label} ===")
+                sections.append(f"=== No changes for {job.label} ===")
+        sections.append(
+            "Note: Diffs are relative to the current helm charts and helmfile values. "
+            "These may become outdated if new changes are merged."
+        )
 
         if failures:
             self.logger.error(f"{failures} of {len(jobs)} diff commands failed")
@@ -854,10 +857,9 @@ class K8sRunner:
             self.logger.info("None of the diffs show a change")
 
         self.app.prompt_for_approval_or_exit(
-            "Note: Diffs are relative to the current helm charts and helmfile values. "
-            "These may become outdated if new changes are merged.\n"
             "Continue with the deployment?",
             "Deployment cancelled.",
+            details=interaction.PromptDetails("Helmfile diffs", "\n".join(sections)),
         )
         return failures
 

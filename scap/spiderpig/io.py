@@ -35,7 +35,7 @@ def input_line(prompt) -> str:
     return input()
 
 
-def prompt_choices(prompt, choices: dict, default) -> str:
+def prompt_choices(prompt, choices: dict, default, details=None) -> str:
     rec = {
         "type": "interaction",
         "subtype": "choices",
@@ -43,6 +43,9 @@ def prompt_choices(prompt, choices: dict, default) -> str:
         "choices": choices,
         "default": default,
     }
+    if details:
+        rec["details_title"] = details.title
+        rec["details"] = details.text
     send_message(rec)
     return input()
 

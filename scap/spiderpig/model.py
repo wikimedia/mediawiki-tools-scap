@@ -458,6 +458,8 @@ class Interaction(Base):
 
     choices: Mapped[Optional[str]]  # JSON-encoded list, only set when type == "choices"
     default: Mapped[Optional[str]]
+    details: Mapped[Optional[str]]
+    details_title: Mapped[Optional[str]]
 
     responded_by: Mapped[Optional[str]]
     response: Mapped[Optional[str]]
@@ -477,6 +479,8 @@ class Interaction(Base):
         prompt: str,
         choices: Optional[List[str]] = None,
         default: Optional[str] = None,
+        details: Optional[str] = None,
+        details_title: Optional[str] = None,
     ):
         i = Interaction(
             job_id=job_id,
@@ -484,6 +488,8 @@ class Interaction(Base):
             prompt=prompt,
             choices=json.dumps(choices) if choices else None,
             default=default,
+            details=details,
+            details_title=details_title,
         )
         session.add(i)
         session.commit()

@@ -1,5 +1,29 @@
 <template>
 	<div class="interaction">
+		<cdx-accordion
+			v-if="hasDetails"
+			:key="interaction.id"
+			class="interaction__details"
+			@toggle="onDetailsToggle"
+		>
+			<template #title>
+				{{ interaction.details_title || 'Details' }}
+			</template>
+			<cdx-progress-bar
+				v-if="detailsLoading"
+				inline
+				aria-label="Loading the details"
+			/>
+			<cdx-message v-else-if="detailsError" type="error" inline>
+				{{ detailsError }}
+			</cdx-message>
+			<!-- eslint-disable vue/no-v-html -->
+			<pre
+				v-else-if="detailsHtml !== null"
+				class="interaction__details__text"
+				v-html="detailsHtml" />
+			<!-- eslint-enable vue/no-v-html -->
+		</cdx-accordion>
 		<div
 			class="interaction__prompt"
 			@click="onPromptClick"
@@ -18,22 +42,23 @@
 </template>
 
 <script lang="ts">
-import { computed, defineComponent, PropType, watch } from 'vue';
+import { computed, defineComponent, PropType, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import useApi from '../api';
 import Interaction from '../types/Interaction';
-import { CdxButton } from '@wikimedia/codex';
+import { CdxAccordion, CdxButton, CdxMessage, CdxProgressBar } from '@wikimedia/codex';
 import { notificationsStore } from '@/state';
 import linkifyStr from 'linkify-string';
-
-// The prompt that scap deploy-service --confirm-diffs asks.
-const DIFF_PROMPT_RE = /^Note: Diffs are relative to/;
+import { AnsiUp } from 'ansi_up';
 
 export default defineComponent( {
 	name: 'SpInteraction',
 
 	components: {
-		CdxButton
+		CdxAccordion,
+		CdxButton,
+		CdxMessage,
+		CdxProgressBar
 	},
 
 	props: {
@@ -79,11 +104,43 @@ export default defineComponent( {
 			notifications.closeNotification( props.interaction.job_id );
 		}
 
+		// The details can be sensitive, so they stay hidden until the user
+		// asks for them.
+		const hasDetails = computed( () => !!props.interaction.has_details );
+		const detailsHtml = ref<string|null>( null );
+		const detailsLoading = ref( false );
+		const detailsError = ref( '' );
+
+		async function onDetailsToggle( isOpen: boolean ) {
+			if ( !isOpen || detailsHtml.value !== null || detailsLoading.value ) {
+				return;
+			}
+
+			detailsLoading.value = true;
+			detailsError.value = '';
+			try {
+				const { details } = await api.getInteractionDetails(
+					props.interaction.job_id,
+					props.interaction.id
+				);
+				const ansiUp = new AnsiUp();
+				// Don't generate links for URLs in the details
+				ansiUp.url_allowlist = {};
+				detailsHtml.value = ansiUp.ansi_to_html( details );
+			} catch ( e ) {
+				detailsError.value = `Could not get the details: ${ e }`;
+			} finally {
+				detailsLoading.value = false;
+			}
+		}
+
 		// Notify when a new interaction arrives, even if this component instance
 		// is reused and does not remount.
 		watch(
 			() => props.interaction.id,
 			() => {
+				detailsHtml.value = null;
+				detailsError.value = '';
 				notifications.notifyUser( props.interaction );
 			},
 			{ immediate: true }
@@ -94,18 +151,17 @@ export default defineComponent( {
 			const onCurrentJobPage = route.name === 'job' &&
 				String( route.params.jobId ) === String( props.interaction.job_id );
 
-			if ( props.interaction.type !== 'choices' || onCurrentJobPage ) {
+			if (
+				props.interaction.type !== 'choices' ||
+				onCurrentJobPage ||
+				hasDetails.value
+			) {
 				return linkifyStr( prompt, linkifyOptions );
 			}
 
-			// review_diffs() in scap/kubernetes.py writes the diffs to the job
-			// log as sensitive lines, so the link for that prompt needs to include
-			// the query parameter that allows viewing sensitive lines.
-			const opensSensitive = DIFF_PROMPT_RE.test( prompt );
 			const jobLogHref = router.resolve( {
 				name: 'job',
 				params: { jobId: props.interaction.job_id },
-				query: opensSensitive ? { sensitive: '1' } : {},
 				hash: '#log'
 			} ).href;
 			const jobLogLine =
@@ -130,7 +186,12 @@ export default defineComponent( {
 		return {
 			choiceSelected,
 			onPromptClick,
-			renderedPromptHtml
+			renderedPromptHtml,
+			hasDetails,
+			detailsHtml,
+			detailsLoading,
+			detailsError,
+			onDetailsToggle
 		};
 	}
 } );
@@ -152,6 +213,20 @@ export default defineComponent( {
 
 		:deep(&__link) {
 			.cdx-mixin-link();
+		}
+	}
+
+	&__details {
+		margin-bottom: @spacing-50;
+
+		&__text {
+			font-family: 'Courier New', Courier, monospace;
+			font-size: 0.875rem;
+			max-height: 60vh;
+			overflow: auto;
+			padding: @spacing-50;
+			border: @border-base;
+			background-color: @background-color-base;
 		}
 	}
 

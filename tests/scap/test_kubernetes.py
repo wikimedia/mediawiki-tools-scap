@@ -589,12 +589,18 @@ def test_inspect_images(mock_popen):
     )
 
 
+DIFFS_NOTE = (
+    "Note: Diffs are relative to the current helm charts and helmfile values. "
+    "These may become outdated if new changes are merged."
+)
+
+
 class FakeApp:
     """Records the output and the approval prompt of review_diffs()."""
 
     def __init__(self, approve=True, max_workers=2):
         self.approve = approve
-        self.lines = []
+        self.details = None
         self.cancelled = False
         self.config = {
             "k8s_max_concurrent_deployments_per_cluster": max_workers,
@@ -603,10 +609,8 @@ class FakeApp:
             "k8s_helmfile_diff_context_lines": 5,
         }
 
-    def output_line(self, line, sensitive=False):
-        self.lines.append(line)
-
-    def prompt_for_approval_or_exit(self, question, cancel_message):
+    def prompt_for_approval_or_exit(self, question, cancel_message, details=None):
+        self.details = details
         if not self.approve:
             self.cancelled = True
 
@@ -667,7 +671,7 @@ def test_run_jobs_reports_each_failure(tmp_path):
     assert results[0].stdout == "output\n"
 
 
-def test_review_diffs_prints_each_diff_and_counts_failures(tmp_path):
+def test_review_diffs_shows_each_diff_with_the_prompt_and_counts_failures(tmp_path):
     app = FakeApp()
     jobs = [
         _job("shellbox in codfw", "changed", "codfw", tmp_path),
@@ -675,7 +679,11 @@ def test_review_diffs_prints_each_diff_and_counts_failures(tmp_path):
     ]
     failures = _runner(app).review_diffs(jobs)
     assert failures == 1
-    assert app.lines == ["=== Diff for shellbox in codfw ===\nchanged\n"]
+    assert app.details.title == "Helmfile diffs"
+    assert app.details.text == (
+        "=== Diff for shellbox in codfw ===\nchanged\n\n"
+        "=== Diff failed for shellbox in eqiad ===\n" + DIFFS_NOTE
+    )
 
 
 def test_review_diffs_cancels_without_approval(tmp_path):
@@ -720,7 +728,9 @@ def test_review_diffs_requests_approval_after_an_interrupt(tmp_path):
     with mock.patch("scap.kubernetes.run_command", side_effect=KeyboardInterrupt):
         failures = _runner(app, max_workers=1).review_diffs(jobs)
     assert failures == 1
-    assert app.lines == []
+    assert app.details.text == (
+        "=== Diff failed for shellbox in codfw ===\n" + DIFFS_NOTE
+    )
     assert app.cancelled
 
 
@@ -849,10 +859,10 @@ def test_review_diffs_reports_a_job_with_no_changes(tmp_path):
         _job("shellbox in eqiad", "no change here", "eqiad", tmp_path, exit_status=0),
     ]
     assert _runner(app).review_diffs(jobs) == 0
-    assert app.lines == [
-        "=== Diff for shellbox in codfw ===\n+ replicas: 3\n",
-        "=== No changes for shellbox in eqiad ===",
-    ]
+    assert app.details.text == (
+        "=== Diff for shellbox in codfw ===\n+ replicas: 3\n\n"
+        "=== No changes for shellbox in eqiad ===\n" + DIFFS_NOTE
+    )
 
 
 def test_apply_job_runs_the_apply_command(tmp_path):

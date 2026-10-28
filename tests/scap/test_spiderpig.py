@@ -32,6 +32,7 @@ from scap.spiderpig.api import (
     TWO_FA_FAILURE_WINDOW_SECONDS,
     TWO_FA_LOCKOUT_SECONDS,
     get_errors,
+    get_interaction_details,
     get_job,
     get_jobs,
     get_log,
@@ -1013,6 +1014,60 @@ def test_a_prompt_after_a_rolled_back_scap_command_waits_for_a_response(
     assert Job.get(job_session, job_id).exit_status == 0
 
 
+PROMPT_WITH_DETAILS = textwrap.dedent(
+    """
+    import sys
+    from scap.interaction import GetIO, PromptDetails
+
+    answer = GetIO().prompt_choices(
+        "Apply?",
+        {"Yes": "y", "No": "n"},
+        "n",
+        details=PromptDetails("Helmfile diffs", "+ password: hunter2"),
+    )
+    sys.exit(0 if answer == "y" else 1)
+    """
+)
+
+
+def test_the_details_of_a_prompt_go_to_the_interaction_and_the_job_log(
+    job_session, job_engine, tmpdir, monkeypatch
+):
+    monkeypatch.setenv("PYTHONPATH", os.path.dirname(os.path.dirname(scap.__file__)))
+    logdir = str(tmpdir.mkdir("jobs"))
+    command = [sys.executable, "-c", PROMPT_WITH_DETAILS]
+    job_id = add_job(job_session, JobType.DEPLOY_SERVICE, "shellbox", command)
+    worker = jobrunner.start_worker(
+        Job.pop(job_session, set()),
+        job_engine,
+        logging.getLogger("test-jobrunner"),
+        logdir,
+    )
+
+    try:
+        interaction = wait_for_interaction(job_session, job_id)
+        assert interaction is not None, "The prompt did not become an interaction"
+        assert interaction.prompt == "Apply?"
+        assert interaction.details == "+ password: hunter2"
+        assert interaction.details_title == "Helmfile diffs"
+        interaction.respond(job_session, "bruce", "y")
+        worker.join(timeout=15)
+    finally:
+        if worker.is_alive():
+            Interruption.add(job_session, job_id, "bruce", "kill")
+            job_session.commit()
+            worker.join(timeout=15)
+
+    assert Job.get(job_session, job_id).exit_status == 0
+    with open(os.path.join(logdir, f"{job_id}.log.jsonl")) as f:
+        payloads = [json.loads(line)["payload"] for line in f]
+    assert {
+        "type": "line",
+        "line": "+ password: hunter2",
+        "sensitive": True,
+    } in payloads
+
+
 REVERT_CHOICES = {"Yes": "y", "No": "n", "Exit without reverting": "x"}
 
 
@@ -1038,6 +1093,8 @@ async def test_get_job_reports_the_pending_interaction(job_session):
         "prompt": "Revert change 1359282?",
         "choices": REVERT_CHOICES,
         "default": "y",
+        "details_title": None,
+        "has_details": False,
         "responded_by": None,
         "response": None,
     }
@@ -1128,6 +1185,60 @@ async def test_interact_refuses_a_second_response(job_session, job_engine):
     assert excinfo.value.status_code == 409
     assert excinfo.value.detail["responded_by"] == "clark"
     assert excinfo.value.detail["response"] == "n"
+
+
+def job_with_diff_prompt(session) -> Job:
+    add_job(session, JobType.DEPLOY_SERVICE, "shellbox")
+    job = Job.pop(session, set())
+    Interaction.register(
+        session,
+        job.id,
+        "choices",
+        "Continue with the deployment?",
+        {"Yes": "y", "No": "n"},
+        "n",
+        "=== Diff for shellbox ===\n+ replicas: 3",
+        "Helmfile diffs",
+    )
+    return job
+
+
+@pytest.mark.anyio
+async def test_job_updates_report_that_a_prompt_has_details_and_leave_them_out(
+    job_session,
+):
+    job = job_with_diff_prompt(job_session)
+
+    interaction = (await get_job(job, job_session))["pending_interaction"]
+
+    assert interaction["has_details"] is True
+    assert interaction["details_title"] == "Helmfile diffs"
+    assert "details" not in interaction
+
+
+@pytest.mark.anyio
+async def test_get_interaction_details_returns_the_details_of_the_prompt(
+    job_session,
+):
+    job = job_with_diff_prompt(job_session)
+    interaction_id = Interaction.lookup_pending(job_session, job.id).id
+
+    result = await get_interaction_details(job, interaction_id, job_session)
+
+    assert result == {"details": "=== Diff for shellbox ===\n+ replicas: 3"}
+
+
+@pytest.mark.anyio
+async def test_get_interaction_details_refuses_an_interaction_that_is_not_pending(
+    job_session,
+):
+    job = job_with_diff_prompt(job_session)
+    interaction_id = Interaction.lookup_pending(job_session, job.id).id
+
+    with pytest.raises(HTTPException) as excinfo:
+        await get_interaction_details(job, interaction_id + 1, job_session)
+
+    assert excinfo.value.status_code == 404
 
 
 # The job log that the jobrunner writes for a rolled-back backport.

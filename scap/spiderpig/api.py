@@ -578,10 +578,13 @@ def get_parsed_interaction(session, job) -> Optional[dict]:
     i = Interaction.lookup_pending(session, job.id)
     if not i:
         return None
-    choices_parsed = i.choices_parsed
-    i = jsonable_encoder(i)
-    i["choices"] = choices_parsed
-    return i
+    return {
+        # The details can be large, and the job page asks for the job every
+        # second, so exclude them here.  Use get_interaction_details() as needed.
+        **jsonable_encoder(i, exclude={"details"}),
+        "choices": i.choices_parsed,
+        "has_details": bool(i.details),
+    }
 
 
 def linkify_commit_mesage(commit_message) -> List:
@@ -1037,6 +1040,26 @@ async def interact(
         "job_id": job.id,
         "interaction_id": interaction_id,
     }
+
+
+@app.get("/api/jobs/{job_id}/interact/{interaction_id}/details")
+async def get_interaction_details(
+    job: Annotated[Job, Depends(get_job_by_id)],
+    interaction_id: int,
+    session: Session = Depends(get_db_session),
+):
+    i = Interaction.lookup_pending(session, job.id)
+    if i is None or i.id != interaction_id:
+        raise HTTPException(
+            status_code=404,
+            detail={
+                "message": "No pending interactions",
+                "job_id": job.id,
+                "interaction_id": interaction_id,
+            },
+        )
+
+    return {"details": i.details}
 
 
 @app.get("/api/jobs/{job_id}/log")

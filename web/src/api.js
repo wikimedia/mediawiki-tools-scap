@@ -222,6 +222,9 @@ const useAuthStore = defineStore( 'spiderpig-auth',
 					}
 				);
 			},
+			async getInteractionDetails( job_id, interaction_id ) {
+				return await this.call( `/api/jobs/${ job_id }/interact/${ interaction_id }/details` );
+			},
 			async signalJob( job_id, type ) {
 				await this.call( `/api/jobs/${ job_id }/signal/${ type }`,
 					{

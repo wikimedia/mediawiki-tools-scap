@@ -411,7 +411,7 @@ class Application(object):
             self.arguments.message = message
 
     def prompt_for_approval_or_exit(
-        self, prompt_message, exit_message, exit_code=os.EX_OK
+        self, prompt_message, exit_message, exit_code=os.EX_OK, details=None
     ):
         """Exits with a message if the user does not approve.
 
@@ -419,8 +419,12 @@ class Application(object):
             prompt_message: The prompt to display to the user
             exit_message: The message to display before exiting
             exit_code: The exit code to use (default: os.EX_OK for success)
+            details: An interaction.PromptDetails with more information on
+            what the prompt is about
         """
-        approval = self.get_io().prompt_user_for_confirmation(prompt_message)
+        approval = self.get_io().prompt_user_for_confirmation(
+            prompt_message, details=details
+        )
         if not approval:
             self.announce_final(exit_message)
             sys.exit(exit_code)

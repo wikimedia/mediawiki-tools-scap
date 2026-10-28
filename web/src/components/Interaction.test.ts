@@ -1,15 +1,17 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { mount } from '@vue/test-utils';
+import { flushPromises, mount } from '@vue/test-utils';
 import { createMemoryHistory, createRouter } from 'vue-router';
 import SpInteraction from './Interaction.vue';
 
 const respondInteractionMock = vi.fn();
+const getInteractionDetailsMock = vi.fn();
 const notifyUserMock = vi.fn();
 const closeNotificationMock = vi.fn();
 
 vi.mock( '../api', () => ( {
 	default: () => ( {
-		respondInteraction: respondInteractionMock
+		respondInteraction: respondInteractionMock,
+		getInteractionDetails: getInteractionDetailsMock
 	} )
 } ) );
 
@@ -59,6 +61,7 @@ async function mountInteraction( path: string, interaction = revertInteraction )
 describe( 'SpInteraction', () => {
 	beforeEach( () => {
 		respondInteractionMock.mockReset();
+		getInteractionDetailsMock.mockReset();
 		notifyUserMock.mockReset();
 		closeNotificationMock.mockReset();
 	} );
@@ -111,6 +114,52 @@ describe( 'SpInteraction', () => {
 		expect( wrapper.find( '.interaction__prompt' ).text() ).toBe(
 			'The sync failed.\nView the job log for details.\n\nRetry?'
 		);
+	} );
+
+	it( 'gets the details of a prompt only after the user asks for them', async () => {
+		getInteractionDetailsMock.mockResolvedValue(
+			{ details: '=== Diff for shellbox ===\n\x1b[32m+ replicas: 3\x1b[0m <b>' }
+		);
+		const wrapper = await mountInteraction( '/', {
+			...revertInteraction,
+			prompt: 'Continue with the deployment?',
+			choices: { Yes: 'y', No: 'n' },
+			details_title: 'Helmfile diffs',
+			has_details: true
+		} );
+
+		// The details replace the job log link.
+		expect( wrapper.find( '.interaction__prompt' ).text() ).toBe(
+			'Continue with the deployment?'
+		);
+		const accordion = wrapper.find( 'details.interaction__details' );
+		expect( accordion.find( 'summary' ).text() ).toBe( 'Helmfile diffs' );
+		expect( wrapper.find( '.interaction__details__text' ).exists() ).toBe( false );
+		expect( getInteractionDetailsMock ).not.toHaveBeenCalled();
+
+		// The browser fires "toggle" when the user opens or closes the accordion.
+		const toggle = async ( newState: string ) => {
+			await accordion.trigger( 'toggle', { newState } );
+			await flushPromises();
+		};
+		await toggle( 'open' );
+
+		expect( getInteractionDetailsMock ).toHaveBeenCalledWith( 42, 5 );
+		const details = wrapper.find( '.interaction__details__text' );
+		expect( details.text() ).toBe( '=== Diff for shellbox ===\n+ replicas: 3 <b>' );
+		expect( details.find( 'b' ).exists() ).toBe( false );
+
+		// Close, then open again without a second request.
+		await toggle( 'closed' );
+		await toggle( 'open' );
+
+		expect( getInteractionDetailsMock ).toHaveBeenCalledTimes( 1 );
+	} );
+
+	it( 'offers no details for a prompt without them', async () => {
+		const wrapper = await mountInteraction( '/jobs/42' );
+
+		expect( wrapper.find( '.interaction__details' ).exists() ).toBe( false );
 	} );
 
 	it( 'notifies the user of each new interaction', async () => {

@@ -1,3 +1,4 @@
+import dataclasses
 import os
 import sys
 import termios
@@ -8,6 +9,17 @@ import scap.ansi as ansi
 import scap.spiderpig.io as spiderpigio
 
 YES_NO_CHOICES = {"Yes": "y", "No": "n"}
+
+
+@dataclasses.dataclass
+class PromptDetails:
+    """More information on what a prompt is about.  The text can be sensitive.
+
+    SpiderPig shows the title, and shows the text when the user asks for it.
+    """
+
+    title: str
+    text: str
 
 
 def have_terminal() -> bool:
@@ -46,7 +58,13 @@ class UserIOBase:
 
         return self._input_line(prompt)
 
-    def prompt_choices(self, question: str, choices, default=None) -> str:
+    def prompt_choices(
+        self,
+        question: str,
+        choices,
+        default=None,
+        details: Optional[PromptDetails] = None,
+    ) -> str:
         """
         Use the 'choices' dict to present a list of choices to the user.
         If 'choices' is the class 'bool', then choices is defined to be
@@ -55,10 +73,15 @@ class UserIOBase:
         'choices' maps choice descriptions to the key the user should enter to
         select that choice, for example: {"Continue": "c", "Exit": "e"}.
 
+        `details` holds more information on what the question is about, for
+        example the helmfile diffs of a deployment.
+
         Returns the valid choice that the user made.  Re-prompts if an
         invalid choice is made.  If `default` is supplied, it will be returned
         if the terminal is not interactive, or if the user just hits enter.
         """
+        if details:
+            self._output_details(details)
 
         if not interactive() and default:
             # NOTE: No prompt is seen at all under these circumstances.
@@ -68,7 +91,7 @@ class UserIOBase:
             choices = YES_NO_CHOICES
 
         while True:
-            resp = self._prompt_choices(question, choices, default).strip()
+            resp = self._prompt_choices(question, choices, default, details).strip()
             # For Reedy (T380924)
             if choices == YES_NO_CHOICES:
                 resp = resp.lower()
@@ -81,11 +104,13 @@ class UserIOBase:
             if resp:
                 self.output_line(f"Invalid choice: {repr(resp)}")
 
-    def prompt_user_for_confirmation(self, prompt_message, default="n") -> bool:
+    def prompt_user_for_confirmation(
+        self, prompt_message, default="n", details: Optional[PromptDetails] = None
+    ) -> bool:
         """
         Prompts user with `prompt_message` and expects yes/no answer.
         """
-        return self.prompt_choices(prompt_message, bool, default) == "y"
+        return self.prompt_choices(prompt_message, bool, default, details) == "y"
 
     def alert(self, prompt: str, action: str = "continue"):
         """
@@ -107,6 +132,9 @@ class TerminalIO(UserIOBase):
     def _output_line(self, line, sensitive):
         print(line)
 
+    def _output_details(self, details):
+        print(details.text)
+
     def _input(self, prompt) -> str:
         """
         When running in a terminal, discard any input that might have been
@@ -121,7 +149,7 @@ class TerminalIO(UserIOBase):
     def _input_line(self, prompt) -> str:
         return self._input(prompt)
 
-    def _prompt_choices(self, question, choices, default) -> str:
+    def _prompt_choices(self, question, choices, default, details) -> str:
         """
         Use the 'choices' dict to present a list of choices to the user.
         Returns the user's response.  Validation of the response is not
@@ -171,11 +199,15 @@ class SpiderpigIO(UserIOBase):
     def _output_line(self, line, sensitive):
         return spiderpigio.output_line(line, sensitive)
 
+    def _output_details(self, details):
+        # _prompt_choices() sends the details with the prompt.
+        pass
+
     def _input_line(self, prompt) -> str:
         return spiderpigio.input_line(prompt)
 
-    def _prompt_choices(self, question, choices, default):
-        return spiderpigio.prompt_choices(question, choices, default)
+    def _prompt_choices(self, question, choices, default, details):
+        return spiderpigio.prompt_choices(question, choices, default, details)
 
     def _report_status(self, status: Optional[str]):
         spiderpigio.report_status(status)
