@@ -13,6 +13,7 @@ from typing import Optional
 from pydantic import ValidationError
 
 from scap.spiderpig.api import (
+    _get_db_session,
     get_pyotp,
     maybe_get_current_user,
     get_current_user,
@@ -1006,6 +1007,21 @@ def test_a_prompt_after_a_rolled_back_scap_command_waits_for_a_response(
             worker.join(timeout=15)
 
     assert Job.get(job_session, job_id).exit_status == 0
+
+
+@pytest.fixture
+def api_db_file(tmpdir, job_engine):
+    """The database file of the job_engine fixture, for the apiserver."""
+    db_file = f"{tmpdir}/spiderpig.db"
+    with unittest.mock.patch.dict(os.environ, {"SPIDERPIG_DBFILE": db_file}):
+        yield db_file
+    scap.spiderpig.api._get_db_engine(db_file).dispose()
+    scap.spiderpig.api._get_db_engine.cache_clear()
+
+
+def test_db_sessions_of_the_apiserver_share_one_engine(api_db_file):
+    with _get_db_session() as first, _get_db_session() as second:
+        assert first.get_bind() is second.get_bind()
 
 
 def finished_deploy_service_job(session, **kwargs) -> Job:

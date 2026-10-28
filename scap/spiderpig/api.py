@@ -56,6 +56,7 @@ from fastapi.responses import (
 )
 from fastapi.staticfiles import StaticFiles
 
+from sqlalchemy import Engine
 from sqlalchemy.orm import Session
 
 from scap import cli, log, metrics, utils, gerrit, train, logstash_poller
@@ -371,16 +372,17 @@ def get_scap_flags():
     return json.loads(base64.b64decode(os.getenv("SPIDERPIG_SCAP_FLAGS")))
 
 
-def _get_db_session():
+@functools.lru_cache()
+def _get_db_engine(db_filename: str) -> Engine:
     # Using check_same_thread=False allows FastAPI to use the same SQLite database
     # in different threads. This is necessary as one single request could use more
     # than one thread (for example in dependencies).
     # xref: https://fastapi.tiangolo.com/tutorial/sql-databases/#create-an-engine
-    return Session(
-        scap.spiderpig.engine(
-            os.environ["SPIDERPIG_DBFILE"], connect_args={"check_same_thread": False}
-        )
-    )
+    return scap.spiderpig.engine(db_filename, connect_args={"check_same_thread": False})
+
+
+def _get_db_session():
+    return Session(_get_db_engine(os.environ["SPIDERPIG_DBFILE"]))
 
 
 def get_db_session():
