@@ -242,15 +242,6 @@ function clean_up_distributions {
 }
 
 function install_scap {
-  function install_venv {
-    $AS_USER python3 -m venv "$SCAP_VENV_DIR"
-    # Upgrade pip first using the included wheel.
-    $AS_USER "$SCAP_VENV_DIR"/bin/pip install --upgrade --no-deps "$DIST_DIR"/pip-*.whl
-    # Then install everything else
-    $AS_USER "$SCAP_VENV_DIR"/bin/pip install --no-deps "$DIST_DIR"/*.whl
-    return $?
-  }
-
   local DIST_DIR=
   DIST_DIR=$($GET_DIST_DIR_PATH "$HOST_DISTRO")
   # These two variables are global because the EXIT trap below reads them.
@@ -267,13 +258,11 @@ function install_scap {
 'echo -e "\nInstallation canceled. Restoring previous Scap version"' EXIT
   fi
 
-  # If any of the python commands fails, we retry once. Palliative solution for T337394.
-  # Note `set -e` has no effect inside of a function when its exit status is checked in an if statement, so
-  # `install_venv` handles its status explicitly
-  if ! install_venv; then
-    log 'Retrying creation of virtual environment'
-    install_venv
-  fi
+  $AS_USER python3 -m venv "$SCAP_VENV_DIR"
+  # Upgrade pip first using the included wheel.
+  $AS_USER "$SCAP_VENV_DIR"/bin/pip install --upgrade --no-deps "$DIST_DIR"/pip-*.whl
+  # Then install everything else
+  $AS_USER "$SCAP_VENV_DIR"/bin/pip install --no-deps "$DIST_DIR"/*.whl
 
   # At this point installation has succeeded and we don't need to restore the old env anymore
   trap - EXIT
