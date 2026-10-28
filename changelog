@@ -1,3 +1,13 @@
+scap (4.307.0)
+
+  * spiderpig: Add tests of Interaction, JobLog and JobViewerPage
+  * spiderpig: Add tests of the interaction and job log routes
+  * spiderpig: Use one database engine for all apiserver sessions
+  * jobrunner: Handle mid-line io messages
+  * scap pull: Do not print a stack trace when rsync fails
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Wed, 28 Oct 2026 08:59:19 -0700
+
 scap (4.306.0)
 
   * scap apply-patches: Abort a failed `git am` by default
