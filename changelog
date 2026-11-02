@@ -1,3 +1,10 @@
+scap (4.310.0)
+
+  * spiderpig: Close database sessions before sending the response
+  * install_local_version.sh: Do not retry a failed install
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Mon, 02 Nov 2026 10:41:42 -0800
+
 scap (4.309.0)
 
   * spiderpig: Improve deploy-service --confirm-diffs UX
