@@ -1,3 +1,9 @@
+scap (4.311.0)
+
+  * deploy: Report service restarts and skipped targets
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Mon, 02 Nov 2026 12:30:19 -0800
+
 scap (4.310.0)
 
   * spiderpig: Close database sessions before sending the response
