@@ -1,3 +1,4 @@
+import logging
 import os
 import tempfile
 import yaml
@@ -8,7 +9,9 @@ from unittest.mock import patch, MagicMock, Mock
 import scap.cli
 import scap.config
 import scap.git
+import scap.log
 import scap.script
+import scap.ssh
 import scap.utils
 from scap.deploy import Deploy, DeployLocal, get_git_binary_managers
 from .test_config import override_default_config
@@ -274,6 +277,22 @@ def test_DeployLocal_fetch_without_lfs(mock_git, git_binary_manager, tmp_path):
     mock_git.lfs_install_local_submodules.assert_not_called()
 
 
+def test_DeployLocal_promote_reports_a_revision_that_is_already_live(tmp_path, caplog):
+    deploy_local = make_deploy_local(tmp_path, None, git_submodules=False)
+    deploy_local.config["config_deploy"] = False
+    deploy_local.context.current_rev_dir = deploy_local.context.rev_path.return_value
+
+    with caplog.at_level(logging.INFO):
+        deploy_local.promote()
+
+    assert deploy_local.noop
+    assert [
+        (record.deploy_event, record.deploy_subject)
+        for record in caplog.records
+        if hasattr(record, "deploy_event")
+    ] == [("already_live", "somerev")]
+
+
 def make_deploy(tmp_path, git_binary_manager, git_submodules):
     """Return a Deploy which runs in --init mode, so main() stops after setup."""
 
@@ -513,3 +532,82 @@ For `scap deploy` to work, the current directory must be the top level of a git 
 
                 # Verify that the override of check1 took effect.
                 assert not scap_deploy.deploy_info["checks"]["check1"]
+
+
+def target_output(*extras):
+    """Returns the JSON lines that deploy-local prints for log records."""
+    lines = []
+    for extra in extras:
+        record = logging.LogRecord(
+            "deploy-local", logging.INFO, __file__, 1, "a message", (), None
+        )
+        record.__dict__.update(extra)
+        lines.append(scap.log.JSONFormatter().format(record))
+    return "".join(f"{line}\n" for line in lines)
+
+
+class FakeJob:
+    """An ssh.Job that gives the canned output of each target to its output handler."""
+
+    def __init__(self, outputs):
+        self.outputs = outputs
+
+    def __call__(self, hosts, **kwargs):
+        self.hosts = hosts
+        return self
+
+    def command(self, command):
+        pass
+
+    def progress(self, reporter):
+        pass
+
+    def run_with_status(self, batch_size):
+        for host in self.hosts:
+            self.output_handler(host).accept(self.outputs[host])
+            result = scap.ssh.JobResult(None, host)
+            result.finish(0, "")
+            yield result
+
+
+@pytest.mark.parametrize(
+    "service_name, skipped",
+    [("arclamp", "promote and handle_service"), (None, "promote")],
+)
+def test_Deploy_summarizes_what_the_targets_did(caplog, service_name, skipped):
+    deploy = Deploy("deploy")
+    deploy.arguments = MagicMock(force=False, loglevel=logging.INFO)
+    deploy.config = {
+        "git_repo": "performance/arc-lamp",
+        "ssh_user": "deploy",
+        "service_name": service_name,
+    }
+    deploy.repo = "performance/arc-lamp"
+    deploy.key = "somekey"
+    already_live = {"deploy_event": "already_live", "deploy_subject": "35c590ef87f2"}
+    restarted = {"deploy_event": "restarted", "deploy_subject": "arclamp"}
+    job = FakeJob(
+        {
+            "target1": target_output(already_live),
+            "target2": target_output(already_live),
+            "target3": target_output({}, restarted),
+        }
+    )
+
+    with patch("scap.deploy.ssh.Job", job), caplog.at_level(logging.INFO):
+        results = list(
+            deploy.execute_stage_on_group(
+                "promote", "default", ["target1", "target2", "target3"]
+            )
+        )
+
+    assert results == [("target1", 0), ("target2", 0), ("target3", 0)]
+    assert [
+        message
+        for message in caplog.messages
+        if message.startswith("performance/arc-lamp: ")
+    ] == [
+        "performance/arc-lamp: 2 targets already live at 35c590e. "
+        f"Skipped {skipped} there (use --force to override)",
+        "performance/arc-lamp: Restarted arclamp on 1 target",
+    ]

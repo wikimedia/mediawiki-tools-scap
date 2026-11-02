@@ -25,6 +25,7 @@ import collections
 from datetime import datetime, timezone
 import errno
 import glob
+import logging
 import os
 import shutil
 import subprocess
@@ -62,6 +63,24 @@ FETCH = "fetch"
 STAGES = [FETCH, CONFIG_DEPLOY, PROMOTE]
 EX_STAGES = [HANDLE_SERVICE, ROLLBACK, CONFIG_DIFF, FINALIZE]
 ALL_STAGES = STAGES + EX_STAGES
+
+
+class _TargetEventCounter(logging.Handler):
+    """
+    Counts the events that targets report in their log records.
+
+    A target that restarts the service "arclamp" sends a record with
+    deploy_event "restarted" and deploy_subject "arclamp".
+    """
+
+    def __init__(self):
+        super().__init__()
+        self.counts = collections.Counter()
+
+    def emit(self, record):
+        event = getattr(record, "deploy_event", None)
+        if event is not None:
+            self.counts[(event, record.deploy_subject)] += 1
 
 
 class DeployGroupFailure(RuntimeError):
@@ -402,7 +421,10 @@ class DeployLocal(cli.Application):
         logger = self.get_logger()
 
         if self.context.current_rev_dir == rev_dir and not self.arguments.force:
-            logger.info("{} is already live (use --force to override)".format(rev_dir))
+            logger.info(
+                "{} is already live (use --force to override)".format(rev_dir),
+                extra={"deploy_event": "already_live", "deploy_subject": rev},
+            )
             self.noop = True
             return
 
@@ -1171,14 +1193,32 @@ For `scap deploy` to work, the current directory must be the top level of a git 
         deploy_stage.progress(log.reporter(progress_message))
 
         failed = 0
+        events = _TargetEventCounter()
+        logging.root.addHandler(events)
 
-        for jobresult in deploy_stage.run_with_status(batch_size):
-            if jobresult.status != 0:
-                failed += 1
-            yield jobresult.host, jobresult.status
+        try:
+            for jobresult in deploy_stage.run_with_status(batch_size):
+                if jobresult.status != 0:
+                    failed += 1
+                yield jobresult.host, jobresult.status
+        finally:
+            logging.root.removeHandler(events)
 
         if failed:
             logger.warning("%d targets had deploy errors", failed)
+
+        for (event, subject), count in sorted(events.counts.items()):
+            if event == "already_live":
+                logger.info(
+                    f"{self.repo}: {count} {utils.pluralize('target', count)} "
+                    f"already live at {subject[:7]}. "
+                    f"Skipped {self._get_stage_name(PROMOTE)} there (use --force to override)"
+                )
+            else:
+                logger.info(
+                    f"{self.repo}: {event.capitalize()} {subject} "
+                    f"on {count} {utils.pluralize('target', count)}"
+                )
 
     def _get_stage_name(self, stage):
         """Map a stage name to a stage display name."""
