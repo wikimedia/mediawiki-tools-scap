@@ -385,7 +385,7 @@ def _get_db_session():
     return Session(_get_db_engine(os.environ["SPIDERPIG_DBFILE"]))
 
 
-def get_db_session():
+async def get_db_session():
     session = _get_db_session()
     try:
         yield session
@@ -557,7 +557,9 @@ def get_admin_user(request: Request) -> SessionUser:
     )
 
 
-async def get_job_by_id(job_id: int, session: Session = Depends(get_db_session)):
+async def get_job_by_id(
+    job_id: int, session: Session = Depends(get_db_session, scope="function")
+):
     job = Job.get(session, job_id)
     if job is None:
         raise HTTPException(
@@ -676,7 +678,7 @@ def load_job_data(job: Job) -> dict:
 
 @app.get("/api/jobrunner/status")
 async def jobrunner_status(
-    session: Session = Depends(get_db_session),
+    session: Session = Depends(get_db_session, scope="function"),
 ):
     def pid_exists(pid: int) -> bool:
         try:
@@ -719,7 +721,7 @@ async def jobrunner_status(
 async def start_train(
     promotion: TrainPromotion,
     user: Annotated[SessionUser, Depends(get_current_user)],
-    session: Session = Depends(get_db_session),
+    session: Session = Depends(get_db_session, scope="function"),
 ):
     return {
         "message": "Job created",
@@ -745,7 +747,7 @@ async def get_services():
 async def start_deploy_service(
     deployment: ServiceDeployment,
     user: Annotated[SessionUser, Depends(get_current_user)],
-    session: Session = Depends(get_db_session),
+    session: Session = Depends(get_db_session, scope="function"),
 ):
     catalog = get_service_catalog()
     if deployment.service in catalog.errors:
@@ -827,7 +829,7 @@ async def start_backport(
     ],
     user: Annotated[SessionUser, Depends(get_current_user)],
     gerritsession: Annotated[gerrit.GerritSession, Depends(get_gerrit_session)],
-    session: Session = Depends(get_db_session),
+    session: Session = Depends(get_db_session, scope="function"),
 ):
     baddies = []
     change_numbers = []
@@ -859,7 +861,7 @@ async def retry_job(
     job: Annotated[Job, Depends(get_job_by_id)],
     user: Annotated[SessionUser, Depends(get_current_user)],
     gerritsession: Annotated[gerrit.GerritSession, Depends(get_gerrit_session)],
-    session: Session = Depends(get_db_session),
+    session: Session = Depends(get_db_session, scope="function"),
 ):
     # Ensure the job has finished
     if job.finished_at is None:
@@ -957,7 +959,7 @@ def set_additional_job_attributes(job: Job):
 
 @app.get("/api/jobs")
 async def get_jobs(
-    session: Session = Depends(get_db_session),
+    session: Session = Depends(get_db_session, scope="function"),
     limit: int = 10,
     skip: Optional[int] = 0,
     type: Optional[JobType] = None,
@@ -983,7 +985,7 @@ async def get_jobs(
 @app.get("/api/jobs/{job_id}")
 async def get_job(
     job: Annotated[Job, Depends(get_job_by_id)],
-    session: Session = Depends(get_db_session),
+    session: Session = Depends(get_db_session, scope="function"),
 ):
     i = get_parsed_interaction(session, job)
 
@@ -1008,7 +1010,7 @@ async def interact(
     interaction_id: int,
     response: Annotated[str, Body()],
     user: Annotated[SessionUser, Depends(get_current_user)],
-    session: Session = Depends(get_db_session),
+    session: Session = Depends(get_db_session, scope="function"),
 ):
     i = Interaction.lookup_pending(session, job.id)
     if i is None or i.id != interaction_id:
@@ -1046,7 +1048,7 @@ async def interact(
 async def get_interaction_details(
     job: Annotated[Job, Depends(get_job_by_id)],
     interaction_id: int,
-    session: Session = Depends(get_db_session),
+    session: Session = Depends(get_db_session, scope="function"),
 ):
     i = Interaction.lookup_pending(session, job.id)
     if i is None or i.id != interaction_id:
@@ -1141,9 +1143,9 @@ async def get_log(
 
                 with _get_db_session() as session:
                     job = await get_job_by_id(job_id, session)
-                    if job.finished_at:
-                        yield toRecord({"type": "EOF", "recno": recno})
-                        return
+                if job.finished_at:
+                    yield toRecord({"type": "EOF", "recno": recno})
+                    return
 
                 await asyncio.sleep(polling_interval)
 
@@ -1160,7 +1162,7 @@ async def signal_job(
     type: str,
     job: Annotated[Job, Depends(get_job_by_id)],
     user: Annotated[SessionUser, Depends(get_current_user)],
-    session: Session = Depends(get_db_session),
+    session: Session = Depends(get_db_session, scope="function"),
 ):
     if type not in Interruption.SIGNAL_TYPES:
         raise HTTPException(
@@ -1189,7 +1191,7 @@ def _get_logs():
 
 
 @app.get("/api/monitoring/logs/mediawiki")
-async def get_errors(session: Session = Depends(get_db_session)):
+async def get_errors(session: Session = Depends(get_db_session, scope="function")):
     logs = _get_logs()
     if not logs:
         return {"message": "No log data - creation may be pending", "log": {}}
@@ -1214,7 +1216,7 @@ async def get_errors(session: Session = Depends(get_db_session)):
 async def set_error_note(
     update: ErrorNoteUpdate,
     user: Annotated[SessionUser, Depends(get_current_user)],
-    session: Session = Depends(get_db_session),
+    session: Session = Depends(get_db_session, scope="function"),
 ):
     if update.note:
         ErrorNote.save(session, update.message, update.note, user.name)
@@ -1350,7 +1352,7 @@ async def login2(
     otp: Annotated[str, Body()],
     request: Request,
     user: Annotated[Optional[SessionUser], Depends(maybe_get_current_user)],
-    session: Session = Depends(get_db_session),
+    session: Session = Depends(get_db_session, scope="function"),
 ):
     """
     This route is for performing 2FA.

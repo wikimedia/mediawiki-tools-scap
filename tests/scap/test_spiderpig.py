@@ -14,6 +14,8 @@ from pydantic import ValidationError
 
 from scap.spiderpig.api import (
     _get_db_session,
+    app,
+    get_db_session,
     get_pyotp,
     maybe_get_current_user,
     get_current_user,
@@ -1272,6 +1274,24 @@ def api_db_file(tmpdir, job_engine):
 def test_db_sessions_of_the_apiserver_share_one_engine(api_db_file):
     with _get_db_session() as first, _get_db_session() as second:
         assert first.get_bind() is second.get_bind()
+
+
+def _dependencies(dependant):
+    for dependency in dependant.dependencies:
+        yield dependency
+        yield from _dependencies(dependency)
+
+
+def test_db_sessions_close_before_the_response_is_sent():
+    # A session that is open while the response is sent keeps its pooled connection.
+    scopes = {
+        dependency.scope
+        for route in app.routes
+        if hasattr(route, "dependant")
+        for dependency in _dependencies(route.dependant)
+        if dependency.call is get_db_session
+    }
+    assert scopes == {"function"}
 
 
 @pytest.fixture
