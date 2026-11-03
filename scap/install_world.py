@@ -39,7 +39,7 @@ if sys.version_info < (3, 9):
 else:
     from typing import Tuple
 
-from scap import cli, targets, utils, ssh, log
+from scap import cli, lock, targets, utils, ssh, log
 
 
 @cli.command(
@@ -105,8 +105,9 @@ class InstallWorld(cli.Application):
         if self.arguments.inventory:
             return self._report_inventory()
 
-        # The lock ensures a scap installation cannot happen during a MediaWiki update
-        with self.lock_mediawiki_staging(
+        # The lock ensures a scap installation cannot happen during other scap deployments
+        with self.lock(
+            lock.GLOBAL_LOCK_FILE,
             name="install-world",
             reason="Scap is being updated",
         ):
