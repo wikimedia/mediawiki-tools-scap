@@ -1984,7 +1984,7 @@ class LockManager(cli.Application):
         os.close(release_w)
 
         try:
-            with self.lock(lock_path):
+            with self.lock(lock_path, allow_forced_release=self.arguments.all):
                 # Notify self.ui() that lock is acquired
                 os.write(locker_status_w, b"\x01")
 
