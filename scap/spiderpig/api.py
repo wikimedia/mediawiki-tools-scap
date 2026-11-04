@@ -1180,7 +1180,7 @@ async def signal_job(
     }
 
 
-def _get_logs():
+def _read_logstash_errors():
     log_file = os.path.join(os.environ["SPIDERPIG_DIR"], logstash_poller.LOG_FILE)
     try:
         with open(log_file, "r") as f:
@@ -1192,7 +1192,7 @@ def _get_logs():
 
 @app.get("/api/monitoring/logs/mediawiki")
 async def get_errors(session: Session = Depends(get_db_session, scope="function")):
-    logs = _get_logs()
+    logs = _read_logstash_errors()
     if not logs:
         return {"message": "No log data - creation may be pending", "log": {}}
 
@@ -1228,7 +1228,7 @@ async def set_error_note(
 
 @app.get("/api/monitoring/logs/mediawiki/total")
 async def get_error_total():
-    logs = _get_logs()
+    logs = _read_logstash_errors()
     if logs:
         return {"message": "Log total retrieved", "total": logs["total"]}
     return {"message": "No log data - creation may be pending", "total": 0}
