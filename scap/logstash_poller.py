@@ -73,8 +73,8 @@ class LogstashPollCommand(cli.Application):
         results = poller.poll()
         summary = poller.summarize_errors(results)
 
-        for message, count in summary.items():
-            logger.info(f"{count}\t{message}")
+        for message, error in summary["errors"].items():
+            logger.info(f"{error['count']}\t{message}")
 
 
 class LogstashPoller:

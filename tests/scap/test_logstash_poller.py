@@ -3,6 +3,8 @@ import logging
 import pathlib
 import sys
 
+from scap import cli
+import scap.logstash_poller as logstash_poller
 from scap.logstash_poller import LogstashPoller
 
 # The records and the query evaluation live beside the fake-logstash service of
@@ -97,3 +99,27 @@ def test_summarize_errors_lists_the_versions():
 
     # A deployment moves between two versions, so one message holds both.
     assert any(len(entry["versions"]) > 1 for entry in summary["errors"].values())
+
+
+def test_poll_logstash_logs_the_count_of_each_message(monkeypatch, caplog):
+    poller = _poller()
+    monkeypatch.setattr(logstash_poller, "LogstashPoller", lambda *args: poller)
+    app = cli.Application.factory(
+        ["poll-logstash", "-Dlogstash_url:http://fake-logstash.example"]
+    )
+    app.setup(use_global_config=False)
+    expected = {
+        f"{error['count']}\t{message}"
+        for message, error in poller.summarize_errors(poller.poll())["errors"].items()
+    }
+
+    with caplog.at_level(logging.INFO):
+        app.main()
+
+    logged = {
+        record.getMessage()
+        for record in caplog.records
+        if record.name == app.get_logger().name
+    }
+    assert expected
+    assert logged == expected
