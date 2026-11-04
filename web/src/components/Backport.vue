@@ -114,7 +114,7 @@ export default {
 				changeNumbers.value = [];
 			} catch ( error ) {
 				alertDialogOpen.value = true;
-				alertDialogText.value = error.respJson.detail.message || error.message;
+				alertDialogText.value = error.respJson?.detail?.message || error.message;
 			}
 		}
 

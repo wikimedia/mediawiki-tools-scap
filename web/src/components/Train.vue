@@ -495,12 +495,12 @@ export default {
 		 * Formats the MW train version number. Only the "wmf.x" suffix is displayed to fit within
 		 * the stepper item flex basis.
 		 *
-		 * @param {string} version MW version.
+		 * @param {string|null} version MW version, if any.
 		 *
 		 * @return {string}
 		 */
 		function formatVersion( version ) {
-			return version.slice( version.lastIndexOf( '-' ) + 1 );
+			return version ? version.slice( version.lastIndexOf( '-' ) + 1 ) : '';
 		}
 
 		/**
