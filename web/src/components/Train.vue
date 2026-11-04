@@ -298,8 +298,15 @@ export default {
 		let originalTrainStatus: TrainStatus = {
 			groups: [],
 			version: '',
+			oldVersion: null,
+			atGroup: null,
 			wikiVersions: {},
 			wikiCount: 0,
+			task: null,
+			taskUrl: null,
+			taskStatus: null,
+			taskReleaseDate: null,
+			taskVersion: null,
 			warnings: []
 		};
 

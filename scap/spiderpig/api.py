@@ -576,6 +576,7 @@ def get_gerrit_session(config: Annotated[dict, Depends(get_scap_config)]):
     return gerrit.GerritSession(url=config["gerrit_url"])
 
 
+# Keep in sync with web/src/types/Interaction.ts.
 def get_parsed_interaction(session, job) -> Optional[dict]:
     i = Interaction.lookup_pending(session, job.id)
     if not i:
@@ -589,6 +590,7 @@ def get_parsed_interaction(session, job) -> Optional[dict]:
     }
 
 
+# Keep the link segments in sync with web/src/types/LinkSegment.ts.
 def linkify_commit_mesage(commit_message) -> List:
     scap_config = get_scap_config()
     phorge_url = scap_config["phorge_url"]
@@ -647,6 +649,7 @@ def job_queue_name(job: Job) -> Optional[str]:
         return None
 
 
+# Keep the change_infos fields in sync with web/src/types/ChangeInfo.ts.
 def load_job_data(job: Job) -> dict:
     scap_config = get_scap_config()
     gerrit_url = scap_config["gerrit_url"]
@@ -790,6 +793,7 @@ async def _create_backport_job(
         change = gerritsession.change_detail(change_num).get()
         change_url = os.path.join(gerritsession.url, f"c/{change._number}")
 
+        # Keep in sync with web/src/types/ChangeInfo.ts.
         change_infos.append(
             {
                 "number": change._number,

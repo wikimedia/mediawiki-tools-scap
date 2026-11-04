@@ -337,6 +337,7 @@ class Job(Base):
         data = json.loads(self.data) if self.data else None
         return data or {}
 
+    # Keep in sync with web/src/types/JobStatus.ts.
     def extract_status(self) -> dict:
         if not self.status:
             return {"status": None, "progress": None}
@@ -446,6 +447,7 @@ class AlreadyResponded(Exception):
     pass
 
 
+# Keep in sync with web/src/types/Interaction.ts.
 class Interaction(Base):
     __tablename__ = "interaction"
     __table_args__ = {"sqlite_autoincrement": True}
@@ -593,6 +595,7 @@ class ErrorNote(Base):
         session.commit()
 
 
+# Keep in sync with web/src/types/TrainGroup.ts.
 class TrainGroup(BasePydantic):
     name: str
     versions: List[str]
@@ -603,6 +606,7 @@ class TrainGroup(BasePydantic):
     has_rolled: bool = False
 
 
+# Keep in sync with web/src/types/TrainStatus.ts.
 class TrainStatus(BasePydantic):
     groups: List[TrainGroup]
     version: str

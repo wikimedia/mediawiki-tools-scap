@@ -58,6 +58,7 @@ def report_status(status: Optional[str]):
     send_message(rec)
 
 
+# Keep in sync with web/src/types/SpiderpigProgressReportRecord.ts.
 @dataclasses.dataclass
 class SpiderpigProgressReportRecord:
     # Use javascript-friendly names (camelCase)
