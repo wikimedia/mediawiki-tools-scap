@@ -64,7 +64,6 @@
 						:orphaned="orphaned"
 						:started-at="started_at"
 						:exit-status="exit_status"
-						:interaction="interaction"
 					/>
 				</div>
 
