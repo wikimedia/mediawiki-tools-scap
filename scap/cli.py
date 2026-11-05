@@ -1057,7 +1057,7 @@ class Application(object):
             exit_status = 0
 
         # Make a beep
-        if exit_status != 0:
+        if exit_status != 0 and sys.stdout.isatty():
             sys.stdout.write("\a")
             sys.stdout.flush()
 

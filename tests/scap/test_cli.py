@@ -1,3 +1,4 @@
+import io
 import json
 import logging
 import os
@@ -476,6 +477,23 @@ def test_run_names_the_command_for_the_commands_it_starts(cmd, mocker):
     cli.Application.run()
 
     assert os.environ["SCAP_CALLER"] == cmd.program_name
+
+
+@pytest.mark.parametrize("isatty,output", [(True, "\a"), (False, "")])
+def test_run_beeps_after_a_failure_only_at_a_terminal(cmd, mocker, isatty, output):
+    mocker.patch("sys.exit")
+    mocker.patch("os.geteuid", return_value=1000)
+    mocker.patch("scap.cli.Application.factory", return_value=cmd)
+    cmd.setup = mock.MagicMock()
+    cmd.config = {}
+    cmd.main = mock.MagicMock(spec=[], return_value=3)
+    stdout = io.StringIO()
+    stdout.isatty = lambda: isatty
+    mocker.patch("sys.stdout", stdout)
+
+    cli.Application.run()
+
+    assert stdout.getvalue() == output
 
 
 @pytest.mark.parametrize(
