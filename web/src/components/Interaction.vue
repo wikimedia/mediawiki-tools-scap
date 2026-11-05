@@ -84,15 +84,15 @@ export default defineComponent( {
 		// the router here.  The other links that may be in the prompt are
 		// handled normally.
 		function onPromptClick( event: MouseEvent ) {
-			const anchor = ( event.target as HTMLElement ).closest(
+			const href = ( event.target as HTMLElement ).closest(
 				'a[data-job-log]'
-			);
-			if ( !anchor ) {
+			)?.getAttribute( 'href' );
+			if ( !href ) {
 				return;
 			}
 
 			event.preventDefault();
-			router.push( anchor.getAttribute( 'href' ) );
+			router.push( href );
 		}
 
 		function choiceSelected( code: string ) {
@@ -126,7 +126,7 @@ export default defineComponent( {
 				const ansiUp = new AnsiUp();
 				// Don't generate links for URLs in the details
 				ansiUp.url_allowlist = {};
-				detailsHtml.value = ansiUp.ansi_to_html( details );
+				detailsHtml.value = ansiUp.ansi_to_html( details ?? '' );
 			} catch ( e ) {
 				detailsError.value = `Could not get the details: ${ e }`;
 			} finally {

@@ -224,6 +224,9 @@ export default defineComponent( {
 						logCursor
 					);
 					try {
+						if ( !response.body ) {
+							throw new Error( 'The job log response has no body' );
+						}
 						const reader = response.body.getReader();
 						let sawEOF = false;
 

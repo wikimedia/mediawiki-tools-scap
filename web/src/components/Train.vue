@@ -19,7 +19,7 @@
 							{{ taskVersion }}
 						</v-chip>
 						<v-chip color="info" size="small">
-							<a :href="taskURL" target="_blank">{{ task }}</a>
+							<a :href="taskURL ?? undefined" target="_blank">{{ task }}</a>
 						</v-chip>
 					</template>
 					<template v-else #subtitle>
@@ -294,7 +294,7 @@ export default {
 		const jobrunner = useJobrunner();
 		const notifications = notificationsStore();
 
-		let resetWikiVersions = {};
+		let resetWikiVersions: Record<string, string | null> = {};
 		let originalTrainStatus: TrainStatus = {
 			groups: [],
 			version: '',
@@ -312,20 +312,20 @@ export default {
 
 		// Reactive properties
 		const hasLoaded = ref( false );
-		const error = ref( null );
-		const warnings = ref( [] );
+		const error = ref<string | null>( null );
+		const warnings = ref<string[]>( [] );
 		const jobPending = ref( false );
 
 		const groups = ref<TrainGroup[]>( [] );
 		const selectedStep = ref( 1 );
 		const trainIsAt = ref( '' );
 		const trainVersion = ref( '' );
-		const oldVersion = ref( '' );
-		const task = ref( '' );
-		const taskURL = ref( '' );
-		const taskReleaseDate = ref<Date>( null );
-		const taskVersion = ref( '' );
-		const priorVersionCounts = ref( {} );
+		const oldVersion = ref<string | null>( '' );
+		const task = ref<string | null>( '' );
+		const taskURL = ref<string | null>( '' );
+		const taskReleaseDate = ref<Date | null>( null );
+		const taskVersion = ref<string | null>( '' );
+		const priorVersionCounts = ref<Record<string, number>>( {} );
 		const totalWikis = ref( 0 );
 
 		// Computed properties
@@ -354,7 +354,7 @@ export default {
 			const from = groupNames.value.indexOf( trainIsAt.value );
 			const to = selectedStep.value - 1;
 			const wikiVersions = { ...resetWikiVersions };
-			const excludedWikis = [];
+			const excludedWikis: string[] = [];
 			const version = from > to ? oldVersion.value : trainVersion.value;
 
 			for ( let i = 0; i < selectedStep.value; i++ ) {
@@ -453,7 +453,13 @@ export default {
 		async function startTrain() {
 			const api = useApi();
 			const deploy = deployment.value;
-			let promotion;
+			let promotion: {
+				group: string
+				version: string | null
+				oldVersion: string | null
+				excludedWikis?: string[]
+				originalTrainStatus?: TrainStatus
+			};
 
 			if ( deploy.rollback && deploy.group.name === 'start' ) {
 				// Complete rollback. "Promote" all to old version.
@@ -494,7 +500,7 @@ export default {
 		 *
 		 * @return {number}
 		 */
-		function versionPercent( numWikis ) {
+		function versionPercent( numWikis: number ) {
 			return Math.round( numWikis / totalWikis.value * 100 );
 		}
 
@@ -506,7 +512,7 @@ export default {
 		 *
 		 * @return {string}
 		 */
-		function formatVersion( version ) {
+		function formatVersion( version: string | null ) {
 			return version ? version.slice( version.lastIndexOf( '-' ) + 1 ) : '';
 		}
 
@@ -518,13 +524,16 @@ export default {
 		 *
 		 * @return {Object} Mapping of version to count of wikis on each version.
 		 */
-		function countVersions( wikiversions, ...knownVersions ) {
+		function countVersions(
+			wikiversions: Record<string, string | null>,
+			...knownVersions: ( string | null )[]
+		): Record<string, number> {
 			return Object.values( wikiversions ).reduce(
-				( counts: object, version: string ) => (
-					{ ...counts, [ version ]: ( counts[ version ] || 0 ) + 1 }
+				( counts: Record<string, number>, version ) => (
+					{ ...counts, [ String( version ) ]: ( counts[ String( version ) ] || 0 ) + 1 }
 				),
-				knownVersions.reduce( ( counts, version ) => (
-					{ ...counts, [ version ]: 0 } ), {}
+				knownVersions.reduce( ( counts: Record<string, number>, version ) => (
+					{ ...counts, [ String( version ) ]: 0 } ), {}
 				)
 			);
 		}
@@ -557,14 +566,14 @@ export default {
 					updateFromTrainStatus( trainStatus, null );
 				}
 			} catch ( e ) {
-				error.value = e.message;
+				error.value = ( e as Error ).message;
 			} finally {
 				hasLoaded.value = true;
 			}
 		}
 
 		// Update responsive state from the given train status.
-		function updateFromTrainStatus( train, selectedGroup ) {
+		function updateFromTrainStatus( train: TrainStatus, selectedGroup: string | null ) {
 			groups.value = [
 				{
 					name: 'start',
@@ -574,12 +583,13 @@ export default {
 					excludedWikis: [],
 					hasRolled: true,
 					step: 1
-				}
-			].concat( train.groups.map( ( group, i ) => ( {
-				...group,
-				excludedWikis: group.excludedWikis || [],
-				step: i + 2
-			} as TrainGroup ) ) );
+				},
+				...train.groups.map( ( group, i ) => ( {
+					...group,
+					excludedWikis: group.excludedWikis || [],
+					step: i + 2
+				} ) )
+			];
 
 			trainIsAt.value = train.atGroup || 'start';
 			trainVersion.value = train.version;
@@ -624,17 +634,17 @@ export default {
 		// Whenever there is a train job being processed, favor its memoized train status over the
 		// one returned by the API since the latter is based on the unsynced on-disk state. This
 		// will ensure that all users see the same status during deployments.
-		let prevJobID;
+		let prevJobID: number | undefined;
 		watch( jobrunner.status, async () => {
 			// Reset the job pending flag when a MediaWiki job starts
 			if ( mediawikiIsBusy.value ) {
 				jobPending.value = false;
 			}
 
-			const data = trainJob.value?.data;
-			if ( data?.originalTrainStatus && prevJobID !== trainJob.value.id ) {
-				updateFromTrainStatus( data.originalTrainStatus, data?.group );
-				prevJobID = trainJob.value.id;
+			const job = trainJob.value;
+			if ( job?.data?.originalTrainStatus && prevJobID !== job.id ) {
+				updateFromTrainStatus( job.data.originalTrainStatus, job.data.group );
+				prevJobID = job.id;
 			}
 		} );
 

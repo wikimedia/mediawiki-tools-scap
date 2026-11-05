@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { mount } from '@vue/test-utils';
+import { mount, VueWrapper } from '@vue/test-utils';
 import { createMemoryHistory, createRouter } from 'vue-router';
 import { createVuetify } from 'vuetify';
 import SpJobLog from './JobLog.vue';
@@ -67,7 +67,7 @@ async function mountJobLog() {
 	} );
 }
 
-async function terminalText( wrapper ) {
+async function terminalText( wrapper: VueWrapper ) {
 	const terminal = wrapper.find( '.job-log__terminal' );
 	await vi.waitFor( () => {
 		expect( terminal.text() ).toContain( '[End of job log]' );

@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { flushPromises, mount } from '@vue/test-utils';
+import { flushPromises, mount, VueWrapper } from '@vue/test-utils';
 import { createMemoryHistory, createRouter } from 'vue-router';
 import { createVuetify } from 'vuetify';
 import JobViewerPage from './JobViewerPage.vue';
@@ -54,7 +54,7 @@ async function mountJobViewerPage() {
 	return wrapper;
 }
 
-function shownInteractions( wrapper ) {
+function shownInteractions( wrapper: VueWrapper ) {
 	return wrapper.findAllComponents( { name: 'SpInteraction' } )
 		.map( ( interaction ) => interaction.props( 'interaction' ) );
 }

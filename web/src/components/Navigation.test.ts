@@ -1,16 +1,16 @@
-import { describe, expect, it } from 'vitest';
-import { mount } from '@vue/test-utils';
+import { describe, expect, it, vi } from 'vitest';
+import { mount, VueWrapper } from '@vue/test-utils';
 import { createMemoryHistory, createRouter } from 'vue-router';
 import { createVuetify } from 'vuetify';
 import { VApp } from 'vuetify/components/VApp';
 import Navigation from './Navigation.vue';
 
 // jsdom has no ResizeObserver, which the Vuetify layout needs.
-global.ResizeObserver = class {
+vi.stubGlobal( 'ResizeObserver', class {
 	observe() {}
 	unobserve() {}
 	disconnect() {}
-};
+} );
 
 const stub = { template: '<div />' };
 
@@ -48,7 +48,7 @@ async function flush() {
 	await new Promise( ( resolve ) => setTimeout( resolve ) );
 }
 
-function selectedTabs( wrapper ) {
+function selectedTabs( wrapper: VueWrapper ) {
 	return wrapper.findAll( '.v-tab--selected' ).map( ( tab ) => tab.attributes( 'href' ) );
 }
 

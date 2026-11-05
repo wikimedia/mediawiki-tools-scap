@@ -57,6 +57,8 @@ import { useRouter } from 'vue-router';
 import { VSheet } from 'vuetify/components/VSheet';
 import { VToolbar } from 'vuetify/components/VToolbar';
 import useApi from '../api';
+import Interaction from '../types/Interaction';
+import Job from '../types/Job';
 import SpInteraction from './Interaction.vue';
 import SpJobCard from './JobCard.vue';
 import { CdxIcon } from '@wikimedia/codex';
@@ -101,9 +103,9 @@ export default defineComponent( {
 		];
 
 		// Reactive data properties.
-		const job = ref( null );
-		const monitorInterval = ref( null );
-		const interaction = ref( null );
+		const job = ref<Job | null>( null );
+		const monitorInterval = ref<ReturnType<typeof setInterval> | null>( null );
+		const interaction = ref<Interaction | null>( null );
 
 		// Methods.
 		const stopMonitor = () => {
@@ -123,11 +125,11 @@ export default defineComponent( {
 			}
 		};
 
-		const clickSignalButton = ( action ) => {
+		const clickSignalButton = ( action: string ) => {
 			api.signalJob( props.jobId, action );
 		};
 
-		const onSelect = ( newSelection ) => {
+		const onSelect = ( newSelection: string ) => {
 			// Handle menu button events.
 			clickSignalButton( newSelection );
 		};

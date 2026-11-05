@@ -74,6 +74,7 @@ import { VSheet } from 'vuetify/components/VSheet';
 import { CdxButton, CdxCheckbox } from '@wikimedia/codex';
 import SpJobCard from './JobCard.vue';
 import useApi from '../api';
+import Job from '../types/Job';
 
 const INTERVAL = 1000;
 
@@ -102,7 +103,7 @@ export default {
 
 		// Reactive data properties.
 		const loaded = ref( false );
-		const jobs = ref( [] );
+		const jobs = ref<Job[]>( [] );
 		const possiblyMoreHistory = ref( false );
 		const showAllTypes = ref( false );
 
@@ -110,13 +111,13 @@ export default {
 			() => ( showAllTypes.value ? null : props.jobType )
 		);
 
-		const heading = computed( () => ( {
+		const heading = computed( () => ( ( {
 			backport: 'Backport History',
 			train: 'Train History',
 			'deploy-service': 'Service Deployment History'
-		}[ selectedType.value ] ?? 'Job History' ) );
+		} as Record<string, string> )[ selectedType.value ?? '' ] ?? 'Job History' ) );
 
-		let intervalTimer = null;
+		let intervalTimer: ReturnType<typeof setInterval> | null = null;
 
 		let numJobsToDisplay = 5;
 
@@ -131,7 +132,7 @@ export default {
 				loaded.value = true;
 				possiblyMoreHistory.value = ( apiJobs.length === numJobsToDisplay );
 			} catch ( error ) {
-				console.error( error.message );
+				console.error( ( error as Error ).message );
 			}
 		}
 

@@ -76,7 +76,7 @@ import { CdxButton, CdxCheckbox, CdxDialog, CdxField, CdxMessage } from '@wikime
 import { VAutocomplete } from 'vuetify/components/VAutocomplete';
 import { VListItem } from 'vuetify/components/VList';
 import { VTextField } from 'vuetify/components/VTextField';
-import useApi from '../api';
+import useApi, { type ApiError } from '../api';
 import useJobrunner, { serviceQueue } from '../jobrunner';
 import { notificationsStore } from '../state';
 
@@ -140,7 +140,8 @@ export default {
 				catalogErrors.value = Object.entries( res.errors || {} );
 				loadError.value = null;
 			} catch ( error ) {
-				loadError.value = error.respJson?.detail?.message || error.message;
+				const apiError = error as ApiError;
+				loadError.value = apiError.respJson?.detail?.message || apiError.message;
 			}
 			loading.value = false;
 		}
@@ -160,7 +161,8 @@ export default {
 				message.value = '';
 			} catch ( error ) {
 				alertDialogOpen.value = true;
-				alertDialogText.value = error.respJson?.detail?.message || error.message;
+				const apiError = error as ApiError;
+				alertDialogText.value = apiError.respJson?.detail?.message || apiError.message;
 			}
 		}
 

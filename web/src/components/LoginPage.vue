@@ -102,7 +102,7 @@ export default defineComponent( {
 		async function setOtpHost() {
 			const resp = await api.whoami();
 
-			otpHost.value = resp.otpHost;
+			otpHost.value = resp.otpHost ?? '...';
 		}
 
 		watch( [ password ], clearErrorStatus );

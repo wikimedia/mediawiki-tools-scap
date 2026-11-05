@@ -354,17 +354,17 @@ export default defineComponent( {
 			default: null
 		},
 		started_at: {
-			type: Number,
+			type: Number as PropType<number | null>,
 			required: false,
 			default: null
 		},
 		finished_at: {
-			type: Number,
+			type: Number as PropType<number | null>,
 			required: false,
 			default: null
 		},
 		exit_status: {
-			type: Number,
+			type: Number as PropType<number | null>,
 			required: false,
 			default: null
 		},
@@ -373,7 +373,7 @@ export default defineComponent( {
 			required: true
 		},
 		interaction: {
-			type: Object as PropType<Interaction>,
+			type: Object as PropType<Interaction | null>,
 			required: false,
 			default: null
 		},
@@ -383,7 +383,7 @@ export default defineComponent( {
 			default: null
 		},
 		duration: {
-			type: Number,
+			type: Number as PropType<number | null>,
 			required: false,
 			default: null
 		},
@@ -455,7 +455,7 @@ export default defineComponent( {
 			'job-card--has-details': showColumnLabels.value
 		} ) );
 
-		function getFormattedDate( timestamp: number ) {
+		function getFormattedDate( timestamp: number | null ) {
 			if ( !timestamp ) {
 				return {
 					time: '',

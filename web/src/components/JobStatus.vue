@@ -49,11 +49,11 @@ export default defineComponent( {
 			default: false
 		},
 		startedAt: {
-			type: Number,
+			type: Number as PropType<number | null>,
 			default: null
 		},
 		exitStatus: {
-			type: Number,
+			type: Number as PropType<number | null>,
 			default: null
 		}
 	},

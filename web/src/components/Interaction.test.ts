@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { flushPromises, mount } from '@vue/test-utils';
 import { createMemoryHistory, createRouter } from 'vue-router';
 import SpInteraction from './Interaction.vue';
+import Interaction from '../types/Interaction';
 
 const respondInteractionMock = vi.fn();
 const getInteractionDetailsMock = vi.fn();
@@ -39,7 +40,7 @@ const REVERT_PROMPT =
 	'(operations/mediawiki-config, master)\n\n' +
 	'Revert change 1359282?';
 
-const revertInteraction = {
+const revertInteraction: Interaction = {
 	id: 5,
 	job_id: 42,
 	type: 'choices',
@@ -79,7 +80,7 @@ describe( 'SpInteraction', () => {
 
 		const exitButton = wrapper.findAll( 'button' )
 			.find( ( button ) => button.text() === 'Exit without reverting' );
-		await exitButton.trigger( 'click' );
+		await exitButton!.trigger( 'click' );
 
 		expect( respondInteractionMock ).toHaveBeenCalledWith( 42, 5, 'x' );
 		expect( closeNotificationMock ).toHaveBeenCalledWith( 42 );
