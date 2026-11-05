@@ -1,4 +1,5 @@
 import enum
+import hashlib
 import json
 import logging
 import os
@@ -14,7 +15,7 @@ from pydantic import (
     field_validator,
 )
 from pydantic.alias_generators import to_camel
-from sqlalchemy import ForeignKey, select, delete, text, null, Enum
+from sqlalchemy import ForeignKey, select, delete, text, null, func, Enum
 from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, Session
 from alembic.autogenerate import produce_migrations
@@ -265,6 +266,24 @@ class Job(Base):
             .order_by(Job.id)
         )
         return list(session.scalars(stmt))
+
+    @classmethod
+    def digest(cls, session) -> str:
+        """Returns a digest that changes when a job page should show different data.
+
+        A new job, a status update, the start or end of a job, and a change to an
+        interaction each change the digest.  A finished job does not change.
+        """
+        unfinished = select(Job.id, Job.started_at, Job.status).where(
+            Job.finished_at == null()
+        )
+        interactions = select(Interaction.id, Interaction.response)
+        state = [
+            session.scalar(select(func.max(Job.id))),
+            [list(row) for row in session.execute(unfinished)],
+            [list(row) for row in session.execute(interactions)],
+        ]
+        return hashlib.sha256(json.dumps(state).encode()).hexdigest()
 
     @property
     def queue(self) -> str:

@@ -34,8 +34,10 @@ from scap.spiderpig.api import (
     TWO_FA_FAILURE_WINDOW_SECONDS,
     TWO_FA_LOCKOUT_SECONDS,
     get_errors,
+    get_events_snapshot,
     get_interaction_details,
     get_job,
+    get_jobrunner_status,
     get_jobs,
     get_log,
     get_metrics,
@@ -874,6 +876,30 @@ def test_jobrunner_status_records_the_process(job_session):
     assert JobrunnerStatus.get(job_session).pid is None
 
 
+@pytest.mark.anyio
+async def test_jobrunner_status_reports_what_the_pages_read_of_each_running_job(
+    job_session,
+):
+    job = job_with_revert_prompt(job_session)
+    job.set_status(job_session, "Running")
+    JobrunnerStatus.set_pid(job_session, os.getpid())
+
+    status = await jobrunner_status(job_session)
+
+    assert jsonable_encoder(status) == {
+        "status": "running",
+        "running_jobs": [
+            {
+                "id": job.id,
+                "type": "backport",
+                "status": {"status": "Running", "progress": None},
+                "data": job.extract_data(),
+            }
+        ],
+        "busy_queues": ["mediawiki"],
+    }
+
+
 def test_get_running_reports_the_jobs_that_started_and_did_not_finish(job_session):
     queued = add_job(job_session, JobType.BACKPORT)
     running = Job.pop(job_session, set())
@@ -1119,11 +1145,9 @@ async def test_job_lists_report_the_pending_interaction(job_session):
     JobrunnerStatus.set_pid(job_session, os.getpid())
 
     jobs = (await get_jobs(job_session, limit=10, skip=0))["jobs"]
-    running_jobs = (await jobrunner_status(job_session))["running_jobs"]
 
     assert [j.interaction["choices"] for j in jobs] == [REVERT_CHOICES]
-    assert [j.interaction["choices"] for j in running_jobs] == [REVERT_CHOICES]
-    assert job.id == jobs[0].id == running_jobs[0].id
+    assert job.id == jobs[0].id
 
 
 @pytest.mark.anyio
@@ -1134,13 +1158,9 @@ async def test_each_route_reports_a_job_with_the_same_fields(job_session):
     # Each route detaches the jobs that it reports, so get_job() goes first.
     from_get_job = (await get_job(job, job_session))["job"]
     from_get_jobs = (await get_jobs(job_session, limit=10, skip=0))["jobs"][0]
-    from_jobrunner_status = (await jobrunner_status(job_session))["running_jobs"][0]
 
-    fields = [
-        set(jsonable_encoder(one))
-        for one in (from_get_jobs, from_jobrunner_status, from_get_job)
-    ]
-    assert fields[0] == fields[1] == fields[2]
+    fields = [set(jsonable_encoder(one)) for one in (from_get_jobs, from_get_job)]
+    assert fields[0] == fields[1]
     assert {"interaction", "command_decoded", "running", "duration"} <= fields[0]
     assert from_get_job.command_decoded == " ".join(json.loads(job.command))
 
@@ -1300,6 +1320,46 @@ def _dependencies(dependant):
     for dependency in dependant.dependencies:
         yield dependency
         yield from _dependencies(dependency)
+
+
+def test_job_digest_changes_with_each_job_page_update(job_session):
+    digests = [Job.digest(job_session)]
+
+    def assert_digest_changes():
+        digests.append(Job.digest(job_session))
+        assert digests[-1] != digests[-2]
+
+    add_job(job_session, JobType.BACKPORT)
+    assert_digest_changes()
+    job = Job.pop(job_session, set())
+    assert_digest_changes()
+    job.set_status(job_session, "Running")
+    assert_digest_changes()
+    job.set_progress(job_session, {"done": 1, "total": 2})
+    assert_digest_changes()
+    Interaction.register(
+        job_session, job.id, "choices", "Revert change 1359282?", REVERT_CHOICES, "y"
+    )
+    assert_digest_changes()
+    Interaction.lookup_pending(job_session, job.id).respond(job_session, "bruce", "n")
+    assert_digest_changes()
+    Interaction.pop_responded(job_session, job.id)
+    assert_digest_changes()
+    job.finish(job_session, 0)
+    assert_digest_changes()
+
+    assert Job.digest(job_session) == digests[-1]
+
+
+def test_events_snapshot_matches_the_jobrunner_status_route(job_session, api_db_file):
+    job = job_with_revert_prompt(job_session)
+    JobrunnerStatus.set_pid(job_session, os.getpid())
+
+    snapshot = get_events_snapshot()
+
+    assert snapshot["jobrunner"] == jsonable_encoder(get_jobrunner_status(job_session))
+    assert [j["id"] for j in snapshot["jobrunner"]["running_jobs"]] == [job.id]
+    assert snapshot["jobs_digest"] == Job.digest(job_session)
 
 
 def test_db_sessions_close_before_the_response_is_sent():

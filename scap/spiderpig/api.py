@@ -63,6 +63,7 @@ from scap import cli, log, metrics, utils, gerrit, train, logstash_poller
 from scap.deploy_service import Catalog, InvalidDeployServiceConfig, load_catalog
 
 import scap.spiderpig
+from scap.spiderpig.events import Broadcaster
 from scap.spiderpig.model import (
     ErrorNote,
     ErrorNoteUpdate,
@@ -238,6 +239,9 @@ class SpiderpigAPIServer(cli.Application):
             self.arguments.host,
             "--port",
             str(self.arguments.port),
+            # Without a timeout, an open event stream or job log stream stops the shutdown.
+            "--timeout-graceful-shutdown",
+            "5",
         ]
         if self.arguments.dev:
             cmd.append("--reload")
@@ -271,7 +275,12 @@ async def lifespan(app: FastAPI):
     metrics_file.remove_stale_data()
     prometheus_client.REGISTRY.register(metrics.FileCollector(metrics_file))
 
+    app.state.broadcaster = Broadcaster(get_events_snapshot)
+    broadcaster_task = asyncio.create_task(app.state.broadcaster.run())
+
     yield
+
+    broadcaster_task.cancel()
 
 
 app = FastAPI(lifespan=lifespan, openapi_url=None)
@@ -675,16 +684,8 @@ def load_job_data(job: Job) -> dict:
     return data
 
 
-##########
-# ROUTES #
-##########
-
-
 # Keep in sync with web/src/types/JobrunnerStatus.ts.
-@app.get("/api/jobrunner/status")
-async def jobrunner_status(
-    session: Session = Depends(get_db_session, scope="function"),
-):
+def get_jobrunner_status(session: Session) -> dict:
     def pid_exists(pid: int) -> bool:
         try:
             os.kill(pid, 0)
@@ -708,10 +709,46 @@ async def jobrunner_status(
     return {
         "status": "idle" if not running_jobs else "running",
         "running_jobs": [
-            prepare_job_for_response(session, job) for job in running_jobs
+            {
+                "id": job.id,
+                "type": job.type,
+                "status": job.extract_status(),
+                "data": job.extract_data(),
+            }
+            for job in running_jobs
         ],
         "busy_queues": busy_queues,
     }
+
+
+def get_events_snapshot() -> dict:
+    """Returns the state that the event streams send to clients."""
+    with _get_db_session() as session:
+        return {
+            "jobrunner": jsonable_encoder(get_jobrunner_status(session)),
+            "jobs_digest": Job.digest(session),
+        }
+
+
+##########
+# ROUTES #
+##########
+
+
+@app.get("/api/events")
+async def get_events():
+    # See the comment block at the end of get_log() for the explanation
+    # of the media_type used here.
+    return StreamingResponse(
+        app.state.broadcaster.stream(), media_type="application/octet-stream"
+    )
+
+
+@app.get("/api/jobrunner/status")
+async def jobrunner_status(
+    session: Session = Depends(get_db_session, scope="function"),
+):
+    return get_jobrunner_status(session)
 
 
 # Keep in sync with CreatedJob in web/src/api.ts.

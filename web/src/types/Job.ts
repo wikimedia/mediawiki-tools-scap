@@ -1,8 +1,8 @@
 import Interaction from './Interaction';
 import JobStatus from './JobStatus';
 
-// A job as get_job(), get_jobs() and jobrunner_status() in scap/spiderpig/api.py
-// return it.  Keep in sync with prepare_job_for_response() in that file.
+// A job as get_job() and get_jobs() in scap/spiderpig/api.py return it.  Keep in
+// sync with prepare_job_for_response() in that file.
 export default interface Job {
 	id: number
 	type: string
