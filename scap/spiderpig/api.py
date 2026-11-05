@@ -479,6 +479,7 @@ class NotAuthenticatedException(Exception):
 ROUTE_2FA = "/api/2fa"
 
 
+# Keep the response in sync with AuthResponse in web/src/api.ts.
 @app.exception_handler(NotAuthenticatedException)
 async def authn_exception_handler(request: Request, exc: NotAuthenticatedException):
     if exc.need2fa:
@@ -679,6 +680,7 @@ def load_job_data(job: Job) -> dict:
 ##########
 
 
+# Keep in sync with web/src/types/JobrunnerStatus.ts.
 @app.get("/api/jobrunner/status")
 async def jobrunner_status(
     session: Session = Depends(get_db_session, scope="function"),
@@ -712,6 +714,7 @@ async def jobrunner_status(
     }
 
 
+# Keep in sync with CreatedJob in web/src/api.ts.
 @app.post("/api/jobs/train")
 async def start_train(
     promotion: TrainPromotion,
@@ -732,12 +735,14 @@ def get_service_catalog() -> Catalog:
         raise HTTPException(status_code=500, detail={"message": str(e)})
 
 
+# Keep in sync with Services in web/src/api.ts.
 @app.get("/api/services")
 async def get_services():
     catalog = get_service_catalog()
     return {"services": sorted(catalog.services), "errors": catalog.errors}
 
 
+# Keep in sync with CreatedJob in web/src/api.ts.
 @app.post("/api/jobs/deploy-service")
 async def start_deploy_service(
     deployment: ServiceDeployment,
@@ -768,6 +773,7 @@ async def start_deploy_service(
     }
 
 
+# Keep the response in sync with CreatedJob in web/src/api.ts.
 async def _create_backport_job(
     change_numbers: List[str],
     original_change_urls: List[str],
@@ -852,6 +858,7 @@ async def start_backport(
     )
 
 
+# Keep in sync with CreatedJob in web/src/api.ts.
 @app.post("/api/jobs/{job_id}/retry")
 async def retry_job(
     job: Annotated[Job, Depends(get_job_by_id)],
@@ -910,6 +917,7 @@ async def _retry_backport(
     )
 
 
+# Keep the response in sync with CreatedJob in web/src/api.ts.
 def _retry_deploy_service(job: Job, user: SessionUser, session: Session) -> dict:
     deployment = ServiceDeployment(**job.extract_data())
 
@@ -939,6 +947,7 @@ def _retry_deploy_service(job: Job, user: SessionUser, session: Session) -> dict
     }
 
 
+# Keep in sync with web/src/types/Job.ts.
 def prepare_job_for_response(session: Session, job: Job) -> Job:
     """Returns the job with the fields that the web UI reads."""
     interaction = get_parsed_interaction(session, job)
@@ -965,6 +974,7 @@ def prepare_job_for_response(session: Session, job: Job) -> Job:
     return job
 
 
+# Keep in sync with JobList in web/src/api.ts and with web/src/types/Job.ts.
 @app.get("/api/jobs")
 async def get_jobs(
     session: Session = Depends(get_db_session, scope="function"),
@@ -979,6 +989,7 @@ async def get_jobs(
     }
 
 
+# Keep in sync with JobInfo in web/src/api.ts and with web/src/types/Job.ts.
 @app.get("/api/jobs/{job_id}")
 async def get_job(
     job: Annotated[Job, Depends(get_job_by_id)],
@@ -1029,6 +1040,7 @@ async def interact(
     }
 
 
+# Keep in sync with getInteractionDetails() in web/src/api.ts.
 @app.get("/api/jobs/{job_id}/interact/{interaction_id}/details")
 async def get_interaction_details(
     job: Annotated[Job, Depends(get_job_by_id)],
@@ -1175,6 +1187,7 @@ def _read_logstash_errors():
     return logs
 
 
+# Keep in sync with ErrorLogs in web/src/api.ts.
 @app.get("/api/monitoring/logs/mediawiki")
 async def get_errors(session: Session = Depends(get_db_session, scope="function")):
     logs = _read_logstash_errors()
@@ -1211,6 +1224,7 @@ async def set_error_note(
     return {"message": "Note removed"}
 
 
+# Keep in sync with ErrorTotal in web/src/api.ts.
 @app.get("/api/monitoring/logs/mediawiki/total")
 async def get_error_total():
     logs = _read_logstash_errors()
@@ -1229,6 +1243,7 @@ async def train_status(
 
 # This function is intentionally not marked "async" due to the blocking
 # io that happens when querying Gerrit.
+# Keep in sync with GerritChange in web/src/api.ts.
 @app.get("/api/searchPatch")
 def searchPatch(
     gerritsession: Annotated[gerrit.GerritSession, Depends(get_gerrit_session)],
@@ -1332,6 +1347,7 @@ def login(
     return resp
 
 
+# Keep the responses in sync with AuthResponse in web/src/api.ts.
 @app.post(ROUTE_2FA)
 async def login2(
     otp: Annotated[str, Body()],
@@ -1459,6 +1475,7 @@ def getSSOLogoutUrl(request: Request) -> str:
     return cli.get_logout_url(cli.service_url)
 
 
+# Keep in sync with logoutCommon() in web/src/api.ts.
 @app.post("/api/logout")
 async def logout(
     request: Request,
@@ -1483,6 +1500,7 @@ async def logout(
     return resp
 
 
+# Keep in sync with logoutCommon() in web/src/api.ts.
 @app.post("/api/logoutAll")
 async def logoutAll(
     request: Request, user: Annotated[SessionUser, Depends(get_admin_user)]
@@ -1500,6 +1518,7 @@ async def logoutAll(
     }
 
 
+# Keep in sync with WhoAmI in web/src/api.ts.
 @app.get("/api/whoami")
 async def whoami(
     request: Request,
