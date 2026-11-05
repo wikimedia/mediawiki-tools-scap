@@ -62,7 +62,7 @@ export default defineComponent( {
 		const statusType = computed( () => {
 			if ( props.exitStatus === 0 ) {
 				return 'success';
-			} else if ( props.exitStatus === 1 ) {
+			} else if ( props.exitStatus !== null ) {
 				return 'error';
 			} else {
 				return 'notice';
