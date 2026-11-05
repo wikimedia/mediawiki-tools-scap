@@ -292,6 +292,13 @@ const useAuthStore = defineStore( 'spiderpig-auth',
 			async whoami(): Promise<WhoAmI> {
 				return await this.call( '/api/whoami' );
 			},
+			async getEvents( abortsignal: AbortSignal ): Promise<Response> {
+				return await this.call(
+					'/api/events',
+					{ signal: abortsignal },
+					{ decodeJson: false }
+				);
+			},
 			async getJobrunnerStatus(): Promise<JobrunnerStatus> {
 				return await this.call( '/api/jobrunner/status' );
 			},
