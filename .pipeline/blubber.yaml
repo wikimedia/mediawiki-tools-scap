@@ -14,11 +14,17 @@ builders:
       version: python3
 
 variants:
+  # The "test" CI jobs reuse the apt layer from the cache of the "verify-deps"
+  # CI jobs. That works only while both run the same apt-get command, so keep
+  # every apt package here.
   python-packages:
     apt:
       packages:
         - python3-venv
         - graphviz
+        - git
+        - php-cli
+        - file
 
   base-bullseye:
     base: docker-registry.wikimedia.org/bullseye
@@ -50,11 +56,6 @@ variants:
     includes: [base-trixie, verify-deps]
 
   test:
-    apt:
-      packages:
-        - git
-        - php-cli
-        - file
     builders:
       # Set up python venv
       - python:
@@ -98,9 +99,6 @@ variants:
 
   build-docs:
     includes: [base-bullseye]
-    apt:
-      packages:
-        - git
     builders:
       # Set up python venv
       - python:

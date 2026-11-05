@@ -33,7 +33,12 @@ test:
       - DISTRO: *supported_distros
   variables:
     BUILD_VARIANT: test-$DISTRO-report
-    BUILDCTL_BUILD_FLAGS: --output type=local,dest=test-reports
+    # kokkuri exports only the layers of the final image to the cache. The
+    # final image of test-$DISTRO-report holds only the reports, so take the
+    # apt layer from the verify-deps-$DISTRO cache instead.
+    BUILDCTL_BUILD_FLAGS: >-
+      --output type=local,dest=test-reports
+      --import-cache type=registry,ref=${KOKKURI_REGISTRY_CACHE}/${CI_PROJECT_PATH}/cache/verify-deps-${DISTRO}:${CI_DEFAULT_BRANCH}
   artifacts:
     when: always
     reports:
