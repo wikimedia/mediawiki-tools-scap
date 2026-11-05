@@ -73,6 +73,7 @@ from sqlalchemy.orm import Session
 import prometheus_client
 
 from fastapi import HTTPException
+from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse, RedirectResponse
 
 import pytest
@@ -1088,7 +1089,7 @@ async def test_get_job_reports_the_pending_interaction(job_session):
 
     result = await get_job(job, job_session)
 
-    assert result["pending_interaction"] == {
+    assert result["job"].interaction == {
         "id": unittest.mock.ANY,
         "job_id": job.id,
         "type": "choices",
@@ -1109,7 +1110,7 @@ async def test_get_job_reports_no_interaction_after_the_response(job_session):
 
     result = await get_job(job, job_session)
 
-    assert result["pending_interaction"] is None
+    assert result["job"].interaction is None
 
 
 @pytest.mark.anyio
@@ -1123,6 +1124,25 @@ async def test_job_lists_report_the_pending_interaction(job_session):
     assert [j.interaction["choices"] for j in jobs] == [REVERT_CHOICES]
     assert [j.interaction["choices"] for j in running_jobs] == [REVERT_CHOICES]
     assert job.id == jobs[0].id == running_jobs[0].id
+
+
+@pytest.mark.anyio
+async def test_each_route_reports_a_job_with_the_same_fields(job_session):
+    job = job_with_revert_prompt(job_session)
+    JobrunnerStatus.set_pid(job_session, os.getpid())
+
+    # Each route detaches the jobs that it reports, so get_job() goes first.
+    from_get_job = (await get_job(job, job_session))["job"]
+    from_get_jobs = (await get_jobs(job_session, limit=10, skip=0))["jobs"][0]
+    from_jobrunner_status = (await jobrunner_status(job_session))["running_jobs"][0]
+
+    fields = [
+        set(jsonable_encoder(one))
+        for one in (from_get_jobs, from_jobrunner_status, from_get_job)
+    ]
+    assert fields[0] == fields[1] == fields[2]
+    assert {"interaction", "command_decoded", "running", "duration"} <= fields[0]
+    assert from_get_job.command_decoded == " ".join(json.loads(job.command))
 
 
 @pytest.mark.anyio
@@ -1211,7 +1231,7 @@ async def test_job_updates_report_that_a_prompt_has_details_and_leave_them_out(
 ):
     job = job_with_diff_prompt(job_session)
 
-    interaction = (await get_job(job, job_session))["pending_interaction"]
+    interaction = (await get_job(job, job_session))["job"].interaction
 
     assert interaction["has_details"] is True
     assert interaction["details_title"] == "Helmfile diffs"

@@ -25,6 +25,7 @@ const runningJob = {
 	id: 42,
 	type: 'backport',
 	command: '["scap", "backport", "1359282"]',
+	command_decoded: 'scap backport 1359282',
 	finished_at: null,
 	running: true
 };
@@ -70,8 +71,7 @@ describe( 'JobViewerPage', () => {
 
 	it( 'shows the pending interaction above and below the job', async () => {
 		getJobInfoMock.mockResolvedValue( {
-			job: runningJob,
-			pending_interaction: revertInteraction
+			job: { ...runningJob, interaction: revertInteraction }
 		} );
 
 		const wrapper = await mountJobViewerPage();
@@ -85,15 +85,13 @@ describe( 'JobViewerPage', () => {
 
 	it( 'shows an interaction that arrives while the page is open', async () => {
 		getJobInfoMock.mockResolvedValue( {
-			job: runningJob,
-			pending_interaction: null
+			job: { ...runningJob, interaction: null }
 		} );
 		const wrapper = await mountJobViewerPage();
 		expect( shownInteractions( wrapper ) ).toEqual( [] );
 
 		getJobInfoMock.mockResolvedValue( {
-			job: runningJob,
-			pending_interaction: revertInteraction
+			job: { ...runningJob, interaction: revertInteraction }
 		} );
 		await vi.advanceTimersByTimeAsync( 1000 );
 
@@ -104,14 +102,12 @@ describe( 'JobViewerPage', () => {
 
 	it( 'removes the interaction after the response', async () => {
 		getJobInfoMock.mockResolvedValue( {
-			job: runningJob,
-			pending_interaction: revertInteraction
+			job: { ...runningJob, interaction: revertInteraction }
 		} );
 		const wrapper = await mountJobViewerPage();
 
 		getJobInfoMock.mockResolvedValue( {
-			job: runningJob,
-			pending_interaction: null
+			job: { ...runningJob, interaction: null }
 		} );
 		await vi.advanceTimersByTimeAsync( 1000 );
 
@@ -120,8 +116,7 @@ describe( 'JobViewerPage', () => {
 
 	it( 'stops asking for the job after the job finishes', async () => {
 		getJobInfoMock.mockResolvedValue( {
-			job: { ...runningJob, finished_at: 1793125946, running: false },
-			pending_interaction: null
+			job: { ...runningJob, finished_at: 1793125946, running: false, interaction: null }
 		} );
 		await mountJobViewerPage();
 

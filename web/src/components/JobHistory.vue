@@ -127,10 +127,6 @@ export default {
 				);
 				const apiJobs = apiResponse.jobs;
 
-				for ( const job of apiJobs ) {
-					job.command_decoded = JSON.parse( job.command ).join( ' ' );
-				}
-
 				jobs.value = apiJobs;
 				loaded.value = true;
 				possiblyMoreHistory.value = ( apiJobs.length === numJobsToDisplay );

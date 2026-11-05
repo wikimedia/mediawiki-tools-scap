@@ -703,19 +703,11 @@ async def jobrunner_status(
     running_jobs = Job.get_running(session)
     busy_queues = sorted(job.queue for job in running_jobs)
 
-    for job in running_jobs:
-        # Detach the job object from the SQLAlchemy session so that we can
-        # safely modify it without the changes being committed back to the
-        # database.
-        session.expunge(job)
-        job.queue_name = job_queue_name(job)
-        job.status = job.extract_status()
-        job.data = load_job_data(job)
-        job.interaction = get_parsed_interaction(session, job)
-
     return {
         "status": "idle" if not running_jobs else "running",
-        "running_jobs": running_jobs,
+        "running_jobs": [
+            prepare_job_for_response(session, job) for job in running_jobs
+        ],
         "busy_queues": busy_queues,
     }
 
@@ -947,18 +939,30 @@ def _retry_deploy_service(job: Job, user: SessionUser, session: Session) -> dict
     }
 
 
-def set_additional_job_attributes(job: Job):
+def prepare_job_for_response(session: Session, job: Job) -> Job:
+    """Returns the job with the fields that the web UI reads."""
+    interaction = get_parsed_interaction(session, job)
+    # Detach the job object from the SQLAlchemy session so that we can
+    # safely modify it without the changes being committed back to the
+    # database.
+    session.expunge(job)
+    job.queue_name = job_queue_name(job)
+    job.status = job.extract_status()
+    job.data = load_job_data(job)
+    job.interaction = interaction
+    job.command_decoded = " ".join(json.loads(job.command))
     job.running = (
         job.started_at is not None
         and job.finished_at is None
         and job.status["status"] != "orphaned"
     )
     job.orphaned = not job.running and job.status["status"] == "orphaned"
-
-    if not job.started_at:
-        return
-    end = job.finished_at if job.finished_at else time.time()
-    job.duration = end - job.started_at
+    if job.started_at:
+        end = job.finished_at if job.finished_at else time.time()
+        job.duration = end - job.started_at
+    else:
+        job.duration = None
+    return job
 
 
 @app.get("/api/jobs")
@@ -970,19 +974,8 @@ async def get_jobs(
 ):
     jobs = Job.get_jobs(session, limit, skip, type)
 
-    for job in jobs:
-        # Detach the job object from the SQLAlchemy session so that we can
-        # safely modify it without the changes being committed back to the
-        # database.
-        session.expunge(job)
-        job.queue_name = job_queue_name(job)
-        job.status = job.extract_status()
-        job.interaction = get_parsed_interaction(session, job)
-        job.data = load_job_data(job)
-        set_additional_job_attributes(job)
-
     return {
-        "jobs": jobs,
+        "jobs": [prepare_job_for_response(session, job) for job in jobs],
     }
 
 
@@ -991,20 +984,8 @@ async def get_job(
     job: Annotated[Job, Depends(get_job_by_id)],
     session: Session = Depends(get_db_session, scope="function"),
 ):
-    i = get_parsed_interaction(session, job)
-
-    # Detach the job object from the SQLAlchemy session so that we can
-    # safely modify it without the changes being committed back to the
-    # database.
-    session.expunge(job)
-    job.queue_name = job_queue_name(job)
-    job.status = job.extract_status()
-    job.data = load_job_data(job)
-    set_additional_job_attributes(job)
-
     return {
-        "job": job,
-        "pending_interaction": i,
+        "job": prepare_job_for_response(session, job),
     }
 
 

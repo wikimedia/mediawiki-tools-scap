@@ -115,11 +115,8 @@ export default defineComponent( {
 
 		const monitorJob = async ( jobId: string ) => {
 			const jobInfo = await api.getJobInfo( jobId );
-			const fetchedJob = jobInfo.job;
-
-			fetchedJob.command_decoded = JSON.parse( fetchedJob.command ).join( ' ' );
-			job.value = fetchedJob;
-			interaction.value = jobInfo.pending_interaction;
+			job.value = jobInfo.job;
+			interaction.value = jobInfo.job.interaction;
 
 			if ( job.value.finished_at ) {
 				stopMonitor();
