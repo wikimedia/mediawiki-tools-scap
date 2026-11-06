@@ -1322,7 +1322,7 @@ def _dependencies(dependant):
         yield from _dependencies(dependency)
 
 
-def test_job_digest_changes_with_each_job_page_update(job_session):
+def test_job_digest_changes_with_each_job_list_update(job_session):
     digests = [Job.digest(job_session)]
 
     def assert_digest_changes():
@@ -1351,6 +1351,36 @@ def test_job_digest_changes_with_each_job_page_update(job_session):
     assert Job.digest(job_session) == digests[-1]
 
 
+def test_unfinished_job_digests_change_only_for_the_job_that_changed(job_session):
+    shellbox = add_job(job_session, JobType.DEPLOY_SERVICE, "shellbox")
+    backport = add_job(job_session, JobType.BACKPORT)
+    digests = [Job.unfinished_digests(job_session)]
+    assert set(digests[0]) == {str(shellbox), str(backport)}
+
+    def assert_only_shellbox_changes():
+        digests.append(Job.unfinished_digests(job_session))
+        assert digests[-1][str(shellbox)] != digests[-2][str(shellbox)]
+        assert digests[-1][str(backport)] == digests[-2][str(backport)]
+
+    job = Job.pop(job_session, set())
+    assert job.id == shellbox
+    assert_only_shellbox_changes()
+    job.set_status(job_session, "Running")
+    assert_only_shellbox_changes()
+    Interaction.register(
+        job_session, shellbox, "choices", "Continue?", {"Yes": "y", "No": "n"}, "n"
+    )
+    assert_only_shellbox_changes()
+    Interaction.lookup_pending(job_session, shellbox).respond(job_session, "bruce", "y")
+    assert_only_shellbox_changes()
+
+    job.finish(job_session, 0)
+
+    assert Job.unfinished_digests(job_session) == {
+        str(backport): digests[-1][str(backport)]
+    }
+
+
 def test_events_snapshot_matches_the_jobrunner_status_route(job_session, api_db_file):
     job = job_with_revert_prompt(job_session)
     JobrunnerStatus.set_pid(job_session, os.getpid())
@@ -1360,6 +1390,7 @@ def test_events_snapshot_matches_the_jobrunner_status_route(job_session, api_db_
     assert snapshot["jobrunner"] == jsonable_encoder(get_jobrunner_status(job_session))
     assert [j["id"] for j in snapshot["jobrunner"]["running_jobs"]] == [job.id]
     assert snapshot["jobs_digest"] == Job.digest(job_session)
+    assert snapshot["unfinished_job_digests"] == Job.unfinished_digests(job_session)
 
 
 def test_db_sessions_close_before_the_response_is_sent():

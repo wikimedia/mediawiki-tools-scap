@@ -268,22 +268,41 @@ class Job(Base):
         return list(session.scalars(stmt))
 
     @classmethod
-    def digest(cls, session) -> str:
-        """Returns a digest that changes when a job page should show different data.
+    def unfinished_digests(cls, session) -> Dict[str, str]:
+        """Returns a digest of each unfinished job, keyed by the id of the job.
 
-        A new job, a status update, the start or end of a job, and a change to an
-        interaction each change the digest.  A finished job does not change.
+        The digest of a job changes when its page should show different data: when the
+        job starts, when its status updates, and when one of its interactions changes.
         """
+        interactions: Dict[int, list] = {}
+        for job_id, interaction_id, response in session.execute(
+            select(Interaction.job_id, Interaction.id, Interaction.response).order_by(
+                Interaction.id
+            )
+        ):
+            interactions.setdefault(job_id, []).append([interaction_id, response])
+
         unfinished = select(Job.id, Job.started_at, Job.status).where(
             Job.finished_at == null()
         )
-        interactions = select(Interaction.id, Interaction.response)
+        return {
+            str(job_id): hashlib.sha256(
+                json.dumps([started_at, status, interactions.get(job_id, [])]).encode()
+            ).hexdigest()
+            for job_id, started_at, status in session.execute(unfinished)
+        }
+
+    @classmethod
+    def digest(cls, session) -> str:
+        """Returns a digest that changes when a job list should show different data.
+
+        A new job, the end of a job, and each change to an unfinished job change it.
+        """
         state = [
             session.scalar(select(func.max(Job.id))),
-            [list(row) for row in session.execute(unfinished)],
-            [list(row) for row in session.execute(interactions)],
+            cls.unfinished_digests(session),
         ]
-        return hashlib.sha256(json.dumps(state).encode()).hexdigest()
+        return hashlib.sha256(json.dumps(state, sort_keys=True).encode()).hexdigest()
 
     @property
     def queue(self) -> str:

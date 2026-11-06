@@ -727,6 +727,7 @@ def get_events_snapshot() -> dict:
         return {
             "jobrunner": jsonable_encoder(get_jobrunner_status(session)),
             "jobs_digest": Job.digest(session),
+            "unfinished_job_digests": Job.unfinished_digests(session),
         }
 
 
