@@ -271,32 +271,31 @@ class Job(Base):
     def unfinished_digests(cls, session) -> Dict[str, str]:
         """Returns a digest of each unfinished job, keyed by the id of the job.
 
-        The digest of a job changes when its page should show different data: when the
-        job starts, when its status updates, and when one of its interactions changes.
+        The digest of a job changes with each change to the job or to one of its
+        interactions.
         """
         interactions: Dict[int, list] = {}
-        for job_id, interaction_id, response in session.execute(
-            select(Interaction.job_id, Interaction.id, Interaction.response).order_by(
-                Interaction.id
-            )
+        for row in session.execute(
+            select(Interaction.__table__).order_by(Interaction.id)
         ):
-            interactions.setdefault(job_id, []).append([interaction_id, response])
+            interactions.setdefault(row.job_id, []).append(list(row))
 
-        unfinished = select(Job.id, Job.started_at, Job.status).where(
-            Job.finished_at == null()
-        )
+        unfinished = select(Job.__table__).where(Job.finished_at == null())
         return {
-            str(job_id): hashlib.sha256(
-                json.dumps([started_at, status, interactions.get(job_id, [])]).encode()
+            str(row.id): hashlib.sha256(
+                json.dumps(
+                    [list(row), interactions.get(row.id, [])], default=str
+                ).encode()
             ).hexdigest()
-            for job_id, started_at, status in session.execute(unfinished)
+            for row in session.execute(unfinished)
         }
 
     @classmethod
     def digest(cls, session) -> str:
         """Returns a digest that changes when a job list should show different data.
 
-        A new job, the end of a job, and each change to an unfinished job change it.
+        A new job arriving and each change to an unfinished job (including
+        becoming finished) results in a change to the digest.
         """
         state = [
             session.scalar(select(func.max(Job.id))),

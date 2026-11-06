@@ -727,6 +727,8 @@ def get_events_snapshot() -> dict:
         return {
             "jobrunner": jsonable_encoder(get_jobrunner_status(session)),
             "jobs_digest": Job.digest(session),
+            # A job list watches "jobs_digest".  A job page watches only the entry of
+            # its own job here, so a change to another job does not make it refetch.
             "unfinished_job_digests": Job.unfinished_digests(session),
         }
 
