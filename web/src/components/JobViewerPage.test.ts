@@ -1,16 +1,23 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { flushPromises, mount, VueWrapper } from '@vue/test-utils';
+import { enableAutoUnmount, flushPromises, mount, VueWrapper } from '@vue/test-utils';
 import { createMemoryHistory, createRouter } from 'vue-router';
 import { createVuetify } from 'vuetify';
 import JobViewerPage from './JobViewerPage.vue';
+import { unfinishedJobDigests } from '../events';
 
 const getJobInfoMock = vi.fn();
 
 vi.mock( '../api', () => ( {
 	default: () => ( {
-		getJobInfo: getJobInfoMock
+		getJobInfo: getJobInfoMock,
+		// The tests set unfinishedJobDigests instead of using the event stream.
+		getEvents: () => new Promise( () => {} )
 	} )
 } ) );
+
+// A page that stayed mounted after its test would refetch when a later test sets
+// unfinishedJobDigests.
+enableAutoUnmount( afterEach );
 
 const stub = { template: '<div />' };
 
@@ -61,12 +68,8 @@ function shownInteractions( wrapper: VueWrapper ) {
 
 describe( 'JobViewerPage', () => {
 	beforeEach( () => {
-		vi.useFakeTimers();
 		getJobInfoMock.mockReset();
-	} );
-
-	afterEach( () => {
-		vi.useRealTimers();
+		unfinishedJobDigests.value = { 42: 'queued' };
 	} );
 
 	it( 'shows the pending interaction above and below the job', async () => {
@@ -93,7 +96,8 @@ describe( 'JobViewerPage', () => {
 		getJobInfoMock.mockResolvedValue( {
 			job: { ...runningJob, interaction: revertInteraction }
 		} );
-		await vi.advanceTimersByTimeAsync( 1000 );
+		unfinishedJobDigests.value = { 42: 'prompted' };
+		await flushPromises();
 
 		expect( shownInteractions( wrapper ) ).toEqual(
 			[ revertInteraction, revertInteraction ]
@@ -109,19 +113,39 @@ describe( 'JobViewerPage', () => {
 		getJobInfoMock.mockResolvedValue( {
 			job: { ...runningJob, interaction: null }
 		} );
-		await vi.advanceTimersByTimeAsync( 1000 );
+		unfinishedJobDigests.value = { 42: 'responded' };
+		await flushPromises();
 
 		expect( shownInteractions( wrapper ) ).toEqual( [] );
 	} );
 
-	it( 'stops asking for the job after the job finishes', async () => {
+	it( 'ignores changes to other jobs', async () => {
 		getJobInfoMock.mockResolvedValue( {
-			job: { ...runningJob, finished_at: 1793125946, running: false, interaction: null }
+			job: { ...runningJob, interaction: null }
 		} );
 		await mountJobViewerPage();
 
-		await vi.advanceTimersByTimeAsync( 5000 );
+		unfinishedJobDigests.value = { 42: 'queued', 43: 'queued' };
+		await flushPromises();
 
 		expect( getJobInfoMock ).toHaveBeenCalledTimes( 1 );
+	} );
+
+	it( 'shows the job after it finishes', async () => {
+		getJobInfoMock.mockResolvedValue( {
+			job: { ...runningJob, interaction: null }
+		} );
+		const wrapper = await mountJobViewerPage();
+
+		const finishedJob = {
+			...runningJob, finished_at: 1793125946, running: false, interaction: null
+		};
+		getJobInfoMock.mockResolvedValue( { job: finishedJob } );
+		unfinishedJobDigests.value = {};
+		await flushPromises();
+
+		expect( wrapper.findComponent( { name: 'SpJobCard' } ).props() )
+			.toMatchObject( { finished_at: 1793125946 } );
+		expect( getJobInfoMock ).toHaveBeenCalledTimes( 2 );
 	} );
 } );

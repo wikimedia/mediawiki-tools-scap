@@ -1,9 +1,16 @@
-import { ref, onMounted, onUnmounted } from 'vue';
+import { ref, watch, onMounted, onUnmounted, WatchSource } from 'vue';
 import useApi from './api';
 import JobrunnerStatus from './types/JobrunnerStatus';
 
 // The latest jobrunner status from the event stream.
 export const jobrunnerStatus = ref<JobrunnerStatus | null>( null );
+
+// Increments each time the event stream reports a change to the job list.
+export const jobListVersion = ref( 0 );
+
+// The digest of each unfinished job, keyed by the id of the job.  See
+// Job.unfinished_digests() in scap/spiderpig/model.py.
+export const unfinishedJobDigests = ref<Record<string, string>>( {} );
 
 let subscribers = 0;
 let abortController: AbortController | null = null;
@@ -70,6 +77,10 @@ async function readEvents( signal: AbortSignal ) {
 				retryDelay = minRetryDelay;
 				if ( rec.type === 'jobrunner' ) {
 					jobrunnerStatus.value = rec.data;
+				} else if ( rec.type === 'jobs_digest' ) {
+					jobListVersion.value++;
+				} else if ( rec.type === 'unfinished_job_digests' ) {
+					unfinishedJobDigests.value = rec.data;
 				}
 			}
 		} catch ( error ) {
@@ -104,12 +115,73 @@ function unsubscribe() {
 }
 
 /**
- * Keeps the event stream open while the calling component is mounted.  All components
- * in the page share one stream.
+ * Returns the refs that the event stream updates, and arranges for the stream to stay
+ * open while the calling component is mounted.  All components in the page share one
+ * stream.
  */
 export default function useEvents() {
 	onMounted( subscribe );
 	onUnmounted( unsubscribe );
 
-	return { jobrunnerStatus };
+	return { jobrunnerStatus, jobListVersion, unfinishedJobDigests };
+}
+
+/**
+ * Returns a function that calls updateFunc, and arranges for that function to be
+ * called when the calling component mounts and each time the value of one of the
+ * sources changes.
+ *
+ * Only one call to updateFunc is in progress at a time.  If the value of a source
+ * changes or the returned function is called during a call, updateFunc is called once
+ * more after it.
+ */
+function useUpdates( sources: WatchSource<unknown>[], updateFunc: () => Promise<void> ) {
+	let updating = false;
+	let pending = false;
+
+	async function update() {
+		if ( updating ) {
+			pending = true;
+			return;
+		}
+
+		updating = true;
+		try {
+			do {
+				pending = false;
+				try {
+					await updateFunc();
+				} catch ( error ) {
+					console.error( ( error as Error ).message );
+				}
+			} while ( pending );
+		} finally {
+			updating = false;
+		}
+	}
+
+	useEvents();
+	onMounted( update );
+	watch( sources, update );
+
+	return update;
+}
+
+// See useUpdates().  Here updateFunc is called when the calling component mounts and
+// with each change to the job list.
+export function useJobListUpdates( updateFunc: () => Promise<void> ) {
+	return useUpdates( [ jobListVersion ], updateFunc );
+}
+
+// See useUpdates().  Here updateFunc is called when the calling component mounts, when
+// jobIdFunc() returns a different id, and with each change to that job.  When the job
+// finishes, its entry leaves unfinishedJobDigests.  After the call for that change,
+// updateFunc is not called again for that job.
+export function useJobUpdates(
+	jobIdFunc: () => string, updateFunc: () => Promise<void>
+) {
+	return useUpdates(
+		[ jobIdFunc, () => unfinishedJobDigests.value[ jobIdFunc() ] ],
+		updateFunc
+	);
 }

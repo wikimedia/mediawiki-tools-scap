@@ -1,7 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { flushPromises, mount } from '@vue/test-utils';
-import { defineComponent, h } from 'vue';
-import useEvents, { jobrunnerStatus } from './events';
+import { defineComponent, h, ref } from 'vue';
+import useEvents, {
+	jobrunnerStatus, jobListVersion, unfinishedJobDigests, useJobListUpdates, useJobUpdates
+} from './events';
 
 const getEventsMock = vi.fn();
 
@@ -34,22 +36,50 @@ function mountWithEvents() {
 	} ) );
 }
 
+function mountWithJobUpdates(
+	jobIdFunc: () => string, updateFunc: () => Promise<void>
+) {
+	return mount( defineComponent( {
+		setup() {
+			useJobUpdates( jobIdFunc, updateFunc );
+			return () => h( 'div' );
+		}
+	} ) );
+}
+
+function mountWithJobListUpdates( updateFunc: () => Promise<void> ) {
+	let update!: () => Promise<void>;
+	const wrapper = mount( defineComponent( {
+		setup() {
+			update = useJobListUpdates( updateFunc );
+			return () => h( 'div' );
+		}
+	} ) );
+	return { wrapper, update };
+}
+
 describe( 'event stream', () => {
 	beforeEach( () => {
 		getEventsMock.mockReset();
 		jobrunnerStatus.value = null;
+		jobListVersion.value = 0;
+		unfinishedJobDigests.value = {};
 	} );
 
-	it( 'sets the jobrunner status from each jobrunner event', async () => {
+	it( 'sets the jobrunner status and the job digests, and counts job list changes', async () => {
 		getEventsMock.mockImplementation( async ( signal ) => streamResponse( [
 			'{"type": "jobrunner", "data": {"status": "idle"}}\n{"type": "jo',
 			'bs_digest", "data": "a"}\n{"type": "keepalive"}\n',
-			'{"type": "jobrunner", "data": {"status": "running"}}\n'
+			'{"type": "jobrunner", "data": {"status": "running"}}\n',
+			'{"type": "unfinished_job_digests", "data": {"42": "x"}}\n',
+			'{"type": "jobs_digest", "data": "b"}\n'
 		], signal ) );
 
 		const wrapper = mountWithEvents();
-		await vi.waitFor( () => expect( jobrunnerStatus.value ).toEqual( { status: 'running' } ) );
+		await vi.waitFor( () => expect( jobListVersion.value ).toBe( 2 ) );
 
+		expect( jobrunnerStatus.value ).toEqual( { status: 'running' } );
+		expect( unfinishedJobDigests.value ).toEqual( { 42: 'x' } );
 		expect( getEventsMock ).toHaveBeenCalledTimes( 1 );
 		wrapper.unmount();
 	} );
@@ -119,5 +149,97 @@ describe( 'event stream', () => {
 			);
 			wrapper.unmount();
 		} );
+	} );
+} );
+
+describe( 'useJobListUpdates', () => {
+	beforeEach( () => {
+		getEventsMock.mockReset();
+		getEventsMock.mockReturnValue( new Promise( () => {} ) );
+	} );
+
+	it( 'updates on mount and on each change to the job list', async () => {
+		const updateFunc = vi.fn( async () => {} );
+
+		const { wrapper } = mountWithJobListUpdates( updateFunc );
+		await flushPromises();
+		jobListVersion.value++;
+		await flushPromises();
+
+		expect( updateFunc ).toHaveBeenCalledTimes( 2 );
+		wrapper.unmount();
+	} );
+
+	it( 'calls updateFunc once more after the requests that come during a call', async () => {
+		let finishUpdate!: () => void;
+		const updateFunc = vi.fn( () => new Promise<void>( ( resolve ) => {
+			finishUpdate = resolve;
+		} ) );
+
+		const { wrapper, update } = mountWithJobListUpdates( updateFunc );
+		await flushPromises();
+		update();
+		update();
+		jobListVersion.value++;
+		await flushPromises();
+
+		expect( updateFunc ).toHaveBeenCalledTimes( 1 );
+
+		finishUpdate();
+		await flushPromises();
+		finishUpdate();
+		await flushPromises();
+
+		expect( updateFunc ).toHaveBeenCalledTimes( 2 );
+		wrapper.unmount();
+	} );
+} );
+
+describe( 'useJobUpdates', () => {
+	beforeEach( () => {
+		getEventsMock.mockReset();
+		getEventsMock.mockReturnValue( new Promise( () => {} ) );
+		unfinishedJobDigests.value = { 42: 'a', 43: 'a' };
+	} );
+
+	it( 'updates on mount and on each change to the job, including its end', async () => {
+		const updateFunc = vi.fn( async () => {} );
+
+		const wrapper = mountWithJobUpdates( () => '42', updateFunc );
+		await flushPromises();
+		unfinishedJobDigests.value = { 42: 'b', 43: 'a' };
+		await flushPromises();
+		unfinishedJobDigests.value = { 43: 'a' };
+		await flushPromises();
+
+		expect( updateFunc ).toHaveBeenCalledTimes( 3 );
+		wrapper.unmount();
+	} );
+
+	it( 'ignores changes to other jobs', async () => {
+		const updateFunc = vi.fn( async () => {} );
+
+		const wrapper = mountWithJobUpdates( () => '42', updateFunc );
+		await flushPromises();
+		unfinishedJobDigests.value = { 42: 'a', 43: 'b' };
+		await flushPromises();
+		unfinishedJobDigests.value = { 42: 'a' };
+		await flushPromises();
+
+		expect( updateFunc ).toHaveBeenCalledTimes( 1 );
+		wrapper.unmount();
+	} );
+
+	it( 'updates once when the job id changes', async () => {
+		const updateFunc = vi.fn( async () => {} );
+		const jobId = ref( '42' );
+
+		const wrapper = mountWithJobUpdates( () => jobId.value, updateFunc );
+		await flushPromises();
+		jobId.value = '44';
+		await flushPromises();
+
+		expect( updateFunc ).toHaveBeenCalledTimes( 2 );
+		wrapper.unmount();
 	} );
 } );

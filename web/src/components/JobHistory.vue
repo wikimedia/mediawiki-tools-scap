@@ -69,14 +69,13 @@
 </template>
 
 <script lang="ts">
-import { ref, computed, watch, onMounted, onUnmounted } from 'vue';
+import { ref, computed, watch } from 'vue';
 import { VSheet } from 'vuetify/components/VSheet';
 import { CdxButton, CdxCheckbox } from '@wikimedia/codex';
 import SpJobCard from './JobCard.vue';
 import useApi from '../api';
+import { useJobListUpdates } from '../events';
 import Job from '../types/Job';
-
-const INTERVAL = 1000;
 
 export default {
 	name: 'SpJobHistory',
@@ -117,8 +116,6 @@ export default {
 			'deploy-service': 'Service Deployment History'
 		} as Record<string, string> )[ selectedType.value ?? '' ] ?? 'Job History' ) );
 
-		let intervalTimer: ReturnType<typeof setInterval> | null = null;
-
 		let numJobsToDisplay = 5;
 
 		async function loadHistory() {
@@ -136,28 +133,18 @@ export default {
 			}
 		}
 
-		async function loadMoreHistory() {
+		const update = useJobListUpdates( loadHistory );
+
+		function loadMoreHistory() {
 			numJobsToDisplay += 5;
-			await loadHistory();
+			update();
 		}
 
 		watch( selectedType, () => {
 			numJobsToDisplay = 5;
 			jobs.value = [];
 			loaded.value = false;
-			loadHistory();
-		} );
-
-		onMounted( () => {
-			loadHistory();
-			intervalTimer = setInterval( loadHistory, INTERVAL );
-		} );
-
-		onUnmounted( () => {
-			if ( intervalTimer ) {
-				clearInterval( intervalTimer );
-				intervalTimer = null;
-			}
+			update();
 		} );
 
 		return {

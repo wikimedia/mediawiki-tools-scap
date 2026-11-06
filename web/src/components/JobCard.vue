@@ -296,6 +296,7 @@ import { defineComponent, ref, computed, PropType, watch } from 'vue';
 import { CdxCard, CdxAccordion, CdxProgressBar, CdxIcon, CdxDialog, CdxButton, CdxMessage } from '@wikimedia/codex';
 import { cdxIconLinkExternal, cdxIconReload } from '@wikimedia/codex-icons';
 import { VIcon } from 'vuetify/components/VIcon';
+import { useNow } from '@vueuse/core';
 import ChangeInfo from '../types/ChangeInfo';
 import { formatLinkifiedMessage } from '../linkify';
 import Interaction from '../types/Interaction';
@@ -510,6 +511,16 @@ export default defineComponent( {
 			return `${ formattedMinutes }m ${ formattedSeconds }s`;
 		}
 
+		// The server computes the duration of a running job when it sends the job.
+		// Add the time since then, so that the duration counts up between updates.
+		const now = useNow( { interval: 1000 } );
+		const durationReceivedAt = ref( Date.now() );
+		watch( () => props.duration, () => {
+			durationReceivedAt.value = Date.now();
+		} );
+		const runningDuration = computed( () => ( props.duration === null ? null :
+			props.duration + ( now.value.getTime() - durationReceivedAt.value ) / 1000 ) );
+
 		type FinishedInfo = {
 			time: string;
 			date: string;
@@ -536,21 +547,20 @@ export default defineComponent( {
 				};
 			}
 
-			const duration = prettyDuration( props.duration );
-
 			if ( props.finished_at ) {
 				const formattedDate = getFormattedDate( props.finished_at );
 				return {
 					time: formattedDate.time,
 					date: formattedDate.date,
 					message: '',
-					duration: duration
+					duration: prettyDuration( props.duration )
 				};
 			}
 
 			// Job has started but hasn't finished yet
+			const runningFor = prettyDuration( runningDuration.value );
 			return {
-				message: duration ? `Running for ${ duration }` : 'Running...',
+				message: runningFor ? `Running for ${ runningFor }` : 'Running...',
 				time: '',
 				date: '',
 				duration: ''

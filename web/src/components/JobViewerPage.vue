@@ -52,11 +52,12 @@
 </template>
 
 <script lang="ts">
-import { defineComponent, ref, onMounted, onUnmounted, watch } from 'vue';
+import { defineComponent, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import { VSheet } from 'vuetify/components/VSheet';
 import { VToolbar } from 'vuetify/components/VToolbar';
 import useApi from '../api';
+import { useJobUpdates } from '../events';
 import Interaction from '../types/Interaction';
 import Job from '../types/Job';
 import SpInteraction from './Interaction.vue';
@@ -104,25 +105,17 @@ export default defineComponent( {
 
 		// Reactive data properties.
 		const job = ref<Job | null>( null );
-		const monitorInterval = ref<ReturnType<typeof setInterval> | null>( null );
 		const interaction = ref<Interaction | null>( null );
 
 		// Methods.
-		const stopMonitor = () => {
-			if ( monitorInterval.value ) {
-				clearInterval( monitorInterval.value );
-				monitorInterval.value = null;
-			}
-		};
-
-		const monitorJob = async ( jobId: string ) => {
+		const loadJob = async () => {
+			const jobId = props.jobId;
 			const jobInfo = await api.getJobInfo( jobId );
+			if ( jobId !== props.jobId ) {
+				return;
+			}
 			job.value = jobInfo.job;
 			interaction.value = jobInfo.job.interaction;
-
-			if ( job.value.finished_at ) {
-				stopMonitor();
-			}
 		};
 
 		const clickSignalButton = ( action: string ) => {
@@ -135,25 +128,12 @@ export default defineComponent( {
 		};
 
 		// Lifecycle hooks.
-		const startMonitorFor = ( jobId: string ) => {
-			stopMonitor();
-			monitorInterval.value = setInterval( () => monitorJob( jobId ), 1000 );
-			monitorJob( jobId );
-		};
-
-		onMounted( () => {
-			startMonitorFor( props.jobId );
-		} );
-
-		watch( () => props.jobId, ( newJobId ) => {
+		watch( () => props.jobId, () => {
 			job.value = null;
 			interaction.value = null;
-			startMonitorFor( newJobId );
 		} );
 
-		onUnmounted( () => {
-			stopMonitor();
-		} );
+		useJobUpdates( () => props.jobId, loadJob );
 
 		return {
 			job,

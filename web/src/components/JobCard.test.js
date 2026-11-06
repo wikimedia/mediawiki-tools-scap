@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import SpJobCard from './JobCard.vue';
 
 const retryJobMock = vi.fn();
@@ -194,5 +194,31 @@ describe( 'SpJobCard retry button while a queue is busy', () => {
 
 		expect( setupResult.canRetry.value ).toBeFalsy();
 		expect( setupResult.retryDisabledReason.value ).toBe( 'MediaWiki is deploying' );
+	} );
+} );
+
+describe( 'SpJobCard running duration', () => {
+	beforeEach( () => {
+		vi.useFakeTimers();
+	} );
+
+	afterEach( () => {
+		vi.useRealTimers();
+	} );
+
+	it( 'counts up between updates of the job', async () => {
+		const setupResult = SpJobCard.setup( {
+			...testJobProps,
+			finished_at: null,
+			exit_status: null,
+			duration: 60,
+			running: true
+		} );
+
+		expect( setupResult.finishedInfo.value.message ).toBe( 'Running for 01m 00s' );
+
+		await vi.advanceTimersByTimeAsync( 5000 );
+
+		expect( setupResult.finishedInfo.value.message ).toBe( 'Running for 01m 05s' );
 	} );
 } );
