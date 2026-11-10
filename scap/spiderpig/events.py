@@ -51,6 +51,12 @@ class Broadcaster:
                         self._put_latest(queue, snapshot)
             await asyncio.sleep(self._interval)
 
+    def latest_snapshot(self) -> Optional[Dict]:
+        """Returns the latest snapshot, or None when no snapshot has succeeded for the stall timeout."""
+        if time.monotonic() - self._snapshot_time > self._stall_timeout:
+            return None
+        return self._snapshot
+
     @staticmethod
     def _put_latest(queue: asyncio.Queue, snapshot: Dict):
         if queue.full():

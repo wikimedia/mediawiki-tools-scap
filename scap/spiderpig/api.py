@@ -772,6 +772,12 @@ def get_events_snapshot() -> dict:
         return snapshot
 
 
+def snapshot_lists_job_as_unfinished(job_id: int) -> bool:
+    """Returns True when the latest event snapshot lists the job as unfinished."""
+    snapshot = app.state.broadcaster.latest_snapshot()
+    return snapshot is not None and str(job_id) in snapshot["unfinished_job_digests"]
+
+
 ##########
 # ROUTES #
 ##########
@@ -1215,13 +1221,14 @@ async def get_log(
                         yield toRecord(payload)
 
                     continue
-                # EOF
+                # Reach here if there's no more input available at this time, but there might be more later.
 
-                with _get_db_session() as session:
-                    job = await get_job_by_id(job_id, session)
-                if job.finished_at:
-                    yield toRecord({"type": "EOF", "recno": recno})
-                    return
+                if not snapshot_lists_job_as_unfinished(job_id):
+                    with _get_db_session() as session:
+                        job = await get_job_by_id(job_id, session)
+                    if job.finished_at:
+                        yield toRecord({"type": "EOF", "recno": recno})
+                        return
 
                 await asyncio.sleep(polling_interval)
 

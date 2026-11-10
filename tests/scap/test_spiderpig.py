@@ -1,5 +1,6 @@
 # Test spiderpig apiserver auth-related functions
 
+import asyncio
 import json
 import logging
 import re
@@ -50,6 +51,7 @@ from scap.spiderpig.api import (
     start_deploy_service,
 )
 from scap.deploy_service import Catalog
+from scap.spiderpig.events import Broadcaster
 import scap.logstash_poller as logstash_poller
 import scap.spiderpig.jobrunner as jobrunner
 from scap.spiderpig.model import (
@@ -1500,7 +1502,9 @@ def test_db_sessions_close_before_the_response_is_sent():
 
 
 @pytest.fixture
-def job_log_dir(tmpdir, api_db_file):
+def job_log_dir(tmpdir, api_db_file, mock_app):
+    # A broadcaster with no snapshot, so get_log() queries the database.
+    mock_app.state.broadcaster = Broadcaster(dict)
     logdir = tmpdir.mkdir("jobs")
     with unittest.mock.patch.dict(os.environ, {"SPIDERPIG_JOB_LOG_DIR": str(logdir)}):
         yield logdir
@@ -1539,6 +1543,30 @@ async def test_get_log_sends_the_lines_and_responses_of_the_job(
         {"type": "response", "user": "bruce", "response": "y", "recno": 5},
         {"type": "EOF", "recno": 7},
     ]
+
+
+@pytest.mark.anyio
+async def test_get_log_ends_only_when_the_event_snapshot_drops_the_job(
+    job_session, job_log_dir, mock_app
+):
+    job_id = finished_job_with_log(
+        job_session, job_log_dir, [{"type": "line", "line": "done"}]
+    )
+    broadcaster = mock_app.state.broadcaster
+    broadcaster._snapshot = {"unfinished_job_digests": {str(job_id): "a"}}
+    broadcaster._snapshot_time = time.monotonic()
+
+    records = (await get_log(job_id, False, 0)).body_iterator
+    assert json.loads(await records.__anext__())["type"] == "connected"
+    assert json.loads(await records.__anext__())["line"] == "done"
+
+    # The database says that the job is finished, but the snapshot lists it.
+    eof = asyncio.ensure_future(records.__anext__())
+    await asyncio.sleep(1.5)
+    assert not eof.done()
+
+    broadcaster._snapshot = {"unfinished_job_digests": {}}
+    assert json.loads(await asyncio.wait_for(eof, 5)) == {"type": "EOF", "recno": 1}
 
 
 @pytest.mark.anyio
