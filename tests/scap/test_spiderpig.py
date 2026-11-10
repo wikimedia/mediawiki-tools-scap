@@ -3,6 +3,7 @@
 import json
 import logging
 import re
+import shlex
 import textwrap
 import time
 from fastapi.datastructures import State
@@ -910,27 +911,23 @@ def test_get_running_reports_the_jobs_that_started_and_did_not_finish(job_sessio
     assert Job.get(job_session, queued).finished_at is not None
 
 
-# How long each job of the dispatch test runs.  It must be long enough that a
-# job which waits for a queue starts measurably later.
-JOB_SECONDS = 0.4
-
-
-def sleeper(seconds: float) -> list:
-    return ["bash", "-c", f"sleep {seconds}"]
-
-
-def drive_jobrunner(session, engine, logdir, job_ids, timeout=30) -> dict:
+def drive_jobrunner(
+    session, engine, logdir, job_ids, after_start_func, timeout=30
+) -> dict:
     """Runs the dispatch loop of the jobrunner until every job has finished.
 
-    Returns the time at which each job started, counted from the first pop.
+    Calls after_start_func after each job starts.  Returns, for each job, the ids
+    of the other jobs that were running when it started.
     """
     logger = logging.getLogger("test-jobrunner")
     workers = {}
-    started = {}
+    running = {}
+    others_running = {}
     began = time.time()
 
     while time.time() - began < timeout:
         jobrunner.reap_workers(workers)
+        running = {queue: running[queue] for queue in workers}
 
         job = Job.pop(session, set(workers))
         if job is None:
@@ -941,18 +938,26 @@ def drive_jobrunner(session, engine, logdir, job_ids, timeout=30) -> dict:
             time.sleep(0.02)
             continue
 
-        started[job.id] = time.time() - began
+        others_running[job.id] = set(running.values())
         workers[job.queue] = jobrunner.start_worker(job, engine, logger, logdir)
+        running[job.queue] = job.id
+        after_start_func(others_running)
 
     jobrunner.reap_workers(workers)
-    return started
+    return others_running
 
 
 def test_the_jobrunner_runs_one_job_at_a_time_in_each_queue(
     job_session, job_engine, tmpdir
 ):
     logdir = str(tmpdir.mkdir("jobs"))
-    command = sleeper(JOB_SECONDS)
+    # Each job runs until the test creates this file.
+    release = tmpdir.join("release")
+    command = [
+        "bash",
+        "-c",
+        f"until [ -e {shlex.quote(str(release))} ]; do sleep 0.01; done",
+    ]
 
     shellbox = add_job(job_session, JobType.DEPLOY_SERVICE, "shellbox", command)
     echostore = add_job(job_session, JobType.DEPLOY_SERVICE, "echostore", command)
@@ -960,17 +965,30 @@ def test_the_jobrunner_runs_one_job_at_a_time_in_each_queue(
     # Behind the first shellbox job, in the same queue.
     shellbox_again = add_job(job_session, JobType.DEPLOY_SERVICE, "shellbox", command)
 
+    def release_after_the_first_job_of_each_queue_starts(others_running):
+        if {shellbox, echostore, backport} <= others_running.keys():
+            release.ensure()
+
     job_ids = [shellbox, echostore, backport, shellbox_again]
-    started = drive_jobrunner(job_session, job_engine, logdir, job_ids)
+    try:
+        others_running = drive_jobrunner(
+            job_session,
+            job_engine,
+            logdir,
+            job_ids,
+            release_after_the_first_job_of_each_queue_starts,
+        )
+    finally:
+        release.ensure()
 
     for job_id in job_ids:
         assert Job.get(job_session, job_id).exit_status == 0
 
     # A job of another queue does not wait.
-    assert started[echostore] < started[shellbox] + JOB_SECONDS
-    assert started[backport] < started[shellbox] + JOB_SECONDS
-    # A job of a busy queue waits, and does not hold up the jobs behind it.
-    assert started[shellbox_again] >= started[shellbox] + JOB_SECONDS
+    assert others_running[echostore] == {shellbox}
+    assert others_running[backport] == {shellbox, echostore}
+    # A job of a busy queue waits.
+    assert shellbox not in others_running[shellbox_again]
 
 
 ROLLED_BACK_SCAP_COMMAND = textwrap.dedent(
