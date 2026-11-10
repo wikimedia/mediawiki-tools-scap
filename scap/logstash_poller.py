@@ -24,8 +24,10 @@ def main(cfg, logger, results_dir):
     )
     while True:
         try:
+            polled_at = time.time()
             results = poller.poll()
             summary = poller.summarize_errors(results)
+            summary["polled_at"] = polled_at
             with utils.temp_to_permanent_file(os.path.join(results_dir, LOG_FILE)) as f:
                 json.dump(summary, f)
         except Exception as e:

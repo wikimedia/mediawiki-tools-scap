@@ -733,6 +733,20 @@ def get_errors_digest(session: Session, logs: dict) -> str:
     return hashlib.sha256(json.dumps(state, sort_keys=True).encode()).hexdigest()
 
 
+def get_stale_error_poll_time(polled_at: Optional[float]) -> Optional[float]:
+    """Returns `polled_at` when the last successful logstash poll is too old, or None.
+
+    The poller writes its results every `logstash_poller.POLL_INTERVAL` seconds.  The
+    results are too old after four intervals without a write.  A results file without
+    "polled_at" is never too old.
+    """
+    if polled_at is None:
+        return None
+    if time.time() - polled_at > 4 * logstash_poller.POLL_INTERVAL:
+        return polled_at
+    return None
+
+
 def get_events_snapshot() -> dict:
     """Returns the state that the event streams send to clients."""
     with _get_db_session() as session:
@@ -746,11 +760,15 @@ def get_events_snapshot() -> dict:
         # A bad logstash poller results file must not stop the job events.
         try:
             logs = _read_logstash_errors()
+            # Each poll writes a new "polled_at", so it must not change the digest.
+            polled_at = logs.pop("polled_at", None)
             snapshot["error_total"] = logs.get("total", 0)
             snapshot["errors_digest"] = get_errors_digest(session, logs)
+            snapshot["stale_error_poll_time"] = get_stale_error_poll_time(polled_at)
         except Exception:
             snapshot["error_total"] = None
             snapshot["errors_digest"] = None
+            snapshot["stale_error_poll_time"] = None
         return snapshot
 
 

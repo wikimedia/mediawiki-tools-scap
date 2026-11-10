@@ -13,6 +13,15 @@
 					Hide messages with notes
 				</cdx-checkbox>
 			</div>
+			<cdx-message
+				v-if="staleErrorPollTime !== null"
+				type="warning"
+				class="error-logs__stale"
+			>
+				The last successful logstash poll was
+				{{ formatAge( staleErrorPollTime, now ) }}.
+				These counts may be out of date.
+			</cdx-message>
 		</template>
 
 		<v-data-table
@@ -146,7 +155,7 @@ import rison from 'rison-node';
 const search = ref( '' );
 
 import useApi from '../api';
-import { useErrorLogsUpdates } from '../events';
+import { staleErrorPollTime, useErrorLogsUpdates } from '../events';
 import { formatLinkifiedMessage } from '../linkify';
 import { taskSearchUrl } from '../phabricator';
 import { formatAge } from '../time';
@@ -349,6 +358,9 @@ export default defineComponent( {
 			noteError,
 			noteTarget,
 			noteByline,
+			now,
+			formatAge,
+			staleErrorPollTime,
 			openNoteEditor,
 			openNoteRemover,
 			cdxIconAdd,
@@ -410,6 +422,10 @@ export default defineComponent( {
 	.cdx-checkbox {
 		flex-shrink: 0;
 	}
+}
+
+.error-logs__stale {
+	margin-top: @spacing-100;
 }
 
 .error-note {

@@ -1420,7 +1420,7 @@ def test_events_snapshot_reports_the_error_total(spiderpigdir, api_db_file):
     assert get_events_snapshot()["error_total"] == 7
 
 
-@pytest.mark.parametrize("content", ['{"errors": {', "[]"])
+@pytest.mark.parametrize("content", ['{"errors": {', "[]", '{"polled_at": "noon"}'])
 def test_events_snapshot_reports_jobs_while_the_error_logs_are_unusable(
     spiderpigdir, job_session, api_db_file, content
 ):
@@ -1432,6 +1432,21 @@ def test_events_snapshot_reports_jobs_while_the_error_logs_are_unusable(
     assert snapshot["jobs_digest"] == Job.digest(job_session)
     assert snapshot["error_total"] is None
     assert snapshot["errors_digest"] is None
+    assert snapshot["stale_error_poll_time"] is None
+
+
+def test_events_snapshot_reports_a_stale_error_poll(spiderpigdir, api_db_file):
+    log_file = os.path.join(spiderpigdir, logstash_poller.LOG_FILE)
+
+    def stale_error_poll_time(polled_at):
+        with open(log_file, "w") as f:
+            json.dump({"errors": {}, "total": 0, "polled_at": polled_at}, f)
+        return get_events_snapshot()["stale_error_poll_time"]
+
+    assert get_events_snapshot()["stale_error_poll_time"] is None
+    assert stale_error_poll_time(time.time() - 30) is None
+    polled_at = time.time() - 61
+    assert stale_error_poll_time(polled_at) == polled_at
 
 
 def test_errors_digest_changes_with_each_error_logs_page_update(
@@ -1447,7 +1462,11 @@ def test_errors_digest_changes_with_each_error_logs_page_update(
     def write_poll_result(count):
         with open(log_file, "w") as f:
             json.dump(
-                {"errors": {"bad thing": {"count": count, "versions": []}}, "total": 1},
+                {
+                    "errors": {"bad thing": {"count": count, "versions": []}},
+                    "total": 1,
+                    "polled_at": time.time(),
+                },
                 f,
             )
 

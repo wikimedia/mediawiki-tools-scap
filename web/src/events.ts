@@ -20,6 +20,10 @@ export const errorTotal = ref<number | null>( null );
 // to the logstash poll results or to an error note.
 export const errorLogsVersion = ref( 0 );
 
+// The time (in seconds since the epoch) of the last successful logstash poll when that
+// poll is too old, or null.
+export const staleErrorPollTime = ref<number | null>( null );
+
 let subscribers = 0;
 let abortController: AbortController | null = null;
 
@@ -93,6 +97,8 @@ async function readEvents( signal: AbortSignal ) {
 					errorTotal.value = rec.data;
 				} else if ( rec.type === 'errors_digest' ) {
 					errorLogsVersion.value++;
+				} else if ( rec.type === 'stale_error_poll_time' ) {
+					staleErrorPollTime.value = rec.data;
 				}
 			}
 		} catch ( error ) {
@@ -136,7 +142,12 @@ export default function useEvents() {
 	onUnmounted( unsubscribe );
 
 	return {
-		jobrunnerStatus, jobListVersion, unfinishedJobDigests, errorTotal, errorLogsVersion
+		jobrunnerStatus,
+		jobListVersion,
+		unfinishedJobDigests,
+		errorTotal,
+		errorLogsVersion,
+		staleErrorPollTime
 	};
 }
 

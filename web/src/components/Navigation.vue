@@ -113,7 +113,8 @@ export default defineComponent( {
 		letter-spacing: 0.4px;
 	}
 
-	.cdx-icon {
+	// The icon of an info chip keeps its status color.
+	.cdx-icon:not( .cdx-info-chip__icon--vue ) {
 		color: rgb(var(--v-theme-on-surface-variant));
 	}
 

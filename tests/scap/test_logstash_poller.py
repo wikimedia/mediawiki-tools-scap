@@ -1,7 +1,11 @@
 import datetime
+import json
 import logging
 import pathlib
 import sys
+import time
+
+import pytest
 
 from scap import cli
 import scap.logstash_poller as logstash_poller
@@ -99,6 +103,34 @@ def test_summarize_errors_lists_the_versions():
 
     # A deployment moves between two versions, so one message holds both.
     assert any(len(entry["versions"]) > 1 for entry in summary["errors"].values())
+
+
+class _Stop(Exception):
+    pass
+
+
+def test_main_writes_the_poll_time_with_the_summary(tmp_path, monkeypatch):
+    poller = _poller()
+    monkeypatch.setattr(logstash_poller, "LogstashPoller", lambda *args: poller)
+
+    def stop(seconds):
+        raise _Stop()
+
+    monkeypatch.setattr(logstash_poller.time, "sleep", stop)
+    cfg = {
+        "logstash_url": "http://fake-logstash.example",
+        "debug_logstash": False,
+        "logstash_credentials_file": None,
+    }
+
+    before = time.time()
+    with pytest.raises(_Stop):
+        logstash_poller.main(cfg, logging.getLogger("test.poller"), str(tmp_path))
+
+    with open(tmp_path / logstash_poller.LOG_FILE) as f:
+        summary = json.load(f)
+    assert before <= summary["polled_at"] <= time.time()
+    assert summary["total"] == _records_of_the_window()
 
 
 def test_poll_logstash_logs_the_count_of_each_message(monkeypatch, caplog):

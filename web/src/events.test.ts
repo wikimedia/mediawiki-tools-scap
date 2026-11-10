@@ -2,8 +2,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { flushPromises, mount } from '@vue/test-utils';
 import { defineComponent, h, ref } from 'vue';
 import useEvents, {
-	errorLogsVersion, errorTotal, jobrunnerStatus, jobListVersion, unfinishedJobDigests,
-	useErrorLogsUpdates, useJobListUpdates, useJobUpdates
+	errorLogsVersion, errorTotal, jobrunnerStatus, jobListVersion, staleErrorPollTime,
+	unfinishedJobDigests, useErrorLogsUpdates, useJobListUpdates, useJobUpdates
 } from './events';
 
 const getEventsMock = vi.fn();
@@ -76,6 +76,7 @@ describe( 'event stream', () => {
 		unfinishedJobDigests.value = {};
 		errorTotal.value = null;
 		errorLogsVersion.value = 0;
+		staleErrorPollTime.value = null;
 	} );
 
 	it( 'sets the jobrunner status and the job digests, and counts job list changes', async () => {
@@ -96,9 +97,10 @@ describe( 'event stream', () => {
 		wrapper.unmount();
 	} );
 
-	it( 'sets the error total and counts error log changes', async () => {
+	it( 'sets the error total and the stale poll time, and counts error log changes', async () => {
 		getEventsMock.mockImplementation( async ( signal ) => streamResponse( [
 			'{"type": "error_total", "data": 7}\n{"type": "errors_digest", "data": "a"}\n',
+			'{"type": "stale_error_poll_time", "data": 1700000000.5}\n',
 			'{"type": "error_total", "data": null}\n{"type": "errors_digest", "data": null}\n'
 		], signal ) );
 
@@ -106,6 +108,7 @@ describe( 'event stream', () => {
 		await vi.waitFor( () => expect( errorLogsVersion.value ).toBe( 2 ) );
 
 		expect( errorTotal.value ).toBe( null );
+		expect( staleErrorPollTime.value ).toBe( 1700000000.5 );
 		wrapper.unmount();
 	} );
 
