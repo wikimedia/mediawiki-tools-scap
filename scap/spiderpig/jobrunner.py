@@ -10,7 +10,7 @@ import stat
 import subprocess
 import threading
 import time
-from typing import Optional, Tuple
+from typing import List, Optional, Tuple
 
 import scap.cli as cli
 from scap.interaction import TerminalIO
@@ -169,6 +169,7 @@ class RunningJob:
     iokey: str
     job_queue: queue.Queue = field(default_factory=queue.Queue)
     stop: threading.Event = field(default_factory=threading.Event)
+    db_monitors: List[threading.Thread] = field(default_factory=list)
 
     def monitor_output(self):
         while not self.stop.is_set():
@@ -214,7 +215,7 @@ class RunningJob:
                 i = Interruption.pop(session, self.job_id)
                 if i is None:
                     session.rollback()
-                    time.sleep(POLLING_INTERVAL)
+                    self.stop.wait(POLLING_INTERVAL)
                     continue
                 # Found an interruption
                 self.job_queue.put(i)
@@ -228,19 +229,22 @@ class RunningJob:
                 if resp:
                     self.job_queue.put(resp)
                 else:
-                    time.sleep(POLLING_INTERVAL)
+                    self.stop.wait(POLLING_INTERVAL)
                     continue
 
     def start_monitors(self):
-        for monitor in [
-            self.monitor_output,
-            self.monitor_interruptions,
-            self.monitor_interaction_responses,
-        ]:
-            threading.Thread(target=monitor, daemon=True).start()
+        threading.Thread(target=self.monitor_output, daemon=True).start()
+        for monitor in [self.monitor_interruptions, self.monitor_interaction_responses]:
+            thread = threading.Thread(target=monitor, daemon=True)
+            thread.start()
+            self.db_monitors.append(thread)
 
     def stop_monitors(self):
         self.stop.set()
+        # A monitor that outlives the job could open a connection after the
+        # engine is disposed.
+        for thread in self.db_monitors:
+            thread.join()
 
     def get(self):
         return self.job_queue.get()
