@@ -48,7 +48,7 @@
 					<!-- eslint-disable vue/no-v-html -->
 					<span
 						v-if="item.note"
-						:title="item.note.byline"
+						:title="noteByline( item.note )"
 						v-html="item.note.html"
 					/>
 					<!-- eslint-enable vue/no-v-html -->
@@ -94,8 +94,8 @@
 				<p class="error-note__dialog__subject">
 					{{ noteTarget.subject }}
 				</p>
-				<p v-if="noteTarget.byline" class="error-note__dialog__byline">
-					{{ noteTarget.byline }}
+				<p v-if="noteTarget.note" class="error-note__dialog__byline">
+					{{ noteByline( noteTarget.note ) }}
 				</p>
 			</template>
 			<cdx-text-area
@@ -125,7 +125,8 @@
 </template>
 
 <script>
-import { computed, onMounted, onUnmounted, defineComponent, ref } from 'vue';
+import { computed, defineComponent, ref } from 'vue';
+import { useNow } from '@vueuse/core';
 import {
 	CdxButton,
 	CdxCheckbox,
@@ -145,6 +146,7 @@ import rison from 'rison-node';
 const search = ref( '' );
 
 import useApi from '../api';
+import { useErrorLogsUpdates } from '../events';
 import { formatLinkifiedMessage } from '../linkify';
 import { taskSearchUrl } from '../phabricator';
 import { formatAge } from '../time';
@@ -181,8 +183,11 @@ export default defineComponent( {
 		} );
 
 		const maxMessageLength = 1000;
-		const INTERVAL = 15000;
-		let intervalTimer = null;
+
+		// The page loads the logs only when they change.  The ages of the notes count up
+		// here between loads.
+		const now = useNow( { interval: 60000 } );
+		const noteByline = ( note ) => `Set by ${ note.user }, ${ formatAge( note.updatedAt, now.value ) }`;
 
 		// The row that the dialog acts on.
 		const noteTarget = ref( null );
@@ -272,7 +277,8 @@ export default defineComponent( {
 					noteText: value.note ? value.note.text : '',
 					note: value.note ? {
 						html: formatLinkifiedMessage( value.note.linkified, 'cdx-link' ),
-						byline: `Set by ${ value.note.user }, ${ formatAge( value.note.updatedAt ) }`
+						user: value.note.user,
+						updatedAt: value.note.updatedAt
 					} : null
 				} );
 			}
@@ -288,12 +294,14 @@ export default defineComponent( {
 			items.value = newData;
 		};
 
+		const update = useErrorLogsUpdates( populateLogs );
+
 		const setNoteTarget = ( item ) => {
 			noteTarget.value = {
 				message: item.fullMessage,
 				subject: item.message.message,
 				text: item.noteText,
-				byline: item.note ? item.note.byline : ''
+				note: item.note
 			};
 			noteError.value = '';
 		};
@@ -317,7 +325,7 @@ export default defineComponent( {
 			try {
 				await api.setErrorNote( noteTarget.value.message, note );
 				dialogOpen.value = false;
-				await populateLogs();
+				await update();
 			} catch ( error ) {
 				noteError.value = error.respJson?.detail?.message || error.message;
 			}
@@ -325,18 +333,6 @@ export default defineComponent( {
 		};
 
 		const confirmDialog = () => writeNote( removing.value ? '' : noteDraft.value );
-
-		onMounted( () => {
-			intervalTimer = window.setInterval( populateLogs, INTERVAL );
-			populateLogs();
-		} );
-
-		onUnmounted( () => {
-			if ( intervalTimer ) {
-				clearInterval( intervalTimer );
-				intervalTimer = null;
-			}
-		} );
 
 		return {
 			headers,
@@ -352,6 +348,7 @@ export default defineComponent( {
 			noteDraft,
 			noteError,
 			noteTarget,
+			noteByline,
 			openNoteEditor,
 			openNoteRemover,
 			cdxIconAdd,

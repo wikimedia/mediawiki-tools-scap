@@ -2,7 +2,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { flushPromises, mount } from '@vue/test-utils';
 import { defineComponent, h, ref } from 'vue';
 import useEvents, {
-	jobrunnerStatus, jobListVersion, unfinishedJobDigests, useJobListUpdates, useJobUpdates
+	errorLogsVersion, errorTotal, jobrunnerStatus, jobListVersion, unfinishedJobDigests,
+	useErrorLogsUpdates, useJobListUpdates, useJobUpdates
 } from './events';
 
 const getEventsMock = vi.fn();
@@ -47,6 +48,15 @@ function mountWithJobUpdates(
 	} ) );
 }
 
+function mountWithErrorLogsUpdates( updateFunc: () => Promise<void> ) {
+	return mount( defineComponent( {
+		setup() {
+			useErrorLogsUpdates( updateFunc );
+			return () => h( 'div' );
+		}
+	} ) );
+}
+
 function mountWithJobListUpdates( updateFunc: () => Promise<void> ) {
 	let update!: () => Promise<void>;
 	const wrapper = mount( defineComponent( {
@@ -64,6 +74,8 @@ describe( 'event stream', () => {
 		jobrunnerStatus.value = null;
 		jobListVersion.value = 0;
 		unfinishedJobDigests.value = {};
+		errorTotal.value = null;
+		errorLogsVersion.value = 0;
 	} );
 
 	it( 'sets the jobrunner status and the job digests, and counts job list changes', async () => {
@@ -81,6 +93,19 @@ describe( 'event stream', () => {
 		expect( jobrunnerStatus.value ).toEqual( { status: 'running' } );
 		expect( unfinishedJobDigests.value ).toEqual( { 42: 'x' } );
 		expect( getEventsMock ).toHaveBeenCalledTimes( 1 );
+		wrapper.unmount();
+	} );
+
+	it( 'sets the error total and counts error log changes', async () => {
+		getEventsMock.mockImplementation( async ( signal ) => streamResponse( [
+			'{"type": "error_total", "data": 7}\n{"type": "errors_digest", "data": "a"}\n',
+			'{"type": "error_total", "data": null}\n{"type": "errors_digest", "data": null}\n'
+		], signal ) );
+
+		const wrapper = mountWithEvents();
+		await vi.waitFor( () => expect( errorLogsVersion.value ).toBe( 2 ) );
+
+		expect( errorTotal.value ).toBe( null );
 		wrapper.unmount();
 	} );
 
@@ -237,6 +262,25 @@ describe( 'useJobUpdates', () => {
 		const wrapper = mountWithJobUpdates( () => jobId.value, updateFunc );
 		await flushPromises();
 		jobId.value = '44';
+		await flushPromises();
+
+		expect( updateFunc ).toHaveBeenCalledTimes( 2 );
+		wrapper.unmount();
+	} );
+} );
+
+describe( 'useErrorLogsUpdates', () => {
+	beforeEach( () => {
+		getEventsMock.mockReset();
+		getEventsMock.mockReturnValue( new Promise( () => {} ) );
+	} );
+
+	it( 'updates on mount and on each change to the error logs', async () => {
+		const updateFunc = vi.fn( async () => {} );
+
+		const wrapper = mountWithErrorLogsUpdates( updateFunc );
+		await flushPromises();
+		errorLogsVersion.value++;
 		await flushPromises();
 
 		expect( updateFunc ).toHaveBeenCalledTimes( 2 );

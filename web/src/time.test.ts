@@ -33,4 +33,8 @@ describe( 'formatAge', () => {
 	it( 'formats a timestamp in the future', () => {
 		expect( formatAge( NOW + 3600 ) ).toBe( 'just now' );
 	} );
+
+	it( 'formats the age at the given time', () => {
+		expect( formatAge( NOW, new Date( ( NOW + 7200 ) * 1000 ) ) ).toBe( '2 hours ago' );
+	} );
 } );

@@ -50,12 +50,6 @@ export interface ErrorLogs {
 	}>
 }
 
-// Keep in sync with get_error_total() in scap/spiderpig/api.py.
-export interface ErrorTotal {
-	message: string
-	total: number
-}
-
 // The response of each route that creates a job.  Keep in sync with start_train(),
 // start_deploy_service(), _create_backport_job() and retry_job() in
 // scap/spiderpig/api.py.
@@ -293,10 +287,13 @@ const useAuthStore = defineStore( 'spiderpig-auth',
 				return await this.call( '/api/whoami' );
 			},
 			async getEvents( abortsignal: AbortSignal ): Promise<Response> {
+				// The navigation bar opens the event stream on the login page too.  A user who
+				// has not entered their OTP yet gets a 401 there, and a redirect to the login
+				// page would load that page again, without end.
 				return await this.call(
 					'/api/events',
 					{ signal: abortsignal },
-					{ decodeJson: false }
+					{ decodeJson: false, redirectOn401: window.location.pathname !== '/login' }
 				);
 			},
 			async getJobrunnerStatus(): Promise<JobrunnerStatus> {
@@ -321,14 +318,6 @@ const useAuthStore = defineStore( 'spiderpig-auth',
 				await this.post(
 					'/api/monitoring/logs/mediawiki/note',
 					{ message, note }
-				);
-			},
-			async getLogsTotal(): Promise<ErrorTotal> {
-				// Setting redirectOn401 here avoids the total widget causing
-				// a redirect loop for users who haven't entered their OTP yet:
-				return await this.call( '/api/monitoring/logs/mediawiki/total',
-					{},
-					{ redirectOn401: false }
 				);
 			},
 			async respondInteraction(

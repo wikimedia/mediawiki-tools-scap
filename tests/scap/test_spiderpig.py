@@ -1411,6 +1411,63 @@ def test_events_snapshot_matches_the_jobrunner_status_route(job_session, api_db_
     assert snapshot["unfinished_job_digests"] == Job.unfinished_digests(job_session)
 
 
+def test_events_snapshot_reports_the_error_total(spiderpigdir, api_db_file):
+    assert get_events_snapshot()["error_total"] == 0
+
+    with open(os.path.join(spiderpigdir, logstash_poller.LOG_FILE), "w") as f:
+        json.dump({"errors": {}, "total": 7}, f)
+
+    assert get_events_snapshot()["error_total"] == 7
+
+
+@pytest.mark.parametrize("content", ['{"errors": {', "[]"])
+def test_events_snapshot_reports_jobs_while_the_error_logs_are_unusable(
+    spiderpigdir, job_session, api_db_file, content
+):
+    with open(os.path.join(spiderpigdir, logstash_poller.LOG_FILE), "w") as f:
+        f.write(content)
+
+    snapshot = get_events_snapshot()
+
+    assert snapshot["jobs_digest"] == Job.digest(job_session)
+    assert snapshot["error_total"] is None
+    assert snapshot["errors_digest"] is None
+
+
+def test_errors_digest_changes_with_each_error_logs_page_update(
+    spiderpigdir, job_session, api_db_file
+):
+    log_file = os.path.join(spiderpigdir, logstash_poller.LOG_FILE)
+    digests = [get_events_snapshot()["errors_digest"]]
+
+    def assert_digest_changes():
+        digests.append(get_events_snapshot()["errors_digest"])
+        assert digests[-1] != digests[-2]
+
+    def write_poll_result(count):
+        with open(log_file, "w") as f:
+            json.dump(
+                {"errors": {"bad thing": {"count": count, "versions": []}}, "total": 1},
+                f,
+            )
+
+    write_poll_result(1)
+    assert_digest_changes()
+    write_poll_result(2)
+    assert_digest_changes()
+    ErrorNote.save(job_session, "good thing", "T0", "bruce")
+    assert_digest_changes()
+    ErrorNote.save(job_session, "bad thing", "T1", "bruce")
+    assert_digest_changes()
+    ErrorNote.save(job_session, "bad thing", "T2", "bruce")
+    assert_digest_changes()
+    ErrorNote.remove(job_session, "good thing")
+    assert_digest_changes()
+
+    write_poll_result(2)
+    assert get_events_snapshot()["errors_digest"] == digests[-1]
+
+
 def test_db_sessions_close_before_the_response_is_sent():
     # A session that is open while the response is sent keeps its pooled connection.
     scopes = {

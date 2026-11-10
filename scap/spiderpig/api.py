@@ -6,6 +6,7 @@ from contextlib import asynccontextmanager
 from datetime import datetime
 import fcntl
 import functools
+import hashlib
 import html
 import json
 import logging
@@ -56,7 +57,7 @@ from fastapi.responses import (
 )
 from fastapi.staticfiles import StaticFiles
 
-from sqlalchemy import Engine
+from sqlalchemy import Engine, func, select
 from sqlalchemy.orm import Session
 
 from scap import cli, log, metrics, utils, gerrit, train, logstash_poller
@@ -721,16 +722,36 @@ def get_jobrunner_status(session: Session) -> dict:
     }
 
 
+def get_errors_digest(session: Session, logs: dict) -> str:
+    """Returns a digest that changes when the error logs page should show different data.
+
+    Each change to the logstash poller results or to an error note changes it.
+    """
+    # Each save of a note sets a new updated_at, and each removal lowers the count.
+    notes = session.execute(select(func.count(), func.max(ErrorNote.updated_at))).one()
+    state = [logs, list(notes)]
+    return hashlib.sha256(json.dumps(state, sort_keys=True).encode()).hexdigest()
+
+
 def get_events_snapshot() -> dict:
     """Returns the state that the event streams send to clients."""
     with _get_db_session() as session:
-        return {
+        snapshot = {
             "jobrunner": jsonable_encoder(get_jobrunner_status(session)),
             "jobs_digest": Job.digest(session),
             # A job list watches "jobs_digest".  A job page watches only the entry of
             # its own job here, so a change to another job does not make it refetch.
             "unfinished_job_digests": Job.unfinished_digests(session),
         }
+        # A bad logstash poller results file must not stop the job events.
+        try:
+            logs = _read_logstash_errors()
+            snapshot["error_total"] = logs.get("total", 0)
+            snapshot["errors_digest"] = get_errors_digest(session, logs)
+        except Exception:
+            snapshot["error_total"] = None
+            snapshot["errors_digest"] = None
+        return snapshot
 
 
 ##########
@@ -1262,15 +1283,6 @@ async def set_error_note(
 
     ErrorNote.remove(session, update.message)
     return {"message": "Note removed"}
-
-
-# Keep in sync with ErrorTotal in web/src/api.ts.
-@app.get("/api/monitoring/logs/mediawiki/total")
-async def get_error_total():
-    logs = _read_logstash_errors()
-    if logs:
-        return {"message": "Log total retrieved", "total": logs["total"]}
-    return {"message": "No log data - creation may be pending", "total": 0}
 
 
 # Retrieve the current state of MediaWiki train.

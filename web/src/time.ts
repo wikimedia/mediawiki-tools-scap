@@ -9,10 +9,11 @@ const ageUnits: [ Intl.RelativeTimeFormatUnit, number ][] = [
 ];
 
 /**
- * Formats a unix timestamp (in seconds) as its age. For example, "3 days ago".
+ * Formats a unix timestamp (in seconds) as its age at the given time. For example,
+ * "3 days ago".
  */
-export function formatAge( timestamp: number ): string {
-	const seconds = Date.now() / 1000 - timestamp;
+export function formatAge( timestamp: number, now: Date = new Date() ): string {
+	const seconds = now.getTime() / 1000 - timestamp;
 	for ( const [ unit, unitSeconds ] of ageUnits ) {
 		if ( seconds >= unitSeconds ) {
 			return relativeTime.format( -Math.floor( seconds / unitSeconds ), unit );

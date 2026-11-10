@@ -12,6 +12,14 @@ export const jobListVersion = ref( 0 );
 // Job.unfinished_digests() in scap/spiderpig/model.py.
 export const unfinishedJobDigests = ref<Record<string, string>>( {} );
 
+// The number of MediaWiki error records in the last logstash poll, or null while the
+// server cannot read the poll results.
+export const errorTotal = ref<number | null>( null );
+
+// Increments each time the event stream reports a change to the error logs: a change
+// to the logstash poll results or to an error note.
+export const errorLogsVersion = ref( 0 );
+
 let subscribers = 0;
 let abortController: AbortController | null = null;
 
@@ -81,6 +89,10 @@ async function readEvents( signal: AbortSignal ) {
 					jobListVersion.value++;
 				} else if ( rec.type === 'unfinished_job_digests' ) {
 					unfinishedJobDigests.value = rec.data;
+				} else if ( rec.type === 'error_total' ) {
+					errorTotal.value = rec.data;
+				} else if ( rec.type === 'errors_digest' ) {
+					errorLogsVersion.value++;
 				}
 			}
 		} catch ( error ) {
@@ -123,7 +135,9 @@ export default function useEvents() {
 	onMounted( subscribe );
 	onUnmounted( unsubscribe );
 
-	return { jobrunnerStatus, jobListVersion, unfinishedJobDigests };
+	return {
+		jobrunnerStatus, jobListVersion, unfinishedJobDigests, errorTotal, errorLogsVersion
+	};
 }
 
 /**
@@ -184,4 +198,10 @@ export function useJobUpdates(
 		[ jobIdFunc, () => unfinishedJobDigests.value[ jobIdFunc() ] ],
 		updateFunc
 	);
+}
+
+// See useUpdates().  Here updateFunc is called when the calling component mounts and
+// with each change to the error logs.
+export function useErrorLogsUpdates( updateFunc: () => Promise<void> ) {
+	return useUpdates( [ errorLogsVersion ], updateFunc );
 }
