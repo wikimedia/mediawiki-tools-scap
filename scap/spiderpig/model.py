@@ -219,7 +219,8 @@ class Job(Base):
     command: Mapped[str]  # Expected to be a JSON-encoded list.
     queued_at: Mapped[float] = mapped_column(default=time.time)
     started_at: Mapped[Optional[float]]
-    finished_at: Mapped[Optional[float]]
+    # The event snapshot looks up the unfinished jobs each second.
+    finished_at: Mapped[Optional[float]] = mapped_column(index=True)
     exit_status: Mapped[Optional[int]]
     status: Mapped[Optional[str]]
     data: Mapped[Optional[str]]  # Optional auxiliary information in JSON format
