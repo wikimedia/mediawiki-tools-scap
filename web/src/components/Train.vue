@@ -255,6 +255,7 @@
 
 <script lang="ts">
 import { computed, ref, onMounted, watch } from 'vue';
+import { useNow } from '@vueuse/core';
 import { useDisplay } from 'vuetify';
 import { VAlert } from 'vuetify/components/VAlert';
 import { VAutocomplete } from 'vuetify/components/VAutocomplete';
@@ -404,8 +405,10 @@ export default {
 		const isDisabled = computed(
 			() => deployment.value.noop || isRolling.value || mediawikiIsBusy.value
 		);
+		// The page can stay open past the release date without a refresh.
+		const now = useNow( { interval: 60000 } );
 		const isUpcoming = computed(
-			() => taskReleaseDate.value && ( ( new Date() ) < taskReleaseDate.value )
+			() => taskReleaseDate.value && now.value < taskReleaseDate.value
 		);
 		function buildStatusString( proposed: boolean ) {
 			const opstrings = {
