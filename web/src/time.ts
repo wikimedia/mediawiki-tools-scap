@@ -1,3 +1,5 @@
+import { useNow } from '@vueuse/core';
+
 const relativeTime = new Intl.RelativeTimeFormat( 'en', { numeric: 'auto' } );
 
 const ageUnits: [ Intl.RelativeTimeFormatUnit, number ][] = [
@@ -20,4 +22,19 @@ export function formatAge( timestamp: number, now: Date = new Date() ): string {
 		}
 	}
 	return 'just now';
+}
+
+/**
+ * Returns a function like formatAge() that measures against the current time.  A
+ * render or computed that calls the function is evaluated again each minute, so the
+ * ages that it shows count up.
+ */
+export function useAgeFormatter(): ( timestamp: number ) => string {
+	const minuteClock = useNow( { interval: 60000 } );
+	return ( timestamp ) => {
+		// Reading the clock makes the caller depend on it.  The age itself uses the
+		// current time, which can be up to a minute ahead of the clock.
+		void minuteClock.value;
+		return formatAge( timestamp );
+	};
 }

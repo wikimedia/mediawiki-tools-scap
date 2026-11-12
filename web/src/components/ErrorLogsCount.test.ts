@@ -49,4 +49,15 @@ describe( 'ErrorLogsCount', () => {
 		expect( chip.classes() ).toContain( 'cdx-info-chip--warning' );
 		expect( chip.attributes( 'title' ) ).toBe( 'The last successful logstash poll was 5 minutes ago' );
 	} );
+
+	it( 'measures the age of a stale poll from the time that the poll became stale', async () => {
+		const wrapper = mount( ErrorLogsCount );
+		// The clock moves on without a tick of the once-a-minute timer.
+		vi.setSystemTime( new Date( '2026-11-03T12:00:50Z' ) );
+		staleErrorPollTime.value = Date.parse( '2026-11-03T11:59:45Z' ) / 1000;
+		await nextTick();
+
+		expect( wrapper.find( '.cdx-info-chip' ).attributes( 'title' ) )
+			.toBe( 'The last successful logstash poll was 1 minute ago' );
+	} );
 } );

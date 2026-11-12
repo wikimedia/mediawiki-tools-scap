@@ -19,7 +19,7 @@
 				class="error-logs__stale"
 			>
 				The last successful logstash poll was
-				{{ formatAge( staleErrorPollTime, now ) }}.
+				{{ formatAge( staleErrorPollTime ) }}.
 				These counts may be out of date.
 			</cdx-message>
 		</template>
@@ -135,7 +135,6 @@
 
 <script>
 import { computed, defineComponent, ref } from 'vue';
-import { useNow } from '@vueuse/core';
 import {
 	CdxButton,
 	CdxCheckbox,
@@ -158,7 +157,7 @@ import useApi from '../api';
 import { staleErrorPollTime, useErrorLogsUpdates } from '../events';
 import { formatLinkifiedMessage } from '../linkify';
 import { taskSearchUrl } from '../phabricator';
-import { formatAge } from '../time';
+import { useAgeFormatter } from '../time';
 
 export default defineComponent( {
 	name: 'SpLogs',
@@ -195,8 +194,8 @@ export default defineComponent( {
 
 		// The page loads the logs only when they change.  The ages of the notes count up
 		// here between loads.
-		const now = useNow( { interval: 60000 } );
-		const noteByline = ( note ) => `Set by ${ note.user }, ${ formatAge( note.updatedAt, now.value ) }`;
+		const formatAge = useAgeFormatter();
+		const noteByline = ( note ) => `Set by ${ note.user }, ${ formatAge( note.updatedAt ) }`;
 
 		// The row that the dialog acts on.
 		const noteTarget = ref( null );
@@ -358,7 +357,6 @@ export default defineComponent( {
 			noteError,
 			noteTarget,
 			noteByline,
-			now,
 			formatAge,
 			staleErrorPollTime,
 			openNoteEditor,
