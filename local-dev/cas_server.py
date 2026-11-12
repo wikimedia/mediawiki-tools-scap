@@ -64,7 +64,9 @@ def get_service_info(service: str) -> Optional[dict]:
     return None
 
 
-TICKETS_FILENAME = "/workspace/cas-tickets"
+# The directory that holds the tickets and the session key.
+CAS_STATE_DIR = os.environ.get("CAS_STATE_DIR", "/workspace")
+TICKETS_FILENAME = os.path.join(CAS_STATE_DIR, "cas-tickets")
 TICKET_TTL = 60  # Seconds
 
 
@@ -264,7 +266,7 @@ async def cas_validate(request: Request, ticket: str, service: str):
 
 
 def get_session_key():
-    filename = "/workspace/cas-session-key"
+    filename = os.path.join(CAS_STATE_DIR, "cas-session-key")
 
     if os.path.exists(filename):
         with open(filename) as f:
