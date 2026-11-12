@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { flushPromises, mount } from '@vue/test-utils';
 import { defineComponent, h, ref } from 'vue';
 import useEvents, {
-	errorLogsVersion, errorTotal, jobrunnerStatus, jobListVersion, staleErrorPollTime,
+	errorsDigest, errorTotal, jobrunnerStatus, jobsDigest, staleErrorPollTime,
 	unfinishedJobDigests, useErrorLogsUpdates, useJobListUpdates, useJobUpdates
 } from './events';
 
@@ -72,14 +72,14 @@ describe( 'event stream', () => {
 	beforeEach( () => {
 		getEventsMock.mockReset();
 		jobrunnerStatus.value = null;
-		jobListVersion.value = 0;
+		jobsDigest.value = null;
 		unfinishedJobDigests.value = {};
 		errorTotal.value = null;
-		errorLogsVersion.value = 0;
+		errorsDigest.value = null;
 		staleErrorPollTime.value = null;
 	} );
 
-	it( 'sets the jobrunner status and the job digests, and counts job list changes', async () => {
+	it( 'sets the jobrunner status and the job digests', async () => {
 		getEventsMock.mockImplementation( async ( signal ) => streamResponse( [
 			'{"type": "jobrunner", "data": {"status": "idle"}}\n{"type": "jo',
 			'bs_digest", "data": "a"}\n{"type": "keepalive"}\n',
@@ -89,7 +89,7 @@ describe( 'event stream', () => {
 		], signal ) );
 
 		const wrapper = mountWithEvents();
-		await vi.waitFor( () => expect( jobListVersion.value ).toBe( 2 ) );
+		await vi.waitFor( () => expect( jobsDigest.value ).toBe( 'b' ) );
 
 		expect( jobrunnerStatus.value ).toEqual( { status: 'running' } );
 		expect( unfinishedJobDigests.value ).toEqual( { 42: 'x' } );
@@ -97,15 +97,15 @@ describe( 'event stream', () => {
 		wrapper.unmount();
 	} );
 
-	it( 'sets the error total and the stale poll time, and counts error log changes', async () => {
+	it( 'sets the error total, the stale poll time and the error logs digest', async () => {
 		getEventsMock.mockImplementation( async ( signal ) => streamResponse( [
 			'{"type": "error_total", "data": 7}\n{"type": "errors_digest", "data": "a"}\n',
 			'{"type": "stale_error_poll_time", "data": 1700000000.5}\n',
-			'{"type": "error_total", "data": null}\n{"type": "errors_digest", "data": null}\n'
+			'{"type": "error_total", "data": null}\n{"type": "errors_digest", "data": "b"}\n'
 		], signal ) );
 
 		const wrapper = mountWithEvents();
-		await vi.waitFor( () => expect( errorLogsVersion.value ).toBe( 2 ) );
+		await vi.waitFor( () => expect( errorsDigest.value ).toBe( 'b' ) );
 
 		expect( errorTotal.value ).toBe( null );
 		expect( staleErrorPollTime.value ).toBe( 1700000000.5 );
@@ -177,6 +177,26 @@ describe( 'event stream', () => {
 			);
 			wrapper.unmount();
 		} );
+
+		it( 'does not update after a reconnect that brings no changes', async () => {
+			const digests = '{"type": "jobs_digest", "data": "a"}\n{"type": "errors_digest", "data": "e"}\n';
+			getEventsMock.mockResolvedValueOnce( new Response( digests ) );
+			getEventsMock.mockImplementation( async ( signal ) => streamResponse( [ digests ], signal ) );
+			vi.spyOn( console, 'log' ).mockImplementation( () => {} );
+			const updateJobList = vi.fn( async () => {} );
+			const updateErrorLogs = vi.fn( async () => {} );
+
+			const { wrapper } = mountWithJobListUpdates( updateJobList );
+			const errorLogsWrapper = mountWithErrorLogsUpdates( updateErrorLogs );
+			await vi.advanceTimersByTimeAsync( 1000 );
+
+			expect( getEventsMock ).toHaveBeenCalledTimes( 2 );
+			// One call on mount and one for the first digest.
+			expect( updateJobList ).toHaveBeenCalledTimes( 2 );
+			expect( updateErrorLogs ).toHaveBeenCalledTimes( 2 );
+			wrapper.unmount();
+			errorLogsWrapper.unmount();
+		} );
 	} );
 } );
 
@@ -191,7 +211,7 @@ describe( 'useJobListUpdates', () => {
 
 		const { wrapper } = mountWithJobListUpdates( updateFunc );
 		await flushPromises();
-		jobListVersion.value++;
+		jobsDigest.value = 'changed';
 		await flushPromises();
 
 		expect( updateFunc ).toHaveBeenCalledTimes( 2 );
@@ -208,7 +228,7 @@ describe( 'useJobListUpdates', () => {
 		await flushPromises();
 		update();
 		update();
-		jobListVersion.value++;
+		jobsDigest.value = 'changed again';
 		await flushPromises();
 
 		expect( updateFunc ).toHaveBeenCalledTimes( 1 );
@@ -283,7 +303,7 @@ describe( 'useErrorLogsUpdates', () => {
 
 		const wrapper = mountWithErrorLogsUpdates( updateFunc );
 		await flushPromises();
-		errorLogsVersion.value++;
+		errorsDigest.value = 'changed';
 		await flushPromises();
 
 		expect( updateFunc ).toHaveBeenCalledTimes( 2 );

@@ -5,8 +5,8 @@ import JobrunnerStatus from './types/JobrunnerStatus';
 // The latest jobrunner status from the event stream.
 export const jobrunnerStatus = ref<JobrunnerStatus | null>( null );
 
-// Increments each time the event stream reports a change to the job list.
-export const jobListVersion = ref( 0 );
+// The digest of the job list.  See Job.digest() in scap/spiderpig/model.py.
+export const jobsDigest = ref<string | null>( null );
 
 // The digest of each unfinished job, keyed by the id of the job.  See
 // Job.unfinished_digests() in scap/spiderpig/model.py.
@@ -16,9 +16,10 @@ export const unfinishedJobDigests = ref<Record<string, string>>( {} );
 // server cannot read the poll results.
 export const errorTotal = ref<number | null>( null );
 
-// Increments each time the event stream reports a change to the error logs: a change
-// to the logstash poll results or to an error note.
-export const errorLogsVersion = ref( 0 );
+// The digest of the error logs: the logstash poll results and the error notes.  See
+// get_errors_digest() in scap/spiderpig/api.py.  Null while the server cannot read the
+// poll results.
+export const errorsDigest = ref<string | null>( null );
 
 // The time (in seconds since the epoch) of the last successful logstash poll when that
 // poll is too old, or null.
@@ -90,13 +91,13 @@ async function readEvents( signal: AbortSignal ) {
 				if ( rec.type === 'jobrunner' ) {
 					jobrunnerStatus.value = rec.data;
 				} else if ( rec.type === 'jobs_digest' ) {
-					jobListVersion.value++;
+					jobsDigest.value = rec.data;
 				} else if ( rec.type === 'unfinished_job_digests' ) {
 					unfinishedJobDigests.value = rec.data;
 				} else if ( rec.type === 'error_total' ) {
 					errorTotal.value = rec.data;
 				} else if ( rec.type === 'errors_digest' ) {
-					errorLogsVersion.value++;
+					errorsDigest.value = rec.data;
 				} else if ( rec.type === 'stale_error_poll_time' ) {
 					staleErrorPollTime.value = rec.data;
 				}
@@ -143,10 +144,10 @@ export default function useEvents() {
 
 	return {
 		jobrunnerStatus,
-		jobListVersion,
+		jobsDigest,
 		unfinishedJobDigests,
 		errorTotal,
-		errorLogsVersion,
+		errorsDigest,
 		staleErrorPollTime
 	};
 }
@@ -195,7 +196,7 @@ function useUpdates( sources: WatchSource<unknown>[], updateFunc: () => Promise<
 // See useUpdates().  Here updateFunc is called when the calling component mounts and
 // with each change to the job list.
 export function useJobListUpdates( updateFunc: () => Promise<void> ) {
-	return useUpdates( [ jobListVersion ], updateFunc );
+	return useUpdates( [ jobsDigest ], updateFunc );
 }
 
 // See useUpdates().  Here updateFunc is called when the calling component mounts, when
@@ -214,5 +215,5 @@ export function useJobUpdates(
 // See useUpdates().  Here updateFunc is called when the calling component mounts and
 // with each change to the error logs.
 export function useErrorLogsUpdates( updateFunc: () => Promise<void> ) {
-	return useUpdates( [ errorLogsVersion ], updateFunc );
+	return useUpdates( [ errorsDigest ], updateFunc );
 }
