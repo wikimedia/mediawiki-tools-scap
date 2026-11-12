@@ -307,7 +307,7 @@ def sync_common(
         deploy_dir,
     )
     logger.debug("Running rsync command: `%s`", " ".join(rsync))
-    with app.Timer("rsync common"):
+    with app.Timer("rsync common"), utils.suppress_backtrace():
         subprocess.check_call(rsync)
 
     # Bug 58618: Invalidate local configuration cache by updating the
@@ -764,21 +764,30 @@ def handle_services(services, require_valid_service=False, on_secondary_host=Fal
 
 @utils.log_context("service_restart")
 def restart_service(service, logger=None):
-    logger.info("Restarting service '{}'".format(service))
+    logger.info(
+        "Restarting service '{}'".format(service),
+        extra={"deploy_event": "restarted", "deploy_subject": service},
+    )
     cmd = "sudo -n /usr/sbin/service {} restart".format(service).split()
     subprocess.check_call(cmd)
 
 
 @utils.log_context("service_reload")
 def reload_service(service, logger=None):
-    logger.info("Reloading service '{}'".format(service))
+    logger.info(
+        "Reloading service '{}'".format(service),
+        extra={"deploy_event": "reloaded", "deploy_subject": service},
+    )
     cmd = "sudo -n /usr/sbin/service {} reload".format(service).split()
     subprocess.check_call(cmd)
 
 
 @utils.log_context("service_disable")
 def disable_service(service, logger=None):
-    logger.info(f"This is a secondary host. Stopping and disabling service '{service}'")
+    logger.info(
+        f"This is a secondary host. Stopping and disabling service '{service}'",
+        extra={"deploy_event": "stopped and disabled", "deploy_subject": service},
+    )
     # For historical reasons, we have sudo access to stop a service via `/usr/sbin/service`, see:
     # https://gerrit.wikimedia.org/r/plugins/gitiles/operations/puppet/+/4e52262ab5671e694c14600101de0654396e9e14/modules/scap/manifests/target.pp#164
     # But a systemd service can only be disabled with systemctl, so we combine both commands

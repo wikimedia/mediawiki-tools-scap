@@ -6,6 +6,7 @@ from contextlib import asynccontextmanager
 from datetime import datetime
 import fcntl
 import functools
+import hashlib
 import html
 import json
 import logging
@@ -14,6 +15,7 @@ import pyotp
 import qrcode
 import re
 import socket
+import stat
 import subprocess
 import sys
 import time
@@ -32,6 +34,8 @@ else:
 
 from typing import List, Optional
 
+import prometheus_client
+import prometheus_client.exposition
 from pydantic import BaseModel
 
 from fastapi import (
@@ -53,20 +57,27 @@ from fastapi.responses import (
 )
 from fastapi.staticfiles import StaticFiles
 
+from sqlalchemy import Engine, func, select
 from sqlalchemy.orm import Session
 
-from scap import cli, log, utils, gerrit, train, logstash_poller
+from scap import cli, log, metrics, utils, gerrit, train, logstash_poller
+from scap.deploy_service import Catalog, InvalidDeployServiceConfig, load_catalog
 
 import scap.spiderpig
+from scap.spiderpig.events import Broadcaster
 from scap.spiderpig.model import (
+    ErrorNote,
+    ErrorNoteUpdate,
     JobrunnerStatus,
     Job,
     JobType,
     Interaction,
     Interruption,
     AlreadyResponded,
+    ServiceDeployment,
     TrainPromotion,
     TrainStatus,
+    UnknownQueue,
     User,
 )
 from scap.spiderpig.session import SessionCookie
@@ -196,6 +207,10 @@ class SpiderpigAPIServer(cli.Application):
             # to be required to make uvicorn monitor it for changes.
             os.chdir(os.path.dirname(__file__))
 
+        metrics_dir = self.spiderpig_metrics_dir()
+        os.makedirs(metrics_dir, exist_ok=True)
+        os.chmod(metrics_dir, 0o770 | stat.S_ISGID)
+
         env = os.environ.copy()
         env["SPIDERPIG_SCAP_CONFIG"] = utils.string_to_base64_string(
             json.dumps(self.config)
@@ -210,6 +225,7 @@ class SpiderpigAPIServer(cli.Application):
                 "SPIDERPIG_JOB_LOG_DIR": self.spiderpig_joblogdir(),
                 "SPIDERPIG_DBFILE": self.spiderpig_dbfile(),
                 "SPIDERPIG_SESSION_KEY_FILE": self.spiderpig_session_secret_file(),
+                "SPIDERPIG_METRICS_DIR": metrics_dir,
             }
         )
         if self.arguments.dev:
@@ -224,6 +240,9 @@ class SpiderpigAPIServer(cli.Application):
             self.arguments.host,
             "--port",
             str(self.arguments.port),
+            # Without a timeout, an open event stream or job log stream stops the shutdown.
+            "--timeout-graceful-shutdown",
+            "5",
         ]
         if self.arguments.dev:
             cmd.append("--reload")
@@ -253,7 +272,16 @@ async def lifespan(app: FastAPI):
 
     app.state.session_cookie = SessionCookie(get_session_key())
 
+    metrics_file = metrics.MetricsFile(os.environ["SPIDERPIG_METRICS_DIR"])
+    metrics_file.remove_stale_data()
+    prometheus_client.REGISTRY.register(metrics.FileCollector(metrics_file))
+
+    app.state.broadcaster = Broadcaster(get_events_snapshot)
+    broadcaster_task = asyncio.create_task(app.state.broadcaster.run())
+
     yield
+
+    broadcaster_task.cancel()
 
 
 app = FastAPI(lifespan=lifespan, openapi_url=None)
@@ -354,19 +382,20 @@ def get_scap_flags():
     return json.loads(base64.b64decode(os.getenv("SPIDERPIG_SCAP_FLAGS")))
 
 
-def _get_db_session():
+@functools.lru_cache()
+def _get_db_engine(db_filename: str) -> Engine:
     # Using check_same_thread=False allows FastAPI to use the same SQLite database
     # in different threads. This is necessary as one single request could use more
     # than one thread (for example in dependencies).
     # xref: https://fastapi.tiangolo.com/tutorial/sql-databases/#create-an-engine
-    return Session(
-        scap.spiderpig.engine(
-            os.environ["SPIDERPIG_DBFILE"], connect_args={"check_same_thread": False}
-        )
-    )
+    return scap.spiderpig.engine(db_filename, connect_args={"check_same_thread": False})
 
 
-def get_db_session():
+def _get_db_session():
+    return Session(_get_db_engine(os.environ["SPIDERPIG_DBFILE"]))
+
+
+async def get_db_session():
     session = _get_db_session()
     try:
         yield session
@@ -460,6 +489,7 @@ class NotAuthenticatedException(Exception):
 ROUTE_2FA = "/api/2fa"
 
 
+# Keep the response in sync with AuthResponse in web/src/api.ts.
 @app.exception_handler(NotAuthenticatedException)
 async def authn_exception_handler(request: Request, exc: NotAuthenticatedException):
     if exc.need2fa:
@@ -538,7 +568,9 @@ def get_admin_user(request: Request) -> SessionUser:
     )
 
 
-async def get_job_by_id(job_id: int, session: Session = Depends(get_db_session)):
+async def get_job_by_id(
+    job_id: int, session: Session = Depends(get_db_session, scope="function")
+):
     job = Job.get(session, job_id)
     if job is None:
         raise HTTPException(
@@ -555,16 +587,21 @@ def get_gerrit_session(config: Annotated[dict, Depends(get_scap_config)]):
     return gerrit.GerritSession(url=config["gerrit_url"])
 
 
+# Keep in sync with web/src/types/Interaction.ts.
 def get_parsed_interaction(session, job) -> Optional[dict]:
     i = Interaction.lookup_pending(session, job.id)
     if not i:
         return None
-    choices_parsed = i.choices_parsed
-    i = jsonable_encoder(i)
-    i["choices"] = choices_parsed
-    return i
+    return {
+        # The details can be large, and the job page asks for the job every
+        # second, so exclude them here.  Use get_interaction_details() as needed.
+        **jsonable_encoder(i, exclude={"details"}),
+        "choices": i.choices_parsed,
+        "has_details": bool(i.details),
+    }
 
 
+# Keep the link segments in sync with web/src/types/LinkSegment.ts.
 def linkify_commit_mesage(commit_message) -> List:
     scap_config = get_scap_config()
     phorge_url = scap_config["phorge_url"]
@@ -615,12 +652,21 @@ def linkify_commit_mesage(commit_message) -> List:
     return res
 
 
-def load_job_data(job_data):
+def job_queue_name(job: Job) -> Optional[str]:
+    """The name of the queue that this job runs in, or None when it has none."""
+    try:
+        return job.queue
+    except UnknownQueue:
+        return None
+
+
+# Keep the change_infos fields in sync with web/src/types/ChangeInfo.ts.
+def load_job_data(job: Job) -> dict:
     scap_config = get_scap_config()
     gerrit_url = scap_config["gerrit_url"]
-    data = json.loads(job_data)
+    data = job.extract_data()
 
-    if data is not None and "change_infos" in data:
+    if "change_infos" in data:
         for change_info in data["change_infos"]:
             change_info["linkifiedCommitMsg"] = linkify_commit_mesage(
                 change_info["commit_msg"]
@@ -639,15 +685,8 @@ def load_job_data(job_data):
     return data
 
 
-##########
-# ROUTES #
-##########
-
-
-@app.get("/api/jobrunner/status")
-async def jobrunner_status(
-    session: Session = Depends(get_db_session),
-):
+# Keep in sync with web/src/types/JobrunnerStatus.ts.
+def get_jobrunner_status(session: Session) -> dict:
     def pid_exists(pid: int) -> bool:
         try:
             os.kill(pid, 0)
@@ -658,36 +697,108 @@ async def jobrunner_status(
 
     status = JobrunnerStatus.get(session)
 
-    if not status.pid or not pid_exists(status.pid):
+    if not status or not status.pid or not pid_exists(status.pid):
         return {
             "status": "Jobrunner not running",
-            "job": None,
-            "pending_interaction": None,
+            "running_jobs": [],
+            "busy_queues": [],
         }
 
-    job = None
-    i = None
-
-    if status.job_id:
-        job = Job.get(session, status.job_id)
-        if job:
-            session.expunge(job)
-            job.status = job.extract_status()
-            job.data = load_job_data(job.data)
-            i = get_parsed_interaction(session, job)
+    running_jobs = Job.get_running(session)
+    busy_queues = sorted(job.queue for job in running_jobs)
 
     return {
-        "status": status.status,
-        "job": job,
-        "pending_interaction": i,
+        "status": "idle" if not running_jobs else "running",
+        "running_jobs": [
+            {
+                "id": job.id,
+                "type": job.type,
+                "status": job.extract_status(),
+                "data": job.extract_data(),
+            }
+            for job in running_jobs
+        ],
+        "busy_queues": busy_queues,
     }
 
 
+def get_errors_digest(session: Session, logs: dict) -> str:
+    """Returns a digest that changes when the error logs page should show different data.
+
+    Each change to the logstash poller results or to an error note changes it.
+    """
+    # Each save of a note sets a new updated_at, and each removal lowers the count.
+    notes = session.execute(select(func.count(), func.max(ErrorNote.updated_at))).one()
+    state = [logs, list(notes)]
+    return hashlib.sha256(json.dumps(state, sort_keys=True).encode()).hexdigest()
+
+
+def get_stale_error_poll_time(polled_at: Optional[float]) -> Optional[float]:
+    """Returns `polled_at` when the last successful logstash poll is too old, or None.
+
+    The poller writes its results every `logstash_poller.POLL_INTERVAL` seconds.  The
+    results are too old after four intervals without a write.  A results file without
+    "polled_at" is never too old.
+    """
+    if polled_at is None:
+        return None
+    if time.time() - polled_at > 4 * logstash_poller.POLL_INTERVAL:
+        return polled_at
+    return None
+
+
+def get_events_snapshot() -> dict:
+    """Returns the state that the event streams send to clients."""
+    with _get_db_session() as session:
+        snapshot = {
+            "jobrunner": jsonable_encoder(get_jobrunner_status(session)),
+            "jobs_digest": Job.digest(session),
+            # A job list watches "jobs_digest".  A job page watches only the entry of
+            # its own job here, so a change to another job does not make it refetch.
+            "unfinished_job_digests": Job.unfinished_digests(session),
+        }
+        # A bad logstash poller results file must not stop the job events.
+        try:
+            logs = _read_logstash_errors()
+            # Each poll writes a new "polled_at", so it must not change the digest.
+            polled_at = logs.pop("polled_at", None)
+            snapshot["error_total"] = logs.get("total", 0)
+            snapshot["errors_digest"] = get_errors_digest(session, logs)
+            snapshot["stale_error_poll_time"] = get_stale_error_poll_time(polled_at)
+        except Exception:
+            snapshot["error_total"] = None
+            snapshot["errors_digest"] = None
+            snapshot["stale_error_poll_time"] = None
+        return snapshot
+
+
+##########
+# ROUTES #
+##########
+
+
+@app.get("/api/events")
+async def get_events():
+    # See the comment block at the end of get_log() for the explanation
+    # of the media_type used here.
+    return StreamingResponse(
+        app.state.broadcaster.stream(), media_type="application/octet-stream"
+    )
+
+
+@app.get("/api/jobrunner/status")
+async def jobrunner_status(
+    session: Session = Depends(get_db_session, scope="function"),
+):
+    return get_jobrunner_status(session)
+
+
+# Keep in sync with CreatedJob in web/src/api.ts.
 @app.post("/api/jobs/train")
 async def start_train(
     promotion: TrainPromotion,
     user: Annotated[SessionUser, Depends(get_current_user)],
-    session: Session = Depends(get_db_session),
+    session: Session = Depends(get_db_session, scope="function"),
 ):
     return {
         "message": "Job created",
@@ -695,6 +806,53 @@ async def start_train(
     }
 
 
+def get_service_catalog() -> Catalog:
+    """The deployment config of every service that scap deploys, by name."""
+    try:
+        return load_catalog(get_scap_config())
+    except InvalidDeployServiceConfig as e:
+        raise HTTPException(status_code=500, detail={"message": str(e)})
+
+
+# Keep in sync with Services in web/src/api.ts.
+@app.get("/api/services")
+async def get_services():
+    catalog = get_service_catalog()
+    return {"services": sorted(catalog.services), "errors": catalog.errors}
+
+
+# Keep in sync with CreatedJob in web/src/api.ts.
+@app.post("/api/jobs/deploy-service")
+async def start_deploy_service(
+    deployment: ServiceDeployment,
+    user: Annotated[SessionUser, Depends(get_current_user)],
+    session: Session = Depends(get_db_session, scope="function"),
+):
+    catalog = get_service_catalog()
+    if deployment.service in catalog.errors:
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "message": catalog.errors[deployment.service],
+                "service": deployment.service,
+            },
+        )
+    if deployment.service not in catalog.services:
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "message": f"'{deployment.service}' is not in the service catalog",
+                "service": deployment.service,
+            },
+        )
+
+    return {
+        "message": "Job created",
+        "id": deployment.add_job(session=session, user=user.name),
+    }
+
+
+# Keep the response in sync with CreatedJob in web/src/api.ts.
 async def _create_backport_job(
     change_numbers: List[str],
     original_change_urls: List[str],
@@ -712,6 +870,7 @@ async def _create_backport_job(
         change = gerritsession.change_detail(change_num).get()
         change_url = os.path.join(gerritsession.url, f"c/{change._number}")
 
+        # Keep in sync with web/src/types/ChangeInfo.ts.
         change_infos.append(
             {
                 "number": change._number,
@@ -751,7 +910,7 @@ async def start_backport(
     ],
     user: Annotated[SessionUser, Depends(get_current_user)],
     gerritsession: Annotated[gerrit.GerritSession, Depends(get_gerrit_session)],
-    session: Session = Depends(get_db_session),
+    session: Session = Depends(get_db_session, scope="function"),
 ):
     baddies = []
     change_numbers = []
@@ -778,14 +937,14 @@ async def start_backport(
     )
 
 
+# Keep in sync with CreatedJob in web/src/api.ts.
 @app.post("/api/jobs/{job_id}/retry")
 async def retry_job(
     job: Annotated[Job, Depends(get_job_by_id)],
     user: Annotated[SessionUser, Depends(get_current_user)],
     gerritsession: Annotated[gerrit.GerritSession, Depends(get_gerrit_session)],
-    session: Session = Depends(get_db_session),
+    session: Session = Depends(get_db_session, scope="function"),
 ):
-    """Extract change numbers from a finished job and create a new backport job."""
     # Ensure the job has finished
     if job.finished_at is None:
         raise HTTPException(
@@ -796,21 +955,30 @@ async def retry_job(
             },
         )
 
-    # Only allow retrying backport jobs
-    if job.type != JobType.BACKPORT:
-        raise HTTPException(
-            status_code=400,
-            detail={
-                "message": "Only backport jobs can be retried",
-                "job_id": job.id,
-            },
-        )
+    if job.type == JobType.BACKPORT:
+        return await _retry_backport(job, user, gerritsession, session)
 
-    # Extract change numbers from the original job's data
-    original_data = json.loads(job.data) if job.data else None
-    change_numbers = []
-    if original_data and "change_infos" in original_data:
-        change_numbers = [info["number"] for info in original_data["change_infos"]]
+    if job.type == JobType.DEPLOY_SERVICE:
+        return _retry_deploy_service(job, user, session)
+
+    raise HTTPException(
+        status_code=400,
+        detail={
+            "message": f"A {job.type.value} job cannot be retried",
+            "job_id": job.id,
+        },
+    )
+
+
+async def _retry_backport(
+    job: Job,
+    user: SessionUser,
+    gerritsession: gerrit.GerritSession,
+    session: Session,
+) -> dict:
+    change_numbers = [
+        info["number"] for info in job.extract_data().get("change_infos", [])
+    ]
 
     if not change_numbers:
         raise HTTPException(
@@ -821,7 +989,6 @@ async def retry_job(
             },
         )
 
-    # Create a new backport job with fresh change data
     # Convert change numbers to strings for the command line
     change_urls = [str(num) for num in change_numbers]
     return await _create_backport_job(
@@ -829,61 +996,86 @@ async def retry_job(
     )
 
 
-def set_additional_job_attributes(job: Job):
+# Keep the response in sync with CreatedJob in web/src/api.ts.
+def _retry_deploy_service(job: Job, user: SessionUser, session: Session) -> dict:
+    deployment = ServiceDeployment(**job.extract_data())
+
+    catalog = get_service_catalog()
+    if deployment.service in catalog.errors:
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "message": catalog.errors[deployment.service],
+                "service": deployment.service,
+                "job_id": job.id,
+            },
+        )
+    if deployment.service not in catalog.services:
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "message": f"'{deployment.service}' is no longer in the service catalog",
+                "service": deployment.service,
+                "job_id": job.id,
+            },
+        )
+
+    return {
+        "message": "Job created",
+        "id": deployment.add_job(session=session, user=user.name),
+    }
+
+
+# Keep in sync with web/src/types/Job.ts.
+def prepare_job_for_response(session: Session, job: Job) -> Job:
+    """Returns the job with the fields that the web UI reads."""
+    interaction = get_parsed_interaction(session, job)
+    # Detach the job object from the SQLAlchemy session so that we can
+    # safely modify it without the changes being committed back to the
+    # database.
+    session.expunge(job)
+    job.queue_name = job_queue_name(job)
+    job.status = job.extract_status()
+    job.data = load_job_data(job)
+    job.interaction = interaction
+    job.command_decoded = " ".join(json.loads(job.command))
     job.running = (
         job.started_at is not None
         and job.finished_at is None
         and job.status["status"] != "orphaned"
     )
     job.orphaned = not job.running and job.status["status"] == "orphaned"
+    if job.started_at:
+        end = job.finished_at if job.finished_at else time.time()
+        job.duration = end - job.started_at
+    else:
+        job.duration = None
+    return job
 
-    if not job.started_at:
-        return
-    end = job.finished_at if job.finished_at else time.time()
-    job.duration = end - job.started_at
 
-
+# Keep in sync with JobList in web/src/api.ts and with web/src/types/Job.ts.
 @app.get("/api/jobs")
 async def get_jobs(
-    session: Session = Depends(get_db_session),
+    session: Session = Depends(get_db_session, scope="function"),
     limit: int = 10,
     skip: Optional[int] = 0,
+    type: Optional[JobType] = None,
 ):
-    jobs = Job.get_jobs(session, limit, skip)
-
-    for job in jobs:
-        # Detach the job object from the SQLAlchemy session so that we can
-        # safely modify it without the changes being committed back to the
-        # database.
-        session.expunge(job)
-        job.status = job.extract_status()
-        job.interaction = get_parsed_interaction(session, job)
-        job.data = load_job_data(job.data)
-        set_additional_job_attributes(job)
+    jobs = Job.get_jobs(session, limit, skip, type)
 
     return {
-        "jobs": jobs,
+        "jobs": [prepare_job_for_response(session, job) for job in jobs],
     }
 
 
+# Keep in sync with JobInfo in web/src/api.ts and with web/src/types/Job.ts.
 @app.get("/api/jobs/{job_id}")
 async def get_job(
     job: Annotated[Job, Depends(get_job_by_id)],
-    session: Session = Depends(get_db_session),
+    session: Session = Depends(get_db_session, scope="function"),
 ):
-    i = get_parsed_interaction(session, job)
-
-    # Detach the job object from the SQLAlchemy session so that we can
-    # safely modify it without the changes being committed back to the
-    # database.
-    session.expunge(job)
-    job.status = job.extract_status()
-    job.data = load_job_data(job.data)
-    set_additional_job_attributes(job)
-
     return {
-        "job": job,
-        "pending_interaction": i,
+        "job": prepare_job_for_response(session, job),
     }
 
 
@@ -893,7 +1085,7 @@ async def interact(
     interaction_id: int,
     response: Annotated[str, Body()],
     user: Annotated[SessionUser, Depends(get_current_user)],
-    session: Session = Depends(get_db_session),
+    session: Session = Depends(get_db_session, scope="function"),
 ):
     i = Interaction.lookup_pending(session, job.id)
     if i is None or i.id != interaction_id:
@@ -925,6 +1117,27 @@ async def interact(
         "job_id": job.id,
         "interaction_id": interaction_id,
     }
+
+
+# Keep in sync with getInteractionDetails() in web/src/api.ts.
+@app.get("/api/jobs/{job_id}/interact/{interaction_id}/details")
+async def get_interaction_details(
+    job: Annotated[Job, Depends(get_job_by_id)],
+    interaction_id: int,
+    session: Session = Depends(get_db_session, scope="function"),
+):
+    i = Interaction.lookup_pending(session, job.id)
+    if i is None or i.id != interaction_id:
+        raise HTTPException(
+            status_code=404,
+            detail={
+                "message": "No pending interactions",
+                "job_id": job.id,
+                "interaction_id": interaction_id,
+            },
+        )
+
+    return {"details": i.details}
 
 
 @app.get("/api/jobs/{job_id}/log")
@@ -1006,9 +1219,9 @@ async def get_log(
 
                 with _get_db_session() as session:
                     job = await get_job_by_id(job_id, session)
-                    if job.finished_at:
-                        yield toRecord({"type": "EOF", "recno": recno})
-                        return
+                if job.finished_at:
+                    yield toRecord({"type": "EOF", "recno": recno})
+                    return
 
                 await asyncio.sleep(polling_interval)
 
@@ -1025,7 +1238,7 @@ async def signal_job(
     type: str,
     job: Annotated[Job, Depends(get_job_by_id)],
     user: Annotated[SessionUser, Depends(get_current_user)],
-    session: Session = Depends(get_db_session),
+    session: Session = Depends(get_db_session, scope="function"),
 ):
     if type not in Interruption.SIGNAL_TYPES:
         raise HTTPException(
@@ -1043,7 +1256,7 @@ async def signal_job(
     }
 
 
-def _get_logs():
+def _read_logstash_errors():
     log_file = os.path.join(os.environ["SPIDERPIG_DIR"], logstash_poller.LOG_FILE)
     try:
         with open(log_file, "r") as f:
@@ -1053,20 +1266,41 @@ def _get_logs():
     return logs
 
 
+# Keep in sync with ErrorLogs in web/src/api.ts.
 @app.get("/api/monitoring/logs/mediawiki")
-async def get_errors():
-    logs = _get_logs()
-    if logs:
-        return {"message": "Logs retrieved", "log": logs["errors"]}
-    return {"message": "No log data - creation may be pending", "log": {}}
+async def get_errors(session: Session = Depends(get_db_session, scope="function")):
+    logs = _read_logstash_errors()
+    if not logs:
+        return {"message": "No log data - creation may be pending", "log": {}}
+
+    errors = logs["errors"]
+    notes = ErrorNote.all_by_message(session)
+
+    for message, error in errors.items():
+        note = notes.get(message)
+        if note:
+            error["note"] = {
+                "text": note.note,
+                "linkified": linkify_commit_mesage(note.note),
+                "user": note.user,
+                "updatedAt": note.updated_at,
+            }
+
+    return {"message": "Logs retrieved", "log": errors}
 
 
-@app.get("/api/monitoring/logs/mediawiki/total")
-async def get_error_total():
-    logs = _get_logs()
-    if logs:
-        return {"message": "Log total retrieved", "total": logs["total"]}
-    return {"message": "No log data - creation may be pending", "total": 0}
+@app.post("/api/monitoring/logs/mediawiki/note")
+async def set_error_note(
+    update: ErrorNoteUpdate,
+    user: Annotated[SessionUser, Depends(get_current_user)],
+    session: Session = Depends(get_db_session, scope="function"),
+):
+    if update.note:
+        ErrorNote.save(session, update.message, update.note, user.name)
+        return {"message": "Note saved"}
+
+    ErrorNote.remove(session, update.message)
+    return {"message": "Note removed"}
 
 
 # Retrieve the current state of MediaWiki train.
@@ -1079,6 +1313,7 @@ async def train_status(
 
 # This function is intentionally not marked "async" due to the blocking
 # io that happens when querying Gerrit.
+# Keep in sync with GerritChange in web/src/api.ts.
 @app.get("/api/searchPatch")
 def searchPatch(
     gerritsession: Annotated[gerrit.GerritSession, Depends(get_gerrit_session)],
@@ -1092,6 +1327,21 @@ def searchPatch(
         return gerritsession.changes().query(f"change:{change_num}", 1)
     except Exception:
         return []
+
+
+###########
+# METRICS #
+###########
+
+
+# This function is intentionally not marked "async" due to the blocking
+# io that happens when the collector reads the metrics file.
+@app.get("/metrics")
+def get_metrics(request: Request):
+    encoder, content_type = prometheus_client.exposition.choose_encoder(
+        request.headers.get("Accept")
+    )
+    return Response(encoder(prometheus_client.REGISTRY), media_type=content_type)
 
 
 #####################
@@ -1167,12 +1417,13 @@ def login(
     return resp
 
 
+# Keep the responses in sync with AuthResponse in web/src/api.ts.
 @app.post(ROUTE_2FA)
 async def login2(
     otp: Annotated[str, Body()],
     request: Request,
     user: Annotated[Optional[SessionUser], Depends(maybe_get_current_user)],
-    session: Session = Depends(get_db_session),
+    session: Session = Depends(get_db_session, scope="function"),
 ):
     """
     This route is for performing 2FA.
@@ -1294,6 +1545,7 @@ def getSSOLogoutUrl(request: Request) -> str:
     return cli.get_logout_url(cli.service_url)
 
 
+# Keep in sync with logoutCommon() in web/src/api.ts.
 @app.post("/api/logout")
 async def logout(
     request: Request,
@@ -1318,6 +1570,7 @@ async def logout(
     return resp
 
 
+# Keep in sync with logoutCommon() in web/src/api.ts.
 @app.post("/api/logoutAll")
 async def logoutAll(
     request: Request, user: Annotated[SessionUser, Depends(get_admin_user)]
@@ -1335,6 +1588,7 @@ async def logoutAll(
     }
 
 
+# Keep in sync with WhoAmI in web/src/api.ts.
 @app.get("/api/whoami")
 async def whoami(
     request: Request,
@@ -1377,7 +1631,8 @@ async def get_favicon():
     return FileResponse(favicon)
 
 
-# The following routes correspond to Vue routes established in router.js
+# The following routes correspond to Vue routes established in router.js.
+# tests/scap/test_spiderpig_routes.py compares the two lists.
 @app.get("/")
 @app.get("/admin")
 @app.get("/login")
@@ -1387,6 +1642,7 @@ async def get_favicon():
 @app.get("/mediawiki/backport")
 @app.get("/mediawiki/train")
 @app.get("/mediawiki/logs")
+@app.get("/service/deploy")
 async def index_page():
     return FileResponse(index_html, headers={"Cache-Control": "no-cache"})
 

@@ -1,8 +1,9 @@
 tox==4.8.0
 filelock==3.19.1; python_version < '3.10'
-filelock==3.29.4; python_version >= '3.10'
+filelock==3.29.4; python_version == '3.10'
+filelock==4.2.10; python_version >= '3.11'
 platformdirs==4.4.0
 pluggy==1.2
 pyproject-api==1.5.3
-virtualenv==20.39.1
+virtualenv==21.15.6
 

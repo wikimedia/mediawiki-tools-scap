@@ -1,3 +1,329 @@
+scap (4.313.0)
+
+  * lock: Refuse --unlock-all unless `scap lock --all` holds the global lock
+  * install-world: Take the global lock
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Tue, 03 Nov 2026 11:04:37 -0800
+
+scap (4.312.0)
+
+  * patches: Comment on the task of an already-applied security patch
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Tue, 03 Nov 2026 08:20:46 -0800
+
+scap (4.311.0)
+
+  * deploy: Report service restarts and skipped targets
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Mon, 02 Nov 2026 12:30:19 -0800
+
+scap (4.310.0)
+
+  * spiderpig: Close database sessions before sending the response
+  * install_local_version.sh: Do not retry a failed install
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Mon, 02 Nov 2026 10:41:42 -0800
+
+scap (4.309.0)
+
+  * spiderpig: Improve deploy-service --confirm-diffs UX
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Thu, 29 Oct 2026 08:12:11 -0700
+
+scap (4.308.0)
+
+  * install-world: Lock the install on targets
+  * install_local_version.sh: Restore the previous venv after a failed install
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Wed, 28 Oct 2026 13:11:56 -0700
+
+scap (4.307.0)
+
+  * spiderpig: Add tests of Interaction, JobLog and JobViewerPage
+  * spiderpig: Add tests of the interaction and job log routes
+  * spiderpig: Use one database engine for all apiserver sessions
+  * jobrunner: Handle mid-line io messages
+  * scap pull: Do not print a stack trace when rsync fails
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Wed, 28 Oct 2026 08:59:19 -0700
+
+scap (4.306.0)
+
+  * scap apply-patches: Abort a failed `git am` by default
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Mon, 26 Oct 2026 10:10:59 -0700
+
+scap (4.305.0)
+
+  * CI: Run test-web and build-spiderpig-ui on Node 26, not 20
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Fri, 23 Oct 2026 14:10:01 -0700
+
+scap (4.304.0)
+
+  * scap lock: Announce --unlock-all only after the lock is removed
+  * requirements.txt: Bump certifi to 2026.10.19
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Fri, 23 Oct 2026 07:55:52 -0700
+
+scap (4.303.0)
+
+  * config.py: Remove the default of mediawiki_runtime_image
+  * scap: Record who ran each command
+  * main.py: Name the scope and stage of each logstash check
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Thu, 22 Oct 2026 09:30:00 -0700
+
+scap (4.302.0)
+
+  * patches.py: Name the patch with a bad "diff --git" line
+  * requirements.txt: Bump fastapi and starlette on Python 3.10 and newer
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Tue, 20 Oct 2026 07:54:14 -0700
+
+scap (4.301.0)
+
+  * spiderpig: Export Prometheus metrics
+  * deploy: Do not write deploy server info into DEPLOY_HEAD
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Mon, 19 Oct 2026 12:55:39 -0700
+
+scap (4.300.0)
+
+  * scap backport: Offer to revert the changes after a rollback
+  * scap deploy-promote: Abort a failed revert with "git revert --abort"
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Fri, 16 Oct 2026 09:49:35 -0700
+
+scap (4.299.0)
+
+  * deploy-service: Accept only a list of environments and releases
+  * deploy-service: Check the helmfile directory before the deployment
+  * deploy-service: Report and skip bad service catalog entries
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Thu, 15 Oct 2026 10:33:18 -0700
+
+scap (4.298.0)
+
+  * deploy-service: Accept a list of environments and releases
+  * requirements.txt: Pin alembic, and hide its plugin messages
+  * scap: Set the configured umask in clean, php-fpm-restart and deploy-service
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Tue, 13 Oct 2026 14:10:21 -0700
+
+scap (4.297.0)
+
+  * scap deploy-promote: Revert the versions change after a rollback
+  * cli.py: Record alerts in the logs
+  * scap deploy-promote: Stop when the push gives no change number
+  * scap deploy-promote: Remove the local commit when the push fails
+  * main.py: Properly announce sync failures
+  * backport: Consolidate backport SAL
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Tue, 13 Oct 2026 07:45:47 -0700
+
+scap (4.296.0)
+
+  * log.py: Hide urllib3 retrying messages
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Thu, 08 Oct 2026 09:11:38 -0700
+
+scap (4.295.0)
+
+  * scap clean: Handle recursive submodules properly
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Wed, 07 Oct 2026 10:06:09 -0700
+
+scap (4.294.0)
+
+  * deploy-service: Announce each group of the plan
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Fri, 02 Oct 2026 14:46:32 -0700
+
+scap (4.293.1)
+
+  * Switch mediawiki_runtime_image to PHP 8.5
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Mon, 28 Sep 2026 12:34:14 -0700
+
+scap (4.293.0)
+
+  * log.py: Strip message newlines before emitting to IRC
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Mon, 28 Sep 2026 11:22:57 -0700
+
+scap (4.292.0)
+
+  * scaps-installed-in-beta: Switch to new Cumin host
+  * logstash: Match the fields of a query exactly
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Tue, 22 Sep 2026 14:39:01 -0700
+
+scap (4.291.0)
+
+  * git: Do not let auto gc run in the background
+  * Update Beta Cluster-related documentation
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Tue, 22 Sep 2026 09:05:04 -0700
+
+scap (4.290.0)
+
+  * integration/test_backport.py: Retrieve the commit-msg hook over HTTP
+  * spiderpig: Add Phatality-style Phabricator error message search
+  * logstash: Strip the exception prefix in one place
+  * spiderpig: JobHistory: Only show jobs of a particular type
+  * spiderpig: Keep the navigation bar in step with the page
+  * spiderpig: Add a note to a MediaWiki error message
+  * spiderpig: Share the formatter of a linkified message
+  * web/eslint.config.js: Lint TypeScript files too
+  * spiderpig: Update notifications to handle multiple jobs
+  * spiderpig: Add support for retrying a service deployment
+  * jobrunner: Run jobs in separate queues concurrently
+  * tests: Check that the apiserver serves every Vue route
+  * install-world: Add an --inventory mode
+  * spiderpig: Deploy a service
+  * deploy-service: Name the group of the plan from the plan
+  * perform-release: add user agent to requests going out to GitLab
+  * spiderpig: Show the output that an interaction prompt asks about
+  * deploy-service: Add load_catalog()
+  * jobrunner.py: Fix Jobrunner._clear_orphaned_jobs
+  * spiderpig: Give each job a queue
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Mon, 21 Sep 2026 15:02:07 -0700
+
+scap (4.289.0)
+
+  * clean-images: Fix the endless re-execution as docker_user
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Thu, 03 Sep 2026 10:18:03 -0700
+
+scap (4.288.0)
+
+  * kubernetes.py: Add k8s_wait_for_all_replicas
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Wed, 02 Sep 2026 13:07:49 -0700
+
+scap (4.287.0)
+
+  * deploy-service: Reduce rollback prompt verbosity
+  * deploy-service: Add manual check support
+  * deploy-service: Factor out some types
+  * deploy-promote: Verify the promotion with deployment-info.php
+  * statsd_host now defaults to None
+  * deploy-service: Run the check commands of the service catalog
+  * deploy-service: Run helmfile commands, add --confirm-diffs
+  * log.py: Write progress reports to stdout
+  * kubernetes.py: Rename every_release to without_release_selector
+  * kubernetes.py: Read the values of the releases concurrently
+  * kubernetes.py: Fold _record_rollback_revisions into its caller
+  * kubernetes.py: Define and use _DirectoryKey class
+  * kubernetes.py: Read each helmfile directory through one helper
+  * checks.py: Avoid dictionary changed size during iteration error
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Tue, 01 Sep 2026 09:23:29 -0700
+
+scap (4.286.0)
+
+  * kubernetes.py: Read the state of the helmfile directories concurrently
+  * kubernetes.py: Add timer around rollback information collection
+  * Use message_argment property everywhere to access message
+  * cli.py: Add prompt_for_message()
+  * train.py: Initialize self.train_is_at at top of update()
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Thu, 27 Aug 2026 12:13:04 -0700
+
+scap (4.285.1)
+
+  * deploy-promote: Check en.wiktionary.org for group1
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Tue, 25 Aug 2026 09:39:02 -0700
+
+scap (4.285.0)
+
+  * logstash_checker.py: Do not update the release repository
+  * kubernetes.py: Roll back to the revision from before the deployment
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Tue, 25 Aug 2026 08:15:33 -0700
+
+scap (4.284.0)
+
+  * logstash_checker.py: Add --wiki and --scope to scap analyze-logstash
+  * tests: Do not describe helm as holding a release
+  * tests: Drop the grace period from the monitor_release comments
+  * kubernetes.py: Make the train-dev replica count a setting
+  * kubernetes.py: Revise wording in docstrings
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Mon, 24 Aug 2026 13:14:12 -0700
+
+scap (4.283.0)
+
+  * deployment-info.json: Report the checkouts of the master branch
+  * kubernetes.py: Rename rollout_is_progressing to rollout_was_abandoned
+  * main.py: Clarify what review_diffs() is returning
+  * tests: Do not require an interrupt to reach every job
+  * kubernetes.py: Split the command execution into K8sRunner
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Wed, 19 Aug 2026 08:33:46 -0700
+
+scap (4.282.0)
+
+  * deployment-info.json: Report the submodules of every checkout
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Tue, 18 Aug 2026 09:33:55 -0700
+
+scap (4.281.1)
+
+  * kubernetes.py: Keep counting when the Deployment cannot be read
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Mon, 17 Aug 2026 11:41:23 -0700
+
+scap (4.281.0)
+
+  * kubernetes.py: Count the replicas until k8s finishes the rollout
+  * test_lock.py: Close the temporary files
+  * utils.py: Add NoBacktraceError
+  * cli.py: Moved `AbstractSync._prompt_default` into `cli.Application`.
+  * deploy.py: Install git-lfs filter config per repo
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Mon, 17 Aug 2026 08:30:52 -0700
+
+scap (4.280.2)
+
+  * kubernetes.py: Revise progress grace period strategy
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Thu, 13 Aug 2026 14:07:16 -0700
+
+scap (4.280.1)
+
+  * kubernetes.py: Increase PROGRESS_GRACE_PERIOD to 30
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Thu, 13 Aug 2026 10:52:53 -0700
+
+scap (4.280.0)
+
+  * kubernetes.py: Continue progress reporting past MinReplicas
+  * logstash.py: Report a search response that is not 200
+  * tests: Tweak some tests for strict sandboxes
+  * logstash_poller: Read debug_logstash from the config
+  * lint: Include exit status and stderr when php lint fails
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Thu, 13 Aug 2026 09:15:16 -0700
+
+scap (4.279.0)
+
+  * Record the staged checkouts in deployment-info.json
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Tue, 11 Aug 2026 08:20:48 -0700
+
+scap (4.278.0)
+
+  * logstash: Support HTTP basic auth for logstash queries
+  * utils: Remove unused read_first_line_from_file
+  * deploy.py: Replace deprecated datetime.utcnow()
+  * Add scap deploy-service
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Fri, 07 Aug 2026 08:57:01 -0700
+
 scap (4.277.0)
 
   * mwscript: Treat any script stderr as unexpected output

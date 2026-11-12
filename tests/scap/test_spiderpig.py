@@ -1,14 +1,22 @@
 # Test spiderpig apiserver auth-related functions
 
 import json
+import logging
 import re
+import shlex
+import textwrap
+import time
 from fastapi.datastructures import State
 import pyotp
 import os
 import sys
+from typing import Optional
 from pydantic import ValidationError
 
 from scap.spiderpig.api import (
+    _get_db_session,
+    app,
+    get_db_session,
     get_pyotp,
     maybe_get_current_user,
     get_current_user,
@@ -26,13 +34,49 @@ from scap.spiderpig.api import (
     MAX_2FA_FAILURES,
     TWO_FA_FAILURE_WINDOW_SECONDS,
     TWO_FA_LOCKOUT_SECONDS,
+    get_errors,
+    get_events_snapshot,
+    get_interaction_details,
+    get_job,
+    get_jobrunner_status,
+    get_jobs,
+    get_log,
+    get_metrics,
+    interact,
+    jobrunner_status,
+    job_queue_name,
+    retry_job,
+    set_error_note,
+    start_deploy_service,
 )
-from scap.spiderpig.model import User
+from scap.deploy_service import Catalog
+import scap.logstash_poller as logstash_poller
+import scap.spiderpig.jobrunner as jobrunner
+from scap.spiderpig.model import (
+    Base,
+    ErrorNote,
+    ErrorNoteUpdate,
+    Interaction,
+    Interruption,
+    JobrunnerStatus,
+    Job,
+    JobType,
+    ServiceDeployment,
+    UnknownQueue,
+    User,
+)
 from scap.spiderpig.model import TrainGroup, TrainPromotion, TrainStatus
 from scap.spiderpig.session import SessionCookie
+import scap.metrics
+import scap.spiderpig
 import scap.utils
 
+from sqlalchemy.orm import Session
+
+import prometheus_client
+
 from fastapi import HTTPException
+from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse, RedirectResponse
 
 import pytest
@@ -69,6 +113,8 @@ def scap_config():
         "spiderpig_auth_server": "https://cas.example.org/cas",
         "spiderpig_admin_groups": "cn=admins,ou=groups,dc=example,dc=org",
         "spiderpig_user_groups": "cn=deployers,ou=groups,dc=example,dc=org",
+        "gerrit_url": "https://gerrit.example.org",
+        "phorge_url": "https://phabricator.example.org",
     }
 
     env = {
@@ -680,3 +726,1156 @@ def test_train_promotion_rejects_invalid_excluded_wiki_name(train_status_fixture
             excluded_wikis=["enwiki,bad"],
             original_train_status=train_status_fixture,
         )
+
+
+@pytest.fixture
+def job_engine(tmpdir):
+    engine = scap.spiderpig.engine(f"{tmpdir}/spiderpig.db")
+    Base.metadata.create_all(engine)
+    try:
+        yield engine
+    finally:
+        engine.dispose()
+
+
+@pytest.fixture
+def job_session(job_engine):
+    with Session(job_engine) as session:
+        yield session
+
+
+def add_job(session, type, service=None, command=None) -> int:
+    return Job.add(
+        type,
+        session,
+        user="bruce",
+        command=command or ["scap", type.value],
+        data={"service": service} if service else None,
+    )
+
+
+@pytest.mark.parametrize(
+    "type,service,expected",
+    [
+        (JobType.BACKPORT, None, "mediawiki"),
+        (JobType.TRAIN, None, "mediawiki"),
+        (JobType.DEPLOY_SERVICE, "shellbox", "service:shellbox"),
+    ],
+)
+def test_job_queue(job_session, type, service, expected):
+    job = Job.get(job_session, add_job(job_session, type, service))
+    assert job.queue == expected
+
+
+def test_extract_data_of_a_job_without_data(job_session):
+    job = Job.get(job_session, add_job(job_session, JobType.BACKPORT))
+    # Job.add stores the JSON encoding of None, which is "null".
+    assert job.data == "null"
+    assert job.extract_data() == {}
+
+    job.data = None
+    assert job.extract_data() == {}
+
+
+def test_deploy_service_job_without_a_service_has_no_queue(job_session):
+    job = Job.get(job_session, add_job(job_session, JobType.DEPLOY_SERVICE))
+    with pytest.raises(UnknownQueue, match="does not name a service"):
+        job.queue
+
+
+def test_pop_passes_over_a_busy_queue(job_session):
+    backport = add_job(job_session, JobType.BACKPORT)
+    train = add_job(job_session, JobType.TRAIN)
+    shellbox = add_job(job_session, JobType.DEPLOY_SERVICE, "shellbox")
+
+    assert Job.pop(job_session, set()).id == backport
+
+    # The train job is behind the running backport in the mediawiki queue, so
+    # the shellbox job starts first.
+    assert Job.pop(job_session, {"mediawiki"}).id == shellbox
+    assert Job.pop(job_session, {"mediawiki", "service:shellbox"}) is None
+    assert Job.pop(job_session, set()).id == train
+
+
+def test_pop_returns_none_when_every_queue_is_busy(job_session):
+    add_job(job_session, JobType.BACKPORT)
+    assert Job.pop(job_session, {"mediawiki"}) is None
+
+
+def test_service_deployment_command():
+    assert ServiceDeployment(service="shellbox", message="bump image").command == [
+        "scap",
+        "deploy-service",
+        "--",
+        "shellbox",
+        "bump image",
+    ]
+    assert ServiceDeployment(
+        service="shellbox", message="bump image", confirmDiffs=True
+    ).command == [
+        "scap",
+        "deploy-service",
+        "--confirm-diffs",
+        "--",
+        "shellbox",
+        "bump image",
+    ]
+
+
+@pytest.mark.parametrize("message", [None, "", "   "])
+def test_service_deployment_requires_a_message(message):
+    with pytest.raises(ValidationError):
+        ServiceDeployment(service="shellbox", message=message)
+
+
+@pytest.mark.parametrize("service", ["--dry-run", "", "-x", "a b", "../etc/passwd"])
+def test_service_deployment_rejects_a_bad_service_name(service):
+    with pytest.raises(ValidationError, match="Invalid service name"):
+        ServiceDeployment(service=service, message="bump image")
+
+
+def test_service_deployment_job_runs_in_the_queue_of_its_service(job_session):
+    deployment = ServiceDeployment(service="shellbox", message="bump image")
+    job = Job.get(job_session, deployment.add_job(session=job_session, user="bruce"))
+
+    assert job.type == JobType.DEPLOY_SERVICE
+    assert job.queue == "service:shellbox"
+    assert job.extract_data()["service"] == "shellbox"
+
+
+@pytest.mark.anyio
+async def test_start_deploy_service_rejects_a_service_that_scap_does_not_deploy(
+    job_session,
+):
+    with unittest.mock.patch.object(
+        scap.spiderpig.api,
+        "get_service_catalog",
+        return_value=Catalog(services={"shellbox": None}, errors={}),
+    ):
+        with pytest.raises(HTTPException) as excinfo:
+            await start_deploy_service(
+                ServiceDeployment(service="nosuchservice", message="bump image"),
+                SessionUser(name="bruce", groups=[], fully_authenticated=True),
+                job_session,
+            )
+
+    assert excinfo.value.status_code == 400
+    assert "not in the service catalog" in excinfo.value.detail["message"]
+
+
+def test_jobrunner_status_records_the_process(job_session):
+    assert JobrunnerStatus.get(job_session) is None
+
+    JobrunnerStatus.set_pid(job_session, 4242)
+    assert JobrunnerStatus.get(job_session).pid == 4242
+
+    # Only one row records the jobrunner.
+    JobrunnerStatus.set_pid(job_session, 99)
+    assert JobrunnerStatus.get(job_session).pid == 99
+
+    JobrunnerStatus.set_pid(job_session, None)
+    assert JobrunnerStatus.get(job_session).pid is None
+
+
+@pytest.mark.anyio
+async def test_jobrunner_status_reports_what_the_pages_read_of_each_running_job(
+    job_session,
+):
+    job = job_with_revert_prompt(job_session)
+    job.set_status(job_session, "Running")
+    JobrunnerStatus.set_pid(job_session, os.getpid())
+
+    status = await jobrunner_status(job_session)
+
+    assert jsonable_encoder(status) == {
+        "status": "running",
+        "running_jobs": [
+            {
+                "id": job.id,
+                "type": "backport",
+                "status": {"status": "Running", "progress": None},
+                "data": job.extract_data(),
+            }
+        ],
+        "busy_queues": ["mediawiki"],
+    }
+
+
+def test_get_running_reports_the_jobs_that_started_and_did_not_finish(job_session):
+    queued = add_job(job_session, JobType.BACKPORT)
+    running = Job.pop(job_session, set())
+    assert [job.id for job in Job.get_running(job_session)] == [running.id]
+
+    running.finish(job_session, 0)
+    assert Job.get_running(job_session) == []
+    assert Job.get(job_session, queued).finished_at is not None
+
+
+def drive_jobrunner(
+    session, engine, logdir, job_ids, after_start_func, timeout=30
+) -> dict:
+    """Runs the dispatch loop of the jobrunner until every job has finished.
+
+    Calls after_start_func after each job starts.  Returns, for each job, the ids
+    of the other jobs that were running when it started.
+    """
+    logger = logging.getLogger("test-jobrunner")
+    workers = {}
+    running = {}
+    others_running = {}
+    began = time.time()
+
+    while time.time() - began < timeout:
+        jobrunner.reap_workers(workers)
+        running = {queue: running[queue] for queue in workers}
+
+        job = Job.pop(session, set(workers))
+        if job is None:
+            if not workers and all(
+                Job.get(session, job_id).finished_at for job_id in job_ids
+            ):
+                break
+            time.sleep(0.02)
+            continue
+
+        others_running[job.id] = set(running.values())
+        workers[job.queue] = jobrunner.start_worker(job, engine, logger, logdir)
+        running[job.queue] = job.id
+        after_start_func(others_running)
+
+    jobrunner.reap_workers(workers)
+    return others_running
+
+
+def test_the_jobrunner_runs_one_job_at_a_time_in_each_queue(
+    job_session, job_engine, tmpdir
+):
+    logdir = str(tmpdir.mkdir("jobs"))
+    # Each job runs until the test creates this file.
+    release = tmpdir.join("release")
+    command = [
+        "bash",
+        "-c",
+        f"until [ -e {shlex.quote(str(release))} ]; do sleep 0.01; done",
+    ]
+
+    shellbox = add_job(job_session, JobType.DEPLOY_SERVICE, "shellbox", command)
+    echostore = add_job(job_session, JobType.DEPLOY_SERVICE, "echostore", command)
+    backport = add_job(job_session, JobType.BACKPORT, None, command)
+    # Behind the first shellbox job, in the same queue.
+    shellbox_again = add_job(job_session, JobType.DEPLOY_SERVICE, "shellbox", command)
+
+    def release_after_the_first_job_of_each_queue_starts(others_running):
+        if {shellbox, echostore, backport} <= others_running.keys():
+            release.ensure()
+
+    job_ids = [shellbox, echostore, backport, shellbox_again]
+    try:
+        others_running = drive_jobrunner(
+            job_session,
+            job_engine,
+            logdir,
+            job_ids,
+            release_after_the_first_job_of_each_queue_starts,
+        )
+    finally:
+        release.ensure()
+
+    for job_id in job_ids:
+        assert Job.get(job_session, job_id).exit_status == 0
+
+    # A job of another queue does not wait.
+    assert others_running[echostore] == {shellbox}
+    assert others_running[backport] == {shellbox, echostore}
+    # A job of a busy queue waits.
+    assert shellbox not in others_running[shellbox_again]
+
+
+ROLLED_BACK_SCAP_COMMAND = textwrap.dedent(
+    """
+    import sys
+    import scap.main
+    from scap import cli
+
+    @cli.command("rolled-back")
+    class RolledBack(cli.Application):
+        def main(self, *extra_args):
+            return scap.main.ROLLED_BACK_STATUS
+
+    sys.argv = ["scap", "rolled-back"]
+    cli.Application.run()
+    """
+)
+
+# The same sequence as "scap backport" after the rollback of its sync-world.
+PROMPT_AFTER_ROLLED_BACK_SCAP_COMMAND = textwrap.dedent(
+    f"""
+    import subprocess
+    import sys
+    from scap.interaction import GetIO
+
+    subprocess.run([sys.executable, "-c", {ROLLED_BACK_SCAP_COMMAND!r}])
+    answer = GetIO().prompt_choices("Revert?", {{"Yes": "y", "No": "n"}}, "y")
+    sys.exit(0 if answer == "n" else 1)
+    """
+)
+
+
+def wait_for_interaction(session, job_id, timeout=15) -> Optional[Interaction]:
+    began = time.time()
+    while time.time() - began < timeout:
+        # End the read transaction to see the commits of the jobrunner.
+        session.rollback()
+        interaction = Interaction.lookup_pending(session, job_id)
+        if interaction:
+            return interaction
+        time.sleep(0.05)
+
+
+def test_a_prompt_after_a_rolled_back_scap_command_waits_for_a_response(
+    job_session, job_engine, tmpdir, monkeypatch
+):
+    monkeypatch.setenv("PYTHONPATH", os.path.dirname(os.path.dirname(scap.__file__)))
+    logdir = str(tmpdir.mkdir("jobs"))
+    command = [sys.executable, "-c", PROMPT_AFTER_ROLLED_BACK_SCAP_COMMAND]
+    job_id = add_job(job_session, JobType.BACKPORT, None, command)
+    worker = jobrunner.start_worker(
+        Job.pop(job_session, set()),
+        job_engine,
+        logging.getLogger("test-jobrunner"),
+        logdir,
+    )
+
+    try:
+        interaction = wait_for_interaction(job_session, job_id)
+        assert interaction is not None, "The prompt did not become an interaction"
+        assert interaction.prompt == "Revert?"
+        interaction.respond(job_session, "bruce", "n")
+        worker.join(timeout=15)
+    finally:
+        if worker.is_alive():
+            Interruption.add(job_session, job_id, "bruce", "kill")
+            job_session.commit()
+            worker.join(timeout=15)
+
+    assert Job.get(job_session, job_id).exit_status == 0
+
+
+PROMPT_WITH_DETAILS = textwrap.dedent(
+    """
+    import sys
+    from scap.interaction import GetIO, PromptDetails
+
+    answer = GetIO().prompt_choices(
+        "Apply?",
+        {"Yes": "y", "No": "n"},
+        "n",
+        details=PromptDetails("Helmfile diffs", "+ password: hunter2"),
+    )
+    sys.exit(0 if answer == "y" else 1)
+    """
+)
+
+
+def test_the_details_of_a_prompt_go_to_the_interaction_and_the_job_log(
+    job_session, job_engine, tmpdir, monkeypatch
+):
+    monkeypatch.setenv("PYTHONPATH", os.path.dirname(os.path.dirname(scap.__file__)))
+    logdir = str(tmpdir.mkdir("jobs"))
+    command = [sys.executable, "-c", PROMPT_WITH_DETAILS]
+    job_id = add_job(job_session, JobType.DEPLOY_SERVICE, "shellbox", command)
+    worker = jobrunner.start_worker(
+        Job.pop(job_session, set()),
+        job_engine,
+        logging.getLogger("test-jobrunner"),
+        logdir,
+    )
+
+    try:
+        interaction = wait_for_interaction(job_session, job_id)
+        assert interaction is not None, "The prompt did not become an interaction"
+        assert interaction.prompt == "Apply?"
+        assert interaction.details == "+ password: hunter2"
+        assert interaction.details_title == "Helmfile diffs"
+        interaction.respond(job_session, "bruce", "y")
+        worker.join(timeout=15)
+    finally:
+        if worker.is_alive():
+            Interruption.add(job_session, job_id, "bruce", "kill")
+            job_session.commit()
+            worker.join(timeout=15)
+
+    assert Job.get(job_session, job_id).exit_status == 0
+    with open(os.path.join(logdir, f"{job_id}.log.jsonl")) as f:
+        payloads = [json.loads(line)["payload"] for line in f]
+    assert {
+        "type": "line",
+        "line": "+ password: hunter2",
+        "sensitive": True,
+    } in payloads
+
+
+REVERT_CHOICES = {"Yes": "y", "No": "n", "Exit without reverting": "x"}
+
+
+def job_with_revert_prompt(session) -> Job:
+    add_job(session, JobType.BACKPORT)
+    job = Job.pop(session, set())
+    Interaction.register(
+        session, job.id, "choices", "Revert change 1359282?", REVERT_CHOICES, "y"
+    )
+    return job
+
+
+@pytest.mark.anyio
+async def test_get_job_reports_the_pending_interaction(job_session):
+    job = job_with_revert_prompt(job_session)
+
+    result = await get_job(job, job_session)
+
+    assert result["job"].interaction == {
+        "id": unittest.mock.ANY,
+        "job_id": job.id,
+        "type": "choices",
+        "prompt": "Revert change 1359282?",
+        "choices": REVERT_CHOICES,
+        "default": "y",
+        "details_title": None,
+        "has_details": False,
+        "responded_by": None,
+        "response": None,
+    }
+
+
+@pytest.mark.anyio
+async def test_get_job_reports_no_interaction_after_the_response(job_session):
+    job = job_with_revert_prompt(job_session)
+    Interaction.lookup_pending(job_session, job.id).respond(job_session, "bruce", "y")
+
+    result = await get_job(job, job_session)
+
+    assert result["job"].interaction is None
+
+
+@pytest.mark.anyio
+async def test_job_lists_report_the_pending_interaction(job_session):
+    job = job_with_revert_prompt(job_session)
+    JobrunnerStatus.set_pid(job_session, os.getpid())
+
+    jobs = (await get_jobs(job_session, limit=10, skip=0))["jobs"]
+
+    assert [j.interaction["choices"] for j in jobs] == [REVERT_CHOICES]
+    assert job.id == jobs[0].id
+
+
+@pytest.mark.anyio
+async def test_each_route_reports_a_job_with_the_same_fields(job_session):
+    job = job_with_revert_prompt(job_session)
+    JobrunnerStatus.set_pid(job_session, os.getpid())
+
+    # Each route detaches the jobs that it reports, so get_job() goes first.
+    from_get_job = (await get_job(job, job_session))["job"]
+    from_get_jobs = (await get_jobs(job_session, limit=10, skip=0))["jobs"][0]
+
+    fields = [set(jsonable_encoder(one)) for one in (from_get_jobs, from_get_job)]
+    assert fields[0] == fields[1]
+    assert {"interaction", "command_decoded", "running", "duration"} <= fields[0]
+    assert from_get_job.command_decoded == " ".join(json.loads(job.command))
+
+
+@pytest.mark.anyio
+async def test_interact_stores_the_response(job_session):
+    job = job_with_revert_prompt(job_session)
+    interaction_id = Interaction.lookup_pending(job_session, job.id).id
+
+    result = await interact(
+        job,
+        interaction_id,
+        "x",
+        SessionUser(name="bruce", groups=[], fully_authenticated=True),
+        job_session,
+    )
+
+    assert result["message"] == "Response stored"
+    responded = Interaction.pop_responded(job_session, job.id)
+    assert (responded.responded_by, responded.response) == ("bruce", "x")
+
+
+@pytest.mark.anyio
+async def test_interact_refuses_an_interaction_that_is_not_pending(job_session):
+    job = job_with_revert_prompt(job_session)
+    interaction_id = Interaction.lookup_pending(job_session, job.id).id
+
+    with pytest.raises(HTTPException) as excinfo:
+        await interact(
+            job,
+            interaction_id + 1,
+            "y",
+            SessionUser(name="bruce", groups=[], fully_authenticated=True),
+            job_session,
+        )
+
+    assert excinfo.value.status_code == 404
+    assert excinfo.value.detail["message"] == "No pending interactions"
+
+
+@pytest.mark.anyio
+async def test_interact_refuses_a_second_response(job_session, job_engine):
+    job = job_with_revert_prompt(job_session)
+    interaction_id = Interaction.lookup_pending(job_session, job.id).id
+    respond = Interaction.respond
+
+    # Clark responds after the lookup of the interaction for Bruce.
+    def respond_after_clark(interaction, session, responded_by, response):
+        with Session(job_engine) as clark_session:
+            pending = Interaction.lookup_pending(clark_session, job.id)
+            respond(pending, clark_session, "clark", "n")
+        respond(interaction, session, responded_by, response)
+
+    with unittest.mock.patch.object(Interaction, "respond", respond_after_clark):
+        with pytest.raises(HTTPException) as excinfo:
+            await interact(
+                job,
+                interaction_id,
+                "y",
+                SessionUser(name="bruce", groups=[], fully_authenticated=True),
+                job_session,
+            )
+
+    assert excinfo.value.status_code == 409
+    assert excinfo.value.detail["responded_by"] == "clark"
+    assert excinfo.value.detail["response"] == "n"
+
+
+def job_with_diff_prompt(session) -> Job:
+    add_job(session, JobType.DEPLOY_SERVICE, "shellbox")
+    job = Job.pop(session, set())
+    Interaction.register(
+        session,
+        job.id,
+        "choices",
+        "Continue with the deployment?",
+        {"Yes": "y", "No": "n"},
+        "n",
+        "=== Diff for shellbox ===\n+ replicas: 3",
+        "Helmfile diffs",
+    )
+    return job
+
+
+@pytest.mark.anyio
+async def test_job_updates_report_that_a_prompt_has_details_and_leave_them_out(
+    job_session,
+):
+    job = job_with_diff_prompt(job_session)
+
+    interaction = (await get_job(job, job_session))["job"].interaction
+
+    assert interaction["has_details"] is True
+    assert interaction["details_title"] == "Helmfile diffs"
+    assert "details" not in interaction
+
+
+@pytest.mark.anyio
+async def test_get_interaction_details_returns_the_details_of_the_prompt(
+    job_session,
+):
+    job = job_with_diff_prompt(job_session)
+    interaction_id = Interaction.lookup_pending(job_session, job.id).id
+
+    result = await get_interaction_details(job, interaction_id, job_session)
+
+    assert result == {"details": "=== Diff for shellbox ===\n+ replicas: 3"}
+
+
+@pytest.mark.anyio
+async def test_get_interaction_details_refuses_an_interaction_that_is_not_pending(
+    job_session,
+):
+    job = job_with_diff_prompt(job_session)
+    interaction_id = Interaction.lookup_pending(job_session, job.id).id
+
+    with pytest.raises(HTTPException) as excinfo:
+        await get_interaction_details(job, interaction_id + 1, job_session)
+
+    assert excinfo.value.status_code == 404
+
+
+# The job log that the jobrunner writes for a rolled-back backport.
+ROLLED_BACK_BACKPORT_LOG = [
+    {"type": "line", "line": "17:39:39 Failed scap sync-world: Backport for x"},
+    {"type": "line", "line": "\x1b[0m\x07"},
+    {
+        "type": "interaction",
+        "subtype": "choices",
+        "prompt": "Revert change 1359282?",
+        "choices": REVERT_CHOICES,
+        "default": "y",
+    },
+    {"type": "line", "line": "Revert change 1359282? (default: [y]):"},
+    {"type": "response", "user": "bruce", "response": "y"},
+    {"type": "status", "status": "Reverting"},
+    {"type": "exit", "status": 0},
+]
+
+
+@pytest.fixture
+def api_db_file(tmpdir, job_engine):
+    """The database file of the job_engine fixture, for the apiserver."""
+    db_file = f"{tmpdir}/spiderpig.db"
+    with unittest.mock.patch.dict(os.environ, {"SPIDERPIG_DBFILE": db_file}):
+        yield db_file
+    scap.spiderpig.api._get_db_engine(db_file).dispose()
+    scap.spiderpig.api._get_db_engine.cache_clear()
+
+
+def test_db_sessions_of_the_apiserver_share_one_engine(api_db_file):
+    with _get_db_session() as first, _get_db_session() as second:
+        assert first.get_bind() is second.get_bind()
+
+
+def _dependencies(dependant):
+    for dependency in dependant.dependencies:
+        yield dependency
+        yield from _dependencies(dependency)
+
+
+def test_job_digest_changes_with_each_job_list_update(job_session):
+    digests = [Job.digest(job_session)]
+
+    def assert_digest_changes():
+        digests.append(Job.digest(job_session))
+        assert digests[-1] != digests[-2]
+
+    add_job(job_session, JobType.BACKPORT)
+    assert_digest_changes()
+    job = Job.pop(job_session, set())
+    assert_digest_changes()
+    job.set_status(job_session, "Running")
+    assert_digest_changes()
+    job.set_progress(job_session, {"done": 1, "total": 2})
+    assert_digest_changes()
+    Interaction.register(
+        job_session, job.id, "choices", "Revert change 1359282?", REVERT_CHOICES, "y"
+    )
+    assert_digest_changes()
+    Interaction.lookup_pending(job_session, job.id).respond(job_session, "bruce", "n")
+    assert_digest_changes()
+    Interaction.pop_responded(job_session, job.id)
+    assert_digest_changes()
+    job.finish(job_session, 0)
+    assert_digest_changes()
+
+    assert Job.digest(job_session) == digests[-1]
+
+
+def test_unfinished_job_digests_change_only_for_the_job_that_changed(job_session):
+    shellbox = add_job(job_session, JobType.DEPLOY_SERVICE, "shellbox")
+    backport = add_job(job_session, JobType.BACKPORT)
+    digests = [Job.unfinished_digests(job_session)]
+    assert set(digests[0]) == {str(shellbox), str(backport)}
+
+    def assert_only_shellbox_changes():
+        digests.append(Job.unfinished_digests(job_session))
+        assert digests[-1][str(shellbox)] != digests[-2][str(shellbox)]
+        assert digests[-1][str(backport)] == digests[-2][str(backport)]
+
+    job = Job.pop(job_session, set())
+    assert job.id == shellbox
+    assert_only_shellbox_changes()
+    job.set_status(job_session, "Running")
+    assert_only_shellbox_changes()
+    Interaction.register(
+        job_session, shellbox, "choices", "Continue?", {"Yes": "y", "No": "n"}, "n"
+    )
+    assert_only_shellbox_changes()
+    Interaction.lookup_pending(job_session, shellbox).respond(job_session, "bruce", "y")
+    assert_only_shellbox_changes()
+
+    job.finish(job_session, 0)
+
+    assert Job.unfinished_digests(job_session) == {
+        str(backport): digests[-1][str(backport)]
+    }
+
+
+def test_events_snapshot_matches_the_jobrunner_status_route(job_session, api_db_file):
+    job = job_with_revert_prompt(job_session)
+    JobrunnerStatus.set_pid(job_session, os.getpid())
+
+    snapshot = get_events_snapshot()
+
+    assert snapshot["jobrunner"] == jsonable_encoder(get_jobrunner_status(job_session))
+    assert [j["id"] for j in snapshot["jobrunner"]["running_jobs"]] == [job.id]
+    assert snapshot["jobs_digest"] == Job.digest(job_session)
+    assert snapshot["unfinished_job_digests"] == Job.unfinished_digests(job_session)
+
+
+def test_events_snapshot_reports_the_error_total(spiderpigdir, api_db_file):
+    assert get_events_snapshot()["error_total"] == 0
+
+    with open(os.path.join(spiderpigdir, logstash_poller.LOG_FILE), "w") as f:
+        json.dump({"errors": {}, "total": 7}, f)
+
+    assert get_events_snapshot()["error_total"] == 7
+
+
+@pytest.mark.parametrize("content", ['{"errors": {', "[]", '{"polled_at": "noon"}'])
+def test_events_snapshot_reports_jobs_while_the_error_logs_are_unusable(
+    spiderpigdir, job_session, api_db_file, content
+):
+    with open(os.path.join(spiderpigdir, logstash_poller.LOG_FILE), "w") as f:
+        f.write(content)
+
+    snapshot = get_events_snapshot()
+
+    assert snapshot["jobs_digest"] == Job.digest(job_session)
+    assert snapshot["error_total"] is None
+    assert snapshot["errors_digest"] is None
+    assert snapshot["stale_error_poll_time"] is None
+
+
+def test_events_snapshot_reports_a_stale_error_poll(spiderpigdir, api_db_file):
+    log_file = os.path.join(spiderpigdir, logstash_poller.LOG_FILE)
+
+    def stale_error_poll_time(polled_at):
+        with open(log_file, "w") as f:
+            json.dump({"errors": {}, "total": 0, "polled_at": polled_at}, f)
+        return get_events_snapshot()["stale_error_poll_time"]
+
+    assert get_events_snapshot()["stale_error_poll_time"] is None
+    assert stale_error_poll_time(time.time() - 30) is None
+    polled_at = time.time() - 61
+    assert stale_error_poll_time(polled_at) == polled_at
+
+
+def test_errors_digest_changes_with_each_error_logs_page_update(
+    spiderpigdir, job_session, api_db_file
+):
+    log_file = os.path.join(spiderpigdir, logstash_poller.LOG_FILE)
+    digests = [get_events_snapshot()["errors_digest"]]
+
+    def assert_digest_changes():
+        digests.append(get_events_snapshot()["errors_digest"])
+        assert digests[-1] != digests[-2]
+
+    def write_poll_result(count):
+        with open(log_file, "w") as f:
+            json.dump(
+                {
+                    "errors": {"bad thing": {"count": count, "versions": []}},
+                    "total": 1,
+                    "polled_at": time.time(),
+                },
+                f,
+            )
+
+    write_poll_result(1)
+    assert_digest_changes()
+    write_poll_result(2)
+    assert_digest_changes()
+    ErrorNote.save(job_session, "good thing", "T0", "bruce")
+    assert_digest_changes()
+    ErrorNote.save(job_session, "bad thing", "T1", "bruce")
+    assert_digest_changes()
+    ErrorNote.save(job_session, "bad thing", "T2", "bruce")
+    assert_digest_changes()
+    ErrorNote.remove(job_session, "good thing")
+    assert_digest_changes()
+
+    write_poll_result(2)
+    assert get_events_snapshot()["errors_digest"] == digests[-1]
+
+
+def test_db_sessions_close_before_the_response_is_sent():
+    # A session that is open while the response is sent keeps its pooled connection.
+    scopes = {
+        dependency.scope
+        for route in app.routes
+        if hasattr(route, "dependant")
+        for dependency in _dependencies(route.dependant)
+        if dependency.call is get_db_session
+    }
+    assert scopes == {"function"}
+
+
+@pytest.fixture
+def job_log_dir(tmpdir, api_db_file):
+    logdir = tmpdir.mkdir("jobs")
+    with unittest.mock.patch.dict(os.environ, {"SPIDERPIG_JOB_LOG_DIR": str(logdir)}):
+        yield logdir
+
+
+def finished_job_with_log(session, logdir, payloads) -> int:
+    add_job(session, JobType.BACKPORT)
+    job = Job.pop(session, set())
+    job.finish(session, 0)
+    with open(os.path.join(logdir, f"{job.id}.log.jsonl"), "w") as f:
+        for payload in payloads:
+            print(json.dumps({"timestamp": 0, "payload": payload, "gap": 0}), file=f)
+    return job.id
+
+
+async def read_log(job_id, include_sensitive=False, resume_record=0) -> list:
+    response = await get_log(job_id, include_sensitive, resume_record)
+    return [json.loads(record) async for record in response.body_iterator]
+
+
+@pytest.mark.anyio
+async def test_get_log_sends_the_lines_and_responses_of_the_job(
+    job_session, job_log_dir
+):
+    job_id = finished_job_with_log(job_session, job_log_dir, ROLLED_BACK_BACKPORT_LOG)
+
+    assert await read_log(job_id) == [
+        {"type": "connected", "recno": 0},
+        {
+            "type": "line",
+            "line": "17:39:39 Failed scap sync-world: Backport for x",
+            "recno": 1,
+        },
+        {"type": "line", "line": "\x1b[0m\x07", "recno": 2},
+        {"type": "line", "line": "Revert change 1359282? (default: [y]):", "recno": 4},
+        {"type": "response", "user": "bruce", "response": "y", "recno": 5},
+        {"type": "EOF", "recno": 7},
+    ]
+
+
+@pytest.mark.anyio
+async def test_get_log_resumes_after_the_supplied_record(job_session, job_log_dir):
+    job_id = finished_job_with_log(job_session, job_log_dir, ROLLED_BACK_BACKPORT_LOG)
+
+    assert await read_log(job_id, resume_record=4) == [
+        {"type": "connected", "recno": 4},
+        {"type": "response", "user": "bruce", "response": "y", "recno": 5},
+        {"type": "EOF", "recno": 7},
+    ]
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize(
+    "include_sensitive,expected",
+    [
+        (
+            False,
+            [
+                ("diff of shellbox", 1),
+                ("<sensitive information hidden>", 2),
+                ("Apply the diffs?", 4),
+                ("<sensitive information hidden>", 5),
+            ],
+        ),
+        (
+            True,
+            [
+                ("diff of shellbox", 1),
+                ("secret 1", 2),
+                ("secret 2", 3),
+                ("Apply the diffs?", 4),
+                ("secret 3", 5),
+            ],
+        ),
+    ],
+)
+async def test_get_log_hides_each_run_of_sensitive_lines(
+    job_session, job_log_dir, include_sensitive, expected
+):
+    job_id = finished_job_with_log(
+        job_session,
+        job_log_dir,
+        [
+            {"type": "line", "line": "diff of shellbox"},
+            {"type": "line", "line": "secret 1", "sensitive": True},
+            {"type": "line", "line": "secret 2", "sensitive": True},
+            {"type": "line", "line": "Apply the diffs?"},
+            {"type": "line", "line": "secret 3", "sensitive": True},
+        ],
+    )
+
+    records = await read_log(job_id, include_sensitive=include_sensitive)
+
+    lines = [(r["line"], r["recno"]) for r in records if r["type"] == "line"]
+    assert lines == expected
+
+
+def finished_deploy_service_job(session, **kwargs) -> Job:
+    deployment = ServiceDeployment(
+        service=kwargs.get("service", "shellbox"),
+        message=kwargs.get("message", "bump image"),
+        confirmDiffs=kwargs.get("confirm_diffs", True),
+    )
+    job = Job.get(session, deployment.add_job(session=session, user="bruce"))
+    job.started_at = time.time()
+    session.commit()
+    job.finish(session, 1)
+    return job
+
+
+@pytest.mark.anyio
+async def test_start_deploy_service_rejects_a_service_with_a_catalog_error(
+    job_session,
+):
+    """A mistake in one entry of the catalog reports that entry.  T441311"""
+    with unittest.mock.patch.object(
+        scap.spiderpig.api,
+        "get_service_catalog",
+        return_value=Catalog(
+            services={"shellbox": None},
+            errors={"airflow": "service airflow of the service catalog is bad"},
+        ),
+    ):
+        with pytest.raises(HTTPException) as excinfo:
+            await start_deploy_service(
+                ServiceDeployment(service="airflow", message="bump image"),
+                SessionUser(name="bruce", groups=[], fully_authenticated=True),
+                job_session,
+            )
+
+    assert excinfo.value.status_code == 400
+    assert excinfo.value.detail["message"] == (
+        "service airflow of the service catalog is bad"
+    )
+
+
+@pytest.mark.anyio
+async def test_retry_of_a_deploy_service_job_deploys_the_same_service(job_session):
+    job = finished_deploy_service_job(job_session)
+
+    with unittest.mock.patch.object(
+        scap.spiderpig.api,
+        "get_service_catalog",
+        return_value=Catalog(services={"shellbox": None}, errors={}),
+    ):
+        result = await retry_job(
+            job,
+            SessionUser(name="clark", groups=[], fully_authenticated=True),
+            None,
+            job_session,
+        )
+
+    retried = Job.get(job_session, result["id"])
+    assert retried.type == JobType.DEPLOY_SERVICE
+    assert retried.queue == "service:shellbox"
+    assert json.loads(retried.command) == json.loads(job.command)
+    assert retried.extract_data() == job.extract_data()
+    # The retry belongs to whoever asked for it.
+    assert retried.user == "clark"
+
+
+@pytest.mark.anyio
+async def test_retry_refuses_a_service_that_scap_no_longer_deploys(job_session):
+    job = finished_deploy_service_job(job_session, service="goneaway")
+
+    with unittest.mock.patch.object(
+        scap.spiderpig.api,
+        "get_service_catalog",
+        return_value=Catalog(services={"shellbox": None}, errors={}),
+    ):
+        with pytest.raises(HTTPException) as excinfo:
+            await retry_job(
+                job,
+                SessionUser(name="bruce", groups=[], fully_authenticated=True),
+                None,
+                job_session,
+            )
+
+    assert excinfo.value.status_code == 400
+    assert "no longer in the service catalog" in excinfo.value.detail["message"]
+
+
+@pytest.mark.anyio
+async def test_retry_refuses_a_train_job(job_session):
+    job_id = add_job(job_session, JobType.TRAIN)
+    job = Job.get(job_session, job_id)
+    job.started_at = time.time()
+    job_session.commit()
+    job.finish(job_session, 1)
+
+    with pytest.raises(HTTPException) as excinfo:
+        await retry_job(
+            job,
+            SessionUser(name="bruce", groups=[], fully_authenticated=True),
+            None,
+            job_session,
+        )
+
+    assert excinfo.value.status_code == 400
+    assert excinfo.value.detail["message"] == "A train job cannot be retried"
+
+
+@pytest.mark.anyio
+async def test_retry_refuses_a_job_that_is_still_running(job_session):
+    add_job(job_session, JobType.BACKPORT)
+    job = Job.pop(job_session, set())
+
+    with pytest.raises(HTTPException) as excinfo:
+        await retry_job(
+            job,
+            SessionUser(name="bruce", groups=[], fully_authenticated=True),
+            None,
+            job_session,
+        )
+
+    assert excinfo.value.status_code == 400
+    assert "still running" in excinfo.value.detail["message"]
+
+
+def test_job_queue_name_reports_the_queue_of_each_kind_of_job(job_session):
+    backport = Job.get(job_session, add_job(job_session, JobType.BACKPORT))
+    train = Job.get(job_session, add_job(job_session, JobType.TRAIN))
+    deployment = ServiceDeployment(service="shellbox", message="bump image")
+    service = Job.get(
+        job_session, deployment.add_job(session=job_session, user="bruce")
+    )
+
+    assert job_queue_name(backport) == "mediawiki"
+    assert job_queue_name(train) == "mediawiki"
+    assert job_queue_name(service) == "service:shellbox"
+
+
+def test_job_queue_name_of_a_job_with_no_queue(job_session):
+    # A deploy-service job whose data does not name a service.
+    job = Job.get(job_session, add_job(job_session, JobType.DEPLOY_SERVICE))
+
+    assert job_queue_name(job) is None
+
+
+@pytest.mark.anyio
+async def test_get_jobs_reports_the_queue_of_each_job(job_session):
+    add_job(job_session, JobType.BACKPORT)
+    ServiceDeployment(service="shellbox", message="bump image").add_job(
+        session=job_session, user="bruce"
+    )
+
+    result = await get_jobs(job_session, limit=10, skip=0)
+
+    # `queue_name` must be read before `data` is replaced with its parsed form.
+    assert [job.queue_name for job in result["jobs"]] == [
+        "service:shellbox",
+        "mediawiki",
+    ]
+
+
+@pytest.mark.anyio
+async def test_get_jobs_selects_one_type_of_job(job_session):
+    add_job(job_session, JobType.BACKPORT)
+    add_job(job_session, JobType.TRAIN)
+    ServiceDeployment(service="shellbox", message="bump image").add_job(
+        session=job_session, user="bruce"
+    )
+
+    result = await get_jobs(job_session, limit=10, skip=0, type=JobType.TRAIN)
+
+    assert [job.type for job in result["jobs"]] == [JobType.TRAIN]
+
+
+@pytest.fixture
+def error_notes_session(job_session, spiderpigdir):
+    """A db session, with a report of the logstash poller in place."""
+    report = {
+        "errors": {
+            "Fatal error: bad thing": {"count": 3, "versions": ["1.46.0-wmf.1"]},
+            "Notice: other thing": {"count": 1, "versions": []},
+        },
+        "total": 4,
+    }
+    with open(os.path.join(str(spiderpigdir), logstash_poller.LOG_FILE), "w") as f:
+        json.dump(report, f)
+    return job_session
+
+
+def test_error_note_save_replaces_the_note_of_a_message(job_session):
+    ErrorNote.save(job_session, "bad thing", "T1", "bruce")
+    ErrorNote.save(job_session, "bad thing", "T2, still broken", "clark")
+
+    notes = ErrorNote.all_by_message(job_session)
+    assert list(notes) == ["bad thing"]
+    assert notes["bad thing"].note == "T2, still broken"
+    assert notes["bad thing"].user == "clark"
+
+
+def test_error_note_remove(job_session):
+    ErrorNote.save(job_session, "bad thing", "T1", "bruce")
+    ErrorNote.remove(job_session, "bad thing")
+    assert ErrorNote.all_by_message(job_session) == {}
+
+    # Removal of a message that has no note is not an error.
+    ErrorNote.remove(job_session, "bad thing")
+
+
+@pytest.mark.anyio
+async def test_get_errors_attaches_the_note_of_each_message(error_notes_session):
+    ErrorNote.save(error_notes_session, "Fatal error: bad thing", "T1 is open", "bruce")
+
+    errors = (await get_errors(error_notes_session))["log"]
+
+    assert errors["Fatal error: bad thing"]["note"] == {
+        "text": "T1 is open",
+        "linkified": [
+            "",
+            {
+                "type": "link",
+                "href": "https://phabricator.example.org/T1",
+                "text": "T1",
+            },
+            " is open",
+        ],
+        "user": "bruce",
+        "updatedAt": unittest.mock.ANY,
+    }
+    assert "note" not in errors["Notice: other thing"]
+
+
+@pytest.mark.anyio
+async def test_set_error_note_with_no_text_removes_the_note(job_session):
+    user = SessionUser(name="bruce", groups=[])
+
+    await set_error_note(
+        ErrorNoteUpdate(message="bad thing", note="T1"), user, job_session
+    )
+    assert "bad thing" in ErrorNote.all_by_message(job_session)
+
+    await set_error_note(
+        ErrorNoteUpdate(message="bad thing", note="   "), user, job_session
+    )
+    assert ErrorNote.all_by_message(job_session) == {}
+
+
+def test_error_note_update_requires_a_message():
+    with pytest.raises(ValidationError, match="message that the note describes"):
+        ErrorNoteUpdate(message="", note="T1")
+
+
+@pytest.mark.parametrize(
+    "accept,content_type,promotions",
+    [
+        (
+            None,
+            "text/plain; version=0.0.4",
+            "# TYPE scap_backport_changes_total counter",
+        ),
+        (
+            "application/openmetrics-text;version=1.0.0,text/plain;version=0.0.4;q=0.5",
+            "application/openmetrics-text; version=1.0.0",
+            "# TYPE scap_backport_changes counter",
+        ),
+    ],
+)
+def test_get_metrics_exports_the_metrics_of_commands(
+    tmp_path, accept, content_type, promotions
+):
+    scap.metrics.Metrics(str(tmp_path)).operation_duration.observe(10, operation="prep")
+    request = Mock(headers={"Accept": accept} if accept else {})
+
+    collector = scap.metrics.FileCollector(scap.metrics.MetricsFile(str(tmp_path)))
+    prometheus_client.REGISTRY.register(collector)
+    try:
+        response = get_metrics(request)
+    finally:
+        prometheus_client.REGISTRY.unregister(collector)
+
+    assert response.media_type.startswith(content_type)
+    body = response.body.decode()
+    assert 'scap_operation_duration_seconds_count{operation="prep"} 1' in body
+    assert "process_cpu_seconds_total" in body
+    assert promotions in body

@@ -6,6 +6,7 @@ import subprocess
 import sys
 import time
 import unittest
+import urllib.request
 from datetime import datetime
 
 import pexpect
@@ -144,18 +145,10 @@ class BackportsTestHelper:
 
     def install_commit_hook(self, path):
         hookdir = path + "/hooks"
-        if not os.path.isdir(hookdir):
-            os.makedirs(hookdir)
-        subprocess.check_call(
-            [
-                "scp",
-                "-p",
-                "-P",
-                "29418",
-                "traindev@%s:hooks/commit-msg" % self.gerrit_domain,
-                hookdir,
-            ]
-        )
+        os.makedirs(hookdir, exist_ok=True)
+        hook = os.path.join(hookdir, "commit-msg")
+        urllib.request.urlretrieve(self.gerrit_url + "/tools/hooks/commit-msg", hook)
+        os.chmod(hook, 0o755)
 
     def git_clone(self, branch, repo, path):
         """clones a repo"""

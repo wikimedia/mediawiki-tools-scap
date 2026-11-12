@@ -60,6 +60,8 @@ class BuildImages(cli.Application):
             for version in versions:
                 self.timed(tasks.update_localization_cache, version, self, json=False)
 
+            self.write_deployment_info()
+
             with self.Timer("build-and-push-container-images"):
                 k8s_ops.build_k8s_images(
                     versions,

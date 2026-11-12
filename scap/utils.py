@@ -26,6 +26,7 @@ import pwd
 import random
 import re
 import requests
+import shlex
 import socket
 import struct
 import subprocess
@@ -200,12 +201,14 @@ def get_user_fullname(name=None):
 
 
 def is_docker_user(config):
-    """Return True if the current user is the same as docker_user from config."""
+    """Return True if the effective user is the same as docker_user from config."""
     docker_user = config.get("docker_user")
     if docker_user is None:
         return False
 
-    return get_real_username() == docker_user
+    # Not the real user: after sudo to docker_user, the real user is still
+    # the person that started scap.
+    return get_username() == docker_user
 
 
 def get_env_specific_filename(path, env=None):
@@ -349,10 +352,30 @@ def log_context(context_name):
     return arg_wrapper
 
 
+def command_line(cmd: List[str], directory: str) -> str:
+    """Returns a command in a form that the user can copy and run."""
+    return f"(cd {shlex.quote(directory)} && {shlex.join(cmd)})"
+
+
 def get_logger():
     if LOGGER_STACK:
         return LOGGER_STACK[-1]
     return logging.getLogger()
+
+
+class NoBacktraceError(Exception):
+    """An error that scap reports without a stack trace.
+
+    A subclass is a failure that the user can understand and act on, so a
+    trace adds nothing.
+
+    Can be overridden by setting the environment variable `SCAP_BACKTRACE`.
+    """
+
+    def __init__(self, *args):
+        super().__init__(*args)
+        # This value is read by _handle_exception in cli.py and main.py.
+        self._scap_no_backtrace = os.environ.get("SCAP_BACKTRACE", None) is None
 
 
 @contextlib.contextmanager
@@ -877,15 +900,6 @@ def _listfiles(dirname):
                 yield pathname[len(prefix) :]
 
 
-def read_first_line_from_file(filename) -> str:
-    """
-    Reads and returns the first line of the specified file.
-    Whitespace is stripped.
-    """
-    with open(filename) as f:
-        return f.readline().strip()
-
-
 def write_file_if_needed(filename, data: str) -> bool:
     """Write 'data' to 'filename' if 'filename' doesn't already have that data in it
 
@@ -911,7 +925,7 @@ def write_file_if_needed(filename, data: str) -> bool:
 
 
 @contextlib.contextmanager
-def temp_to_permanent_file(final_filename, mode="w"):
+def temp_to_permanent_file(final_filename, mode="w", permissions=None):
     """
     temp_to_permanent_file yields (by default) a text stream on a temporary file
     that is open for writing.  If the context body completes without
@@ -921,6 +935,9 @@ def temp_to_permanent_file(final_filename, mode="w"):
     and `final_filename` remains unaffected.
 
     Specify mode="wb" for a binary stream.
+
+    The file gets `permissions` if given, for example 0o640, and otherwise
+    0o666 less the umask.
 
     Example:
 
@@ -942,7 +959,7 @@ def temp_to_permanent_file(final_filename, mode="w"):
             raise e
 
     # Reach here on success
-    os.chmod(tmp.name, 0o666 & ~get_umask())
+    os.chmod(tmp.name, 0o666 & ~get_umask() if permissions is None else permissions)
     # This is atomic
     os.rename(tmp.name, final_filename)
 

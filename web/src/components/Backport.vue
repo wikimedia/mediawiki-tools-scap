@@ -8,7 +8,7 @@
 			<v-autocomplete
 				ref="autocomplete"
 				v-model="changeNumbers"
-				:disabled="!idle"
+				:disabled="mediawikiIsBusy"
 				:hide-no-data="hideNoData"
 				:items="menuItems"
 				:loading="searching"
@@ -65,7 +65,8 @@
 import { ref, computed } from 'vue';
 import { CdxButton, CdxDialog, CdxField } from '@wikimedia/codex';
 import { VAutocomplete, VListItem } from 'vuetify/lib/components/index.mjs';
-import useApi from '../api';
+import useApi, { type ApiError } from '../api';
+import useJobrunner from '../jobrunner';
 import { notificationsStore } from '@/state';
 
 export default {
@@ -79,9 +80,6 @@ export default {
 	},
 
 	props: {
-		idle: {
-			type: Boolean
-		},
 		initialChangeNumbers: {
 			type: Array<string>,
 			default: () => []
@@ -89,26 +87,24 @@ export default {
 	},
 
 	setup( props ) {
-		const autocomplete = ref( null );
+		const autocomplete = ref<{ menu: boolean } | null>( null );
 		const api = useApi();
+		const jobrunner = useJobrunner();
+		const mediawikiIsBusy = jobrunner.mediawikiIsBusy;
 		const notifications = notificationsStore();
 		const alertDialogOpen = ref( false );
 		const alertDialogText = ref( '' );
 		const alertDialogUseCloseButton = ref( true );
-		const changeNumbers = ref( [] );
-		const menuItems = ref( [] );
+		const changeNumbers = ref<string[]>( [] );
+		const menuItems = ref<object[]>( [] );
 		const hideNoData = ref( true );
 		const searching = ref( false );
 
 		changeNumbers.value = props.initialChangeNumbers;
 
-		const buttonDisabled = computed( () => {
-			if ( changeNumbers.value.length > 0 ) {
-				return false;
-			} else {
-				return true;
-			}
-		} );
+		const buttonDisabled = computed(
+			() => mediawikiIsBusy.value || changeNumbers.value.length === 0
+		);
 
 		async function startBackport() {
 			hideNoData.value = true;
@@ -118,7 +114,8 @@ export default {
 				changeNumbers.value = [];
 			} catch ( error ) {
 				alertDialogOpen.value = true;
-				alertDialogText.value = error.respJson.detail.message || error.message;
+				const apiError = error as ApiError;
+				alertDialogText.value = apiError.respJson?.detail?.message || apiError.message;
 			}
 		}
 
@@ -152,7 +149,9 @@ export default {
 		}
 
 		async function closeMenu() {
-			autocomplete.value.menu = false;
+			if ( autocomplete.value ) {
+				autocomplete.value.menu = false;
+			}
 		}
 
 		return {
@@ -164,6 +163,7 @@ export default {
 			changeNumbers,
 			closeMenu,
 			hideNoData,
+			mediawikiIsBusy,
 			menuItems,
 			onSearch,
 			searching,

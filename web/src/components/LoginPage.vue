@@ -84,7 +84,7 @@ export default defineComponent( {
 				}
 				// Login was successful
 				window.location.href = redirectTarget.value;
-			} catch ( e ) {
+			} catch {
 				status.value = 'error';
 				messages.value.error = 'Login request failed. Please try again.';
 			} finally {
@@ -102,7 +102,7 @@ export default defineComponent( {
 		async function setOtpHost() {
 			const resp = await api.whoami();
 
-			otpHost.value = resp.otpHost;
+			otpHost.value = resp.otpHost ?? '...';
 		}
 
 		watch( [ password ], clearErrorStatus );

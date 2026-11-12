@@ -1,5 +1,5 @@
 import pytest
-from scap import cli
+from scap import cli, history
 
 
 @pytest.fixture
@@ -137,7 +137,7 @@ def _supervise_stub(commands, commands_ok, calls):
         config={"deploy_mw_container_image": True},
         k8s_ops=SimpleNamespace(k8s_deployments_config=dep_conf),
         _run_command_checks=fake_run_commands,
-        _logstash_checker=lambda dep_configs, baremetal: ("checker", dep_configs),
+        _logstash_checker=lambda dep_configs, baremetal, label: ("checker", label),
         _run_logstash_checks=fake_run_logstash,
     )
 
@@ -155,6 +155,7 @@ def test_supervise_runs_commands_before_logstash():
     # Commands run first, then the logstash checks.
     assert [kind for kind, _ in calls] == ["commands", "logstash"]
     assert calls[0][1] == ["httpbb --hosts=x"]
+    assert calls[1][1] == [(("checker", "train canaries"), 10)]
 
 
 def test_supervise_failing_commands_skip_logstash():
@@ -169,21 +170,6 @@ def test_supervise_failing_commands_skip_logstash():
     assert result is False
     # Commands failed, so the logstash checks are never run.
     assert [kind for kind, _ in calls] == ["commands"]
-
-
-def test_increment_stat(cmd, mocker):
-    assert cmd._stats is None
-    stats = mocker.patch.object(cmd, "_stats")
-
-    # Case 1
-    cmd.increment_stat("scap")
-    stats.increment.assert_any_call("deploy.scap", 1)
-    stats.increment.assert_any_call("deploy.all", 1)
-
-    # Case 2
-    mocker.resetall()
-    cmd.increment_stat("sync-file", all_stat=False, value=5)
-    stats.increment.assert_called_once_with("deploy.sync-file", 5)
 
 
 api_canaries = ["pigeon.w.o", "crow.w.o", "cormorant.w.o", "flamingo.w.o"]
@@ -250,25 +236,80 @@ def test_handle_exception(cmd, mocker):
     announcer.info.assert_called()
 
 
-def test_init_history_includes_foss_violations_checkouts(cmd, mocker):
-    cmd.config["stage_dir"] = "/srv/mediawiki-staging"
-    cmd.config["foss_violations"] = [
-        {"repo": "https://example/repo-a", "branch": "main", "path": "viol-a"},
-        {"repo": "https://example/repo-b", "branch": "dev", "path": "viol-b"},
+def test_init_history_records_the_staged_checkouts(cmd, mocker):
+    checkouts = [
+        history.Checkout(
+            repo="repo",
+            branch="branch",
+            directory="/srv/mediawiki-staging",
+            commit_ref="commit",
+        )
     ]
-
+    mocker.patch.object(cmd, "collect_staged_checkouts", return_value=checkouts)
     mocker.patch.object(cmd, "scap_history_dbfile", return_value="/tmp/history.db")
-    mocker.patch.object(cmd, "active_wikiversions", return_value=["1.45.0-wmf.1"])
-
-    mocker.patch("scap.main.git.get_branch", return_value="branch")
-    mocker.patch("scap.main.git.merge_base", return_value="commit")
-    mocker.patch("scap.main.git.remote_get_url", return_value="repo")
 
     cmd._init_history()
 
-    assert [checkout.directory for checkout in cmd.deployment_log_entry.checkouts] == [
-        "/srv/mediawiki-staging",
-        "/srv/mediawiki-staging/php-1.45.0-wmf.1",
-        "/srv/mediawiki-staging/viol-a",
-        "/srv/mediawiki-staging/viol-b",
-    ]
+    assert cmd.deployment_log_entry.checkouts == checkouts
+
+
+@pytest.mark.parametrize(
+    "command,succeeded,expected",
+    [
+        (
+            ["sync-wikiversions", "group1 to 1.42.0-wmf.00"],
+            True,
+            "rebuilt and synchronized wikiversions files: group1 to 1.42.0-wmf.00",
+        ),
+        (
+            ["sync-wikiversions", "group1 to 1.42.0-wmf.00"],
+            False,
+            "failed to synchronize wikiversions files: group1 to 1.42.0-wmf.00",
+        ),
+        (
+            ["sync-world", "Backport for Fix foo"],
+            True,
+            "Finished scap sync-world: Backport for Fix foo (duration: 00m 00s)",
+        ),
+        (
+            ["sync-world", "Backport for Fix foo"],
+            False,
+            "Failed scap sync-world: Backport for Fix foo (duration: 00m 00s)",
+        ),
+        (
+            ["sync-file", "php", "Update php"],
+            True,
+            "Synchronized php: Update php (duration: 00m 00s)",
+        ),
+        (
+            ["sync-file", "php", "Update php"],
+            False,
+            "Failed to synchronize php: Update php (duration: 00m 00s)",
+        ),
+    ],
+)
+def test_sync_announces_the_outcome(mocker, command, succeeded, expected):
+    app = cli.Application.factory(command)
+    app.setup()
+    announce = mocker.patch.object(app, "announce")
+    mocker.patch.object(app, "get_duration", return_value=0)
+
+    app._after_lock_release(succeeded)
+
+    announce.assert_called_once()
+    args = announce.call_args.args
+    assert args[0] % args[1:] == expected
+
+
+@pytest.mark.parametrize(
+    "rollback_ok,outcome", [(True, "rolled-back"), (False, "cancelled")]
+)
+def test_rollback_is_counted(cmd, mocker, rollback_ok, outcome):
+    mocker.patch.object(cmd, "_rollback_k8s_stages", return_value=rollback_ok)
+    cmd.metrics = mocker.Mock()
+
+    cmd._rollback_and_mark_stage_failure("canaries", "checks-failed", {})
+
+    cmd.metrics.sync_rollbacks.inc.assert_called_once_with(
+        stage="canaries", reason="checks-failed", outcome=outcome
+    )

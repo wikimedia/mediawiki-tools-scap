@@ -1,48 +1,33 @@
 <template>
-	<cdx-info-chip>
-		{{ total }}
+	<cdx-info-chip
+		:status="staleErrorPollTime === null ? 'notice' : 'warning'"
+		:title="staleWarning"
+	>
+		{{ errorTotal ?? '⌚' }}
 	</cdx-info-chip>
 </template>
 
 <script>
-import { defineComponent, ref, onMounted, onUnmounted } from 'vue';
+import { computed, defineComponent } from 'vue';
+import { useNow } from '@vueuse/core';
 import { CdxInfoChip } from '@wikimedia/codex';
-import useApi from '../api';
+import useEvents from '../events';
+import { formatAge } from '../time';
 
 export default defineComponent( {
 	name: 'ErrorLogsCount',
 	components: { CdxInfoChip },
 	setup() {
-		const api = useApi();
-		const total = ref( '⌚' );
-		const INTERVAL = 15000;
-		let intervalTimerTotal = null;
+		const { errorTotal, staleErrorPollTime } = useEvents();
+		const now = useNow( { interval: 60000 } );
 
-		const populateTotal = async () => {
-			try {
-				const totalResp = await api.getLogsTotal();
-				total.value = totalResp.total;
-			} catch ( error ) {
-				console.error( 'Error fetching logs total:', error );
-				total.value = '⌚';
-			}
-		};
-
-		onMounted( async () => {
-			// Fire off initial population without waiting.
-			populateTotal();
-			intervalTimerTotal = window.setInterval( populateTotal, INTERVAL );
-		} );
-
-		onUnmounted( () => {
-			if ( intervalTimerTotal ) {
-				clearInterval( intervalTimerTotal );
-				intervalTimerTotal = null;
-			}
-		} );
+		const staleWarning = computed( () => ( staleErrorPollTime.value === null ? undefined :
+			`The last successful logstash poll was ${ formatAge( staleErrorPollTime.value, now.value ) }` ) );
 
 		return {
-			total
+			errorTotal,
+			staleErrorPollTime,
+			staleWarning
 		};
 	}
 } );

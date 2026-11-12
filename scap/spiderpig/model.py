@@ -1,4 +1,5 @@
 import enum
+import hashlib
 import json
 import logging
 import os
@@ -6,7 +7,7 @@ import re
 import time
 from contextlib import contextmanager
 
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Set
 from pydantic import (
     BaseModel,
     ConfigDict,
@@ -14,7 +15,7 @@ from pydantic import (
     field_validator,
 )
 from pydantic.alias_generators import to_camel
-from sqlalchemy import ForeignKey, select, delete, text, null, Enum
+from sqlalchemy import ForeignKey, select, delete, text, null, func, Enum
 from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, Session
 from alembic.autogenerate import produce_migrations
@@ -169,25 +170,19 @@ class JobrunnerStatus(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     pid: Mapped[Optional[int]]
-    status: Mapped[str]
-    job_id: Mapped[Optional[int]]
 
     @classmethod
-    def get(self, session: Session) -> "JobrunnerStatus":
+    def get(self, session: Session) -> Optional["JobrunnerStatus"]:
         return session.scalar(select(JobrunnerStatus))
 
     @classmethod
-    def set(
-        self,
-        session: Session,
-        status: str,
-        job_id: Optional[int] = None,
-        clear_pid: bool = False,
-    ):
+    def set_pid(self, session: Session, pid: Optional[int]):
+        """Records the jobrunner process, or None when it stops.
+
+        This method commits.
+        """
         session.execute(delete(JobrunnerStatus))
-        pid = None if clear_pid else os.getpid()
-        status = JobrunnerStatus(pid=pid, status=status, job_id=job_id)
-        session.add(status)
+        session.add(JobrunnerStatus(pid=pid))
         session.commit()
 
 
@@ -195,9 +190,20 @@ class AlreadyFinished(Exception):
     pass
 
 
+class UnknownQueue(Exception):
+    pass
+
+
 class JobType(enum.Enum):
     BACKPORT = "backport"
     TRAIN = "train"
+    DEPLOY_SERVICE = "deploy-service"
+
+
+# The jobrunner runs one job at a time in each queue.  Jobs in different queues
+# can run at the same time.
+MEDIAWIKI_QUEUE = "mediawiki"
+SERVICE_QUEUE_PREFIX = "service:"
 
 
 class Job(Base):
@@ -239,18 +245,93 @@ class Job(Base):
         return session.scalar(select(Job).where(Job.id == job_id))
 
     @classmethod
-    def get_jobs(cls, session, limit: int, skip: int) -> List["Job"]:
-        return [
-            job
-            for job in session.scalars(
-                select(Job).order_by(Job.id.desc()).limit(limit).offset(skip)
-            )
-        ]
+    def get_jobs(
+        cls,
+        session,
+        limit: int,
+        skip: int,
+        type: Optional["JobType"] = None,
+    ) -> List["Job"]:
+        stmt = select(Job).order_by(Job.id.desc())
+        if type is not None:
+            stmt = stmt.where(Job.type == type)
+        return list(session.scalars(stmt.limit(limit).offset(skip)))
 
     @classmethod
-    def pop(cls, session) -> Optional["Job"]:
+    def get_running(cls, session) -> List["Job"]:
+        """Return a list of jobs that have started and but not finished, oldest first."""
+        stmt = (
+            select(Job)
+            .where(Job.started_at != null(), Job.finished_at == null())
+            .order_by(Job.id)
+        )
+        return list(session.scalars(stmt))
+
+    @classmethod
+    def unfinished_digests(cls, session) -> Dict[str, str]:
+        """Returns a digest of each unfinished job, keyed by the id of the job.
+
+        The digest of a job changes with each change to the job or to one of its
+        interactions.
+        """
+        interactions: Dict[int, list] = {}
+        for row in session.execute(
+            select(Interaction.__table__).order_by(Interaction.id)
+        ):
+            interactions.setdefault(row.job_id, []).append(list(row))
+
+        unfinished = select(Job.__table__).where(Job.finished_at == null())
+        return {
+            str(row.id): hashlib.sha256(
+                json.dumps(
+                    [list(row), interactions.get(row.id, [])], default=str
+                ).encode()
+            ).hexdigest()
+            for row in session.execute(unfinished)
+        }
+
+    @classmethod
+    def digest(cls, session) -> str:
+        """Returns a digest that changes when a job list should show different data.
+
+        A new job arriving and each change to an unfinished job (including
+        becoming finished) results in a change to the digest.
+        """
+        state = [
+            session.scalar(select(func.max(Job.id))),
+            cls.unfinished_digests(session),
+        ]
+        return hashlib.sha256(json.dumps(state, sort_keys=True).encode()).hexdigest()
+
+    @property
+    def queue(self) -> str:
+        """
+        The name of the queue that this job runs in.
+
+        Backports and train operations share a queue.
+        Each service has a queue of its own.
+        """
+        if self.type in (JobType.BACKPORT, JobType.TRAIN):
+            return MEDIAWIKI_QUEUE
+
+        if self.type == JobType.DEPLOY_SERVICE:
+            service = self.extract_data().get("service")
+            if not service:
+                raise UnknownQueue(
+                    f"job {self.id} is a {self.type.value} job, but its data does"
+                    " not name a service"
+                )
+            return SERVICE_QUEUE_PREFIX + service
+
+        raise UnknownQueue(f"job {self.id} has type {self.type}, which has no queue")
+
+    @classmethod
+    def pop(cls, session, busy_queues: Set[str]) -> Optional["Job"]:
         """
         Return the next eligible job to run, if any.
+
+        A job is eligible when it hasn't been started yet and its queue
+        is not in `busy_queues`.
 
         This method starts and ends a transaction.
         """
@@ -258,17 +339,18 @@ class Job(Base):
         # We use BEGIN IMMEDIATE to serialize concurrent processes.
         #   xref: https://www.sqlite.org/lang_transaction.html
         session.execute(text("BEGIN IMMEDIATE"))
-        stmt = select(Job).where(Job.started_at == null()).order_by(Job.id).limit(1)
-        job = session.scalar(stmt)
-        if not job:
-            session.rollback()
-            return
+        stmt = select(Job).where(Job.started_at == null()).order_by(Job.id)
+        for job in session.scalars(stmt).all():
+            if job.queue in busy_queues:
+                continue
 
-        # Claim the job by setting started_at
-        job.started_at = time.time()
-        session.commit()
+            # Claim the job by setting started_at
+            job.started_at = time.time()
+            session.commit()
+            return job
 
-        return job
+        session.rollback()
+        return
 
     def signal(self, session: Session, user: str, type: str):
         """
@@ -285,6 +367,14 @@ class Job(Base):
         Interruption.add(session, self.id, user, type)
         session.commit()
 
+    def extract_data(self) -> dict:
+        """
+        The auxiliary information of this job.  Empty when there is none.
+        """
+        data = json.loads(self.data) if self.data else None
+        return data or {}
+
+    # Keep in sync with web/src/types/JobStatus.ts.
     def extract_status(self) -> dict:
         if not self.status:
             return {"status": None, "progress": None}
@@ -394,6 +484,7 @@ class AlreadyResponded(Exception):
     pass
 
 
+# Keep in sync with web/src/types/Interaction.ts.
 class Interaction(Base):
     __tablename__ = "interaction"
     __table_args__ = {"sqlite_autoincrement": True}
@@ -406,6 +497,8 @@ class Interaction(Base):
 
     choices: Mapped[Optional[str]]  # JSON-encoded list, only set when type == "choices"
     default: Mapped[Optional[str]]
+    details: Mapped[Optional[str]]
+    details_title: Mapped[Optional[str]]
 
     responded_by: Mapped[Optional[str]]
     response: Mapped[Optional[str]]
@@ -425,6 +518,8 @@ class Interaction(Base):
         prompt: str,
         choices: Optional[List[str]] = None,
         default: Optional[str] = None,
+        details: Optional[str] = None,
+        details_title: Optional[str] = None,
     ):
         i = Interaction(
             job_id=job_id,
@@ -432,6 +527,8 @@ class Interaction(Base):
             prompt=prompt,
             choices=json.dumps(choices) if choices else None,
             default=default,
+            details=details,
+            details_title=details_title,
         )
         session.add(i)
         session.commit()
@@ -493,6 +590,49 @@ class Interaction(Base):
         session.commit()
 
 
+class ErrorNote(Base):
+    __tablename__ = "error_note"
+
+    # The normalized message of the error, as the logstash poller reports it.
+    message: Mapped[str] = mapped_column(primary_key=True)
+    note: Mapped[str]
+    user: Mapped[str]
+    updated_at: Mapped[float] = mapped_column(default=time.time)
+
+    @classmethod
+    def all_by_message(cls, session: Session) -> Dict[str, "ErrorNote"]:
+        return {note.message: note for note in session.scalars(select(ErrorNote))}
+
+    @classmethod
+    def save(cls, session: Session, message: str, note: str, user: str) -> None:
+        """
+        Add the note of a message, or replace the note that it has.
+
+        This method starts and ends a transaction.
+        """
+        session.execute(text("BEGIN IMMEDIATE"))
+        existing = session.get(ErrorNote, message)
+        if existing:
+            existing.note = note
+            existing.user = user
+            existing.updated_at = time.time()
+        else:
+            session.add(ErrorNote(message=message, note=note, user=user))
+        session.commit()
+
+    @classmethod
+    def remove(cls, session: Session, message: str) -> None:
+        """
+        Delete the note of a message, if it has one.
+
+        This method starts and ends a transaction.
+        """
+        session.execute(text("BEGIN IMMEDIATE"))
+        session.execute(delete(ErrorNote).where(ErrorNote.message == message))
+        session.commit()
+
+
+# Keep in sync with web/src/types/TrainGroup.ts.
 class TrainGroup(BasePydantic):
     name: str
     versions: List[str]
@@ -503,6 +643,7 @@ class TrainGroup(BasePydantic):
     has_rolled: bool = False
 
 
+# Keep in sync with web/src/types/TrainStatus.ts.
 class TrainStatus(BasePydantic):
     groups: List[TrainGroup]
     version: str
@@ -615,6 +756,74 @@ class TrainPromotion(BasePydantic):
     @property
     def data(self):
         return self.dict(by_alias=True)
+
+
+SERVICE_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._/-]*$")
+
+
+class ServiceDeployment(BasePydantic):
+    service: str
+    message: str
+    confirm_diffs: bool = False
+
+    @field_validator("service")
+    @classmethod
+    def _validate_service(cls, value: str) -> str:
+        if not SERVICE_RE.match(value):
+            raise ValueError(
+                f"Invalid service name '{value}'. Allowed characters are letters, "
+                "digits, period, underscore, slash and hyphen, and the name must "
+                "start with a letter or a digit."
+            )
+        return value
+
+    @field_validator("message")
+    @classmethod
+    def _validate_message(cls, value: str) -> str:
+        value = value.strip()
+        if not value:
+            raise ValueError("A log message stating the deployment reason is required.")
+        return value
+
+    def add_job(self, **kwargs) -> int:
+        return Job.add(
+            JobType.DEPLOY_SERVICE,
+            command=self.command,
+            data=self.data,
+            **kwargs,
+        )
+
+    @property
+    def command(self) -> List[str]:
+        cmd = ["scap", "deploy-service"]
+
+        if self.confirm_diffs:
+            cmd.append("--confirm-diffs")
+
+        # Everything after `--` is positional, so a message that starts with a
+        # hyphen does not look like a flag.
+        return cmd + ["--", self.service, self.message]
+
+    @property
+    def data(self) -> dict:
+        return self.model_dump(by_alias=True)
+
+
+class ErrorNoteUpdate(BasePydantic):
+    message: str
+    note: str
+
+    @field_validator("message")
+    @classmethod
+    def _validate_message(cls, value: str) -> str:
+        if not value:
+            raise ValueError("The message that the note describes is required.")
+        return value
+
+    @field_validator("note")
+    @classmethod
+    def _validate_note(cls, value: str) -> str:
+        return value.strip()
 
 
 def setup_db(engine, db_filename):

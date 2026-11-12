@@ -275,6 +275,10 @@ class Runtime:
         self.datacenter = cfg["datacenter"]
         self.realm = cfg["wmf_realm"]
         self.image = cfg["mediawiki_runtime_image"]
+        if self.image is None:
+            raise SystemExit(
+                "'mediawiki_runtime_image' is not set in scap configuration"
+            )
         self.dir = directory
         self.user = user
         self.temp_dir = temp_dir

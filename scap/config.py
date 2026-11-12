@@ -53,12 +53,14 @@ DEFAULT_CONFIG = {
     "log_json": (bool, False),
     # Logstash endpoint in scheme://host:port form
     "logstash_url": (str, None),
+    # File containing the credentials to use when querying logstash_url.
+    # The first line that is neither blank nor a #-prefixed comment must have
+    # "username:password" form. If unset, queries are not authenticated.
+    "logstash_credentials_file": (str, None),
     "debug_logstash": (bool, False),
     "mw_web_clusters": (str, "jobrunner,appserver,api_appserver,testserver"),
     "manage_mediawiki_php_symlink": (bool, True),
     "master_rsync": (str, "localhost"),
-    "statsd_host": (str, "127.0.0.1"),
-    "statsd_port": (str, "2003"),
     "tcpircbot_host": (str, None),
     "tcpircbot_port": (str, "9200"),
     "udp2log_host": (str, None),
@@ -120,11 +122,10 @@ DEFAULT_CONFIG = {
     "mediawiki_image_extra_packages": (str, ""),
     # Path to a CA cert to inject into the image
     "mediawiki_image_extra_ca_cert": (str, None),
-    # Container used to execute PHP scripts during prep, etc.
-    "mediawiki_runtime_image": (
-        str,
-        "docker-registry.wikimedia.org/php8.3-fpm-multiversion-base",
-    ),
+    # The container image used to execute PHP scripts during prep, etc
+    # There is no default.  This must be set explicitly in /etc/scap.cfg.
+    # The value will be something like "docker-registry.wikimedia.org/phpX.Y-fpm-multiversion-base"
+    "mediawiki_runtime_image": (str, None),
     # Runtime user of the containerized MediaWiki (mwscript) processes
     "mediawiki_runtime_user": (str, "www-data"),
     # User that has access to Docker. If set, sudo will be used to run
@@ -143,7 +144,23 @@ DEFAULT_CONFIG = {
     "k8s_helmfile_diff_context_lines": (int, 5),
     "k8s_max_concurrent_deployments_per_cluster": (int, 20),
     "k8s_deployments_info_target_freshness": (int, 10),
+    "k8s_wait_for_all_replicas": (bool, False),
+    # How many replicas each MediaWiki release gets in train-dev, where the
+    # replicas of production do not fit. Only train-dev reads this.
+    "k8s_traindev_replicas": (int, 1),
     # End settings related to building and deploying mediawiki container image
+    # Settings related to "deploy-service"
+    # The deployment config of each service that may be deployed with deploy-service
+    "service_catalog_file": (str, "/etc/scap/service-catalog.yaml"),
+    # Cluster group definitions (the helmfile environments of each cluster group)
+    "cluster_groups_file": (str, "/etc/scap/cluster-groups.yaml"),
+    # Conftool state, used to find the primary datacenter.
+    # TODO: Migrate to a scap-specific file, to be provided by SRE. This file is
+    # helmfile values for the mediawiki chart, so its structure may change.
+    "conftool_state_file": (
+        str,
+        "/etc/helmfile-defaults/mediawiki/conftool-state.yaml",
+    ),
     # Settings related to scap installation
     "install_ssh_user": (str, "scap"),
     "scap_source_dir": (str, "/srv/deployment/scap"),
@@ -155,6 +172,8 @@ DEFAULT_CONFIG = {
     "notify_patch_failures": (bool, False),
     "patch_bot_phorge_name": (str, "SecurityPatchBot"),
     "patch_bot_phorge_token": (str, None),
+    # The patch bot comments give paths in this directory.
+    "notify_patch_failures_deploy_server_patch_path": (str, "/srv/patches"),
     # SpiderPig settings
     "spiderpig_auth_server": (str, None),
     # One group per line

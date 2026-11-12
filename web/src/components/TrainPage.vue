@@ -1,5 +1,5 @@
 <template>
-	<sp-job-page>
+	<sp-job-page job-type="train">
 		<template #new-job>
 			<sp-train />
 		</template>

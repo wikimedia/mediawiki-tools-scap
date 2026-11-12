@@ -10,11 +10,11 @@ import contextlib
 import errno
 import functools
 import json
-import multiprocessing
 import os
 import re
 import socket
 import subprocess
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
 
 import yaml
@@ -45,6 +45,11 @@ DEFAULT_IGNORE = {"*~", "*.swp", "*/cache/l10n/*.cdb", "scap/log/*"}
 LFS = "git-lfs"
 FAT = "git-fat"
 
+# Directories of a MediaWiki version directory that can hold checkouts of their
+# own.  On the master branch of mediawiki/core they are separate checkouts and
+# not submodules.  See scap.prep._master_stuff.
+MEDIAWIKI_CHECKOUT_DIRS = ["extensions", "skins", "vendor"]
+
 
 def info_filename(directory, install_path, cache_path):
     """Compute the path for a git_info cache file related to a given
@@ -61,31 +66,96 @@ def info_filename(directory, install_path, cache_path):
     return os.path.join(cache_path, "info%s.json" % path.replace("/", "-"))
 
 
-def cache_git_info_helper(subdir, branch_dir, cache_dir, branch_name):
-    """Helper function for caching git info for a single directory."""
-    try:
-        new_info = info(subdir, branch=branch_name)
-    except IOError:
-        return
-
-    cache_file = info_filename(subdir, branch_dir, cache_dir)
-
-    old_info = None
+def write_info_cache_file(git_info: dict, branch_dir, cache_dir):
+    """
+    Writes 'git_info' to its cache file (unless the file is already up-to-date).
+    """
+    cache_file = info_filename(git_info["@directory"], branch_dir, cache_dir)
 
     if os.path.exists(cache_file):
         with open(cache_file, "r") as f:
-            old_info = json.load(f)
-
-    if new_info == old_info:
-        return
+            if json.load(f) == git_info:
+                return
 
     with open(cache_file, "w") as f:
-        json.dump(new_info, f)
+        json.dump(git_info, f)
 
 
-def cache_git_info(branch_dir):
+def collect_info(location, branch=None) -> list[dict]:
+    """
+    Returns the git information (see info()) for 'location' and
+    for each of its submodules, recursively.  'location' comes first,
+    and the submodules follow in path order.
+
+    A submodule is reported at the commit that the public commit of its parent
+    records, so a security patch applied in a submodule is not reported.  The
+    branch of 'location' is reported for each submodule, since a submodule is
+    checked out at a commit and not on a branch of its own.
+
+    Each of MEDIAWIKI_CHECKOUT_DIRS is reported too, with its own submodules,
+    when it is a checkout instead of a submodule, and so is each child of those
+    directories that is a checkout of its own.
+    """
+    if branch is None:
+        branch = get_branch(location)
+
+    location_info = info(location, branch=branch)
+
+    heads = [
+        (os.path.join(location, path), ref)
+        for path, ref in sorted(
+            submodule_refs(location, location_info["headSHA1"]).items()
+        )
+    ]
+
+    def collect(item):
+        directory, head = item
+        try:
+            return info(directory, branch=branch, head=head)
+        except IOError:
+            return None
+
+    with ThreadPoolExecutor(max_workers=utils.cpus_for_jobs()) as executor:
+        git_infos = [location_info] + [
+            git_info
+            for git_info in executor.map(collect, heads)
+            if git_info is not None
+        ]
+
+    collected = {git_info["@directory"] for git_info in git_infos}
+
+    for dirname in MEDIAWIKI_CHECKOUT_DIRS:
+        subdir = os.path.join(location, dirname)
+
+        # A checkout of its own, which the master branch of mediawiki/core has
+        # instead of a submodule.  A directory that is not a checkout has no
+        # .git.
+        if subdir not in collected and os.path.exists(os.path.join(subdir, ".git")):
+            separate_infos = collect_info(subdir)
+            git_infos += separate_infos
+            collected.update(git_info["@directory"] for git_info in separate_infos)
+
+        if not os.path.isdir(subdir):
+            continue
+
+        # An extension or skin that is not a submodule
+        for child in utils.iterate_subdirectories(subdir):
+            # Skip .git, which a separate checkout has
+            if child in collected or os.path.basename(child).startswith("."):
+                continue
+            try:
+                git_infos.append(info(child, branch=branch))
+            except IOError:
+                pass
+
+    return git_infos
+
+
+def cache_git_info(branch_dir) -> list[dict]:
     """
     Create JSON cache files of git branch information.
+
+    Returns the git information (see collect_info()) for branch_dir.
 
     :param branch_dir: MediaWiki version directory (eg '/srv/mediawiki-staging/1.38.0-wmf.20')
     :raises: :class:`IOError` if version directory is not found
@@ -100,17 +170,12 @@ def cache_git_info(branch_dir):
     if not os.path.isdir(cache_dir):
         os.mkdir(cache_dir)
 
-    inputs = []
+    git_infos = collect_info(branch_dir, branch_name)
 
-    inputs.append((branch_dir, branch_dir, cache_dir, branch_name))
-    for dirname in ["extensions", "skins"]:
-        full_dir = os.path.join(branch_dir, dirname)
-        for subdir in utils.iterate_subdirectories(full_dir):
-            inputs.append((subdir, branch_dir, cache_dir, branch_name))
+    for git_info in git_infos:
+        write_info_cache_file(git_info, branch_dir, cache_dir)
 
-    # Create cache for core and each extension and skin
-    with multiprocessing.Pool(utils.cpus_for_jobs()) as p:
-        p.starmap(cache_git_info_helper, inputs)
+    return git_infos
 
 
 def sha(location, rev):
@@ -128,6 +193,19 @@ def describe(location):
 def merge_base(location, remote, branch) -> str:
     ensure_dir(location)
     return gitcmd("merge-base", "HEAD", f"{remote}/{branch}", cwd=location).strip()
+
+
+def is_ancestor(location, commit, ref) -> bool:
+    """
+    Returns True if 'commit' is 'ref' or comes before it.
+
+    Returns False if 'ref' does not exist.
+    """
+    try:
+        gitcmd("merge-base", "--is-ancestor", commit, ref, cwd=location)
+        return True
+    except FailedCommand:
+        return False
 
 
 def init(location):
@@ -173,11 +251,41 @@ def largefile_pull(location, implementor, submodules=False):
         raise ValueError("Must be passed one of lfs or fat")
 
 
-def lfs_install(*args):
+def lfs_install(*args, cwd=None):
     """Run git-lfs-install with provided arguments."""
     lfsargs = ["install"] + list(args)
     # run `git lfs install $args`
-    gitcmd("lfs", *lfsargs)
+    gitcmd("lfs", *lfsargs, cwd=cwd)
+
+
+# `git lfs install --local` writes filter.lfs.* to .git/config only.
+# `--skip-repo` keeps it from writing the repo hooks, which exits non-zero if a
+# foreign hook is already present.
+LFS_INSTALL_LOCAL_ARGS = ["--local", "--skip-repo"]
+
+
+def lfs_install_local(location):
+    """Install git-lfs filter config in the .git/config of `location`.
+
+    Without filter.lfs.* config, `git lfs pull` skips checkout and exits 0,
+    which leaves the pointer files in the working tree.
+    """
+    lfs_install(*LFS_INSTALL_LOCAL_ARGS, cwd=location)
+
+
+def lfs_install_local_submodules(location):
+    """Install git-lfs filter config in each submodule of `location`.
+
+    Each submodule has its own config file, so the config of the parent repo
+    does not apply. Submodules must be initialized before this runs.
+    """
+    gitcmd(
+        "submodule",
+        "foreach",
+        "--recursive",
+        "git lfs install " + " ".join(LFS_INSTALL_LOCAL_ARGS),
+        cwd=location,
+    )
 
 
 def get_branch(directory):
@@ -215,14 +323,19 @@ def get_deployable_branches(directory) -> list[str]:
     ]
 
 
-def info(directory, remote="origin", branch=None) -> dict:
+def info(directory, remote="origin", branch=None, head=None) -> dict:
     """Compute git version information for a given directory that is
     compatible with MediaWiki's GitInfo class.
 
     :param directory: Directory to scan for git information
     :param remote: Name of remote to use for finding public commit
     :param branch: Name of branch to use for finding public commit
-    :returns: Dict of information about current repository state
+    :param head: The public commit of the checkout.  Supply this for a
+                 submodule, which has no branch of its own.  'branch' is then
+                 the branch of the parent, and the result reports it only if
+                 the commit is on it.
+    :returns: Dict of information about current repository state.  There is no
+              "branch" key when the checkout is not on a branch.
     """
     git_dir = resolve_gitdir(directory)
 
@@ -230,14 +343,26 @@ def info(directory, remote="origin", branch=None) -> dict:
     # to construct a link to a commit in Gerrit (gitiles), so it must
     # not refer to a local commit (i.e., a patch).  Use git merge-base
     # to find the nearest public commit.
-    try:
-        if not branch:
-            raise ValueError("branch must be specified to find public commit")
-        head_sha1 = gitcmd(
-            "merge-base", "HEAD", f"{remote}/{branch}", cwd=directory
-        ).strip()
-    except Exception:
-        head_sha1 = sha(directory, "HEAD")
+    if head is not None:
+        head_sha1 = head
+
+        if branch is not None and not is_ancestor(
+            directory, head_sha1, f"{remote}/{branch}"
+        ):
+            # Some submodules are libraries that have no branch of the train.
+            branch = None
+    else:
+        try:
+            if not branch:
+                raise ValueError("branch must be specified to find public commit")
+            head_sha1 = gitcmd(
+                "merge-base", "HEAD", f"{remote}/{branch}", cwd=directory
+            ).strip()
+        except Exception:
+            head_sha1 = sha(directory, "HEAD")
+
+        if branch is None:
+            branch = get_branch(directory)
 
     commit_date = gitcmd("show", "-s", "--format=%ct", head_sha1, cwd=directory).strip()
 
@@ -249,12 +374,7 @@ def info(directory, remote="origin", branch=None) -> dict:
         remote_url = ""
         utils.get_logger().info("Unable to find remote URL for %s", git_dir)
 
-    if branch is None:
-        # NOTICE: branch will most likely be a plain commit hash for submodule directories
-        # since they are usually in detached HEAD state.
-        branch = get_branch(directory)
-
-    return {
+    res = {
         "@directory": directory,
         "head": head_sha1,  # This is the public commit
         "headSHA1": head_sha1,  # This is the public commit
@@ -262,6 +382,11 @@ def info(directory, remote="origin", branch=None) -> dict:
         "branch": branch,
         "remoteURL": remote_url,
     }
+
+    if branch is None:
+        del res["branch"]
+
+    return res
 
 
 def remove_all_ignores(location):
@@ -759,6 +884,43 @@ def parse_submodules(location) -> dict:
             submodules[name][setting] = value
 
     return submodules
+
+
+def submodule_refs(location, commit) -> dict:
+    """
+    Returns the paths, relative to 'location', of the recursive
+    submodules that 'commit' records, and the commit that each
+    submodule is set to.
+
+    Submodules that are not checked out are omitted.
+
+    """
+    refs = {}
+
+    if not os.path.exists(os.path.join(location, ".gitmodules")):
+        return refs
+
+    # -z gives NUL separated records and unquoted paths.  Each record is
+    # "<mode> <type> <object>\t<path>".
+    listing = gitcmd("ls-tree", "-r", "-z", commit, cwd=location).split("\0")
+
+    for record in listing:
+        entry, _, path = record.partition("\t")
+        fields = entry.split()
+        if len(fields) != 3 or fields[1] != "commit":
+            continue
+
+        ref = fields[2]
+        subdir = os.path.join(location, path)
+        # A submodule that is not checked out has no .git
+        if not os.path.exists(os.path.join(subdir, ".git")):
+            continue
+
+        refs[path] = ref
+        for nested_path, nested_ref in submodule_refs(subdir, ref).items():
+            refs[os.path.join(path, nested_path)] = nested_ref
+
+    return refs
 
 
 def remap_submodules(location, server):

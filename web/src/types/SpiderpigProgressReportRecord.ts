@@ -1,4 +1,4 @@
-// Keep in sync with scap/spiderpig/io.py
+// Keep in sync with SpiderpigProgressReportRecord in scap/spiderpig/io.py.
 export default interface SpiderpigProgressReportRecord {
     name: string;
     totalTasks: number

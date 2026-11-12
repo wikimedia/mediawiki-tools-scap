@@ -36,6 +36,7 @@ from typing import List, Optional
 from functools import reduce
 
 from scap.gerrit import GerritSSH
+from scap import history
 import scap.version as version
 import scap.ansi as ansi
 import scap.arg as arg
@@ -46,10 +47,18 @@ import scap.lock as lock
 import scap.log as log
 import scap.targets as targets
 import scap.utils as utils
+from scap.metrics import Metrics
 from scap.ssh import SSH_WITH_KEY
+
+# The "message" used when one is not supplied on the command line
+NO_MESSAGE = "(no justification provided)"
 
 PRIMARY_DEPLOY_SERVER_ONLY_COMMAND = "_primary_deploy_server_only"
 REQUIRE_TTY_MULTIPLEXER_COMMAND = "_require_tty_multiplexer"
+# Each scap command puts its name in this environment variable for the scap
+# commands that it starts. sudo configuration must include SCAP_CALLER in its
+# env_keep setting for it to work across sudo calls.
+CALLER_ENV_VAR = "SCAP_CALLER"
 
 
 class Application(object):
@@ -60,7 +69,11 @@ class Application(object):
     _announce_logger = None
     _io = None
     _have_announced = False
-    _stats = None
+    # This Metrics instance discards everything it receives.  _setup_metrics()
+    # replaces it with a Metrics instance that saves the recorded metrics to a file.
+    # This is to keep tests simple and avoid having to conditionalize access to
+    # self.metrics elsewhere in the code.
+    metrics = Metrics()
     arguments = None
     config = None
     _gerritssh = None
@@ -73,11 +86,15 @@ class Application(object):
             self.program_name = os.path.basename(exe_name)
         self.exe_name = exe_name
         self.start = time.time()
+        # Maps each staged checkout directory to the git information for it and
+        # its submodules.  Populated by cache_git_info() and _git_info().
+        self.git_info = {}
         # Property and related code should be removed once a long-term solution for
         # https://phabricator.wikimedia.org/T304557 is implemented
         self.user_ssh_auth_sock = (
             os.environ["SSH_AUTH_SOCK"] if "SSH_AUTH_SOCK" in os.environ else None
         )
+        self.caller = os.environ.get(CALLER_ENV_VAR, "")
 
         try:
             locale.setlocale(locale.LC_ALL, "")
@@ -89,13 +106,6 @@ class Application(object):
         if self._logger is None:
             self._logger = logging.getLogger(self.program_name)
         return self._logger
-
-    def get_stats(self):
-        if self._stats is None:
-            self._stats = log.Stats(
-                self.config["statsd_host"], int(self.config["statsd_port"])
-            )
-        return self._stats
 
     def get_mediawiki_staging_lock_file(self):
         """Get the path to the lock file corresponding to the MediaWiki staging directory"""
@@ -167,15 +177,6 @@ class Application(object):
             exclude_hosts=exclude_hosts,
         ).all
 
-    def is_docker_user(self):
-        """Return True if the current user is the same as docker_user from scap.cfg."""
-        docker_user = self.config.get("docker_user")
-        if docker_user is None:
-            return False
-
-        current_user = utils.get_real_username()
-        return current_user == docker_user
-
     def announce(self, *args):
         """
         Announce a message to broadcast listeners.
@@ -240,12 +241,114 @@ class Application(object):
 
         This method iterates through all active directories and calls git.cache_git_info
         for each one to ensure git information is cached for subsequent operations.
+
+        The collected information is kept in self.git_info so that
+        collect_staged_checkouts() does not repeat the work.
         """
         active_directories = utils.get_active_directories(
             self.config["stage_dir"], self.config["wmf_realm"]
         )
         for directory in active_directories:
-            git.cache_git_info(directory)
+            self.git_info[directory] = git.cache_git_info(directory)
+
+    def staged_checkout_dirs(self) -> List[str]:
+        """
+        Returns the directories of the git checkouts that scap stages: the
+        MediaWiki config repo, each active MediaWiki version, and each
+        foss_violations repo.
+
+        The value of each directory is the MediaWiki version that it belongs
+        to, or None when every version uses it.
+        """
+        stage_dir = self.config["stage_dir"]
+
+        directories = {stage_dir: None}
+        directories.update(
+            {
+                os.path.join(stage_dir, f"php-{version}"): version
+                for version in self.active_wikiversions("stage")
+            }
+        )
+        directories.update(
+            {
+                os.path.join(stage_dir, violation["path"]): None
+                for violation in self.config["foss_violations"]
+            }
+        )
+
+        return directories
+
+    def _git_info(self, directory) -> List[dict]:
+        """
+        Returns the git information for 'directory' and its submodules.
+
+        Each directory is read only once.  cache_git_info() supplies the
+        information for the active MediaWiki version directories.
+        """
+        if directory not in self.git_info:
+            self.git_info[directory] = git.collect_info(directory)
+
+        return self.git_info[directory]
+
+    def _checkouts_for(self, directory, submodules) -> List[history.Checkout]:
+        """
+        Returns a history.Checkout for the git checkout in 'directory' and,
+        with submodules=True, for each of its submodules.
+        """
+        return [
+            history.Checkout(
+                repo=git_info["remoteURL"],
+                # A submodule that is not on a branch has no "branch"
+                branch=git_info.get("branch"),
+                directory=git_info["@directory"],
+                commit_ref=git_info["headSHA1"],
+            )
+            for git_info in self._git_info(directory)
+            if submodules or git_info["@directory"] == directory
+        ]
+
+    def collect_staged_checkouts(self, submodules=False) -> List[history.Checkout]:
+        """
+        Returns a history.Checkout for each git checkout that scap stages: the
+        MediaWiki config repo, each active MediaWiki version, and each
+        foss_violations repo.
+
+        With submodules=True, the result also has a history.Checkout for each
+        submodule of those checkouts, including the submodules of submodules.
+
+        commit_ref is the public head of the checkout.  Locally applied
+        security patches are not included.
+        """
+        checkouts = []
+
+        for directory in self.staged_checkout_dirs():
+            checkouts += self._checkouts_for(directory, submodules)
+
+        return checkouts
+
+    def write_deployment_info(self):
+        """
+        Records the public heads of the staged checkouts, and of their
+        submodules, in {stage_dir}/deployment-info.json.
+
+        The staging directory is copied into the MediaWiki container images and
+        to the bare-metal targets, so the file can be read at runtime.
+
+        The purpose of the file is to supply information on runnable code, so
+        it only includes information about live MediaWiki versions though there
+        might be a non-live version in the image (for fast rollback).
+        """
+        common = []
+        versions = {}
+
+        for directory, mw_version in self.staged_checkout_dirs().items():
+            checkouts = self._checkouts_for(directory, submodules=True)
+            if mw_version is None:
+                common += checkouts
+            else:
+                versions[mw_version] = checkouts
+
+        history.write_deployment_info(self.config["stage_dir"], common, versions)
 
     def get_versions_to_include_in_image(self) -> List[str]:
         versions = self.active_wikiversions("stage")
@@ -277,11 +380,11 @@ class Application(object):
     def message_argument(self) -> str:
         """
         The given `message` :func:`argument` if one was defined, otherwise it
-        returns "(no justification provided)".
+        returns NO_MESSAGE.
         """
         if hasattr(self, "arguments") and hasattr(self.arguments, "message"):
             return self.arguments.message
-        return "(no justification provided)"
+        return NO_MESSAGE
 
     # Interaction stuff
     def get_io(self):
@@ -295,8 +398,20 @@ class Application(object):
     def input_line(self, prompt: str) -> str:
         return self.get_io().input_line(prompt)
 
+    def prompt_for_message(self):
+        """Asks for a log message when one wasn't supplied on the command line.
+
+        No effect if there is no terminal.
+        """
+        if self.message_argument != NO_MESSAGE:
+            return
+
+        message = self.input_line("Log message (press enter for none): ")
+        if message:
+            self.arguments.message = message
+
     def prompt_for_approval_or_exit(
-        self, prompt_message, exit_message, exit_code=os.EX_OK
+        self, prompt_message, exit_message, exit_code=os.EX_OK, details=None
     ):
         """Exits with a message if the user does not approve.
 
@@ -304,8 +419,12 @@ class Application(object):
             prompt_message: The prompt to display to the user
             exit_message: The message to display before exiting
             exit_code: The exit code to use (default: os.EX_OK for success)
+            details: An interaction.PromptDetails with more information on
+            what the prompt is about
         """
-        approval = self.get_io().prompt_user_for_confirmation(prompt_message)
+        approval = self.get_io().prompt_user_for_confirmation(
+            prompt_message, details=details
+        )
         if not approval:
             self.announce_final(exit_message)
             sys.exit(exit_code)
@@ -314,10 +433,78 @@ class Application(object):
         return self.get_io().prompt_choices(question, choices, default)
 
     def alert(self, prompt: str, action: str = "continue"):
+        if not interaction.interactive():
+            self.get_logger().warning(prompt)
+            return
+
+        logging.getLogger("scap.alert").warning(prompt)
         return self.get_io().alert(prompt, action)
 
     def prompt_user_for_confirmation(self, prompt_message, default="n") -> bool:
         return self.get_io().prompt_user_for_confirmation(prompt_message, default)
+
+    def _prompt_default(
+        self, interactive_default: str, noninteractive_default: str
+    ) -> str:
+        return (
+            interactive_default if interaction.interactive() else noninteractive_default
+        )
+
+    def retry_until(
+        self, description: str, test_func, choices: dict, default: str
+    ) -> Optional[str]:
+        """Runs test_func() until it succeeds (meaning returning truthy),
+        or until the user decides not to retry.
+
+        When test_func() fails, the user is prompted for what to do.
+        The first choice is to retry.  Additional `choices` maybe supplied
+        (but they should not use "r" as a choice value).
+
+        'description' describes the operation in the prompt.
+
+        Returns None when test_func finally suceeeds, otherwise
+        returns the user's selected choice.
+        """
+        while True:
+            if test_func():
+                return None
+
+            resp = self.prompt_choices(
+                f"{description.capitalize()} failed.\n\nWhat do you want to do?",
+                {f"Retry {description}": "r", **choices},
+                default,
+            )
+            if resp != "r":
+                return resp
+
+    def retry_ignore_or_exit(
+        self, description: str, test_func, may_ignore: bool = True
+    ) -> bool:
+        """Runs test_func() until it succeeds (meaning returning
+        truthy), or until the user decides not to retry.
+
+        If 'may_ignore' is true, the user will be offered the choice
+        to continue despite a failure.
+
+        Returns:
+            True if test_func() succeeded.
+            False if the user chose to ignore the failure.
+
+        Raises:
+            SystemExit: If the user chooses to exit (exit code 1).
+        """
+        choices = {"Ignore the failure and continue": "i"} if may_ignore else {}
+        choices["Exit immediately"] = "x"
+
+        resp = self.retry_until(
+            description, test_func, choices, self._prompt_default("r", "x")
+        )
+        if resp is None:
+            return True
+        if resp == "i":
+            return False
+
+        sys.exit(1)
 
     def report_status(self, status: Optional[str] = None, log=False):
         if log and status:
@@ -350,7 +537,7 @@ class Application(object):
             self._argparser.error("extra arguments found: %s" % " ".join(extra_args))
 
         if hasattr(args, "message"):
-            args.message = " ".join(args.message) or "(no justification provided)"
+            args.message = " ".join(args.message) or NO_MESSAGE
 
         return args, extra_args
 
@@ -363,6 +550,7 @@ class Application(object):
         self._load_config(use_global_config=use_global_config)
         self._setup_loggers()
         self._setup_environ()
+        self._setup_metrics()
 
     def _load_config(self, use_global_config=True):
         """Load configuration."""
@@ -401,6 +589,9 @@ class Application(object):
         auth_sock = self.config.get("ssh_auth_sock")
         if auth_sock is not None and self.arguments.shared_authsock:
             os.environ["SSH_AUTH_SOCK"] = auth_sock
+
+    def _setup_metrics(self):
+        self.metrics = Metrics(self.spiderpig_metrics_dir())
 
     def main(self, *extra_args):
         """
@@ -490,6 +681,19 @@ class Application(object):
                 **kwargs,
             )
 
+    def _caller(self) -> str:
+        """Returns the scap command that started this command, or "" if none."""
+        if not self.caller:
+            return ""
+        return self.caller if self.caller in COMMAND_REGISTRY else "other"
+
+    @staticmethod
+    def _interface() -> str:
+        """Returns how this command can prompt a user, for example "spiderpig"."""
+        if interaction.spiderpig_mode():
+            return "spiderpig"
+        return "terminal" if interaction.have_terminal() else "none"
+
     def scap_check_call(self, scap_cmd: list, **kwargs) -> subprocess.CompletedProcess:
         """
         Call scap subcommand and check for a non-zero exit status
@@ -574,13 +778,7 @@ class Application(object):
 
         :returns: exit status
         """
-        backtrace = True
-        if isinstance(ex, lock.LockFailedError) or getattr(
-            ex, "_scap_no_backtrace", False
-        ):
-            backtrace = False
-
-        if backtrace:
+        if not getattr(ex, "_scap_no_backtrace", False):
             self.get_logger().warning("Unhandled error:", exc_info=True)
 
         exception_type = type(ex).__name__
@@ -725,20 +923,18 @@ class Application(object):
     def spiderpig_session_secret_file(self):
         return os.path.join(self.spiderpig_dir(), "session.key")
 
+    def spiderpig_metrics_dir(self):
+        return os.path.join(self.spiderpig_dir(), "metrics")
+
     def timed(self, fn, *args, **kwargs):
         """
         Call a function wrapped in a log.Timer.
         """
-        with log.Timer(fn.__name__, self.get_stats()):
+        with self.Timer(fn.__name__):
             fn(*args, **kwargs)
 
     def Timer(self, description, name="unsupplied", logger=None):
-        return log.Timer(
-            description,
-            name=name,
-            stats=self.get_stats(),
-            logger=logger,
-        )
+        return log.Timer(description, name=name, metrics=self.metrics, logger=logger)
 
     @staticmethod
     def factory(argv=None):
@@ -777,6 +973,7 @@ class Application(object):
         # Silence noisy loggers early
         logging.getLogger("urllib3").setLevel(logging.WARNING)
         logging.getLogger("scap.sh").setLevel(logging.WARNING)
+        logging.getLogger("alembic.runtime.plugins").setLevel(logging.WARNING)
 
         # Setup instance for logger access
         app = cls("scap")
@@ -784,6 +981,7 @@ class Application(object):
         exit_status = 0
         try:
             app = Application.factory()
+            os.environ[CALLER_ENV_VAR] = app.program_name
 
             if os.geteuid() == 0:
                 raise OSError(errno.EPERM, "Scap should not be run as root")
@@ -837,8 +1035,20 @@ class Application(object):
             # Handle all unhandled exceptions and errors
             exit_status = app._handle_exception(ex)
 
+        except SystemExit as e:
+            # sys.exit("message") exits with status 1.
+            exit_status = 1 if isinstance(e.code, str) else e.code
+            raise
+
         finally:
             exit_status = app._before_exit(exit_status)
+            app.metrics.command_duration.observe(
+                app.get_duration(),
+                command=app.program_name,
+                caller=app._caller(),
+                interface=app._interface(),
+                exit_status=exit_status or 0,
+            )
 
         # Flush logger before exiting
         logging.shutdown()
@@ -847,7 +1057,7 @@ class Application(object):
             exit_status = 0
 
         # Make a beep
-        if exit_status != 0:
+        if exit_status != 0 and sys.stdout.isatty():
             sys.stdout.write("\a")
             sys.stdout.flush()
 

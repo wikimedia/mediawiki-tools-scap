@@ -8,6 +8,7 @@
 """
 
 import json
+import re
 import urllib3
 import logging
 
@@ -18,16 +19,77 @@ class CheckServiceError(Exception):
     pass
 
 
+def error_message(source: dict) -> str:
+    """
+    Returns the message of a logstash record, without the prefix that
+    MediaWiki puts before the message of an exception.
+
+    `normalized_message` is preferred if available, falling back to
+    `message`.
+
+    The Phatality plugin strips the same prefix, with the same pattern. A
+    message from here therefore matches the title of a task that Phatality
+    filed.
+
+    >>> error_message({"normalized_message": "[{reqId}] {exception_url}   Boom"})
+    'Boom'
+    >>> error_message({"normalized_message": "  [{reqId}]  {exception_url} Boom"})
+    'Boom'
+    >>> error_message({"message": "Boom"})
+    'Boom'
+    """
+    message = source.get("normalized_message") or source.get("message")
+    return re.sub(r"^\s*\[{reqId}\]\s*{exception_url}\s*", "", message)
+
+
+def _read_credentials(credentials_file) -> str:
+    """
+    Returns the first line of credentials_file that is neither blank nor a
+    #-prefixed comment. Any lines after it are ignored.
+    """
+    try:
+        with open(credentials_file) as f:
+            for line in f:
+                line = line.strip()
+                if line and not line.startswith("#"):
+                    return line
+    except OSError as e:
+        raise ValueError(f"Could not read logstash credentials file: {e}")
+
+    raise ValueError(f'{credentials_file} does not have a "username:password" line')
+
+
+def _basic_auth_headers(credentials_file) -> dict:
+    """
+    Returns HTTP basic auth headers built from the credentials in
+    credentials_file.
+    """
+    credentials = _read_credentials(credentials_file)
+
+    username, sep, password = credentials.partition(":")
+    if not sep or not username or not password:
+        raise ValueError(f'{credentials_file} must have a "username:password" line')
+
+    return urllib3.make_headers(basic_auth=f"{username}:{password}")
+
+
 class Logstash:
-    def __init__(self, logstash_url, logger):
+    def __init__(self, logstash_url, logger, credentials_file=None):
         """
         If logger is supplied, the logstash query and response will be
         logged at DEBUG level. Note that query responses are very lengthy and
         are always unpleasantly split across multiple log records, so only
         use this when needed.
+
+        If credentials_file is supplied, it must have a "username:password"
+        line, which is used to authenticate queries. A credentials_file that
+        cannot be read or parsed raises ValueError.
         """
         self.logstash_url = logstash_url
         self.logger = logger
+        self.headers = {"Content-Type": "application/json"}
+        if credentials_file:
+            self.headers.update(_basic_auth_headers(credentials_file))
 
     def run_query(self, query_object) -> dict:
         """Run a query on the logstash server."""
@@ -45,7 +107,7 @@ class Logstash:
             response = pool.urlopen(
                 "POST",
                 logstash_search_url,
-                headers={"Content-Type": "application/json"},
+                headers=self.headers,
                 body=json.dumps(query_object),
             )
             resp = response.data.decode("utf-8")
@@ -53,7 +115,13 @@ class Logstash:
                 log.log_large_message(
                     f"logstash response {resp}", self.logger, logging.DEBUG
                 )
+            if response.status != 200:
+                raise CheckServiceError(
+                    f"{logstash_search_url} returned HTTP {response.status}: {resp[:200]}"
+                )
             r = json.loads(resp)
+        except CheckServiceError:
+            raise
         except urllib3.exceptions.SSLError:
             raise CheckServiceError("Invalid certificate")
         except (

@@ -69,6 +69,9 @@ class TrainInfo:
 
         # FIXME: Verify that versions are ascending as we advance through groups.
         # Warn if there is an unusual arrangement.
+
+        self.train_is_at = None
+
         for group in GROUPS:
             versions = utils.get_group_versions_for_train(
                 group, self.config["stage_dir"], self.config["wmf_realm"]

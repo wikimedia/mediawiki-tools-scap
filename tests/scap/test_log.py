@@ -9,6 +9,8 @@ import unittest
 from unittest.mock import call, Mock, patch
 from time import sleep
 
+import pytest
+
 from scap import log
 
 
@@ -144,6 +146,62 @@ def test_filter_parse():
     ]
 
 
+@pytest.mark.parametrize(
+    "console_level,name,msg,shown",
+    [
+        (logging.INFO, "urllib3.connectionpool", "Retrying (%r) after ...", False),
+        (logging.INFO, "urllib3.connectionpool", "Connection pool is full", True),
+        (logging.DEBUG, "urllib3.connectionpool", "Retrying (%r) after ...", True),
+    ],
+)
+def test_setup_loggers_console_hides_urllib3_retries(console_level, name, msg, shown):
+    console = logging.StreamHandler(StringIO())
+    cfg = {
+        "log_json": False,
+        "udp2log_host": None,
+        "use_syslog": False,
+        "tcpircbot_host": None,
+    }
+    record = logging.LogRecord(name, logging.WARNING, __file__, 1, msg, None, None)
+
+    scap_sh = logging.getLogger("scap.sh")
+    with (
+        patch.object(logging.root, "handlers", [console]),
+        patch.object(logging.root, "level", logging.root.level),
+        patch.object(scap_sh, "level", scap_sh.level),
+    ):
+        log.setup_loggers(cfg, console_level=console_level)
+
+    assert bool(console.filter(record)) == shown
+
+
+@pytest.mark.parametrize("console_level", [logging.INFO, logging.DEBUG])
+@pytest.mark.parametrize(
+    "name,shown", [("scap.alert", False), ("deploy-promote", True)]
+)
+def test_setup_loggers_console_hides_alerts(console_level, name, shown):
+    console = logging.StreamHandler(StringIO())
+    cfg = {
+        "log_json": False,
+        "udp2log_host": None,
+        "use_syslog": False,
+        "tcpircbot_host": None,
+    }
+    record = logging.LogRecord(
+        name, logging.WARNING, __file__, 1, "The revert failed.", None, None
+    )
+
+    scap_sh = logging.getLogger("scap.sh")
+    with (
+        patch.object(logging.root, "handlers", [console]),
+        patch.object(logging.root, "level", logging.root.level),
+        patch.object(scap_sh, "level", scap_sh.level),
+    ):
+        log.setup_loggers(cfg, console_level=console_level)
+
+    assert bool(console.filter(record)) == shown
+
+
 def test_make_record():
     data = dedent(
         """
@@ -264,6 +322,23 @@ def test_progress():
     assert (reporter.ok + reporter.failed) == reporter.done
 
 
+def test_progress_does_not_repeat_the_last_line():
+    """The report of the end says nothing when the report before it said it."""
+    output = StringIO()
+
+    with patch("sys.stdout.isatty", return_value=False):
+        reporter = log.ProgressReporter(name="TestProgress", expect=2, fd=output)
+        reporter.start()
+        reporter.set_success(2)
+        # The deployment ends with the numbers that the report above holds.
+        reporter.finish()
+
+    lines = [line for line in output.getvalue().splitlines() if line.strip()]
+    assert len(lines) == 2, lines
+    assert "0%" in lines[0]
+    assert "100%" in lines[1]
+
+
 def test_ecs_event_fields_to_logstash(caplog):
     caplog.set_level(logging.INFO)
     fname = "test_ecs_event_fields_to_logstash"
@@ -296,9 +371,16 @@ def test_timer_no_name():
     with log.Timer("x", name=None):
         sleep(0.001)
 
-    stats = Mock()
-    with log.Timer("x", name=None, stats=stats):
-        sleep(0.001)
+
+def test_timer_records_duration():
+    metrics = Mock()
+    with log.Timer("Sync k8s", name="sync-prod-k8s", metrics=metrics):
+        pass
+
+    metrics.operation_duration.observe.assert_called_once()
+    assert metrics.operation_duration.observe.call_args.kwargs == {
+        "operation": "sync_prod_k8s"
+    }
 
 
 @patch.dict("os.environ", clear=True)
@@ -340,4 +422,27 @@ def test_pipe():
             call(logging.DEBUG, "foo"),
             call(logging.DEBUG, "bar"),
         ]
+    )
+
+
+@patch("scap.log.socket.gethostname", return_value="deploy1003")
+@patch("scap.utils.get_real_username", return_value="deployer")
+@patch("scap.log.socket.socket")
+def test_IRCSocketHandler_replaces_line_breaks(mock_socket, *_):
+    handler = log.IRCSocketHandler("localhost", 9200)
+    record = logging.LogRecord(
+        "scap.announce",
+        logging.INFO,
+        __file__,
+        0,
+        "Could not read the state of:\n /srv/a in eqiad: X\r\n /srv/b in codfw: Y",
+        (),
+        None,
+    )
+
+    handler.emit(record)
+
+    mock_socket.return_value.sendall.assert_called_once_with(
+        b"!log deployer@deploy1003 Could not read the state of:"
+        b" /srv/a in eqiad: X /srv/b in codfw: Y"
     )

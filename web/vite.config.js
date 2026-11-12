@@ -41,6 +41,8 @@ export default defineConfig( {
 	},
 	test: {
 		environment: 'jsdom',
+		// Node 25+ has its own localStorage global, which hides the one from jsdom.
+		execArgv: [ '--no-experimental-webstorage' ],
 		server: {
 			deps: {
 				inline: [

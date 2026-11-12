@@ -20,6 +20,19 @@ def runtime(tmpdir):
     )
 
 
+def test_runtime_requires_image():
+    with pytest.raises(SystemExit, match="'mediawiki_runtime_image' is not set"):
+        mwscript.Runtime(
+            {
+                "datacenter": "foodc",
+                "wmf_realm": "earth",
+                "mediawiki_runtime_image": None,
+            },
+            "/srv/mediawiki-staging",
+            "mw-user",
+        )
+
+
 @mock.patch("subprocess.run")
 def test_runtime_run_mwscript(mock_run, runtime):
     runtime.run_mwscript(

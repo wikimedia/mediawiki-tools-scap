@@ -1,6 +1,7 @@
 import argparse
 import json
 import os
+import stat
 import pytest
 from unittest.mock import patch
 
@@ -111,6 +112,15 @@ def test_is_phabricator_task_id():
     assert utils.is_phabricator_task_id("T1 ") is False
 
 
+@patch("scap.utils.get_username")
+def test_is_docker_user(mock_get_username):
+    mock_get_username.return_value = "mwbuilder"
+
+    assert utils.is_docker_user({}) is False
+    assert utils.is_docker_user({"docker_user": "mwbuilder"}) is True
+    assert utils.is_docker_user({"docker_user": "someone-else"}) is False
+
+
 def test_list_intersection():
     assert utils.list_intersection([1, 2, 3], [2, 3, 4]) == [2, 3]
     assert utils.list_intersection([2, 3, 4], [1, 2, 3]) == [2, 3]
@@ -149,6 +159,18 @@ stuff after
         "total_bytes_sent": 5603,
         "total_bytes_received": 4744454,
     }
+
+
+def test_temp_to_permanent_file_sets_the_permissions(tmp_path):
+    testfile = tmp_path / "test_temp_to_permanent_file"
+    old_umask = os.umask(0o077)
+    try:
+        with utils.temp_to_permanent_file(str(testfile), permissions=0o640) as f:
+            f.write("Very important")
+    finally:
+        os.umask(old_umask)
+
+    assert stat.S_IMODE(os.stat(testfile).st_mode) == 0o640
 
 
 def test_temp_to_permanent_file(tmpdir):

@@ -7,10 +7,11 @@
 
 import dataclasses
 from datetime import datetime, timedelta, timezone
+import json
 import os
 from prettytable import PrettyTable, SINGLE_BORDER
 
-from scap import browser
+from scap import browser, utils
 from scap.runcmd import gitcmd, FailedCommand
 
 from typing import List, Optional
@@ -20,6 +21,12 @@ from sqlalchemy.pool import NullPool
 
 # Maximum age of a history entry before it is gc'd
 MAX_HISTORY_LENGTH = timedelta(days=365)
+
+# Name of the file that describes the staged checkouts.  It is written in the
+# MediaWiki staging directory, which is copied into MediaWiki container
+# images and to bare-metal targets, so a running MediaWiki can be queried
+# for the checkouts that it was built from.
+DEPLOYMENT_INFO_FILENAME = "deployment-info.json"
 
 
 class ModelBase(DeclarativeBase):
@@ -148,6 +155,77 @@ class Checkout(ModelBase):
     commit_ref: Mapped[str]
 
     deployment: Mapped["Deployment"] = relationship(back_populates="checkouts")
+
+
+def deployment_info(common: List[Checkout], versions: dict) -> dict:
+    """
+    Returns the information about the staged checkouts to store in the staging
+    directory.
+
+    'common' are the checkouts that every MediaWiki version uses.  'versions'
+    maps each MediaWiki version to the checkouts of that version.  A wiki runs
+    one version, so w/deployment-info.php answers a request with the common
+    checkouts and the checkouts of the version of the requested wiki.
+
+    A checkout that is not on a branch has no "branch".
+
+    >>> deployment_info(
+    ...     [Checkout(repo="https://gerrit.example/config", branch="master",
+    ...               directory="/srv/mediawiki-staging", commit_ref="abc123")],
+    ...     {"1.0": [
+    ...         Checkout(repo="https://gerrit.example/core", branch="wmf/1.0",
+    ...                  directory="/srv/mediawiki-staging/php-1.0", commit_ref="def456"),
+    ...         Checkout(repo="https://gerrit.example/a-library", branch=None,
+    ...                  directory="/srv/mediawiki-staging/php-1.0/lib", commit_ref="789abc"),
+    ...     ]},
+    ... )
+    {'common': [{'repo': 'https://gerrit.example/config', 'branch': 'master', 'commit_ref': 'abc123'}], 'versions': {'1.0': [{'repo': 'https://gerrit.example/core', 'branch': 'wmf/1.0', 'commit_ref': 'def456'}, {'repo': 'https://gerrit.example/a-library', 'commit_ref': '789abc'}]}}
+    """
+
+    def entry(checkout: Checkout) -> dict:
+        res = {
+            "repo": checkout.repo,
+            "branch": checkout.branch,
+            "commit_ref": checkout.commit_ref,
+        }
+
+        if checkout.branch is None:
+            del res["branch"]
+
+        return res
+
+    def entries(checkouts: List[Checkout]) -> List[dict]:
+        return [entry(checkout) for checkout in checkouts]
+
+    return {
+        "common": entries(common),
+        "versions": {
+            version: entries(checkouts) for version, checkouts in versions.items()
+        },
+    }
+
+
+def read_deployment_info(stage_dir) -> dict:
+    """
+    Returns the information about the staged checkouts that
+    write_deployment_info() recorded in stage_dir.
+    """
+    with open(os.path.join(stage_dir, DEPLOYMENT_INFO_FILENAME)) as f:
+        return json.load(f)
+
+
+def write_deployment_info(stage_dir, common: List[Checkout], versions: dict) -> bool:
+    """
+    Writes information about the staged checkouts to
+    stage_dir/deployment-info.json.
+
+    Returns True if the file was updated.
+    """
+    data = json.dumps(deployment_info(common, versions), indent=4) + "\n"
+
+    return utils.write_file_if_needed(
+        os.path.join(stage_dir, DEPLOYMENT_INFO_FILENAME), data
+    )
 
 
 @dataclasses.dataclass

@@ -1,4 +1,5 @@
 from datetime import datetime, timezone
+import json
 import os
 import stat
 
@@ -71,3 +72,49 @@ def test_history(tmpdir):
 
     # Verify that the database file is group writable.
     assert os.stat(db_filename).st_mode & stat.S_IWGRP == stat.S_IWGRP
+
+
+def test_write_deployment_info(tmp_path):
+    stage_dir = str(tmp_path)
+    common = [
+        history.Checkout(
+            repo="https://foo.example/config",
+            branch="master",
+            directory=stage_dir,
+            commit_ref="abc123",
+        )
+    ]
+    versions = {
+        "1.0": [
+            history.Checkout(
+                repo="https://foo.example/core",
+                branch="wmf/1.0",
+                directory=os.path.join(stage_dir, "php-1.0"),
+                commit_ref="def456",
+            )
+        ]
+    }
+
+    assert history.write_deployment_info(stage_dir, common, versions) is True
+    # The contents depend only on the checkouts, so a second write is a no-op.
+    assert history.write_deployment_info(stage_dir, common, versions) is False
+
+    with open(os.path.join(stage_dir, "deployment-info.json")) as f:
+        assert json.load(f) == {
+            "common": [
+                {
+                    "repo": "https://foo.example/config",
+                    "branch": "master",
+                    "commit_ref": "abc123",
+                }
+            ],
+            "versions": {
+                "1.0": [
+                    {
+                        "repo": "https://foo.example/core",
+                        "branch": "wmf/1.0",
+                        "commit_ref": "def456",
+                    }
+                ]
+            },
+        }

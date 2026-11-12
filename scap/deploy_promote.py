@@ -33,15 +33,15 @@
 import os
 import re
 import socket
+import subprocess
 import time
 from functools import partial
+from typing import List, Tuple
 
 import requests
-from requests import HTTPError
 
-from scap import cli, interaction, utils, config, git, train
-from scap.runcmd import gitcmd
-from scap.utils import BRANCH_RE_UNANCHORED
+from scap import cli, history, interaction, utils, config, git, main, train
+from scap.runcmd import FailedCommand, gitcmd
 
 print = partial(print, flush=True)
 
@@ -63,6 +63,8 @@ class DeployPromote(cli.Application):
     promote_version = None
     announce_message = None
     commit_message = None
+    version_update_change_id = None
+    version_update_change_number = None
 
     @cli.argument(
         "group",
@@ -148,31 +150,45 @@ class DeployPromote(cli.Application):
         return self.prompt_user_for_confirmation(prompt_message)
 
     def _update_versions(self):
-        self._set_messages()
+        started = time.time()
+        try:
+            self._set_messages()
 
-        cmd = ["update-wikiversions", "--no-check"]
+            cmd = ["update-wikiversions", "--no-check"]
 
-        if self.arguments.exclude_wikis != "":
-            cmd += ["--exclude", self.arguments.exclude_wikis]
+            if self.arguments.exclude_wikis != "":
+                cmd += ["--exclude", self.arguments.exclude_wikis]
 
-        if self.arguments.train:
-            cmd += ["all", self.arguments.old_version]
-            for group in train.GROUPS:
-                cmd += [group, self.promote_version]
-                if group == self.group:
-                    break
-        else:
-            cmd += [self.group, self.promote_version]
+            if self.arguments.train:
+                cmd += ["all", self.arguments.old_version]
+                for group in train.GROUPS:
+                    cmd += [group, self.promote_version]
+                    if group == self.group:
+                        break
+            else:
+                cmd += [self.group, self.promote_version]
 
-        self.scap_check_call(cmd)
-        self._create_version_update_patch()
-        self._sync_versions()
+            self.scap_check_call(cmd)
+            self._create_version_update_patch()
+            self._sync_versions()
+        except BaseException as e:
+            self._record_promotion(started, main.failure_outcome(e))
+            raise
+        self._record_promotion(started, "success")
+
+    def _record_promotion(self, started: float, outcome: str):
+        self.metrics.train_promotion_duration.observe(
+            time.time() - started, group=self.group, outcome=outcome
+        )
 
     def _create_version_update_patch(self):
         with utils.cd(self.config["stage_dir"]):
             if self._commit_files():
                 self.logger.info("Pushing versions update patch")
-                self._push_patch_and_wait_for_merge()
+                change_id, changeno = self._push_patch()
+                self._merge_patch(change_id, changeno)
+                self.version_update_change_id = change_id
+                self.version_update_change_number = changeno
                 self.logger.info("Running git pull")
                 gitcmd("pull")
                 git.tag("scap-prep-point", "HEAD", force=True)
@@ -223,23 +239,37 @@ class DeployPromote(cli.Application):
         gitcmd("commit", "-m", self.commit_message)
         return True
 
-    def _push_patch_and_wait_for_merge(self):
+    def _push_patch(self) -> Tuple[str, str]:
+        """
+        Pushes the commit at HEAD for review and removes it from the local
+        branch. Returns its Change-Id line and its change number.
+        """
         branch = gitcmd("symbolic-ref", "--short", "HEAD").strip()
 
-        changeno = self.gerritssh.push_and_collect_change_number(
-            ".", "operations/mediawiki-config", branch, topic=self.promote_version
-        )
         change_id = re.search(r"(?m)Change-Id:.+$", gitcmd("log", "-1")).group()
-        gitcmd("reset", "--hard", "HEAD^")
+        try:
+            changeno = self.gerritssh.push_and_collect_change_number(
+                ".", "operations/mediawiki-config", branch, topic=self.promote_version
+            )
+        finally:
+            gitcmd("reset", "--hard", "HEAD^")
 
+        if changeno is None:
+            utils.abort(
+                f"Could not find the change number of {change_id} in the push output. "
+                "The push to Gerrit may have failed."
+            )
+
+        return change_id, changeno
+
+    def _merge_patch(self, change_id, changeno):
         user = utils.get_real_username() + "@" + socket.gethostname()
         self.gerritssh.review(f"{changeno},1", f"Initiated by {user}", "+2")
 
-        change_url = os.path.join(self.config["gerrit_url"], f"r/{changeno}")
-
         # FIXME: Try to consolidate with _wait_for_changes_to_be_merged in backport.py
         with self.reported_status(
-            f"Waiting for jenkins to merge change {change_url}", log=True
+            f"Waiting for jenkins to merge change {self._change_url(changeno)}",
+            log=True,
         ):
             timeout = self.config["version_update_patch_timeout"]
             start = time.time()
@@ -253,6 +283,9 @@ class DeployPromote(cli.Application):
                 time.sleep(5)
         print()
 
+    def _change_url(self, changeno) -> str:
+        return os.path.join(self.config["gerrit_url"], f"r/{changeno}")
+
     def _sync_versions(self):
         flags = []
         if self.arguments.pause_after_testserver_sync:
@@ -261,13 +294,20 @@ class DeployPromote(cli.Application):
         if self.group == "testwikis":
             self.logger.info("Running scap prep auto")
             self.scap_check_call(["prep", "auto"])
-            self.logger.info("Running scap sync-world")
-            self.scap_check_call(["sync-world"] + flags + [self.announce_message])
+            sync_command = "sync-world"
         else:
-            self.logger.info("Running scap sync-wikiversions")
-            self.scap_check_call(
-                ["sync-wikiversions"] + flags + [self.announce_message]
-            )
+            sync_command = "sync-wikiversions"
+
+        self.logger.info(f"Running scap {sync_command}")
+        try:
+            self.scap_check_call([sync_command] + flags + [self.announce_message])
+        except subprocess.CalledProcessError as e:
+            if (
+                e.returncode == main.ROLLED_BACK_STATUS
+                and self.version_update_change_id
+            ):
+                self._revert_version_update_patch()
+            raise
 
         # Group1 day is also the day we sync the php symlink
         if self.config["manage_mediawiki_php_symlink"] and self.group == "group1":
@@ -276,8 +316,64 @@ class DeployPromote(cli.Application):
 
         self._check_versions()
 
+    def _revert_version_update_patch(self):
+        subject = self.commit_message.split("\n")[0]
+
+        self.logger.info(f'The deployment was rolled back. Reverting "{subject}"')
+        revert_number = None
+        try:
+            with utils.cd(self.config["stage_dir"]):
+                self._commit_revert()
+                self.logger.info("Pushing the revert of the versions update patch")
+                revert_id, revert_number = self._push_patch()
+                self._merge_patch(revert_id, revert_number)
+                self.logger.info("Running git pull")
+                gitcmd("pull")
+                git.tag("scap-prep-point", "HEAD", force=True)
+        # _push_patch() and _merge_patch() stop with utils.abort(), which raises SystemExit.
+        except (Exception, SystemExit) as e:
+            if revert_number:
+                action = f"You must make sure that {self._change_url(revert_number)} is merged"
+            else:
+                forward_url = self._change_url(self.version_update_change_number)
+                action = f"You must revert {forward_url} in Gerrit and merge the revert"
+            self.logger.error(f'Could not revert "{subject}": {e}')
+            self.alert(
+                f'The revert of "{subject}" failed.\n\n'
+                f'MANUAL RECOVERY NEEDED: {action}, then run "scap prep auto".',
+                "Acknowledge",
+            )
+            return
+
+        self.logger.info(f'Reverted "{subject}"')
+
+    def _commit_revert(self):
+        commit = gitcmd(
+            "log",
+            "-1",
+            "--format=%H",
+            "--fixed-strings",
+            f"--grep={self.version_update_change_id}",
+        ).strip()
+        subject, trailers = self.commit_message.split("\n\n", 1)
+
+        try:
+            gitcmd("revert", "--no-commit", commit)
+            gitcmd(
+                "commit",
+                "-m",
+                f'Revert "{subject}"\n\nThis reverts commit {commit}.\n\n{trailers}',
+            )
+        except FailedCommand:
+            try:
+                gitcmd("revert", "--abort")
+            except Exception:
+                pass
+            raise
+
     def _check_versions(self):
         check_url = self._get_check_url()
+        expected_checkouts = self._expected_checkouts()
 
         polling_interval = 1  # seconds
         timeout = self._get_check_versions_timeout()
@@ -285,10 +381,10 @@ class DeployPromote(cli.Application):
         deadline = time.time() + timeout
 
         while True:
-            actual_version = self._get_special_version(check_url)
-            self._notify_version_update_result(check_url, actual_version)
+            reached, actual = self._check_deployment_info(check_url, expected_checkouts)
+            self._notify_version_update_result(check_url, reached, actual)
 
-            if self.promote_version == actual_version:
+            if reached:
                 return
 
             if time.time() >= deadline:
@@ -307,36 +403,49 @@ class DeployPromote(cli.Application):
         elif self.group == "group0":
             check_domain = "www.mediawiki.org"
         elif self.group == "group1":
-            check_domain = "en.wikinews.org"
+            check_domain = "en.wiktionary.org"
         else:
             check_domain = "en.wikipedia.org"
-        return "https://%s/wiki/Special:Version" % check_domain
+        return f"https://{check_domain}/w/deployment-info.php"
 
-    def _get_special_version(self, check_url) -> str:
+    def _expected_checkouts(self) -> List[dict]:
+        stage_dir = self.config["stage_dir"]
+        info = history.read_deployment_info(stage_dir)
+
+        checkouts = info["versions"].get(self.promote_version)
+        if checkouts is None:
+            utils.abort(
+                f"{history.DEPLOYMENT_INFO_FILENAME} in {stage_dir} has no checkouts for version {self.promote_version}"
+            )
+
+        return info["common"] + checkouts
+
+    def _check_deployment_info(self, check_url, expected_checkouts) -> Tuple[bool, str]:
+        """
+        Returns True if the checked wiki is running with the expected checkouts,
+        along with a description of what the wiki reports.
+        """
         try:
             res = requests.get(check_url)
             res.raise_for_status()
-
-            actual_version_match = re.search(
-                r"(?i)MediaWiki (%s)" % BRANCH_RE_UNANCHORED.pattern, res.text
-            )
-            actual_version = (
-                actual_version_match.group(1)
-                if actual_version_match
-                else "Version not found on checked page"
-            )
-        except HTTPError as e:
-            actual_version = (
-                f"Request to checked page failed with {e.response.status_code}"
-            )
+            info = res.json()
         except Exception as e:
-            actual_version = f"{type(e).__name__} exception: {e}"
+            return False, f"Request failed: {e}"
 
-        return actual_version
+        version = info.get("version")
 
-    def _notify_version_update_result(self, check_url, actual_version):
-        versions_match = self.promote_version == actual_version
-        log = self.logger.info if versions_match else self.logger.error
+        if version != self.promote_version:
+            return False, str(version)
+
+        if _checkout_set(expected_checkouts) != _checkout_set(
+            info.get("checkouts", [])
+        ):
+            return False, f"{version} with unexpected checkouts"
+
+        return True, str(version)
+
+    def _notify_version_update_result(self, check_url, reached, actual):
+        log = self.logger.info if reached else self.logger.error
         log(
             "==================================================\n"
             "Checking version on %s\n"
@@ -346,9 +455,20 @@ class DeployPromote(cli.Application):
             "==================================================",
             check_url,
             self.promote_version,
-            actual_version,
-            "SUCCESS" if versions_match else "FAIL",
+            actual,
+            "SUCCESS" if reached else "FAIL",
         )
+
+
+def _checkout_set(checkouts) -> set:
+    """
+    Returns the checkouts as a set, so that two lists can be compared
+    regardless of order.
+    """
+    return {
+        (checkout["repo"], checkout.get("branch"), checkout["commit_ref"])
+        for checkout in checkouts
+    }
 
 
 def _commit_arrived_to_remote(change_id) -> bool:

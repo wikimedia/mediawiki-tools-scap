@@ -1,7 +1,7 @@
 <template>
-	<sp-job-page title="MediaWiki Backport">
-		<template #new-job="{ idle }">
-			<sp-backport :idle="idle" :initial-change-numbers="backportChangeNumbers" />
+	<sp-job-page title="MediaWiki Backport" job-type="backport">
+		<template #new-job>
+			<sp-backport :initial-change-numbers="backportChangeNumbers" />
 		</template>
 	</sp-job-page>
 </template>

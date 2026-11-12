@@ -139,10 +139,12 @@ class IRCSocketHandler(logging.Handler):
         self.timeout = timeout
 
     def emit(self, record):
+        # IRC messages cannot contain line breaks.
+        text = re.sub(r"\s*[\r\n]+\s*", " ", record.getMessage())
         message = "!log %s@%s %s" % (
             utils.get_real_username(),
             socket.gethostname(),
-            record.getMessage(),
+            text,
         )
         try:
             sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -382,11 +384,13 @@ class ProgressReporter(object):
     output line.
     """
 
-    def __init__(self, name, expect=0, fd=sys.stderr, spinner=None):
+    def __init__(self, name, expect=0, fd=None, spinner=None):
         """
         :param name: Name of operation being monitored
         :param expect: Number of results to expect
-        :param fd: File handle to write status messages to
+        :param fd: File handle to write status messages to.  Defaults to
+                   sys.stdout, which is where scap log records go, so that
+                   redirection of scap output captures progress reports too.
         :param spinner: Cyclical iterator that returns progress spinner.
         """
         if spinner is None:
@@ -398,8 +402,11 @@ class ProgressReporter(object):
         self._ok = 0
         self._failed = 0
         self._in_flight = None
-        self._fd = fd
+        self._fd = fd if fd is not None else sys.stdout
         self._spinner = spinner
+        # What the last report wrote, so that the report of the end does not
+        # repeat a line that says the same.
+        self._last_output = None
         self._finished = False
 
     @property
@@ -443,6 +450,7 @@ class ProgressReporter(object):
         self._progress()
         if sys.stdout.isatty():
             self._fd.write("\n")
+            self._fd.flush()
 
     def add_in_flight(self):
         if self._in_flight is None:
@@ -498,7 +506,14 @@ class ProgressReporter(object):
             next(self._spinner) if show_spinner else "",
         )
 
+        if self._finished and output == self._last_output:
+            # The report before this one said the same, and the last line of an
+            # operation is not worth two lines.
+            return
+
+        self._last_output = output
         self._fd.write(fmt % output)
+        self._fd.flush()
 
 
 class RateLimitedProgressReporter(ProgressReporter):
@@ -552,7 +567,7 @@ class SpiderpigProgressReporter(RateLimitedProgressReporter):
 class MuteReporter(ProgressReporter):
     """A report that declines to report anything."""
 
-    def __init__(self, name="", expect=0, fd=sys.stderr):
+    def __init__(self, name="", expect=0, fd=None):
         super().__init__(name)
 
     def _progress(self):
@@ -568,7 +583,7 @@ class QueueReporter(ProgressReporter):
     a queue.  It does not generate any output.
     """
 
-    def __init__(self, name, expect=0, fd=sys.stderr, queue=None):
+    def __init__(self, name, expect=0, fd=None, queue=None):
         self.queue = queue
         super().__init__(name, expect, fd)
 
@@ -785,81 +800,36 @@ class Filter(object):
         return any(attr == attribute for attr, _ in self.criteria)
 
 
-class Stats(object):
-    """
-    A simple StatsD metric client.
-
-    It can log measurements and counts to a remote StatsD host.
-    See <https://github.com/etsy/statsd/wiki/Protocol> for details.
-    """
-
-    @utils.log_context("stats")
-    def __init__(self, host, port, logger=None):
-        self.logger = logger
-        self.socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        self.address = (host, port)
-
-    def __enter__(self):
-        return self
-
-    def __exit__(self, exc_type, exc_value, traceback):
-        if self.socket:
-            self.socket.close()
-
-    def timing(self, name, milliseconds):
-        """Report a timing measurement in milliseconds."""
-        metric = "%s:%s|ms" % (name, int(round(milliseconds)))
-        self._send_metric(metric)
-
-    def increment(self, name, value=1):
-        """Increment a measurement."""
-        metric = "%s:%s|c" % (name, value)
-        self._send_metric(metric)
-
-    def _send_metric(self, metric):
-        try:
-            if isinstance(metric, str):
-                metric = metric.encode("UTF-8")
-            assert isinstance(metric, bytes)
-            self.socket.sendto(metric, self.address)
-        except Exception:
-            self.logger.exception('Failed to send metric "%s"', metric)
-
-
 class Timer(object):
     """
     Context manager to track and record the time taken to execute a block.
 
-    Elapsed time will be recorded to a logger and optionally a StatsD server.
+    The elapsed time is recorded to a logger and optionally to the
+    "scap_operation_duration_seconds" metric.
 
     >>> with Timer('example'):
     ...     time.sleep(0.1)
-
-    >>> with Stats('127.0.0.1', 2003) as s:
-    ...     with Timer('example', stats=s):
-    ...         time.sleep(0.1)
     """
 
     @utils.log_context("timer")
-    def __init__(self, description, name="unsupplied", stats=None, logger=None):
+    def __init__(self, description, name="unsupplied", metrics=None, logger=None):
         """
         :param description: The human friendly description of the operation being timed.
         :type description: str
-        :param name: The measurement name to use when transmitting the operation time the stats recording system.
+        :param name: The "operation" label of the measurement of the operation time.
 
                      If `name` is not supplied, the description will be used as the measurement name.
 
-                     If None, no measurement will be transmitted.
+                     If None, no measurement will be recorded.
 
-                     Note that the measurement name will have "scap." prefixed to it and any non-word
-                     characters in the name will be replaced with underscores.
+                     Any non-word characters in the name will be replaced with underscores.
         :type name: str|None
-        :param stats: StatsD client to record block invocation and duration
-        :type stats: scap.log.Stats
+        :param metrics: The metrics to record the duration in
+        :type metrics: scap.metrics.Metrics
         """
         self.description = description
         self.name = description if name == "unsupplied" else name
-        self.stats = stats
+        self.metrics = metrics
         self.logger = logger
         self.start = None
         self.end = None
@@ -907,9 +877,9 @@ class Timer(object):
             utils.human_duration(elapsed),
             extra=extras,
         )
-        if self.name and self.stats:
+        if self.name and self.metrics:
             massaged_name = re.sub(r"\W", "_", self.name.lower())
-            self.stats.timing("scap.%s" % massaged_name, elapsed * 1000)
+            self.metrics.operation_duration.observe(elapsed, operation=massaged_name)
 
 
 class Udp2LogHandler(logging.handlers.DatagramHandler):
@@ -971,6 +941,8 @@ def setup_loggers(cfg, console_level=logging.INFO, handlers=None):
 
     # Log messages matching these filters will be prevented from reaching the console.
     logging.root.handlers[0].addFilter(Filter({"name": "target.*"}))
+    # The user sees an alert as a prompt. Its log record is only for the other handlers.
+    logging.root.handlers[0].addFilter(Filter({"name": "scap.alert"}))
 
     # Normally we don't want scap.k8s.build and scap.k8s.deploy channel debug messages to reach the console, but we
     # do want to see them when scap is run with the -v flag (which causes console_level to be logging.DEBUG).
@@ -980,6 +952,12 @@ def setup_loggers(cfg, console_level=logging.INFO, handlers=None):
     logging.root.handlers[0].addFilter(
         Filter({"name": "scap.k8s.deploy", "levelno": lambda lvl: lvl < console_level})
     )
+
+    # Don't bother users with retry warnings (T320436)
+    if console_level > logging.DEBUG:
+        logging.root.handlers[0].addFilter(
+            Filter({"name": "urllib3.connectionpool", "msg": "Retrying *"})
+        )
 
     if cfg["log_json"]:
         logging.root.handlers[0].setFormatter(JSONFormatter())

@@ -117,7 +117,7 @@ variants:
         destination: docs/
 
   test-web:
-    base: docker-registry.wikimedia.org/nodejs20-slim
+    base: docker-registry.wikimedia.org/nodejs26-slim
     builders:
       - node:
           requirements:
@@ -126,7 +126,7 @@ variants:
           command: [npm, run, test]
 
   build-spiderpig-ui:
-    base: docker-registry.wikimedia.org/nodejs20-slim
+    base: docker-registry.wikimedia.org/nodejs26-slim
     builders:
       - node:
           requirements:

@@ -29,6 +29,24 @@ export default [
 		}
 	},
 	{
+		files: ['**/*.ts'],
+		languageOptions: {
+			parser: tsParser,
+			parserOptions: {
+				sourceType: 'module'
+			},
+			globals: globals.browser
+		},
+		plugins: {
+			'@typescript-eslint': tsPlugin
+		},
+		rules: {
+			'@typescript-eslint/no-unused-vars': ['error', {
+				argsIgnorePattern: '^_'
+			}]
+		}
+	},
+	{
 		files: ['**/*.vue'],
 		languageOptions: {
 			parser: vueParser,
@@ -45,6 +63,9 @@ export default [
 		},
 		rules: {
 			...vue.configs['essential'].rules,
+			'@typescript-eslint/no-unused-vars': ['error', {
+				argsIgnorePattern: '^_'
+			}],
 			'vue/component-name-in-template-casing': ['error', 'kebab-case'],
 			'vue/custom-event-name-casing': ['error', 'kebab-case'],
 			'vue/no-undef-components': ['error', {

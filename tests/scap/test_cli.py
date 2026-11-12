@@ -1,3 +1,6 @@
+import io
+import json
+import logging
 import os
 import sys
 import tempfile
@@ -62,22 +65,12 @@ def test_init(app_name, expected_name):
     # Reset the program_name
     app.program_name = None
     assert app._logger is None
-    assert app._stats is None
 
 
 def test_get_logger(app, mocker):
     logger = mocker.patch("logging.getLogger")
     assert logger.return_value == app.get_logger()
     logger.assert_called_with("cmd.exe")
-
-
-def test_get_stats(app, mocker):
-    assert app._stats is None
-    # app.config is *None* at init time. inject the needed values
-    app.config = {"statsd_host": "foo_bar", "statsd_port": "678"}
-    stats = mocker.patch("scap.log.Stats")
-    assert stats.return_value == app.get_stats()
-    stats.assert_called_with("foo_bar", 678)
 
 
 def test_get_mediawiki_staging_lock_file(app):
@@ -161,6 +154,27 @@ def test_announce(app, mocker):
     get_log.assert_called_with("scap.announce")
     assert app._announce_logger == announcer
     announcer.info.assert_called_with("test %s", "bar")
+
+
+@pytest.mark.parametrize("interactive", [True, False])
+def test_alert(app, mocker, caplog, interactive):
+    mocker.patch("scap.interaction.interactive", return_value=interactive)
+    io = mocker.patch.object(app, "get_io").return_value
+
+    with caplog.at_level(logging.WARNING):
+        app.alert("The revert failed.", "Acknowledge")
+
+    assert [(r.name, r.levelname, r.getMessage()) for r in caplog.records] == [
+        (
+            "scap.alert" if interactive else app.program_name,
+            "WARNING",
+            "The revert failed.",
+        )
+    ]
+    if interactive:
+        io.alert.assert_called_once_with("The revert failed.", "Acknowledge")
+    else:
+        io.alert.assert_not_called()
 
 
 def test_get_get_realm_specific_filename():
@@ -376,6 +390,7 @@ def test_run(cmd, mocker):
     cmd.config = {"block_deployments": False}
     cmd._setup_loggers = mock.MagicMock()
     cmd._setup_environ = mock.MagicMock()
+    cmd._setup_metrics = mock.MagicMock()
     cmd._handle_exception = mock.MagicMock(return_value=70)
     cmd.handle_keyboard_interrupt = mock.MagicMock(return_value=130)
     # Running as root causes an exception handling
@@ -396,6 +411,106 @@ def test_run(cmd, mocker):
     ex.assert_called_with(666)
 
 
+@pytest.mark.parametrize(
+    "outcome,exit_status",
+    [
+        (lambda: 3, 3),
+        (lambda: None, 0),
+        (SystemExit("Aborting: no"), 1),
+        (SystemExit(2), 2),
+        (RuntimeError("boom"), 70),
+    ],
+)
+def test_run_records_the_command(cmd, mocker, outcome, exit_status):
+    mocker.patch("sys.exit")
+    mocker.patch("os.geteuid", return_value=1000)
+    mocker.patch("scap.cli.Application.factory", return_value=cmd)
+    mocker.patch.object(cmd, "get_duration", return_value=42)
+    cmd.metrics = mock.Mock()
+    cmd.setup = mock.MagicMock()
+    cmd.config = {}
+    cmd._handle_exception = mock.MagicMock(return_value=70)
+    cmd.main = mock.MagicMock(spec=[])
+    if callable(outcome):
+        cmd.main.side_effect = lambda *args: outcome()
+    else:
+        cmd.main.side_effect = outcome
+
+    if isinstance(outcome, SystemExit):
+        with pytest.raises(SystemExit):
+            cli.Application.run()
+    else:
+        cli.Application.run()
+
+    cmd.metrics.command_duration.observe.assert_called_once_with(
+        42,
+        command=cmd.program_name,
+        caller="",
+        interface=mock.ANY,
+        exit_status=exit_status,
+    )
+
+
+@pytest.mark.parametrize(
+    "environ,caller",
+    [
+        (None, ""),
+        ("sync-world", "sync-world"),
+        ("made-up", "other"),
+    ],
+)
+def test_caller(monkeypatch, environ, caller):
+    if environ is not None:
+        monkeypatch.setenv("SCAP_CALLER", environ)
+
+    assert cli.Application.factory(["version"])._caller() == caller
+
+
+def test_run_names_the_command_for_the_commands_it_starts(cmd, mocker):
+    mocker.patch("sys.exit")
+    mocker.patch("os.geteuid", return_value=1000)
+    mocker.patch("scap.cli.Application.factory", return_value=cmd)
+    cmd.setup = mock.MagicMock()
+    cmd.config = {}
+    cmd.main = mock.MagicMock(spec=[], return_value=0)
+
+    cli.Application.run()
+
+    assert os.environ["SCAP_CALLER"] == cmd.program_name
+
+
+@pytest.mark.parametrize("isatty,output", [(True, "\a"), (False, "")])
+def test_run_beeps_after_a_failure_only_at_a_terminal(cmd, mocker, isatty, output):
+    mocker.patch("sys.exit")
+    mocker.patch("os.geteuid", return_value=1000)
+    mocker.patch("scap.cli.Application.factory", return_value=cmd)
+    cmd.setup = mock.MagicMock()
+    cmd.config = {}
+    cmd.main = mock.MagicMock(spec=[], return_value=3)
+    stdout = io.StringIO()
+    stdout.isatty = lambda: isatty
+    mocker.patch("sys.stdout", stdout)
+
+    cli.Application.run()
+
+    assert stdout.getvalue() == output
+
+
+@pytest.mark.parametrize(
+    "spiderpig,terminal,interface",
+    [
+        (True, False, "spiderpig"),
+        (False, True, "terminal"),
+        (False, False, "none"),
+    ],
+)
+def test_interface(mocker, spiderpig, terminal, interface):
+    mocker.patch("scap.interaction.spiderpig_mode", return_value=spiderpig)
+    mocker.patch("scap.interaction.have_terminal", return_value=terminal)
+
+    assert cli.Application._interface() == interface
+
+
 def test_format_passthrough_args(app):
     assert app.format_passthrough_args() == []
 
@@ -411,3 +526,147 @@ def test_format_passthrough_args(app):
             "log_json:False",
         ]
     )
+
+
+def fake_git_info(directory, repo, branch, commit_ref) -> dict:
+    """
+    Returns what git.info() returns for a checkout.  A branch of None is a
+    checkout that is on no branch, which git.info() reports by leaving the
+    "branch" key out.
+    """
+    git_info = {
+        "@directory": directory,
+        "head": commit_ref,
+        "headSHA1": commit_ref,
+        "headCommitDate": "1700000000",
+        "branch": branch,
+        "remoteURL": repo,
+    }
+
+    if branch is None:
+        del git_info["branch"]
+
+    return git_info
+
+
+def staged_git_info(stage_dir) -> dict:
+    """
+    Returns collected git information (as cli.Application.git_info holds it)
+    for a config repo with one submodule, one MediaWiki version with two
+    submodules, and one foss_violations repo.
+    """
+    version_dir = os.path.join(stage_dir, "php-1.45.0-wmf.1")
+    violation_dir = os.path.join(stage_dir, "viol-a")
+
+    return {
+        stage_dir: [
+            fake_git_info(stage_dir, "config-repo", "master", "aaa111"),
+            fake_git_info(
+                os.path.join(stage_dir, "portals"), "portals-repo", "master", "bbb222"
+            ),
+        ],
+        version_dir: [
+            fake_git_info(version_dir, "core-repo", "wmf/1.45.0-wmf.1", "ccc333"),
+            fake_git_info(
+                os.path.join(version_dir, "extensions/Echo"),
+                "echo-repo",
+                "wmf/1.45.0-wmf.1",
+                "ddd444",
+            ),
+            # A library submodule that has no branch of the train
+            fake_git_info(
+                os.path.join(version_dir, "extensions/Echo/lib/a-library"),
+                "library-repo",
+                None,
+                "fff666",
+            ),
+        ],
+        violation_dir: [
+            fake_git_info(violation_dir, "viol-repo", "main", "eee555"),
+        ],
+    }
+
+
+def configure_staged_checkouts(app, mocker, stage_dir):
+    app.config = {
+        "stage_dir": stage_dir,
+        "foss_violations": [
+            {"repo": "https://example/repo-a", "branch": "main", "path": "viol-a"},
+        ],
+    }
+    mocker.patch.object(app, "active_wikiversions", return_value=["1.45.0-wmf.1"])
+    # Pre-populated, so no git commands run
+    app.git_info = staged_git_info(stage_dir)
+
+
+def test_staged_checkout_dirs(app, mocker):
+    configure_staged_checkouts(app, mocker, "/srv/mediawiki-staging")
+
+    assert app.staged_checkout_dirs() == {
+        "/srv/mediawiki-staging": None,
+        "/srv/mediawiki-staging/php-1.45.0-wmf.1": "1.45.0-wmf.1",
+        "/srv/mediawiki-staging/viol-a": None,
+    }
+
+
+def test_collect_staged_checkouts(app, mocker):
+    configure_staged_checkouts(app, mocker, "/srv/mediawiki-staging")
+
+    assert [
+        (checkout.repo, checkout.branch, checkout.commit_ref)
+        for checkout in app.collect_staged_checkouts()
+    ] == [
+        ("config-repo", "master", "aaa111"),
+        ("core-repo", "wmf/1.45.0-wmf.1", "ccc333"),
+        ("viol-repo", "main", "eee555"),
+    ]
+
+
+def test_collect_staged_checkouts_with_submodules(app, mocker):
+    configure_staged_checkouts(app, mocker, "/srv/mediawiki-staging")
+
+    assert [
+        (checkout.repo, checkout.branch, checkout.commit_ref)
+        for checkout in app.collect_staged_checkouts(submodules=True)
+    ] == [
+        ("config-repo", "master", "aaa111"),
+        ("portals-repo", "master", "bbb222"),
+        ("core-repo", "wmf/1.45.0-wmf.1", "ccc333"),
+        ("echo-repo", "wmf/1.45.0-wmf.1", "ddd444"),
+        ("library-repo", None, "fff666"),
+        ("viol-repo", "main", "eee555"),
+    ]
+
+
+def test_write_deployment_info(app, mocker, tmp_path):
+    stage_dir = str(tmp_path)
+    configure_staged_checkouts(app, mocker, stage_dir)
+
+    app.write_deployment_info()
+
+    with open(os.path.join(stage_dir, "deployment-info.json")) as f:
+        assert json.load(f) == {
+            # The config repo and the foss_violations repo, which every
+            # MediaWiki version uses
+            "common": [
+                {"repo": "config-repo", "branch": "master", "commit_ref": "aaa111"},
+                {"repo": "portals-repo", "branch": "master", "commit_ref": "bbb222"},
+                {"repo": "viol-repo", "branch": "main", "commit_ref": "eee555"},
+            ],
+            "versions": {
+                "1.45.0-wmf.1": [
+                    {
+                        "repo": "core-repo",
+                        "branch": "wmf/1.45.0-wmf.1",
+                        "commit_ref": "ccc333",
+                    },
+                    {
+                        "repo": "echo-repo",
+                        "branch": "wmf/1.45.0-wmf.1",
+                        "commit_ref": "ddd444",
+                    },
+                    # No "branch", since this one is on no branch
+                    {"repo": "library-repo", "commit_ref": "fff666"},
+                ]
+            },
+        }

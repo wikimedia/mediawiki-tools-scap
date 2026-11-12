@@ -22,9 +22,10 @@
 """
 import argparse
 import collections
-from datetime import datetime
+from datetime import datetime, timezone
 import errno
 import glob
+import logging
 import os
 import shutil
 import subprocess
@@ -64,10 +65,41 @@ EX_STAGES = [HANDLE_SERVICE, ROLLBACK, CONFIG_DIFF, FINALIZE]
 ALL_STAGES = STAGES + EX_STAGES
 
 
+class _TargetEventCounter(logging.Handler):
+    """
+    Counts the events that targets report in their log records.
+
+    A target that restarts the service "arclamp" sends a record with
+    deploy_event "restarted" and deploy_subject "arclamp".
+    """
+
+    def __init__(self):
+        super().__init__()
+        self.counts = collections.Counter()
+
+    def emit(self, record):
+        event = getattr(record, "deploy_event", None)
+        if event is not None:
+            self.counts[(event, record.deploy_subject)] += 1
+
+
 class DeployGroupFailure(RuntimeError):
     """Signal that a particular deploy group failed"""
 
     pass
+
+
+def get_git_binary_managers(cfg, logger):
+    """Return the configured binary managers as a list, which can be empty."""
+
+    if cfg["git_fat"]:
+        logger.warning("Using deprecated git_fat config, swap to git_binary_manager")
+        return [git.FAT]
+
+    if cfg["git_binary_manager"]:
+        return config.multi_value(cfg["git_binary_manager"])
+
+    return []
 
 
 @cli.command("deploy-local", help=argparse.SUPPRESS)
@@ -107,19 +139,6 @@ class DeployLocal(cli.Application):
             )
         )
 
-        # FIXME: this makes the assumption that the git_deploy_dir specified on
-        # the target machines in /etc/scap.cfg is correct. Currently, we have
-        # no deployments that don't use /srv/deployment as the deployment
-        # directory; however, this may not always be the case.
-        #
-        # I think in order to work around this issue `scap deploy-local` will
-        # need to be passed more information about the state of the world it's
-        # intended to create, i.e.:
-        #
-        #     scap deploy-local http://deployment.eqiad.wmnet/[repo] \
-        #         /srv/deployment/[repo]
-        #
-        # Might prove to be a better way to do this.
         self.final_path = os.path.join(
             self.config["git_deploy_dir"], self.arguments.repo
         )
@@ -296,14 +315,7 @@ class DeployLocal(cli.Application):
         logger = self.get_logger()
 
         has_submodules = self.config["git_submodules"]
-        git_binary_manager = None
-        if self.config["git_fat"]:
-            logger.warning(
-                "Using deprecated git_fat config, swap to git_binary_manager"
-            )
-            git_binary_manager = [git.FAT]
-        elif self.config["git_binary_manager"]:
-            git_binary_manager = config.multi_value(self.config["git_binary_manager"])
+        git_binary_managers = get_git_binary_managers(self.config, logger)
 
         rev_dir = self.context.rev_path(self.rev)
 
@@ -345,11 +357,7 @@ class DeployLocal(cli.Application):
                 self.context.mark_rev_in_progress(self.rev)
                 return
 
-        if not os.path.isdir(rev_dir):
-            # if lfs is enabled and this is the first time cloning this repo,
-            # then we need to run `git lfs install`` before `git clone`
-            if git_binary_manager and git.LFS in git_binary_manager:
-                git.lfs_install()
+        lfs = git.LFS in git_binary_managers
 
         # clone/fetch from the local cache directory to the revision directory
         git.fetch(
@@ -360,6 +368,11 @@ class DeployLocal(cli.Application):
             recurse_submodules=False,
             config=fetch_config,
         )
+
+        if lfs:
+            # The revision directory is new on each deploy, so its config must be
+            # written again each time.
+            git.lfs_install_local(rev_dir)
 
         logger.info("Checkout rev: {}".format(self.rev))
 
@@ -374,13 +387,15 @@ class DeployLocal(cli.Application):
                 reference=self.context.cache_dir,
             )
 
-        if git_binary_manager:
-            for manager in git_binary_manager:
-                logger.info("Pulling large objects [using %s]", manager)
-                if manager in [git.FAT, git.LFS]:
-                    git.largefile_pull(rev_dir, manager, has_submodules)
-                else:
-                    logger.warning("Passed unrecognized binary manager %s", manager)
+            if lfs:
+                git.lfs_install_local_submodules(rev_dir)
+
+        for manager in git_binary_managers:
+            logger.info("Pulling large objects [using %s]", manager)
+            if manager in [git.FAT, git.LFS]:
+                git.largefile_pull(rev_dir, manager, has_submodules)
+            else:
+                logger.warning("Passed unrecognized binary manager %s", manager)
 
         self.context.mark_rev_in_progress(self.rev)
 
@@ -406,7 +421,10 @@ class DeployLocal(cli.Application):
         logger = self.get_logger()
 
         if self.context.current_rev_dir == rev_dir and not self.arguments.force:
-            logger.info("{} is already live (use --force to override)".format(rev_dir))
+            logger.info(
+                "{} is already live (use --force to override)".format(rev_dir),
+                extra={"deploy_event": "already_live", "deploy_subject": rev},
+            )
             self.noop = True
             return
 
@@ -633,11 +651,8 @@ class Deploy(cli.Application):
         "config_deploy",
         "config_files",
         "environment",
-        "git_deploy_dir",
         "git_fat",
         "git_binary_manager",
-        "git_server",
-        "git_scheme",
         "git_repo",
         "git_rev",
         "git_submodules",
@@ -748,14 +763,12 @@ For `scap deploy` to work, the current directory must be the top level of a git 
                 )
             )
 
-        if self.arguments.message == "(no justification provided)":
-            if self.arguments.init:
-                # T376996
+        if self.arguments.init:
+            # T376996
+            if self.message_argument == cli.NO_MESSAGE:
                 self.arguments.message = "scap deploy --init mode"
-            else:
-                new_message = self.input_line("Log message (press enter for none): ")
-                if new_message:
-                    self.arguments.message = new_message
+        else:
+            self.prompt_for_message()
 
         self.repo = repo
 
@@ -833,7 +846,7 @@ For `scap deploy` to work, the current directory must be the top level of a git 
 
         with self.lock(self.get_scap3_lock_file()):
             with self.Timer(description=display_name, name="deploy"):
-                timestamp = datetime.utcnow()
+                timestamp = datetime.now(timezone.utc)
                 tag = git.next_deploy_tag(location=self.context.root)
                 commit = git.sha(location=self.context.root, rev=rev)
                 logger.info("Deploying Rev: {} = {}".format(rev, commit))
@@ -876,16 +889,23 @@ For `scap deploy` to work, the current directory must be the top level of a git 
                 # apache server
                 git.update_server_info(self.config["git_submodules"])
 
+                if git.LFS in get_git_binary_managers(self.config, logger):
+                    # Ensure that running "git status" on the deploy server
+                    # is a pleasant experience.
+                    git.lfs_install_local(self.context.root)
+                    if self.config["git_submodules"]:
+                        git.lfs_install_local_submodules(self.context.root)
+
                 if self.arguments.init:
                     return 0
 
-                self.announce("Started %s: %s", display_name, self.arguments.message)
+                self.announce("Started %s: %s", display_name, self.message_argument)
                 exec_result = self._execute_for_groups(stages)
                 if not restart_only:
                     self.announce(
                         "Finished %s: %s (duration: %s)",
                         display_name,
-                        self.arguments.message,
+                        self.message_argument,
                         utils.human_duration(self.get_duration()),
                     )
                 return exec_result
@@ -1173,14 +1193,32 @@ For `scap deploy` to work, the current directory must be the top level of a git 
         deploy_stage.progress(log.reporter(progress_message))
 
         failed = 0
+        events = _TargetEventCounter()
+        logging.root.addHandler(events)
 
-        for jobresult in deploy_stage.run_with_status(batch_size):
-            if jobresult.status != 0:
-                failed += 1
-            yield jobresult.host, jobresult.status
+        try:
+            for jobresult in deploy_stage.run_with_status(batch_size):
+                if jobresult.status != 0:
+                    failed += 1
+                yield jobresult.host, jobresult.status
+        finally:
+            logging.root.removeHandler(events)
 
         if failed:
             logger.warning("%d targets had deploy errors", failed)
+
+        for (event, subject), count in sorted(events.counts.items()):
+            if event == "already_live":
+                logger.info(
+                    f"{self.repo}: {count} {utils.pluralize('target', count)} "
+                    f"already live at {subject[:7]}. "
+                    f"Skipped {self._get_stage_name(PROMOTE)} there (use --force to override)"
+                )
+            else:
+                logger.info(
+                    f"{self.repo}: {event.capitalize()} {subject} "
+                    f"on {count} {utils.pluralize('target', count)}"
+                )
 
     def _get_stage_name(self, stage):
         """Map a stage name to a stage display name."""

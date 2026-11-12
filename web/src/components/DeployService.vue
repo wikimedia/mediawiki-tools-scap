@@ -1,0 +1,216 @@
+<template>
+	<cdx-field id="deploy-service" class="deploy-service">
+		<template #description>
+			To run scap deploy-service, choose a service and say why you're deploying it
+		</template>
+
+		<cdx-message
+			v-if="catalogErrors.length"
+			class="deploy-service__catalog-errors"
+			type="warning"
+		>
+			<p>These services have an error in the service catalog. They cannot be deployed.</p>
+			<ul>
+				<li v-for="[ name, error ] in catalogErrors" :key="name">
+					<strong>{{ name }}</strong>: {{ error }}
+				</li>
+			</ul>
+		</cdx-message>
+
+		<div class="deploy-service__input">
+			<v-autocomplete
+				v-model="service"
+				:items="services"
+				:loading="loading"
+				aria-label="Choose a service to deploy"
+				auto-select-first
+				clearable
+				density="compact"
+				persistent-placeholder
+				placeholder="Service"
+				variant="outlined"
+			>
+				<template #no-data>
+					<v-list-item>{{ noServicesText }}</v-list-item>
+				</template>
+			</v-autocomplete>
+
+			<v-text-field
+				v-model="message"
+				aria-label="Log message that says why"
+				density="compact"
+				persistent-placeholder
+				placeholder="Log message that says why"
+				variant="outlined"
+				@keydown.enter.stop.prevent="startDeployService"
+			>
+				<template #append>
+					<cdx-button
+						:disabled="buttonDisabled"
+						:title="buttonDisabledReason"
+						@click="startDeployService"
+					>
+						Deploy Service
+					</cdx-button>
+				</template>
+			</v-text-field>
+		</div>
+
+		<cdx-checkbox v-model="confirmDiffs">
+			Show the diffs and ask for approval before the deployment
+		</cdx-checkbox>
+
+		<cdx-dialog
+			:open="alertDialogOpen"
+			title="Failed to start deployment"
+			@update:open="alertDialogOpen = $event"
+		>
+			{{ alertDialogText }}
+		</cdx-dialog>
+	</cdx-field>
+</template>
+
+<script lang="ts">
+import { ref, computed, onMounted } from 'vue';
+import { CdxButton, CdxCheckbox, CdxDialog, CdxField, CdxMessage } from '@wikimedia/codex';
+import { VAutocomplete } from 'vuetify/components/VAutocomplete';
+import { VListItem } from 'vuetify/components/VList';
+import { VTextField } from 'vuetify/components/VTextField';
+import useApi, { type ApiError } from '../api';
+import useJobrunner, { serviceQueue } from '../jobrunner';
+import { notificationsStore } from '../state';
+
+export default {
+	name: 'SpDeployService',
+	components: {
+		CdxButton,
+		CdxCheckbox,
+		CdxDialog,
+		CdxField,
+		CdxMessage,
+		VAutocomplete,
+		VListItem,
+		VTextField
+	},
+
+	setup() {
+		const api = useApi();
+		const jobrunner = useJobrunner();
+		const notifications = notificationsStore();
+
+		const services = ref<string[]>( [] );
+		const service = ref<string | null>( null );
+		const message = ref( '' );
+		const confirmDiffs = ref( true );
+		const loading = ref( false );
+		const loadError = ref<string | null>( null );
+		// The [ name, error ] pair of each service entry that is not valid.
+		const catalogErrors = ref<[string, string][]>( [] );
+		const alertDialogOpen = ref( false );
+		const alertDialogText = ref( '' );
+
+		const noServicesText = computed(
+			() => loadError.value || 'No services found.'
+		);
+
+		const serviceIsDeploying = computed(
+			() => !!service.value && jobrunner.queueIsBusy( serviceQueue( service.value ) )
+		);
+
+		const buttonDisabledReason = computed( () => {
+			if ( !service.value ) {
+				return 'Choose a service';
+			}
+			if ( !message.value.trim() ) {
+				return 'Enter a log message that says why';
+			}
+			if ( serviceIsDeploying.value ) {
+				return `${ service.value } is deploying`;
+			}
+			return '';
+		} );
+
+		const buttonDisabled = computed( () => buttonDisabledReason.value !== '' );
+
+		async function loadServices() {
+			loading.value = true;
+			try {
+				const res = await api.getServices();
+				services.value = res.services;
+				catalogErrors.value = Object.entries( res.errors || {} );
+				loadError.value = null;
+			} catch ( error ) {
+				const apiError = error as ApiError;
+				loadError.value = apiError.respJson?.detail?.message || apiError.message;
+			}
+			loading.value = false;
+		}
+
+		async function startDeployService() {
+			if ( buttonDisabled.value ) {
+				return;
+			}
+
+			try {
+				const res = await api.startDeployService( {
+					service: service.value,
+					message: message.value.trim(),
+					confirmDiffs: confirmDiffs.value
+				} );
+				await notifications.setupUserNotificationsForJob( res.id );
+				message.value = '';
+			} catch ( error ) {
+				alertDialogOpen.value = true;
+				const apiError = error as ApiError;
+				alertDialogText.value = apiError.respJson?.detail?.message || apiError.message;
+			}
+		}
+
+		onMounted( loadServices );
+
+		return {
+			alertDialogOpen,
+			alertDialogText,
+			buttonDisabled,
+			buttonDisabledReason,
+			catalogErrors,
+			confirmDiffs,
+			loading,
+			message,
+			noServicesText,
+			service,
+			services,
+			startDeployService
+		};
+	}
+};
+</script>
+
+<style lang="less">
+@import ( reference ) '@wikimedia/codex-design-tokens/theme-wikimedia-ui.less';
+
+.deploy-service {
+	&.cdx-field {
+		margin-bottom: @spacing-150;
+	}
+
+	&__catalog-errors {
+		margin-bottom: @spacing-50;
+	}
+
+	&__input {
+		display: flex;
+		gap: @spacing-50;
+
+		.v-input__append {
+			margin-inline-start: 0;
+
+			.cdx-button {
+				border-top-left-radius: 0px;
+				border-bottom-left-radius: 0px;
+				min-height: 40px;
+			}
+		}
+	}
+}
+</style>

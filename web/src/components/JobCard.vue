@@ -64,7 +64,6 @@
 						:orphaned="orphaned"
 						:started-at="started_at"
 						:exit-status="exit_status"
-						:interaction="interaction"
 					/>
 				</div>
 
@@ -93,6 +92,7 @@
 							<span class="job-card__stop-button__label">STOP</span>
 						</button>
 						<button
+							v-if="showRetryButton"
 							class="job-card__retry-button"
 							:disabled="!canRetry || retrying"
 							:title="
@@ -179,7 +179,7 @@
 				:interaction="interaction"
 			/>
 			<div
-				v-if="!interaction"
+				v-if="!interaction || !showInteraction"
 				class="job-card__details"
 			>
 				<hr>
@@ -190,6 +190,25 @@
 					{{ error }}
 				</div>
 				<div v-else>
+					<div v-if="serviceInfo" class="job-card__details__change-info">
+						<div class="job-card__details__change-info__grid">
+							<div class="job-card__details__change-info__grid__item">
+								<div class="job-card__details__change-info__label">
+									Service
+								</div>
+								<div>{{ serviceInfo.service }}</div>
+							</div>
+							<div
+								v-if="serviceInfo.message"
+								class="job-card__details__change-info__grid__item"
+							>
+								<div class="job-card__details__change-info__label">
+									Log message
+								</div>
+								<div>{{ serviceInfo.message }}</div>
+							</div>
+						</div>
+					</div>
 					<div v-for="( info, index ) in changeInfos" :key="index">
 						<cdx-accordion
 							:open="changeInfos.length === 1"
@@ -277,7 +296,9 @@ import { defineComponent, ref, computed, PropType, watch } from 'vue';
 import { CdxCard, CdxAccordion, CdxProgressBar, CdxIcon, CdxDialog, CdxButton, CdxMessage } from '@wikimedia/codex';
 import { cdxIconLinkExternal, cdxIconReload } from '@wikimedia/codex-icons';
 import { VIcon } from 'vuetify/components/VIcon';
-import ChangeInfo, { CommitLink } from '../types/ChangeInfo';
+import { useNow } from '@vueuse/core';
+import ChangeInfo from '../types/ChangeInfo';
+import { formatLinkifiedMessage } from '../linkify';
 import Interaction from '../types/Interaction';
 import JobStatus from '../types/JobStatus';
 import SpInteraction from './Interaction.vue';
@@ -288,6 +309,9 @@ import { RouterLink, useRoute, useRouter } from 'vue-router';
 import useApi from '../api';
 import useJobrunner from '../jobrunner';
 import { notificationsStore } from '../state';
+
+// The kinds of job that retry_job() in scap/spiderpig/api.py creates again.
+const RETRYABLE_TYPES = [ 'backport', 'deploy-service' ];
 
 export default defineComponent( {
 	name: 'SpJobCard',
@@ -312,6 +336,14 @@ export default defineComponent( {
 			type: Number,
 			default: null
 		},
+		type: {
+			type: String,
+			required: true
+		},
+		queue_name: {
+			type: String,
+			default: null
+		},
 		command_decoded: {
 			type: String,
 			required: false,
@@ -323,17 +355,17 @@ export default defineComponent( {
 			default: null
 		},
 		started_at: {
-			type: Number,
+			type: Number as PropType<number | null>,
 			required: false,
 			default: null
 		},
 		finished_at: {
-			type: Number,
+			type: Number as PropType<number | null>,
 			required: false,
 			default: null
 		},
 		exit_status: {
-			type: Number,
+			type: Number as PropType<number | null>,
 			required: false,
 			default: null
 		},
@@ -342,7 +374,7 @@ export default defineComponent( {
 			required: true
 		},
 		interaction: {
-			type: Object as PropType<Interaction>,
+			type: Object as PropType<Interaction | null>,
 			required: false,
 			default: null
 		},
@@ -352,7 +384,7 @@ export default defineComponent( {
 			default: null
 		},
 		duration: {
-			type: Number,
+			type: Number as PropType<number | null>,
 			required: false,
 			default: null
 		},
@@ -390,28 +422,18 @@ export default defineComponent( {
 			return infos.map( formatChangeInfo );
 		} );
 
-		function formatCommitMsg( linkifiedCommitMsg: Array<string | CommitLink> ) {
-			// Returns an HTML string.
-			//
-			// NOTE: linkifiedCommitMsg is already processed on the
-			// server side to escape potential HTML tags.
-			let res = '';
-
-			for ( const elt of linkifiedCommitMsg ) {
-				if ( typeof ( elt ) === 'string' ) {
-					res += elt;
-				} else {
-					res += `<a href="${ elt.href }" target="_blank" class="job-card__details__change-info__link">${ elt.text }</a>`;
-				}
-			}
-
-			return res;
-		}
+		// A deploy-service job carries the service it deploys instead of changes.
+		const serviceInfo = computed( () => {
+			const { service, message } = props.data || {};
+			return service ? { service, message } : null;
+		} );
 
 		function formatChangeInfo( changeInfo: ChangeInfo ) {
 			const { linkifiedCommitMsg, subject, project, branch,
 				number, url, repoQueryUrl, branchQueryUrl } = changeInfo;
-			const formattedCommitMsg = formatCommitMsg( linkifiedCommitMsg );
+			const formattedCommitMsg = formatLinkifiedMessage(
+				linkifiedCommitMsg, 'job-card__details__change-info__link'
+			);
 
 			return {
 				project,
@@ -434,7 +456,7 @@ export default defineComponent( {
 			'job-card--has-details': showColumnLabels.value
 		} ) );
 
-		function getFormattedDate( timestamp: number ) {
+		function getFormattedDate( timestamp: number | null ) {
 			if ( !timestamp ) {
 				return {
 					time: '',
@@ -489,6 +511,16 @@ export default defineComponent( {
 			return `${ formattedMinutes }m ${ formattedSeconds }s`;
 		}
 
+		// The server computes the duration of a running job when it sends the job.
+		// Add the time since then, so that the duration counts up between updates.
+		const now = useNow( { interval: 1000 } );
+		const durationReceivedAt = ref( Date.now() );
+		watch( () => props.duration, () => {
+			durationReceivedAt.value = Date.now();
+		} );
+		const runningDuration = computed( () => ( props.duration === null ? null :
+			props.duration + ( now.value.getTime() - durationReceivedAt.value ) / 1000 ) );
+
 		type FinishedInfo = {
 			time: string;
 			date: string;
@@ -515,21 +547,20 @@ export default defineComponent( {
 				};
 			}
 
-			const duration = prettyDuration( props.duration );
-
 			if ( props.finished_at ) {
 				const formattedDate = getFormattedDate( props.finished_at );
 				return {
 					time: formattedDate.time,
 					date: formattedDate.date,
 					message: '',
-					duration: duration
+					duration: prettyDuration( props.duration )
 				};
 			}
 
 			// Job has started but hasn't finished yet
+			const runningFor = prettyDuration( runningDuration.value );
 			return {
-				message: duration ? `Running for ${ duration }` : 'Running...',
+				message: runningFor ? `Running for ${ runningFor }` : 'Running...',
 				time: '',
 				date: '',
 				duration: ''
@@ -545,14 +576,28 @@ export default defineComponent( {
 			window.open( url );
 		}
 
+		// The queue that a retry of this job would run in, or null when the
+		// apiserver does not retry this kind of job.
+		const retryQueue = computed(
+			() => ( RETRYABLE_TYPES.includes( props.type ) ? props.queue_name : null )
+		);
+
+		const retryQueueIsBusy = computed(
+			() => !!retryQueue.value && jobrunner.queueIsBusy( retryQueue.value )
+		);
+
 		const canRetry = computed( () => (
+			retryQueue.value !== null &&
 			props.finished_at &&
 			!props.running &&
 			props.started_at !== null &&
-			jobrunner.idle.value
+			!retryQueueIsBusy.value
 		) );
 
 		const retryDisabledReason = computed( () => {
+			if ( retryQueue.value === null ) {
+				return `A ${ props.type } job cannot be retried`;
+			}
 			if ( !props.finished_at ) {
 				return 'Job has not finished yet';
 			}
@@ -562,13 +607,16 @@ export default defineComponent( {
 			if ( props.started_at === null ) {
 				return 'Job has not started';
 			}
-			if ( !jobrunner.idle.value ) {
-				return 'Another job is running';
+			if ( retryQueueIsBusy.value ) {
+				return props.type === 'deploy-service' ?
+					`${ props.data?.service } is deploying` :
+					'MediaWiki is deploying';
 			}
 			return '';
 		} );
 
 		const showViewLogButton = computed( () => !isJobDetailPage.value );
+		const showRetryButton = computed( () => retryQueue.value !== null );
 
 		function openRetryConfirmation() {
 			confirmRetryOpen.value = true;
@@ -651,10 +699,12 @@ export default defineComponent( {
 			rootClasses,
 			showInteraction,
 			showJobLog,
+			showRetryButton,
 			showViewLogButton,
 			finishedInfo,
 			startedInfo,
 			changeInfos,
+			serviceInfo,
 			handleClick,
 			isLoading,
 			error,

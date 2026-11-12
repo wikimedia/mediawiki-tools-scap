@@ -52,11 +52,14 @@
 </template>
 
 <script lang="ts">
-import { defineComponent, ref, onMounted, onUnmounted, watch } from 'vue';
+import { defineComponent, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import { VSheet } from 'vuetify/components/VSheet';
 import { VToolbar } from 'vuetify/components/VToolbar';
 import useApi from '../api';
+import { useJobUpdates } from '../events';
+import Interaction from '../types/Interaction';
+import Job from '../types/Job';
 import SpInteraction from './Interaction.vue';
 import SpJobCard from './JobCard.vue';
 import { CdxIcon } from '@wikimedia/codex';
@@ -101,60 +104,36 @@ export default defineComponent( {
 		];
 
 		// Reactive data properties.
-		const job = ref( null );
-		const monitorInterval = ref( null );
-		const interaction = ref( null );
+		const job = ref<Job | null>( null );
+		const interaction = ref<Interaction | null>( null );
 
 		// Methods.
-		const stopMonitor = () => {
-			if ( monitorInterval.value ) {
-				clearInterval( monitorInterval.value );
-				monitorInterval.value = null;
-			}
-		};
-
-		const monitorJob = async ( jobId: string ) => {
+		const loadJob = async () => {
+			const jobId = props.jobId;
 			const jobInfo = await api.getJobInfo( jobId );
-			const fetchedJob = jobInfo.job;
-
-			fetchedJob.command_decoded = JSON.parse( fetchedJob.command ).join( ' ' );
-			job.value = fetchedJob;
-			interaction.value = jobInfo.pending_interaction;
-
-			if ( job.value.finished_at ) {
-				stopMonitor();
+			if ( jobId !== props.jobId ) {
+				return;
 			}
+			job.value = jobInfo.job;
+			interaction.value = jobInfo.job.interaction;
 		};
 
-		const clickSignalButton = ( action ) => {
+		const clickSignalButton = ( action: string ) => {
 			api.signalJob( props.jobId, action );
 		};
 
-		const onSelect = ( newSelection ) => {
+		const onSelect = ( newSelection: string ) => {
 			// Handle menu button events.
 			clickSignalButton( newSelection );
 		};
 
 		// Lifecycle hooks.
-		const startMonitorFor = ( jobId: string ) => {
-			stopMonitor();
-			monitorInterval.value = setInterval( () => monitorJob( jobId ), 1000 );
-			monitorJob( jobId );
-		};
-
-		onMounted( () => {
-			startMonitorFor( props.jobId );
-		} );
-
-		watch( () => props.jobId, ( newJobId ) => {
+		watch( () => props.jobId, () => {
 			job.value = null;
 			interaction.value = null;
-			startMonitorFor( newJobId );
 		} );
 
-		onUnmounted( () => {
-			stopMonitor();
-		} );
+		useJobUpdates( () => props.jobId, loadJob );
 
 		return {
 			job,

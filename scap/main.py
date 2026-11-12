@@ -28,6 +28,7 @@ import locale
 import os
 import select
 import socket
+import subprocess
 import sys
 import time
 from typing import Callable, List, Optional
@@ -36,8 +37,6 @@ from concurrent.futures import ThreadPoolExecutor
 import scap.arg as arg
 import scap.checks as checks
 import scap.cli as cli
-import scap.git as git
-import scap.interaction as interaction
 import scap.lint as lint
 import scap.lock as lock
 import scap.log as log
@@ -51,6 +50,18 @@ import scap.utils as utils
 import scap.version as scapversion
 from scap import ansi, history
 from scap.kubernetes import K8sOps, TEST_SERVERS, CANARIES, PRODUCTION, STAGES
+
+ROLLED_BACK_STATUS = 3
+
+
+def failure_outcome(error: BaseException) -> str:
+    """Returns the "outcome" label of a sync that raised `error`."""
+    if (
+        isinstance(error, subprocess.CalledProcessError)
+        and error.returncode == ROLLED_BACK_STATUS
+    ):
+        return "rolled-back"
+    return "failure"
 
 
 @dataclass
@@ -138,10 +149,7 @@ class AbstractSync(cli.Application):
 
         self._assert_auth_sock()
 
-        if self.arguments.message == "(no justification provided)":
-            new_message = self.input_line("Log message (press enter for none): ")
-            if new_message:
-                self.arguments.message = new_message
+        self.prompt_for_message()
 
         with self.lock_mediawiki_staging(name="sync"):
             scope_arg = self.arguments.scope
@@ -164,6 +172,8 @@ class AbstractSync(cli.Application):
                 self._check_fatals()
             else:
                 self.get_logger().warning("check_fatals skipped by --force")
+
+            self.write_deployment_info()
 
             self._build_and_push_container_images()
             self.k8s_ops.update_helmfile_files()
@@ -216,6 +226,10 @@ class AbstractSync(cli.Application):
                     self._after_cluster_sync,  # Bare metal php-fpm restarts happen in here
                 ),
             ]
+
+            # Record the revisions that a rollback returns to before any stage
+            # deploys, so that a failure to record them changes nothing.
+            self.k8s_ops.record_rollback_revisions()
 
             self._init_history()
             k8s_stage_statuses = {stage: "not-started" for stage in STAGES}
@@ -282,13 +296,13 @@ class AbstractSync(cli.Application):
                     self.soft_errors = True
                     if self.config["deploy_mw_container_image"]:
                         self._log_k8s_operation_summary(k8s_stage_statuses, k8s_result)
-                    if k8s_result == "rolled back":
-                        self._notify_backport_rollback()
             finally:
                 self._finalize_history()
 
-        self._after_lock_release()
+        self._after_lock_release(succeeded=not sync_failed)
 
+        if k8s_result == "rolled back":
+            return ROLLED_BACK_STATUS
         if sync_failed or self.soft_errors:
             return 1
         return 0
@@ -298,6 +312,11 @@ class AbstractSync(cli.Application):
     ) -> str:
         k8s_stage_statuses[stage] = failure_status
         rollback_ok = self._rollback_k8s_stages(stage, k8s_stage_statuses)
+        self.metrics.sync_rollbacks.inc(
+            stage=stage,
+            reason=failure_status,
+            outcome="rolled-back" if rollback_ok else "cancelled",
+        )
         if rollback_ok:
             return "rolled back"
         return "rollback cancelled"
@@ -336,30 +355,8 @@ class AbstractSync(cli.Application):
         self.deployment_log_entry = history.Deployment(
             starttime=datetime.datetime.now(datetime.timezone.utc),
             username=utils.get_real_username(),
+            checkouts=self.collect_staged_checkouts(),
         )
-
-        def _add_checkout(directory):
-            branch = git.get_branch(directory)
-            commit_ref = git.merge_base(directory, "origin", branch)
-
-            self.deployment_log_entry.checkouts.append(
-                history.Checkout(
-                    repo=git.remote_get_url(directory),
-                    branch=branch,
-                    directory=directory,
-                    commit_ref=commit_ref,
-                )
-            )
-
-        staging_dir = self.config["stage_dir"]
-
-        _add_checkout(staging_dir)
-
-        for version in self.active_wikiversions("stage"):
-            _add_checkout(os.path.join(staging_dir, f"php-{version}"))
-
-        for violation in self.config["foss_violations"]:
-            _add_checkout(os.path.join(staging_dir, violation["path"]))
 
     def _finalize_history(self):
         self.deployment_log_entry.errors = self.soft_errors
@@ -384,17 +381,6 @@ class AbstractSync(cli.Application):
                 full_target_list,
                 shuffle=True,
             )
-
-    def increment_stat(self, stat, all_stat=True, value=1):
-        """Increment a stat in deploy.*
-
-        :param stat: String name of stat to increment
-        :param all_stat: Whether to increment deploy.all as well
-        :param value: How many to increment by, default of 1 is normal
-        """
-        self.get_stats().increment("deploy.%s" % stat, value)
-        if all_stat:
-            self.get_stats().increment("deploy.all", value)
 
     def get_keyholder_key(self, *args, **kwargs):
         """
@@ -424,7 +410,7 @@ class AbstractSync(cli.Application):
         if brief:
             what = "Changes"
         else:
-            what = f"{self._get_notify_users()}: {self.arguments.message}"
+            what = f"{self._get_notify_users()}: {self.message_argument}"
 
         return f"{what} synced to the testservers (see {url})"
 
@@ -484,32 +470,18 @@ class AbstractSync(cli.Application):
         if not getattr(self.arguments, "k8s_confirm_diffs", False):
             return
         logger = self.get_logger()
-        logger.info("Collecting helmfile diffs for review")
+
+        jobs = []
         for stage in STAGES:
-            diffs = self.k8s_ops.helmfile_diffs_for_stage(stage)
-            if not diffs:
+            stage_jobs = self.k8s_ops.diff_jobs_for_stage(stage)
+            if not stage_jobs:
                 logger.warning("No diffs for stage %s", stage)
                 continue
-            for diff in sorted(
-                diffs,
-                key=lambda diff: (
-                    diff["cluster"],
-                    diff["namespace"],
-                    diff["release"],
-                ),
-            ):
-                self.output_line(
-                    "=== Diff for {cluster}/{namespace}-{release} in {stage} ===\n{diff_stdout}".format(
-                        stage=stage, **diff
-                    ),
-                    sensitive=True,  # Diffs may contain sensitive values.
-                )
-        self.prompt_for_approval_or_exit(
-            "Note: Diffs are relative to the current helm charts and helmfile values. These may "
-            "become outdated if new changes are merged during sync.\n"
-            "Continue with sync?",
-            "Sync cancelled.",
-        )
+            jobs += stage_jobs
+
+        num_failed_jobs = self.k8s_ops.review_diffs(jobs)
+        if num_failed_jobs > 0:
+            self.soft_errors = True
 
     def _build_and_push_container_images(self):
         if not self.config["build_mw_container_image"]:
@@ -718,7 +690,7 @@ class AbstractSync(cli.Application):
     def _after_cluster_sync(self):
         pass
 
-    def _after_lock_release(self):
+    def _after_lock_release(self, succeeded: bool):
         pass
 
     def _after_sync_rebuild_cdbs(self, target_hosts, stage: str):
@@ -796,36 +768,27 @@ class AbstractSync(cli.Application):
         Raises:
             SystemExit: If the user chooses to exit without rollback (exit code 1).
         """
-        while True:
-            if test_func():
-                return True
+        resp = self.retry_until(
+            description,
+            test_func,
+            {
+                "Ignore failure and continue deployment": "i",
+                "Roll back all stages and terminate": "b",
+                "Exit without rollback": "x",
+            },
+            self._prompt_default("r", "b"),
+        )
+        if resp is None:
+            return True
+        if resp == "i":
+            self.get_logger().info("Ignoring %s failure and continuing", description)
+            return True
+        if resp == "b":
+            self._announce_rollback()
+            return False
 
-            resp = self.prompt_choices(
-                f"{description.capitalize()} failed.\n\nWhat do you want to do?",
-                {
-                    f"Retry {description}": "r",
-                    "Ignore failure and continue deployment": "i",
-                    "Roll back all stages and terminate": "b",
-                    "Exit without rollback": "x",
-                },
-                self._prompt_default("r", "b"),
-            )
-            if resp == "r":
-                # loop around and try again
-                continue
-            elif resp == "i":
-                self.get_logger().info(
-                    "Ignoring %s failure and continuing", description
-                )
-                return True
-            elif resp == "b":
-                self._announce_rollback()
-                return False
-            elif resp == "x":
-                self.announce("Scap cancelled without rolling back.")
-                sys.exit(1)
-            else:
-                raise Exception("This should never happen")
+        self.announce("Scap cancelled without rolling back.")
+        sys.exit(1)
 
     def _deploy_k8s_stage_with_retry(self, stage: str) -> bool:
         while True:
@@ -900,14 +863,6 @@ class AbstractSync(cli.Application):
 
         return True
 
-    def _prompt_default(
-        self, interactive_default: str, noninteractive_default: str
-    ) -> str:
-        if interaction.interactive():
-            return interactive_default
-
-        return noninteractive_default
-
     def _log_k8s_operation_summary(self, k8s_stage_statuses: dict, result: str):
         self.output_line("\nKubernetes deployment summary:")
         for stage in STAGES:
@@ -915,27 +870,15 @@ class AbstractSync(cli.Application):
         self.output_line(f"Result: {result}")
         self.output_line("See the job log for detailed error information.")
 
-    def _notify_backport_rollback(self):
-        if (
-            not getattr(self.arguments, "backport", False)
-            or not interaction.interactive()
-        ):
-            return
-
-        self.alert(
-            "The backported change was undeployed by rollback, but it still exists in the codebase.\n"
-            "You must merge a fix or revert commit before allowing further backports to proceed.\n"
-            "\n",
-            "Acknowledge and release the deployment lock",
-        )
-
-    def _logstash_checker(self, dep_configs, baremetal_hosts):
+    def _logstash_checker(self, dep_configs, baremetal_hosts, label=None):
         return logstash_checker.LogstashChecker(
             self.config["logstash_url"],
             self.config["canary_wait_time"],
             dep_configs,
             baremetal_hosts or [],
             self.get_logger(),
+            self.config["logstash_credentials_file"],
+            label=label,
         )
 
     def _run_logstash_checks(self, stage_label: str, checks: list) -> bool:
@@ -1060,7 +1003,9 @@ class AbstractSync(cli.Application):
             dep_configs = deployments_config.supervised_dep_configs(
                 check.scope, check.stage
             )
-            checker = self._logstash_checker(dep_configs, [])
+            checker = self._logstash_checker(
+                dep_configs, [], label=f"{check.scope} {check.stage}"
+            )
             checks.append((checker, check.threshold))
 
         return self._run_logstash_checks(stage_label, checks)
@@ -1510,7 +1455,7 @@ class ScapWorld(AbstractSync):
         return super().main(*extra_args)
 
     def _before_cluster_sync(self):
-        self.announce("Started scap sync-world: %s", self.arguments.message)
+        self.announce("Started scap sync-world: %s", self.message_argument)
         self.report_status("Starting scap sync-world")
 
         # Validate php syntax of wmf-config and multiversion
@@ -1550,21 +1495,16 @@ class ScapWorld(AbstractSync):
         self._restart_php()
         tasks.clear_message_blobs(self)
 
-    def _after_lock_release(self):
+    def _after_lock_release(self, succeeded: bool):
         self.announce(
-            "Finished scap sync-world: %s (duration: %s)",
-            self.arguments.message,
+            "%s scap sync-world: %s (duration: %s)",
+            "Finished" if succeeded else "Failed",
+            self.message_argument,
             utils.human_duration(self.get_duration()),
         )
-        self.increment_stat("scap")
 
     def _handle_exception_log_message(self, message):
         self.announce(message)
-
-    def _before_exit(self, exit_status):
-        if self.config:
-            self.get_stats().timing("scap.scap", self.get_duration() * 1000)
-        return exit_status
 
 
 @cli.command("pull-master", help=argparse.SUPPRESS)
@@ -1724,14 +1664,14 @@ class SyncFile(AbstractSync):
     def _after_cluster_sync(self):
         self._restart_php()
 
-    def _after_lock_release(self):
+    def _after_lock_release(self, succeeded: bool):
         self.announce(
-            "Synchronized %s: %s (duration: %s)",
+            "%s %s: %s (duration: %s)",
+            "Synchronized" if succeeded else "Failed to synchronize",
             self.arguments.file,
-            self.arguments.message,
+            self.message_argument,
             utils.human_duration(self.get_duration()),
         )
-        self.increment_stat("sync-file")
 
 
 @cli.command(
@@ -1777,12 +1717,16 @@ class SyncWikiversions(AbstractSync):
         # Tell the remaining stages to only rsync wikiversions*.* files.
         self.include = "wikiversions*.*"
 
-    def _after_lock_release(self):
-        self.announce(
-            "rebuilt and synchronized wikiversions files: %s", self.arguments.message
-        )
-
-        self.increment_stat("sync-wikiversions")
+    def _after_lock_release(self, succeeded: bool):
+        if succeeded:
+            self.announce(
+                "rebuilt and synchronized wikiversions files: %s",
+                self.message_argument,
+            )
+        else:
+            self.announce(
+                "failed to synchronize wikiversions files: %s", self.message_argument
+            )
 
     def _after_cluster_sync(self):
         self._restart_php()
@@ -1895,19 +1839,21 @@ class LockManager(cli.Application):
                 logger.fatal("--bg cannot be used with --unlock-all")
                 return 1
 
-            if self.arguments.message == "(no justification provided)":
+            if self.message_argument == cli.NO_MESSAGE:
                 logger.fatal("Cannot request to remove global lock without a reason")
                 return 1
 
-            self.announce(f"Forcefully removing global lock: {self.arguments.message}")
-            lock.Lock.signal_gl_release(
-                self.arguments.message,
+            if lock.Lock.signal_gl_release(
+                self.message_argument,
                 self.get_io(),
                 confirm=not self.arguments.yes,
-            )
+            ):
+                self.announce(
+                    f"Forcefully removed global lock: {self.message_argument}"
+                )
             return
 
-        if self.arguments.message == "(no justification provided)":
+        if self.message_argument == cli.NO_MESSAGE:
             logger.fatal("Cannot lock repositories without a reason")
             return 1
 
@@ -1989,7 +1935,7 @@ class LockManager(cli.Application):
             logger.error("Failed to acquire lock")
             return 1
 
-        self.announce("Locking from deployment [%s]: %s", repo, self.arguments.message)
+        self.announce("Locking from deployment [%s]: %s", repo, self.message_argument)
 
         if self.arguments.bg:
             # Background mode - exit immediately after lock is acquired
@@ -2038,7 +1984,7 @@ class LockManager(cli.Application):
         os.close(release_w)
 
         try:
-            with self.lock(lock_path):
+            with self.lock(lock_path, allow_forced_release=self.arguments.all):
                 # Notify self.ui() that lock is acquired
                 os.write(locker_status_w, b"\x01")
 
@@ -2096,7 +2042,7 @@ class LockManager(cli.Application):
         self.announce(
             "Unlocked for deployment [%s]: %s (duration: %s)",
             repo,
-            self.arguments.message,
+            self.message_argument,
             utils.human_duration(self.get_duration()),
         )
 

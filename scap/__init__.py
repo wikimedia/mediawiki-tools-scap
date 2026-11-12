@@ -50,6 +50,7 @@ from scap.deploy import (
     DeployLog,
 )
 from scap.deploy_promote import DeployPromote
+from scap.deploy_service import DeployService
 from scap.install_world import InstallWorld
 from scap.kubernetes_cli import BuildImages, CleanImages
 from scap.mwscript import Mwscript, Mwshell

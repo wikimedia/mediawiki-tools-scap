@@ -70,11 +70,34 @@ def test_check_valid_syntax__invalid_php_file_raise_exception(mock_app):
         with patch("scap.mwscript.run_shell") as mock_run_shell:
             # Simulate PHP lint failure by returning a process with non-zero returncode
             mock_proc = Mock()
-            mock_proc.returncode = 1
+            mock_proc.returncode = 123
             mock_proc.stdout = "PHP Parse error: syntax error"
+            mock_proc.stderr = ""
             mock_run_shell.return_value = mock_proc
-            with pytest.raises(SystemExit):
+            with pytest.raises(SystemExit) as se:
                 lint.check_valid_syntax(mock_app, php_file.name)
+            assert str(se.value) == (
+                "php lint failed (exit status 123):\nPHP Parse error: syntax error"
+            )
+
+
+def test_check_valid_syntax__wrapper_failure_reports_stderr(mock_app):
+    """A failure of the command wrapper only writes to stderr"""
+    with tempfile.NamedTemporaryFile(suffix=".php") as php_file:
+        php_file.write(b"<?php\n")
+        php_file.flush()
+        with patch("scap.mwscript.run_shell") as mock_run_shell:
+            mock_proc = Mock()
+            mock_proc.returncode = 1
+            mock_proc.stdout = ""
+            mock_proc.stderr = "sudo: PAM account management error\n"
+            mock_run_shell.return_value = mock_proc
+            with pytest.raises(SystemExit) as se:
+                lint.check_valid_syntax(mock_app, php_file.name)
+            assert str(se.value) == (
+                "php lint failed (exit status 1):\n"
+                "\nstderr:\nsudo: PAM account management error\n"
+            )
 
 
 def test_check_valid_syntax__invalid_json_file_raise_exception(mock_app):

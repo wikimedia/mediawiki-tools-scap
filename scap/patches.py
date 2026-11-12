@@ -42,7 +42,7 @@ class ApplyPatches(cli.Application):
 
     class NotificationInfo:
         def __init__(self, patches_path, patch, target_release_for_fixes):
-            patch_info_re = rf"{patches_path}/[^/]+/(?P<module>.+)/(?P<patch_name>(\d+-)?(?P<patch_task>T\d+).patch)$"
+            patch_info_re = rf"{patches_path}/[^/]+/(?P<module>.+)/(?P<patch_name>(\d+-)?(?P<patch_task>T\d+).patch)(\.updated)?$"
             patch_info = re.match(patch_info_re, patch.path())
 
             self.patch_name = patch_info.group("patch_name")
@@ -61,7 +61,8 @@ class ApplyPatches(cli.Application):
     )
     @cli.argument(
         "--abort-git-am-on-fail",
-        action="store_true",
+        action=argparse.BooleanOptionalAction,
+        default=True,
         help='Run "git am --abort" if patch application fails',
         required=False,
     )
@@ -118,6 +119,10 @@ class ApplyPatches(cli.Application):
         if any_failed and self.config["notify_patch_failures"]:
             self._notify_failures(results)
 
+        any_already_applied = any(ret == ALREADY_APPLIED for (ret, _) in results)
+        if any_already_applied and self.config["notify_patch_failures"]:
+            self._notify_already_applied(results)
+
         any_unsuccessful = any(unsuccessful(ret) for (ret, _) in results)
         if any_unsuccessful:
             sys.exit("At least one patch did not apply successfully")
@@ -128,6 +133,10 @@ class ApplyPatches(cli.Application):
         """
         Initialization that requires self.config
         """
+
+        self.patch_path_on_deploy_host = self.config[
+            "notify_patch_failures_deploy_server_patch_path"
+        ]
 
         def disable_patch_failure_notifications():
             self.get_logger().warning("Disabling patch failure notifications")
@@ -262,11 +271,6 @@ class ApplyPatches(cli.Application):
             )
 
         def bot_comment_for_patch_is_present():
-            bot_comments = self.phorge_conduit.task_comments(
-                notification_info.patch_task,
-                {"authorPHIDs": [self.security_patch_bot_phid]},
-            )
-
             target_release_version = notification_info.target_release_for_fixes[
                 "version"
             ]
@@ -275,16 +279,12 @@ class ApplyPatches(cli.Application):
             else:
                 patch_dir = "next"
 
-            for bot_comment in bot_comments:
-                # ["comments"][0] holds the latest revision of a comment
-                text = bot_comment["comments"][0]["content"]["raw"]
-                if (
-                    notification_info.patch_name in text
-                    and target_release_version in text
-                    and f"{patch_dir}/{notification_info.module}" in text
-                ):
-                    return True
-            return False
+            return any(
+                notification_info.patch_name in text
+                and target_release_version in text
+                and f"{patch_dir}/{notification_info.module}" in text
+                for text in self._patch_bot_comment_texts(notification_info.patch_task)
+            )
 
         return (
             task_is_open()
@@ -292,6 +292,16 @@ class ApplyPatches(cli.Application):
             and is_subtask_of_release_task()
             and bot_comment_for_patch_is_present()
         )
+
+    def _patch_bot_comment_texts(self, task_id) -> list[str]:
+        """Returns the latest text of each comment the patch bot made on task_id"""
+        return [
+            # ["comments"][0] holds the latest revision of a comment
+            comment["comments"][0]["content"]["raw"]
+            for comment in self.phorge_conduit.task_comments(
+                task_id, {"authorPHIDs": [self.security_patch_bot_phid]}
+            )
+        ]
 
     def _using_version_branch(self):
         return BRANCH_RE.match(self.arguments.train)
@@ -322,8 +332,6 @@ class ApplyPatches(cli.Application):
             )
             patch_dir = "next"
 
-        patch_path_on_deploy_host = "/srv/patches"
-
         return header + (
             "\n"
             "---\n"
@@ -334,7 +342,7 @@ class ApplyPatches(cli.Application):
             "```\n"
             "REVISED_PATCH=<path_to_revised_patch>\n"
             "scap update-patch --message-body 'Rebase to solve merge conflicts'"
-            f""" {patch_path_on_deploy_host}/{patch_dir}/{module}/{patch_name} "$REVISED_PATCH" """
+            f""" {self.patch_path_on_deploy_host}/{patch_dir}/{module}/{patch_name} "$REVISED_PATCH" """
             "```\n"
             "---\n"
             "//If the patch has been made public//\n"
@@ -342,7 +350,65 @@ class ApplyPatches(cli.Application):
             "The patch can be dropped in the deployment server with the following Scap command:\n"
             "```\n"
             "scap remove-patch --message-body 'Dropping patch already made public'"
-            f" {patch_path_on_deploy_host}/{patch_dir}/{module}/{patch_name}"
+            f" {self.patch_path_on_deploy_host}/{patch_dir}/{module}/{patch_name}"
+            "```"
+        )
+
+    def _notify_already_applied(self, results):
+        self.get_logger().info(
+            "Notifying security patch tasks of patches that are already applied"
+        )
+
+        try:
+            for patch in [patch for ret, patch in results if ret == ALREADY_APPLIED]:
+                self._notify_already_applied_patch(patch)
+        except Exception as e:
+            self.get_logger().warning(
+                f"Failure while trying to notify already applied security patches:\n{e}"
+            )
+
+    def _notify_already_applied_patch(self, patch):
+        notification_info = ApplyPatches.NotificationInfo(
+            self.config["patch_path"], patch, None
+        )
+        patch_task = notification_info.patch_task
+        patch_dir = self.arguments.train if self._using_version_branch() else "next"
+        patch_path = f"{self.patch_path_on_deploy_host}/{patch_dir}/{notification_info.module}/{notification_info.patch_name}"
+
+        if any(
+            "already applied" in text and patch_path in text
+            for text in self._patch_bot_comment_texts(patch_task)
+        ):
+            self.get_logger().info(
+                f"Already notified that {patch_path} is already applied. Skipping"
+            )
+            return
+
+        notification = self._compose_already_applied_notification(
+            notification_info, patch_path
+        )
+        self.phorge_conduit.edit_task(
+            patch_task, [{"type": "comment", "value": notification}]
+        )
+        self.get_logger().info(
+            f"Notified {patch_task} that {patch_path} is already applied"
+        )
+
+    def _compose_already_applied_notification(self, notification_info, patch_path):
+        if self._using_version_branch():
+            code = f"version {self.arguments.train}"
+        else:
+            code = "the most recent code in the mainline branch"
+
+        return (
+            "===== {icon info-circle color=blue} Patch is already applied\n"
+            f"Patch `{notification_info.patch_name}` is already applied in {code}"
+            f" of `{notification_info.module}`. The patch makes no changes and can be removed.\n"
+            "\n"
+            "To remove the patch from the deployment server, run this command:\n"
+            "```\n"
+            "scap remove-patch --message-body 'Remove patch that is already applied'"
+            f" {patch_path}\n"
             "```"
         )
 
@@ -1080,7 +1146,11 @@ class Patch:
                 if m:
                     a, b = m[1], m[2]
                     if a != b:
-                        raise Exception(f"Patch a != b: {a} != {b}")
+                        with utils.suppress_backtrace():
+                            raise Exception(
+                                f"Cannot determine the files that security patch {self.path()} changes. "
+                                f'The patch has a "diff --git" line with two different paths: a/{a} b/{b}'
+                            )
                     res.append(os.path.join(srcroot, self._relative, a))
         return res
 

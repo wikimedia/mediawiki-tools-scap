@@ -1,5 +1,7 @@
 # -*- coding: utf-8 -*-
 
+import os
+
 from scap import cli, main
 
 
@@ -11,6 +13,7 @@ from scap import cli, main
 class PhpRpmRestartCmd(main.AbstractSync):
     @cli.argument("message", nargs="*", help="Log message for SAL")
     def main(self, *extra_args):
+        os.umask(self.config["umask"])
         self.arguments.force = False
 
         self._assert_auth_sock()

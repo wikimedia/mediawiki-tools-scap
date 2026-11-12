@@ -10,6 +10,7 @@ import errno
 import fcntl
 import json
 import os
+import shlex
 import signal
 import threading
 import time
@@ -20,10 +21,8 @@ import scap.utils as utils
 GLOBAL_LOCK_FILE = "/var/lock/scap-global-lock"
 
 
-class LockFailedError(RuntimeError):
+class LockFailedError(utils.NoBacktraceError):
     """Signal that a locking attempt failed."""
-
-    pass
 
 
 logger = utils.get_logger()
@@ -57,6 +56,7 @@ class Lock:
         timeout=DEFAULT_TIMEOUT,  # Timeout in seconds
         lock_mode=EXCLUSIVE,
         do_global_lock=True,
+        allow_forced_release=False,
     ):
         self.lock_file = lock_file
         self.name = name
@@ -71,6 +71,7 @@ class Lock:
         self.do_global_lock = do_global_lock
         self.global_lock = None
         self.reason = reason
+        self.allow_forced_release = allow_forced_release
 
         self._ensure_lock_dir_exists()
         self._ensure_sane_timeout()
@@ -128,10 +129,12 @@ class Lock:
                 self.lock_file == GLOBAL_LOCK_FILE
                 and self._exclusive_lock_is_in_place()
             ):
-                feedback += (
-                    "\nThe lock is global. If required, it can be forcefully removed by running"
-                    """ "scap lock --unlock-all <reason>"."""
-                )
+                lock_info = Lock._read_lock_info(self.lock_file, self.lock_fd)
+                if lock_info.get("allow_forced_release"):
+                    feedback += (
+                        "\nThe lock is global. If required, it can be forcefully removed by running:"
+                        f"\n    scap lock --unlock-all {shlex.quote(lock_info['reason'])}"
+                    )
 
             if self.timeout == 0:
                 raise LockFailedError(f"{self._get_lock_message()}\nAborting")
@@ -211,14 +214,26 @@ class Lock:
             "pid": os.getpid(),
             "timestamp_utc": time.asctime(time.gmtime()),
             "reason": self.reason,
+            "allow_forced_release": self.allow_forced_release,
         }
 
         self._write_lock_file(info)
 
-    def _get_lock_message(self) -> str:
-        def read_failed(lock, ex):
-            logger.warning("Caught %s while reading lock info from %s", ex, lock)
+    @staticmethod
+    def _read_failed(lock, ex):
+        logger.warning("Caught %s while reading lock info from %s", ex, lock)
 
+    @staticmethod
+    def _read_lock_info(lock, fd) -> dict:
+        try:
+            sb = os.fstat(fd)
+            info = json.loads(os.pread(fd, sb.st_size, 0).decode("UTF-8"))
+        except Exception as ex:
+            Lock._read_failed(lock, ex)
+            info = {}
+        return info
+
+    def _get_lock_message(self) -> str:
         def get_locks():
             lock_dir, global_lock_basename = os.path.split(GLOBAL_LOCK_FILE)
             return set(
@@ -228,15 +243,6 @@ class Lock:
                     if "scap" in lock and global_lock_basename != lock
                 ]
             )
-
-        def read_lock_info(lock, fd):
-            try:
-                sb = os.fstat(fd)
-                info = json.loads(os.pread(fd, sb.st_size, 0).decode("UTF-8"))
-            except Exception as ex:
-                read_failed(lock, ex)
-                info = {}
-            return info
 
         locks_info = []
         # Shared lock is blocking global
@@ -249,14 +255,14 @@ class Lock:
                 lock_fd = None
                 try:
                     lock_fd = os.open(lock_file, os.O_RDONLY)
-                    locks_info.append(read_lock_info(lock_file, lock_fd))
+                    locks_info.append(Lock._read_lock_info(lock_file, lock_fd))
                 except OSError as e:
-                    read_failed(lock_file, e)
+                    Lock._read_failed(lock_file, e)
                 finally:
                     if lock_fd:
                         os.close(lock_fd)
         else:
-            locks_info = [read_lock_info(self.lock_file, self.lock_fd)]
+            locks_info = [Lock._read_lock_info(self.lock_file, self.lock_fd)]
 
         # Filter out locks that aren't actually set
         locks_info = [info for info in locks_info if info != {}]
@@ -306,7 +312,8 @@ class Lock:
             )
 
     @staticmethod
-    def signal_gl_release(release_reason, io, confirm=True):
+    def signal_gl_release(release_reason, io, confirm=True) -> bool:
+        """Returns True if the process that holds the lock acknowledged the release."""
         if os.path.exists(GLOBAL_LOCK_FILE):
             with open(GLOBAL_LOCK_FILE, encoding="UTF-8") as f:
                 lock_info = json.loads(f.read())
@@ -321,6 +328,12 @@ class Lock:
                     + "  time acquired (UTC): %s\n" % timestamp_utc
                     + "  reason: %s" % reason
                 )
+                if not lock_info.get("allow_forced_release"):
+                    logger.warning(
+                        details
+                        + '\nOnly a lock from "scap lock --all" can be removed. Wait for this lock to be released.'
+                    )
+                    return False
                 if confirm:
                     prompt = details + "\nClear lock?"
                     if not io.prompt_user_for_confirmation(prompt):
@@ -345,16 +358,16 @@ class Lock:
                 while time.time() < timeout:
                     if os.path.isfile(Lock.ACK_GL_SIGNAL_FILE):
                         logger.info("Global lock removed")
-                        break
+                        return True
                     time.sleep(0.5)
-                else:
-                    logger.warning(
-                        "Could not clear lock. The lock process may not be running, in which case there is no actual lock"
-                    )
 
-                return
+                logger.warning(
+                    "Could not clear lock. The lock process may not be running, in which case there is no actual lock"
+                )
+                return False
 
         logger.info("No global lock set. Nothing to do")
+        return False
 
     @staticmethod
     def watch_for_gl_release_signal(release_callback):

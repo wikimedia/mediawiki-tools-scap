@@ -124,23 +124,37 @@ Deployment information
 ~~~~~~~~~~~~~~~~~~~~~~
 
 A log of deployments is kept in several places. A full log of every deployment
-is available via Logstash_. Also, a json record of the last deployment
+is available via Logstash_. Also, a YAML record of the last deployment
 is kept inside your repo's git directory on the ``deploy_host`` at
 ``.git/DEPLOY_HEAD``.
 
 The ``.git/DEPLOY_HEAD`` file shows the date, user, and commit of the last
-deployment from this repository. The deployed commit is also tagged locally
-with this information via an annotated ``git tag``.
+deployment from this repository. It also holds the repository configuration
+that targets read during the deployment. The deployed commit is also tagged
+locally with this information via an annotated ``git tag``.
 
 .. code-block:: bash
 
-    deployer@deployXXXX:/srv/deployment/mockbase/deploy$ jq '.' < .git/DEPLOY_HEAD
-    {
-      "timestamp": "2015-11-17T22:05:53.277869",
-      "user": "deployer",
-      "tag": "scap/sync/2015-11-17/0014",
-      "commit": "70eb01ed946c6bdc7d94b5b71abe81b9ea2e8d0c"
-    }
+    deployer@deployXXXX:/srv/deployment/mockbase/deploy$ cat .git/DEPLOY_HEAD
+    cache_revs: 5
+    commit: 70eb01ed946c6bdc7d94b5b71abe81b9ea2e8d0c
+    config_deploy: false
+    git_fat: false
+    git_repo: mockbase/deploy
+    git_rev: 70eb01ed946c6bdc7d94b5b71abe81b9ea2e8d0c
+    git_submodules: false
+    git_upstream_submodules: false
+    log_json: true
+    nrpe_dir: /etc/nagios/nrpe.d
+    original_origin: https://gerrit.wikimedia.org/r/mockbase/deploy
+    perform_checks: true
+    require_valid_service: false
+    service_name: mockbase
+    service_port: 8080
+    service_timeout: 120.0
+    tag: scap/sync/2025-11-17/0014
+    timestamp: '2025-11-17T22:05:53.277869+00:00'
+    user: deployer
 
 .. _configuring a git repo: ../repo_config.html#available-configuration-variables
 .. _deploy documentation: ../deploy_commands.html#deploy

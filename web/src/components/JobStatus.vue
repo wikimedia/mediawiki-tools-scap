@@ -25,7 +25,6 @@ import { computed, defineComponent, PropType } from 'vue';
 import { CdxInfoChip } from '@wikimedia/codex';
 import { cdxIconInfoFilled } from '@wikimedia/codex-icons';
 import JobStatus from '../types/JobStatus';
-import Interaction from '../types/Interaction';
 import SpProgressBar from './ProgressBar.vue';
 
 export default defineComponent( {
@@ -50,15 +49,11 @@ export default defineComponent( {
 			default: false
 		},
 		startedAt: {
-			type: Number,
+			type: Number as PropType<number | null>,
 			default: null
 		},
 		exitStatus: {
-			type: Number,
-			default: null
-		},
-		interaction: {
-			type: Object as PropType<Interaction>,
+			type: Number as PropType<number | null>,
 			default: null
 		}
 	},
@@ -67,10 +62,8 @@ export default defineComponent( {
 		const statusType = computed( () => {
 			if ( props.exitStatus === 0 ) {
 				return 'success';
-			} else if ( props.exitStatus === 1 ) {
+			} else if ( props.exitStatus !== null ) {
 				return 'error';
-			} else if ( props.exitStatus === null && props.interaction ) {
-				return 'warning';
 			} else {
 				return 'notice';
 			}

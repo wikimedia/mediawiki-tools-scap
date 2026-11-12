@@ -1,8 +1,31 @@
+import logging
 from unittest import mock
 
 import pytest
 
 from scap import tasks
+
+
+@pytest.mark.parametrize(
+    "action, on_secondary_host, event",
+    [
+        ("", False, "restarted"),
+        ("=reload", False, "reloaded"),
+        ("=restart:disable-secondary", True, "stopped and disabled"),
+    ],
+)
+@mock.patch("subprocess.check_call")
+def test_handle_services_reports_what_it_did(
+    check_call, caplog, action, on_secondary_host, event
+):
+    with caplog.at_level(logging.INFO):
+        tasks.handle_services(f"arclamp{action}", on_secondary_host=on_secondary_host)
+
+    assert [
+        (record.deploy_event, record.deploy_subject)
+        for record in caplog.records
+        if hasattr(record, "deploy_event")
+    ] == [(event, "arclamp")]
 
 
 @pytest.mark.parametrize(

@@ -1,6 +1,7 @@
 import collections
 import math
 import statistics
+from typing import Optional
 
 from scap import cli, kubernetes, logstash, logstash_checker, targets
 
@@ -27,31 +28,76 @@ class LogstashCheckerCommand(cli.Application):
         help="Test historical samples for the selected stage using the supplied threshold value",
         type=int,
     )
+    @cli.argument(
+        "--scope",
+        help="Analyze only the Kubernetes targets of this scope (e.g. 'pretrain'), "
+        "which are the ones a logstash_check of that scope supervises. Without it, "
+        "the analysis covers the targets of every scope at this stage, and the "
+        "bare-metal hosts too.",
+    )
+    @cli.argument(
+        "--wiki",
+        help="Count only errors reported for this wiki (e.g. 'testwiki')",
+    )
     def main(self, *extra_args):
         logger = self.get_logger()
         if not self.config["logstash_url"]:
             logger.warning("logstash_url is not configured; nothing to check.")
             return
-        k8s_ops = kubernetes.K8sOps(self)
+
+        stage = self.arguments.stage
+        scope = self.arguments.scope
+        wiki = self.arguments.wiki
+
+        if scope and not self.config["deploy_mw_container_image"]:
+            raise SystemExit(
+                "--scope selects Kubernetes deployment targets, but "
+                "deploy_mw_container_image is False"
+            )
+
+        k8s_ops = kubernetes.K8sOps(
+            self, update_releases_repo=False, scope={scope} if scope else None
+        )
+
         baremetal_hosts = []
-        if self.arguments.stage == kubernetes.CANARIES:
-            baremetal_hosts = list(
-                set(targets.get("dsh_api_canaries", self.config).all)
-                | set(targets.get("dsh_app_canaries", self.config).all)
+        if scope:
+            # Analyze what a logstash_check of this scope supervises: the scope's
+            # Kubernetes targets at this stage, and no bare-metal hosts.
+            dep_configs = k8s_ops.k8s_deployments_config.supervised_dep_configs(
+                scope, stage
             )
-        elif self.arguments.stage == kubernetes.PRODUCTION:
-            baremetal_hosts = list(
-                set(targets.get("dsh_proxies", self.config).all)
-                | set(targets.get("dsh_targets", self.config).all)
-            )
-        logger.info("Analyzing logstash history for stage: %s", self.arguments.stage)
+        else:
+            dep_configs = k8s_ops.get_stage_dep_configs(stage)
+            if stage == kubernetes.CANARIES:
+                baremetal_hosts = list(
+                    set(targets.get("dsh_api_canaries", self.config).all)
+                    | set(targets.get("dsh_app_canaries", self.config).all)
+                )
+            elif stage == kubernetes.PRODUCTION:
+                baremetal_hosts = list(
+                    set(targets.get("dsh_proxies", self.config).all)
+                    | set(targets.get("dsh_targets", self.config).all)
+                )
+
+        targets_description = f"scope: {scope or '(all)'}, stage: {stage}"
+
+        if not dep_configs and not baremetal_hosts:
+            logger.warning(f"No deployment targets match {targets_description}.")
+            return
+
+        logger.info(
+            f"Analyzing logstash history for {targets_description}, "
+            f"wiki: {wiki or '(all)'}"
+        )
         logstash_checker.LogstashChecker(
             self.config["logstash_url"],
             self.config["canary_wait_time"],
-            k8s_ops.get_stage_dep_configs(self.arguments.stage),
+            dep_configs,
             baremetal_hosts,
             logger,
-        ).analyze(self.arguments.stage, self.arguments.toohigh)
+            self.config["logstash_credentials_file"],
+            wiki,
+        ).analyze(stage, self.arguments.toohigh)
 
 
 class LogstashChecker:
@@ -62,12 +108,19 @@ class LogstashChecker:
         k8s_dep_configs,
         baremetal_hosts,
         logger,
+        credentials_file=None,
+        wiki=None,
+        label=None,
     ):
         self.window_size = window_size
         self.k8s_dep_configs = k8s_dep_configs
         self.baremetal_hosts = baremetal_hosts
         self.logger = logger
-        self.logstash = logstash.Logstash(logstash_url, logger)
+        # When set, only errors reported for this wiki are counted.
+        self.wiki = wiki
+        # Names the checked targets in the log line, e.g. "train canaries".
+        self.label = label
+        self.logstash = logstash.Logstash(logstash_url, logger, credentials_file)
 
     def check(self, threshold) -> bool:
         """
@@ -83,7 +136,8 @@ class LogstashChecker:
         hits_rel = hits_total["relation"]
         assert hits_rel in ["eq", "gte"]
 
-        prefix = f"Logstash checker counted {count} error(s) in the last {self.window_size} seconds"
+        targets = f" for {self.label}" if self.label else ""
+        prefix = f"Logstash checker counted {count} error(s){targets} in the last {self.window_size} seconds"
 
         if count >= threshold:
             self.logger.error("%s. The threshold is %d.", prefix, threshold)
@@ -104,7 +158,9 @@ class LogstashChecker:
         orig_samples = samples = self._fetch_history_counts(HISTORY_DAYS)
 
         if not samples:
-            self.logger.warn("No matching logstash records found for stage %s.", stage)
+            self.logger.warning(
+                "No matching logstash records found for stage %s.", stage
+            )
             return
 
         def summarize(samples, description):
@@ -171,53 +227,74 @@ class LogstashChecker:
 
         return res, outliers
 
-    def _one_of_query(self, key, values) -> str:
-        return f"{key}:(" + " OR ".join(values) + ")"
-
-    def _build_deployment_query(self) -> str:
+    # A bool clause combines other clauses. The name of the list decides how:
+    #   filter    every clause must match
+    #   should    at least one clause must match (with minimum_should_match 1)
+    #   must_not  no clause may match
+    # A list of filter clauses is an AND. A bool with should is an OR.
+    #
+    # These clauses match a field:
+    #   term      the field holds one value
+    #   terms     the field holds any of several values
+    #   range     the field falls between bounds
+    def _deployment_filters(self) -> list:
         deployments_by_release = collections.defaultdict(set)
         for dep_config in self.k8s_dep_configs:
             deployments_by_release[dep_config.release].add(dep_config.namespace)
 
-        clauses = [
-            f"(kubernetes.labels.release:{release} AND {self._one_of_query('kubernetes.labels.deployment', sorted(deployments))})"
+        release_field = "kubernetes.labels.release.keyword"
+        deployment_field = "kubernetes.labels.deployment.keyword"
+
+        return [
+            {
+                "bool": {
+                    "filter": [
+                        {"term": {release_field: release}},
+                        {"terms": {deployment_field: sorted(deployments)}},
+                    ]
+                }
+            }
             for release, deployments in sorted(deployments_by_release.items())
         ]
 
-        return " OR ".join(clauses)
-
-    def _build_baremetal_query(self) -> str:
+    def _baremetal_filter(self) -> Optional[dict]:
         if not self.baremetal_hosts:
-            return ""
+            return None
 
         # Logstash stores baremetal hostnames without the domain suffix.
         hostnames = sorted({host.split(".")[0] for host in self.baremetal_hosts})
-        return self._one_of_query("host", hostnames)
+        return {"terms": {"host": hostnames}}
 
     def _build_base_query(self) -> dict:
         """
-        Build a query filtering for the relevant deployment targets, record type, and channel.
+        Build a query filtering for the relevant deployment targets, record type,
+        channel, and (when set) wiki.
+
+        Do not use a query_string clause here. It splits "mw-pretrain" into
+        "mw" and "pretrain", and then it matches a namespace that holds
+        either part (T435419).
+
+        type, host and level are keyword fields. channel, wiki and the
+        kubernetes labels are text fields, so those clauses name the .keyword
+        subfield.
         """
+        targets = self._deployment_filters()
 
-        deployment_terms = []
-        deployment_query = self._build_deployment_query()
-        baremetal_query = self._build_baremetal_query()
+        baremetal = self._baremetal_filter()
+        if baremetal:
+            targets.append(baremetal)
 
-        if deployment_query:
-            deployment_terms.append(f"({deployment_query})")
-        if baremetal_query:
-            deployment_terms.append(baremetal_query)
-
-        filters = []
-
-        if deployment_terms:
-            query = (
-                f"({' OR '.join(deployment_terms)}) AND type:mediawiki "
-                "AND channel:(exception OR error)"
-            )
-            filters.append({"query_string": {"query": query}})
+        if not targets:
+            filters = [{"match_none": {}}]
         else:
-            filters.append({"match_none": {}})
+            filters = [
+                {"bool": {"should": targets, "minimum_should_match": 1}},
+                {"term": {"type": "mediawiki"}},
+                {"terms": {"channel.keyword": ["exception", "error"]}},
+            ]
+            if self.wiki:
+                # Records without a wiki field do not match.
+                filters.append({"term": {"wiki.keyword": self.wiki}})
 
         return {
             "query": {
@@ -305,12 +382,7 @@ class LogstashChecker:
     def _summarize_errors(self, r):
         hits = collections.Counter()
         for hit in r["hits"]["hits"]:
-            hit = hit["_source"]
-            message = hit.get("normalized_message") or hit.get("message")
-
-            if message.startswith("[{reqId}] {exception_url}   "):
-                message = message[len("[{reqId}] {exception_url}   ") :]
-
+            message = logstash.error_message(hit["_source"])
             hits[message] += 1
 
         top = hits.most_common(5)

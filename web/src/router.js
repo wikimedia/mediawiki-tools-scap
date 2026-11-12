@@ -4,13 +4,15 @@ import LoginPage from './components/LoginPage.vue';
 import JobViewerPage from './components/JobViewerPage.vue';
 import NotAuthorized from './components/NotAuthorized.vue';
 import BackportPage from './components/BackportPage.vue';
+import DeployServicePage from './components/DeployServicePage.vue';
 import TrainPage from './components/TrainPage.vue';
 import ErrorLogsPage from './components/ErrorLogsPage.vue';
 
 const routes = [
 	{
+		// Redirect to a route handled by the Navigation bar (T433287).
 		path: '/',
-		component: BackportPage
+		redirect: ( to ) => ( { path: '/mediawiki/backport', query: to.query } )
 	},
 	{
 		path: '/mediawiki/backport',
@@ -23,6 +25,10 @@ const routes = [
 	{
 		path: '/mediawiki/logs',
 		component: ErrorLogsPage
+	},
+	{
+		path: '/service/deploy',
+		component: DeployServicePage
 	},
 	{
 		path: '/login',

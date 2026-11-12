@@ -11,15 +11,23 @@ DEFAULT_WINDOW = 600
 POLL_INTERVAL = 15
 
 
-def main(cfg, logger, results_dir, debug_logstash):
+def main(cfg, logger, results_dir):
     """
     The logstash poller main loop.
     """
-    poller = LogstashPoller(cfg["logstash_url"], DEFAULT_WINDOW, logger, debug_logstash)
+    poller = LogstashPoller(
+        cfg["logstash_url"],
+        DEFAULT_WINDOW,
+        logger,
+        cfg["debug_logstash"],
+        cfg["logstash_credentials_file"],
+    )
     while True:
         try:
+            polled_at = time.time()
             results = poller.poll()
             summary = poller.summarize_errors(results)
+            summary["polled_at"] = polled_at
             with utils.temp_to_permanent_file(os.path.join(results_dir, LOG_FILE)) as f:
                 json.dump(summary, f)
         except Exception as e:
@@ -62,20 +70,23 @@ class LogstashPollCommand(cli.Application):
             window,
             logger,
             self.arguments.debug or self.config["debug_logstash"],
+            self.config["logstash_credentials_file"],
         )
         results = poller.poll()
         summary = poller.summarize_errors(results)
 
-        for message, count in summary.items():
-            logger.info(f"{count}\t{message}")
+        for message, error in summary["errors"].items():
+            logger.info(f"{error['count']}\t{message}")
 
 
 class LogstashPoller:
-    def __init__(self, logstash_url, window_size, logger, debug_logstash):
+    def __init__(
+        self, logstash_url, window_size, logger, debug_logstash, credentials_file=None
+    ):
         self.window_size = window_size
         self.logger = logger
         self.logstash = logstash.Logstash(
-            logstash_url, logger if debug_logstash else None
+            logstash_url, logger if debug_logstash else None, credentials_file
         )
 
     def poll(self) -> dict:
@@ -122,15 +133,10 @@ class LogstashPoller:
     # Innards #
     ###########
 
-    def _one_of_query(self, key, values) -> str:
-        return f"{key}:(" + " OR ".join(values) + ")"
-
     def _build_base_query(self) -> dict:
         """
-        Build a query filtering for the relevant hosts/labels, record type, and channel.
+        Build a query filtering for the record type and the channel.
         """
-
-        query = "type:mediawiki AND channel:(exception OR error)"
 
         return {
             # TODO: Figure out how to make aggregations actually-useful:
@@ -145,7 +151,11 @@ class LogstashPoller:
             "query": {
                 "bool": {
                     "filter": [
-                        {"query_string": {"query": query}},
+                        # "type" and "level" are keyword fields. "channel" is
+                        # a text field, so that clause names the ".keyword"
+                        # subfield (T435419).
+                        {"term": {"type": "mediawiki"}},
+                        {"terms": {"channel.keyword": ["exception", "error"]}},
                     ],
                     "must_not": [
                         {"terms": {"level": ["DEBUG"]}},
@@ -188,11 +198,7 @@ class LogstashPoller:
 
         for hit in r.get("hits", {}).get("hits"):
             hit = hit.get("_source", {})
-            message = hit.get("normalized_message") or hit.get("message")
-
-            # Trim some boilerplate:
-            if message.startswith("[{reqId}] {exception_url}   "):
-                message = message[len("[{reqId}] {exception_url}   ") :]
+            message = logstash.error_message(hit)
 
             # Potential TODO: Use aggregations here instead
             if message not in errors:

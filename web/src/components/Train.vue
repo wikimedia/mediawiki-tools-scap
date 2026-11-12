@@ -19,7 +19,7 @@
 							{{ taskVersion }}
 						</v-chip>
 						<v-chip color="info" size="small">
-							<a :href="taskURL" target="_blank">{{ task }}</a>
+							<a :href="taskURL ?? undefined" target="_blank">{{ task }}</a>
 						</v-chip>
 					</template>
 					<template v-else #subtitle>
@@ -45,7 +45,7 @@
 				</v-card>
 			</v-col>
 		</v-row>
-		<v-row v-if="error || warnings.length || isBackporting">
+		<v-row v-if="error || warnings.length || anotherMediawikiJob">
 			<v-col>
 				<v-alert v-if="error" type="error" closable>
 					{{ error }}
@@ -61,8 +61,9 @@
 					reports {{ trainVersion }}. Be sure the MediaWiki branch cut was successful before
 					proceeding.
 				</v-alert>
-				<v-alert v-if="isBackporting" type="warning">
-					Backports are in progress. Train deployment is unavailable until they complete.
+				<v-alert v-if="anotherMediawikiJob" type="warning">
+					Another MediaWiki deployment is in progress. Train deployment is unavailable
+					until it completes.
 				</v-alert>
 			</v-col>
 		</v-row>
@@ -293,31 +294,38 @@ export default {
 		const jobrunner = useJobrunner();
 		const notifications = notificationsStore();
 
-		let resetWikiVersions = {};
+		let resetWikiVersions: Record<string, string | null> = {};
 		let originalTrainStatus: TrainStatus = {
 			groups: [],
 			version: '',
+			oldVersion: null,
+			atGroup: null,
 			wikiVersions: {},
 			wikiCount: 0,
+			task: null,
+			taskUrl: null,
+			taskStatus: null,
+			taskReleaseDate: null,
+			taskVersion: null,
 			warnings: []
 		};
 
 		// Reactive properties
 		const hasLoaded = ref( false );
-		const error = ref( null );
-		const warnings = ref( [] );
+		const error = ref<string | null>( null );
+		const warnings = ref<string[]>( [] );
 		const jobPending = ref( false );
 
 		const groups = ref<TrainGroup[]>( [] );
 		const selectedStep = ref( 1 );
 		const trainIsAt = ref( '' );
 		const trainVersion = ref( '' );
-		const oldVersion = ref( '' );
-		const task = ref( '' );
-		const taskURL = ref( '' );
-		const taskReleaseDate = ref<Date>( null );
-		const taskVersion = ref( '' );
-		const priorVersionCounts = ref( {} );
+		const oldVersion = ref<string | null>( '' );
+		const task = ref<string | null>( '' );
+		const taskURL = ref<string | null>( '' );
+		const taskReleaseDate = ref<Date | null>( null );
+		const taskVersion = ref<string | null>( '' );
+		const priorVersionCounts = ref<Record<string, number>>( {} );
 		const totalWikis = ref( 0 );
 
 		// Computed properties
@@ -346,7 +354,7 @@ export default {
 			const from = groupNames.value.indexOf( trainIsAt.value );
 			const to = selectedStep.value - 1;
 			const wikiVersions = { ...resetWikiVersions };
-			const excludedWikis = [];
+			const excludedWikis: string[] = [];
 			const version = from > to ? oldVersion.value : trainVersion.value;
 
 			for ( let i = 0; i < selectedStep.value; i++ ) {
@@ -382,21 +390,19 @@ export default {
 			};
 		} );
 
-		const isRolling = computed(
-			() => jobrunner.status.value?.job?.type === 'train' || jobPending.value
-		);
+		// The running train job, if the jobrunner is running one.
+		const trainJob = computed( () => jobrunner.runningJobOfType( 'train' ) );
+
+		const isRolling = computed( () => !!trainJob.value || jobPending.value );
 		// Live status/progress of the running train deployment job, if any.
-		// Null unless the currently running job is a train job.
-		const trainJobStatus = computed(
-			() => ( jobrunner.status.value?.job?.type === 'train' ?
-				jobrunner.status.value?.job?.status :
-				null )
-		);
-		const isBackporting = computed(
-			() => jobrunner.status.value?.job?.type === 'backport'
+		const trainJobStatus = computed( () => trainJob.value?.status ?? null );
+		const mediawikiIsBusy = jobrunner.mediawikiIsBusy;
+		// The queue holds a job that is not this train deployment.
+		const anotherMediawikiJob = computed(
+			() => mediawikiIsBusy.value && !trainJob.value
 		);
 		const isDisabled = computed(
-			() => deployment.value.noop || isRolling.value || isBackporting.value
+			() => deployment.value.noop || isRolling.value || mediawikiIsBusy.value
 		);
 		const isUpcoming = computed(
 			() => taskReleaseDate.value && ( ( new Date() ) < taskReleaseDate.value )
@@ -447,7 +453,13 @@ export default {
 		async function startTrain() {
 			const api = useApi();
 			const deploy = deployment.value;
-			let promotion;
+			let promotion: {
+				group: string
+				version: string | null
+				oldVersion: string | null
+				excludedWikis?: string[]
+				originalTrainStatus?: TrainStatus
+			};
 
 			if ( deploy.rollback && deploy.group.name === 'start' ) {
 				// Complete rollback. "Promote" all to old version.
@@ -488,7 +500,7 @@ export default {
 		 *
 		 * @return {number}
 		 */
-		function versionPercent( numWikis ) {
+		function versionPercent( numWikis: number ) {
 			return Math.round( numWikis / totalWikis.value * 100 );
 		}
 
@@ -496,12 +508,12 @@ export default {
 		 * Formats the MW train version number. Only the "wmf.x" suffix is displayed to fit within
 		 * the stepper item flex basis.
 		 *
-		 * @param {string} version MW version.
+		 * @param {string|null} version MW version, if any.
 		 *
 		 * @return {string}
 		 */
-		function formatVersion( version ) {
-			return version.slice( version.lastIndexOf( '-' ) + 1 );
+		function formatVersion( version: string | null ) {
+			return version ? version.slice( version.lastIndexOf( '-' ) + 1 ) : '';
 		}
 
 		/**
@@ -512,13 +524,16 @@ export default {
 		 *
 		 * @return {Object} Mapping of version to count of wikis on each version.
 		 */
-		function countVersions( wikiversions, ...knownVersions ) {
+		function countVersions(
+			wikiversions: Record<string, string | null>,
+			...knownVersions: ( string | null )[]
+		): Record<string, number> {
 			return Object.values( wikiversions ).reduce(
-				( counts: object, version: string ) => (
-					{ ...counts, [ version ]: ( counts[ version ] || 0 ) + 1 }
+				( counts: Record<string, number>, version ) => (
+					{ ...counts, [ String( version ) ]: ( counts[ String( version ) ] || 0 ) + 1 }
 				),
-				knownVersions.reduce( ( counts, version ) => (
-					{ ...counts, [ version ]: 0 } ), {}
+				knownVersions.reduce( ( counts: Record<string, number>, version ) => (
+					{ ...counts, [ String( version ) ]: 0 } ), {}
 				)
 			);
 		}
@@ -538,23 +553,27 @@ export default {
 
 				originalTrainStatus = trainStatus;
 
-				if ( jrStatus?.job?.type === 'train' && jrStatus?.job?.data?.originalTrainStatus ) {
+				const running = ( jrStatus?.running_jobs ?? [] ).find(
+					( job ) => job.type === 'train'
+				);
+
+				if ( running?.data?.originalTrainStatus ) {
 					updateFromTrainStatus(
-						jrStatus.job.data.originalTrainStatus,
-						jrStatus.job.data?.group
+						running.data.originalTrainStatus,
+						running.data?.group
 					);
 				} else {
 					updateFromTrainStatus( trainStatus, null );
 				}
 			} catch ( e ) {
-				error.value = e.message;
+				error.value = ( e as Error ).message;
 			} finally {
 				hasLoaded.value = true;
 			}
 		}
 
 		// Update responsive state from the given train status.
-		function updateFromTrainStatus( train, selectedGroup ) {
+		function updateFromTrainStatus( train: TrainStatus, selectedGroup: string | null ) {
 			groups.value = [
 				{
 					name: 'start',
@@ -564,12 +583,13 @@ export default {
 					excludedWikis: [],
 					hasRolled: true,
 					step: 1
-				}
-			].concat( train.groups.map( ( group, i ) => ( {
-				...group,
-				excludedWikis: group.excludedWikis || [],
-				step: i + 2
-			} as TrainGroup ) ) );
+				},
+				...train.groups.map( ( group, i ) => ( {
+					...group,
+					excludedWikis: group.excludedWikis || [],
+					step: i + 2
+				} ) )
+			];
 
 			trainIsAt.value = train.atGroup || 'start';
 			trainVersion.value = train.version;
@@ -604,9 +624,9 @@ export default {
 			}
 		}
 
-		// Refresh from current train status after jobs complete
-		watch( jobrunner.idle, async ( idle ) => {
-			if ( idle ) {
+		// Refresh from current train status when the MediaWiki queue frees up.
+		watch( mediawikiIsBusy, async ( busy ) => {
+			if ( !busy ) {
 				await refresh();
 			}
 		} );
@@ -614,22 +634,17 @@ export default {
 		// Whenever there is a train job being processed, favor its memoized train status over the
 		// one returned by the API since the latter is based on the unsynced on-disk state. This
 		// will ensure that all users see the same status during deployments.
-		let prevJobID;
-		watch( jobrunner.status, async ( status ) => {
-			// Reset the job pending flag upon the first train or backport job status update
-			if ( status?.job?.type === 'train' || status?.job?.type === 'backport' ) {
+		let prevJobID: number | undefined;
+		watch( jobrunner.status, async () => {
+			// Reset the job pending flag when a MediaWiki job starts
+			if ( mediawikiIsBusy.value ) {
 				jobPending.value = false;
 			}
 
-			if ( status?.job?.type === 'train' && status?.job?.data?.originalTrainStatus ) {
-
-				if ( prevJobID !== status.job.id ) {
-					updateFromTrainStatus(
-						status?.job?.data?.originalTrainStatus,
-						status?.job?.data?.group
-					);
-					prevJobID = status.job.id;
-				}
+			const job = trainJob.value;
+			if ( job?.data?.originalTrainStatus && prevJobID !== job.id ) {
+				updateFromTrainStatus( job.data.originalTrainStatus, job.data.group );
+				prevJobID = job.id;
 			}
 		} );
 
@@ -642,7 +657,7 @@ export default {
 			groupNames,
 			groups,
 			hasLoaded,
-			isBackporting,
+			anotherMediawikiJob,
 			isDisabled,
 			isRolling,
 			isUpcoming,

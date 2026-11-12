@@ -36,24 +36,13 @@ Available configuration variables
 +----------------------------+---------------------------+---------------------------------+
 | Value                      | Default                   | Explanation                     |
 +============================+===========================+=================================+
-| ``git_server``             | **NONE**                  | (*String*) Server from          |
-|                            |                           | which code is fetched.          |
-|                            |                           | **Use is not recommended!**     |
-|                            |                           | The deployment-host will have a |
-|                            |                           | good value set for this         |
-|                            |                           | already.                        |
-+----------------------------+---------------------------+---------------------------------+
 | ``ssh_user``               | your username             | (*String*) User as whom         |
 |                            |                           | to ssh to target hosts and      |
 |                            |                           | execute remote commands         |
 +----------------------------+---------------------------+---------------------------------+
 | ``git_repo``               | **NONE**                  | (*String*) Repo on              |
-|                            |                           | ``git_server``                  |
+|                            |                           | the deployment server           |
 |                            |                           |                                 |
-+----------------------------+---------------------------+---------------------------------+
-| ``git_deploy_dir``         | ``/srv/deployment``       | (*String*) Directory on         |
-|                            |                           | targets in which                |
-|                            |                           | your repo is placed             |
 +----------------------------+---------------------------+---------------------------------+
 | ``git_rev``                | **HEAD**                  | (*String*) Specific git rev to  |
 |                            |                           | deploy.                         |
@@ -67,7 +56,7 @@ Available configuration variables
 | ``git_upstream_submodules``| False                     | (*Boolean*) If ``True``,        |
 |                            |                           | submodules will **NOT** be      |
 |                            |                           | fetched from                    |
-|                            |                           | ``git_deploy_server``,          |
+|                            |                           | the deployment server,          |
 |                            |                           | but from the git server         |
 |                            |                           | defined in ``.gitmodules``      |
 +----------------------------+---------------------------+---------------------------------+
