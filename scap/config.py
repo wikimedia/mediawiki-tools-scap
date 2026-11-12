@@ -163,7 +163,6 @@ DEFAULT_CONFIG = {
     ),
     # Settings related to scap installation
     "install_ssh_user": (str, "scap"),
-    "scap_source_dir": (str, "/srv/deployment/scap"),
     "scap_targets": (str, "scap_targets"),
     # Phabricator/Phorge settings
     "phorge_url": (str, "https://phabricator.wikimedia.org"),
