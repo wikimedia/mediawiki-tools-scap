@@ -1,3 +1,38 @@
+scap (4.314.0)
+
+  * spiderpig: Index the job finish time
+  * spiderpig: Ignore repeated digests when the event stream reconnects
+  * spiderpig: Train: Update `isUpcoming` when the release time passes
+  * local-dev: Read the fake CAS state directory from `CAS_STATE_DIR`
+  * spiderpig: Measure the stale logstash poll age from the current time
+  * spiderpig: Check the event snapshot before querying a job for its log
+  * config: Remove the unused `scap_source_dir` option
+  * spiderpig: Warn when the logstash poll results are stale
+  * spiderpig: Read the error log changes from the event stream
+  * spiderpig: Test the job queues without timing
+  * spiderpig: jobrunner: Wait for the database monitors of a job to stop
+  * web: Update npm packages with security advisories
+  * requirements: Bump virtualenv, filelock, urllib3 and setuptools
+  * spiderpig: Fetch jobs again only when the event stream reports a change
+  * spiderpig: Job: Hash whole rows in `Job.unfinished_digests()`
+  * spiderpig: Report the changes of each unfinished job in the event stream
+  * CI: Cache all layers of the test jobs with `BUILD_CACHE_EXPORT_MODE`
+  * spiderpig: Read the jobrunner status from the event stream
+  * spiderpig: Add an event stream of job changes
+  * spiderpig: web: Type-check the web UI in `npm test`
+  * scap: Beep after a failure only at a terminal
+  * spiderpig: web: Show every failed job as an error
+  * CI: Reuse the verify-deps apt layer in the test jobs
+  * spiderpig: web: Remove the unreachable warning style of the job status
+  * spiderpig: web: Convert `api.js` and `state.js` to TypeScript
+  * spiderpig: Build each job of an API response the same way
+  * spiderpig: web: Correct the web types and link them to their Python sources
+  * spiderpig: web: Fix two bugs in Backport and Train
+  * spiderpig: Rename _get_logs() to _read_logstash_errors()
+  * logstash_poller: Log one line per error message in `scap poll-logstash`
+
+ -- Ahmon Dancy <adancy@wikimedia.org>  Fri, 13 Nov 2026 11:17:44 -0800
+
 scap (4.313.0)
 
   * lock: Refuse --unlock-all unless `scap lock --all` holds the global lock
