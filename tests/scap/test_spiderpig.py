@@ -43,6 +43,7 @@ from scap.spiderpig.api import (
     get_jobs,
     get_log,
     get_metrics,
+    get_service_releases,
     interact,
     jobrunner_status,
     job_queue_name,
@@ -50,7 +51,8 @@ from scap.spiderpig.api import (
     set_error_note,
     start_deploy_service,
 )
-from scap.deploy_service import Catalog
+from scap import kubernetes
+from scap.deploy_service import Catalog, load_cluster_groups, load_service_catalog
 from scap.spiderpig.events import Broadcaster
 import scap.logstash_poller as logstash_poller
 import scap.spiderpig.jobrunner as jobrunner
@@ -822,6 +824,109 @@ def test_service_deployment_command():
         "shellbox",
         "bump image",
     ]
+
+
+def test_service_deployment_command_of_one_release():
+    assert ServiceDeployment(
+        service="shellbox", message="bump image", release="shellbox-media/main"
+    ).command == [
+        "scap",
+        "deploy-service",
+        "--release",
+        "shellbox-media/main",
+        "--",
+        "shellbox",
+        "bump image",
+    ]
+
+
+@pytest.mark.parametrize(
+    "release", ["main", "", "/main", "shellbox/", "a/b/c", "-x/main", "a b/main"]
+)
+def test_service_deployment_rejects_a_bad_release(release):
+    with pytest.raises(ValidationError, match="Invalid release"):
+        ServiceDeployment(service="shellbox", message="bump image", release=release)
+
+
+def _write_service_catalog(tmp_path) -> Catalog:
+    """A catalog whose shellbox service deploys every release in codfw."""
+    cluster_groups = tmp_path / "cluster-groups.yaml"
+    cluster_groups.write_text(
+        textwrap.dedent(
+            """
+            wikikube:
+              environments:
+                codfw:
+                  datacenter: codfw
+                  type: PRODUCTION
+              environment_stages: [DEFAULT]
+              environment_default_stage: DEFAULT
+            """
+        )
+    )
+    catalog = tmp_path / "service-catalog.yaml"
+    catalog.write_text(
+        textwrap.dedent(
+            """
+            services:
+              shellbox:
+                cluster_group: wikikube
+                namespaces:
+                  shellbox:
+                    environments: [codfw]
+                  shellbox-media:
+                    environments:
+                      - codfw:
+                          releases: [main]
+            """
+        )
+    )
+    return load_service_catalog(
+        str(catalog), load_cluster_groups(str(cluster_groups), "services")
+    )
+
+
+def test_get_service_releases(tmp_path):
+    """An environment with no list of releases offers what helmfile lists."""
+    conftool_state = tmp_path / "conftool.yaml"
+    conftool_state.write_text("mw:\n  primary_dc: eqiad\n")
+    config = {
+        "conftool_state_file": str(conftool_state),
+        "helmfile_deployments_dir": "/",
+        "k8s_helmfile_diff_context_lines": 5,
+    }
+
+    with (
+        unittest.mock.patch.object(
+            scap.spiderpig.api,
+            "get_service_catalog",
+            return_value=_write_service_catalog(tmp_path),
+        ),
+        unittest.mock.patch.object(
+            scap.spiderpig.api, "get_scap_config", return_value=config
+        ),
+        unittest.mock.patch.object(
+            kubernetes.K8sRunner,
+            "installed_releases",
+            lambda self, invocation: ["main", "canary"],
+        ),
+    ):
+        assert get_service_releases("shellbox") == {
+            "releases": ["shellbox-media/main", "shellbox/canary", "shellbox/main"]
+        }
+
+
+def test_get_service_releases_of_a_service_that_scap_does_not_deploy():
+    with unittest.mock.patch.object(
+        scap.spiderpig.api,
+        "get_service_catalog",
+        return_value=Catalog(services={}, errors={}),
+    ):
+        with pytest.raises(HTTPException) as excinfo:
+            get_service_releases("nosuchservice")
+
+    assert excinfo.value.status_code == 404
+    assert "not in the service catalog" in excinfo.value.detail["message"]
 
 
 @pytest.mark.parametrize("message", [None, "", "   "])

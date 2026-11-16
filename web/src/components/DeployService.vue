@@ -18,27 +18,51 @@
 		</cdx-message>
 
 		<div class="deploy-service__input">
-			<v-autocomplete
-				v-model="service"
-				:items="services"
-				:loading="loading"
-				aria-label="Choose a service to deploy"
-				auto-select-first
-				clearable
-				density="compact"
-				persistent-placeholder
-				placeholder="Service"
-				variant="outlined"
-			>
-				<template #no-data>
-					<v-list-item>{{ noServicesText }}</v-list-item>
-				</template>
-			</v-autocomplete>
+			<div class="deploy-service__choices">
+				<v-autocomplete
+					v-model="service"
+					:items="services"
+					:loading="loading"
+					aria-label="Choose a service to deploy"
+					auto-select-first
+					clearable
+					density="compact"
+					hide-details
+					persistent-placeholder
+					placeholder="Service"
+					variant="outlined"
+				>
+					<template #no-data>
+						<v-list-item>{{ noServicesText }}</v-list-item>
+					</template>
+				</v-autocomplete>
+
+				<v-select
+					v-model="release"
+					:items="releases"
+					:disabled="!service"
+					:loading="releasesLoading"
+					aria-label="Choose a release to deploy"
+					:list-props="releaseListProps"
+					clearable
+					density="compact"
+					hide-details
+					persistent-placeholder
+					placeholder="All releases"
+					variant="outlined"
+					@update:menu="loadReleases"
+				>
+					<template #no-data>
+						<v-list-item>{{ noReleasesText }}</v-list-item>
+					</template>
+				</v-select>
+			</div>
 
 			<v-text-field
 				v-model="message"
 				aria-label="Log message that says why"
 				density="compact"
+				hide-details
 				persistent-placeholder
 				placeholder="Log message that says why"
 				variant="outlined"
@@ -71,10 +95,11 @@
 </template>
 
 <script lang="ts">
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, onMounted, watch } from 'vue';
 import { CdxButton, CdxCheckbox, CdxDialog, CdxField, CdxMessage } from '@wikimedia/codex';
 import { VAutocomplete } from 'vuetify/components/VAutocomplete';
 import { VListItem } from 'vuetify/components/VList';
+import { VSelect } from 'vuetify/components/VSelect';
 import { VTextField } from 'vuetify/components/VTextField';
 import useApi, { type ApiError } from '../api';
 import useJobrunner, { serviceQueue } from '../jobrunner';
@@ -90,6 +115,7 @@ export default {
 		CdxMessage,
 		VAutocomplete,
 		VListItem,
+		VSelect,
 		VTextField
 	},
 
@@ -100,6 +126,19 @@ export default {
 
 		const services = ref<string[]>( [] );
 		const service = ref<string | null>( null );
+		const releases = ref<string[]>( [] );
+		// "namespace/release", or null for every release.
+		const release = ref<string | null>( null );
+		const releasesLoading = ref( false );
+		const releasesLoadError = ref<string | null>( null );
+		// The releases of each service that the drop-down has loaded.
+		const loadedReleases = new Map<string, string[]>();
+		// VSelect names its list `${label}-list`.  This select carries an
+		// aria-label instead of a label, so the list would be "undefined-list".
+		// The type of `list-props` does not cover aria-label, which VSelect
+		// nonetheless passes on to the list.
+		const releaseListProps = { 'aria-label': 'Releases' } as any;
+
 		const message = ref( '' );
 		const confirmDiffs = ref( true );
 		const loading = ref( false );
@@ -112,6 +151,13 @@ export default {
 		const noServicesText = computed(
 			() => loadError.value || 'No services found.'
 		);
+
+		const noReleasesText = computed( () => {
+			if ( releasesLoading.value ) {
+				return 'Loading the releases';
+			}
+			return releasesLoadError.value || 'No releases found.';
+		} );
 
 		const serviceIsDeploying = computed(
 			() => !!service.value && jobrunner.queueIsBusy( serviceQueue( service.value ) )
@@ -146,6 +192,45 @@ export default {
 			loading.value = false;
 		}
 
+		function showReleases( name: string | null ) {
+			release.value = null;
+			releasesLoading.value = false;
+			releasesLoadError.value = null;
+			releases.value = ( name && loadedReleases.get( name ) ) || [];
+		}
+
+		// A request runs `helmfile list` once per namespace and environment of
+		// the service, which takes a second or more.  The releases load when the
+		// drop-down opens, and one time per service.
+		async function loadReleases( open: boolean ) {
+			const name = service.value;
+			if ( !open || !name || loadedReleases.has( name ) || releasesLoading.value ) {
+				return;
+			}
+
+			releasesLoading.value = true;
+			let found: string[] = [];
+			let failure: string | null = null;
+			try {
+				found = ( await api.getServiceReleases( name ) ).releases;
+			} catch ( error ) {
+				const apiError = error as ApiError;
+				failure = apiError.respJson?.detail?.message || apiError.message;
+			}
+
+			// Drop the answer for a service that is no longer chosen.
+			if ( service.value !== name ) {
+				return;
+			}
+
+			if ( failure === null ) {
+				loadedReleases.set( name, found );
+			}
+			releasesLoading.value = false;
+			releasesLoadError.value = failure;
+			releases.value = found;
+		}
+
 		async function startDeployService() {
 			if ( buttonDisabled.value ) {
 				return;
@@ -155,10 +240,12 @@ export default {
 				const res = await api.startDeployService( {
 					service: service.value,
 					message: message.value.trim(),
-					confirmDiffs: confirmDiffs.value
+					confirmDiffs: confirmDiffs.value,
+					release: release.value
 				} );
 				await notifications.setupUserNotificationsForJob( res.id );
 				message.value = '';
+				release.value = null;
 			} catch ( error ) {
 				alertDialogOpen.value = true;
 				const apiError = error as ApiError;
@@ -167,6 +254,7 @@ export default {
 		}
 
 		onMounted( loadServices );
+		watch( service, showReleases );
 
 		return {
 			alertDialogOpen,
@@ -176,8 +264,14 @@ export default {
 			catalogErrors,
 			confirmDiffs,
 			loading,
+			loadReleases,
 			message,
+			noReleasesText,
 			noServicesText,
+			release,
+			releaseListProps,
+			releases,
+			releasesLoading,
 			service,
 			services,
 			startDeployService
@@ -200,17 +294,25 @@ export default {
 
 	&__input {
 		display: flex;
+		flex-direction: column;
 		gap: @spacing-50;
 
 		.v-input__append {
-			margin-inline-start: 0;
+			margin-inline-start: @spacing-50;
 
 			.cdx-button {
-				border-top-left-radius: 0px;
-				border-bottom-left-radius: 0px;
 				min-height: 40px;
 			}
 		}
+	}
+
+	&__choices {
+		display: flex;
+		gap: @spacing-50;
+	}
+
+	.cdx-checkbox {
+		margin-top: @spacing-50;
 	}
 }
 </style>

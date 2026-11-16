@@ -65,6 +65,12 @@ export interface Services {
 	errors: Record<string, string>
 }
 
+// Keep in sync with get_service_releases() in scap/spiderpig/api.py.
+export interface ServiceReleases {
+	// Each one is "namespace/release", for example "shellbox-media/main".
+	releases: string[]
+}
+
 // One Gerrit ChangeInfo record.  Keep in sync with searchPatch() in
 // scap/spiderpig/api.py.  It has more fields than these.
 export interface GerritChange {
@@ -385,6 +391,11 @@ const useAuthStore = defineStore( 'spiderpig-auth',
 			},
 			async getServices(): Promise<Services> {
 				return await this.call( '/api/services' );
+			},
+			async getServiceReleases( service: string ): Promise<ServiceReleases> {
+				const url = this.makeApiUrl( '/api/services/releases' );
+				const params = new URLSearchParams( { service } );
+				return await this.call( `${ url }?${ params.toString() }` );
 			},
 			async startDeployService( deployment: object ): Promise<CreatedJob> {
 				return await this.post( '/api/jobs/deploy-service', deployment );

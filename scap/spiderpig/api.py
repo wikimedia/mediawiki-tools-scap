@@ -60,8 +60,15 @@ from fastapi.staticfiles import StaticFiles
 from sqlalchemy import Engine, func, select
 from sqlalchemy.orm import Session
 
-from scap import cli, log, metrics, utils, gerrit, train, logstash_poller
-from scap.deploy_service import Catalog, InvalidDeployServiceConfig, load_catalog
+from scap import cli, kubernetes, log, metrics, utils, gerrit, train, logstash_poller
+from scap.deploy_service import (
+    Catalog,
+    InvalidDeployServiceConfig,
+    load_catalog,
+    load_primary_datacenter,
+    plan,
+    release_choices,
+)
 
 import scap.spiderpig
 from scap.spiderpig.events import Broadcaster
@@ -825,6 +832,36 @@ def get_service_catalog() -> Catalog:
 async def get_services():
     catalog = get_service_catalog()
     return {"services": sorted(catalog.services), "errors": catalog.errors}
+
+
+# Keep in sync with ServiceReleases in web/src/api.ts.
+# This function is intentionally not marked "async" because it runs helmfile.
+@app.get("/api/services/releases")
+def get_service_releases(service: str):
+    catalog = get_service_catalog()
+    if service not in catalog.services:
+        raise HTTPException(
+            status_code=404,
+            detail={
+                "message": catalog.errors.get(
+                    service, f"'{service}' is not in the service catalog"
+                ),
+                "service": service,
+            },
+        )
+
+    config = get_scap_config()
+    k8s = kubernetes.K8sRunner(None, logging.getLogger("spiderpig.api"))
+    try:
+        steps = plan(
+            catalog.services[service],
+            load_primary_datacenter(config["conftool_state_file"]),
+            config["helmfile_deployments_dir"],
+            config["k8s_helmfile_diff_context_lines"],
+        )
+        return {"releases": release_choices(steps, k8s.releases)}
+    except (InvalidDeployServiceConfig, kubernetes.HelmfileError) as e:
+        raise HTTPException(status_code=500, detail={"message": str(e)})
 
 
 # Keep in sync with CreatedJob in web/src/api.ts.

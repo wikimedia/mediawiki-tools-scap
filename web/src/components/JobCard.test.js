@@ -222,3 +222,17 @@ describe( 'SpJobCard running duration', () => {
 		expect( setupResult.finishedInfo.value.message ).toBe( 'Running for 01m 05s' );
 	} );
 } );
+
+describe( 'SpJobCard service info', () => {
+	it( 'shows the release of a deploy-service job', () => {
+		const setupResult = SpJobCard.setup( {
+			...testJobProps,
+			type: 'deploy-service',
+			data: { service: 'shellbox', release: 'shellbox/main', message: 'bump image' }
+		} );
+
+		expect( setupResult.serviceInfo.value ).toEqual(
+			{ service: 'shellbox', release: 'shellbox/main', message: 'bump image' }
+		);
+	} );
+} );

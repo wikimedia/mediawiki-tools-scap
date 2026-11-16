@@ -199,6 +199,15 @@
 								<div>{{ serviceInfo.service }}</div>
 							</div>
 							<div
+								v-if="serviceInfo.release"
+								class="job-card__details__change-info__grid__item"
+							>
+								<div class="job-card__details__change-info__label">
+									Release
+								</div>
+								<div>{{ serviceInfo.release }}</div>
+							</div>
+							<div
 								v-if="serviceInfo.message"
 								class="job-card__details__change-info__grid__item"
 							>
@@ -424,8 +433,8 @@ export default defineComponent( {
 
 		// A deploy-service job carries the service it deploys instead of changes.
 		const serviceInfo = computed( () => {
-			const { service, message } = props.data || {};
-			return service ? { service, message } : null;
+			const { service, release, message } = props.data || {};
+			return service ? { service, release, message } : null;
 		} );
 
 		function formatChangeInfo( changeInfo: ChangeInfo ) {

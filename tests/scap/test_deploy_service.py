@@ -22,6 +22,8 @@ from scap.deploy_service import (
     load_primary_datacenter,
     load_service_catalog,
     plan,
+    release_choices,
+    select_release,
 )
 
 SERVICE_CATALOG = """
@@ -657,6 +659,7 @@ def _app(tmp_path, **arguments):
             "no_log_message": False,
             "dry_run": False,
             "confirm_diffs": False,
+            "release": None,
             **arguments,
         }
     )
@@ -1158,6 +1161,109 @@ def test_main_rejects_a_release_that_the_environment_does_not_install(
     )
 
     with pytest.raises(InvalidDeployServiceConfig, match="does not install"):
+        app.main()
+
+
+def _staging_installs_main(step):
+    """The releases of a step, where the staging environment installs "main"."""
+    return [step.release] if step.release else ["main"]
+
+
+def test_release_choices(tmp_path, cluster_groups):
+    """A step that deploys every release offers each release it installs."""
+    steps = plan(load(tmp_path, cluster_groups, SHELLBOX), "eqiad", "/", 5)
+    assert release_choices(steps, _staging_installs_main) == [
+        "shellbox/canary",
+        "shellbox/main",
+        "shellbox/production",
+    ]
+
+
+def test_select_release_keeps_the_order_of_the_stages(tmp_path, cluster_groups):
+    steps = select_release(
+        plan(load(tmp_path, cluster_groups, SHELLBOX), "eqiad", "/", 5),
+        "shellbox/canary",
+        _staging_installs_main,
+    )
+    assert {
+        group: [" ".join(command.apply_command()) for command in commands]
+        for group, commands in steps.items()
+    } == {
+        DeploymentGroup("codfw", "CANARY"): [
+            "helmfile -e codfw --selector name=canary apply --context 5"
+        ],
+        DeploymentGroup("eqiad", "CANARY"): [
+            "helmfile -e eqiad --selector name=canary apply --context 5"
+        ],
+    }
+
+
+def test_select_release_of_a_step_that_deploys_every_release(tmp_path, cluster_groups):
+    """The step selects the chosen release."""
+    steps = select_release(
+        plan(load(tmp_path, cluster_groups, SHELLBOX), "eqiad", "/", 5),
+        "shellbox/main",
+        _staging_installs_main,
+    )
+    assert {
+        group: [" ".join(command.apply_command()) for command in commands]
+        for group, commands in steps.items()
+    } == {
+        DeploymentGroup("staging-eqiad", "DEFAULT"): [
+            "helmfile -e staging --selector name=main apply --context 5"
+        ],
+    }
+
+
+def test_select_release_of_one_namespace(tmp_path, cluster_groups):
+    """Two namespaces with a release of the same name deploy one of them."""
+    (group,) = select_release(
+        plan(load(tmp_path, cluster_groups, TWO_NAMESPACES), "eqiad", "/", 5),
+        "shellbox-media/main",
+        _staging_installs_main,
+    ).values()
+    assert [(command.namespace, command.release) for command in group] == [
+        ("shellbox-media", "main")
+    ]
+
+
+def test_main_deploys_one_release(tmp_path, monkeypatch):
+    app = _app(tmp_path, message="T442586 fix", release="shellbox/canary")
+    said = _announcements(app, monkeypatch)
+    deployed = []
+    monkeypatch.setattr(app, "lock", _no_lock)
+    monkeypatch.setattr(app, "_assert_helmfile_dirs_exist", lambda steps: None)
+    monkeypatch.setattr(app, "_assert_releases_exist", lambda steps: None)
+    monkeypatch.setattr(
+        kubernetes.K8sRunner, "installed_releases", lambda self, invocation: ["main"]
+    )
+    monkeypatch.setattr(app, "_deploy", lambda steps: deployed.append(steps) or 0)
+
+    assert app.main() == 0
+    assert list(deployed[0]) == [
+        DeploymentGroup("codfw", "CANARY"),
+        DeploymentGroup("eqiad", "CANARY"),
+    ]
+    assert said[0] == (
+        "Started scap deploy-service --release shellbox/canary shellbox: T442586 fix"
+    )
+
+
+def test_main_rejects_a_release_that_the_service_does_not_deploy(tmp_path, monkeypatch):
+    app = _app(tmp_path, release="shellbox/nosuch")
+    monkeypatch.setattr(app, "_assert_helmfile_dirs_exist", lambda steps: None)
+    monkeypatch.setattr(app, "_assert_releases_exist", lambda steps: None)
+    monkeypatch.setattr(
+        kubernetes.K8sRunner, "installed_releases", lambda self, invocation: ["main"]
+    )
+
+    with pytest.raises(
+        InvalidDeployServiceConfig,
+        match=re.escape(
+            "shellbox has no release 'shellbox/nosuch' (known: shellbox/canary, "
+            "shellbox/main, shellbox/production)"
+        ),
+    ):
         app.main()
 
 

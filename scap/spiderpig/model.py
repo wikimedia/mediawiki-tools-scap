@@ -760,12 +760,15 @@ class TrainPromotion(BasePydantic):
 
 
 SERVICE_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._/-]*$")
+RELEASE_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*/[A-Za-z0-9][A-Za-z0-9._-]*$")
 
 
 class ServiceDeployment(BasePydantic):
     service: str
     message: str
     confirm_diffs: bool = False
+    # "namespace/release", or None for every release.
+    release: Optional[str] = None
 
     @field_validator("service")
     @classmethod
@@ -786,6 +789,16 @@ class ServiceDeployment(BasePydantic):
             raise ValueError("A log message stating the deployment reason is required.")
         return value
 
+    @field_validator("release")
+    @classmethod
+    def _validate_release(cls, value: Optional[str]) -> Optional[str]:
+        if value is not None and not RELEASE_RE.match(value):
+            raise ValueError(
+                f"Invalid release '{value}'. Use the form namespace/release, "
+                "for example shellbox-media/main."
+            )
+        return value
+
     def add_job(self, **kwargs) -> int:
         return Job.add(
             JobType.DEPLOY_SERVICE,
@@ -800,6 +813,9 @@ class ServiceDeployment(BasePydantic):
 
         if self.confirm_diffs:
             cmd.append("--confirm-diffs")
+
+        if self.release:
+            cmd += ["--release", self.release]
 
         # Everything after `--` is positional, so a message that starts with a
         # hyphen does not look like a flag.

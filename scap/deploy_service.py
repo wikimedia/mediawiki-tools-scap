@@ -22,9 +22,9 @@
 """
 import os
 import time
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Callable, Dict, List, Optional, Tuple
 
 import yaml
 
@@ -714,6 +714,48 @@ def _releases_to_deploy(
     return [release.name for release in service_env.releases if release.stage == stage]
 
 
+def release_choices(
+    plan: Plan, releases_of: Callable[[HelmfileCommand], List[str]]
+) -> List[str]:
+    """Returns the releases that select_release() accepts, sorted.
+
+    Each one has the form "namespace/release", for example "shellbox-media/main".
+    `releases_of` returns the releases that one step of the plan deploys.
+    """
+    return sorted(
+        {
+            f"{command.namespace}/{release}"
+            for group in plan.values()
+            for command in group
+            for release in releases_of(command)
+        }
+    )
+
+
+def select_release(
+    plan: Plan, choice: str, releases_of: Callable[[HelmfileCommand], List[str]]
+) -> Plan:
+    """Returns the steps of the plan that deploy one release.
+
+    `choice` has the form "namespace/release", for example "shellbox-media/main".
+    A step that deploys every release of its environment becomes a step of the
+    chosen release, if the environment installs it. A group with no step left
+    drops out.
+    """
+    namespace, _, release = choice.partition("/")
+    selected = {}
+    for deployment_group, group in plan.items():
+        commands = [
+            replace(command, release=release)
+            for command in group
+            if command.namespace == namespace and release in releases_of(command)
+        ]
+        if commands:
+            selected[deployment_group] = commands
+
+    return selected
+
+
 def _namespaces_of(group: List[HelmfileCommand]) -> List[str]:
     """The namespaces of one group, in the order of the plan.
 
@@ -736,6 +778,11 @@ class DeployService(cli.Application):
         "--dry-run",
         action="store_true",
         help="Display the helmfile commands of the deployment, but run none of them.",
+    )
+    @cli.argument(
+        "--release",
+        metavar="NAMESPACE/RELEASE",
+        help="Deploy only this release of the service, for example shellbox-media/main.",
     )
     @cli.argument("service", help="Name of the service to deploy")
     @cli.argument("message", nargs="*", help="Log message that says why")
@@ -766,6 +813,9 @@ class DeployService(cli.Application):
         self._assert_helmfile_dirs_exist(steps)
         self._assert_releases_exist(steps)
         self._assert_checks_run(steps)
+
+        if self.arguments.release:
+            steps = self._select_release(steps)
 
         if self.arguments.dry_run:
             self._show_plan(steps)
@@ -852,6 +902,18 @@ class DeployService(cli.Application):
                         f"environment does not install "
                         f"(it installs: {', '.join(installed)})"
                     )
+
+    def _select_release(self, plan: Plan) -> Plan:
+        """Returns the steps of the plan that deploy the release of --release."""
+        choice = self.arguments.release
+        selected = select_release(plan, choice, self.k8s.releases)
+        if not selected:
+            raise InvalidDeployServiceConfig(
+                f"{self.arguments.service} has no release '{choice}' (known: "
+                f"{', '.join(release_choices(plan, self.k8s.releases))})"
+            )
+
+        return selected
 
     def _show_plan(self, plan: Plan):
         """Displays the plan, one group of commands at a time.
@@ -996,6 +1058,11 @@ class DeployService(cli.Application):
 
     def _what(self) -> str:
         """The text that names this deployment in announcements."""
+        if self.arguments.release:
+            return (
+                f"scap deploy-service --release {self.arguments.release} "
+                f"{self.arguments.service}"
+            )
         return f"scap deploy-service {self.arguments.service}"
 
     def _label_of(self, deployment_group: DeploymentGroup) -> str:
