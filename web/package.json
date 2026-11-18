@@ -44,5 +44,11 @@
 		"vite-plugin-vuetify": "^2.1.1",
 		"vitest": "^4.1.6",
 		"vue-tsc": "^3.3.13"
+	},
+	"overrides": {
+		"js-beautify": {
+			"glob": "^14.0.2",
+			"editorconfig": "^4.0.1"
+		}
 	}
 }
